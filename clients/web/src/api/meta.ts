@@ -16,6 +16,7 @@ export interface ApiMetaService {
   auto_start_on_launch?: boolean;
   auto_reload_on_change?: boolean;
   plan_mode_enabled?: boolean;
+  knowledge_base_enabled?: boolean;
   read_aloud_enabled?: boolean;
   translation_enabled?: boolean;
   feedback_enabled?: boolean;

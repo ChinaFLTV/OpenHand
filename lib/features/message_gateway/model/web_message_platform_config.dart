@@ -8,9 +8,18 @@ const String webGatewayLoginSourceKey = 'login_source';
 const String webGatewayDeviceIdKey = 'device_id';
 const String webGatewayDeviceMacKey = 'device_mac_address';
 const String webGatewayDenyAllSelectionMarker = '__openhand_deny_all__';
+const Set<String> webGatewayKnowledgeBaseBuiltinToolNames = <String>{
+  'KnowledgeSearch',
+  'KnowledgeRead',
+};
 
 bool webGatewayIsDenyAllSelection(List<String> values) {
   return values.contains(webGatewayDenyAllSelectionMarker);
+}
+
+bool webGatewayIsKnowledgeBaseBuiltinToolName(String value) {
+  final normalized = value.trim().toLowerCase().replaceAll('_', '');
+  return normalized == 'knowledgesearch' || normalized == 'knowledgeread';
 }
 
 enum WebGatewayLoginSource {
@@ -258,6 +267,7 @@ class WebMessagePlatformConfig {
     },
     this.allowedModelKeys = const <String>[],
     this.planModeEnabled = false,
+    this.knowledgeBaseEnabled = true,
     this.readAloudEnabled = true,
     this.translationEnabled = true,
     this.feedbackEnabled = true,
@@ -334,6 +344,10 @@ class WebMessagePlatformConfig {
       ),
       allowedModelKeys: _stringList(json['allowed_model_keys']),
       planModeEnabled: boolFromValue(json['plan_mode_enabled']),
+      knowledgeBaseEnabled: boolFromValue(
+        json['knowledge_base_enabled'],
+        defaultValue: true,
+      ),
       readAloudEnabled: boolFromValue(
         json['read_aloud_enabled'],
         defaultValue: true,
@@ -429,6 +443,7 @@ class WebMessagePlatformConfig {
   final Set<WebGatewayConversationMode> allowedConversationModes;
   final List<String> allowedModelKeys;
   final bool planModeEnabled;
+  final bool knowledgeBaseEnabled;
   final bool readAloudEnabled;
   final bool translationEnabled;
   final bool feedbackEnabled;
@@ -471,6 +486,7 @@ class WebMessagePlatformConfig {
     Set<WebGatewayConversationMode>? allowedConversationModes,
     List<String>? allowedModelKeys,
     bool? planModeEnabled,
+    bool? knowledgeBaseEnabled,
     bool? readAloudEnabled,
     bool? translationEnabled,
     bool? feedbackEnabled,
@@ -516,6 +532,7 @@ class WebMessagePlatformConfig {
           allowedConversationModes ?? this.allowedConversationModes,
       allowedModelKeys: allowedModelKeys ?? this.allowedModelKeys,
       planModeEnabled: planModeEnabled ?? this.planModeEnabled,
+      knowledgeBaseEnabled: knowledgeBaseEnabled ?? this.knowledgeBaseEnabled,
       readAloudEnabled: readAloudEnabled ?? this.readAloudEnabled,
       translationEnabled: translationEnabled ?? this.translationEnabled,
       feedbackEnabled: feedbackEnabled ?? this.feedbackEnabled,
@@ -573,6 +590,7 @@ class WebMessagePlatformConfig {
           .toList(growable: false),
       'allowed_model_keys': allowedModelKeys,
       'plan_mode_enabled': planModeEnabled,
+      'knowledge_base_enabled': knowledgeBaseEnabled,
       'read_aloud_enabled': readAloudEnabled,
       'translation_enabled': translationEnabled,
       'feedback_enabled': feedbackEnabled,

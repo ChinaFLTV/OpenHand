@@ -308,6 +308,10 @@ class _WebPlatformServiceCard extends StatelessWidget {
                   label: config.sessionManagementEnabled ? '会话可管理' : '会话只读',
                 ),
                 _InfoChip(
+                  icon: Icons.library_books_outlined,
+                  label: config.knowledgeBaseEnabled ? '知识库开启' : '知识库关闭',
+                ),
+                _InfoChip(
                   icon: Icons.folder_open_rounded,
                   label: config.workspaceFileWriteEnabled
                       ? '文件浏览 / 可操作'
@@ -445,6 +449,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late bool _opsEnabled;
   late bool _healthEnabled;
   late bool _planModeEnabled;
+  late bool _knowledgeBaseEnabled;
   late bool _readAloudEnabled;
   late bool _translationEnabled;
   late bool _feedbackEnabled;
@@ -498,6 +503,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     _opsEnabled = config.opsEnabled;
     _healthEnabled = config.healthCheck.enabled;
     _planModeEnabled = config.planModeEnabled;
+    _knowledgeBaseEnabled = config.knowledgeBaseEnabled;
     _readAloudEnabled = config.readAloudEnabled;
     _translationEnabled = config.translationEnabled;
     _feedbackEnabled = config.feedbackEnabled;
@@ -563,7 +569,10 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     _skills = config.allowedSkillNames.toSet();
     _mcpServers = config.allowedMcpServerNames.toSet();
     _memories = config.allowedMemoryIds.toSet();
-    _tools = config.allowedBuiltinToolNames.toSet();
+    final configuredTools = config.allowedBuiltinToolNames.toSet();
+    _tools = _knowledgeBaseEnabled
+        ? configuredTools
+        : _toolsWithoutKnowledgeBase(configuredTools);
     _instructions = config.allowedInstructionIds.toSet();
     _models = config.allowedModelKeys.toSet();
     _messageTypes = config.allowedMessageTypes.toSet();
@@ -742,6 +751,11 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 setState(() => _planModeEnabled = v),
                           ),
                           _SwitchTile(
+                            label: '是否开启知识库',
+                            value: _knowledgeBaseEnabled,
+                            onChanged: _setKnowledgeBaseEnabled,
+                          ),
+                          _SwitchTile(
                             label: '是否启用朗读功能',
                             value: _readAloudEnabled,
                             onChanged: (v) =>
@@ -902,7 +916,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         emptyMeansAll: true,
                         noneValue: webGatewayDenyAllSelectionMarker,
                         options: [
-                          for (final name in widget.controller.builtinToolNames)
+                          for (final name in _visibleBuiltinToolNames)
                             _SelectOption(value: name, label: name),
                         ],
                         selected: _tools,
@@ -1124,12 +1138,15 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       allowedSkillNames: _skills.toList(growable: false),
       allowedMcpServerNames: _mcpServers.toList(growable: false),
       allowedMemoryIds: _memories.toList(growable: false),
-      allowedBuiltinToolNames: _tools.toList(growable: false),
+      allowedBuiltinToolNames: _normalizedBuiltinToolsForSave().toList(
+        growable: false,
+      ),
       allowedInstructionIds: _instructions.toList(growable: false),
       allowedMessageTypes: _messageTypes,
       allowedConversationModes: _modes,
       allowedModelKeys: _models.toList(growable: false),
       planModeEnabled: _planModeEnabled,
+      knowledgeBaseEnabled: _knowledgeBaseEnabled,
       readAloudEnabled: _readAloudEnabled,
       translationEnabled: _translationEnabled,
       feedbackEnabled: _feedbackEnabled,
@@ -1189,6 +1206,49 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
         _saving = false;
       });
     }
+  }
+
+  List<String> get _visibleBuiltinToolNames {
+    final names = widget.controller.builtinToolNames;
+    if (_knowledgeBaseEnabled) return names;
+    return names
+        .where((name) => !_isKnowledgeBaseBuiltinToolName(name))
+        .toList(growable: false);
+  }
+
+  Set<String> get _knowledgeBaseBuiltinToolNameSet => <String>{
+    ...webGatewayKnowledgeBaseBuiltinToolNames,
+    ...widget.controller.knowledgeBaseBuiltinToolNames,
+  };
+
+  bool _isKnowledgeBaseBuiltinToolName(String name) {
+    if (webGatewayIsKnowledgeBaseBuiltinToolName(name)) return true;
+    return _knowledgeBaseBuiltinToolNameSet.contains(name);
+  }
+
+  void _setKnowledgeBaseEnabled(bool value) {
+    setState(() {
+      _knowledgeBaseEnabled = value;
+      if (!value) {
+        _tools = _toolsWithoutKnowledgeBase(_tools);
+      }
+    });
+  }
+
+  Set<String> _normalizedBuiltinToolsForSave() {
+    if (_knowledgeBaseEnabled) return _tools;
+    return _toolsWithoutKnowledgeBase(_tools);
+  }
+
+  Set<String> _toolsWithoutKnowledgeBase(Set<String> source) {
+    if (source.isEmpty ||
+        _isExplicitNone(source, webGatewayDenyAllSelectionMarker)) {
+      return Set<String>.from(source);
+    }
+    final next = source
+        .where((name) => !_isKnowledgeBaseBuiltinToolName(name))
+        .toSet();
+    return next.isEmpty ? <String>{webGatewayDenyAllSelectionMarker} : next;
   }
 }
 

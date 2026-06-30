@@ -249,6 +249,11 @@ class WebMessagePlatformService {
   static const int _storedMessageWindowExpandedScanContext = 16;
   static const int _storedMessageWindowExpandedScanLimit = 96;
   static const Duration _queuedGoalYieldLeaseDuration = Duration(minutes: 15);
+  static const Set<AiBuiltinToolKind> _knowledgeBaseBuiltinToolKinds =
+      <AiBuiltinToolKind>{
+        AiBuiltinToolKind.knowledgeSearch,
+        AiBuiltinToolKind.knowledgeRead,
+      };
   final Map<String, int> _statusBuckets = <String, int>{
     '1xx': 0,
     '2xx': 0,
@@ -2146,6 +2151,7 @@ class WebMessagePlatformService {
         'logging_enabled': _config.loggingEnabled,
         'ops_enabled': _config.opsEnabled,
         'plan_mode_enabled': _config.planModeEnabled,
+        'knowledge_base_enabled': _config.knowledgeBaseEnabled,
         'read_aloud_enabled': _config.readAloudEnabled,
         'translation_enabled': _config.translationEnabled,
         'feedback_enabled': _config.feedbackEnabled,
@@ -5964,18 +5970,7 @@ class WebMessagePlatformService {
                 )
                 .toList(growable: false),
       mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,
-      builtinToolConfigs:
-          webGatewayIsDenyAllSelection(_config.allowedBuiltinToolNames)
-          ? const []
-          : _settingsController.builtinToolConfigs
-                .where(
-                  (tool) =>
-                      _config.allowedBuiltinToolNames.isEmpty ||
-                      _config.allowedBuiltinToolNames.contains(
-                        tool.effectiveName,
-                      ),
-                )
-                .toList(growable: false),
+      builtinToolConfigs: _effectiveBuiltinToolConfigsForWeb(),
       autoTitleEnabled: _settingsController.aiAutoTitleEnabled,
       autoTitleFetchMode: _settingsController.aiAutoTitleFetchMode,
       autoTitleMaxRetryCount: _settingsController.aiAutoTitleMaxRetryCount,
@@ -5998,6 +5993,67 @@ class WebMessagePlatformService {
                 )
                 .toList(growable: false),
     );
+  }
+
+  List<AiBuiltinToolConfig> _effectiveBuiltinToolConfigsForWeb() {
+    final configured = _settingsController.builtinToolConfigs;
+    final source = configured.isEmpty
+        ? AiBuiltinToolConfig.defaults()
+        : configured;
+    if (webGatewayIsDenyAllSelection(_config.allowedBuiltinToolNames)) {
+      return _disabledBuiltinToolConfigs(source);
+    }
+
+    final allowedNames = _config.allowedBuiltinToolNames;
+    final selected = allowedNames.isEmpty
+        ? source
+        : source
+              .where((tool) => allowedNames.contains(tool.effectiveName))
+              .toList(growable: false);
+    if (_config.knowledgeBaseEnabled) {
+      return selected.toList(growable: false);
+    }
+    return _withBuiltinToolKindsDisabled(
+      selected,
+      _knowledgeBaseBuiltinToolKinds,
+    );
+  }
+
+  List<AiBuiltinToolConfig> _disabledBuiltinToolConfigs(
+    Iterable<AiBuiltinToolConfig> configs,
+  ) {
+    return configs
+        .map((config) => config.copyWith(enabled: false))
+        .toList(growable: false);
+  }
+
+  List<AiBuiltinToolConfig> _withBuiltinToolKindsDisabled(
+    Iterable<AiBuiltinToolConfig> configs,
+    Set<AiBuiltinToolKind> disabledKinds,
+  ) {
+    final result = <AiBuiltinToolConfig>[];
+    final patchedKinds = <AiBuiltinToolKind>{};
+    for (final config in configs) {
+      if (disabledKinds.contains(config.kind)) {
+        result.add(config.copyWith(enabled: false));
+        patchedKinds.add(config.kind);
+      } else {
+        result.add(config);
+      }
+    }
+    for (final kind in disabledKinds) {
+      if (patchedKinds.contains(kind)) continue;
+      result.add(_defaultDisabledBuiltinToolConfig(kind));
+    }
+    return result;
+  }
+
+  AiBuiltinToolConfig _defaultDisabledBuiltinToolConfig(
+    AiBuiltinToolKind kind,
+  ) {
+    return AiBuiltinToolConfig.defaults()
+        .firstWhere((config) => config.kind == kind)
+        .copyWith(enabled: false);
   }
 
   List<AiThreadTemplate> _allowedTemplates() {

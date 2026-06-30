@@ -105,6 +105,11 @@ class MessageGatewayController extends ManagedChangeNotifier {
   bool _hasPendingRuntimeConfig = false;
   WebGatewayHealthResult? _lastHealthResult;
   final ChangePulse _saveSuccessPulse = ChangePulse();
+  static const Set<AiBuiltinToolKind> _knowledgeBaseBuiltinToolKinds =
+      <AiBuiltinToolKind>{
+        AiBuiltinToolKind.knowledgeSearch,
+        AiBuiltinToolKind.knowledgeRead,
+      };
 
   WebMessagePlatformConfig get config => _config;
   ValueListenable<int> get saveSuccessSignal => _saveSuccessPulse.listenable;
@@ -176,6 +181,12 @@ class MessageGatewayController extends ManagedChangeNotifier {
       .where((id) => id.trim().isNotEmpty)
       .toList(growable: false);
   List<String> get builtinToolNames => _settingsController.builtinToolConfigs
+      .map((tool) => tool.effectiveName)
+      .where((name) => name.trim().isNotEmpty)
+      .toList(growable: false);
+  List<String> get knowledgeBaseBuiltinToolNames => _settingsController
+      .builtinToolConfigs
+      .where((tool) => _knowledgeBaseBuiltinToolKinds.contains(tool.kind))
       .map((tool) => tool.effectiveName)
       .where((name) => name.trim().isNotEmpty)
       .toList(growable: false);
@@ -440,6 +451,9 @@ class MessageGatewayController extends ManagedChangeNotifier {
     final tools = builtinToolNames.toSet();
     final models = modelOptions.map((item) => item.key).toSet();
     final instructions = instructionOptions.map((item) => item.id).toSet();
+    final allowedToolNames = value.knowledgeBaseEnabled
+        ? value.allowedBuiltinToolNames
+        : _withoutKnowledgeBaseBuiltinToolNames(value.allowedBuiltinToolNames);
     List<String> keep(List<String> source, Set<String> allowed) {
       if (source.contains(webGatewayDenyAllSelectionMarker)) {
         return const <String>[webGatewayDenyAllSelectionMarker];
@@ -453,10 +467,27 @@ class MessageGatewayController extends ManagedChangeNotifier {
       allowedSkillNames: keep(value.allowedSkillNames, skills),
       allowedMcpServerNames: keep(value.allowedMcpServerNames, mcpServers),
       allowedMemoryIds: keep(value.allowedMemoryIds, memories),
-      allowedBuiltinToolNames: keep(value.allowedBuiltinToolNames, tools),
+      allowedBuiltinToolNames: keep(allowedToolNames, tools),
       allowedModelKeys: keep(value.allowedModelKeys, models),
       allowedInstructionIds: keep(value.allowedInstructionIds, instructions),
     );
+  }
+
+  List<String> _withoutKnowledgeBaseBuiltinToolNames(List<String> source) {
+    if (source.isEmpty || source.contains(webGatewayDenyAllSelectionMarker)) {
+      return source;
+    }
+    final next = source
+        .where((name) => !_isKnowledgeBaseBuiltinToolName(name))
+        .toList(growable: false);
+    return next.isEmpty
+        ? const <String>[webGatewayDenyAllSelectionMarker]
+        : next;
+  }
+
+  bool _isKnowledgeBaseBuiltinToolName(String name) {
+    if (webGatewayIsKnowledgeBaseBuiltinToolName(name)) return true;
+    return knowledgeBaseBuiltinToolNames.contains(name);
   }
 
   void _scheduleLogNotify() {
