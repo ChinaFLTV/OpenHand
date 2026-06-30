@@ -94,7 +94,7 @@ class WebReverseSessionArtifacts {
     draft.url = url;
     draft.method = method;
     draft.requestHeaders = _clipHeaders(headers);
-    draft.postData = _clipText(postData, _maxHarPostDataChars);
+    draft.postData = clipNullableText(postData, _maxHarPostDataChars);
     draft.startedAt = startedAt;
   }
 
@@ -262,13 +262,9 @@ class WebReverseSessionArtifacts {
   static Map<String, Object?> _clipHeaders(Map<String, Object?> headers) {
     final out = <String, Object?>{};
     for (final entry in headers.entries.take(_maxHarHeaders)) {
-      out[entry.key] = _clipText('${entry.value}', _maxHarHeaderValueChars);
+      out[entry.key] = clipText('${entry.value}', _maxHarHeaderValueChars);
     }
     return out;
-  }
-
-  static String? _clipText(String? value, int maxChars) {
-    return clipNullableText(value, maxChars);
   }
 }
 

@@ -52,8 +52,6 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
   String _query = '';
   final Set<String> _expanded = <String>{};
 
-  String _normalize(String t) => normalizeConsoleSignature(t);
-
   List<_Cluster> _build() {
     final map = <String, _Cluster>{};
     for (final e in widget.controller.consoleMessages) {
@@ -62,7 +60,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
           !e.text.toLowerCase().contains(_query.toLowerCase())) {
         continue;
       }
-      final sig = '${e.level}|${_normalize(e.text)}';
+      final sig = '${e.level}|${normalizeConsoleSignature(e.text)}';
       final c = map.putIfAbsent(
         sig,
         () => _Cluster(

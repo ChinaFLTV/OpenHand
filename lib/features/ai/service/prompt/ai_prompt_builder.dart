@@ -8,6 +8,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/stable_hash.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/tool_name_normalization.dart';
 import '../../../instructions/index.dart';
 import '../../../knowledge_base/index.dart';
@@ -1395,7 +1396,10 @@ class AiPromptBuilder {
     return <String, Object?>{
       'id': goal.id,
       'status': goal.status.storageValue,
-      'objective': _truncate(goal.objective, _promptGoalObjectiveMaxChars),
+      'objective': clipTextWithEllipsis(
+        goal.objective,
+        _promptGoalObjectiveMaxChars,
+      ),
       'turn_count': goal.turnCount,
       'max_turns': goal.maxTurns ?? aiSessionGoalDefaultMaxAutoTurns,
       'tokens_used': goal.tokensUsed,
@@ -1406,7 +1410,7 @@ class AiPromptBuilder {
         'model_label': goal.evaluatorModelLabel,
       },
       if ((goal.statusReason ?? '').trim().isNotEmpty)
-        'status_reason': _truncate(
+        'status_reason': clipTextWithEllipsis(
           goal.statusReason!.trim(),
           _promptGoalEvaluationMaxChars,
         ),
@@ -1426,23 +1430,26 @@ class AiPromptBuilder {
       'id': evaluation.id,
       'round_index': evaluation.roundIndex,
       'passed': evaluation.passed,
-      'summary': _truncate(evaluation.summary, _promptGoalEvaluationMaxChars),
+      'summary': clipTextWithEllipsis(
+        evaluation.summary,
+        _promptGoalEvaluationMaxChars,
+      ),
       if (evaluation.confidence != null) 'confidence': evaluation.confidence,
       if ((evaluation.followUpPrompt ?? '').trim().isNotEmpty)
-        'follow_up_prompt': _truncate(
+        'follow_up_prompt': clipTextWithEllipsis(
           evaluation.followUpPrompt!.trim(),
           _promptGoalEvaluationMaxChars,
         ),
       if (evaluation.evidence.isNotEmpty)
         'evidence': evaluation.evidence
-            .map((item) => _truncate(item, 240))
+            .map((item) => clipTextWithEllipsis(item, 240))
             .toList(growable: false),
       if (evaluation.missing.isNotEmpty)
         'missing': evaluation.missing
-            .map((item) => _truncate(item, 240))
+            .map((item) => clipTextWithEllipsis(item, 240))
             .toList(growable: false),
       if ((evaluation.error ?? '').trim().isNotEmpty)
-        'error': _truncate(evaluation.error!.trim(), 240),
+        'error': clipTextWithEllipsis(evaluation.error!.trim(), 240),
     };
   }
 
@@ -2106,7 +2113,10 @@ class AiPromptBuilder {
           runtimeContext.writeCommandConfirmationEnabled,
       'write_command_confirmation_required': writeCommandConfirmationRequired,
       if (pendingPlan != null && pendingPlan.isNotEmpty)
-        'pending_plan': _truncate(pendingPlan, _compressionPromptMaxPlanChars),
+        'pending_plan': clipTextWithEllipsis(
+          pendingPlan,
+          _compressionPromptMaxPlanChars,
+        ),
       if (session.pendingPlanAllowedPrompts.isNotEmpty)
         'pending_plan_allowed_prompts': _planAllowedPromptsSnapshot(
           session.pendingPlanAllowedPrompts,
@@ -2149,7 +2159,7 @@ class AiPromptBuilder {
       'updated_at': record.updatedAt.toUtc().toIso8601String(),
       'status': record.status.storageValue,
       if (plan.isNotEmpty)
-        'plan': _truncate(plan, _compressionPromptMaxPlanChars),
+        'plan': clipTextWithEllipsis(plan, _compressionPromptMaxPlanChars),
       if (record.allowedPrompts.isNotEmpty)
         'allowed_prompts': _planAllowedPromptsSnapshot(record.allowedPrompts),
       'step_count': record.steps.length,
@@ -2179,7 +2189,7 @@ class AiPromptBuilder {
         .map(
           (item) => <String, String>{
             'tool': item.tool,
-            'prompt': _truncate(item.prompt.trim(), 180),
+            'prompt': clipTextWithEllipsis(item.prompt.trim(), 180),
           },
         )
         .where(
@@ -2193,7 +2203,10 @@ class AiPromptBuilder {
   Map<String, Object?> _compressionTodoSnapshot(AiSessionTodoItem item) {
     return <String, Object?>{
       'id': item.id,
-      'content': _truncate(item.content.trim(), _compressionPromptMaxTodoChars),
+      'content': clipTextWithEllipsis(
+        item.content.trim(),
+        _compressionPromptMaxTodoChars,
+      ),
       'status': item.status,
     };
   }
@@ -3779,7 +3792,7 @@ $tail''';
             'write_confirmation=$writeConfirmationDecision',
           ...gateDescriptorParts,
           ...outputDescriptorParts,
-          if (command.isNotEmpty) 'cmd=${_truncate(command, 60)}',
+          if (command.isNotEmpty) 'cmd=${clipTextWithEllipsis(command, 60)}',
           if (pathHint.isNotEmpty) 'path=$pathHint',
         ].join(' · ');
         lines.add('- $descriptor');
@@ -4401,7 +4414,7 @@ $content
         buffer.writeln('- status: $status');
       }
       if (command.isNotEmpty) {
-        buffer.writeln('- command: ${_truncate(command, 160)}');
+        buffer.writeln('- command: ${clipTextWithEllipsis(command, 160)}');
       }
       if (durationMs != null) {
         buffer.writeln('- duration_ms: $durationMs');
@@ -4842,14 +4855,9 @@ $content
     for (final raw in text.split('\n')) {
       final trimmed = raw.trim();
       if (trimmed.isEmpty) continue;
-      return _truncate(trimmed, maxChars);
+      return clipTextWithEllipsis(trimmed, maxChars);
     }
     return '';
-  }
-
-  String _truncate(String text, int maxChars) {
-    if (text.length <= maxChars) return text;
-    return '${text.substring(0, maxChars)}…';
   }
 
   String _promptHistoryStandaloneToolCallContent(AiSessionMessage message) {
@@ -5286,7 +5294,7 @@ $content
       metadata['tool_output_persisted_path'],
     );
     if (persistedPath.isNotEmpty) {
-      parts.add('persisted_output=${_truncate(persistedPath, 96)}');
+      parts.add('persisted_output=${clipTextWithEllipsis(persistedPath, 96)}');
     }
     final recoveryHint = _metadataTrimmedString(
       metadata['tool_output_recovery_hint'],
@@ -5576,7 +5584,9 @@ $content
     if (promptContext.isNotEmpty) {
       lines
         ..add('context:')
-        ..add(_truncate(promptContext, _knowledgeToolPromptMaxChars));
+        ..add(
+          clipTextWithEllipsis(promptContext, _knowledgeToolPromptMaxChars),
+        );
     } else {
       lines
         ..add('results:')
@@ -5621,7 +5631,9 @@ $content
       if (content.isNotEmpty) {
         buffer
           ..writeln(hit['content'] == null ? 'Preview:' : 'Content:')
-          ..writeln(_truncate(content, _knowledgeToolPromptPreviewMaxChars));
+          ..writeln(
+            clipTextWithEllipsis(content, _knowledgeToolPromptPreviewMaxChars),
+          );
       }
       if (index < results.length - 1 &&
           index < _knowledgeToolPromptMaxResults - 1) {

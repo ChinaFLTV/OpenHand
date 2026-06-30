@@ -21,6 +21,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
@@ -659,8 +660,7 @@ class _LogEntry {
 }
 
 String _capWsInjectText(String text, int maxChars) {
-  if (text.length <= maxChars) return text;
-  return text.substring(0, maxChars);
+  return clipText(text, maxChars, suffix: '');
 }
 
 Widget? _hideWsInjectCounter(

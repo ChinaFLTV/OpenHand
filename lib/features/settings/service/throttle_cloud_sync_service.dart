@@ -9,6 +9,7 @@ import '../../../app/state/settings_controller.dart'
     show aiStreamThrottleConfigSchemaVersion, migrateAiStreamThrottleConfig;
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 
 /// 节流配置云端同步 provider 类型。
 ///
@@ -212,7 +213,7 @@ class ThrottleCloudSyncService {
           .timeout(_httpRequestTimeout);
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
         return ThrottleCloudSyncResult.failure(
-          'HTTP ${resp.statusCode}: ${_truncate(resp.body, 256)}',
+          'HTTP ${resp.statusCode}: ${clipTextWithEllipsis(resp.body, 256)}',
         );
       }
       return ThrottleCloudSyncResult.success(
@@ -271,7 +272,7 @@ class ThrottleCloudSyncService {
           .timeout(_httpRequestTimeout);
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
         return ThrottleCloudSyncResult.failure(
-          'HTTP ${resp.statusCode}: ${_truncate(resp.body, 256)}',
+          'HTTP ${resp.statusCode}: ${clipTextWithEllipsis(resp.body, 256)}',
         );
       }
       final decoded = jsonDecode(resp.body);
@@ -307,11 +308,6 @@ class ThrottleCloudSyncService {
     } finally {
       if (ownsClient) client.close();
     }
-  }
-
-  static String _truncate(String value, int max) {
-    if (value.length <= max) return value;
-    return '${value.substring(0, max)}…';
   }
 
   /// 兼容多层级位置：顶层 `updated_at_ms`、内层 `config.updated_at_ms`。
@@ -490,7 +486,8 @@ class ThrottleCloudSyncService {
       }
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
         return ThrottleCloudSyncResult.failure(
-          'Gist HTTP ${resp.statusCode}: ${_truncate(resp.body, 256)}',
+          'Gist HTTP ${resp.statusCode}: '
+          '${clipTextWithEllipsis(resp.body, 256)}',
         );
       }
       String createdId = '';
@@ -544,7 +541,8 @@ class ThrottleCloudSyncService {
           .timeout(_httpRequestTimeout);
       if (resp.statusCode < 200 || resp.statusCode >= 300) {
         return ThrottleCloudSyncResult.failure(
-          'Gist HTTP ${resp.statusCode}: ${_truncate(resp.body, 256)}',
+          'Gist HTTP ${resp.statusCode}: '
+          '${clipTextWithEllipsis(resp.body, 256)}',
         );
       }
       final decoded = jsonDecode(resp.body);

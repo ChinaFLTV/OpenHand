@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_browser_launcher.dart';
 import 'web_reverse_cdp_client.dart';
@@ -7861,8 +7862,7 @@ String _capWebReverseText(String text, int maxChars, String label) {
 }
 
 String _capPlainWebReverseText(String text, int maxChars) {
-  if (text.length <= maxChars) return text;
-  return text.substring(0, maxChars);
+  return clipText(text, maxChars, suffix: '');
 }
 
 String? _importedTextOrNull(

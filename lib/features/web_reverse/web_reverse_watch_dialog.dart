@@ -19,6 +19,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
+import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_session_controller.dart';
@@ -188,7 +189,7 @@ class _WatchDialogState extends State<_WatchDialog> {
       return;
     }
     final rawName = _newName.text.trim().isEmpty ? code : _newName.text.trim();
-    final name = _capWatchText(rawName, _kWatchMaxNameChars);
+    final name = clipTextWithEllipsis(rawName, _kWatchMaxNameChars);
     setState(() {
       _exprs.add(
         _WatchExpr(
@@ -248,7 +249,7 @@ class _WatchDialogState extends State<_WatchDialog> {
   }
 
   void _pushWatchSample(_WatchExpr expr, String text, bool isError) {
-    final capped = _capWatchText(text, _kWatchMaxResultChars);
+    final capped = clipTextWithEllipsis(text, _kWatchMaxResultChars);
     expr.last = capped;
     expr.error = isError;
     expr.samples.insert(
@@ -630,7 +631,7 @@ class _HistoryPane extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _fmt(s.at),
+                            formatHourMinuteSecondMillis(s.at),
                             style: const TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 11,
@@ -656,13 +657,6 @@ class _HistoryPane extends StatelessWidget {
       ],
     );
   }
-
-  String _fmt(DateTime t) => formatHourMinuteSecondMillis(t);
-}
-
-String _capWatchText(String text, int maxChars) {
-  if (text.length <= maxChars) return text;
-  return '${text.substring(0, maxChars)}…';
 }
 
 Widget? _hideWatchCounter(

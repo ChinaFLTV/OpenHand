@@ -63,7 +63,7 @@ class WebReverseHarReplayServer {
         ).take(_maxReplayHeaders)) {
           final name = stringFromValue(h['name']);
           if (name.isEmpty) continue;
-          headers[name] = _clipText(
+          headers[name] = clipText(
             stringFromValue(h['value']),
             _maxReplayHeaderValueChars,
           );
@@ -217,10 +217,6 @@ class WebReverseHarReplayServer {
     }
     if (keep <= 0) return '';
     return body.substring(0, keep);
-  }
-
-  static String _clipText(String text, int maxChars) {
-    return clipText(text, maxChars);
   }
 }
 

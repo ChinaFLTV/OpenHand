@@ -463,7 +463,7 @@ Map<String, Object?> _readHitJson(
   final chunkTitle = _stringValue(row['title']);
   final sourceTitle = _stringValue(row['source_title']);
   final contentView = includeContent
-      ? _truncate(content, _knowledgeReadContentMaxChars)
+      ? clipText(content, _knowledgeReadContentMaxChars)
       : '';
   final contentTruncated = contentView.length < content.length;
   return <String, Object?>{
@@ -478,7 +478,7 @@ Map<String, Object?> _readHitJson(
     'token_estimate': row['token_estimate'],
     'heading_path': row['heading_path'],
     if (!includeContent)
-      'preview': _truncate(content, _knowledgeToolPreviewMaxChars),
+      'preview': clipText(content, _knowledgeToolPreviewMaxChars),
     if (includeContent) ...<String, Object?>{
       'content': contentView,
       'content_truncated': contentTruncated,
@@ -683,10 +683,6 @@ bool _containsNormalized(String value, String normalizedTerm) {
 
 String _normalizeForMatch(String value) {
   return value.toLowerCase().replaceAll(RegExp(r'\s+'), '');
-}
-
-String _truncate(String value, int maxChars) {
-  return clipText(value, maxChars);
 }
 
 String _stringValue(Object? value) => '${value ?? ''}'.trim();

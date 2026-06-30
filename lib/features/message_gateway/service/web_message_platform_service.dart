@@ -687,11 +687,11 @@ class WebMessagePlatformService {
         final entry = <String, Object?>{
           'at': DateTime.now().toUtc().toIso8601String(),
           'method': methodKey,
-          'path': _truncate(errorPath ?? routeKey, 80),
+          'path': clipText(errorPath ?? routeKey, 80),
           'status': statusCode,
           'duration_ms': durationMs,
           if (errorMessage != null && errorMessage.isNotEmpty)
-            'message': _truncate(errorMessage, 160),
+            'message': clipText(errorMessage, 160),
         };
         _recentErrors.add(entry);
         if (_recentErrors.length > _maxRecentErrors) {
@@ -928,7 +928,7 @@ class WebMessagePlatformService {
         statusCode: response.statusCode,
         durationMs: stopwatch.elapsedMilliseconds,
         summary: ok ? '健康检查通过' : '健康检查未满足断言',
-        bodyPreview: _truncate(body, 600),
+        bodyPreview: clipText(body, 600),
       );
       _log(
         ok ? WebGatewayLogLevel.success : WebGatewayLogLevel.warn,
@@ -1037,7 +1037,7 @@ class WebMessagePlatformService {
               ok: ok,
               statusCode: response.statusCode,
               durationMs: probeStarted.elapsedMilliseconds,
-              bodyPreview: _truncate(body, 600),
+              bodyPreview: clipText(body, 600),
               errorMessage: ok ? '' : 'HTTP ${response.statusCode}',
             ),
           );
@@ -5972,7 +5972,7 @@ class WebMessagePlatformService {
       'compression_point_count': session.statistics.compressionPointCount,
       'last_message_preview': last == null
           ? ''
-          : _truncate(last.content.replaceAll('\n', ' '), 160),
+          : clipText(last.content.replaceAll('\n', ' '), 160),
       'last_message_kind': last?.kind.storageValue,
       'send_phase': _sessionController.sendPhaseForSession(session.id).name,
       'goal_state': session.goalState.toJson(),
@@ -7159,10 +7159,6 @@ String _string(Object? value, String fallback) {
   if (value == null) return fallback;
   final text = '$value';
   return text.isEmpty ? fallback : text;
-}
-
-String _truncate(String value, int maxChars) {
-  return clipText(value, maxChars);
 }
 
 String _safeFileName(String value) {

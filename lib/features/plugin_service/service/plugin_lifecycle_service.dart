@@ -9,6 +9,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/version_compare.dart';
 
 const Duration _pluginLifecycleDefaultTimeout = Duration(minutes: 3);
@@ -2271,7 +2272,10 @@ class _ProgressLineCollector {
   void _addLine(String rawLine) {
     final trimmed = rawLine.trim();
     if (trimmed.isEmpty) return;
-    final line = _truncateProgressLine(trimmed);
+    final line = clipTextWithEllipsis(
+      trimmed,
+      _pluginLifecycleMaxProgressLineChars,
+    );
     if (_lines.length >= _pluginLifecycleMaxCapturedLines) {
       _lines.removeAt(0);
     }
@@ -2283,11 +2287,6 @@ class _ProgressLineCollector {
 String _pluginShellQuote(String value) {
   if (value.isEmpty) return "''";
   return "'${value.replaceAll("'", "'\"'\"'")}'";
-}
-
-String _truncateProgressLine(String line) {
-  if (line.length <= _pluginLifecycleMaxProgressLineChars) return line;
-  return '${line.substring(0, _pluginLifecycleMaxProgressLineChars)}…';
 }
 
 String _timeoutMessage(Duration timeout) {

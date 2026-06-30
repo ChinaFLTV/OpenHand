@@ -357,8 +357,6 @@ class _HeSteeringEntryTile extends StatelessWidget {
   final (String, String)? description;
   final VoidCallback onTap;
 
-  String _formatSize(int bytes) => formatByteSize(bytes);
-
   String _formatDate(DateTime dt) {
     return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
@@ -432,7 +430,7 @@ class _HeSteeringEntryTile extends StatelessWidget {
               if (!entry.isDirectory && entry.size != null) ...[
                 const SizedBox(width: 8),
                 Text(
-                  _formatSize(entry.size!),
+                  formatByteSize(entry.size!),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),

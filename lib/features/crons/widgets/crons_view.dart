@@ -483,8 +483,8 @@ class _CronEntryCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       isZh
-                          ? '上次: ${_formatTime(entry.lastRunAt!)}'
-                          : 'Last: ${_formatTime(entry.lastRunAt!)}',
+                          ? '上次: ${formatMonthDayHms(entry.lastRunAt!)}'
+                          : 'Last: ${formatMonthDayHms(entry.lastRunAt!)}',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: colorScheme.onSurfaceVariant.withValues(
                           alpha: 0.7,
@@ -501,8 +501,6 @@ class _CronEntryCard extends StatelessWidget {
       ),
     );
   }
-
-  String _formatTime(DateTime dt) => formatMonthDayHms(dt);
 }
 
 // ---------------------------------------------------------------------------
@@ -2242,7 +2240,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                     const SizedBox(width: 12),
                     // Time
                     Text(
-                      _formatDateTime(record.startedAt),
+                      formatYearMonthDayHms(record.startedAt),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -2669,8 +2667,6 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
       ],
     );
   }
-
-  String _formatDateTime(DateTime dt) => formatYearMonthDayHms(dt);
 }
 
 // ---------------------------------------------------------------------------

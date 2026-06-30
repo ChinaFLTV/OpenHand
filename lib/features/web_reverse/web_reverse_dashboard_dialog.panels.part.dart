@@ -2595,7 +2595,12 @@ class _CookiesTableState extends State<_CookiesTable> {
                               cells: [
                                 DataCell(_mono('${c['name'] ?? ''}')),
                                 DataCell(
-                                  _mono(_truncate('${c['value'] ?? ''}', 80)),
+                                  _mono(
+                                    clipTextWithEllipsis(
+                                      '${c['value'] ?? ''}',
+                                      80,
+                                    ),
+                                  ),
                                 ),
                                 DataCell(_mono('${c['domain'] ?? ''}')),
                                 DataCell(_mono('${c['path'] ?? ''}')),
@@ -2654,9 +2659,6 @@ class _CookiesTableState extends State<_CookiesTable> {
 
   Widget _mono(String s) =>
       Text(s, style: const TextStyle(fontFamily: 'monospace', fontSize: 12));
-
-  String _truncate(String s, int n) =>
-      s.length <= n ? s : '${s.substring(0, n)}…';
 
   String _formatExpires(Object? raw) {
     if (raw == null) return '';

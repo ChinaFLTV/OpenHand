@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../web_engine/web_engine_base.dart';
@@ -37,18 +38,17 @@ class WebSearchEngineHit {
   WebSearchEngineHit truncated(int maxChars) {
     if (maxChars <= 0) return this;
     return WebSearchEngineHit(
-      title: _cap(title, 240),
+      title: clipTextWithEllipsis(title, 240),
       url: url,
-      snippet: _cap(snippet, maxChars),
+      snippet: clipTextWithEllipsis(snippet, maxChars),
       publishedAt: publishedAt,
       source: source,
       score: score,
-      rawContent: rawContent == null ? null : _cap(rawContent!, maxChars),
+      rawContent: rawContent == null
+          ? null
+          : clipTextWithEllipsis(rawContent!, maxChars),
     );
   }
-
-  static String _cap(String input, int n) =>
-      input.length <= n ? input : '${input.substring(0, n)}…';
 }
 
 double? webSearchScoreFromValue(Object? value) {

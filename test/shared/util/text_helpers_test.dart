@@ -14,6 +14,8 @@ void main() {
       expect(clipText('abcdef', 0), '...');
       expect(clipText('abcdef', -1), '...');
       expect(clipNullableText('abcdef', 2, suffix: '…'), 'ab…');
+      expect(clipTextWithEllipsis('abcdef', 2), 'ab…');
+      expect(clipTextWithEllipsis('abcdef', -1), '…');
     });
   });
 

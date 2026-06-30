@@ -581,7 +581,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
               status: status,
               bodySize: size,
               mimeType: mime,
-              bodyText: _clipHarDiffBody(text),
+              bodyText: clipText(text, kWebReverseHarDiffBodyPreviewChars),
               bodyDigest: digest,
             ),
           );
@@ -1591,11 +1591,6 @@ class _HarDiffColumn extends StatelessWidget {
       ),
     );
   }
-}
-
-String _clipHarDiffBody(String text) {
-  if (text.length <= kWebReverseHarDiffBodyPreviewChars) return text;
-  return '${text.substring(0, kWebReverseHarDiffBodyPreviewChars)}...';
 }
 
 /// HAR 单条请求摘要：HAR diff 的最小比较单元。bodyDigest 用于判断正文
