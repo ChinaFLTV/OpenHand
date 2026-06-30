@@ -10,6 +10,13 @@
 // Web 端不执行撤销/重做等本地文件 ledger 操作，只做只读审阅展示。
 
 import { KNOWLEDGE_BASE_MESSAGE_METADATA_KEY, type SessionMessage, type SessionMessageFeedback } from '../api/sessions';
+import {
+  fetchKnowledgeHitDetail,
+  fetchKnowledgeVectorDistribution,
+  type KnowledgeChunkDto,
+  type KnowledgeSourceDto,
+  type KnowledgeVectorDistributionDto,
+} from '../api/knowledge';
 import type { ComponentChildren } from 'preact';
 import { t, tDuration, tNumber } from '../i18n';
 import { Markdown, looksLikeHtml, looksLikeRenderableHtml, openHtmlInNewTab } from './Markdown';
@@ -405,6 +412,8 @@ interface KnowledgeVectorDistributionData {
   originalDimensions: number;
   sampledCount: number;
   hasMore: boolean;
+  durationMs?: number;
+  generatedAt?: string;
   points: KnowledgeVectorDistributionPoint[];
 }
 
@@ -505,6 +514,174 @@ const ANDROID_REVERSE_PROMPT_FIELD_LABELS = [
 
 function nonEmptyString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+const KB_VECTOR_DEFAULT_MAX_POINTS = 600;
+const KB_VECTOR_BATCH_SIZE = 120;
+const KB_VECTOR_MIN_ZOOM = 0.62;
+const KB_VECTOR_MAX_ZOOM = 10;
+const KB_VECTOR_ZOOM_BUTTON_FACTOR = 1.18;
+const KB_VECTOR_SCROLL_ZOOM_SENSITIVITY = 0.0012;
+const KB_VECTOR_AXIS_EXTENT = 1.18;
+const KB_VECTOR_AXIS_TICK_SCREEN_LENGTH = 8;
+const KB_VECTOR_AXIS_MINOR_TICK_SCREEN_LENGTH = 5;
+const KB_VECTOR_AXIS_TARGET_TICK_GAP = 54;
+const KB_VECTOR_POINT_HIT_RADIUS = 18;
+const KB_VECTOR_POPOVER_PADDING = 12;
+const KB_VECTOR_POPOVER_WIDTH = 300;
+const KB_VECTOR_INITIAL_SIZE = { width: 720, height: 380 } as const;
+
+interface KnowledgeVectorSceneSize {
+  width: number;
+  height: number;
+}
+
+interface KnowledgeVectorAxisScale {
+  step: number;
+  labelStep: number;
+  gridStep: number;
+}
+
+interface KnowledgeVectorAxisSpec {
+  label: 'X' | 'Y' | 'Z';
+  x: number;
+  y: number;
+  z: number;
+  tickX: number;
+  tickY: number;
+  tickZ: number;
+}
+
+interface KnowledgeProjectedVectorPoint {
+  point: KnowledgeVectorDistributionPoint;
+  x: number;
+  y: number;
+  depth: number;
+  perspective: number;
+  radius: number;
+}
+
+interface KnowledgeSceneProjection {
+  x: number;
+  y: number;
+  depth: number;
+  perspective: number;
+}
+
+const KB_VECTOR_AXIS_SPECS: KnowledgeVectorAxisSpec[] = [
+  { label: 'X', x: 1, y: 0, z: 0, tickX: 0, tickY: 0, tickZ: 1 },
+  { label: 'Y', x: 0, y: 1, z: 0, tickX: 1, tickY: 0, tickZ: 0 },
+  { label: 'Z', x: 0, y: 0, z: 1, tickX: 1, tickY: 0, tickZ: 0 },
+];
+
+const KNOWLEDGE_FIELD_LABEL_KEYS: Record<string, string> = {
+  provider_config_id: 'message.kbDialog.field.providerConfigId',
+  model_id: 'message.kbDialog.field.modelId',
+  dimensions: 'message.kbDialog.field.dimensions',
+  duration_ms: 'message.kbDialog.field.durationMs',
+  top_n: 'message.kbDialog.field.topN',
+  top_k: 'message.kbDialog.field.topK',
+  min_similarity: 'message.kbDialog.field.minSimilarity',
+  filters: 'message.kbDialog.field.filters',
+  chunk_count: 'message.kbDialog.field.chunkCount',
+  token_estimate: 'message.kbDialog.field.tokenEstimate',
+  tokens: 'message.kbDialog.field.tokens',
+  content_hash: 'message.kbDialog.field.contentHash',
+  mode: 'message.kbDialog.field.mode',
+  strategy: 'message.kbDialog.field.strategy',
+  candidate_count: 'message.kbDialog.field.candidateCount',
+  rerank_input_count: 'message.kbDialog.field.rerankInputCount',
+  rerank_output_count: 'message.kbDialog.field.rerankOutputCount',
+  kept_count: 'message.kbDialog.field.keptCount',
+  discarded_count: 'message.kbDialog.field.discardedCount',
+  error: 'message.kbDialog.field.error',
+  status: 'message.kbDialog.field.status',
+  query: 'message.kbDialog.field.query',
+  chunk_id: 'message.kbDialog.field.chunkId',
+  source_id: 'message.kbDialog.field.sourceId',
+  source_title: 'message.kbDialog.field.sourceTitle',
+  source_kind: 'message.kbDialog.field.sourceKind',
+  path: 'message.kbDialog.field.path',
+  tags: 'message.kbDialog.field.tags',
+  document_time: 'message.kbDialog.field.documentTime',
+  updated_at: 'message.kbDialog.field.updatedAt',
+  created_at: 'message.kbDialog.field.createdAt',
+  imported_at: 'message.kbDialog.field.importedAt',
+  indexed_at: 'message.kbDialog.field.indexedAt',
+  score: 'message.kbDialog.field.score',
+  rerank_score: 'message.kbDialog.field.rerankScore',
+  final_score: 'message.kbDialog.field.finalScore',
+  time_field: 'message.kbDialog.field.timeField',
+  title: 'message.kbDialog.field.title',
+  heading_path: 'message.kbDialog.field.headingPath',
+  chunk_index: 'message.kbDialog.field.chunkIndex',
+  parent_chunk_id: 'message.kbDialog.field.parentChunkId',
+  char_count: 'message.kbDialog.field.charCount',
+  start_offset: 'message.kbDialog.field.startOffset',
+  end_offset: 'message.kbDialog.field.endOffset',
+  page_number: 'message.kbDialog.field.pageNumber',
+  original_path: 'message.kbDialog.field.originalPath',
+  stored_path: 'message.kbDialog.field.storedPath',
+  mime_type: 'message.kbDialog.field.mimeType',
+  size_bytes: 'message.kbDialog.field.sizeBytes',
+  metadata: 'message.kbDialog.field.metadata',
+};
+
+function knowledgeFieldLabel(key: string): string {
+  const normalized = key.trim();
+  const translationKey = KNOWLEDGE_FIELD_LABEL_KEYS[normalized];
+  if (translationKey) return t(translationKey, normalized);
+  return normalized.replace(/_/g, ' ');
+}
+
+function parseKnowledgeVectorDistribution(
+  raw: unknown,
+): KnowledgeVectorDistributionData | null {
+  const record = recordOrNullFromUnknown(raw);
+  if (!record) return null;
+  const points = Array.isArray(record['points'])
+    ? record['points'].map((item): KnowledgeVectorDistributionPoint | null => {
+      const pointRecord = recordOrNullFromUnknown(item);
+      if (!pointRecord) return null;
+      const id = nonEmptyString(pointRecord['id']);
+      const kind = nonEmptyString(pointRecord['kind']);
+      const x = finiteNumberOrNullFromUnknown(pointRecord['x']);
+      const y = finiteNumberOrNullFromUnknown(pointRecord['y']);
+      const z = finiteNumberOrNullFromUnknown(pointRecord['z']);
+      if (!id || (kind !== 'corpus' && kind !== 'match' && kind !== 'query') || x == null || y == null || z == null) return null;
+      const point: KnowledgeVectorDistributionPoint = {
+        id,
+        kind,
+        title: nonEmptyString(pointRecord['title']),
+        preview: nonEmptyString(pointRecord['preview']),
+        x,
+        y,
+        z,
+      };
+      const score = finiteNumberOrNullFromUnknown(pointRecord['score']);
+      const rerankScore = finiteNumberOrNullFromUnknown(pointRecord['rerank_score']);
+      if (score != null) point.score = score;
+      if (rerankScore != null) point.rerankScore = rerankScore;
+      return point;
+    }).filter((item): item is KnowledgeVectorDistributionPoint => item != null)
+    : [];
+  if (points.length === 0) return null;
+  const durationMs = finiteNumberOrNullFromUnknown(record['duration_ms']);
+  return {
+    algorithm: nonEmptyString(record['algorithm']) || 'deterministic_random_projection_3d',
+    originalDimensions: Math.max(0, Math.round(finiteNumberOrNullFromUnknown(record['original_dimensions']) ?? 0)),
+    sampledCount: Math.max(points.length, Math.round(finiteNumberOrNullFromUnknown(record['sampled_count']) ?? points.length)),
+    hasMore: record['has_more'] === true,
+    ...(durationMs != null ? { durationMs: Math.max(0, Math.round(durationMs)) } : {}),
+    ...(nonEmptyString(record['generated_at']) ? { generatedAt: nonEmptyString(record['generated_at']) } : {}),
+    points,
+  };
+}
+
+function knowledgeDistributionFromDto(
+  dto: KnowledgeVectorDistributionDto | undefined,
+): KnowledgeVectorDistributionData | null {
+  return parseKnowledgeVectorDistribution(dto ?? null);
 }
 
 function knowledgeBaseMetadata(message: SessionMessage): Record<string, unknown> | null {
@@ -654,42 +831,7 @@ function knowledgeBaseContextContent(kb: Record<string, unknown> | null): string
 }
 
 function knowledgeBaseVectorDistribution(kb: Record<string, unknown> | null): KnowledgeVectorDistributionData | null {
-  const raw = recordOrNullFromUnknown(kb?.['vector_distribution']);
-  if (!raw) return null;
-  const points = Array.isArray(raw['points'])
-    ? raw['points'].map((item): KnowledgeVectorDistributionPoint | null => {
-      const record = recordOrNullFromUnknown(item);
-      if (!record) return null;
-      const id = nonEmptyString(record['id']);
-      const kind = nonEmptyString(record['kind']);
-      const x = finiteNumberOrNullFromUnknown(record['x']);
-      const y = finiteNumberOrNullFromUnknown(record['y']);
-      const z = finiteNumberOrNullFromUnknown(record['z']);
-      if (!id || (kind !== 'corpus' && kind !== 'match' && kind !== 'query') || x == null || y == null || z == null) return null;
-      const point: KnowledgeVectorDistributionPoint = {
-        id,
-        kind,
-        title: nonEmptyString(record['title']),
-        preview: nonEmptyString(record['preview']),
-        x,
-        y,
-        z,
-      };
-      const score = finiteNumberOrNullFromUnknown(record['score']);
-      const rerankScore = finiteNumberOrNullFromUnknown(record['rerank_score']);
-      if (score != null) point.score = score;
-      if (rerankScore != null) point.rerankScore = rerankScore;
-      return point;
-    }).filter((item): item is KnowledgeVectorDistributionPoint => item != null)
-    : [];
-  if (points.length === 0) return null;
-  return {
-    algorithm: nonEmptyString(raw['algorithm']) || 'deterministic_random_projection_3d',
-    originalDimensions: Math.max(0, Math.round(finiteNumberOrNullFromUnknown(raw['original_dimensions']) ?? 0)),
-    sampledCount: Math.max(points.length, Math.round(finiteNumberOrNullFromUnknown(raw['sampled_count']) ?? points.length)),
-    hasMore: raw['has_more'] === true,
-    points,
-  };
+  return parseKnowledgeVectorDistribution(kb?.['vector_distribution']);
 }
 
 function knowledgeBaseCitationSources(
@@ -3289,6 +3431,7 @@ function KnowledgeBaseRetrievalDialog({
   onClose: () => void;
 }) {
   const [closing, setClosing] = useState(false);
+  const [selectedHit, setSelectedHit] = useState<Record<string, unknown> | null>(null);
   const results = knowledgeBaseResults(metadata);
   const embedding = recordOrNullFromUnknown(metadata['embedding']);
   const retrieval = recordOrNullFromUnknown(metadata['retrieval']);
@@ -3306,11 +3449,12 @@ function KnowledgeBaseRetrievalDialog({
   }, [closing, onClose]);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (selectedHit) return;
       if (event.key === 'Escape') requestClose();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [requestClose]);
+  }, [requestClose, selectedHit]);
   const copyJson = async () => {
     const ok = await copyTextToClipboard(JSON.stringify(metadata, null, 2));
     showSnackbar(ok ? t('detail.copy.ok', '已复制') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
@@ -3393,14 +3537,20 @@ function KnowledgeBaseRetrievalDialog({
               <KnowledgeVectorDistributionScene distribution={vectorDistribution} />
             </KnowledgeBaseDialogSection>
           ) : null}
-          <KnowledgeBaseDialogSection title={t('message.kbDialog.hits', '命中 chunks')}>
+          <KnowledgeBaseDialogSection title={t('message.kbDialog.hitsWithCount', '命中分块 ({count})').replace('{count}', String(results.length))}>
             <div class="oh-kb-hit-list">
               {results.length === 0 ? (
                 <p class="oh-kb-dialog-muted">{t('message.kbDialog.noHits', '没有命中记录。')}</p>
               ) : results.map((hit, index) => (
-                <article class="oh-kb-hit-card" key={`${nonEmptyString(hit['chunk_id']) || index}`}>
+                <button
+                  type="button"
+                  class="oh-kb-hit-card oh-tap-press"
+                  key={`${nonEmptyString(hit['chunk_id']) || index}`}
+                  onClick={() => setSelectedHit(hit)}
+                  aria-label={t('message.kbDialog.openChunkDetail', '打开分块详情')}
+                >
                   <div class="oh-kb-hit-title">
-                    <span>{index + 1}. {nonEmptyString(hit['title']) || nonEmptyString(hit['source_title']) || nonEmptyString(hit['chunk_id']) || t('message.kbDialog.untitled', '未命名 chunk')}</span>
+                    <span>{index + 1}. {nonEmptyString(hit['title']) || nonEmptyString(hit['source_title']) || nonEmptyString(hit['chunk_id']) || t('message.kbDialog.untitledChunk', '未命名分块')}</span>
                     <span>{finiteNumberOrNullFromUnknown(hit['score'])?.toFixed(4) ?? '—'}</span>
                   </div>
                   <div class="oh-kb-hit-meta">
@@ -3413,7 +3563,7 @@ function KnowledgeBaseRetrievalDialog({
                     <KbKv label="tokens" value={hit['token_estimate']} />
                   </div>
                   {nonEmptyString(hit['preview']) ? <p class="oh-kb-hit-preview">{nonEmptyString(hit['preview'])}</p> : null}
-                </article>
+                </button>
               ))}
             </div>
           </KnowledgeBaseDialogSection>
@@ -3432,6 +3582,12 @@ function KnowledgeBaseRetrievalDialog({
           </button>
         </footer>
       </section>
+      {selectedHit ? (
+        <KnowledgeChunkDetailDialog
+          hit={selectedHit}
+          onClose={() => setSelectedHit(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -3451,74 +3607,448 @@ function KnowledgeBaseDialogSection({
   );
 }
 
+function KnowledgeChunkDetailDialog({
+  hit,
+  onClose,
+}: {
+  hit: Record<string, unknown>;
+  onClose: () => void;
+}) {
+  const [closing, setClosing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [source, setSource] = useState<KnowledgeSourceDto | null>(null);
+  const [chunk, setChunk] = useState<KnowledgeChunkDto | null>(null);
+  const [loadError, setLoadError] = useState('');
+  const sourceId = nonEmptyString(hit['source_id']);
+  const chunkId = nonEmptyString(hit['chunk_id']);
+  const preview = nonEmptyString(hit['content']) || nonEmptyString(hit['preview']);
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    window.setTimeout(onClose, getDialogMotionDurationMs());
+  }, [closing, onClose]);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') requestClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [requestClose]);
+
+  useEffect(() => {
+    if (!sourceId || !chunkId) {
+      setSource(null);
+      setChunk(null);
+      setLoadError('');
+      setLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setLoading(true);
+    setLoadError('');
+    fetchKnowledgeHitDetail(sourceId, chunkId, { signal: controller.signal })
+      .then((payload) => {
+        if (controller.signal.aborted) return;
+        setSource(payload.source ?? null);
+        setChunk(payload.chunk ?? null);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        setSource(null);
+        setChunk(null);
+        setLoadError(knowledgeErrorMessage(error));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [sourceId, chunkId]);
+
+  const copyChunkId = async () => {
+    const text = chunk?.id || chunkId;
+    if (!text) return;
+    const ok = await copyTextToClipboard(text);
+    showSnackbar(ok ? t('message.kbDialog.copyChunkIdOk', '已复制分块 ID。') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
+      tone: ok ? 'success' : 'error',
+    });
+  };
+  const copyChunkContent = async () => {
+    const text = nonEmptyString(chunk?.content) || preview;
+    if (!text) return;
+    const ok = await copyTextToClipboard(text);
+    showSnackbar(ok ? t('message.kbDialog.copyChunkContentOk', '已复制分块内容。') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
+      tone: ok ? 'success' : 'error',
+    });
+  };
+  const resolvedTitle = nonEmptyString(chunk?.title) || nonEmptyString(hit['title']) || nonEmptyString(hit['source_title']) || chunkId || t('message.kbDialog.untitledChunk', '未命名分块');
+  const tags = Array.isArray(chunk?.tags)
+    ? chunk.tags
+    : Array.isArray(hit['tags'])
+      ? hit['tags'].map((item) => nonEmptyString(item)).filter(Boolean)
+      : [];
+  const metadata = recordOrNullFromUnknown(chunk?.metadata) ?? null;
+  return (
+    <div
+      class={`oh-kb-dialog-backdrop is-nested ${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'}`}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) requestClose();
+      }}
+    >
+      <section
+        class={`oh-kb-dialog-card oh-kb-dialog-card-detail ${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('message.kbDialog.chunkDetailTitle', '命中分块详情')}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header class="oh-kb-dialog-header">
+          <span class="oh-kb-dialog-icon" aria-hidden>
+            <MessageIcon name="knowledge" size={18} />
+          </span>
+          <div class="min-w-0 flex-1">
+            <h3>{chunk ? t('message.kbDialog.chunkDetailTitleResolved', '分块详情') : t('message.kbDialog.chunkDetailTitle', '命中分块详情')}</h3>
+            <p>{resolvedTitle}</p>
+          </div>
+          <button type="button" class="oh-kb-dialog-close oh-tap-press" onClick={requestClose} aria-label={t('common.close', '关闭')}>
+            <MessageIcon name="close" size={18} />
+          </button>
+        </header>
+        <div class="oh-kb-dialog-body">
+          {loading ? (
+            <div class="oh-kb-dialog-loading">
+              <span aria-hidden />
+              <p>{t('message.kbDialog.chunkDetailLoading', '正在加载分块详情…')}</p>
+            </div>
+          ) : null}
+          {!loading && loadError ? (
+            <p class="oh-kb-dialog-notice is-warning">
+              {t('message.kbDialog.chunkDetailFallback', '未能从本地知识库恢复完整分块，下面展示消息元数据中保留的命中信息。')}
+              <span>{loadError}</span>
+            </p>
+          ) : null}
+          <KnowledgeBaseDialogSection title={t('message.kbDialog.retrievalHit', '检索命中')}>
+            <div class="oh-kb-rerank-grid">
+              <KbKv label="score" value={hit['score']} />
+              <KbKv label="rerank_score" value={hit['rerank_score']} />
+              <KbKv label="final_score" value={hit['final_score']} />
+              <KbKv label="time_field" value={hit['time_field']} />
+              <KbKv label="path" value={hit['path']} />
+              <KbKv label="document_time" value={hit['document_time']} />
+              <KbKv label="updated_at" value={hit['updated_at']} />
+            </div>
+          </KnowledgeBaseDialogSection>
+          <KnowledgeBaseDialogSection title={t('message.kbDialog.overview', '基础信息')}>
+            <div class="oh-kb-rerank-grid">
+              <KbKv label="chunk_id" value={chunk?.id ?? hit['chunk_id']} />
+              <KbKv label="source_id" value={source?.id ?? hit['source_id']} />
+              <KbKv label="source_title" value={source?.title ?? hit['source_title']} />
+              <KbKv label="source_kind" value={source?.kind ?? hit['source_kind']} />
+              <KbKv label="chunk_index" value={chunk?.chunk_index ?? hit['chunk_index']} />
+              <KbKv label="parent_chunk_id" value={chunk?.parent_chunk_id} />
+              <KbKv label="title" value={chunk?.title ?? hit['title']} />
+              <KbKv label="heading_path" value={chunk?.heading_path ?? hit['heading_path']} />
+              <KbKv label="content_hash" value={chunk?.content_hash ?? hit['content_hash']} />
+            </div>
+          </KnowledgeBaseDialogSection>
+          <KnowledgeBaseDialogSection title={t('message.kbDialog.statsLocation', '统计与定位')}>
+            <div class="oh-kb-rerank-grid">
+              <KbKv label="char_count" value={chunk?.char_count} />
+              <KbKv label="token_estimate" value={chunk?.token_estimate ?? hit['token_estimate']} />
+              <KbKv label="start_offset" value={chunk?.start_offset} />
+              <KbKv label="end_offset" value={chunk?.end_offset} />
+              <KbKv label="page_number" value={chunk?.page_number} />
+              <KbKv label="document_time" value={chunk?.document_time ?? hit['document_time']} />
+              <KbKv label="created_at" value={chunk?.created_at} />
+              <KbKv label="updated_at" value={chunk?.updated_at ?? hit['updated_at']} />
+            </div>
+          </KnowledgeBaseDialogSection>
+          <KnowledgeBaseDialogSection title={t('message.kbDialog.tags', '标签')}>
+            {tags.length === 0 ? (
+              <p class="oh-kb-dialog-muted">{t('message.kbDialog.noTags', '没有标签。')}</p>
+            ) : (
+              <div class="oh-kb-tag-list">
+                {tags.map((tag) => <span key={tag}>{tag}</span>)}
+              </div>
+            )}
+          </KnowledgeBaseDialogSection>
+          {metadata ? (
+            <KnowledgeBaseDialogSection title={t('message.kbDialog.metadata', '元数据')}>
+              <pre class="oh-kb-dialog-pre is-json">{JSON.stringify(metadata, null, 2)}</pre>
+            </KnowledgeBaseDialogSection>
+          ) : null}
+          <KnowledgeBaseDialogSection title={chunk ? t('message.kbDialog.fullContent', '完整内容') : t('message.kbDialog.hitPreview', '命中预览')}>
+            <pre class="oh-kb-dialog-pre is-context">{nonEmptyString(chunk?.content) || preview || '—'}</pre>
+          </KnowledgeBaseDialogSection>
+          {!chunk ? (
+            <KnowledgeBaseDialogSection title={t('message.kbDialog.rawHitMetadata', '原始命中元数据')}>
+              <pre class="oh-kb-dialog-pre is-json">{JSON.stringify(hit, null, 2)}</pre>
+            </KnowledgeBaseDialogSection>
+          ) : null}
+        </div>
+        <footer class="oh-kb-dialog-actions">
+          <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyChunkId} disabled={!chunkId && !chunk?.id}>
+            <MessageIcon name="audit" size={15} />
+            {t('message.kbDialog.copyChunkId', '复制 ID')}
+          </button>
+          <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyChunkContent} disabled={!preview && !nonEmptyString(chunk?.content)}>
+            <MessageIcon name="copy" size={15} />
+            {t('message.kbDialog.copyChunkContent', '复制内容')}
+          </button>
+          <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={requestClose}>
+            {t('common.close', '关闭')}
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function knowledgeErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string') return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
 function KnowledgeVectorDistributionScene({
   distribution,
 }: {
   distribution: KnowledgeVectorDistributionData;
 }) {
+  const sceneRef = useRef<HTMLDivElement>(null);
+  const pointerRef = useRef<{ pointerId: number; x: number; y: number; startX: number; startY: number; dragged: boolean } | null>(null);
+  const corpusAbortRef = useRef<AbortController | null>(null);
+  const [sceneSize, setSceneSize] = useState<KnowledgeVectorSceneSize>(KB_VECTOR_INITIAL_SIZE);
   const [yaw, setYaw] = useState(-0.62);
   const [pitch, setPitch] = useState(-0.34);
   const [zoom, setZoom] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const dragRef = useRef<{ x: number; y: number } | null>(null);
-  const selected = distribution.points.find((point) => point.id === selectedId) ?? null;
-  const projected = useMemo(
-    () => projectKnowledgeVectorPoints(distribution.points, yaw, pitch, zoom),
-    [distribution.points, yaw, pitch, zoom],
+  const [showCorpus, setShowCorpus] = useState(false);
+  const [corpusDistribution, setCorpusDistribution] = useState<KnowledgeVectorDistributionData | null>(null);
+  const [corpusLoading, setCorpusLoading] = useState(false);
+  const [corpusError, setCorpusError] = useState('');
+  const [visibleLimit, setVisibleLimit] = useState(KB_VECTOR_BATCH_SIZE);
+
+  useLayoutEffect(() => {
+    const node = sceneRef.current;
+    if (!node) return;
+    const measure = () => {
+      const rect = node.getBoundingClientRect();
+      const width = Math.max(320, Math.round(rect.width || KB_VECTOR_INITIAL_SIZE.width));
+      const height = Math.max(320, Math.round(rect.height || KB_VECTOR_INITIAL_SIZE.height));
+      setSceneSize((current) => (
+        current.width === width && current.height === height ? current : { width, height }
+      ));
+    };
+    measure();
+    const ResizeObserverCtor = typeof ResizeObserver === 'undefined' ? null : ResizeObserver;
+    if (!ResizeObserverCtor) {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
+    const observer = new ResizeObserverCtor(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => () => corpusAbortRef.current?.abort(), []);
+
+  const visibleDistribution = useMemo(
+    () => (showCorpus && corpusDistribution
+      ? mergeKnowledgeVectorDistributions(distribution, corpusDistribution)
+      : distribution),
+    [corpusDistribution, distribution, showCorpus],
   );
+  const allPoints = visibleDistribution.points;
+  const axisScale = useMemo(
+    () => resolveKnowledgeVectorAxisScale(sceneSize, zoom),
+    [sceneSize, zoom],
+  );
+  const visibleKinds = useMemo(
+    () => new Set(allPoints.map((point) => point.kind)),
+    [allPoints],
+  );
+
+  useEffect(() => {
+    const nextInitial = Math.min(KB_VECTOR_BATCH_SIZE, allPoints.length);
+    setVisibleLimit(nextInitial);
+    if (allPoints.length <= nextInitial) return;
+    const timer = window.setInterval(() => {
+      setVisibleLimit((current) => {
+        const next = Math.min(allPoints.length, current + KB_VECTOR_BATCH_SIZE);
+        if (next >= allPoints.length) window.clearInterval(timer);
+        return next;
+      });
+    }, 92);
+    return () => window.clearInterval(timer);
+  }, [allPoints]);
+
+  useEffect(() => {
+    if (!selectedId || allPoints.some((point) => point.id === selectedId)) return;
+    setSelectedId(null);
+  }, [allPoints, selectedId]);
+
+  const renderedPoints = useMemo(
+    () => allPoints.slice(0, Math.min(visibleLimit, allPoints.length)),
+    [allPoints, visibleLimit],
+  );
+  const projected = useMemo(
+    () => projectKnowledgeVectorPoints(renderedPoints, sceneSize, yaw, pitch, zoom),
+    [renderedPoints, sceneSize, yaw, pitch, zoom],
+  );
+  const selected = allPoints.find((point) => point.id === selectedId) ?? null;
   const selectedProjected = selected
     ? projected.find((point) => point.point.id === selected.id) ?? null
     : null;
+  const gridRings = useMemo(() => {
+    const ringCount = Math.floor(KB_VECTOR_AXIS_EXTENT / axisScale.gridStep);
+    const rings: Array<{ radius: number; path: string }> = [];
+    for (let i = 1; i <= ringCount; i += 1) {
+      const radius = i * axisScale.gridStep;
+      if (radius <= 1.02) {
+        rings.push({ radius, path: knowledgeVectorCirclePath(sceneSize, radius, yaw, pitch, zoom) });
+      }
+    }
+    return rings;
+  }, [axisScale.gridStep, pitch, sceneSize, yaw, zoom]);
+  const gridSpokes = useMemo(() => {
+    const spokes = zoom >= 5 ? 12 : 8;
+    return Array.from({ length: spokes }).map((_, index) => {
+      const angle = index * Math.PI * 2 / spokes;
+      const inner = projectKnowledgeSceneCoordinate(Math.cos(angle) * 0.18, Math.sin(angle) * 0.18, 0, sceneSize, yaw, pitch, zoom);
+      const outer = projectKnowledgeSceneCoordinate(Math.cos(angle), Math.sin(angle), 0, sceneSize, yaw, pitch, zoom);
+      return { inner, outer };
+    });
+  }, [pitch, sceneSize, yaw, zoom]);
+
+  const setClampedZoom = useCallback((next: number) => {
+    setZoom((current) => {
+      const value = clampKnowledgeNumber(next, KB_VECTOR_MIN_ZOOM, KB_VECTOR_MAX_ZOOM);
+      return Math.abs(value - current) < 0.001 ? current : value;
+    });
+  }, []);
+  const resetViewport = useCallback(() => {
+    setYaw(-0.62);
+    setPitch(-0.34);
+    setClampedZoom(1);
+  }, [setClampedZoom]);
+  const loadCorpus = useCallback(() => {
+    if (corpusDistribution || corpusLoading) return;
+    corpusAbortRef.current?.abort();
+    const controller = new AbortController();
+    corpusAbortRef.current = controller;
+    setCorpusLoading(true);
+    setCorpusError('');
+    fetchKnowledgeVectorDistribution(KB_VECTOR_DEFAULT_MAX_POINTS, { signal: controller.signal })
+      .then((payload) => {
+        if (controller.signal.aborted) return;
+        const parsed = knowledgeDistributionFromDto(payload.distribution);
+        setCorpusDistribution(parsed);
+        if (!parsed) setCorpusError(t('message.kbDialog.corpusEmpty', '没有可叠加的全量向量点。'));
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) setCorpusError(knowledgeErrorMessage(error));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCorpusLoading(false);
+      });
+  }, [corpusDistribution, corpusLoading]);
+  const toggleCorpus = useCallback(() => {
+    if (showCorpus) {
+      setShowCorpus(false);
+      return;
+    }
+    setShowCorpus(true);
+    loadCorpus();
+  }, [loadCorpus, showCorpus]);
+
+  const scenePointFromEvent = useCallback((event: { clientX: number; clientY: number }) => {
+    const rect = sceneRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * sceneSize.width;
+    const y = ((event.clientY - rect.top) / Math.max(1, rect.height)) * sceneSize.height;
+    return { x, y };
+  }, [sceneSize]);
+
+  const statText = `${t('message.kbDialog.vectorProjection', '投影')} ${Math.min(visibleLimit, allPoints.length)}/${allPoints.length} ${t('message.kbDialog.points', '点')} · ${visibleDistribution.originalDimensions}D${visibleDistribution.hasMore ? ` · ${t('message.kbDialog.sampled', '已采样')}` : ''}`;
   return (
     <div
+      ref={sceneRef}
       class="oh-kb-vector-scene"
       onPointerDown={(event) => {
-        dragRef.current = { x: event.clientX, y: event.clientY };
+        pointerRef.current = {
+          pointerId: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+          startX: event.clientX,
+          startY: event.clientY,
+          dragged: false,
+        };
         event.currentTarget.setPointerCapture(event.pointerId);
       }}
       onPointerMove={(event) => {
-        const previous = dragRef.current;
-        if (!previous) return;
+        const previous = pointerRef.current;
+        if (!previous || previous.pointerId !== event.pointerId) return;
         const dx = event.clientX - previous.x;
         const dy = event.clientY - previous.y;
-        dragRef.current = { x: event.clientX, y: event.clientY };
-        setYaw((value) => value + dx * 0.01);
-        setPitch((value) => Math.max(-1.18, Math.min(1.18, value + dy * 0.008)));
+        const moved = Math.hypot(event.clientX - previous.startX, event.clientY - previous.startY);
+        pointerRef.current = { ...previous, x: event.clientX, y: event.clientY, dragged: previous.dragged || moved > 4 };
+        setYaw((value) => value + dx * 0.010);
+        setPitch((value) => clampKnowledgeNumber(value + dy * 0.008, -1.18, 1.18));
       }}
       onPointerUp={(event) => {
-        dragRef.current = null;
-        event.currentTarget.releasePointerCapture(event.pointerId);
+        const previous = pointerRef.current;
+        pointerRef.current = null;
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        if (previous?.dragged) return;
+        const point = scenePointFromEvent(event);
+        if (!point) return;
+        const nearest = nearestKnowledgeVectorPoint(projected, point);
+        setSelectedId(nearest?.point.id ?? null);
       }}
-      onPointerCancel={() => {
-        dragRef.current = null;
+      onPointerCancel={(event) => {
+        pointerRef.current = null;
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
       }}
       onWheel={(event) => {
         event.preventDefault();
-        setZoom((value) => Math.max(0.62, Math.min(2.4, value - event.deltaY * 0.0014)));
+        const factor = Math.exp(-event.deltaY * KB_VECTOR_SCROLL_ZOOM_SENSITIVITY);
+        setZoom((value) => clampKnowledgeNumber(value * factor, KB_VECTOR_MIN_ZOOM, KB_VECTOR_MAX_ZOOM));
       }}
     >
-      <svg class="oh-kb-vector-svg" viewBox="0 0 720 360" role="img" aria-label={t('message.kbDialog.vectorSpace', '向量空间')}>
+      <svg
+        class="oh-kb-vector-svg"
+        viewBox={`0 0 ${sceneSize.width} ${sceneSize.height}`}
+        role="img"
+        aria-label={t('message.kbDialog.vectorSpace', '向量空间')}
+      >
         <g class="oh-kb-vector-grid">
-          <circle cx="360" cy="180" r="54" />
-          <circle cx="360" cy="180" r="108" />
-          <circle cx="360" cy="180" r="162" />
-          {Array.from({ length: 8 }).map((_, index) => {
-            const angle = (index * Math.PI) / 4;
-            return (
-              <line
-                key={index}
-                x1={360 + Math.cos(angle) * 28}
-                y1={180 + Math.sin(angle) * 28}
-                x2={360 + Math.cos(angle) * 162}
-                y2={180 + Math.sin(angle) * 162}
-              />
-            );
-          })}
+          {gridRings.map((ring) => <path key={`ring-${ring.radius}`} d={ring.path} />)}
+          {gridSpokes.map((spoke, index) => (
+            <line key={`spoke-${index}`} x1={spoke.inner.x} y1={spoke.inner.y} x2={spoke.outer.x} y2={spoke.outer.y} />
+          ))}
         </g>
         <g class="oh-kb-vector-axes">
-          <line x1="360" y1="180" x2="525" y2="180" />
-          <line x1="360" y1="180" x2="360" y2="36" />
-          <line x1="360" y1="180" x2="260" y2="248" />
+          {KB_VECTOR_AXIS_SPECS.map((axis) => (
+            <KnowledgeVectorAxis
+              key={axis.label}
+              axis={axis}
+              axisScale={axisScale}
+              pitch={pitch}
+              sceneSize={sceneSize}
+              yaw={yaw}
+              zoom={zoom}
+            />
+          ))}
         </g>
         {[...projected].sort((a, b) => a.depth - b.depth).map((item, index) => (
           <circle
@@ -3526,67 +4056,374 @@ function KnowledgeVectorDistributionScene({
             class={`oh-kb-vector-point is-${item.point.kind} ${selectedId === item.point.id ? 'is-selected' : ''}`}
             cx={item.x}
             cy={item.y}
-            r={item.radius}
-            style={{ animationDelay: `${Math.min(index * 12, 520)}ms` }}
-            onClick={(event) => {
-              event.stopPropagation();
-              setSelectedId(item.point.id);
-            }}
+            r={item.radius * (selectedId === item.point.id ? 1.22 : 1)}
+            style={{ animationDelay: `${Math.min(index * 7, 640)}ms` }}
           />
         ))}
       </svg>
-      <div class="oh-kb-vector-stats">
-        {distribution.points.length} {t('message.kbDialog.points', '点')} · {distribution.originalDimensions}D
+      <div class="oh-kb-vector-stats" onPointerDown={(event) => event.stopPropagation()}>{statText}</div>
+      <div class="oh-kb-vector-controls" onPointerDown={(event) => event.stopPropagation()}>
+        <button
+          type="button"
+          class="oh-kb-vector-control oh-tap-press"
+          onClick={() => setZoom((value) => clampKnowledgeNumber(value / KB_VECTOR_ZOOM_BUTTON_FACTOR, KB_VECTOR_MIN_ZOOM, KB_VECTOR_MAX_ZOOM))}
+          disabled={zoom <= KB_VECTOR_MIN_ZOOM + 0.001}
+          title={t('message.kbDialog.zoomOut', '缩小')}
+          aria-label={t('message.kbDialog.zoomOut', '缩小')}
+        >-</button>
+        <span>{Math.round(zoom * 100)}% · {t('message.kbDialog.tick', '刻度')} {formatKnowledgeAxisValue(axisScale.step)}</span>
+        <button
+          type="button"
+          class="oh-kb-vector-control oh-tap-press"
+          onClick={() => setZoom((value) => clampKnowledgeNumber(value * KB_VECTOR_ZOOM_BUTTON_FACTOR, KB_VECTOR_MIN_ZOOM, KB_VECTOR_MAX_ZOOM))}
+          disabled={zoom >= KB_VECTOR_MAX_ZOOM - 0.001}
+          title={t('message.kbDialog.zoomIn', '放大')}
+          aria-label={t('message.kbDialog.zoomIn', '放大')}
+        >+</button>
+        <button
+          type="button"
+          class="oh-kb-vector-control is-reset oh-tap-press"
+          onClick={resetViewport}
+          title={t('message.kbDialog.resetView', '重置视角')}
+          aria-label={t('message.kbDialog.resetView', '重置视角')}
+        >{t('message.kbDialog.resetViewShort', '重置')}</button>
       </div>
-      <div class="oh-kb-vector-legend" aria-hidden>
-        <span><i class="is-corpus" />{t('message.kbDialog.corpus', '全量')}</span>
-        <span><i class="is-match" />{t('message.kbDialog.matches', '匹配')}</span>
-        <span><i class="is-query" />{t('message.kbDialog.queryVector', '查询')}</span>
+      <div class="oh-kb-vector-overlay-actions" onPointerDown={(event) => event.stopPropagation()}>
+        <button type="button" class="oh-kb-dialog-action oh-tap-press" onClick={toggleCorpus}>
+          {showCorpus ? t('message.kbDialog.hideCorpus', '隐藏全量') : t('message.kbDialog.overlayCorpus', '叠加全量')}
+        </button>
       </div>
-      {selected && selectedProjected ? (
-        <div
-          class="oh-kb-vector-popover"
-          style={{
-            left: `${Math.max(12, Math.min(468, selectedProjected.x + 12))}px`,
-            top: `${Math.max(12, Math.min(244, selectedProjected.y - 84))}px`,
-          }}
-        >
-          <strong>{selected.title || selected.id}</strong>
-          {selected.preview ? <span>{selected.preview}</span> : null}
-          {selected.score != null ? <em>score {selected.score.toFixed(4)}</em> : null}
+      {(showCorpus && (corpusLoading || corpusError || corpusDistribution)) ? (
+        <div class={`oh-kb-vector-status ${corpusError ? 'is-error' : ''}`} onPointerDown={(event) => event.stopPropagation()}>
+          {corpusLoading
+            ? t('message.kbDialog.corpusLoading', '正在按需采样并叠加全量向量。')
+            : corpusError
+              ? `${t('message.kbDialog.corpusLoadFailed', '全量向量加载失败：')}${corpusError}`
+              : corpusDistribution?.hasMore
+                ? t('message.kbDialog.corpusSampled', '已叠加 {count} 个全量采样点；数据量较大时会采样展示以保持流畅。').replace('{count}', String(corpusDistribution.points.length))
+                : t('message.kbDialog.corpusReady', '已叠加 {count} 个全量向量点。').replace('{count}', String(corpusDistribution?.points.length ?? 0))}
         </div>
       ) : null}
+      <div class="oh-kb-vector-legend" aria-hidden onPointerDown={(event) => event.stopPropagation()}>
+        {visibleKinds.has('corpus') ? <span><i class="is-corpus" />{t('message.kbDialog.corpus', '全量')}</span> : null}
+        {visibleKinds.has('match') ? <span><i class="is-match" />{t('message.kbDialog.matches', '匹配')}</span> : null}
+        {visibleKinds.has('query') ? <span><i class="is-query" />{t('message.kbDialog.queryVector', '查询')}</span> : null}
+      </div>
+      {selected && selectedProjected ? (
+        <KnowledgeVectorPointPopover
+          projection={selectedProjected}
+          sceneSize={sceneSize}
+          onClose={() => setSelectedId(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function KnowledgeVectorAxis({
+  axis,
+  axisScale,
+  pitch,
+  sceneSize,
+  yaw,
+  zoom,
+}: {
+  axis: KnowledgeVectorAxisSpec;
+  axisScale: KnowledgeVectorAxisScale;
+  pitch: number;
+  sceneSize: KnowledgeVectorSceneSize;
+  yaw: number;
+  zoom: number;
+}) {
+  const start = projectKnowledgeSceneCoordinate(-axis.x * KB_VECTOR_AXIS_EXTENT, -axis.y * KB_VECTOR_AXIS_EXTENT, -axis.z * KB_VECTOR_AXIS_EXTENT, sceneSize, yaw, pitch, zoom);
+  const origin = projectKnowledgeSceneCoordinate(0, 0, 0, sceneSize, yaw, pitch, zoom);
+  const end = projectKnowledgeSceneCoordinate(axis.x * KB_VECTOR_AXIS_EXTENT, axis.y * KB_VECTOR_AXIS_EXTENT, axis.z * KB_VECTOR_AXIS_EXTENT, sceneSize, yaw, pitch, zoom);
+  const tickCount = Math.floor(KB_VECTOR_AXIS_EXTENT / axisScale.step);
+  const ticks: Array<{ value: number; point: KnowledgeSceneProjection; major: boolean; direction: { x: number; y: number } }> = [];
+  for (let index = -tickCount; index <= tickCount; index += 1) {
+    if (index === 0) continue;
+    const value = index * axisScale.step;
+    if (Math.abs(value) > KB_VECTOR_AXIS_EXTENT + 1e-6) continue;
+    const point = projectKnowledgeSceneCoordinate(axis.x * value, axis.y * value, axis.z * value, sceneSize, yaw, pitch, zoom);
+    ticks.push({
+      value,
+      point,
+      major: isKnowledgeAxisStepMultiple(value, axisScale.labelStep),
+      direction: knowledgeAxisTickDirection(sceneSize, axis, value, yaw, pitch, zoom),
+    });
+  }
+  return (
+    <g class={`oh-kb-vector-axis is-${axis.label.toLowerCase()}`}>
+      <line class="is-negative" x1={start.x} y1={start.y} x2={origin.x} y2={origin.y} />
+      <line class="is-positive" x1={origin.x} y1={origin.y} x2={end.x} y2={end.y} />
+      {ticks.map((tick) => {
+        const length = tick.major ? KB_VECTOR_AXIS_TICK_SCREEN_LENGTH : KB_VECTOR_AXIS_MINOR_TICK_SCREEN_LENGTH;
+        const x1 = tick.point.x - tick.direction.x * (length / 2);
+        const y1 = tick.point.y - tick.direction.y * (length / 2);
+        const x2 = tick.point.x + tick.direction.x * (length / 2);
+        const y2 = tick.point.y + tick.direction.y * (length / 2);
+        const labelX = tick.point.x + tick.direction.x * (length + 7);
+        const labelY = tick.point.y + tick.direction.y * (length + 7);
+        return (
+          <g key={`${axis.label}-${tick.value}`} class={tick.major ? 'is-major' : 'is-minor'}>
+            <line class="oh-kb-vector-axis-tick" x1={x1} y1={y1} x2={x2} y2={y2} />
+            {tick.major && isKnowledgeLabelVisible(labelX, labelY, sceneSize) ? (
+              <text class="oh-kb-vector-axis-tick-label" x={labelX} y={labelY}>{axis.label} {formatKnowledgeAxisValue(tick.value)}</text>
+            ) : null}
+          </g>
+        );
+      })}
+      {isKnowledgeLabelVisible(end.x, end.y, sceneSize, 26) ? (
+        <text class="oh-kb-vector-axis-label" x={end.x + 8} y={end.y - 8}>{axis.label}</text>
+      ) : null}
+    </g>
+  );
+}
+
+function KnowledgeVectorPointPopover({
+  projection,
+  sceneSize,
+  onClose,
+}: {
+  projection: KnowledgeProjectedVectorPoint;
+  sceneSize: KnowledgeVectorSceneSize;
+  onClose: () => void;
+}) {
+  const width = Math.min(KB_VECTOR_POPOVER_WIDTH, Math.max(180, sceneSize.width - KB_VECTOR_POPOVER_PADDING * 2));
+  const left = clampKnowledgeNumber(projection.x + 14, KB_VECTOR_POPOVER_PADDING, Math.max(KB_VECTOR_POPOVER_PADDING, sceneSize.width - width - KB_VECTOR_POPOVER_PADDING));
+  const top = clampKnowledgeNumber(projection.y - 120, KB_VECTOR_POPOVER_PADDING, Math.max(KB_VECTOR_POPOVER_PADDING, sceneSize.height - 228));
+  const point = projection.point;
+  return (
+    <div
+      class="oh-kb-vector-popover"
+      style={{ left: `${left}px`, top: `${top}px`, width: `${width}px` }}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <div class="oh-kb-vector-popover-head">
+        <strong>{point.title || point.id}</strong>
+        <button type="button" class="oh-kb-vector-popover-close oh-tap-press" onClick={onClose} aria-label={t('common.close', '关闭')}>
+          <MessageIcon name="close" size={13} />
+        </button>
+      </div>
+      <em>{knowledgeVectorKindLabel(point.kind)}</em>
+      <div class="oh-kb-vector-popover-metrics">
+        <span>X {formatKnowledgeCoordinate(point.x)}</span>
+        <span>Y {formatKnowledgeCoordinate(point.y)}</span>
+        <span>Z {formatKnowledgeCoordinate(point.z)}</span>
+        <span>{t('message.kbDialog.depth', '深度')} {formatKnowledgeCoordinate(projection.depth)}</span>
+        {point.score != null ? <span>{t('message.kbDialog.score', '召回')} {formatKnowledgeScore(point.score)}</span> : null}
+        {point.rerankScore != null ? <span>{t('message.kbDialog.rerankScore', '重排')} {formatKnowledgeScore(point.rerankScore)}</span> : null}
+      </div>
+      {point.preview ? <span>{point.preview}</span> : null}
+      <code>{point.id}</code>
     </div>
   );
 }
 
 function projectKnowledgeVectorPoints(
   points: KnowledgeVectorDistributionPoint[],
+  sceneSize: KnowledgeVectorSceneSize,
   yaw: number,
   pitch: number,
   zoom: number,
-): Array<KnowledgeVectorDistributionPoint & { point: KnowledgeVectorDistributionPoint; x: number; y: number; depth: number; radius: number }> {
+): KnowledgeProjectedVectorPoint[] {
+  return points.map((point) => {
+    const projected = projectKnowledgeSceneCoordinate(point.x, point.y, point.z, sceneSize, yaw, pitch, zoom);
+    const baseRadius = point.kind === 'query' ? 8.5 : point.kind === 'match' ? 6.7 : 4.7;
+    return {
+      point,
+      x: projected.x,
+      y: projected.y,
+      depth: projected.depth,
+      perspective: projected.perspective,
+      radius: baseRadius * projected.perspective,
+    };
+  });
+}
+
+function projectKnowledgeSceneCoordinate(
+  x: number,
+  y: number,
+  z: number,
+  sceneSize: KnowledgeVectorSceneSize,
+  yaw: number,
+  pitch: number,
+  zoom: number,
+): KnowledgeSceneProjection {
+  const centerX = sceneSize.width / 2;
+  const centerY = sceneSize.height / 2;
+  const radius = Math.min(sceneSize.width, sceneSize.height) * 0.34 * zoom;
   const cosY = Math.cos(yaw);
   const sinY = Math.sin(yaw);
   const cosP = Math.cos(pitch);
   const sinP = Math.sin(pitch);
-  const radius = 122 * zoom;
-  return points.map((point) => {
-    const x1 = point.x * cosY + point.z * sinY;
-    const z1 = -point.x * sinY + point.z * cosY;
-    const y1 = point.y * cosP - z1 * sinP;
-    const z2 = point.y * sinP + z1 * cosP;
-    const perspective = Math.max(0.42, Math.min(1.35, 1 / (1.9 - z2 * 0.46)));
-    const baseRadius = point.kind === 'query' ? 8.5 : point.kind === 'match' ? 6.8 : 4.8;
-    return {
-      ...point,
-      point,
-      x: 360 + x1 * radius * perspective,
-      y: 180 - y1 * radius * perspective,
-      depth: z2,
-      radius: baseRadius * perspective,
-    };
-  });
+  const x1 = x * cosY + z * sinY;
+  const z1 = -x * sinY + z * cosY;
+  const y1 = y * cosP - z1 * sinP;
+  const z2 = y * sinP + z1 * cosP;
+  const perspective = clampKnowledgeNumber(1 / (1.9 - z2 * 0.46), 0.42, 1.35);
+  return {
+    x: centerX + x1 * radius * perspective,
+    y: centerY - y1 * radius * perspective,
+    depth: z2,
+    perspective,
+  };
+}
+
+function resolveKnowledgeVectorAxisScale(
+  sceneSize: KnowledgeVectorSceneSize,
+  zoom: number,
+): KnowledgeVectorAxisScale {
+  const baseRadius = Math.min(sceneSize.width, sceneSize.height) * 0.34;
+  const pixelsPerUnit = Math.max(1, baseRadius * zoom);
+  const step = closestKnowledgeAxisStep(KB_VECTOR_AXIS_TARGET_TICK_GAP / pixelsPerUnit);
+  const labelStep = step <= 0.05 ? 0.10 : step <= 0.10 ? 0.20 : step <= 0.25 ? 0.50 : step;
+  return { step, labelStep, gridStep: Math.max(0.10, labelStep) };
+}
+
+function closestKnowledgeAxisStep(rawStep: number): number {
+  const target = clampKnowledgeNumber(rawStep, 0.05, 1);
+  const steps = [0.05, 0.10, 0.20, 0.25, 0.50, 1.0];
+  let best = steps[0];
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (const step of steps) {
+    const score = Math.abs(Math.log(target / step));
+    if (score < bestScore) {
+      best = step;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function knowledgeVectorCirclePath(
+  sceneSize: KnowledgeVectorSceneSize,
+  radius: number,
+  yaw: number,
+  pitch: number,
+  zoom: number,
+): string {
+  const segments = 72;
+  let path = '';
+  for (let index = 0; index <= segments; index += 1) {
+    const angle = Math.PI * 2 * index / segments;
+    const projected = projectKnowledgeSceneCoordinate(Math.cos(angle) * radius, Math.sin(angle) * radius, 0, sceneSize, yaw, pitch, zoom);
+    path += `${index === 0 ? 'M' : 'L'}${projected.x.toFixed(2)} ${projected.y.toFixed(2)} `;
+  }
+  return path.trim();
+}
+
+function nearestKnowledgeVectorPoint(
+  projected: KnowledgeProjectedVectorPoint[],
+  offset: { x: number; y: number },
+): KnowledgeProjectedVectorPoint | null {
+  let nearest: KnowledgeProjectedVectorPoint | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const point of projected) {
+    const distance = Math.hypot(point.x - offset.x, point.y - offset.y);
+    if (distance < bestDistance) {
+      nearest = point;
+      bestDistance = distance;
+    }
+  }
+  return bestDistance <= KB_VECTOR_POINT_HIT_RADIUS ? nearest : null;
+}
+
+function knowledgeAxisTickDirection(
+  sceneSize: KnowledgeVectorSceneSize,
+  axis: KnowledgeVectorAxisSpec,
+  value: number,
+  yaw: number,
+  pitch: number,
+  zoom: number,
+): { x: number; y: number } {
+  const center = projectKnowledgeSceneCoordinate(axis.x * value, axis.y * value, axis.z * value, sceneSize, yaw, pitch, zoom);
+  const side = projectKnowledgeSceneCoordinate(axis.x * value + axis.tickX * 0.08, axis.y * value + axis.tickY * 0.08, axis.z * value + axis.tickZ * 0.08, sceneSize, yaw, pitch, zoom);
+  const direct = normalizeKnowledgeOffset(side.x - center.x, side.y - center.y, { x: 0, y: 0 });
+  if (direct.x !== 0 || direct.y !== 0) return direct;
+  const start = projectKnowledgeSceneCoordinate(-axis.x, -axis.y, -axis.z, sceneSize, yaw, pitch, zoom);
+  const end = projectKnowledgeSceneCoordinate(axis.x, axis.y, axis.z, sceneSize, yaw, pitch, zoom);
+  return normalizeKnowledgeOffset(-(end.y - start.y), end.x - start.x, { x: 0, y: -1 });
+}
+
+function normalizeKnowledgeOffset(
+  x: number,
+  y: number,
+  fallback: { x: number; y: number },
+): { x: number; y: number } {
+  const distance = Math.hypot(x, y);
+  if (!Number.isFinite(distance) || distance <= 1e-4) return fallback;
+  return { x: x / distance, y: y / distance };
+}
+
+function isKnowledgeAxisStepMultiple(value: number, step: number): boolean {
+  if (!Number.isFinite(value) || !Number.isFinite(step) || step <= 0) return false;
+  const scaled = value / step;
+  return Math.abs(scaled - Math.round(scaled)) < 1e-6;
+}
+
+function isKnowledgeLabelVisible(
+  x: number,
+  y: number,
+  sceneSize: KnowledgeVectorSceneSize,
+  padding = 52,
+): boolean {
+  return x >= -padding && y >= -padding && x <= sceneSize.width + padding && y <= sceneSize.height + padding;
+}
+
+function mergeKnowledgeVectorDistributions(
+  retrieval: KnowledgeVectorDistributionData,
+  corpus: KnowledgeVectorDistributionData,
+): KnowledgeVectorDistributionData {
+  const highlightedIds = new Set(
+    retrieval.points
+      .filter((point) => point.kind !== 'corpus')
+      .map((point) => point.id)
+      .filter(Boolean),
+  );
+  const points = [
+    ...corpus.points.filter((point) => !highlightedIds.has(point.id)),
+    ...retrieval.points,
+  ];
+  return {
+    ...retrieval,
+    points,
+    originalDimensions: retrieval.originalDimensions > 0 ? retrieval.originalDimensions : corpus.originalDimensions,
+    sampledCount: points.length,
+    hasMore: corpus.hasMore,
+    durationMs: corpus.durationMs,
+    generatedAt: corpus.generatedAt ?? retrieval.generatedAt,
+  };
+}
+
+function knowledgeVectorKindLabel(kind: KnowledgeVectorDistributionPoint['kind']): string {
+  switch (kind) {
+    case 'query': return t('message.kbDialog.kind.query', '查询向量');
+    case 'match': return t('message.kbDialog.kind.match', '命中结果');
+    case 'corpus': return t('message.kbDialog.kind.corpus', '全量采样');
+  }
+}
+
+function clampKnowledgeNumber(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.max(min, Math.min(max, value));
+}
+
+function formatKnowledgeAxisValue(value: number): string {
+  const normalized = Math.abs(value) < 1e-9 ? 0 : value;
+  if (Math.abs(normalized) >= 1) return normalized.toFixed(1);
+  return normalized.toFixed(2).replace(/0$/, '');
+}
+
+function formatKnowledgeCoordinate(value: number): string {
+  if (!Number.isFinite(value)) return '-';
+  const normalized = Math.abs(value) < 1e-9 ? 0 : value;
+  return Math.abs(normalized) < 0.1 ? normalized.toFixed(3) : normalized.toFixed(2);
+}
+
+function formatKnowledgeScore(value: number): string {
+  if (!Number.isFinite(value)) return '-';
+  return (Math.abs(value) < 1e-9 ? 0 : value).toFixed(4);
 }
 
 function KbKv({ label, value }: { label: string; value: unknown }) {
@@ -3594,10 +4431,12 @@ function KbKv({ label, value }: { label: string; value: unknown }) {
     ? value.join(', ')
     : value == null || value === ''
       ? '—'
-      : String(value);
+      : typeof value === 'object'
+        ? JSON.stringify(value)
+        : String(value);
   return (
     <div class="oh-kb-kv">
-      <span>{label}</span>
+      <span>{knowledgeFieldLabel(label)}</span>
       <span title={text}>{text}</span>
     </div>
   );

@@ -933,6 +933,10 @@ button.oh-message-context-capsule {
   background: color-mix(in srgb, #000 42%, transparent);
   backdrop-filter: blur(10px);
 }
+.oh-kb-dialog-backdrop.is-nested {
+  z-index: 1460;
+  background: color-mix(in srgb, #000 36%, transparent);
+}
 .oh-kb-dialog-card {
   width: min(920px, calc(100vw - 24px));
   max-height: min(82vh, 760px);
@@ -944,6 +948,10 @@ button.oh-message-context-capsule {
   background: var(--m3-surface-container);
   color: var(--m3-on-surface);
   box-shadow: var(--m3-elev-3);
+}
+.oh-kb-dialog-card-detail {
+  width: min(860px, calc(100vw - 24px));
+  max-height: min(84vh, 780px);
 }
 .oh-kb-dialog-header {
   display: flex;
@@ -1038,26 +1046,113 @@ button.oh-message-context-capsule {
 .oh-kb-dialog-pre.is-context {
   max-height: 320px;
 }
+.oh-kb-dialog-pre.is-json {
+  max-height: 260px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+}
 .oh-kb-dialog-error {
   margin: 10px 0 0;
   color: var(--m3-error);
   font-size: 12px;
+}
+.oh-kb-dialog-loading {
+  min-height: 128px;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
+  background: color-mix(in srgb, var(--m3-surface) 70%, transparent);
+  color: var(--m3-on-surface-variant);
+  font-size: 12px;
+}
+.oh-kb-dialog-loading > span {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 3px solid color-mix(in srgb, var(--m3-primary) 22%, transparent);
+  border-top-color: var(--m3-primary);
+  animation: oh-spin 880ms linear infinite;
+}
+.oh-kb-dialog-loading p {
+  margin: 0;
+}
+.oh-kb-dialog-notice {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
+  background: color-mix(in srgb, var(--m3-surface) 76%, transparent);
+  color: var(--m3-on-surface-variant);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.oh-kb-dialog-notice.is-warning {
+  border-color: color-mix(in srgb, #f59e0b 42%, var(--m3-outline-variant));
+  background: color-mix(in srgb, #f59e0b 10%, var(--m3-surface));
+}
+.oh-kb-dialog-notice span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .oh-kb-dialog-muted {
   margin: 0;
   color: var(--m3-on-surface-variant);
   font-size: 12px;
 }
+.oh-kb-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.oh-kb-tag-list span {
+  min-height: 25px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 28%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary-container) 42%, var(--m3-surface));
+  color: var(--m3-on-surface);
+  font-size: 11px;
+  font-weight: 760;
+}
 .oh-kb-hit-list {
   display: grid;
   gap: 10px;
 }
 .oh-kb-hit-card {
+  width: 100%;
   min-width: 0;
+  appearance: none;
+  text-align: left;
+  cursor: pointer;
   padding: 10px;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 78%, transparent);
   border-radius: 12px;
   background: var(--m3-surface);
+  color: inherit;
+  transition:
+    transform 180ms var(--oh-motion-standard),
+    border-color 180ms var(--oh-motion-standard),
+    background 180ms var(--oh-motion-standard),
+    box-shadow 180ms var(--oh-motion-standard);
+}
+.oh-kb-hit-card:hover {
+  transform: translate3d(0, -1px, 0) scale(1.006);
+  border-color: color-mix(in srgb, var(--m3-primary) 44%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-primary-container) 20%, var(--m3-surface));
+  box-shadow: 0 14px 28px -24px color-mix(in srgb, var(--m3-primary) 72%, transparent);
+}
+.oh-kb-hit-card:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--m3-primary) 72%, transparent);
+  outline-offset: 2px;
 }
 .oh-kb-hit-title {
   display: flex;
@@ -1096,7 +1191,8 @@ button.oh-message-context-capsule {
 }
 .oh-kb-vector-scene {
   position: relative;
-  min-height: 360px;
+  height: 380px;
+  min-height: 380px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 80%, transparent);
   border-radius: 16px;
@@ -1105,10 +1201,15 @@ button.oh-message-context-capsule {
     color-mix(in srgb, var(--m3-surface-container-highest) 58%, transparent);
   touch-action: none;
   user-select: none;
+  cursor: grab;
+  box-shadow: 0 18px 42px -34px color-mix(in srgb, #000 46%, transparent);
+}
+.oh-kb-vector-scene:active {
+  cursor: grabbing;
 }
 .oh-kb-vector-svg {
   width: 100%;
-  height: 360px;
+  height: 100%;
   display: block;
 }
 .oh-kb-vector-grid,
@@ -1117,10 +1218,58 @@ button.oh-message-context-capsule {
   stroke: color-mix(in srgb, var(--m3-outline-variant) 56%, transparent);
   stroke-width: 1;
 }
-.oh-kb-vector-axes {
-  stroke: color-mix(in srgb, var(--m3-primary) 46%, var(--m3-outline-variant));
-  stroke-width: 1.4;
+.oh-kb-vector-axis {
+  fill: none;
+  stroke: currentColor;
+  color: color-mix(in srgb, var(--m3-primary) 52%, var(--m3-outline-variant));
+}
+.oh-kb-vector-axis.is-y {
+  color: color-mix(in srgb, var(--m3-tertiary) 54%, var(--m3-outline-variant));
+}
+.oh-kb-vector-axis.is-z {
+  color: color-mix(in srgb, var(--m3-secondary) 54%, var(--m3-outline-variant));
+}
+.oh-kb-vector-axis > line {
   stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.oh-kb-vector-axis > line.is-negative {
+  opacity: 0.28;
+  stroke-width: 1.1;
+}
+.oh-kb-vector-axis > line.is-positive {
+  opacity: 0.78;
+  stroke-width: 1.55;
+}
+.oh-kb-vector-axis-tick {
+  stroke: currentColor;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.oh-kb-vector-axis .is-major .oh-kb-vector-axis-tick {
+  opacity: 0.62;
+  stroke-width: 1.15;
+}
+.oh-kb-vector-axis .is-minor .oh-kb-vector-axis-tick {
+  opacity: 0.38;
+  stroke-width: 0.9;
+}
+.oh-kb-vector-axis-label,
+.oh-kb-vector-axis-tick-label {
+  fill: currentColor;
+  stroke: none;
+  text-anchor: middle;
+  dominant-baseline: central;
+  font-weight: 860;
+  pointer-events: none;
+}
+.oh-kb-vector-axis-label {
+  font-size: 11px;
+  opacity: 0.9;
+}
+.oh-kb-vector-axis-tick-label {
+  font-size: 9.5px;
+  opacity: 0.72;
 }
 .oh-kb-vector-point {
   cursor: pointer;
@@ -1129,6 +1278,7 @@ button.oh-message-context-capsule {
   transform-origin: center;
   animation: oh-kb-vector-point-in 520ms var(--oh-motion-spring) both;
   filter: drop-shadow(0 6px 8px color-mix(in srgb, currentColor 22%, transparent));
+  vector-effect: non-scaling-stroke;
 }
 .oh-kb-vector-point.is-corpus {
   fill: #38bdf8;
@@ -1142,6 +1292,9 @@ button.oh-message-context-capsule {
 .oh-kb-vector-point.is-selected {
   stroke: color-mix(in srgb, #fff 72%, currentColor);
   stroke-width: 2;
+  filter:
+    drop-shadow(0 0 10px color-mix(in srgb, currentColor 42%, transparent))
+    drop-shadow(0 8px 12px color-mix(in srgb, currentColor 22%, transparent));
 }
 @keyframes oh-kb-vector-point-in {
   0% { opacity: 0; transform: scale(0.42); }
@@ -1150,7 +1303,10 @@ button.oh-message-context-capsule {
 }
 .oh-kb-vector-stats,
 .oh-kb-vector-legend,
-.oh-kb-vector-popover {
+.oh-kb-vector-popover,
+.oh-kb-vector-controls,
+.oh-kb-vector-overlay-actions,
+.oh-kb-vector-status {
   position: absolute;
   z-index: 2;
 }
@@ -1164,6 +1320,76 @@ button.oh-message-context-capsule {
   color: var(--m3-on-surface-variant);
   font-size: 11px;
   font-weight: 780;
+}
+.oh-kb-vector-controls {
+  top: 10px;
+  right: 12px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 5px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 64%, transparent);
+  background: color-mix(in srgb, var(--m3-surface) 86%, transparent);
+  color: var(--m3-on-surface-variant);
+  font-size: 11px;
+  font-weight: 820;
+  box-shadow: 0 10px 24px -20px color-mix(in srgb, #000 48%, transparent);
+}
+.oh-kb-vector-control {
+  min-width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
+  border-radius: 999px;
+  background: var(--m3-surface);
+  color: var(--m3-on-surface);
+  font-size: 14px;
+  font-weight: 860;
+}
+.oh-kb-vector-control.is-reset {
+  min-width: 42px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+.oh-kb-vector-control:disabled {
+  opacity: 0.45;
+}
+.oh-kb-vector-controls > span {
+  min-width: 96px;
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.oh-kb-vector-overlay-actions {
+  top: 54px;
+  right: 12px;
+}
+.oh-kb-vector-overlay-actions .oh-kb-dialog-action {
+  min-height: 30px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m3-surface) 86%, transparent);
+  font-size: 11px;
+}
+.oh-kb-vector-status {
+  left: 12px;
+  top: 50px;
+  max-width: min(520px, calc(100% - 190px));
+  padding: 7px 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 24%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-surface) 86%, transparent);
+  color: var(--m3-on-surface-variant);
+  font-size: 11px;
+  font-weight: 720;
+  line-height: 1.35;
+}
+.oh-kb-vector-status.is-error {
+  border-color: color-mix(in srgb, var(--m3-error) 44%, var(--m3-outline-variant));
+  color: var(--m3-error);
 }
 .oh-kb-vector-legend {
   left: 12px;
@@ -1193,24 +1419,42 @@ button.oh-message-context-capsule {
 .oh-kb-vector-legend i.is-match { background: #f59e0b; }
 .oh-kb-vector-legend i.is-query { background: #ef4444; }
 .oh-kb-vector-popover {
-  width: 240px;
   display: grid;
-  gap: 5px;
-  padding: 10px 11px;
+  gap: 7px;
+  padding: 11px 12px;
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--m3-primary) 34%, var(--m3-outline-variant));
   background: color-mix(in srgb, var(--m3-surface) 96%, transparent);
   color: var(--m3-on-surface);
   box-shadow: var(--m3-elev-3);
   animation: oh-dialog-pop-in 220ms var(--oh-motion-spring) both;
-  pointer-events: none;
+  pointer-events: auto;
+}
+.oh-kb-vector-popover-head {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .oh-kb-vector-popover strong {
   min-width: 0;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
+}
+.oh-kb-vector-popover-close {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 70%, transparent);
+  background: var(--m3-surface);
+  color: var(--m3-on-surface-variant);
 }
 .oh-kb-vector-popover span {
   color: var(--m3-on-surface-variant);
@@ -1222,6 +1466,34 @@ button.oh-message-context-capsule {
   font-size: 11px;
   font-style: normal;
   font-weight: 780;
+}
+.oh-kb-vector-popover code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 9px;
+  padding: 5px 7px;
+  background: color-mix(in srgb, var(--m3-surface-container-highest) 72%, transparent);
+  color: var(--m3-on-surface-variant);
+  font-size: 10px;
+}
+.oh-kb-vector-popover-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+.oh-kb-vector-popover-metrics span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 9px;
+  padding: 5px 7px;
+  background: color-mix(in srgb, var(--m3-primary-container) 22%, var(--m3-surface));
+  color: var(--m3-on-surface);
+  font-variant-numeric: tabular-nums;
+  font-weight: 740;
 }
 .oh-kb-dialog-actions {
   display: flex;
@@ -1264,6 +1536,37 @@ button.oh-message-context-capsule {
   .oh-kb-vector-svg {
     min-height: 300px;
     height: 300px;
+  }
+  .oh-kb-vector-controls {
+    left: 10px;
+    right: 10px;
+    justify-content: center;
+  }
+  .oh-kb-vector-controls > span {
+    min-width: 84px;
+  }
+  .oh-kb-vector-stats {
+    top: 52px;
+    left: 10px;
+    right: 10px;
+    text-align: center;
+  }
+  .oh-kb-vector-overlay-actions {
+    top: 88px;
+    right: 10px;
+  }
+  .oh-kb-vector-status {
+    top: 124px;
+    left: 10px;
+    right: 10px;
+    max-width: none;
+  }
+  .oh-kb-vector-legend {
+    left: 10px;
+    right: 10px;
+  }
+  .oh-kb-vector-axis-tick-label {
+    font-size: 8px;
   }
   .oh-kb-vector-popover {
     width: min(220px, calc(100% - 24px));

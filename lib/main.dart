@@ -375,6 +375,7 @@ Future<void> _bootstrap() async {
     memoryController: memory.controller,
     cronsController: cronsController,
     instructionsController: instructions.controller,
+    knowledgeBaseController: knowledgeBase.controller,
     appInfo: appInfo,
   );
   unawaited(messageGateway.controller.initialize());

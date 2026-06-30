@@ -28,6 +28,7 @@ import '../../hardness/index.dart';
 import '../../home/index.dart'
     show SessionCacheHitTrend, SessionCacheHitDisplayMode;
 import '../../instructions/index.dart';
+import '../../knowledge_base/index.dart';
 import '../../mcp/index.dart';
 import '../../memory/index.dart';
 import '../../plugin_service/index.dart';
@@ -159,6 +160,7 @@ class WebMessagePlatformService {
     required MemoryController memoryController,
     required CronsController cronsController,
     required InstructionsController instructionsController,
+    KnowledgeBaseController? knowledgeBaseController,
     required AppInfo appInfo,
     String? cacheDirectoryPath,
     String? logsDirectoryPath,
@@ -170,6 +172,7 @@ class WebMessagePlatformService {
        _memoryController = memoryController,
        _cronsController = cronsController,
        _instructionsController = instructionsController,
+       _knowledgeBaseController = knowledgeBaseController,
        _appInfo = appInfo,
        _cacheDirectoryPath =
            cacheDirectoryPath ?? OpenHandPaths.defaultCacheDirectoryPath(),
@@ -190,6 +193,7 @@ class WebMessagePlatformService {
   final MemoryController _memoryController;
   final CronsController _cronsController;
   final InstructionsController _instructionsController;
+  final KnowledgeBaseController? _knowledgeBaseController;
   final AppInfo _appInfo;
   PluginServiceController? _pluginServiceController;
 
@@ -1520,6 +1524,16 @@ class WebMessagePlatformService {
       (shelf.Request r) => _withAuth(r, (_, _) => _listCronsHandler()),
     );
     router.get(
+      '/api/knowledge/vector-distribution',
+      (shelf.Request r) =>
+          _withAuth(r, (req, _) => _knowledgeVectorDistributionHandler(req)),
+    );
+    router.get(
+      '/api/knowledge/hit-detail',
+      (shelf.Request r) =>
+          _withAuth(r, (req, _) => _knowledgeHitDetailHandler(req)),
+    );
+    router.get(
       '/api/hardness/session',
       (shelf.Request r) => _withAuth(r, (_, _) => _hardnessSessionHandler()),
     );
@@ -1892,6 +1906,150 @@ class WebMessagePlatformService {
         )
         .toList(growable: false);
     return _json(HttpStatus.ok, <String, Object?>{'items': items});
+  }
+
+  Future<shelf.Response> _knowledgeVectorDistributionHandler(
+    shelf.Request request,
+  ) async {
+    if (!_config.knowledgeBaseEnabled) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'knowledge_base_disabled',
+      });
+    }
+    final controller = _knowledgeBaseController;
+    if (controller == null) {
+      return _json(HttpStatus.serviceUnavailable, <String, Object?>{
+        'error': 'knowledge_base_unavailable',
+      });
+    }
+    final rawMaxPoints = request.url.queryParameters['max_points'] ?? '';
+    final maxPoints = nonNegativeIntFromText(
+      rawMaxPoints,
+      fallback: kKnowledgeVectorDistributionDefaultMaxPoints,
+    ).clamp(1, 2000).toInt();
+    try {
+      final distribution = await controller.loadVectorDistribution(
+        maxPoints: maxPoints,
+      );
+      return _json(HttpStatus.ok, <String, Object?>{
+        'distribution': distribution.toJson(),
+      });
+    } catch (error, stack) {
+      silentLog(
+        'web_message_platform_service',
+        'knowledge vector distribution',
+        error,
+        stack,
+      );
+      return _json(HttpStatus.internalServerError, <String, Object?>{
+        'error': 'knowledge_vector_distribution_failed',
+        'message': '$error',
+      });
+    }
+  }
+
+  Future<shelf.Response> _knowledgeHitDetailHandler(
+    shelf.Request request,
+  ) async {
+    if (!_config.knowledgeBaseEnabled) {
+      return _json(HttpStatus.forbidden, <String, Object?>{
+        'error': 'knowledge_base_disabled',
+      });
+    }
+    final controller = _knowledgeBaseController;
+    if (controller == null) {
+      return _json(HttpStatus.serviceUnavailable, <String, Object?>{
+        'error': 'knowledge_base_unavailable',
+      });
+    }
+    final sourceId = (request.url.queryParameters['source_id'] ?? '').trim();
+    final chunkId = (request.url.queryParameters['chunk_id'] ?? '').trim();
+    if (sourceId.isEmpty || chunkId.isEmpty) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'source_id_and_chunk_id_required',
+      });
+    }
+    try {
+      final source = await controller.loadSource(sourceId);
+      if (source == null) {
+        return _json(HttpStatus.notFound, <String, Object?>{
+          'error': 'knowledge_source_not_found',
+        });
+      }
+      final chunks = await controller.loadChunksForSource(sourceId);
+      KnowledgeChunk? chunk;
+      for (final item in chunks) {
+        if (item.id == chunkId) {
+          chunk = item;
+          break;
+        }
+      }
+      if (chunk == null) {
+        return _json(HttpStatus.notFound, <String, Object?>{
+          'error': 'knowledge_chunk_not_found',
+          'source': _knowledgeSourcePayload(source),
+        });
+      }
+      return _json(HttpStatus.ok, <String, Object?>{
+        'source': _knowledgeSourcePayload(source),
+        'chunk': _knowledgeChunkPayload(chunk),
+      });
+    } catch (error, stack) {
+      silentLog(
+        'web_message_platform_service',
+        'knowledge hit detail',
+        error,
+        stack,
+      );
+      return _json(HttpStatus.internalServerError, <String, Object?>{
+        'error': 'knowledge_hit_detail_failed',
+        'message': '$error',
+      });
+    }
+  }
+
+  Map<String, Object?> _knowledgeSourcePayload(KnowledgeSource source) {
+    return <String, Object?>{
+      'id': source.id,
+      'title': source.title,
+      'kind': source.kind,
+      'original_path': source.originalPath,
+      'stored_path': source.storedPath,
+      'mime_type': source.mimeType,
+      'size_bytes': source.sizeBytes,
+      'content_hash': source.contentHash,
+      'status': source.status,
+      'error_message': source.errorMessage,
+      'document_time': source.documentTime?.toUtc().toIso8601String(),
+      'imported_at': source.importedAt.toUtc().toIso8601String(),
+      'indexed_at': source.indexedAt?.toUtc().toIso8601String(),
+      'created_at': source.createdAt.toUtc().toIso8601String(),
+      'updated_at': source.updatedAt.toUtc().toIso8601String(),
+      'metadata': source.metadata,
+    };
+  }
+
+  Map<String, Object?> _knowledgeChunkPayload(KnowledgeChunk chunk) {
+    return <String, Object?>{
+      'id': chunk.id,
+      'source_id': chunk.sourceId,
+      'chunk_index': chunk.chunkIndex,
+      'parent_chunk_id': chunk.parentChunkId,
+      'title': chunk.title,
+      'heading_path': chunk.headingPath,
+      'content': chunk.content,
+      'content_hash': chunk.contentHash,
+      'char_count': chunk.charCount,
+      'token_estimate': chunk.tokenEstimate,
+      'start_offset': chunk.startOffset,
+      'end_offset': chunk.endOffset,
+      'page_number': chunk.pageNumber,
+      'document_time': chunk.documentTime?.toUtc().toIso8601String(),
+      'created_at': chunk.createdAt.toUtc().toIso8601String(),
+      'updated_at': chunk.updatedAt.toUtc().toIso8601String(),
+      'metadata': chunk.metadata,
+      'tags': chunk.tags,
+    };
   }
 
   /// Toolbox: 持久化的 Harness Engineering 会话快照 (单实例)。
