@@ -1684,114 +1684,110 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       Colors.pink,
     ];
 
-    final picked = await showAnimatedDialog<HSLColor>(
+    final picked = await showOpenHandStatefulDialog<HSLColor>(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final previewColor = HSLColor.fromAHSL(
-              1,
-              hue,
-              saturation,
-              lightness,
-            ).toColor();
-            return buildOpenHandAlertDialog(
-              title: Text(l10n.imageEditorWatermarkColorLabel),
-              actionsOverflowButtonSpacing: 12,
-              actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              content: SizedBox(
-                width: 420,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: previewColor,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
-                        ),
+      builder: (dialogContext, setDialogState) {
+        final previewColor = HSLColor.fromAHSL(
+          1,
+          hue,
+          saturation,
+          lightness,
+        ).toColor();
+        return buildOpenHandAlertDialog(
+          title: Text(l10n.imageEditorWatermarkColorLabel),
+          actionsOverflowButtonSpacing: 12,
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: previewColor,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Theme.of(dialogContext).colorScheme.outline,
                       ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final color in presets)
-                            InkWell(
-                              onTap: () {
-                                final hsl = HSLColor.fromColor(color);
-                                setDialogState(() {
-                                  hue = hsl.hue;
-                                  saturation = hsl.saturation;
-                                  lightness = hsl.lightness;
-                                });
-                              },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final color in presets)
+                        InkWell(
+                          onTap: () {
+                            final hsl = HSLColor.fromColor(color);
+                            setDialogState(() {
+                              hue = hsl.hue;
+                              saturation = hsl.saturation;
+                              lightness = hsl.lightness;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: color,
                               borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.outline,
-                                  ),
-                                ),
+                              border: Border.all(
+                                color: Theme.of(
+                                  dialogContext,
+                                ).colorScheme.outline,
                               ),
                             ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      _EditorSlider(
-                        label: l10n.imageEditorWatermarkColorHue,
-                        value: hue,
-                        min: 0,
-                        max: 360,
-                        onChanged: (value) => setDialogState(() => hue = value),
-                      ),
-                      _EditorSlider(
-                        label: l10n.imageEditorWatermarkColorSaturation,
-                        value: saturation,
-                        min: 0,
-                        max: 1,
-                        onChanged: (value) =>
-                            setDialogState(() => saturation = value),
-                      ),
-                      _EditorSlider(
-                        label: l10n.imageEditorWatermarkColorLightness,
-                        value: lightness,
-                        min: 0,
-                        max: 1,
-                        onChanged: (value) =>
-                            setDialogState(() => lightness = value),
-                      ),
+                          ),
+                        ),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  _EditorSlider(
+                    label: l10n.imageEditorWatermarkColorHue,
+                    value: hue,
+                    min: 0,
+                    max: 360,
+                    onChanged: (value) => setDialogState(() => hue = value),
+                  ),
+                  _EditorSlider(
+                    label: l10n.imageEditorWatermarkColorSaturation,
+                    value: saturation,
+                    min: 0,
+                    max: 1,
+                    onChanged: (value) =>
+                        setDialogState(() => saturation = value),
+                  ),
+                  _EditorSlider(
+                    label: l10n.imageEditorWatermarkColorLightness,
+                    value: lightness,
+                    min: 0,
+                    max: 1,
+                    onChanged: (value) =>
+                        setDialogState(() => lightness = value),
+                  ),
+                ],
               ),
-              actions: [
-                OpenHandDialogActionButton.secondary(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  label: l10n.commonCancel,
-                ),
-                OpenHandDialogActionButton.primary(
-                  onPressed: () {
-                    Navigator.of(
-                      dialogContext,
-                    ).pop(HSLColor.fromAHSL(1, hue, saturation, lightness));
-                  },
-                  label: l10n.commonSave,
-                ),
-              ],
-            );
-          },
+            ),
+          ),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              label: l10n.commonCancel,
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: () {
+                Navigator.of(
+                  dialogContext,
+                ).pop(HSLColor.fromAHSL(1, hue, saturation, lightness));
+              },
+              label: l10n.commonSave,
+            ),
+          ],
         );
       },
     );

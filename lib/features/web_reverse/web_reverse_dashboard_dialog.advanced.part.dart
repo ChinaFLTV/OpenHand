@@ -1065,87 +1065,84 @@ Future<void> _showDiffPicker(
   }
   CdpNetworkEntry? a;
   CdpNetworkEntry? b;
-  await showAnimatedDialog<void>(
+  await showOpenHandStatefulDialog<void>(
     context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (_, setState) => buildOpenHandAlertDialog(
-        title: Text(isZh ? '选择两个请求对比' : 'Pick two requests'),
-        content: SizedBox(
-          width: 640,
-          height: 460,
-          child: Column(
-            children: [
-              Expanded(
-                child: ListView.builder(
-                  itemCount: all.length,
-                  itemBuilder: (_, idx) {
-                    final e = all[all.length - 1 - idx];
-                    final selectedAs = identical(e, a)
-                        ? 'A'
-                        : (identical(e, b) ? 'B' : null);
-                    return ListTile(
-                      dense: true,
-                      title: Text(
-                        '${e.method} ${e.url}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                        ),
+    builder: (dialogContext, setState) => buildOpenHandAlertDialog(
+      title: Text(isZh ? '选择两个请求对比' : 'Pick two requests'),
+      content: SizedBox(
+        width: 640,
+        height: 460,
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                itemCount: all.length,
+                itemBuilder: (_, idx) {
+                  final e = all[all.length - 1 - idx];
+                  final selectedAs = identical(e, a)
+                      ? 'A'
+                      : (identical(e, b) ? 'B' : null);
+                  return ListTile(
+                    dense: true,
+                    title: Text(
+                      '${e.method} ${e.url}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
                       ),
-                      subtitle: Text(
-                        '${e.statusCode ?? '-'} · ${e.resourceType}',
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                      trailing: selectedAs == null
-                          ? null
-                          : Text(
-                              selectedAs,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 12,
-                              ),
+                    ),
+                    subtitle: Text(
+                      '${e.statusCode ?? '-'} · ${e.resourceType}',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    trailing: selectedAs == null
+                        ? null
+                        : Text(
+                            selectedAs,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
                             ),
-                      onTap: () {
-                        setState(() {
-                          if (a == null) {
-                            a = e;
-                          } else if (b == null && !identical(e, a)) {
-                            b = e;
-                          } else {
-                            a = e;
-                            b = null;
-                          }
-                        });
-                      },
-                    );
-                  },
-                ),
+                          ),
+                    onTap: () {
+                      setState(() {
+                        if (a == null) {
+                          a = e;
+                        } else if (b == null && !identical(e, a)) {
+                          b = e;
+                        } else {
+                          a = e;
+                          b = null;
+                        }
+                      });
+                    },
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            label: isZh ? '取消' : 'Cancel',
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: (a == null || b == null)
-                ? null
-                : () {
-                    Navigator.of(dialogContext).pop();
-                    showAnimatedDialog<void>(
-                      context: context,
-                      builder: (_) =>
-                          _DiffViewerDialog(a: a!, b: b!, isZh: isZh),
-                    );
-                  },
-            label: isZh ? '对比' : 'Diff',
-          ),
-        ],
       ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          label: isZh ? '取消' : 'Cancel',
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: (a == null || b == null)
+              ? null
+              : () {
+                  Navigator.of(dialogContext).pop();
+                  showAnimatedDialog<void>(
+                    context: context,
+                    builder: (_) => _DiffViewerDialog(a: a!, b: b!, isZh: isZh),
+                  );
+                },
+          label: isZh ? '对比' : 'Diff',
+        ),
+      ],
     ),
   );
 }

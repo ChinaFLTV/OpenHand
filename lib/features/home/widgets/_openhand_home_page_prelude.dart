@@ -98,21 +98,6 @@ const BorderRadius _borderRadius18 = BorderRadius.all(Radius.circular(18));
 const BorderRadius _borderRadius19 = BorderRadius.all(Radius.circular(19));
 const BorderRadius _borderRadius999 = BorderRadius.all(Radius.circular(999));
 
-int _boundedTextFingerprint(String value, {int edgeLength = 128}) {
-  final length = value.length;
-  if (length <= edgeLength * 3) {
-    return Object.hash(length, value);
-  }
-  final middle = length ~/ 2;
-  final halfEdge = edgeLength ~/ 2;
-  return Object.hash(
-    length,
-    value.substring(0, edgeLength),
-    value.substring(middle - halfEdge, middle + halfEdge),
-    value.substring(length - edgeLength),
-  );
-}
-
 /// Tiny frame-budgeted task queue used by transcript render warmups.
 ///
 /// Markdown parsing, syntax highlighting and platform-view mounting are all

@@ -3397,7 +3397,7 @@ String _preparedHtmlCacheKey(String value, int fingerprint) {
 
 _PreparedHtmlRenderData _preparedHtmlRenderDataFor(String value) {
   final sourceLength = value.length;
-  final sourceFingerprint = _boundedTextFingerprint(value);
+  final sourceFingerprint = boundedTextFingerprint(value);
   final cacheKey = _preparedHtmlCacheKey(value, sourceFingerprint);
   final cached = _preparedHtmlRenderCache.get(cacheKey);
   if (cached != null &&
@@ -4317,7 +4317,7 @@ double _estimateHtmlBubbleHeight(String data) {
 
 int _htmlBubbleHeightCacheKey(String data, TextStyle? baseTextStyle) {
   return Object.hash(
-    _boundedTextFingerprint(data),
+    boundedTextFingerprint(data),
     baseTextStyle?.fontSize,
     baseTextStyle?.height,
   );
@@ -4659,7 +4659,7 @@ class _DeferredHtmlBubbleWebViewState
       return _HtmlBubbleWebView(
         key: ValueKey<int>(
           Object.hash(
-            _boundedTextFingerprint(widget.data),
+            boundedTextFingerprint(widget.data),
             widget.textColor,
             widget.backgroundColor,
             widget.baseTextStyle,

@@ -9,6 +9,7 @@ import '../../app/model/cron_config.dart';
 import '../../app/support/openhand_notification_service.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/util/timer_safety.dart';
 import '../mcp/index.dart';
 import 'data/crons_store.dart';
 import 'model/cron_parser.dart';
@@ -752,7 +753,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     final delay = nextRun.difference(DateTime.now());
     if (delay.isNegative) {
       // If already past, schedule for 1 second from now.
-      _scheduledTimers[entry.id] = Timer(
+      _scheduledTimers[entry.id] = startSafeTimer(
         const Duration(seconds: 1),
         () => _onTimerFired(entry.id),
       );
@@ -761,7 +762,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       final cappedDelay = delay > const Duration(hours: 24)
           ? const Duration(hours: 24)
           : delay;
-      _scheduledTimers[entry.id] = Timer(
+      _scheduledTimers[entry.id] = startSafeTimer(
         cappedDelay,
         () => _onTimerFired(entry.id),
       );

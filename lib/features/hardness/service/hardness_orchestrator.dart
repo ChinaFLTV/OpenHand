@@ -9,6 +9,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../model/hardness_phase.dart';
 import '../model/hardness_phase_context_config.dart';
@@ -768,7 +769,7 @@ class HardnessOrchestrator extends ChangeNotifier {
       );
     }
     // Escalate to SIGKILL after 3 seconds if the process hasn't exited.
-    Future.delayed(const Duration(seconds: 3), () {
+    startSafeTimer(const Duration(seconds: 3), () {
       if (_activeProcess == process) {
         try {
           process.kill(ProcessSignal.sigkill);

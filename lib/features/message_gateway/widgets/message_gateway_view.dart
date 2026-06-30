@@ -27,6 +27,7 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/rolling_hash.dart';
+import '../../../shared/util/text_fingerprint.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../message_gateway_controller.dart';
 import '../model/web_message_platform_config.dart';
@@ -5181,8 +5182,8 @@ class _TrendLineChartState extends State<_TrendLineChart> {
   @override
   void didUpdateWidget(covariant _TrendLineChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_seriesFingerprint(oldWidget.values) ==
-        _seriesFingerprint(widget.values)) {
+    if (scaledNumberSeriesFingerprint(oldWidget.values) ==
+        scaledNumberSeriesFingerprint(widget.values)) {
       return;
     }
     _fromValues = _lastPaintValues;
@@ -5266,14 +5267,6 @@ class _TrendLineChartState extends State<_TrendLineChart> {
       ),
     );
   }
-}
-
-int _seriesFingerprint(List<double> values) {
-  return rollingHash30(
-    values,
-    (value) => (value * 1000).round(),
-    seed: values.length,
-  );
 }
 
 List<double> _lerpSeries(List<double> from, List<double> to, double progress) {

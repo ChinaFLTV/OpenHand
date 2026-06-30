@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../features/ai/service/runtime/ai_tool_execution_registry.dart';
+import '../../shared/util/timer_safety.dart';
 import 'silent_log.dart';
 
 /// 全局默认的子进程 graceful shutdown 等待窗口（毫秒）。AiSessionController
@@ -659,12 +660,12 @@ Future<bool> runDetachedSystemOpen(
     // 能优雅探测——Windows detached 子进程已和宿主完全脱钩，无害）。
     if (Platform.isMacOS || Platform.isLinux) {
       final pid = process.pid;
-      Timer(watchdog, () {
+      startSafeTimer(watchdog, () {
         try {
           // ProcessSignal.sigterm 不存在于 detached 的 Process 句柄上；
           // 直接用 POSIX kill 默认 SIGTERM、再补一发 SIGKILL。
           Process.killPid(pid);
-          Timer(const Duration(milliseconds: 300), () {
+          startSafeTimer(const Duration(milliseconds: 300), () {
             try {
               Process.killPid(pid, ProcessSignal.sigkill);
             } catch (error, stack) {

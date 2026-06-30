@@ -4378,54 +4378,60 @@ class WebMessagePlatformService {
     void scheduleSnapshot() {
       if (disposed) return;
       throttleTimer?.cancel();
-      throttleTimer = Timer(const Duration(milliseconds: 80), () async {
-        if (disposed) return;
-        if (snapshotInFlight) {
-          snapshotQueued = true;
-          return;
-        }
-        snapshotInFlight = true;
-        try {
-          final live = _findAuthorizedSession(auth, sessionId);
-          if (live == null) {
-            emit('session_deleted', <String, Object?>{
-              'error': 'session_deleted_or_not_found',
-              'session_id': sessionId,
-              'served_at': DateTime.now().toUtc().toIso8601String(),
-            });
-            Future<void>.microtask(dispose);
+      throttleTimer = startSafeTimer(
+        const Duration(milliseconds: 80),
+        () async {
+          if (disposed) return;
+          if (snapshotInFlight) {
+            snapshotQueued = true;
             return;
           }
-          final snapshot = await buildSnapshot(live);
-          if (disposed) return;
-          final sessionPayload = snapshot['session'] as Map<String, Object?>;
-          final throttlePayload =
-              snapshot['effective_stream_throttle'] as Map<String, Object?>?;
-          final buckets = throttlePayload?['throughput_buckets'];
-          final bucketsSig = buckets is List<int>
-              ? '${buckets.isNotEmpty ? buckets.first : 0}/${buckets.fold<int>(0, (a, b) => b > a ? b : a)}'
-              : '0/0';
-          final stats = sessionPayload['statistics'] as Map<String, Object?>?;
-          final tokenStatsSig = stats == null
-              ? '0:0:0:0:0:0:0'
-              : '${stats['total_prompt_tokens'] ?? 0}:${stats['total_completion_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_creation_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${stats['cache_hit_trend_points'] is List ? (stats['cache_hit_trend_points'] as List).length : 0}:${stats['cache_hit_trend_excluded_count'] ?? 0}';
-          final goalStateSig = jsonEncode(sessionPayload['goal_state']);
-          final messagesPayload = snapshot['messages'] as List;
-          final hash =
-              '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|goal=$goalStateSig|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}:$bucketsSig|tokens=$tokenStatsSig|messages=${_messagePayloadWindowSignature(messagesPayload)}';
-          if (hash == lastSnapshotHash) return;
-          lastSnapshotHash = hash;
-          emit('snapshot', snapshot);
-        } catch (error, stack) {
-          silentLog('WebGateway', 'sse.snapshot', error, stack);
-        } finally {
-          snapshotInFlight = false;
-          if (!disposed && snapshotQueued) {
-            snapshotQueued = false;
-            scheduleSnapshot();
+          snapshotInFlight = true;
+          try {
+            final live = _findAuthorizedSession(auth, sessionId);
+            if (live == null) {
+              emit('session_deleted', <String, Object?>{
+                'error': 'session_deleted_or_not_found',
+                'session_id': sessionId,
+                'served_at': DateTime.now().toUtc().toIso8601String(),
+              });
+              Future<void>.microtask(dispose);
+              return;
+            }
+            final snapshot = await buildSnapshot(live);
+            if (disposed) return;
+            final sessionPayload = snapshot['session'] as Map<String, Object?>;
+            final throttlePayload =
+                snapshot['effective_stream_throttle'] as Map<String, Object?>?;
+            final buckets = throttlePayload?['throughput_buckets'];
+            final bucketsSig = buckets is List<int>
+                ? '${buckets.isNotEmpty ? buckets.first : 0}/${buckets.fold<int>(0, (a, b) => b > a ? b : a)}'
+                : '0/0';
+            final stats = sessionPayload['statistics'] as Map<String, Object?>?;
+            final tokenStatsSig = stats == null
+                ? '0:0:0:0:0:0:0'
+                : '${stats['total_prompt_tokens'] ?? 0}:${stats['total_completion_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_creation_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${stats['cache_hit_trend_points'] is List ? (stats['cache_hit_trend_points'] as List).length : 0}:${stats['cache_hit_trend_excluded_count'] ?? 0}';
+            final goalStateSig = jsonEncode(sessionPayload['goal_state']);
+            final messagesPayload = snapshot['messages'] as List;
+            final hash =
+                '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|goal=$goalStateSig|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}:$bucketsSig|tokens=$tokenStatsSig|messages=${_messagePayloadWindowSignature(messagesPayload)}';
+            if (hash == lastSnapshotHash) return;
+            lastSnapshotHash = hash;
+            emit('snapshot', snapshot);
+          } catch (error, stack) {
+            silentLog('WebGateway', 'sse.snapshot', error, stack);
+          } finally {
+            snapshotInFlight = false;
+            if (!disposed && snapshotQueued) {
+              snapshotQueued = false;
+              scheduleSnapshot();
+            }
           }
-        }
-      });
+        },
+        onError: (error, stack) {
+          silentLog('WebGateway', 'sse.snapshotTimer', error, stack);
+        },
+      );
     }
 
     void controllerListener() => scheduleSnapshot();
@@ -5454,7 +5460,7 @@ class WebMessagePlatformService {
       'source': source,
       'working_directory': request.workingDirectory,
     });
-    final timer = Timer(Duration(milliseconds: timeoutMs), () {
+    final timer = startSafeTimer(Duration(milliseconds: timeoutMs), () {
       _completePendingWriteApproval(
         approval,
         decision: BashCommandApprovalDecision.timedOut,

@@ -827,7 +827,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
             ),
           );
         });
-    _copiedResetTimer = Timer(const Duration(milliseconds: 1600), () {
+    _copiedResetTimer = startSafeTimer(const Duration(milliseconds: 1600), () {
       if (mounted) setState(() => _copied = false);
     });
   }

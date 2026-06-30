@@ -82,6 +82,7 @@ import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/lifecycle_cache.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/path_safety.dart';
+import '../../shared/util/text_fingerprint.dart';
 import '../../shared/util/text_search.dart';
 import '../../shared/util/timer_safety.dart';
 import '../../shared/util/tool_name_normalization.dart';
@@ -7614,23 +7615,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return status.isEmpty && !hasOutput;
   }
 
-  String _metadataTextFingerprint(Object? value) {
-    if (value == null) return '0';
-    final text = value is String
-        ? value
-        : (() {
-            try {
-              return jsonEncode(value);
-            } catch (_) {
-              return value.toString();
-            }
-          })();
-    if (text.isEmpty) return '0';
-    final head = text.length <= 48 ? text : text.substring(0, 48);
-    final tail = text.length <= 24 ? text : text.substring(text.length - 24);
-    return '${text.length}:$head:$tail';
-  }
-
   String _messageAutoFollowRenderSignature(AiSessionMessage message) {
     return [
       message.id,
@@ -7639,13 +7623,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       '${boolFromValue(message.metadata[aiSessionMessageMetadataStreamingKey])}',
       '${boolFromValue(message.metadata['tool_arguments_streaming'])}',
       '${boolFromValue(message.metadata['tool_preparing'])}',
-      _metadataTextFingerprint(message.metadata['tool_arguments']),
-      _metadataTextFingerprint(message.metadata['tool_execution_command']),
+      compactTextSignature(message.metadata['tool_arguments']),
+      compactTextSignature(message.metadata['tool_execution_command']),
       _toolExecutionStatus(message),
       '${_toolExecutionStdout(message).length}',
       '${_toolExecutionStderr(message).length}',
       '${_toolExecutionResult(message).length}',
-      _metadataTextFingerprint(message.metadata['result_text']),
+      compactTextSignature(message.metadata['result_text']),
     ].join(':');
   }
 

@@ -32,6 +32,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/structured_text_format.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/unified_diff.dart' show unifiedDiffLinesFromText;
 import '../../ai/index.dart';
 import '../../home/index.dart';
@@ -1476,13 +1477,16 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
   /// 桥接 trackpad / 滚轮连续 tick 之间的空窗。
   void _scheduleUserFeedScrollEndGrace() {
     _userFeedScrollGraceTimer?.cancel();
-    _userFeedScrollGraceTimer = Timer(_userFeedScrollEndGraceDuration, () {
-      _userFeedScrollGraceTimer = null;
-      if (!mounted) {
-        return;
-      }
-      _userFeedScrollInProgress = false;
-    });
+    _userFeedScrollGraceTimer = startSafeTimer(
+      _userFeedScrollEndGraceDuration,
+      () {
+        _userFeedScrollGraceTimer = null;
+        if (!mounted) {
+          return;
+        }
+        _userFeedScrollInProgress = false;
+      },
+    );
   }
 
   void _handleFeedScroll() {

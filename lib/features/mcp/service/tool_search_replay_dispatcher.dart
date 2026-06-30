@@ -16,6 +16,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/util/timer_safety.dart';
+
 /// 在「新建一个独立 AI session 后再重放 select: 查询」这个两步流程中，
 /// 把 createSession / replay 的回调编排抽到一个纯函数里，方便单元测试
 /// 验证「session 一定先于 replay 创建」这条契约。
@@ -86,7 +88,7 @@ class ToolSearchReplayDispatcher {
     _lastCancelledFire = null;
     _replayableNotifier.value = false;
     final effectiveWindow = window ?? defaultWindow;
-    _timer = Timer(effectiveWindow, () async {
+    _timer = startSafeTimer(effectiveWindow, () async {
       if (_disposed || _settled) return;
       _settled = true;
       _timer = null;

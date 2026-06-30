@@ -559,129 +559,124 @@ class _WsDialogState extends State<_WsDialog> {
     final delayCtrl = TextEditingController(text: '50');
     var intensity = 2;
     final isZh = widget.isZh;
-    return showAnimatedDialog<_FuzzConfig>(
+    return showOpenHandStatefulDialog<_FuzzConfig>(
       context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setLocal) {
-            final cs = Theme.of(ctx).colorScheme;
-            return buildOpenHandToolDialogShell(
-              context: ctx,
-              maxWidth: 520,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  buildOpenHandToolDialogHeader(
-                    context: ctx,
-                    icon: Icons.bug_report_rounded,
-                    iconColor: cs.tertiary,
-                    title: isZh ? 'Fuzz 帧（按 JSON 叶子或字节变异）' : 'Fuzz frame',
-                  ),
-                  Divider(height: 1, color: cs.outlineVariant),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isZh
-                              ? '基准 payload 长度：${basePayload.length} 字符'
-                              : 'Base payload: ${basePayload.length} chars',
-                          style: Theme.of(ctx).textTheme.labelSmall,
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: countCtrl,
-                                decoration: InputDecoration(
-                                  labelText: isZh
-                                      ? '发送次数 (1-200)'
-                                      : 'Count (1-200)',
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: TextField(
-                                controller: delayCtrl,
-                                decoration: InputDecoration(
-                                  labelText: isZh
-                                      ? '间隔 ms (10-1000)'
-                                      : 'Delay ms (10-1000)',
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          isZh ? '变异强度' : 'Intensity',
-                          style: Theme.of(ctx).textTheme.labelSmall,
-                        ),
-                        Slider(
-                          value: intensity.toDouble(),
-                          min: 1,
-                          max: 5,
-                          divisions: 4,
-                          label: '$intensity',
-                          onChanged: (v) =>
-                              setLocal(() => intensity = v.round()),
-                        ),
-                      ],
+      builder: (ctx, setLocal) {
+        final cs = Theme.of(ctx).colorScheme;
+        return buildOpenHandToolDialogShell(
+          context: ctx,
+          maxWidth: 520,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              buildOpenHandToolDialogHeader(
+                context: ctx,
+                icon: Icons.bug_report_rounded,
+                iconColor: cs.tertiary,
+                title: isZh ? 'Fuzz 帧（按 JSON 叶子或字节变异）' : 'Fuzz frame',
+              ),
+              Divider(height: 1, color: cs.outlineVariant),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isZh
+                          ? '基准 payload 长度：${basePayload.length} 字符'
+                          : 'Base payload: ${basePayload.length} chars',
+                      style: Theme.of(ctx).textTheme.labelSmall,
                     ),
-                  ),
-                  Divider(height: 1, color: cs.outlineVariant),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                    child: Row(
+                    const SizedBox(height: 8),
+                    Row(
                       children: [
                         Expanded(
-                          child: OpenHandDialogActionButton.secondary(
-                            label: isZh ? '取消' : 'Cancel',
-                            onPressed: () => Navigator.of(ctx).pop(),
+                          child: TextField(
+                            controller: countCtrl,
+                            decoration: InputDecoration(
+                              labelText: isZh
+                                  ? '发送次数 (1-200)'
+                                  : 'Count (1-200)',
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            keyboardType: TextInputType.number,
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: OpenHandDialogActionButton.primary(
-                            icon: Icons.play_arrow_rounded,
-                            label: isZh ? '开始 Fuzz' : 'Start Fuzz',
-                            onPressed: () {
-                              Navigator.of(ctx).pop(
-                                _FuzzConfig(
-                                  count: clampedIntFromValue(
-                                    countCtrl.text,
-                                    fallback: 20,
-                                    min: 1,
-                                    max: 200,
-                                  ),
-                                  delayMs: clampedIntFromValue(
-                                    delayCtrl.text,
-                                    fallback: 50,
-                                    min: 10,
-                                    max: 1000,
-                                  ),
-                                  intensity: intensity,
-                                ),
-                              );
-                            },
+                          child: TextField(
+                            controller: delayCtrl,
+                            decoration: InputDecoration(
+                              labelText: isZh
+                                  ? '间隔 ms (10-1000)'
+                                  : 'Delay ms (10-1000)',
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            keyboardType: TextInputType.number,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 14),
+                    Text(
+                      isZh ? '变异强度' : 'Intensity',
+                      style: Theme.of(ctx).textTheme.labelSmall,
+                    ),
+                    Slider(
+                      value: intensity.toDouble(),
+                      min: 1,
+                      max: 5,
+                      divisions: 4,
+                      label: '$intensity',
+                      onChanged: (v) => setLocal(() => intensity = v.round()),
+                    ),
+                  ],
+                ),
               ),
-            );
-          },
+              Divider(height: 1, color: cs.outlineVariant),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OpenHandDialogActionButton.secondary(
+                        label: isZh ? '取消' : 'Cancel',
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OpenHandDialogActionButton.primary(
+                        icon: Icons.play_arrow_rounded,
+                        label: isZh ? '开始 Fuzz' : 'Start Fuzz',
+                        onPressed: () {
+                          Navigator.of(ctx).pop(
+                            _FuzzConfig(
+                              count: clampedIntFromValue(
+                                countCtrl.text,
+                                fallback: 20,
+                                min: 1,
+                                max: 200,
+                              ),
+                              delayMs: clampedIntFromValue(
+                                delayCtrl.text,
+                                fallback: 50,
+                                min: 10,
+                                max: 1000,
+                              ),
+                              intensity: intensity,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         );
       },
     );

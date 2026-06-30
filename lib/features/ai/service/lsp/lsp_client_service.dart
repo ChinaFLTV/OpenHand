@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/path_safety.dart';
+import '../../../../shared/util/timer_safety.dart';
 import '../../model/ai_lsp_backend_catalog.dart';
 import '../../model/ai_lsp_language_settings.dart';
 
@@ -1759,7 +1760,7 @@ class _AiLspSession {
 
   void touch() {
     _idleTimer?.cancel();
-    _idleTimer = Timer(_idleTimeout, () => shutdown());
+    _idleTimer = startSafeTimer(_idleTimeout, shutdown);
   }
 
   Future<void> initialize() async {

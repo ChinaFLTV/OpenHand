@@ -404,6 +404,35 @@ typedef OpenHandDialogFormContentBuilder =
     Widget Function(BuildContext dialogContext);
 typedef OpenHandDialogFormSubmit<T> = T Function(BuildContext dialogContext);
 
+Future<T?> showOpenHandStatefulDialog<T>({
+  required BuildContext context,
+  required StatefulWidgetBuilder builder,
+  DialogAnimationSettings? settings,
+  OpenHandAnimationTransitionProfile transitionProfile =
+      const OpenHandAnimationTransitionProfile(),
+  bool barrierDismissible = true,
+  bool dismissOnEscape = true,
+  String? barrierLabel,
+  Color? barrierColor,
+  bool useRootNavigator = true,
+  RouteSettings? routeSettings,
+  AlignmentGeometry alignment = Alignment.center,
+}) {
+  return showAnimatedDialog<T>(
+    context: context,
+    settings: settings,
+    transitionProfile: transitionProfile,
+    barrierDismissible: barrierDismissible,
+    dismissOnEscape: dismissOnEscape,
+    barrierLabel: barrierLabel,
+    barrierColor: barrierColor,
+    useRootNavigator: useRootNavigator,
+    routeSettings: routeSettings,
+    alignment: alignment,
+    builder: (dialogContext) => StatefulBuilder(builder: builder),
+  );
+}
+
 Future<T?> showOpenHandFormDialog<T>({
   required BuildContext context,
   required String title,

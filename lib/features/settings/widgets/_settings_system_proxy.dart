@@ -528,94 +528,83 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
   bool _repairing = false;
 
   Future<void> _showRepairReportDialog(InputRepairReport report) {
-    return showAnimatedDialog<void>(
+    var restarting = false;
+    return showOpenHandStatefulDialog<void>(
       context: context,
-      builder: (dialogContext) {
-        var restarting = false;
-        return StatefulBuilder(
-          builder: (dialogContext, setDialogState) => buildOpenHandAlertDialog(
-            title: Text(AppLocalizations.of(dialogContext)!.inputRepairTitle),
-            content: buildOpenHandDialogConstrainedContent(
-              maxWidth: 560,
-              child: SingleChildScrollView(
-                child: SelectableText(
-                  _formatRepairReport(report),
-                  style: Theme.of(dialogContext).textTheme.bodyMedium,
-                ),
-              ),
+      builder: (dialogContext, setDialogState) => buildOpenHandAlertDialog(
+        title: Text(AppLocalizations.of(dialogContext)!.inputRepairTitle),
+        content: buildOpenHandDialogConstrainedContent(
+          maxWidth: 560,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              _formatRepairReport(report),
+              style: Theme.of(dialogContext).textTheme.bodyMedium,
             ),
-            actions: [
-              OpenHandDialogActionButton.secondary(
-                label: _localizedText(dialogContext, zh: '复制', en: 'Copy'),
-                onPressed: restarting
-                    ? null
-                    : () async {
-                        await Clipboard.setData(
-                          ClipboardData(text: _formatRepairReport(report)),
-                        );
-                      },
-              ),
-              OpenHandDialogActionButton.primary(
-                label: _localizedText(dialogContext, zh: '重启', en: 'Restart'),
-                icon: Icons.restart_alt_rounded,
-                busy: restarting,
-                onPressed: restarting
-                    ? null
-                    : () async {
-                        setDialogState(() {
-                          restarting = true;
-                        });
-                        AppRelaunchTicket? ticket;
-                        try {
-                          final exitDelay = _resolveDialogExitDelay(
-                            dialogContext,
-                          );
-                          ticket = await AppRestartService.instance
-                              .prepareRelaunch();
-                          if (!dialogContext.mounted) {
-                            await ticket.cancel();
-                            return;
-                          }
-                          Navigator.of(dialogContext).pop();
-                          if (exitDelay > Duration.zero) {
-                            await Future<void>.delayed(exitDelay);
-                          }
-                          await AppRestartService.instance.exitCurrentProcess(
-                            ticket: ticket,
-                          );
-                        } catch (error, stack) {
-                          await ticket?.cancel();
-                          silentLog(
-                            'settings.system',
-                            'restart app',
-                            error,
-                            stack,
-                          );
-                          final message = _formatRestartFailure(
-                            dialogContext.mounted ? dialogContext : context,
-                            error,
-                          );
-                          if (dialogContext.mounted) {
-                            setDialogState(() {
-                              restarting = false;
-                            });
-                            OpenHandSnackBar.showError(dialogContext, message);
-                          } else if (mounted) {
-                            OpenHandSnackBar.showError(context, message);
-                          }
-                        }
-                      },
-              ),
-              OpenHandDialogActionButton.primary(
-                label: AppLocalizations.of(dialogContext)!.commonClose,
-                onPressed: restarting
-                    ? null
-                    : () => Navigator.of(dialogContext).pop(),
-              ),
-            ],
           ),
-        );
-      },
+        ),
+        actions: [
+          OpenHandDialogActionButton.secondary(
+            label: _localizedText(dialogContext, zh: '复制', en: 'Copy'),
+            onPressed: restarting
+                ? null
+                : () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: _formatRepairReport(report)),
+                    );
+                  },
+          ),
+          OpenHandDialogActionButton.primary(
+            label: _localizedText(dialogContext, zh: '重启', en: 'Restart'),
+            icon: Icons.restart_alt_rounded,
+            busy: restarting,
+            onPressed: restarting
+                ? null
+                : () async {
+                    setDialogState(() {
+                      restarting = true;
+                    });
+                    AppRelaunchTicket? ticket;
+                    try {
+                      final exitDelay = _resolveDialogExitDelay(dialogContext);
+                      ticket = await AppRestartService.instance
+                          .prepareRelaunch();
+                      if (!dialogContext.mounted) {
+                        await ticket.cancel();
+                        return;
+                      }
+                      Navigator.of(dialogContext).pop();
+                      if (exitDelay > Duration.zero) {
+                        await Future<void>.delayed(exitDelay);
+                      }
+                      await AppRestartService.instance.exitCurrentProcess(
+                        ticket: ticket,
+                      );
+                    } catch (error, stack) {
+                      await ticket?.cancel();
+                      silentLog('settings.system', 'restart app', error, stack);
+                      final message = _formatRestartFailure(
+                        dialogContext.mounted ? dialogContext : context,
+                        error,
+                      );
+                      if (dialogContext.mounted) {
+                        setDialogState(() {
+                          restarting = false;
+                        });
+                        OpenHandSnackBar.showError(dialogContext, message);
+                      } else if (mounted) {
+                        OpenHandSnackBar.showError(context, message);
+                      }
+                    }
+                  },
+          ),
+          OpenHandDialogActionButton.primary(
+            label: AppLocalizations.of(dialogContext)!.commonClose,
+            onPressed: restarting
+                ? null
+                : () => Navigator.of(dialogContext).pop(),
+          ),
+        ],
+      ),
     );
   }
 

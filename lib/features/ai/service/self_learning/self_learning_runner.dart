@@ -3,6 +3,7 @@ library;
 import 'dart:async';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/timer_safety.dart';
 import '../../../memory/index.dart';
 import '../../ai_session_controller.dart';
 import '../../model/ai_session.dart';
@@ -295,12 +296,18 @@ class SelfLearningRunner {
       Future<void> onProgress({String? aiResponse, String? aiReasoning}) async {
         if (aiResponse != null) latestResponse = aiResponse;
         if (aiReasoning != null) latestReasoning = aiReasoning;
-        flushTimer ??= Timer(_streamFlushInterval, () async {
-          flushTimer = null;
-          pendingFlush = doFlush();
-          await pendingFlush;
-          pendingFlush = null;
-        });
+        flushTimer ??= startSafeTimer(
+          _streamFlushInterval,
+          () async {
+            flushTimer = null;
+            pendingFlush = doFlush();
+            await pendingFlush;
+            pendingFlush = null;
+          },
+          onError: (error, stack) {
+            silentLog('SelfLearningRunner', 'stream flush timer', error, stack);
+          },
+        );
       }
 
       final streamingContext = SelfLearningContext(
