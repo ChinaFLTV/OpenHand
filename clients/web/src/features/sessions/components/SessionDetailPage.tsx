@@ -162,7 +162,6 @@ const AUTO_FOLLOW_SETTLE_MAX_FRAMES = 36;
 const AUTO_FOLLOW_SETTLE_STABLE_FRAMES = 4;
 const AUTO_FOLLOW_SETTLE_EPSILON_PX = 0.75;
 const COMPOSER_LAYOUT_TRANSITION_GUARD_MS = 440;
-const COMPOSER_LAYOUT_FOLLOW_DELAY_MS = COMPOSER_LAYOUT_TRANSITION_GUARD_MS + 40;
 const KNOWLEDGE_USAGE_PREVIEW_MAX_CHARS = 420;
 
 // 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
@@ -2211,6 +2210,7 @@ export function SessionDetailPage() {
   const autoFollowPausedRef = useRef<boolean>(false);
   const programmaticScrollUntilRef = useRef<number>(0);
   const composerLayoutTransitionUntilRef = useRef<number>(0);
+  const composerLayoutPinnedRef = useRef<boolean>(false);
   // 区分「用户主动向上滑动」与「内容增长导致的视觉远离底部」：
   // recalc 仅在 scrollTop 真正减小 (用户上滑) 时才允许 setAutoFollowPaused=true。
   // 否则 (内容增长 / 程序滚动) 不应自动暂停跟随，让 ResizeObserver follow 接管。
@@ -2221,7 +2221,6 @@ export function SessionDetailPage() {
   const followSettleRemainingRef = useRef(0);
   const followSettleStableFramesRef = useRef(0);
   const resizeFollowFrameRef = useRef<number | null>(null);
-  const composerLayoutFollowTimerRef = useRef<number | null>(null);
   const lastTailIdRef = useRef<string | null>(null);
   const lastTailSignatureRef = useRef<string>('');
   const lastFollowSignatureRef = useRef<string>('');
@@ -2403,10 +2402,6 @@ export function SessionDetailPage() {
         window.cancelAnimationFrame(resizeFollowFrameRef.current);
         resizeFollowFrameRef.current = null;
       }
-      if (composerLayoutFollowTimerRef.current != null) {
-        window.clearTimeout(composerLayoutFollowTimerRef.current);
-        composerLayoutFollowTimerRef.current = null;
-      }
     },
     [],
   );
@@ -2490,6 +2485,7 @@ export function SessionDetailPage() {
   };
 
   const markUserScrollIntent = useCallback(() => {
+    composerLayoutPinnedRef.current = false;
     lastUserScrollIntentAtRef.current = Date.now();
     markTranscriptScrollActivity(AUTO_FOLLOW_USER_SCROLL_INTENT_MS);
     cancelFollowSettle();
@@ -2527,22 +2523,6 @@ export function SessionDetailPage() {
     return Date.now() < composerLayoutTransitionUntilRef.current;
   }
 
-  function cancelComposerLayoutFollow(): void {
-    if (composerLayoutFollowTimerRef.current == null) return;
-    window.clearTimeout(composerLayoutFollowTimerRef.current);
-    composerLayoutFollowTimerRef.current = null;
-  }
-
-  function scheduleComposerLayoutFollowToBottom(): void {
-    cancelComposerLayoutFollow();
-    composerLayoutFollowTimerRef.current = window.setTimeout(() => {
-      composerLayoutFollowTimerRef.current = null;
-      if (!autoFollowRef.current || autoFollowPausedRef.current) return;
-      markTranscriptScrollActivity(reduceMotion ? 260 : 760);
-      scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
-    }, COMPOSER_LAYOUT_FOLLOW_DELAY_MS);
-  }
-
   function cancelFollowSettle(): void {
     if (followFrameRef.current != null) {
       window.cancelAnimationFrame(followFrameRef.current);
@@ -2563,6 +2543,30 @@ export function SessionDetailPage() {
     if (Math.abs(el.scrollTop - bottomTop) > 0.5) {
       el.scrollTop = bottomTop;
     }
+  };
+
+  const messagesAreNearBottom = () => {
+    const el = mainRef.current;
+    if (!el) return isNearBottomRef.current;
+    const distance = el.scrollHeight - (el.scrollTop + el.clientHeight);
+    return distance <= AUTO_FOLLOW_NEAR_BOTTOM_PX;
+  };
+
+  const shouldPinComposerLayoutToBottom = () => {
+    return autoFollowRef.current &&
+      !autoFollowPausedRef.current &&
+      (composerLayoutPinnedRef.current || messagesAreNearBottom()) &&
+      !hasRecentUserScrollIntent();
+  };
+
+  const pinComposerLayoutToBottom = () => {
+    if (!shouldPinComposerLayoutToBottom()) return false;
+    extendProgrammaticScrollWindow(320);
+    pinMessagesToBottom();
+    isNearBottomRef.current = true;
+    setAutoFollowPausedValue(false);
+    clearUnreadCount();
+    return true;
   };
 
   const scrollMessagesToBottom = (behavior: ScrollBehavior = 'auto') => {
@@ -3250,6 +3254,12 @@ export function SessionDetailPage() {
     persistComposerCollapsed(composerCollapsed);
   }, [composerCollapsed]);
 
+  useLayoutEffect(() => {
+    if (!composerLayoutPinnedRef.current) return;
+    markTranscriptScrollActivity(COMPOSER_LAYOUT_TRANSITION_GUARD_MS);
+    pinComposerLayoutToBottom();
+  }, [composerCollapsed]);
+
   // 折叠/展开期间稳住消息：observer 跟踪 composer 高度变化，
   // 当用户「未在底部」时把 transcript scrollTop 反向补偿，让可视区底部
   // 锚到原始内容偏移，从而上方消息不被「挤上去 / 压下来」。
@@ -3271,6 +3281,10 @@ export function SessionDetailPage() {
       const delta = measured - lastH;
       lastH = measured;
       if (delta === 0) return;
+      if (pinComposerLayoutToBottom()) {
+        pendingDelta = 0;
+        return;
+      }
       pendingDelta += delta;
       if (rafId != null) return;
       rafId = requestAnimationFrame(() => {
@@ -3278,6 +3292,7 @@ export function SessionDetailPage() {
         const totalDelta = pendingDelta;
         pendingDelta = 0;
         if (Math.abs(totalDelta) < 0.5 || !scroller) return;
+        if (pinComposerLayoutToBottom()) return;
         // 补偿 scrollTop：保持用户当前可视位置不变。
         // 不使用 clamp 到 maxScroll，因为在 transition 期间
         // scrollHeight 可能尚未更新到位。直接设置即可，
@@ -5075,16 +5090,14 @@ export function SessionDetailPage() {
   }
 
   function toggleComposerCollapsed(): void {
-    const shouldFollowAfterTransition = autoFollowRef.current && !autoFollowPausedRef.current;
+    composerLayoutPinnedRef.current =
+      autoFollowRef.current &&
+      !autoFollowPausedRef.current &&
+      messagesAreNearBottom();
     markComposerLayoutTransition();
     setComposerCollapsed((value) => !value);
-    // ResizeObserver 会在高度动画期间补偿 scrollTop；动画结束后再钉底，
-    // 避免补偿与自动跟随同帧抢滚动造成闪烁，同时保证尾部消息完整可见。
-    if (shouldFollowAfterTransition) {
-      scheduleComposerLayoutFollowToBottom();
-    } else {
-      cancelComposerLayoutFollow();
-    }
+    // DOM 提交后的 useLayoutEffect 与 ResizeObserver 会在绘制前钉底；
+    // 非贴底场景仍走 ResizeObserver 的位置补偿。
   }
 
   useEffect(() => {
