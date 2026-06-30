@@ -148,9 +148,7 @@ export function useStreamingStagedText(
   ), [stagedContent, revealAllowed]);
   const targetUnits = ends.length;
   const shouldStage = streaming && !transcriptScrollActive && !reduceMotion && revealAllowed;
-  const [visibleUnits, setVisibleUnits] = useState(() => (
-    shouldStage ? 0 : targetUnits
-  ));
+  const [visibleUnits, setVisibleUnits] = useState(targetUnits);
   const visibleUnitsRef = useRef(visibleUnits);
   const targetUnitsRef = useRef(targetUnits);
   const previousContentRef = useRef(stagedContent);
@@ -203,13 +201,9 @@ export function useStreamingStagedText(
     }
 
     const previous = previousContentRef.current;
-    if (stagedContent.length < previous.length) {
-      const next = Math.min(visibleUnitsRef.current, targetUnits);
-      visibleUnitsRef.current = next;
-      setVisibleUnits(next);
-    } else if (!stagedContent.startsWith(previous)) {
-      visibleUnitsRef.current = 0;
-      setVisibleUnits(0);
+    if (stagedContent.length < previous.length || !stagedContent.startsWith(previous)) {
+      visibleUnitsRef.current = targetUnits;
+      setVisibleUnits(targetUnits);
     }
     previousContentRef.current = stagedContent;
     if (visibleUnitsRef.current < targetUnits) start();

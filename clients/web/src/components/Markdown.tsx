@@ -354,6 +354,9 @@ export interface MarkdownProps {
   format?: 'markdown' | 'plain_text' | 'html';
   /// HTML 模式下，内容不像 HTML 时的回退渲染。
   htmlFallback?: 'markdown' | 'plain_text';
+  /// 父级消息正在流式追加内容。流式阶段保持渲染树稳定，避免占位态
+  /// 与 Markdown 树来回切换造成卡片闪烁。
+  streaming?: boolean;
 }
 
 const HTML_LIKELY_TAG_RE = /<\s*(?:!doctype|html|body|div|span|p|h[1-6]|ul|ol|li|table|thead|tbody|tfoot|tr|td|th|caption|col|colgroup|a|img|br|hr|pre|code|strong|em|b|i|u|s|del|ins|mark|small|sub|sup|abbr|cite|q|blockquote|section|article|header|footer|nav|main|aside|button|form|input|textarea|select|option|label|fieldset|legend|details|summary|figure|figcaption|time|progress|meter|style|script|link|meta|iframe|video|audio|canvas|svg|path|rect|circle|ellipse|line|polyline|polygon|text|g|defs|use|symbol)\b/i;
@@ -1140,7 +1143,7 @@ function extractMarkdownCodeText(nodes: unknown): string {
   return '';
 }
 
-export function Markdown({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown' }: MarkdownProps) {
+export function Markdown({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown', streaming = false }: MarkdownProps) {
   const content = source ?? '';
   const markdownContent = useMemo(() => stripLocalMediaReferences(content), [content]);
   const tooBig = content.length > CONTENT_TOO_BIG_BYTES;
@@ -1151,7 +1154,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   // 帧节流。中等以上内容 (> MARKDOWN_DEFERRED_PARSE_THRESHOLD) 首次挂载时
   // 先 plain text 占位, 把 react-markdown / rehype 解析推迟到下一空闲帧
   // (帧节流调度器), 避免长会话首屏多卡片同步 parse 撑爆主线程。
-  const shouldDeferParse = !raw && format !== 'plain_text' && !stickyLooksHtml && !tooBig
+  const shouldDeferParse = !streaming && !raw && format !== 'plain_text' && !stickyLooksHtml && !tooBig
     && content.length > MARKDOWN_DEFERRED_PARSE_THRESHOLD;
   const markdownReadyKey = useMemo(
     () => contentCacheKey(`md:${format}:${htmlFallback}`, markdownContent),

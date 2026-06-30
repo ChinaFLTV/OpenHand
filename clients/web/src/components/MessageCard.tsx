@@ -1614,7 +1614,6 @@ const REASONING_PREVIEW_MAX_HEIGHT_PX = 142;
 const RESPONSE_PREVIEW_MAX_HEIGHT_PX = 240;
 const SIZE_MOTION_MIN_DELTA_PX = 1.5;
 const SIZE_MOTION_TEXT_BUCKET_CHARS = 48;
-const STREAMING_SIZE_MOTION_BUCKET_CHARS = 16;
 const STREAMING_DIFF_REVEAL_MAX_CHARS = 32 * 1024;
 const MESSAGE_APPEAR_BATCH_WINDOW_MS = 90;
 const MESSAGE_UI_STATE_CACHE_LIMIT = 500;
@@ -2045,17 +2044,10 @@ function StreamingPlainTextReveal({
   reduceMotion: boolean;
   mono: boolean;
 }) {
-  const { visibleContent, staging } = useStreamingStagedText(
+  const { visibleContent } = useStreamingStagedText(
     content,
     streaming,
     reduceMotion,
-  );
-  const sizeMotionRef = useMessageSizeMotion(
-    textLayoutMotionSignal(
-      visibleContent,
-      STREAMING_SIZE_MOTION_BUCKET_CHARS,
-    ),
-    !reduceMotion && (streaming || staging),
   );
   const revealAllowed = visibleContent.length <= STREAMING_DIFF_REVEAL_MAX_CHARS;
   const { containerRef: streamingMaskRef, streamingClass } = useStreamingReveal(
@@ -2066,7 +2058,7 @@ function StreamingPlainTextReveal({
   );
 
   return (
-    <div ref={sizeMotionRef}>
+    <div>
       <div
         ref={streamingMaskRef}
         class={streamingClass ? 'oh-streaming-reveal' : undefined}
@@ -2113,13 +2105,6 @@ function StreamingMarkdownReveal({
     canStageContent,
     reduceMotion,
   );
-  const sizeMotionRef = useMessageSizeMotion(
-    textLayoutMotionSignal(
-      renderContent,
-      STREAMING_SIZE_MOTION_BUCKET_CHARS,
-    ),
-    !reduceMotion && (streaming || staging),
-  );
   const revealAllowed = renderContent.length <= STREAMING_DIFF_REVEAL_MAX_CHARS;
   const { containerRef: streamingMaskRef, streamingClass } =
     useStreamingReveal(
@@ -2130,7 +2115,7 @@ function StreamingMarkdownReveal({
     );
 
   return (
-    <div ref={sizeMotionRef}>
+    <div>
       <div
         ref={streamingMaskRef}
         class={streamingClass ? 'oh-streaming-reveal' : undefined}
@@ -2141,6 +2126,7 @@ function StreamingMarkdownReveal({
           mono={mono}
           format={format}
           htmlFallback={htmlFallback}
+          streaming={streaming || staging}
         />
       </div>
     </div>
@@ -2758,8 +2744,8 @@ function MessageCardImpl({
   const sizeMotionSignal = `${messageSizeMotionSignal(message)}|raw:${showRawContent ? 1 : 0}|tts:${ttsPlaying ? 1 : 0}|translated:${showingTranslation ? 1 : 0}:${visibleContent.length}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
   // 正文卡片只承接折叠 / 展开 / 原始内容切换这类语义级尺寸变化。
   // 操作面板使用自己的布局槽动画，避免裁剪已加载的媒体节点。
-  // 流式正文自身在 StreamingMarkdownReveal / StreamingPlainTextReveal 内
-  // 用可见文本信号做局部高度 FLIP，避免整张卡被高频 WAAPI 裁剪。
+  // 流式正文只做文本 reveal，不再跑高频高度 FLIP；表格/代码块追加时
+  // 反复裁切 Markdown 容器会形成肉眼可见闪烁。
   const cardRef = useMessageSizeMotion(
     sizeMotionSignal,
     !reduceMotion &&

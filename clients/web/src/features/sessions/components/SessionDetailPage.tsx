@@ -1185,6 +1185,43 @@ function buildAssociatedKnowledgeBaseMetadataByMessageId(
   return result;
 }
 
+interface AssociatedKnowledgeBaseCacheEntry {
+  signature: string;
+  value: Record<string, unknown>;
+}
+
+function associatedKnowledgeBaseMetadataSignature(metadata: Record<string, unknown>): string {
+  try {
+    return JSON.stringify(metadata) ?? '';
+  } catch {
+    return `fallback:${metadataTextLength(metadata)}`;
+  }
+}
+
+function stabilizeAssociatedKnowledgeBaseMetadataByMessageId(
+  next: Map<string, Record<string, unknown>>,
+  cache: Map<string, AssociatedKnowledgeBaseCacheEntry>,
+): Map<string, Record<string, unknown>> {
+  if (next.size === 0) {
+    cache.clear();
+    return next;
+  }
+  const stable = new Map<string, Record<string, unknown>>();
+  const nextCache = new Map<string, AssociatedKnowledgeBaseCacheEntry>();
+  for (const [messageId, metadata] of next) {
+    const signature = associatedKnowledgeBaseMetadataSignature(metadata);
+    const cached = cache.get(messageId);
+    const value = cached?.signature === signature ? cached.value : metadata;
+    stable.set(messageId, value);
+    nextCache.set(messageId, { signature, value });
+  }
+  cache.clear();
+  for (const [messageId, entry] of nextCache) {
+    cache.set(messageId, entry);
+  }
+  return stable;
+}
+
 type ComposerIconName = 'attachment' | 'chat' | 'chevronDown' | 'chevronUp' | 'close' | 'copy' | 'edit' | 'file' | 'follow' | 'goal' | 'guide' | 'image' | 'knowledge' | 'model' | 'mode' | 'pause' | 'plan' | 'play' | 'permission' | 'plus' | 'research' | 'refresh' | 'send' | 'sound' | 'spark' | 'stop' | 'video';
 
 function sessionModeIconName(mode: string): ComposerIconName {
@@ -2024,6 +2061,7 @@ export function SessionDetailPage() {
   const messagesContentRef = useRef<HTMLDivElement | null>(null);
   const composerSectionRef = useRef<HTMLElement | null>(null);
   const messagesRef = useRef<SessionMessage[]>([]);
+  const associatedKnowledgeBaseCacheRef = useRef(new Map<string, AssociatedKnowledgeBaseCacheEntry>());
   const windowOffsetRef = useRef(0);
 
   const [detail, setDetail] = useState<SessionDetailResponse | null>(null);
@@ -3493,6 +3531,7 @@ export function SessionDetailPage() {
     setLoadingOlder(false);
     setOlderRenderSettlingValue(false);
     setError(null);
+    associatedKnowledgeBaseCacheRef.current.clear();
     replaceMessageWindow([], 0);
     updateTotalKnown(0);
     setActiveMessageId(null);
@@ -5396,7 +5435,10 @@ export function SessionDetailPage() {
 
   const visibleSortedMessages = sortedMessages;
   const associatedKnowledgeBaseByMessageId = useMemo(
-    () => buildAssociatedKnowledgeBaseMetadataByMessageId(visibleSortedMessages),
+    () => stabilizeAssociatedKnowledgeBaseMetadataByMessageId(
+      buildAssociatedKnowledgeBaseMetadataByMessageId(visibleSortedMessages),
+      associatedKnowledgeBaseCacheRef.current,
+    ),
     [visibleSortedMessages],
   );
 
