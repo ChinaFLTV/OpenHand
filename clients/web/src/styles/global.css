@@ -1299,6 +1299,12 @@ button.oh-message-context-capsule {
     drop-shadow(0 0 10px color-mix(in srgb, currentColor 42%, transparent))
     drop-shadow(0 8px 12px color-mix(in srgb, currentColor 22%, transparent));
 }
+.oh-kb-vector-hit-target {
+  fill: transparent;
+  stroke: transparent;
+  pointer-events: all;
+  cursor: pointer;
+}
 @keyframes oh-kb-vector-point-in {
   0% { opacity: 0; transform: scale(0.42); }
   62% { opacity: 1; transform: scale(1.16); }

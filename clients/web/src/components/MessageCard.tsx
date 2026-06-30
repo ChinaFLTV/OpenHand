@@ -529,7 +529,7 @@ const KB_VECTOR_AXIS_TARGET_TICK_GAP = 54;
 const KB_VECTOR_POINT_HIT_RADIUS = 18;
 const KB_VECTOR_POINT_HIT_PADDING = 14;
 const KB_VECTOR_QUERY_HIT_PRIORITY_RADIUS = 30;
-const KB_VECTOR_DRAG_START_PX = 5;
+const KB_VECTOR_DRAG_START_PX = 8;
 const KB_VECTOR_POPOVER_PADDING = 12;
 const KB_VECTOR_POPOVER_WIDTH = 300;
 const KB_VECTOR_INITIAL_SIZE = { width: 760, height: 460 } as const;
@@ -3827,7 +3827,9 @@ function KnowledgeVectorDistributionScene({
   distribution: KnowledgeVectorDistributionData;
 }) {
   const sceneRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const pointerRef = useRef<{ pointerId: number; x: number; y: number; startX: number; startY: number; dragged: boolean } | null>(null);
+  const pointPointerRef = useRef<{ pointerId: number; pointId: string; x: number; y: number; startX: number; startY: number; dragged: boolean } | null>(null);
   const corpusAbortRef = useRef<AbortController | null>(null);
   const [sceneSize, setSceneSize] = useState<KnowledgeVectorSceneSize>(KB_VECTOR_INITIAL_SIZE);
   const [yaw, setYaw] = useState(-0.62);
@@ -3911,6 +3913,10 @@ function KnowledgeVectorDistributionScene({
     () => sortKnowledgeProjectedVectorPointsForPaint(projected),
     [projected],
   );
+  const hitPoints = useMemo(
+    () => sortKnowledgeProjectedVectorPointsForHit(projected),
+    [projected],
+  );
   const selected = allPoints.find((point) => point.id === selectedId) ?? null;
   const selectedProjected = selected
     ? projected.find((point) => point.point.id === selected.id) ?? null
@@ -3977,7 +3983,25 @@ function KnowledgeVectorDistributionScene({
     loadCorpus();
   }, [loadCorpus, showCorpus]);
 
+  const rotateViewportByPointerDelta = useCallback((dx: number, dy: number) => {
+    setYaw((value) => value + dx * 0.010);
+    setPitch((value) => clampKnowledgeNumber(value + dy * 0.008, -1.18, 1.18));
+  }, []);
+
   const scenePointFromEvent = useCallback((event: { clientX: number; clientY: number }) => {
+    const svg = svgRef.current;
+    const matrix = svg?.getScreenCTM();
+    if (svg && matrix) {
+      try {
+        const point = svg.createSVGPoint();
+        point.x = event.clientX;
+        point.y = event.clientY;
+        const transformed = point.matrixTransform(matrix.inverse());
+        return { x: transformed.x, y: transformed.y };
+      } catch {
+        // Fallback to rect-based mapping below.
+      }
+    }
     const rect = sceneRef.current?.getBoundingClientRect();
     if (!rect) return null;
     const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * sceneSize.width;
@@ -4010,8 +4034,7 @@ function KnowledgeVectorDistributionScene({
         if (!dragged) return;
         const dx = event.clientX - previous.x;
         const dy = event.clientY - previous.y;
-        setYaw((value) => value + dx * 0.010);
-        setPitch((value) => clampKnowledgeNumber(value + dy * 0.008, -1.18, 1.18));
+        rotateViewportByPointerDelta(dx, dy);
       }}
       onPointerUp={(event) => {
         const previous = pointerRef.current;
@@ -4038,8 +4061,10 @@ function KnowledgeVectorDistributionScene({
       }}
     >
       <svg
+        ref={svgRef}
         class="oh-kb-vector-svg"
         viewBox={`0 0 ${sceneSize.width} ${sceneSize.height}`}
+        preserveAspectRatio="none"
         role="img"
         aria-label={t('message.kbDialog.vectorSpace', '向量空间')}
       >
@@ -4072,6 +4097,60 @@ function KnowledgeVectorDistributionScene({
             style={{ animationDelay: `${Math.min(index * 7, 640)}ms` }}
           />
         ))}
+        <g class="oh-kb-vector-hit-layer">
+          {hitPoints.map((item) => (
+            <circle
+              key={`hit-${item.point.id}`}
+              class="oh-kb-vector-hit-target"
+              cx={item.x}
+              cy={item.y}
+              r={knowledgeVectorPointHitRadius(item)}
+              onPointerDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                pointPointerRef.current = {
+                  pointerId: event.pointerId,
+                  pointId: item.point.id,
+                  x: event.clientX,
+                  y: event.clientY,
+                  startX: event.clientX,
+                  startY: event.clientY,
+                  dragged: false,
+                };
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }}
+              onPointerMove={(event) => {
+                const previous = pointPointerRef.current;
+                if (!previous || previous.pointerId !== event.pointerId) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const moved = Math.hypot(event.clientX - previous.startX, event.clientY - previous.startY);
+                const dragged = previous.dragged || moved > KB_VECTOR_DRAG_START_PX;
+                pointPointerRef.current = { ...previous, x: event.clientX, y: event.clientY, dragged };
+                if (!dragged) return;
+                rotateViewportByPointerDelta(event.clientX - previous.x, event.clientY - previous.y);
+              }}
+              onPointerUp={(event) => {
+                const previous = pointPointerRef.current;
+                pointPointerRef.current = null;
+                event.preventDefault();
+                event.stopPropagation();
+                if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                  event.currentTarget.releasePointerCapture(event.pointerId);
+                }
+                if (!previous || previous.pointerId !== event.pointerId || previous.dragged) return;
+                setSelectedId(previous.pointId);
+              }}
+              onPointerCancel={(event) => {
+                pointPointerRef.current = null;
+                event.stopPropagation();
+                if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                  event.currentTarget.releasePointerCapture(event.pointerId);
+                }
+              }}
+            />
+          ))}
+        </g>
       </svg>
       <div class="oh-kb-vector-stats" onPointerDown={(event) => event.stopPropagation()}>{statText}</div>
       <div class="oh-kb-vector-controls" onPointerDown={(event) => event.stopPropagation()}>
@@ -4380,6 +4459,18 @@ function sortKnowledgeProjectedVectorPointsForPaint(
     if (Math.abs(depthDelta) > 0.001) return depthDelta;
     return knowledgeVectorPointPaintPriority(a.point.kind) -
       knowledgeVectorPointPaintPriority(b.point.kind);
+  });
+}
+
+function sortKnowledgeProjectedVectorPointsForHit(
+  points: KnowledgeProjectedVectorPoint[],
+): KnowledgeProjectedVectorPoint[] {
+  return [...points].sort((a, b) => {
+    const priorityDelta =
+      knowledgeVectorPointHitPriority(a.point.kind) -
+      knowledgeVectorPointHitPriority(b.point.kind);
+    if (Math.abs(priorityDelta) > 0.001) return priorityDelta;
+    return a.depth - b.depth;
   });
 }
 
