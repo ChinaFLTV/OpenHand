@@ -520,16 +520,19 @@ const KB_VECTOR_DEFAULT_MAX_POINTS = 600;
 const KB_VECTOR_BATCH_SIZE = 120;
 const KB_VECTOR_MIN_ZOOM = 0.62;
 const KB_VECTOR_MAX_ZOOM = 10;
-const KB_VECTOR_ZOOM_BUTTON_FACTOR = 1.18;
-const KB_VECTOR_SCROLL_ZOOM_SENSITIVITY = 0.0012;
+const KB_VECTOR_ZOOM_BUTTON_FACTOR = 1.48;
+const KB_VECTOR_SCROLL_ZOOM_SENSITIVITY = 0.0034;
 const KB_VECTOR_AXIS_EXTENT = 1.18;
 const KB_VECTOR_AXIS_TICK_SCREEN_LENGTH = 8;
 const KB_VECTOR_AXIS_MINOR_TICK_SCREEN_LENGTH = 5;
 const KB_VECTOR_AXIS_TARGET_TICK_GAP = 54;
 const KB_VECTOR_POINT_HIT_RADIUS = 18;
+const KB_VECTOR_POINT_HIT_PADDING = 14;
+const KB_VECTOR_QUERY_HIT_PRIORITY_RADIUS = 30;
+const KB_VECTOR_DRAG_START_PX = 5;
 const KB_VECTOR_POPOVER_PADDING = 12;
 const KB_VECTOR_POPOVER_WIDTH = 300;
-const KB_VECTOR_INITIAL_SIZE = { width: 720, height: 380 } as const;
+const KB_VECTOR_INITIAL_SIZE = { width: 760, height: 460 } as const;
 
 interface KnowledgeVectorSceneSize {
   width: number;
@@ -2562,6 +2565,9 @@ function MessageCardImpl({
   const streamingContent = isReasoningMessage
     ? activelyStreaming
     : activelyStreaming || recentlyUpdatedContent;
+  const visuallyStreamingContent = isReasoningMessage
+    ? isActivelyStreamingReasoning
+    : activelyStreaming;
   const inlineCreationMode =
     !isUserBubble && activelyStreaming && content.trim().length < 10
       ? mediaGenerationModeFromMetadata(metadata)
@@ -2938,7 +2944,7 @@ function MessageCardImpl({
           style={{ transformOrigin: isUserBubble ? 'right top' : 'left top' }}
         >
           <article
-            class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} ${isReasoningMessage ? 'is-reasoning' : ''} ${isFormalAssistantResponse ? 'is-formal-response' : ''} ${isExpertRequestCard ? 'is-expert-request' : ''} ${isMachineExpertRequestCard ? 'is-machine-request' : ''} ${isWebReverseRequestCard ? 'is-web-reverse-request' : ''} ${isAndroidReverseRequestCard ? 'is-android-reverse-request' : ''} ${streamingContent ? 'is-streaming-now' : ''} rounded-m3-md p-4${appearClass}`}
+            class={`oh-message-card ${isUserBubble ? 'is-user' : 'is-other'} ${isWideSystemCard ? 'is-wide' : 'is-plain'} ${isReasoningMessage ? 'is-reasoning' : ''} ${isFormalAssistantResponse ? 'is-formal-response' : ''} ${isExpertRequestCard ? 'is-expert-request' : ''} ${isMachineExpertRequestCard ? 'is-machine-request' : ''} ${isWebReverseRequestCard ? 'is-web-reverse-request' : ''} ${isAndroidReverseRequestCard ? 'is-android-reverse-request' : ''} ${visuallyStreamingContent ? 'is-streaming-now' : ''} rounded-m3-md p-4${appearClass}`}
             style={{
               display: 'block',
               width: isHtmlAssistantCard ? bubbleMaxWidth : 'fit-content',
@@ -3172,7 +3178,7 @@ function MessageCardImpl({
           ) : (
             <StreamingMarkdownReveal
               content={visibleContent}
-              streaming={streamingContent && !isUserBubble}
+              streaming={visuallyStreamingContent && !isUserBubble}
               reduceMotion={reduceMotion}
               raw={
                 showRawContent ||
@@ -3901,6 +3907,10 @@ function KnowledgeVectorDistributionScene({
     () => projectKnowledgeVectorPoints(renderedPoints, sceneSize, yaw, pitch, zoom),
     [renderedPoints, sceneSize, yaw, pitch, zoom],
   );
+  const paintedPoints = useMemo(
+    () => sortKnowledgeProjectedVectorPointsForPaint(projected),
+    [projected],
+  );
   const selected = allPoints.find((point) => point.id === selectedId) ?? null;
   const selectedProjected = selected
     ? projected.find((point) => point.point.id === selected.id) ?? null
@@ -3994,10 +4004,12 @@ function KnowledgeVectorDistributionScene({
       onPointerMove={(event) => {
         const previous = pointerRef.current;
         if (!previous || previous.pointerId !== event.pointerId) return;
+        const moved = Math.hypot(event.clientX - previous.startX, event.clientY - previous.startY);
+        const dragged = previous.dragged || moved > KB_VECTOR_DRAG_START_PX;
+        pointerRef.current = { ...previous, x: event.clientX, y: event.clientY, dragged };
+        if (!dragged) return;
         const dx = event.clientX - previous.x;
         const dy = event.clientY - previous.y;
-        const moved = Math.hypot(event.clientX - previous.startX, event.clientY - previous.startY);
-        pointerRef.current = { ...previous, x: event.clientX, y: event.clientY, dragged: previous.dragged || moved > 4 };
         setYaw((value) => value + dx * 0.010);
         setPitch((value) => clampKnowledgeNumber(value + dy * 0.008, -1.18, 1.18));
       }}
@@ -4050,7 +4062,7 @@ function KnowledgeVectorDistributionScene({
             />
           ))}
         </g>
-        {[...projected].sort((a, b) => a.depth - b.depth).map((item, index) => (
+        {paintedPoints.map((item, index) => (
           <circle
             key={item.point.id}
             class={`oh-kb-vector-point is-${item.point.kind} ${selectedId === item.point.id ? 'is-selected' : ''}`}
@@ -4229,7 +4241,7 @@ function projectKnowledgeVectorPoints(
 ): KnowledgeProjectedVectorPoint[] {
   return points.map((point) => {
     const projected = projectKnowledgeSceneCoordinate(point.x, point.y, point.z, sceneSize, yaw, pitch, zoom);
-    const baseRadius = point.kind === 'query' ? 8.5 : point.kind === 'match' ? 6.7 : 4.7;
+    const baseRadius = point.kind === 'query' ? 9.2 : point.kind === 'match' ? 6.8 : 4.6;
     return {
       point,
       x: projected.x,
@@ -4252,7 +4264,7 @@ function projectKnowledgeSceneCoordinate(
 ): KnowledgeSceneProjection {
   const centerX = sceneSize.width / 2;
   const centerY = sceneSize.height / 2;
-  const radius = Math.min(sceneSize.width, sceneSize.height) * 0.34 * zoom;
+  const radius = Math.min(sceneSize.width, sceneSize.height) * 0.30 * zoom;
   const cosY = Math.cos(yaw);
   const sinY = Math.sin(yaw);
   const cosP = Math.cos(pitch);
@@ -4274,10 +4286,10 @@ function resolveKnowledgeVectorAxisScale(
   sceneSize: KnowledgeVectorSceneSize,
   zoom: number,
 ): KnowledgeVectorAxisScale {
-  const baseRadius = Math.min(sceneSize.width, sceneSize.height) * 0.34;
+  const baseRadius = Math.min(sceneSize.width, sceneSize.height) * 0.30;
   const pixelsPerUnit = Math.max(1, baseRadius * zoom);
   const step = closestKnowledgeAxisStep(KB_VECTOR_AXIS_TARGET_TICK_GAP / pixelsPerUnit);
-  const labelStep = step <= 0.05 ? 0.10 : step <= 0.10 ? 0.20 : step <= 0.25 ? 0.50 : step;
+  const labelStep = step <= 0.10 ? 0.20 : step <= 0.25 ? 0.50 : step;
   return { step, labelStep, gridStep: Math.max(0.10, labelStep) };
 }
 
@@ -4318,15 +4330,57 @@ function nearestKnowledgeVectorPoint(
   offset: { x: number; y: number },
 ): KnowledgeProjectedVectorPoint | null {
   let nearest: KnowledgeProjectedVectorPoint | null = null;
-  let bestDistance = Number.POSITIVE_INFINITY;
+  let bestScore = Number.POSITIVE_INFINITY;
   for (const point of projected) {
     const distance = Math.hypot(point.x - offset.x, point.y - offset.y);
-    if (distance < bestDistance) {
+    const hitRadius = knowledgeVectorPointHitRadius(point);
+    if (distance > hitRadius) continue;
+    const normalizedDistance = distance / hitRadius;
+    const score =
+      normalizedDistance -
+      knowledgeVectorPointHitPriority(point.point.kind) -
+      Math.min(point.radius * 0.004, 0.05) -
+      Math.max(point.depth, 0) * 0.012;
+    if (score < bestScore) {
       nearest = point;
-      bestDistance = distance;
+      bestScore = score;
     }
   }
-  return bestDistance <= KB_VECTOR_POINT_HIT_RADIUS ? nearest : null;
+  return nearest;
+}
+
+function knowledgeVectorPointHitRadius(point: KnowledgeProjectedVectorPoint): number {
+  const base = Math.max(KB_VECTOR_POINT_HIT_RADIUS, point.radius + KB_VECTOR_POINT_HIT_PADDING);
+  return point.point.kind === 'query'
+    ? Math.max(base, KB_VECTOR_QUERY_HIT_PRIORITY_RADIUS)
+    : base;
+}
+
+function knowledgeVectorPointHitPriority(kind: KnowledgeVectorDistributionPoint['kind']): number {
+  switch (kind) {
+    case 'query': return 0.34;
+    case 'match': return 0.12;
+    default: return 0;
+  }
+}
+
+function knowledgeVectorPointPaintPriority(kind: KnowledgeVectorDistributionPoint['kind']): number {
+  switch (kind) {
+    case 'query': return 3;
+    case 'match': return 2;
+    default: return 1;
+  }
+}
+
+function sortKnowledgeProjectedVectorPointsForPaint(
+  points: KnowledgeProjectedVectorPoint[],
+): KnowledgeProjectedVectorPoint[] {
+  return [...points].sort((a, b) => {
+    const depthDelta = a.depth - b.depth;
+    if (Math.abs(depthDelta) > 0.001) return depthDelta;
+    return knowledgeVectorPointPaintPriority(a.point.kind) -
+      knowledgeVectorPointPaintPriority(b.point.kind);
+  });
 }
 
 function knowledgeAxisTickDirection(

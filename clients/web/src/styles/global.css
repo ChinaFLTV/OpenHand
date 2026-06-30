@@ -1191,13 +1191,13 @@ button.oh-message-context-capsule {
 }
 .oh-kb-vector-scene {
   position: relative;
-  height: 380px;
-  min-height: 380px;
+  height: clamp(430px, 44vh, 520px);
+  min-height: 430px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 80%, transparent);
-  border-radius: 16px;
+  border-radius: 18px;
   background:
-    radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--m3-primary-container) 30%, transparent), transparent 44%),
+    radial-gradient(circle at 50% 48%, color-mix(in srgb, var(--m3-primary-container) 24%, transparent), transparent 50%),
     color-mix(in srgb, var(--m3-surface-container-highest) 58%, transparent);
   touch-action: none;
   user-select: none;
@@ -1215,7 +1215,7 @@ button.oh-message-context-capsule {
 .oh-kb-vector-grid,
 .oh-kb-vector-axes {
   fill: none;
-  stroke: color-mix(in srgb, var(--m3-outline-variant) 56%, transparent);
+  stroke: color-mix(in srgb, var(--m3-outline-variant) 48%, transparent);
   stroke-width: 1;
 }
 .oh-kb-vector-axis {
@@ -1265,11 +1265,11 @@ button.oh-message-context-capsule {
 }
 .oh-kb-vector-axis-label {
   font-size: 11px;
-  opacity: 0.9;
+  opacity: 0.82;
 }
 .oh-kb-vector-axis-tick-label {
-  font-size: 9.5px;
-  opacity: 0.72;
+  font-size: 9px;
+  opacity: 0.58;
 }
 .oh-kb-vector-point {
   cursor: pointer;
@@ -1288,6 +1288,9 @@ button.oh-message-context-capsule {
 }
 .oh-kb-vector-point.is-query {
   fill: #ef4444;
+  filter:
+    drop-shadow(0 0 8px color-mix(in srgb, #ef4444 34%, transparent))
+    drop-shadow(0 7px 10px color-mix(in srgb, #ef4444 20%, transparent));
 }
 .oh-kb-vector-point.is-selected {
   stroke: color-mix(in srgb, #fff 72%, currentColor);
@@ -1311,19 +1314,20 @@ button.oh-message-context-capsule {
   z-index: 2;
 }
 .oh-kb-vector-stats {
-  top: 12px;
-  left: 12px;
+  top: 14px;
+  left: 16px;
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 64%, transparent);
-  background: color-mix(in srgb, var(--m3-surface) 82%, transparent);
+  background: color-mix(in srgb, var(--m3-surface) 76%, transparent);
   color: var(--m3-on-surface-variant);
   font-size: 11px;
   font-weight: 780;
+  backdrop-filter: blur(10px);
 }
 .oh-kb-vector-controls {
-  top: 10px;
-  right: 12px;
+  top: 12px;
+  right: 16px;
   min-height: 34px;
   display: inline-flex;
   align-items: center;
@@ -1331,11 +1335,12 @@ button.oh-message-context-capsule {
   padding: 3px 5px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 64%, transparent);
-  background: color-mix(in srgb, var(--m3-surface) 86%, transparent);
+  background: color-mix(in srgb, var(--m3-surface) 78%, transparent);
   color: var(--m3-on-surface-variant);
   font-size: 11px;
   font-weight: 820;
   box-shadow: 0 10px 24px -20px color-mix(in srgb, #000 48%, transparent);
+  backdrop-filter: blur(10px);
 }
 .oh-kb-vector-control {
   min-width: 28px;
@@ -1365,35 +1370,37 @@ button.oh-message-context-capsule {
   font-variant-numeric: tabular-nums;
 }
 .oh-kb-vector-overlay-actions {
-  top: 54px;
-  right: 12px;
+  right: 16px;
+  bottom: 14px;
 }
 .oh-kb-vector-overlay-actions .oh-kb-dialog-action {
   min-height: 30px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--m3-surface) 86%, transparent);
+  background: color-mix(in srgb, var(--m3-surface) 80%, transparent);
   font-size: 11px;
+  backdrop-filter: blur(10px);
 }
 .oh-kb-vector-status {
-  left: 12px;
-  top: 50px;
-  max-width: min(520px, calc(100% - 190px));
+  left: 16px;
+  top: 56px;
+  max-width: min(560px, calc(100% - 210px));
   padding: 7px 10px;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--m3-primary) 24%, var(--m3-outline-variant));
-  background: color-mix(in srgb, var(--m3-surface) 86%, transparent);
+  background: color-mix(in srgb, var(--m3-surface) 82%, transparent);
   color: var(--m3-on-surface-variant);
   font-size: 11px;
   font-weight: 720;
   line-height: 1.35;
+  backdrop-filter: blur(10px);
 }
 .oh-kb-vector-status.is-error {
   border-color: color-mix(in srgb, var(--m3-error) 44%, var(--m3-outline-variant));
   color: var(--m3-error);
 }
 .oh-kb-vector-legend {
-  left: 12px;
-  bottom: 12px;
+  left: 16px;
+  bottom: 14px;
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
@@ -1405,10 +1412,11 @@ button.oh-message-context-capsule {
   padding: 5px 9px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 64%, transparent);
-  background: color-mix(in srgb, var(--m3-surface) 82%, transparent);
+  background: color-mix(in srgb, var(--m3-surface) 76%, transparent);
   color: var(--m3-on-surface);
   font-size: 11px;
   font-weight: 780;
+  backdrop-filter: blur(10px);
 }
 .oh-kb-vector-legend i {
   width: 8px;
@@ -1534,8 +1542,8 @@ button.oh-message-context-capsule {
   }
   .oh-kb-vector-scene,
   .oh-kb-vector-svg {
-    min-height: 300px;
-    height: 300px;
+    min-height: 340px;
+    height: 340px;
   }
   .oh-kb-vector-controls {
     left: 10px;
@@ -1552,11 +1560,11 @@ button.oh-message-context-capsule {
     text-align: center;
   }
   .oh-kb-vector-overlay-actions {
-    top: 88px;
     right: 10px;
+    bottom: 50px;
   }
   .oh-kb-vector-status {
-    top: 124px;
+    top: 92px;
     left: 10px;
     right: 10px;
     max-width: none;

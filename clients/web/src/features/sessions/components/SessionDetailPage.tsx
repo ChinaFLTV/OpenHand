@@ -161,6 +161,7 @@ const AUTO_FOLLOW_USER_SCROLL_INTENT_MS = 1200;
 const AUTO_FOLLOW_SETTLE_MAX_FRAMES = 36;
 const AUTO_FOLLOW_SETTLE_STABLE_FRAMES = 4;
 const AUTO_FOLLOW_SETTLE_EPSILON_PX = 0.75;
+const COMPOSER_LAYOUT_TRANSITION_GUARD_MS = 440;
 const KNOWLEDGE_USAGE_PREVIEW_MAX_CHARS = 420;
 
 // 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
@@ -2208,6 +2209,7 @@ export function SessionDetailPage() {
   const autoFollowRef = useRef<boolean>(true);
   const autoFollowPausedRef = useRef<boolean>(false);
   const programmaticScrollUntilRef = useRef<number>(0);
+  const composerLayoutTransitionUntilRef = useRef<number>(0);
   // 区分「用户主动向上滑动」与「内容增长导致的视觉远离底部」：
   // recalc 仅在 scrollTop 真正减小 (用户上滑) 时才允许 setAutoFollowPaused=true。
   // 否则 (内容增长 / 程序滚动) 不应自动暂停跟随，让 ResizeObserver follow 接管。
@@ -2505,6 +2507,18 @@ export function SessionDetailPage() {
       programmaticScrollUntilRef.current,
       Date.now() + durationMs,
     );
+  }
+
+  function markComposerLayoutTransition(): void {
+    composerLayoutTransitionUntilRef.current = Math.max(
+      composerLayoutTransitionUntilRef.current,
+      Date.now() + COMPOSER_LAYOUT_TRANSITION_GUARD_MS,
+    );
+    markTranscriptScrollActivity(COMPOSER_LAYOUT_TRANSITION_GUARD_MS);
+  }
+
+  function isComposerLayoutTransitioning(): boolean {
+    return Date.now() < composerLayoutTransitionUntilRef.current;
   }
 
   function cancelFollowSettle(): void {
@@ -3147,7 +3161,8 @@ export function SessionDetailPage() {
     const shouldFollowOnGrow = () =>
       autoFollowRef.current &&
       !autoFollowPausedRef.current &&
-      !hasRecentUserScrollIntent();
+      !hasRecentUserScrollIntent() &&
+      !isComposerLayoutTransitioning();
     const observer = new ResizeObserver(() => {
       if (!shouldFollowOnGrow()) return;
       if (resizeFollowFrameRef.current != null) return;
@@ -3256,8 +3271,10 @@ export function SessionDetailPage() {
   }, []);
 
   useLayoutEffect(() => {
-    if (shouldFollowPinnedMessages()) scheduleFollowToBottom('auto');
-  }, [composerCollapsed, composerAttachments.length, selectedSkill?.name, editingDraftMessage?.id, composerError]);
+    if (!isComposerLayoutTransitioning() && shouldFollowPinnedMessages()) {
+      scheduleFollowToBottom('auto');
+    }
+  }, [composerAttachments.length, selectedSkill?.name, editingDraftMessage?.id, composerError]);
 
   useEffect(() => {
     if (activeMessageId == null) return;
@@ -5036,12 +5053,9 @@ export function SessionDetailPage() {
   }
 
   function toggleComposerCollapsed(): void {
+    markComposerLayoutTransition();
     setComposerCollapsed((value) => !value);
-    // ResizeObserver 会自动补偿 scrollTop 保持可视位置不变。
-    // 仅当 autoFollow 明确开启且未暂停时才钉底，避免与补偿逻辑冲突。
-    if (autoFollow && !autoFollowPausedRef.current) {
-      scheduleFollowToBottom('auto');
-    }
+    // ResizeObserver 会在高度动画期间补偿 scrollTop，避免与自动钉底互相拉扯。
   }
 
   useEffect(() => {
