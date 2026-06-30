@@ -6,6 +6,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/database_service.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../knowledge_base/index.dart';
 import '../../model/ai_model_config.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -685,8 +686,7 @@ String _normalizeForMatch(String value) {
 }
 
 String _truncate(String value, int maxChars) {
-  if (value.length <= maxChars) return value;
-  return '${value.substring(0, maxChars)}...';
+  return clipText(value, maxChars);
 }
 
 String _stringValue(Object? value) => '${value ?? ''}'.trim();

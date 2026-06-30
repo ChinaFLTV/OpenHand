@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 
 /// 把 HAR 1.2 文档作为只读 mock server 跑起来，监听 127.0.0.1:N，
 /// 收到 GET 请求时按 URL 全等匹配 HAR 条目并回放 status / headers / body。
@@ -219,8 +220,7 @@ class WebReverseHarReplayServer {
   }
 
   static String _clipText(String text, int maxChars) {
-    if (text.length <= maxChars) return text;
-    return '${text.substring(0, maxChars)}...';
+    return clipText(text, maxChars);
   }
 }
 

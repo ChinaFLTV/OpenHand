@@ -20,6 +20,8 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
+import '../../../shared/util/text_clip.dart';
+import '../../../shared/util/text_fingerprint.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/xml_escape.dart';
 import '../../ai/index.dart';
@@ -6043,14 +6045,11 @@ class WebMessagePlatformService {
       }
       final content = message['content'];
       final contentText = content is String ? content : '';
-      final contentLength = contentText.length;
-      final contentHead = contentText.length <= 48
-          ? contentText
-          : contentText.substring(0, 48);
-      final contentTail = contentText.length <= 24
-          ? contentText
-          : contentText.substring(contentText.length - 24);
-      return '${message['id']}:${message['role']}:${message['kind']}:$contentLength:$contentHead:$contentTail:${message['character_count'] ?? 0}';
+      final contentSignature = compactTextSignature(
+        contentText,
+        emptySignature: '0::',
+      );
+      return '${message['id']}:${message['role']}:${message['kind']}:$contentSignature:${message['character_count'] ?? 0}';
     }
 
     final first = itemSignature(messages.first);
@@ -7163,8 +7162,7 @@ String _string(Object? value, String fallback) {
 }
 
 String _truncate(String value, int maxChars) {
-  if (value.length <= maxChars) return value;
-  return '${value.substring(0, maxChars)}...';
+  return clipText(value, maxChars);
 }
 
 String _safeFileName(String value) {

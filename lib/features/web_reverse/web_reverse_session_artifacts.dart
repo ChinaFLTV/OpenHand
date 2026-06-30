@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 
 /// Web 逆向会话的产物落盘：把 dashboard 实时缓冲的网络/控制台事件
@@ -267,8 +268,7 @@ class WebReverseSessionArtifacts {
   }
 
   static String? _clipText(String? value, int maxChars) {
-    if (value == null || value.length <= maxChars) return value;
-    return '${value.substring(0, maxChars)}...';
+    return clipNullableText(value, maxChars);
   }
 }
 
