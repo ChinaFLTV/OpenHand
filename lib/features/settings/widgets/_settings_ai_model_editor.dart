@@ -509,12 +509,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     final base = sourceModelId.trim().isEmpty ? 'model' : sourceModelId.trim();
     final used = _visibleModelIds.toSet();
     for (var index = 1; index <= 9999; index++) {
-      final candidate = '$base-Copy-$index';
+      final candidate = _OneMillionContextPolicy.copyModelId(base, index);
       if (!used.contains(candidate)) {
         return candidate;
       }
     }
-    return '$base-Copy-${DateTime.now().microsecondsSinceEpoch}';
+    return _OneMillionContextPolicy.copyModelId(
+      base,
+      DateTime.now().microsecondsSinceEpoch,
+    );
   }
 
   void _replaceRoutingModelId(String oldModelId, String nextModelId) {
@@ -2229,6 +2232,56 @@ class _ModelProfileEditorResult {
 typedef _DuplicateModelProfileCallback =
     String Function(String sourceModelId, AiModelProfile profile);
 
+class _OneMillionContextPolicy {
+  const _OneMillionContextPolicy._();
+
+  static const int contextTokens = 1000000;
+  static const String contextTokensText = '1000000';
+  static const String modelIdSuffix = '[1M]';
+  static final RegExp _modelIdSuffixRunPattern = RegExp(
+    r'(?:\s*\[1m\])+$',
+    caseSensitive: false,
+  );
+
+  static bool isEnabledBy({
+    required String modelId,
+    required String maxContextLength,
+  }) {
+    return hasModelIdSuffix(modelId) ||
+        optionalPositiveIntFromText(maxContextLength) == contextTokens;
+  }
+
+  static bool hasModelIdSuffix(String modelId) {
+    return _modelIdSuffixRunPattern.hasMatch(modelId.trim());
+  }
+
+  static String normalizeModelId(String modelId) {
+    final trimmed = modelId.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+    final base = stripModelIdSuffix(trimmed);
+    return '${base.isEmpty ? 'model' : base}$modelIdSuffix';
+  }
+
+  static String copyModelId(String sourceModelId, int index) {
+    final trimmed = sourceModelId.trim();
+    final base = trimmed.isEmpty ? 'model' : trimmed;
+    if (!hasModelIdSuffix(base)) {
+      return '$base-Copy-$index';
+    }
+    final withoutSuffix = stripModelIdSuffix(base);
+    return '${withoutSuffix.isEmpty ? 'model' : withoutSuffix}-Copy-$index$modelIdSuffix';
+  }
+
+  static String stripModelIdSuffix(String modelId) {
+    return modelId
+        .trim()
+        .replaceFirst(_modelIdSuffixRunPattern, '')
+        .trimRight();
+  }
+}
+
 class _ModelProfileEditorDialog extends StatefulWidget {
   const _ModelProfileEditorDialog({
     required this.modelId,
@@ -2300,6 +2353,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   bool? _isMultimodal;
   bool? _supportsAttachments;
   bool? _requiresReasoningEcho;
+  bool _oneMillionContextEnabled = false;
+  String? _modelIdBeforeOneMillionContext;
+  String? _maxContextBeforeOneMillionContext;
   bool? _embeddingOutputsNormalized;
   bool _embeddingSupportsCustomDimensions = false;
   bool _embeddingRequiresSpecialBody = false;
@@ -2354,6 +2410,28 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           effective.maxThinkingLength?.toString() ??
           '',
     );
+    final initialModelIdText = _modelIdController.text;
+    final initialMaxContextText = _maxContextLengthController.text;
+    _oneMillionContextEnabled = _OneMillionContextPolicy.isEnabledBy(
+      modelId: initialModelIdText,
+      maxContextLength: initialMaxContextText,
+    );
+    if (_oneMillionContextEnabled) {
+      final normalizedModelId = _OneMillionContextPolicy.normalizeModelId(
+        initialModelIdText,
+      );
+      final modelIdWillChange =
+          normalizedModelId.isNotEmpty &&
+          normalizedModelId != initialModelIdText;
+      final contextWillChange =
+          initialMaxContextText.trim() !=
+          _OneMillionContextPolicy.contextTokensText;
+      if (modelIdWillChange || contextWillChange) {
+        _modelIdBeforeOneMillionContext = initialModelIdText;
+        _maxContextBeforeOneMillionContext = initialMaxContextText;
+      }
+      _syncOneMillionContextFields();
+    }
     _inputUsdPer1MController = TextEditingController(
       text:
           p.inputUsdPer1M?.toString() ??
@@ -2765,6 +2843,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   }
 
   String? _validatedModelId() {
+    if (_oneMillionContextEnabled) {
+      _syncOneMillionContextFields();
+    }
     final modelId = _modelIdController.text.trim();
     if (modelId.isEmpty) {
       setState(() {
@@ -2821,9 +2902,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           : null,
       isMultimodal: _isMultimodal,
       supportedModalities: _supportedModalities,
-      maxContextLength: optionalPositiveIntFromText(
-        _maxContextLengthController.text,
-      ),
+      maxContextLength: _oneMillionContextEnabled
+          ? _OneMillionContextPolicy.contextTokens
+          : optionalPositiveIntFromText(_maxContextLengthController.text),
       maxSummaryLength: optionalPositiveIntFromText(
         _maxSummaryLengthController.text,
       ),
@@ -2997,6 +3078,54 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     );
   }
 
+  void _setOneMillionContextEnabled(bool enabled) {
+    if (enabled == _oneMillionContextEnabled) {
+      return;
+    }
+    setState(() {
+      if (enabled) {
+        _modelIdBeforeOneMillionContext = _modelIdController.text;
+        _maxContextBeforeOneMillionContext = _maxContextLengthController.text;
+        _oneMillionContextEnabled = true;
+        _syncOneMillionContextFields();
+      } else {
+        _oneMillionContextEnabled = false;
+        _restoreOneMillionContextSnapshotIfUnchanged();
+      }
+      _profileErrorMessage = null;
+    });
+  }
+
+  void _syncOneMillionContextFields() {
+    final normalizedModelId = _OneMillionContextPolicy.normalizeModelId(
+      _modelIdController.text,
+    );
+    if (normalizedModelId.isNotEmpty) {
+      _syncControllerText(_modelIdController, normalizedModelId);
+    }
+    _syncControllerText(
+      _maxContextLengthController,
+      _OneMillionContextPolicy.contextTokensText,
+    );
+  }
+
+  void _restoreOneMillionContextSnapshotIfUnchanged() {
+    final previousModelId = _modelIdBeforeOneMillionContext;
+    if (previousModelId != null &&
+        _modelIdController.text.trim() ==
+            _OneMillionContextPolicy.normalizeModelId(previousModelId)) {
+      _syncControllerText(_modelIdController, previousModelId);
+    }
+    final previousContext = _maxContextBeforeOneMillionContext;
+    if (previousContext != null &&
+        _maxContextLengthController.text.trim() ==
+            _OneMillionContextPolicy.contextTokensText) {
+      _syncControllerText(_maxContextLengthController, previousContext);
+    }
+    _modelIdBeforeOneMillionContext = null;
+    _maxContextBeforeOneMillionContext = null;
+  }
+
   Widget _buildGlobalDefaultTitleModelControl() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -3037,6 +3166,65 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               _isGlobalDefaultTitleModel = value;
             });
           },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOneMillionContextControl() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final helperText = _oneMillionContextEnabled
+        ? _localizedText(
+            context,
+            zh: '已锁定上下文长度为 ${_OneMillionContextPolicy.contextTokensText}，保存时模型 ID 会保持 ${_OneMillionContextPolicy.modelIdSuffix} 后缀。',
+            en: 'Locks context length to ${_OneMillionContextPolicy.contextTokensText}; saving keeps the ${_OneMillionContextPolicy.modelIdSuffix} model ID suffix.',
+          )
+        : _localizedText(
+            context,
+            zh: '开启后会自动写入 ${_OneMillionContextPolicy.contextTokensText}，并为模型 ID 补齐 ${_OneMillionContextPolicy.modelIdSuffix} 后缀。',
+            en: 'When enabled, writes ${_OneMillionContextPolicy.contextTokensText} and appends the ${_OneMillionContextPolicy.modelIdSuffix} model ID suffix.',
+          );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _localizedText(
+                  context,
+                  zh: '启用 1M 上下文',
+                  en: 'Enable 1M Context',
+                ),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              AnimatedSwitcher(
+                duration: reduceMotion
+                    ? Duration.zero
+                    : const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: Text(
+                  helperText,
+                  key: ValueKey<bool>(_oneMillionContextEnabled),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Switch(
+          value: _oneMillionContextEnabled,
+          onChanged: _setOneMillionContextEnabled,
         ),
       ],
     );
@@ -3191,6 +3379,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 onChanged: (_) {
                   if (_profileErrorMessage == null) return;
                   setState(() => _profileErrorMessage = null);
+                },
+                onEditingComplete: () {
+                  if (_oneMillionContextEnabled) {
+                    _syncOneMillionContextFields();
+                  }
+                  FocusScope.of(context).nextFocus();
                 },
               ),
               const SizedBox(height: 16),
@@ -3766,16 +3960,30 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 AppLocalizations.of(context)!.mdlEdTokenLimits,
               ),
               const SizedBox(height: 8),
+              _buildOneMillionContextControl(),
+              const SizedBox(height: 12),
               Row(
                 children: <Widget>[
                   Expanded(
                     child: TextField(
                       controller: _maxContextLengthController,
+                      readOnly: _oneMillionContextEnabled,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
                         labelText: AppLocalizations.of(
                           context,
                         )!.mdlEdContextLength,
+                        suffixIcon: _oneMillionContextEnabled
+                            ? Icon(
+                                Icons.lock_outline_rounded,
+                                size: 18,
+                                color: colorScheme.onSurfaceVariant,
+                              )
+                            : null,
+                        suffixIconConstraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
                         isDense: true,
                       ),
                     ),
