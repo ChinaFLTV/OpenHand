@@ -22,6 +22,7 @@ import '../../shared/util/date_time_format.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
 const int _kWatchMaxExpressions = 32;
@@ -35,7 +36,7 @@ Future<void> showWebReverseWatchDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) {
-  return showAnimatedDialog<void>(
+  return showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _WatchDialog(controller: controller),
   );

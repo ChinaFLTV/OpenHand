@@ -21,6 +21,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_har_io.dart';
 import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
@@ -30,7 +31,7 @@ Future<void> showWebReverseHarPersistenceDialog(
   required WebReverseSessionController controller,
   required bool isZh,
 }) {
-  return showAnimatedDialog<void>(
+  return showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _HarPersistenceDialog(controller: controller, isZh: isZh),
   );

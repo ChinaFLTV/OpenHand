@@ -147,7 +147,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody> {
     final ctrl = TextEditingController(text: existing);
     String? value;
     try {
-      value = await showAnimatedDialog<String>(
+      value = await showWebReverseToolDialog<String>(
         context: context,
         builder: (dialogContext) {
           return buildOpenHandAlertDialog(

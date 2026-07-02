@@ -1616,30 +1616,18 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     _addLog('> npm ${args.join(' ')}');
     _addLog('');
     try {
-      final process = await startTrackedProcess(
+      final result = await runTrackedProcessWithLineLogging(
         'npm',
         args,
         environment: SystemProxyResolver.instance
             .resolveSubprocessEnvironment(),
+        timeout: const Duration(minutes: 3),
+        tag: 'plugin_service_view',
+        onStdoutLine: _addLog,
+        onStderrLine: _addLog,
+        onTimeout: () => _addLog('[timeout] 操作超时，已终止进程'),
       );
-      process.stdout.transform(const SystemEncoding().decoder).listen((data) {
-        for (final line in data.split('\n')) {
-          if (line.trim().isNotEmpty) _addLog(line);
-        }
-      });
-      process.stderr.transform(const SystemEncoding().decoder).listen((data) {
-        for (final line in data.split('\n')) {
-          if (line.trim().isNotEmpty) _addLog(line.trim());
-        }
-      });
-      final exitCode = await process.exitCode.timeout(
-        const Duration(minutes: 3),
-        onTimeout: () {
-          process.kill();
-          _addLog('[timeout] 操作超时，已终止进程');
-          return -1;
-        },
-      );
+      final exitCode = result.exitCode;
       if (exitCode == 0) {
         _addLog('');
         _addLog('✓ $action 完成 (exit code: 0)');

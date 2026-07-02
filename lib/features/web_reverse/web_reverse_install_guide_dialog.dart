@@ -7,6 +7,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/util/localized_text.dart';
+import 'web_reverse_dialog_utils.dart';
 
 /// 用户没有安装 Chrome 同核浏览器时弹出的引导对话框。
 ///
@@ -15,7 +16,7 @@ import '../../shared/util/localized_text.dart';
 Future<WebReverseInstallGuideDecision?> showWebReverseInstallGuideDialog(
   BuildContext context,
 ) async {
-  return showAnimatedDialog<WebReverseInstallGuideDecision>(
+  return showWebReverseToolDialog<WebReverseInstallGuideDecision>(
     context: context,
     builder: (ctx) => const _WebReverseInstallGuideDialog(),
   );

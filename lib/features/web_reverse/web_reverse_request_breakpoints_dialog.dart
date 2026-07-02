@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
 const double _kRequestBreakpointsDialogMaxWidth = 1040;
@@ -22,7 +23,7 @@ Future<void> showWebReverseRequestBreakpointsDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) {
-  return showAnimatedDialog<void>(
+  return showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _RequestBreakpointsDialog(controller: controller),
   );

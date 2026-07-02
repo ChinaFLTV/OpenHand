@@ -18,6 +18,7 @@ import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
 import '../../../shared/util/text_clip.dart';
@@ -5045,8 +5046,7 @@ class WebMessagePlatformService {
       });
     }
     final file = File(filePath);
-    await file.parent.create(recursive: true);
-    await file.writeAsString(content);
+    await writeFileAtomically(file, content);
     final stat = await file.stat();
     _log(WebGatewayLogLevel.warn, 'FILES', 'Web 写入项目文件', <String, Object?>{
       'path': _relativeWorkspacePath(filePath),

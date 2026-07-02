@@ -15,6 +15,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseCookieEditorDialog(
@@ -22,7 +23,7 @@ Future<void> showWebReverseCookieEditorDialog(
   required WebReverseSessionController controller,
   required bool isZh,
 }) {
-  return showAnimatedDialog<void>(
+  return showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _CookieEditorDialog(controller: controller, isZh: isZh),
   );
@@ -151,7 +152,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
   }
 
   Future<void> _edit(_CookieRow? row) async {
-    final result = await showAnimatedDialog<Map<String, Object?>>(
+    final result = await showWebReverseToolDialog<Map<String, Object?>>(
       context: context,
       builder: (_) => _CookieEditPanel(row: row),
     );

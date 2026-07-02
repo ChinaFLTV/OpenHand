@@ -15,6 +15,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
 enum _CollectionFormat { postman, insomnia, bruno, curl, har }
@@ -25,7 +26,7 @@ Future<void> showWebReverseCollectionExportDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) {
-  return showAnimatedDialog<void>(
+  return showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _CollectionExportDialog(controller: controller),
   );

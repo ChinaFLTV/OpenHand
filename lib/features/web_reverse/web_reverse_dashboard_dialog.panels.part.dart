@@ -142,7 +142,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   void _showFlameGraph() {
     final raw = _lastTraceJson;
     if (raw == null) return;
-    showAnimatedDialog<void>(
+    showWebReverseToolDialog<void>(
       context: context,
       builder: (_) => _FlameGraphDialog(traceJson: raw, isZh: widget.isZh),
     );
@@ -1250,7 +1250,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     final result = await fut;
     if (!mounted) return;
     setState(() => _capturing = false);
-    showAnimatedDialog<void>(
+    showWebReverseToolDialog<void>(
       context: context,
       builder: (_) => _SnapshotDiffDialog(
         whenA: a.ts,
@@ -2102,7 +2102,7 @@ class _SamplingTopList extends StatelessWidget {
     ({String label, int size, List<String> stack}) row,
   ) {
     final isZh = this.isZh;
-    showAnimatedDialog<void>(
+    showWebReverseToolDialog<void>(
       context: context,
       builder: (dialogContext) {
         return buildOpenHandAlertDialog(

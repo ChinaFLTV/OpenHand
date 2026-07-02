@@ -13,6 +13,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseThrottleDialog(
@@ -20,7 +21,7 @@ Future<void> showWebReverseThrottleDialog(
   required WebReverseSessionController controller,
   required bool isZh,
 }) {
-  return showAnimatedDialog<void>(
+  return showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _ThrottleDialog(controller: controller, isZh: isZh),
   );

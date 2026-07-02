@@ -168,14 +168,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       );
       return;
     }
-    final picked = await showAnimatedDialog<({String scriptId, int? line})>(
-      context: context,
-      builder: (_) => _SourcesQuickOpenDialog(
-        controller: widget.controller,
-        currentScriptId: _selectedId,
-        isZh: isZh,
-      ),
-    );
+    final picked =
+        await showWebReverseToolDialog<({String scriptId, int? line})>(
+          context: context,
+          builder: (_) => _SourcesQuickOpenDialog(
+            controller: widget.controller,
+            currentScriptId: _selectedId,
+            isZh: isZh,
+          ),
+        );
     if (picked == null || !mounted) return;
     await _selectScript(picked.scriptId);
     if (!mounted) return;
@@ -298,7 +299,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     );
     final preset = ValueNotifier<String?>(null);
     try {
-      final result = await showAnimatedDialog<bool>(
+      final result = await showWebReverseToolDialog<bool>(
         context: context,
         builder: (dialogContext) => buildOpenHandAlertDialog(
           title: Text(isZh ? 'LSP 设置' : 'LSP settings'),
@@ -797,11 +798,14 @@ class _SourcesPanelState extends State<_SourcesPanel> {
 
   Future<void> _showGlobalCodeSearch() async {
     final isZh = widget.isZh;
-    final result = await showAnimatedDialog<({String scriptId, int line})>(
-      context: context,
-      builder: (_) =>
-          _SourcesGlobalSearchDialog(controller: widget.controller, isZh: isZh),
-    );
+    final result =
+        await showWebReverseToolDialog<({String scriptId, int line})>(
+          context: context,
+          builder: (_) => _SourcesGlobalSearchDialog(
+            controller: widget.controller,
+            isZh: isZh,
+          ),
+        );
     if (result == null || !mounted) return;
     await _selectScript(result.scriptId);
     if (!mounted) return;

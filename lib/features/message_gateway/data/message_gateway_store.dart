@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/web_message_platform_config.dart';
 
@@ -21,6 +22,7 @@ class MessageGatewayStore {
 
   Future<WebMessagePlatformConfig> load() async {
     final file = File(filePath);
+    await recoverAtomicWriteBackupIfNeeded(file);
     if (!await file.exists()) {
       return const WebMessagePlatformConfig();
     }
@@ -39,9 +41,8 @@ class MessageGatewayStore {
   Future<void> save(WebMessagePlatformConfig config) async {
     final file = File(filePath);
     try {
-      await file.parent.create(recursive: true);
       const encoder = JsonEncoder.withIndent('  ');
-      await file.writeAsString('${encoder.convert(config.toJson())}\n');
+      await writeFileAtomically(file, '${encoder.convert(config.toJson())}\n');
     } catch (error, stack) {
       silentLog('message_gateway_store', 'save config', error, stack);
       rethrow;

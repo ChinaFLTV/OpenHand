@@ -18,6 +18,7 @@ import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_cdp_client.dart';
 import 'web_reverse_clipboard.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
 // 进程级缓冲，跨弹窗保留。每次 controller 切换不清空——刻意保留多会话证据。
@@ -48,7 +49,7 @@ Future<void> showWebReverseIssuesDialog(
   }
 
   if (!context.mounted) return;
-  return showAnimatedDialog<void>(
+  return showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _IssuesDialog(controller: controller, isZh: isZh),
   );

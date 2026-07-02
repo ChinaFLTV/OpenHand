@@ -16,6 +16,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
 import 'web_reverse_clipboard.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -26,7 +27,7 @@ Future<void> showWebReverseAccountSnapshotsDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) {
-  return showAnimatedDialog<void>(
+  return showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _AccountSnapshotsDialog(controller: controller),
   );

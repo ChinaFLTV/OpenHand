@@ -23,6 +23,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -31,7 +32,7 @@ Future<void> showWebReverseVitalsDialog(
   required WebReverseSessionController controller,
   required bool isZh,
 }) {
-  return showAnimatedDialog<void>(
+  return showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _VitalsDialog(controller: controller, isZh: isZh),
   );

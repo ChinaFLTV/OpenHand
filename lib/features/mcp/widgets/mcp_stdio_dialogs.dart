@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -919,29 +917,18 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     _addLog('[${_ts()}] > $executable ${args.join(' ')}');
     _addLog('');
     try {
-      final process = await startTrackedProcess(
+      final result = await runTrackedProcessWithLineLogging(
         executable,
         args,
         environment: SystemProxyResolver.instance
             .resolveSubprocessEnvironment(),
+        timeout: const Duration(minutes: 5),
+        tag: 'mcp_stdio_dialogs',
+        onStdoutLine: _addLog,
+        onStderrLine: _addLog,
+        onTimeout: () => _addLog('[timeout] 操作超时，已终止进程'),
       );
-      process.stdout.transform(const SystemEncoding().decoder).listen((data) {
-        for (final line in data.split('\n')) {
-          if (line.trim().isNotEmpty) _addLog(line);
-        }
-      });
-      process.stderr.transform(const SystemEncoding().decoder).listen((data) {
-        for (final line in data.split('\n')) {
-          if (line.trim().isNotEmpty) _addLog(line.trim());
-        }
-      });
-      final exitCode = await process.exitCode.timeout(
-        const Duration(minutes: 5),
-        onTimeout: () {
-          process.kill();
-          return -1;
-        },
-      );
+      final exitCode = result.exitCode;
       _addLog('');
       if (exitCode == 0) {
         _addLog('[${_ts()}] ✓ $action 完成 (exit code: 0)');

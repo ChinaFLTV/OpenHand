@@ -19,6 +19,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_har_io.dart';
 import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
@@ -32,7 +33,7 @@ Future<void> showWebReverseWaterfallDialog(
   required WebReverseSessionController controller,
   required bool isZh,
 }) {
-  return showAnimatedDialog<void>(
+  return showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _WaterfallDialog(controller: controller, isZh: isZh),
   );
@@ -576,7 +577,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
 
   Future<void> _showInitiator(CdpNetworkEntry e) async {
     final ctrl = widget.controller;
-    await showAnimatedDialog<void>(
+    await showWebReverseToolDialog<void>(
       context: context,
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
@@ -762,7 +763,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
     bool merge = false;
     final existing = widget.controller.networkRequests.length;
     if (existing > 0 && mounted) {
-      final mode = await showAnimatedDialog<String>(
+      final mode = await showWebReverseToolDialog<String>(
         context: context,
         builder: (dctx) {
           final dloc = AppLocalizations.of(dctx);

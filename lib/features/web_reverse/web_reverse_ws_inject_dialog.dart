@@ -23,6 +23,7 @@ import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -84,7 +85,7 @@ Future<void> showWebReverseWsInjectDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
 }) {
-  return showAnimatedDialog<void>(
+  return showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _WsInjectDialog(controller: controller),
   );

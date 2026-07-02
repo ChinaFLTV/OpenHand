@@ -748,7 +748,9 @@ class _NetworkRow extends StatelessWidget {
 
   Future<void> _replayWithOverridesAndShow(BuildContext context) async {
     final overrides =
-        await showAnimatedDialog<({String url, Map<String, String> headers})>(
+        await showWebReverseToolDialog<
+          ({String url, Map<String, String> headers})
+        >(
           context: context,
           builder: (_) => _ReplayOverrideEditor(entry: entry, isZh: isZh),
         );
@@ -828,7 +830,7 @@ class _NetworkRow extends StatelessWidget {
   ) {
     final body = result.body;
     final bodyText = body.isEmpty ? (isZh ? '(响应体为空)' : '(empty body)') : body;
-    return showAnimatedDialog<void>(
+    return showWebReverseToolDialog<void>(
       context: context,
       builder: (dialogContext) => buildOpenHandAlertDialog(
         title: Text(
@@ -1044,7 +1046,7 @@ class _PendingFetchBanner extends StatelessWidget {
     Future.microtask(() async {
       if (!context.mounted) return;
       final isZh = this.isZh;
-      final action = await showAnimatedDialog<String>(
+      final action = await showWebReverseToolDialog<String>(
         context: context,
         builder: (dialogContext) => buildOpenHandAlertDialog(
           title: Text(isZh ? '处理拦截请求' : 'Handle intercepted request'),

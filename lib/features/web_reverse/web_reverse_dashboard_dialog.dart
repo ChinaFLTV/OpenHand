@@ -22,7 +22,6 @@ import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/media_preview_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
-import '../../shared/ui/openhand_dialog_motion_surface.dart';
 import '../../shared/ui/openhand_editor_scroll_behavior.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -49,6 +48,7 @@ import 'web_reverse_coverage_dialog.dart';
 import 'web_reverse_cpu_throttle_dialog.dart';
 import 'web_reverse_css_coverage_dialog.dart';
 import 'web_reverse_device_emulation_dialog.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_dom_mutation_dialog.dart';
 import 'web_reverse_dom_search_dialog.dart';
 import 'web_reverse_file_io.dart';
@@ -167,14 +167,13 @@ Future<void> showWebReverseDashboardDialog(
   required String sessionId,
   Future<bool> Function(bool enabled)? onCdpMcpEnabledChanged,
 }) {
-  return showAnimatedDialog<void>(
+  return showWebReverseToolDialog<void>(
     context: context,
-    builder: (_) => OpenHandDialogMotionSurface(
-      child: _WebReverseDashboardDialog(
-        controller: controller,
-        sessionId: sessionId,
-        onCdpMcpEnabledChanged: onCdpMcpEnabledChanged,
-      ),
+    surfaceMotion: true,
+    builder: (_) => _WebReverseDashboardDialog(
+      controller: controller,
+      sessionId: sessionId,
+      onCdpMcpEnabledChanged: onCdpMcpEnabledChanged,
     ),
   );
 }
@@ -1045,7 +1044,7 @@ class _WebReverseDashboardDialogState
   /// recorder / network 等所有键盘快捷键。
   void _showShortcutsHelp() {
     final isZh = _isZh();
-    showAnimatedDialog<void>(
+    showWebReverseToolDialog<void>(
       context: context,
       builder: (_) => _ShortcutsHelpDialog(isZh: isZh),
     );

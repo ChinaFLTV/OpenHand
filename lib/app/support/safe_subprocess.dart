@@ -495,6 +495,139 @@ Future<ProcessResult> runTrackedProcessOrFailed(
   return r ?? ProcessResult(-1, -1, '', '');
 }
 
+typedef ProcessLogLineHandler = void Function(String line);
+
+class TrackedProcessLineLogResult {
+  const TrackedProcessLineLogResult({
+    required this.pid,
+    required this.exitCode,
+    required this.timedOut,
+  });
+
+  final int pid;
+  final int exitCode;
+  final bool timedOut;
+}
+
+/// Starts a tracked process, streams stdout/stderr as decoded text lines, and
+/// kills the process when [timeout] expires.
+///
+/// This is intended for UI install/update flows that need live logs without
+/// duplicating stdout/stderr subscription, timeout, and cleanup code. Stream
+/// errors are logged and do not fail the process run; spawn/exit failures still
+/// propagate to the caller.
+Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
+  String executable,
+  List<String> arguments, {
+  required Duration timeout,
+  String tag = 'safe_subprocess',
+  String? workingDirectory,
+  Map<String, String>? environment,
+  bool runInShell = false,
+  bool includeParentEnvironment = true,
+  ProcessLogLineHandler? onStdoutLine,
+  ProcessLogLineHandler? onStderrLine,
+  void Function()? onTimeout,
+  Duration streamDrainTimeout = const Duration(milliseconds: 500),
+}) async {
+  final process = await startTrackedProcess(
+    executable,
+    arguments,
+    workingDirectory: workingDirectory,
+    environment: environment,
+    runInShell: runInShell,
+    includeParentEnvironment: includeParentEnvironment,
+  );
+  var timedOut = false;
+  final stdoutDone = Completer<void>();
+  final stderrDone = Completer<void>();
+  StreamSubscription<String>? stdoutSub;
+  StreamSubscription<String>? stderrSub;
+
+  void complete(Completer<void> completer) {
+    if (!completer.isCompleted) completer.complete();
+  }
+
+  void handleLine(ProcessLogLineHandler? handler, String line) {
+    if (handler == null || line.trim().isEmpty) return;
+    try {
+      handler(line);
+    } catch (error, stack) {
+      silentLog(tag, 'line handler $executable', error, stack);
+    }
+  }
+
+  StreamSubscription<String> listenLines({
+    required Stream<List<int>> stream,
+    required String streamName,
+    required Completer<void> done,
+    required ProcessLogLineHandler? handler,
+    bool trimLine = false,
+  }) {
+    return stream
+        .transform(const SystemEncoding().decoder)
+        .transform(const LineSplitter())
+        .listen(
+          (line) => handleLine(handler, trimLine ? line.trim() : line),
+          onError: (Object error, StackTrace stack) {
+            silentLog(tag, '$streamName $executable', error, stack);
+            complete(done);
+          },
+          onDone: () => complete(done),
+          cancelOnError: false,
+        );
+  }
+
+  Future<void> waitForStreamDrain() async {
+    try {
+      await Future.wait<void>([
+        stdoutDone.future,
+        stderrDone.future,
+      ]).timeout(streamDrainTimeout);
+    } on TimeoutException {
+      silentLog(
+        tag,
+        'stream drain timeout',
+        '$executable ${arguments.take(1).join(' ')}',
+      );
+    }
+  }
+
+  try {
+    stdoutSub = listenLines(
+      stream: process.stdout,
+      streamName: 'stdout',
+      done: stdoutDone,
+      handler: onStdoutLine,
+    );
+    stderrSub = listenLines(
+      stream: process.stderr,
+      streamName: 'stderr',
+      done: stderrDone,
+      handler: onStderrLine,
+      trimLine: true,
+    );
+    final exitCode = await process.exitCode.timeout(
+      timeout,
+      onTimeout: () {
+        timedOut = true;
+        onTimeout?.call();
+        process.kill(ProcessSignal.sigkill);
+        return -1;
+      },
+    );
+    await waitForStreamDrain();
+    return TrackedProcessLineLogResult(
+      pid: process.pid,
+      exitCode: exitCode,
+      timedOut: timedOut,
+    );
+  } finally {
+    await stdoutSub?.cancel();
+    await stderrSub?.cancel();
+  }
+}
+
 /// Runs a short-lived process with optional stdin bytes, bounded stdout/stderr
 /// capture, and a hard timeout that kills the child on expiry.
 ///

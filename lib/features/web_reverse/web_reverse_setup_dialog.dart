@@ -11,6 +11,7 @@ import '../../shared/util/localized_text.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import 'web_reverse_browser_detector.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_install_guide_dialog.dart';
 import 'web_reverse_profile_actions.dart';
 import 'web_reverse_profile_cleaner.dart';
@@ -67,7 +68,7 @@ Future<WebReverseSetupResult?> showWebReverseSetupDialog(
   final probes = await ensureBrowserInstalled();
   if (probes == null || probes.isEmpty || !context.mounted) return null;
 
-  return showAnimatedDialog<WebReverseSetupResult>(
+  return showWebReverseToolDialog<WebReverseSetupResult>(
     context: context,
     barrierDismissible: false,
     builder: (_) => _WebReverseSetupDialog(

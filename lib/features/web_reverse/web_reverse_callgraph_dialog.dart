@@ -23,6 +23,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import 'web_reverse_clipboard.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -31,7 +32,7 @@ Future<void> showWebReverseCallgraphDialog(
   required WebReverseSessionController controller,
   required bool isZh,
 }) {
-  return showAnimatedDialog<void>(
+  return showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _CallgraphDialog(controller: controller, isZh: isZh),
   );

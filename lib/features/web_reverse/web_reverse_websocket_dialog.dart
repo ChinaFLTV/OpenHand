@@ -16,6 +16,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
+import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -29,7 +30,7 @@ Future<void> showWebReverseWebSocketDialog(
   required WebReverseSessionController controller,
   required bool isZh,
 }) {
-  return showAnimatedDialog<void>(
+  return showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _WsDialog(controller: controller, isZh: isZh),
   );
@@ -486,7 +487,7 @@ class _WsDialogState extends State<_WsDialog> {
   Future<String?> _showEditFrameDialog(String initial) async {
     final ctrl = TextEditingController(text: initial);
     final isZh = widget.isZh;
-    return showAnimatedDialog<String>(
+    return showWebReverseToolDialog<String>(
       context: context,
       builder: (ctx) {
         final cs = Theme.of(ctx).colorScheme;

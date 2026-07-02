@@ -437,7 +437,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     bool merge = false;
     if (ctrl.networkRequests.isNotEmpty) {
       if (!mounted) return;
-      final mode = await showAnimatedDialog<String>(
+      final mode = await showWebReverseToolDialog<String>(
         context: context,
         builder: (dialogContext) => buildOpenHandAlertDialog(
           title: Text(isZh ? '加载 HAR' : 'Load HAR'),
@@ -724,7 +724,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     bool isZh,
   ) {
     final filtered = _filteredNetworkEntries(ctrl);
-    showAnimatedDialog<void>(
+    showWebReverseToolDialog<void>(
       context: context,
       builder: (dialogContext) => buildOpenHandAlertDialog(
         title: Text(
@@ -876,7 +876,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     WebReverseSessionController ctrl,
     bool isZh,
   ) {
-    showAnimatedDialog<void>(
+    showWebReverseToolDialog<void>(
       context: context,
       builder: (_) => _AdvancedMenuDialog(controller: ctrl, isZh: isZh),
     );

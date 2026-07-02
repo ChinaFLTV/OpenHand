@@ -856,7 +856,7 @@ Future<void> _showCdpPaletteDialog(
   final result = ValueNotifier<String?>(null);
   final useSession = ValueNotifier<bool>(true);
   try {
-    await showAnimatedDialog<void>(
+    await showWebReverseToolDialog<void>(
       context: context,
       builder: (dialogContext) => buildOpenHandAlertDialog(
         title: Text(isZh ? 'CDP 命令面板' : 'CDP Command Palette'),
@@ -1135,7 +1135,7 @@ Future<void> _showDiffPicker(
               ? null
               : () {
                   Navigator.of(dialogContext).pop();
-                  showAnimatedDialog<void>(
+                  showWebReverseToolDialog<void>(
                     context: context,
                     builder: (_) => _DiffViewerDialog(a: a!, b: b!, isZh: isZh),
                   );
@@ -1239,7 +1239,7 @@ Future<void> _showServiceWorkersDialog(
   final messenger = ScaffoldMessenger.of(context);
   final list = await ctrl.listServiceWorkers();
   if (!context.mounted) return;
-  await showAnimatedDialog<void>(
+  await showWebReverseToolDialog<void>(
     context: context,
     builder: (dialogContext) => buildOpenHandAlertDialog(
       title: Text(isZh ? 'Service Workers' : 'Service Workers'),
@@ -1435,7 +1435,7 @@ Future<void> _toggleWebRtcCapture(
     );
     return;
   }
-  await showAnimatedDialog<void>(
+  await showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _WebRtcLiveDialog(controller: ctrl, isZh: isZh),
   );
@@ -2334,7 +2334,7 @@ Future<void> _showWebcrackDialog(BuildContext context, bool isZh) async {
   final output = ValueNotifier<String?>(null);
   final running = ValueNotifier<bool>(false);
   try {
-    await showAnimatedDialog<void>(
+    await showWebReverseToolDialog<void>(
       context: context,
       builder: (dialogContext) => buildOpenHandAlertDialog(
         title: Text(isZh ? 'JS 反混淆（webcrack）' : 'JS deobfuscate (webcrack)'),
@@ -2511,7 +2511,7 @@ Future<void> _showInterceptRulesDialog(
   WebReverseSessionController controller,
   bool isZh,
 ) async {
-  await showAnimatedDialog<void>(
+  await showWebReverseToolDialog<void>(
     context: context,
     builder: (_) => _InterceptRulesDialog(controller: controller, isZh: isZh),
   );
@@ -2547,7 +2547,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
     final initial = index == null
         ? const WebReverseInterceptRule(urlPattern: '')
         : _rules[index];
-    final updated = await showAnimatedDialog<WebReverseInterceptRule>(
+    final updated = await showWebReverseToolDialog<WebReverseInterceptRule>(
       context: context,
       builder: (_) => _InterceptRuleEditor(initial: initial, isZh: widget.isZh),
     );

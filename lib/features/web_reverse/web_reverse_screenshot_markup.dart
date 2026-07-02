@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import 'web_reverse_dialog_utils.dart';
 
 /// 截图导出前的注释面板。支持五种笔刷：
 ///   - draw：自由涂鸦
@@ -22,7 +23,7 @@ Future<Uint8List?> showScreenshotMarkupDialog(
   BuildContext context, {
   required Uint8List image,
 }) {
-  return showAnimatedDialog<Uint8List>(
+  return showWebReverseToolDialog<Uint8List>(
     context: context,
     barrierDismissible: false,
     builder: (_) => _ScreenshotMarkupDialog(image: image),
