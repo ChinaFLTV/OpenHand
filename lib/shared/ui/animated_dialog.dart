@@ -501,6 +501,7 @@ Future<T?> showAnimatedDialog<T>({
   RouteSettings? routeSettings,
   AlignmentGeometry alignment = Alignment.center,
 }) {
+  Tooltip.dismissAllToolTips();
   final themedBuilder = _wrapDialogBuilderWithTheme(
     builder,
     dismissOnEscape: dismissOnEscape,

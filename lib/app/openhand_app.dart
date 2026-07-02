@@ -104,12 +104,13 @@ class _OpenHandAppState extends State<OpenHandApp> {
         )?.updateTheme(Theme.of(context));
         final media = MediaQuery.of(context);
         final disable = reduceMotion || media.disableAnimations;
-        final builtChild = disable == media.disableAnimations
+        final routedChild = disable == media.disableAnimations
             ? (child ?? const SizedBox.shrink())
             : MediaQuery(
                 data: media.copyWith(disableAnimations: disable),
                 child: child ?? const SizedBox.shrink(),
               );
+        final builtChild = _OverlayPortalStabilityBoundary(child: routedChild);
         return Stack(
           fit: StackFit.expand,
           children: [
@@ -128,6 +129,23 @@ class _OpenHandAppState extends State<OpenHandApp> {
         focusNode: _inputRepairSentinelFocusNode,
         child: widget.home,
       ),
+    );
+  }
+}
+
+class _OverlayPortalStabilityBoundary extends StatelessWidget {
+  const _OverlayPortalStabilityBoundary({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return NotificationListener<ScrollStartNotification>(
+      onNotification: (_) {
+        Tooltip.dismissAllToolTips();
+        return false;
+      },
+      child: child,
     );
   }
 }

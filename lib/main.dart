@@ -99,6 +99,12 @@ Future<void> _bootstrap() async {
     if (_shouldSilenceRenderingError(details.exception)) {
       return;
     }
+    if (_isRecoverableOverlayPortalHitTestRace(
+      details.exception,
+      details.stack,
+    )) {
+      return;
+    }
     // 平台 IME 选区越界断言会在 reportError 后再次抛出；这里转为轻量恢复。
     if (_isComposerImeRangeOverflow(details.exception)) {
       _triggerComposerImeSoftRecovery();
@@ -120,6 +126,9 @@ Future<void> _bootstrap() async {
   // stray FormatException cannot cascade into repeated frame rebuilds.
   PlatformDispatcher.instance.onError = (error, stack) {
     if (_shouldSilenceRenderingError(error)) {
+      return true;
+    }
+    if (_isRecoverableOverlayPortalHitTestRace(error, stack)) {
       return true;
     }
     if (_isComposerImeRangeOverflow(error)) {
@@ -470,6 +479,26 @@ bool _shouldSilencePrintLine(String line) {
       line.contains('FormatException: Invalid radix-16 number');
 }
 
+/// Flutter 3.41 的 [OverlayPortal] 延迟布局子树在 Tooltip/MenuAnchor 等
+/// 浮层关闭、滚动或路由切换的同一帧里，偶发先被 MouseTracker / Gesture
+/// hit test 扫到，随后才完成或移除布局。它只影响这一个指针包，不代表业务
+/// RenderBox 约束错误；普通 "never laid out" 仍继续上报。
+bool _isRecoverableOverlayPortalHitTestRace(Object error, StackTrace? stack) {
+  final message = error.toString();
+  if (!message.contains(
+    'Cannot hit test a render box that has never been laid out.',
+  )) {
+    return false;
+  }
+  if (!message.contains('_RenderDeferredLayoutBox') ||
+      !message.contains('NEEDS-LAYOUT')) {
+    return false;
+  }
+  final trace = stack?.toString() ?? '';
+  return trace.contains('package:flutter/src/widgets/overlay.dart') &&
+      trace.contains('RenderBox.hitTest');
+}
+
 /// 识别 TextInput 选区越界断言，命中即交给 composer 软恢复处理。
 bool _isComposerImeRangeOverflow(Object error) {
   if (error is AssertionError) {
@@ -494,6 +523,9 @@ void _triggerComposerImeSoftRecovery() {
 
 void _handleUncaughtZoneError(Object error, StackTrace stack) {
   if (_shouldSilenceRenderingError(error)) {
+    return;
+  }
+  if (_isRecoverableOverlayPortalHitTestRace(error, stack)) {
     return;
   }
   if (_isComposerImeRangeOverflow(error)) {
