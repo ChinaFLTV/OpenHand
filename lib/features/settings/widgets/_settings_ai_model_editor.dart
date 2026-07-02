@@ -275,13 +275,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       if (!mounted) return;
 
       if (result.isSuccess) {
-        // 2026-05-01: Scan replaces — never diffs. Users explicitly tap
-        // "Scan models" to get a fresh authoritative list from the
-        // provider; merging with previously cached IDs surfaces stale
-        // models that were deprecated upstream and confuses the picker.
-        // The freshly scanned list becomes the new source of truth; if
-        // the previously active model is missing from it, we drop the
-        // active selection rather than keep dangling state.
+        // A manual scan replaces cached IDs with the provider's current
+        // authoritative list; missing active selections are dropped below.
         final sorted = AiModelConfig.normalizeModelIds(result.modelIds);
         setState(() {
           _availableModelIds = sorted;

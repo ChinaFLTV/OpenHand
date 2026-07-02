@@ -217,9 +217,7 @@ class _ChipAnimationSettingsSection extends StatelessWidget {
 
 /// Animation settings for list-item entrance throughout the app —
 /// MCP servers, memory entries, instruction cards, sidebar threads,
-/// and tool-call cards. Currently exit animation is not used because
-/// list items are removed via dedicated confirmation dialogs whose
-/// own dialog animation handles the visual feedback.
+/// and tool-call cards. Removals use their own confirmation dialog motion.
 class _ListItemAnimationSettingsSection extends StatelessWidget {
   const _ListItemAnimationSettingsSection({required this.settingsController});
 

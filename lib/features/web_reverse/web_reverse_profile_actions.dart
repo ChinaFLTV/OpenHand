@@ -26,49 +26,49 @@ enum ProgressiveProfileOutcome {
   failed,
 }
 
+enum _ProfileToastTone { info, success, error }
+
 /// 渐进式：先 [cleanWebReverseProfileLocks]，再 [hasWebReverseProfileLocks]
 /// 二次校验；只要还有锁就弹窗询问用户是否「重置整个 profile」。重置只对
 /// 含有 `web_reverse` 关键词且长度 ≥ 16 的路径放行，规避误删用户其他目录。
 ///
 /// 该函数会自行通过 [ScaffoldMessenger] 弹反馈 SnackBar，调用方拿到
-/// outcome 即可。SnackBar 颜色按结果分级：
-///   - cleaned / reset：浅色 secondaryContainer
-///   - resetCancelled / failed：errorContainer
-///   - nothingToDo：默认主题色
+/// outcome 即可。
 Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
   BuildContext context, {
   required String userDataDir,
-  required bool isZh,
 }) async {
   final messenger = ScaffoldMessenger.of(context);
-  final theme = Theme.of(context);
-  final cs = theme.colorScheme;
   final loc = AppLocalizations.of(context);
 
   void toast({
     required String text,
-    Color? bg,
+    _ProfileToastTone tone = _ProfileToastTone.info,
     Duration duration = const Duration(seconds: 3),
   }) {
     if (!context.mounted) return;
-    // 2026-05-25 — 旧版按 bg 区分语义；统一改走 OpenHandSnackBar 的
-    // info/success/error 变体，沿用全局图标+motion+关闭按钮的现代风格。
-    if (bg == cs.errorContainer) {
-      OpenHandSnackBar.showErrorOn(
-        context,
-        messenger,
-        text,
-        duration: duration,
-      );
-    } else if (bg == cs.secondaryContainer) {
-      OpenHandSnackBar.showSuccessOn(
-        context,
-        messenger,
-        text,
-        duration: duration,
-      );
-    } else {
-      OpenHandSnackBar.showInfoOn(context, messenger, text, duration: duration);
+    switch (tone) {
+      case _ProfileToastTone.error:
+        OpenHandSnackBar.showErrorOn(
+          context,
+          messenger,
+          text,
+          duration: duration,
+        );
+      case _ProfileToastTone.success:
+        OpenHandSnackBar.showSuccessOn(
+          context,
+          messenger,
+          text,
+          duration: duration,
+        );
+      case _ProfileToastTone.info:
+        OpenHandSnackBar.showInfoOn(
+          context,
+          messenger,
+          text,
+          duration: duration,
+        );
     }
   }
 
@@ -76,36 +76,34 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
     toast(
       text:
           loc?.webReverseProfileEmptyPath ?? 'Empty profile path; nothing done',
-      bg: cs.errorContainer,
+      tone: _ProfileToastTone.error,
     );
     return ProgressiveProfileOutcome.failed;
   }
 
-  // ① 第一步：清理 SingletonLock 等残留锁文件。
-  ({int deleted, List<String> messages}) cleanResult;
+  late final int deletedLockCount;
   try {
-    cleanResult = await cleanWebReverseProfileLocks(userDataDir);
+    deletedLockCount = (await cleanWebReverseProfileLocks(userDataDir)).deleted;
   } catch (error, stack) {
     silentLog('web_reverse_profile_actions', 'clean step', error, stack);
     toast(
       text:
           loc?.webReverseProfileCleanFailed('$error') ?? 'Clean failed: $error',
-      bg: cs.errorContainer,
+      tone: _ProfileToastTone.error,
     );
     return ProgressiveProfileOutcome.failed;
   }
 
-  // ② 二次确认：清理后是否还有锁残留？某些权限受保护的锁文件 delete 会
-  // 静默失败，hasWebReverseProfileLocks 用 file.exists() 兜底判断。
+  // Some protected lock files may survive delete attempts.
   final stillLocked = await hasWebReverseProfileLocks(userDataDir);
 
   if (!stillLocked) {
-    if (cleanResult.deleted > 0) {
+    if (deletedLockCount > 0) {
       toast(
         text:
-            loc?.webReverseProfileCleaned(cleanResult.deleted) ??
-            'Cleared ${cleanResult.deleted} lock file(s); profile is healthy',
-        bg: cs.secondaryContainer,
+            loc?.webReverseProfileCleaned(deletedLockCount) ??
+            'Cleared $deletedLockCount lock file(s); profile is healthy',
+        tone: _ProfileToastTone.success,
       );
       return ProgressiveProfileOutcome.cleaned;
     }
@@ -117,11 +115,11 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
     return ProgressiveProfileOutcome.nothingToDo;
   }
 
-  // ③ 仍有锁 → 引导用户走更激进的"重置整个 profile"。
   if (!context.mounted) return ProgressiveProfileOutcome.failed;
   final ok = await showOpenHandConfirmDialog(
     context: context,
-    title: loc?.webReverseProfileResetTitle ??
+    title:
+        loc?.webReverseProfileResetTitle ??
         'Locks still present — reset profile?',
     message:
         loc?.webReverseProfileResetBody(userDataDir) ??
@@ -135,12 +133,11 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
       text:
           loc?.webReverseProfileKept ??
           'Profile kept; locks may still block next launch.',
-      bg: cs.errorContainer,
+      tone: _ProfileToastTone.error,
     );
     return ProgressiveProfileOutcome.resetCancelled;
   }
 
-  // ④ 重置：路径安全策略 → 递归删除。
   try {
     if (!userDataDir.contains('web_reverse') || userDataDir.length < 16) {
       throw const FileSystemException('安全策略拒绝：路径不在 OpenHand web_reverse 子目录中');
@@ -154,7 +151,7 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
       text:
           loc?.webReverseProfileResetDone(userDataDir) ??
           'Profile reset: $userDataDir (60s cool-down)',
-      bg: cs.secondaryContainer,
+      tone: _ProfileToastTone.success,
     );
     return ProgressiveProfileOutcome.reset;
   } catch (error, stack) {
@@ -163,7 +160,7 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
     toast(
       text:
           loc?.webReverseProfileResetFailed('$error') ?? 'Reset failed: $error',
-      bg: cs.errorContainer,
+      tone: _ProfileToastTone.error,
     );
     return ProgressiveProfileOutcome.failed;
   }

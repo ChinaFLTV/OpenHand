@@ -1961,7 +1961,6 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
     final outcome = await runProgressiveProfileResolve(
       context,
       userDataDir: widget.controller.config.userDataDir,
-      isZh: widget.isZh,
     );
     if (!mounted) return;
     setState(() => _busy = false);

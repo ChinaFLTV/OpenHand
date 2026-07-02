@@ -585,7 +585,6 @@ class _ProfileDirRowState extends State<_ProfileDirRow> {
     final outcome = await runProgressiveProfileResolve(
       context,
       userDataDir: widget.userDataDir,
-      isZh: widget.isZh,
     );
     if (!mounted) return;
     setState(() => _busy = false);
