@@ -649,6 +649,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiModelBaseUrlInvalid => '有効な Base URL を入力してください。';
 
   @override
+  String get aiModelOfficialWebsiteUrl => '公式サイト URL（任意）';
+
+  @override
+  String get aiModelOfficialWebsiteUrlHint => 'https://example.com';
+
+  @override
+  String get aiModelOfficialWebsiteUrlInvalid => '有効な公式サイト URL を入力してください。';
+
+  @override
+  String get aiModelOpenWebsiteFailure => '公式サイトを開けませんでした。';
+
+  @override
+  String get aiModelOpenWebsiteTooltip => '公式サイトを開く';
+
+  @override
   String get aiModelAuthScheme => '認証方式';
 
   @override

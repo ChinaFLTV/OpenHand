@@ -1268,6 +1268,36 @@ abstract class AppLocalizations {
   /// **'请输入有效的 Base URL'**
   String get aiModelBaseUrlInvalid;
 
+  /// No description provided for @aiModelOfficialWebsiteUrl.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'官网地址（可选）'**
+  String get aiModelOfficialWebsiteUrl;
+
+  /// No description provided for @aiModelOfficialWebsiteUrlHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'https://example.com'**
+  String get aiModelOfficialWebsiteUrlHint;
+
+  /// No description provided for @aiModelOfficialWebsiteUrlInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效的官网地址'**
+  String get aiModelOfficialWebsiteUrlInvalid;
+
+  /// No description provided for @aiModelOpenWebsiteFailure.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无法打开官网地址。'**
+  String get aiModelOpenWebsiteFailure;
+
+  /// No description provided for @aiModelOpenWebsiteTooltip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'打开官网地址'**
+  String get aiModelOpenWebsiteTooltip;
+
   /// No description provided for @aiModelAuthScheme.
   ///
   /// In zh_Hans, this message translates to:

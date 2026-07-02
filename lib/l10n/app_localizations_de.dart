@@ -677,6 +677,23 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aiModelBaseUrlInvalid => 'Gültige Basis-URL eingeben.';
 
   @override
+  String get aiModelOfficialWebsiteUrl => 'Website-URL (optional)';
+
+  @override
+  String get aiModelOfficialWebsiteUrlHint => 'https://example.com';
+
+  @override
+  String get aiModelOfficialWebsiteUrlInvalid =>
+      'Gültige Website-URL eingeben.';
+
+  @override
+  String get aiModelOpenWebsiteFailure =>
+      'Website konnte nicht geöffnet werden.';
+
+  @override
+  String get aiModelOpenWebsiteTooltip => 'Website öffnen';
+
+  @override
   String get aiModelAuthScheme => 'Authentifizierungsschema';
 
   @override

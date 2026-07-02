@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import '../../features/ai/service/runtime/ai_tool_execution_registry.dart';
 import '../../shared/util/timer_safety.dart';
 import 'silent_log.dart';
+import 'url_validation.dart';
 
 /// 全局默认的子进程 graceful shutdown 等待窗口（毫秒）。AiSessionController
 /// 在 `_captureLatestRuntimeContext` 中按用户设置项更新此值，所有不显式
@@ -723,6 +724,33 @@ Future<bool> openLocalPathWithSystemApp(
   return false;
 }
 
+/// Opens a http(s) URL with the user's system default browser.
+///
+/// Only absolute `http` / `https` URLs with a host are accepted. User-info and
+/// whitespace are rejected so UI text cannot be promoted into launcher flags or
+/// surprising credential-bearing URLs.
+Future<bool> openHttpUrlWithSystemBrowser(
+  String url, {
+  String tag = 'safe_subprocess.open_url',
+}) async {
+  final uri = _safeHttpUrlArgument(url);
+  if (uri == null) return false;
+  final target = uri.toString();
+  if (Platform.isMacOS) {
+    return runDetachedSystemOpen('open', <String>[target], tag: tag);
+  }
+  if (Platform.isWindows) {
+    return runDetachedSystemOpen('rundll32', <String>[
+      'url.dll,FileProtocolHandler',
+      target,
+    ], tag: tag);
+  }
+  if (Platform.isLinux) {
+    return runDetachedSystemOpen('xdg-open', <String>[target], tag: tag);
+  }
+  return false;
+}
+
 /// Reveals a local file or directory in the system file manager.
 ///
 /// macOS and Windows highlight the target where supported. Linux file managers
@@ -752,6 +780,12 @@ Future<bool> revealLocalPathInSystemFileManager(
     ], tag: tag);
   }
   return false;
+}
+
+Uri? _safeHttpUrlArgument(String value) {
+  final target = value.trim();
+  if (target.isEmpty || target.startsWith('-')) return null;
+  return tryParseValidHttpUrl(target);
 }
 
 String? _safeLocalPathArgument(String value) {

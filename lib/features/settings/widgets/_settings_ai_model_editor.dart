@@ -12,6 +12,7 @@ class _AiModelEditorDialog extends StatefulWidget {
 class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
+  late final TextEditingController _officialWebsiteUrlController;
   late final TextEditingController _baseUrlController;
   late final TextEditingController _tokenController;
   late final TextEditingController _modelIdController;
@@ -72,6 +73,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     super.initState();
     _nameController = TextEditingController(
       text: widget.initialModel?.name ?? '',
+    );
+    _officialWebsiteUrlController = TextEditingController(
+      text: widget.initialModel?.normalizedOfficialWebsiteUrl ?? '',
     );
     _baseUrlController = TextEditingController(
       text: widget.initialModel?.baseUrl ?? '',
@@ -207,6 +211,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   @override
   void dispose() {
     _nameController.dispose();
+    _officialWebsiteUrlController.dispose();
     _baseUrlController.dispose();
     _tokenController.dispose();
     _modelIdController.dispose();
@@ -257,6 +262,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     try {
       final config = AiModelConfig(
         id: '',
+        officialWebsiteUrl: _officialWebsiteUrlController.text.trim(),
         baseUrl: baseUrl,
         autoCompleteBaseUrl: _autoCompleteBaseUrl,
         authScheme: _authScheme,
@@ -405,6 +411,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       id: widget.initialModel?.id ?? '',
       name: _nameController.text.trim(),
       baseUrl: _baseUrlController.text.trim(),
+      officialWebsiteUrl: _officialWebsiteUrlController.text.trim(),
       autoCompleteBaseUrl: _autoCompleteBaseUrl,
       authScheme: _authScheme,
       token: _effectiveToken,
@@ -917,6 +924,26 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   context,
                                 )!.mdlEdOptionalEGDeepseekLocalOllama,
                               ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _officialWebsiteUrlController,
+                              enabled: !_isSaving,
+                              keyboardType: TextInputType.url,
+                              decoration: InputDecoration(
+                                labelText: l10n.aiModelOfficialWebsiteUrl,
+                                hintText: l10n.aiModelOfficialWebsiteUrlHint,
+                              ),
+                              validator: (value) {
+                                final rawValue = value?.trim() ?? '';
+                                if (rawValue.isEmpty) {
+                                  return null;
+                                }
+                                if (!isValidHttpUrl(rawValue)) {
+                                  return l10n.aiModelOfficialWebsiteUrlInvalid;
+                                }
+                                return null;
+                              },
                             ),
                             const SizedBox(height: 16),
                             TextFormField(
@@ -2086,6 +2113,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
           widget.initialModel?.id ??
           context.read<SettingsController>().createAiModelId(),
       name: _nameController.text.trim(),
+      officialWebsiteUrl: _officialWebsiteUrlController.text.trim(),
       baseUrl: _baseUrlController.text.trim(),
       autoCompleteBaseUrl: _autoCompleteBaseUrl,
       authScheme: _authScheme,

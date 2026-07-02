@@ -1137,6 +1137,7 @@ class AiModelConfig {
     return AiModelConfig(
       id: '${json['id'] ?? ''}'.trim(),
       name: '${json['name'] ?? ''}'.trim(),
+      officialWebsiteUrl: _readOfficialWebsiteUrl(json),
       baseUrl: _normalizeBaseUrl('${json['base_url'] ?? ''}'),
       autoCompleteBaseUrl: _readBool(json[_autoCompleteBaseUrlJsonKey]) ?? true,
       authScheme: AiAuthScheme.fromStorage('${json['auth_scheme'] ?? ''}'),
@@ -1176,6 +1177,7 @@ class AiModelConfig {
   const AiModelConfig({
     required this.id,
     this.name = '',
+    this.officialWebsiteUrl = '',
     required this.baseUrl,
     this.autoCompleteBaseUrl = true,
     required this.authScheme,
@@ -1207,6 +1209,7 @@ class AiModelConfig {
   static final RegExp _reasoningModelIdSeparatorPattern = RegExp(r'[^a-z0-9]+');
   static final RegExp _reasoningModelIdRepeatedDashPattern = RegExp(r'-+');
   static final RegExp _reasoningModelIdEdgeDashPattern = RegExp(r'^-|-$');
+  static final RegExp _officialWebsiteWhitespacePattern = RegExp(r'\s');
   static const Set<String> _deepSeekPlainChatModelIds = <String>{
     'deepseek-chat',
   };
@@ -1214,6 +1217,7 @@ class AiModelConfig {
   static const String _explicitPromptCacheEnabledJsonKey =
       'explicit_prompt_cache_enabled';
   static const String _autoCompleteBaseUrlJsonKey = 'auto_complete_base_url';
+  static const String _officialWebsiteUrlJsonKey = 'official_website_url';
 
   static List<String> normalizeModelIds(Iterable<String> values) {
     final normalized = <String>{};
@@ -1232,6 +1236,10 @@ class AiModelConfig {
   /// User-defined display name for this provider (e.g. "DeepSeek", "本地 Ollama").
   /// When empty, [providerLabel] falls back to extracting the host from [baseUrl].
   final String name;
+
+  /// Optional provider homepage shown in settings. Only valid http(s) values
+  /// are surfaced to UI actions.
+  final String officialWebsiteUrl;
 
   final String baseUrl;
   final bool autoCompleteBaseUrl;
@@ -1570,6 +1578,11 @@ class AiModelConfig {
 
   String get normalizedBaseUrl => _normalizeBaseUrl(baseUrl);
 
+  Uri? get officialWebsiteUri => _parseOfficialWebsiteUri(officialWebsiteUrl);
+
+  String get normalizedOfficialWebsiteUrl =>
+      officialWebsiteUri?.toString() ?? '';
+
   String resolveOperationModelId(AiApiFamily family) {
     return operationRouting.resolveModelId(family, modelId) ?? modelId.trim();
   }
@@ -1626,6 +1639,7 @@ class AiModelConfig {
   AiModelConfig copyWith({
     String? id,
     String? name,
+    String? officialWebsiteUrl,
     String? baseUrl,
     bool? autoCompleteBaseUrl,
     AiAuthScheme? authScheme,
@@ -1657,6 +1671,9 @@ class AiModelConfig {
     return AiModelConfig(
       id: id ?? this.id,
       name: name ?? this.name,
+      officialWebsiteUrl: _normalizeOfficialWebsiteUrl(
+        officialWebsiteUrl ?? this.officialWebsiteUrl,
+      ),
       baseUrl: _normalizeBaseUrl(baseUrl ?? this.baseUrl),
       autoCompleteBaseUrl: autoCompleteBaseUrl ?? this.autoCompleteBaseUrl,
       authScheme: authScheme ?? this.authScheme,
@@ -1708,6 +1725,8 @@ class AiModelConfig {
     return <String, Object?>{
       'id': id,
       'name': name,
+      if (normalizedOfficialWebsiteUrl.isNotEmpty)
+        _officialWebsiteUrlJsonKey: normalizedOfficialWebsiteUrl,
       'base_url': normalizedBaseUrl,
       _autoCompleteBaseUrlJsonKey: autoCompleteBaseUrl,
       'auth_scheme': authScheme.storageValue,
@@ -1748,6 +1767,44 @@ class AiModelConfig {
     return trimmedValue.endsWith('/')
         ? trimmedValue.substring(0, trimmedValue.length - 1)
         : trimmedValue;
+  }
+
+  static Uri? _parseOfficialWebsiteUri(String value) {
+    final trimmedValue = value.trim();
+    if (trimmedValue.isEmpty ||
+        _officialWebsiteWhitespacePattern.hasMatch(trimmedValue)) {
+      return null;
+    }
+    final uri = Uri.tryParse(trimmedValue);
+    if (uri == null || !uri.hasScheme) {
+      return null;
+    }
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme != 'http' && scheme != 'https') {
+      return null;
+    }
+    if (uri.host.trim().isEmpty || uri.userInfo.trim().isNotEmpty) {
+      return null;
+    }
+    return uri.scheme == scheme ? uri : uri.replace(scheme: scheme);
+  }
+
+  static String _normalizeOfficialWebsiteUrl(String value) {
+    return _parseOfficialWebsiteUri(value)?.toString() ?? '';
+  }
+
+  static String _readOfficialWebsiteUrl(Map<String, Object?> json) {
+    for (final key in const <String>[
+      _officialWebsiteUrlJsonKey,
+      'website_url',
+      'official_url',
+    ]) {
+      final normalized = _normalizeOfficialWebsiteUrl('${json[key] ?? ''}');
+      if (normalized.isNotEmpty) {
+        return normalized;
+      }
+    }
+    return '';
   }
 
   static bool? _readBool(Object? value) {

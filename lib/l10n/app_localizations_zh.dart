@@ -643,6 +643,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiModelBaseUrlInvalid => '请输入有效的 Base URL';
 
   @override
+  String get aiModelOfficialWebsiteUrl => '官网地址（可选）';
+
+  @override
+  String get aiModelOfficialWebsiteUrlHint => 'https://example.com';
+
+  @override
+  String get aiModelOfficialWebsiteUrlInvalid => '请输入有效的官网地址';
+
+  @override
+  String get aiModelOpenWebsiteFailure => '无法打开官网地址。';
+
+  @override
+  String get aiModelOpenWebsiteTooltip => '打开官网地址';
+
+  @override
   String get aiModelAuthScheme => '鉴权方式';
 
   @override
@@ -8474,6 +8489,21 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiModelBaseUrlInvalid => '请输入有效的 Base URL';
 
   @override
+  String get aiModelOfficialWebsiteUrl => '官网地址（可选）';
+
+  @override
+  String get aiModelOfficialWebsiteUrlHint => 'https://example.com';
+
+  @override
+  String get aiModelOfficialWebsiteUrlInvalid => '请输入有效的官网地址';
+
+  @override
+  String get aiModelOpenWebsiteFailure => '无法打开官网地址。';
+
+  @override
+  String get aiModelOpenWebsiteTooltip => '打开官网地址';
+
+  @override
   String get aiModelAuthScheme => '鉴权方式';
 
   @override
@@ -16302,6 +16332,21 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiModelBaseUrlInvalid => '請輸入有效的 Base URL';
+
+  @override
+  String get aiModelOfficialWebsiteUrl => '官網地址（可選）';
+
+  @override
+  String get aiModelOfficialWebsiteUrlHint => 'https://example.com';
+
+  @override
+  String get aiModelOfficialWebsiteUrlInvalid => '請輸入有效的官網地址';
+
+  @override
+  String get aiModelOpenWebsiteFailure => '無法打開官網地址。';
+
+  @override
+  String get aiModelOpenWebsiteTooltip => '打開官網地址';
 
   @override
   String get aiModelAuthScheme => '驗證方式';

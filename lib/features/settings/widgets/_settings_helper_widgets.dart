@@ -4664,6 +4664,54 @@ class _AiProviderOverflowChip extends StatelessWidget {
   }
 }
 
+class _AiProviderWebsiteLink extends StatelessWidget {
+  const _AiProviderWebsiteLink({
+    required this.url,
+    required this.onPressed,
+    required this.tooltip,
+    this.style,
+  });
+
+  final String url;
+  final VoidCallback onPressed;
+  final String tooltip;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final linkStyle = (style ?? theme.textTheme.bodyMedium)?.copyWith(
+      color: colorScheme.primary,
+      fontWeight: FontWeight.w700,
+      decoration: TextDecoration.underline,
+      decorationColor: colorScheme.primary.withValues(alpha: 0.72),
+    );
+    final child = MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onPressed,
+        child: Text(
+          url,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: linkStyle,
+        ),
+      ),
+    );
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        label: tooltip,
+        value: url,
+        child: MicroPressFeedback(child: child),
+      ),
+    );
+  }
+}
+
 class _AiModelTile extends StatefulWidget {
   const _AiModelTile({
     super.key,
@@ -4748,6 +4796,63 @@ class _AiModelTileState extends State<_AiModelTile> {
     });
   }
 
+  Future<void> _openOfficialWebsite(String url) async {
+    HapticFeedback.selectionClick();
+    final launched = await openHttpUrlWithSystemBrowser(
+      url,
+      tag: 'settings.ai_model_provider.open_website',
+    );
+    if (launched || !mounted) {
+      return;
+    }
+    OpenHandSnackBar.showError(
+      context,
+      AppLocalizations.of(context)!.aiModelOpenWebsiteFailure,
+    );
+  }
+
+  Widget _buildProviderMetaLine({
+    required BuildContext context,
+    required AppLocalizations l10n,
+    required String modelCountLabel,
+    required TextStyle? style,
+  }) {
+    final websiteUrl = widget.model.normalizedOfficialWebsiteUrl;
+    final metaText =
+        '${widget.model.protocolType.label(l10n)} · ${widget.model.authScheme.label(l10n)} · $modelCountLabel';
+    if (websiteUrl.isEmpty) {
+      return Text(
+        metaText,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final linkMaxWidth = constraints.hasBoundedWidth
+            ? math.max(0.0, constraints.maxWidth)
+            : double.infinity;
+        return Wrap(
+          runSpacing: 2,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text('$metaText · ', style: style),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: linkMaxWidth),
+              child: _AiProviderWebsiteLink(
+                url: websiteUrl,
+                tooltip: l10n.aiModelOpenWebsiteTooltip,
+                style: style,
+                onPressed: () => _openOfficialWebsite(websiteUrl),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -4806,8 +4911,10 @@ class _AiModelTileState extends State<_AiModelTile> {
                             style: theme.textTheme.titleLarge,
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            '${widget.model.protocolType.label(l10n)} · ${widget.model.authScheme.label(l10n)} · $modelCountLabel',
+                          _buildProviderMetaLine(
+                            context: context,
+                            l10n: l10n,
+                            modelCountLabel: modelCountLabel,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
