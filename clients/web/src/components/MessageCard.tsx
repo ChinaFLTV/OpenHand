@@ -41,6 +41,7 @@ import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
 import { useStickyBottom } from '../hooks/useStickyBottom';
 import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
 import { boundedFnv1aHashBase36 } from '../shared/util/hash';
+import { knowledgeBaseResultsUsedByAnswer } from '../shared/util/knowledge';
 import {
   booleanFromUnknown,
   finiteNumberOrNullFromUnknown,
@@ -718,7 +719,14 @@ function knowledgeBaseMetadataUsedByAnswer(
   answerText: string,
 ): Record<string, unknown> | null {
   if (!knowledgeBaseMetadataHasReferences(kb)) return null;
-  const usedResults = knowledgeBaseResultsUsedByAnswer(knowledgeBaseResults(kb), answerText);
+  const usedResults = knowledgeBaseResultsUsedByAnswer(
+    knowledgeBaseResults(kb),
+    answerText,
+    {
+      hitKey: (hit) =>
+        knowledgeBaseCitationKey(hit, knowledgeBaseCitationLabel(hit)),
+    },
+  );
   if (usedResults.length === 0) return null;
   const promptAppend = recordOrNullFromUnknown(kb?.['prompt_append']) ?? {};
   const tokenEstimate = usedResults.reduce((total, hit) => (
@@ -733,98 +741,6 @@ function knowledgeBaseMetadataUsedByAnswer(
       ...(tokenEstimate > 0 ? { token_estimate: tokenEstimate } : {}),
     },
   };
-}
-
-function knowledgeBaseResultsUsedByAnswer(
-  results: Record<string, unknown>[],
-  answerText: string,
-): Record<string, unknown>[] {
-  const normalizedAnswer = knowledgeUsageNormalize(answerText);
-  if (!normalizedAnswer) return [];
-  const used: Record<string, unknown>[] = [];
-  const seen = new Set<string>();
-  for (const result of results) {
-    if (!knowledgeBaseHitUsedByAnswer(result, normalizedAnswer)) continue;
-    const label = knowledgeBaseCitationLabel(result);
-    const key = knowledgeBaseCitationKey(result, label);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    used.push(result);
-  }
-  return used;
-}
-
-function knowledgeBaseHitUsedByAnswer(
-  hit: Record<string, unknown>,
-  normalizedAnswer: string,
-): boolean {
-  for (const term of knowledgeBaseHitUsageTerms(hit)) {
-    const normalizedTerm = knowledgeUsageNormalize(term);
-    if (!knowledgeUsageTermWorthMatching(term, normalizedTerm)) continue;
-    if (normalizedAnswer.includes(normalizedTerm)) return true;
-  }
-  return false;
-}
-
-function knowledgeBaseHitUsageTerms(hit: Record<string, unknown>): string[] {
-  const terms: string[] = [];
-  for (const key of ['source_title', 'title', 'path', 'chunk_id', 'source_id', 'heading_path']) {
-    const value = nonEmptyString(hit[key]);
-    if (!value) continue;
-    terms.push(value);
-    if (key === 'path') {
-      const normalized = value.replace(/\\/g, '/');
-      const slash = normalized.lastIndexOf('/');
-      if (slash >= 0 && slash + 1 < normalized.length) {
-        terms.push(normalized.slice(slash + 1));
-      }
-    }
-    if (key === 'heading_path') {
-      for (const part of value.split(/[>/\\|]+/g)) {
-        const trimmed = part.trim();
-        if (trimmed) terms.push(trimmed);
-      }
-    }
-  }
-  for (const key of ['preview', 'content']) {
-    const value = nonEmptyString(hit[key]);
-    if (!value) continue;
-    terms.push(...knowledgeStableTextFragments(value));
-  }
-  return terms;
-}
-
-function knowledgeStableTextFragments(text: string): string[] {
-  return text
-    .split(/[\r\n。！？!?；;]+/g)
-    .map((part) => part.trim())
-    .filter((part) => part.length >= 12)
-    .map((part) => (part.length > 90 ? part.slice(0, 90) : part));
-}
-
-function knowledgeUsageTermWorthMatching(raw: string, normalized: string): boolean {
-  if (!normalized) return false;
-  const hasCjk = /[\u4e00-\u9fff]/.test(raw);
-  if (normalized.length < (hasCjk ? 4 : 8)) return false;
-  return !new Set([
-    'knowledgebase',
-    'knowledge',
-    'document',
-    'documents',
-    'chunk',
-    'chunks',
-    '知识库',
-    '文档',
-    '资料',
-    '片段',
-  ]).has(normalized);
-}
-
-function knowledgeUsageNormalize(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[\s`~!@#$%^&*()_\-+={}\[\]|\\:;"'<>,.?/，。、《》？；：‘’“”【】（）！￥…—·、]+/g, '')
-    .trim();
 }
 
 function knowledgeBaseTokenEstimate(kb: Record<string, unknown> | null): number | null {

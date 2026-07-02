@@ -79,6 +79,7 @@ import { PlanTimeline } from '../../../components/PlanTimeline';
 import CacheHitTrendChart, { type CacheHitDisplayMode } from './CacheHitTrendChart';
 import { notifyIfHidden } from '../../../services/pwa';
 import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from '../../../shared/util/browser_storage';
+import { knowledgeBaseResultsUsedByAnswer } from '../../../shared/util/knowledge';
 import { basenameFromPath } from '../../../shared/util/path';
 import {
   clearTranscriptScrollActivity,
@@ -893,7 +894,14 @@ function knowledgeBaseMetadataUsedByAnswer(
   answerText: string,
 ): Record<string, unknown> | null {
   if (!messageKnowledgeBaseHasReferences(metadata)) return null;
-  const usedResults = knowledgeBaseResultsUsedByAnswer(knowledgeBaseResultMaps(metadata), answerText);
+  const usedResults = knowledgeBaseResultsUsedByAnswer(
+    knowledgeBaseResultMaps(metadata),
+    answerText,
+    {
+      coerceValues: true,
+      hitKey: knowledgeBaseCitationKey,
+    },
+  );
   if (usedResults.length === 0) return null;
   const promptAppend = recordOrNullFromUnknown(metadata?.['prompt_append']) ?? {};
   const tokenEstimate = usedResults.reduce((total, hit) => (
@@ -908,93 +916,6 @@ function knowledgeBaseMetadataUsedByAnswer(
       ...(tokenEstimate > 0 ? { token_estimate: tokenEstimate } : {}),
     },
   };
-}
-
-function knowledgeBaseResultsUsedByAnswer(
-  results: Record<string, unknown>[],
-  answerText: string,
-): Record<string, unknown>[] {
-  const normalizedAnswer = knowledgeUsageNormalize(answerText);
-  if (!normalizedAnswer) return [];
-  const used: Record<string, unknown>[] = [];
-  const seen = new Set<string>();
-  for (const result of results) {
-    if (!knowledgeBaseHitUsedByAnswer(result, normalizedAnswer)) continue;
-    const key = knowledgeBaseCitationKey(result);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    used.push(result);
-  }
-  return used;
-}
-
-function knowledgeBaseHitUsedByAnswer(
-  hit: Record<string, unknown>,
-  normalizedAnswer: string,
-): boolean {
-  for (const term of knowledgeBaseHitUsageTerms(hit)) {
-    const normalizedTerm = knowledgeUsageNormalize(term);
-    if (!knowledgeUsageTermWorthMatching(term, normalizedTerm)) continue;
-    if (normalizedAnswer.includes(normalizedTerm)) return true;
-  }
-  return false;
-}
-
-function knowledgeBaseHitUsageTerms(hit: Record<string, unknown>): string[] {
-  const terms: string[] = [];
-  for (const key of ['source_title', 'title', 'path', 'chunk_id', 'source_id', 'heading_path']) {
-    const value = nonEmptyString(hit[key]);
-    if (!value) continue;
-    terms.push(value);
-    if (key === 'path') {
-      terms.push(basenameFromPath(value));
-    }
-    if (key === 'heading_path') {
-      for (const part of value.split(/[>/\\|]+/g)) {
-        const trimmed = part.trim();
-        if (trimmed) terms.push(trimmed);
-      }
-    }
-  }
-  for (const key of ['preview', 'content']) {
-    const value = nonEmptyString(hit[key]);
-    if (!value) continue;
-    terms.push(...knowledgeStableTextFragments(value));
-  }
-  return terms;
-}
-
-function knowledgeStableTextFragments(text: string): string[] {
-  return text
-    .split(/[\r\n。！？!?；;]+/g)
-    .map((part) => part.trim())
-    .filter((part) => part.length >= 12)
-    .map((part) => (part.length > 90 ? part.slice(0, 90) : part));
-}
-
-function knowledgeUsageTermWorthMatching(raw: string, normalized: string): boolean {
-  if (!normalized) return false;
-  const hasCjk = /[\u4e00-\u9fff]/.test(raw);
-  if (normalized.length < (hasCjk ? 4 : 8)) return false;
-  return !new Set([
-    'knowledgebase',
-    'knowledge',
-    'document',
-    'documents',
-    'chunk',
-    'chunks',
-    '知识库',
-    '文档',
-    '资料',
-    '片段',
-  ]).has(normalized);
-}
-
-function knowledgeUsageNormalize(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[\s`~!@#$%^&*()_\-+={}\[\]|\\:;"'<>,.?/，。、《》？；：‘’“”【】（）！￥…—·、]+/g, '')
-    .trim();
 }
 
 function knowledgeBaseCitationKey(hit: Record<string, unknown>): string {

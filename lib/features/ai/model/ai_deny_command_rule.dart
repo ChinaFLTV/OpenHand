@@ -55,19 +55,11 @@ class AiDenyCommandRule {
   }
 
   bool matches(String command) {
-    final normalizedPattern = pattern.trim();
-    final normalizedCommand = command.trim();
-    if (normalizedPattern.isEmpty || normalizedCommand.isEmpty) {
-      return false;
-    }
-    try {
-      final regex = matchMode == AiDenyCommandMatchMode.regex
-          ? RegExp(normalizedPattern, multiLine: true)
-          : RegExp(simplePatternToRegex(normalizedPattern), multiLine: true);
-      return regex.hasMatch(normalizedCommand);
-    } catch (_) {
-      return false;
-    }
+    return aiCommandRuleMatches(
+      pattern: pattern,
+      matchMode: matchMode,
+      command: command,
+    );
   }
 
   Map<String, Object?> toJson() {
@@ -77,6 +69,26 @@ class AiDenyCommandRule {
       'match_mode': matchMode.storageValue,
       'note': note,
     };
+  }
+}
+
+bool aiCommandRuleMatches({
+  required String pattern,
+  required AiDenyCommandMatchMode matchMode,
+  required String command,
+}) {
+  final normalizedPattern = pattern.trim();
+  final normalizedCommand = command.trim();
+  if (normalizedPattern.isEmpty || normalizedCommand.isEmpty) {
+    return false;
+  }
+  try {
+    final regex = matchMode == AiDenyCommandMatchMode.regex
+        ? RegExp(normalizedPattern, multiLine: true)
+        : RegExp(simplePatternToRegex(normalizedPattern), multiLine: true);
+    return regex.hasMatch(normalizedCommand);
+  } catch (_) {
+    return false;
   }
 }
 
