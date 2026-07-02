@@ -25,6 +25,7 @@ import { MediaPreviewDialog, MessageMedia, messageHasMultimedia, stripCollectedN
 import type { MediaItem } from './MessageMedia';
 import { MessageToolMeta } from './MessageToolMeta';
 import { ToolResultBody } from './ToolResultBody';
+import { DialogFrame, createStandardDialogFrameAppearance } from './DialogFrame';
 import { memo } from 'preact/compat';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { showSnackbar } from './Snackbar';
@@ -35,6 +36,7 @@ import {
   useStreamingReveal,
   useStreamingStagedText,
 } from '../hooks/useStreamingReveal';
+import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
 import { useStickyBottom } from '../hooks/useStickyBottom';
 import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
@@ -3429,6 +3431,36 @@ function KnowledgeBaseCitationRail({
   );
 }
 
+const KNOWLEDGE_DIALOG_OVERLAY_Z_INDEX = 1400;
+const KNOWLEDGE_DETAIL_DIALOG_OVERLAY_Z_INDEX = 1460;
+const KNOWLEDGE_DIALOG_OVERLAY_BLUR_PX = 10;
+const KNOWLEDGE_DIALOG_OVERLAY_BACKGROUND =
+  'color-mix(in srgb, #000 42%, transparent)';
+const KNOWLEDGE_DETAIL_DIALOG_OVERLAY_BACKGROUND =
+  'color-mix(in srgb, #000 36%, transparent)';
+
+const KNOWLEDGE_DIALOG_FRAME_APPEARANCE = createStandardDialogFrameAppearance({
+  overlayClassName: 'oh-kb-dialog-backdrop',
+  overlay: {
+    background: KNOWLEDGE_DIALOG_OVERLAY_BACKGROUND,
+    blurPx: KNOWLEDGE_DIALOG_OVERLAY_BLUR_PX,
+    zIndex: KNOWLEDGE_DIALOG_OVERLAY_Z_INDEX,
+  },
+  panelClassName: 'oh-kb-dialog-card',
+  panelBorder: 'outlineVariant',
+});
+
+const KNOWLEDGE_DETAIL_DIALOG_FRAME_APPEARANCE = createStandardDialogFrameAppearance({
+  overlayClassName: 'oh-kb-dialog-backdrop is-nested',
+  overlay: {
+    background: KNOWLEDGE_DETAIL_DIALOG_OVERLAY_BACKGROUND,
+    blurPx: KNOWLEDGE_DIALOG_OVERLAY_BLUR_PX,
+    zIndex: KNOWLEDGE_DETAIL_DIALOG_OVERLAY_Z_INDEX,
+  },
+  panelClassName: 'oh-kb-dialog-card oh-kb-dialog-card-detail',
+  panelBorder: 'outlineVariant',
+});
+
 function KnowledgeBaseRetrievalDialog({
   metadata,
   onClose,
@@ -3436,8 +3468,10 @@ function KnowledgeBaseRetrievalDialog({
   metadata: Record<string, unknown>;
   onClose: () => void;
 }) {
-  const [closing, setClosing] = useState(false);
   const [selectedHit, setSelectedHit] = useState<Record<string, unknown> | null>(null);
+  const { closing, requestClose } = useDialogExitMotion(onClose, {
+    active: selectedHit == null,
+  });
   const results = knowledgeBaseResults(metadata);
   const embedding = recordOrNullFromUnknown(metadata['embedding']);
   const retrieval = recordOrNullFromUnknown(metadata['retrieval']);
@@ -3448,19 +3482,6 @@ function KnowledgeBaseRetrievalDialog({
   const query = nonEmptyString(metadata['query']);
   const status = nonEmptyString(metadata['status']) || 'unknown';
   const error = nonEmptyString(metadata['error']);
-  const requestClose = useCallback(() => {
-    if (closing) return;
-    setClosing(true);
-    window.setTimeout(onClose, getDialogMotionDurationMs());
-  }, [closing, onClose]);
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (selectedHit) return;
-      if (event.key === 'Escape') requestClose();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [requestClose, selectedHit]);
   const copyJson = async () => {
     const ok = await copyTextToClipboard(JSON.stringify(metadata, null, 2));
     showSnackbar(ok ? t('detail.copy.ok', '已复制') : t('detail.copy.failed', '复制失败，请检查浏览器剪贴板权限'), {
@@ -3474,127 +3495,122 @@ function KnowledgeBaseRetrievalDialog({
     });
   };
   return (
-    <div class={`oh-kb-dialog-backdrop ${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'}`} role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) requestClose();
-    }}>
-      <section
-        class={`oh-kb-dialog-card ${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('message.kbDialog.title', '引用知识库详情')}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <header class="oh-kb-dialog-header">
-          <span class="oh-kb-dialog-icon" aria-hidden>
-            <MessageIcon name="knowledge" size={18} />
-          </span>
-          <div class="min-w-0 flex-1">
-            <h3>{t('message.kbDialog.title', '引用知识库详情')}</h3>
-            <p>{results.length} {t('message.kbDialog.hitUnit', '条命中')} · {status}</p>
-          </div>
-          <button type="button" class="oh-kb-dialog-close oh-tap-press" onClick={requestClose} aria-label={t('common.close', '关闭')}>
-            <MessageIcon name="close" size={18} />
-          </button>
-        </header>
-        <div class="oh-kb-dialog-body">
-          <KnowledgeBaseDialogSection title={t('message.kbDialog.query', '原始 query')}>
-            <pre class="oh-kb-dialog-pre">{query || '—'}</pre>
-            {error ? <p class="oh-kb-dialog-error">{error}</p> : null}
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      {...KNOWLEDGE_DIALOG_FRAME_APPEARANCE}
+      ariaLabel={t('message.kbDialog.title', '引用知识库详情')}
+    >
+      <header class="oh-kb-dialog-header">
+        <span class="oh-kb-dialog-icon" aria-hidden>
+          <MessageIcon name="knowledge" size={18} />
+        </span>
+        <div class="min-w-0 flex-1">
+          <h3>{t('message.kbDialog.title', '引用知识库详情')}</h3>
+          <p>{results.length} {t('message.kbDialog.hitUnit', '条命中')} · {status}</p>
+        </div>
+        <button type="button" class="oh-kb-dialog-close oh-tap-press" onClick={requestClose} aria-label={t('common.close', '关闭')}>
+          <MessageIcon name="close" size={18} />
+        </button>
+      </header>
+      <div class="oh-kb-dialog-body">
+        <KnowledgeBaseDialogSection title={t('message.kbDialog.query', '原始 query')}>
+          <pre class="oh-kb-dialog-pre">{query || '—'}</pre>
+          {error ? <p class="oh-kb-dialog-error">{error}</p> : null}
+        </KnowledgeBaseDialogSection>
+        <div class="oh-kb-dialog-grid">
+          <KnowledgeBaseDialogSection title={t('message.kbDialog.embedding', 'Embedding')}>
+            <KbKv label="provider_config_id" value={embedding?.['provider_config_id']} />
+            <KbKv label="model_id" value={embedding?.['model_id']} />
+            <KbKv label="dimensions" value={embedding?.['dimensions']} />
+            <KbKv label="duration_ms" value={embedding?.['duration_ms']} />
           </KnowledgeBaseDialogSection>
-          <div class="oh-kb-dialog-grid">
-            <KnowledgeBaseDialogSection title={t('message.kbDialog.embedding', 'Embedding')}>
-              <KbKv label="provider_config_id" value={embedding?.['provider_config_id']} />
-              <KbKv label="model_id" value={embedding?.['model_id']} />
-              <KbKv label="dimensions" value={embedding?.['dimensions']} />
-              <KbKv label="duration_ms" value={embedding?.['duration_ms']} />
-            </KnowledgeBaseDialogSection>
-            <KnowledgeBaseDialogSection title={t('message.kbDialog.retrieval', '检索参数')}>
-              <KbKv label="duration_ms" value={retrieval?.['duration_ms']} />
-              <KbKv label="top_n" value={retrieval?.['top_n']} />
-              <KbKv label="top_k" value={retrieval?.['top_k']} />
-              <KbKv label="min_similarity" value={retrieval?.['min_similarity']} />
-            </KnowledgeBaseDialogSection>
-            <KnowledgeBaseDialogSection title={t('message.kbDialog.promptAppend', 'Prompt 追加')}>
-              <KbKv label="chunk_count" value={promptAppend?.['chunk_count']} />
-              <KbKv label="token_estimate" value={promptAppend?.['token_estimate']} />
-              <KbKv label="content_hash" value={promptAppend?.['content_hash']} />
-            </KnowledgeBaseDialogSection>
-          </div>
-          <KnowledgeBaseDialogSection title={t('message.kbDialog.rerank', '重排序')}>
-            {rerank ? (
-              <div class="oh-kb-rerank-grid">
-                <KbKv label="mode" value={rerank['mode']} />
-                <KbKv label="strategy" value={rerank['strategy']} />
-                <KbKv label="candidate_count" value={rerank['candidate_count']} />
-                <KbKv label="rerank_input_count" value={rerank['rerank_input_count']} />
-                <KbKv label="rerank_output_count" value={rerank['rerank_output_count']} />
-                <KbKv label="kept_count" value={rerank['kept_count']} />
-                <KbKv label="discarded_count" value={rerank['discarded_count']} />
-                <KbKv label="duration_ms" value={rerank['duration_ms']} />
-                <KbKv label="model_id" value={rerank['model_id']} />
-                <KbKv label="error" value={rerank['error']} />
-              </div>
-            ) : (
-              <p class="oh-kb-dialog-muted">{t('message.kbDialog.noRerank', '没有记录重排序细节。')}</p>
-            )}
+          <KnowledgeBaseDialogSection title={t('message.kbDialog.retrieval', '检索参数')}>
+            <KbKv label="duration_ms" value={retrieval?.['duration_ms']} />
+            <KbKv label="top_n" value={retrieval?.['top_n']} />
+            <KbKv label="top_k" value={retrieval?.['top_k']} />
+            <KbKv label="min_similarity" value={retrieval?.['min_similarity']} />
           </KnowledgeBaseDialogSection>
-          {vectorDistribution ? (
-            <KnowledgeBaseDialogSection title={t('message.kbDialog.vectorSpace', '向量空间')}>
-              <KnowledgeVectorDistributionScene distribution={vectorDistribution} />
-            </KnowledgeBaseDialogSection>
-          ) : null}
-          <KnowledgeBaseDialogSection title={t('message.kbDialog.hitsWithCount', '命中分块 ({count})').replace('{count}', String(results.length))}>
-            <div class="oh-kb-hit-list">
-              {results.length === 0 ? (
-                <p class="oh-kb-dialog-muted">{t('message.kbDialog.noHits', '没有命中记录。')}</p>
-              ) : results.map((hit, index) => (
-                <button
-                  type="button"
-                  class="oh-kb-hit-card oh-tap-press"
-                  key={`${nonEmptyString(hit['chunk_id']) || index}`}
-                  onClick={() => setSelectedHit(hit)}
-                  aria-label={t('message.kbDialog.openChunkDetail', '打开分块详情')}
-                >
-                  <div class="oh-kb-hit-title">
-                    <span>{index + 1}. {nonEmptyString(hit['title']) || nonEmptyString(hit['source_title']) || nonEmptyString(hit['chunk_id']) || t('message.kbDialog.untitledChunk', '未命名分块')}</span>
-                    <span>{finiteNumberOrNullFromUnknown(hit['score'])?.toFixed(4) ?? '—'}</span>
-                  </div>
-                  <div class="oh-kb-hit-meta">
-                    <KbKv label="chunk_id" value={hit['chunk_id']} />
-                    <KbKv label="source_id" value={hit['source_id']} />
-                    <KbKv label="path" value={hit['path']} />
-                    <KbKv label="tags" value={Array.isArray(hit['tags']) ? hit['tags'].join(', ') : hit['tags']} />
-                    <KbKv label="document_time" value={hit['document_time']} />
-                    <KbKv label="rerank_score" value={hit['rerank_score']} />
-                    <KbKv label="tokens" value={hit['token_estimate']} />
-                  </div>
-                  {nonEmptyString(hit['preview']) ? <p class="oh-kb-hit-preview">{nonEmptyString(hit['preview'])}</p> : null}
-                </button>
-              ))}
-            </div>
-          </KnowledgeBaseDialogSection>
-          <KnowledgeBaseDialogSection title={t('message.kbDialog.appendedContext', '实际追加上下文')}>
-            <pre class="oh-kb-dialog-pre is-context">{contextContent || '—'}</pre>
+          <KnowledgeBaseDialogSection title={t('message.kbDialog.promptAppend', 'Prompt 追加')}>
+            <KbKv label="chunk_count" value={promptAppend?.['chunk_count']} />
+            <KbKv label="token_estimate" value={promptAppend?.['token_estimate']} />
+            <KbKv label="content_hash" value={promptAppend?.['content_hash']} />
           </KnowledgeBaseDialogSection>
         </div>
-        <footer class="oh-kb-dialog-actions">
-          <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyContext} disabled={!contextContent}>
-            <MessageIcon name="copy" size={15} />
-            {t('message.kbDialog.copyContext', '复制上下文')}
-          </button>
-          <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyJson}>
-            <MessageIcon name="audit" size={15} />
-            {t('message.kbDialog.copyJson', '复制 JSON')}
-          </button>
-        </footer>
-      </section>
+        <KnowledgeBaseDialogSection title={t('message.kbDialog.rerank', '重排序')}>
+          {rerank ? (
+            <div class="oh-kb-rerank-grid">
+              <KbKv label="mode" value={rerank['mode']} />
+              <KbKv label="strategy" value={rerank['strategy']} />
+              <KbKv label="candidate_count" value={rerank['candidate_count']} />
+              <KbKv label="rerank_input_count" value={rerank['rerank_input_count']} />
+              <KbKv label="rerank_output_count" value={rerank['rerank_output_count']} />
+              <KbKv label="kept_count" value={rerank['kept_count']} />
+              <KbKv label="discarded_count" value={rerank['discarded_count']} />
+              <KbKv label="duration_ms" value={rerank['duration_ms']} />
+              <KbKv label="model_id" value={rerank['model_id']} />
+              <KbKv label="error" value={rerank['error']} />
+            </div>
+          ) : (
+            <p class="oh-kb-dialog-muted">{t('message.kbDialog.noRerank', '没有记录重排序细节。')}</p>
+          )}
+        </KnowledgeBaseDialogSection>
+        {vectorDistribution ? (
+          <KnowledgeBaseDialogSection title={t('message.kbDialog.vectorSpace', '向量空间')}>
+            <KnowledgeVectorDistributionScene distribution={vectorDistribution} />
+          </KnowledgeBaseDialogSection>
+        ) : null}
+        <KnowledgeBaseDialogSection title={t('message.kbDialog.hitsWithCount', '命中分块 ({count})').replace('{count}', String(results.length))}>
+          <div class="oh-kb-hit-list">
+            {results.length === 0 ? (
+              <p class="oh-kb-dialog-muted">{t('message.kbDialog.noHits', '没有命中记录。')}</p>
+            ) : results.map((hit, index) => (
+              <button
+                type="button"
+                class="oh-kb-hit-card oh-tap-press"
+                key={`${nonEmptyString(hit['chunk_id']) || index}`}
+                onClick={() => setSelectedHit(hit)}
+                aria-label={t('message.kbDialog.openChunkDetail', '打开分块详情')}
+              >
+                <div class="oh-kb-hit-title">
+                  <span>{index + 1}. {nonEmptyString(hit['title']) || nonEmptyString(hit['source_title']) || nonEmptyString(hit['chunk_id']) || t('message.kbDialog.untitledChunk', '未命名分块')}</span>
+                  <span>{finiteNumberOrNullFromUnknown(hit['score'])?.toFixed(4) ?? '—'}</span>
+                </div>
+                <div class="oh-kb-hit-meta">
+                  <KbKv label="chunk_id" value={hit['chunk_id']} />
+                  <KbKv label="source_id" value={hit['source_id']} />
+                  <KbKv label="path" value={hit['path']} />
+                  <KbKv label="tags" value={Array.isArray(hit['tags']) ? hit['tags'].join(', ') : hit['tags']} />
+                  <KbKv label="document_time" value={hit['document_time']} />
+                  <KbKv label="rerank_score" value={hit['rerank_score']} />
+                  <KbKv label="tokens" value={hit['token_estimate']} />
+                </div>
+                {nonEmptyString(hit['preview']) ? <p class="oh-kb-hit-preview">{nonEmptyString(hit['preview'])}</p> : null}
+              </button>
+            ))}
+          </div>
+        </KnowledgeBaseDialogSection>
+        <KnowledgeBaseDialogSection title={t('message.kbDialog.appendedContext', '实际追加上下文')}>
+          <pre class="oh-kb-dialog-pre is-context">{contextContent || '—'}</pre>
+        </KnowledgeBaseDialogSection>
+      </div>
+      <footer class="oh-kb-dialog-actions">
+        <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyContext} disabled={!contextContent}>
+          <MessageIcon name="copy" size={15} />
+          {t('message.kbDialog.copyContext', '复制上下文')}
+        </button>
+        <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyJson}>
+          <MessageIcon name="audit" size={15} />
+          {t('message.kbDialog.copyJson', '复制 JSON')}
+        </button>
+      </footer>
       {selectedHit ? (
         <KnowledgeChunkDetailDialog
           hit={selectedHit}
           onClose={() => setSelectedHit(null)}
         />
       ) : null}
-    </div>
+    </DialogFrame>
   );
 }
 
@@ -3620,7 +3636,7 @@ function KnowledgeChunkDetailDialog({
   hit: Record<string, unknown>;
   onClose: () => void;
 }) {
-  const [closing, setClosing] = useState(false);
+  const { closing, requestClose } = useDialogExitMotion(onClose);
   const [loading, setLoading] = useState(false);
   const [source, setSource] = useState<KnowledgeSourceDto | null>(null);
   const [chunk, setChunk] = useState<KnowledgeChunkDto | null>(null);
@@ -3628,19 +3644,6 @@ function KnowledgeChunkDetailDialog({
   const sourceId = nonEmptyString(hit['source_id']);
   const chunkId = nonEmptyString(hit['chunk_id']);
   const preview = nonEmptyString(hit['content']) || nonEmptyString(hit['preview']);
-  const requestClose = useCallback(() => {
-    if (closing) return;
-    setClosing(true);
-    window.setTimeout(onClose, getDialogMotionDurationMs());
-  }, [closing, onClose]);
-
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') requestClose();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [requestClose]);
 
   useEffect(() => {
     if (!sourceId || !chunkId) {
@@ -3695,33 +3698,25 @@ function KnowledgeChunkDetailDialog({
       : [];
   const metadata = recordOrNullFromUnknown(chunk?.metadata) ?? null;
   return (
-    <div
-      class={`oh-kb-dialog-backdrop is-nested ${closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in'}`}
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) requestClose();
-      }}
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      {...KNOWLEDGE_DETAIL_DIALOG_FRAME_APPEARANCE}
+      ariaLabel={t('message.kbDialog.chunkDetailTitle', '命中分块详情')}
     >
-      <section
-        class={`oh-kb-dialog-card oh-kb-dialog-card-detail ${closing ? 'oh-dialog-pop-out' : 'oh-dialog-pop-in'}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('message.kbDialog.chunkDetailTitle', '命中分块详情')}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <header class="oh-kb-dialog-header">
-          <span class="oh-kb-dialog-icon" aria-hidden>
-            <MessageIcon name="knowledge" size={18} />
-          </span>
-          <div class="min-w-0 flex-1">
-            <h3>{chunk ? t('message.kbDialog.chunkDetailTitleResolved', '分块详情') : t('message.kbDialog.chunkDetailTitle', '命中分块详情')}</h3>
-            <p>{resolvedTitle}</p>
-          </div>
-          <button type="button" class="oh-kb-dialog-close oh-tap-press" onClick={requestClose} aria-label={t('common.close', '关闭')}>
-            <MessageIcon name="close" size={18} />
-          </button>
-        </header>
-        <div class="oh-kb-dialog-body">
+      <header class="oh-kb-dialog-header">
+        <span class="oh-kb-dialog-icon" aria-hidden>
+          <MessageIcon name="knowledge" size={18} />
+        </span>
+        <div class="min-w-0 flex-1">
+          <h3>{chunk ? t('message.kbDialog.chunkDetailTitleResolved', '分块详情') : t('message.kbDialog.chunkDetailTitle', '命中分块详情')}</h3>
+          <p>{resolvedTitle}</p>
+        </div>
+        <button type="button" class="oh-kb-dialog-close oh-tap-press" onClick={requestClose} aria-label={t('common.close', '关闭')}>
+          <MessageIcon name="close" size={18} />
+        </button>
+      </header>
+      <div class="oh-kb-dialog-body">
           {loading ? (
             <div class="oh-kb-dialog-loading">
               <span aria-hidden />
@@ -3792,22 +3787,21 @@ function KnowledgeChunkDetailDialog({
               <pre class="oh-kb-dialog-pre is-json">{JSON.stringify(hit, null, 2)}</pre>
             </KnowledgeBaseDialogSection>
           ) : null}
-        </div>
-        <footer class="oh-kb-dialog-actions">
-          <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyChunkId} disabled={!chunkId && !chunk?.id}>
-            <MessageIcon name="audit" size={15} />
-            {t('message.kbDialog.copyChunkId', '复制 ID')}
-          </button>
-          <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyChunkContent} disabled={!preview && !nonEmptyString(chunk?.content)}>
-            <MessageIcon name="copy" size={15} />
-            {t('message.kbDialog.copyChunkContent', '复制内容')}
-          </button>
-          <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={requestClose}>
-            {t('common.close', '关闭')}
-          </button>
-        </footer>
-      </section>
-    </div>
+      </div>
+      <footer class="oh-kb-dialog-actions">
+        <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyChunkId} disabled={!chunkId && !chunk?.id}>
+          <MessageIcon name="audit" size={15} />
+          {t('message.kbDialog.copyChunkId', '复制 ID')}
+        </button>
+        <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={copyChunkContent} disabled={!preview && !nonEmptyString(chunk?.content)}>
+          <MessageIcon name="copy" size={15} />
+          {t('message.kbDialog.copyChunkContent', '复制内容')}
+        </button>
+        <button type="button" class="oh-tap-press oh-kb-dialog-action" onClick={requestClose}>
+          {t('common.close', '关闭')}
+        </button>
+      </footer>
+    </DialogFrame>
   );
 }
 

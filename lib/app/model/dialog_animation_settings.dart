@@ -49,8 +49,9 @@ enum DialogAnimationStyle {
   String label(bool isZh) => isZh ? labelZh : labelEn;
 
   static DialogAnimationStyle fromStorage(String? value) {
+    final normalizedValue = nullIfBlank(value);
     for (final style in values) {
-      if (style.storageValue == value) return style;
+      if (style.storageValue == normalizedValue) return style;
     }
     return fadeScale;
   }
@@ -101,8 +102,9 @@ enum DialogAnimationCurve {
   };
 
   static DialogAnimationCurve fromStorage(String? value) {
+    final normalizedValue = nullIfBlank(value);
     for (final curve in values) {
-      if (curve.storageValue == value) return curve;
+      if (curve.storageValue == normalizedValue) return curve;
     }
     return easeOutCubic;
   }

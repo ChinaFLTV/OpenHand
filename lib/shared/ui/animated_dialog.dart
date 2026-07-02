@@ -543,9 +543,8 @@ Future<T?> showAnimatedDialog<T>({
     requestFocus: true,
     transitionDuration: effectiveSettings.duration,
     transitionBuilder: (context, animation, secondaryAnimation, child) {
-      return _buildTransition(
+      return buildAnimationStyleTransition(
         animation: animation,
-        secondaryAnimation: secondaryAnimation,
         settings: effectiveSettings,
         profile: transitionProfile,
         child: child,
@@ -1283,21 +1282,6 @@ class _EscapeDismissDialogScopeState extends State<_EscapeDismissDialogScope> {
       ),
     );
   }
-}
-
-Widget _buildTransition({
-  required Animation<double> animation,
-  required Animation<double> secondaryAnimation,
-  required DialogAnimationSettings settings,
-  required OpenHandAnimationTransitionProfile profile,
-  required Widget child,
-}) {
-  return buildAnimationStyleTransition(
-    animation: animation,
-    settings: settings,
-    profile: profile,
-    child: child,
-  );
 }
 
 /// Public, shared transition builder so non-dialog surfaces (chips,
