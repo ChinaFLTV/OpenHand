@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -35,6 +36,12 @@ const double _knowledgeConfigSummaryItemHeight = 76;
 const double _knowledgeConfigMinItemWidth = 280;
 const double _knowledgeConfigFallbackFullRowWidth =
     _knowledgeConfigMinItemWidth * 2 + _knowledgeConfigGridSpacing;
+const double _knowledgeEmbeddingPanelSpacing = 12;
+const double _knowledgeEmbeddingSelectorAsideWidth = 226;
+const double _knowledgeEmbeddingMetricMinWidth = 148;
+const double _knowledgeEmbeddingDetailMinWidth = 258;
+const double _knowledgeEmbeddingGroupMinWidth = 300;
+const double _knowledgeEmbeddingSettingMinWidth = 176;
 const List<String> _knowledgeDependencyPluginIds = <String>['docker', 'qdrant'];
 
 Future<void> showKnowledgeBaseConfigDialog(
@@ -522,72 +529,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 context,
                 title: isZh ? '嵌入模型' : 'Embedding Model',
                 icon: Icons.hub_outlined,
-                children: [
-                  if (embeddingModels.isEmpty)
-                    _emptyModelState(context)
-                  else
-                    _fullRow(
-                      OpenHandModelSelectorField(
-                        models: embeddingModels,
-                        recentSelections:
-                            settingsController.recentModelSelections,
-                        selectedConfigId: _settings.providerConfigId,
-                        selectedModelId: _settings.modelId,
-                        required: true,
-                        labelZh: '嵌入模型',
-                        labelEn: 'Embedding model',
-                        helperZh: '仅显示已开启“嵌入生成”的模型配置。',
-                        helperEn:
-                            'Only embedding-capable model profiles are shown.',
-                        modelFilter: (config, modelId) =>
-                            config.profileFor(modelId).supportsEmbeddings,
-                        onSelected: (selection) {
-                          final model = embeddingModels.firstWhere(
-                            (item) => item.id == selection.$1,
-                          );
-                          final profile = model.profileFor(selection.$2);
-                          setState(() {
-                            _settings = _settings.copyWith(
-                              providerConfigId: selection.$1,
-                              modelId: selection.$2,
-                              displayName: profile.displayName ?? selection.$2,
-                              dimensions:
-                                  profile.embeddingDimensions ??
-                                  _settings.dimensions,
-                              maxInputTokens:
-                                  profile.embeddingMaxInputTokens ??
-                                  _settings.maxInputTokens,
-                              batchSize:
-                                  profile.embeddingBatchSize ??
-                                  _settings.batchSize,
-                              distanceMetric:
-                                  profile.embeddingSimilarityMetric ??
-                                  _settings.distanceMetric,
-                            );
-                            _dimensions.text = '${_settings.dimensions}';
-                            _maxInputTokens.text =
-                                '${_settings.maxInputTokens}';
-                            _batchSize.text = '${_settings.batchSize}';
-                          });
-                        },
-                      ),
-                    ),
-                  if (_settings.hasEmbeddingModel)
-                    _embeddingProfileSummary(context, embeddingModels),
-                  _field(_dimensions, isZh ? '默认向量维度' : 'Default dimensions'),
-                  _field(
-                    _maxInputTokens,
-                    isZh ? '最大输入 token' : 'Max input tokens',
-                  ),
-                  _field(_batchSize, isZh ? '批量大小' : 'Batch size'),
-                  _field(_timeout, isZh ? '请求超时秒数' : 'Request timeout seconds'),
-                  _field(_retryCount, isZh ? '失败重试次数' : 'Retry count'),
-                  _field(_retryBackoffMs, isZh ? '重试退避毫秒' : 'Retry backoff ms'),
-                  _field(
-                    _concurrentRequests,
-                    isZh ? '并发请求数' : 'Concurrent requests',
-                  ),
-                ],
+                subtitle: isZh
+                    ? '选择具备嵌入生成能力的模型，并统一调整向量输出、请求韧性与缓存策略。'
+                    : 'Choose an embedding-capable model and tune vector output, request resilience, and caching together.',
+                children: _embeddingModelSectionChildren(
+                  context: context,
+                  embeddingModels: embeddingModels,
+                  settingsController: settingsController,
+                ),
               ),
               _section(
                 context,
@@ -1268,54 +1217,13 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       );
                     },
                   ),
-                  _switch(
-                    isZh ? '缓存查询 embedding' : 'Cache query embedding',
-                    _settings.cacheQueryEmbedding,
-                    (value) {
-                      setState(
-                        () => _settings = _settings.copyWith(
-                          cacheQueryEmbedding: value,
-                        ),
-                      );
-                    },
-                  ),
                 ],
               ),
               _section(
                 context,
-                title: isZh ? '隐私与云端调用' : 'Privacy and Cloud Calls',
-                icon: Icons.privacy_tip_outlined,
+                title: isZh ? '工具权限' : 'Tool Access',
+                icon: Icons.admin_panel_settings_outlined,
                 children: [
-                  _fullRow(
-                    KnowledgeDialogNotice(
-                      icon: Icons.lock_outline_rounded,
-                      message: isZh
-                          ? '云端 embedding 会发送文档 chunk 与用户 query。默认关闭，开启前请确认数据边界。'
-                          : 'Cloud embeddings send document chunks and user queries. They are off by default; confirm your data boundary before enabling.',
-                    ),
-                  ),
-                  _switch(
-                    isZh ? '允许发送文档内容' : 'Allow document cloud embedding',
-                    _settings.allowDocumentCloudEmbedding,
-                    (value) {
-                      setState(
-                        () => _settings = _settings.copyWith(
-                          allowDocumentCloudEmbedding: value,
-                        ),
-                      );
-                    },
-                  ),
-                  _switch(
-                    isZh ? '允许发送用户查询' : 'Allow query cloud embedding',
-                    _settings.allowQueryCloudEmbedding,
-                    (value) {
-                      setState(
-                        () => _settings = _settings.copyWith(
-                          allowQueryCloudEmbedding: value,
-                        ),
-                      );
-                    },
-                  ),
                   _switch(
                     isZh ? '暴露知识库内建工具' : 'Expose Knowledge Base built-in tools',
                     knowledgeBuiltinToolsEnabled,
@@ -1464,42 +1372,292 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     };
   }
 
+  List<Widget> _embeddingModelSectionChildren({
+    required BuildContext context,
+    required List<AiModelConfig> embeddingModels,
+    required SettingsController settingsController,
+  }) {
+    return [
+      if (embeddingModels.isEmpty)
+        _emptyModelState(context)
+      else
+        _embeddingSelectorPanel(
+          embeddingModels: embeddingModels,
+          settingsController: settingsController,
+        ),
+      if (_settings.hasEmbeddingModel)
+        _embeddingProfileSummary(context, embeddingModels),
+      _embeddingTuningPanel(context),
+    ];
+  }
+
+  AiModelConfig? _selectedEmbeddingConfig(List<AiModelConfig> models) {
+    if (!_settings.hasEmbeddingModel) return null;
+    for (final model in models) {
+      if (model.id != _settings.providerConfigId) continue;
+      if (!model.allModelIds.contains(_settings.modelId)) return null;
+      return model;
+    }
+    return null;
+  }
+
+  void _selectEmbeddingModel(
+    (String providerConfigId, String modelId) selection,
+    List<AiModelConfig> embeddingModels,
+  ) {
+    AiModelConfig? selectedConfig;
+    for (final model in embeddingModels) {
+      if (model.id == selection.$1) {
+        selectedConfig = model;
+        break;
+      }
+    }
+    if (selectedConfig == null ||
+        !selectedConfig.allModelIds.contains(selection.$2)) {
+      return;
+    }
+    final profile = selectedConfig.profileFor(selection.$2);
+    final next = _settings.copyWith(
+      providerConfigId: selection.$1,
+      modelId: selection.$2,
+      displayName: profile.displayName ?? selection.$2,
+      dimensions: profile.embeddingDimensions ?? _settings.dimensions,
+      maxInputTokens:
+          profile.embeddingMaxInputTokens ?? _settings.maxInputTokens,
+      batchSize: profile.embeddingBatchSize ?? _settings.batchSize,
+      distanceMetric:
+          profile.embeddingSimilarityMetric ?? _settings.distanceMetric,
+    );
+    setState(() {
+      _settings = next;
+      _dimensions.text = '${next.dimensions}';
+      _maxInputTokens.text = '${next.maxInputTokens}';
+      _batchSize.text = '${next.batchSize}';
+    });
+  }
+
+  Widget _embeddingSelectorPanel({
+    required List<AiModelConfig> embeddingModels,
+    required SettingsController settingsController,
+  }) {
+    return _fullRow(
+      Builder(
+        builder: (context) {
+          final colorScheme = Theme.of(context).colorScheme;
+          final profile = _selectedEmbeddingProfile(embeddingModels);
+          final selectedConfig = _selectedEmbeddingConfig(embeddingModels);
+          final duration = openHandMotionDurationMs(context, 180);
+          return AnimatedContainer(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Color.alphaBlend(
+                colorScheme.primary.withValues(alpha: 0.045),
+                colorScheme.surfaceContainerHighest.withValues(alpha: 0.68),
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color:
+                    (profile == null
+                            ? colorScheme.outlineVariant
+                            : colorScheme.primary)
+                        .withValues(alpha: profile == null ? 0.72 : 0.28),
+              ),
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact =
+                    constraints.maxWidth <
+                    _knowledgeEmbeddingSelectorAsideWidth + 360;
+                final selector = OpenHandModelSelectorField(
+                  models: embeddingModels,
+                  recentSelections: settingsController.recentModelSelections,
+                  selectedConfigId: _settings.providerConfigId,
+                  selectedModelId: _settings.modelId,
+                  required: true,
+                  labelZh: '嵌入模型',
+                  labelEn: 'Embedding model',
+                  helperZh: '只列出具备嵌入生成能力的模型。切换后会同步模型建议参数。',
+                  helperEn:
+                      'Only embedding-capable models are shown. Changing model syncs recommended parameters.',
+                  modelFilter: (config, modelId) =>
+                      config.profileFor(modelId).supportsEmbeddings,
+                  onSelected: (selection) =>
+                      _selectEmbeddingModel(selection, embeddingModels),
+                );
+                final status = _embeddingSelectionStatus(
+                  context,
+                  profile: profile,
+                  selectedConfig: selectedConfig,
+                );
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      selector,
+                      const SizedBox(height: _knowledgeEmbeddingPanelSpacing),
+                      status,
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: selector),
+                    const SizedBox(width: _knowledgeEmbeddingPanelSpacing),
+                    SizedBox(
+                      width: _knowledgeEmbeddingSelectorAsideWidth,
+                      child: status,
+                    ),
+                  ],
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _embeddingSelectionStatus(
+    BuildContext context, {
+    required AiModelProfile? profile,
+    required AiModelConfig? selectedConfig,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isZh = openHandIsChineseLocale(context);
+    final ready = profile != null;
+    final foreground = ready
+        ? colorScheme.primary
+        : colorScheme.onSurfaceVariant;
+    return AnimatedContainer(
+      duration: openHandMotionDurationMs(context, 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color:
+            (ready
+                    ? colorScheme.primaryContainer
+                    : colorScheme.surfaceContainerHigh)
+                .withValues(alpha: ready ? 0.26 : 0.62),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: foreground.withValues(alpha: 0.20)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(
+                ready
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.info_outline_rounded,
+                size: 18,
+                color: foreground,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  ready
+                      ? (isZh ? '模型可用' : 'Model ready')
+                      : (isZh ? '等待选择' : 'Pick a model'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Text(
+            ready
+                ? [
+                        selectedConfig?.providerLabel,
+                        profile.displayName ?? _settings.modelId,
+                      ]
+                      .whereType<String>()
+                      .where((item) => item.trim().isNotEmpty)
+                      .join(' / ')
+                : (isZh
+                      ? '请选择已启用嵌入生成的模型配置。'
+                      : 'Choose an embedding-enabled profile.'),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              height: 1.28,
+            ),
+          ),
+          if (ready) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                KnowledgeDialogChip(
+                  icon: Icons.straighten_rounded,
+                  label:
+                      '${profile.embeddingDimensions ?? _settings.dimensions}D',
+                ),
+                if (profile.supportsRerank)
+                  KnowledgeDialogChip(
+                    icon: Icons.filter_alt_rounded,
+                    label: isZh ? '可重排' : 'Rerank',
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _embeddingProfileSummary(
     BuildContext context,
     List<AiModelConfig> models,
   ) {
     final profile = _selectedEmbeddingProfile(models);
+    final isZh = openHandIsChineseLocale(context);
     if (profile == null) {
-      return const SizedBox.shrink();
+      return _fullRow(
+        KnowledgeDialogNotice(
+          icon: Icons.hub_outlined,
+          message: isZh
+              ? '当前保存的嵌入模型已不可用。请重新选择一个已开启“嵌入生成”的模型。'
+              : 'The saved embedding model is unavailable. Choose an embedding-enabled model again.',
+        ),
+      );
     }
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
+    final selectedConfig = _selectedEmbeddingConfig(models);
     final dimensions = <String>[
       '${profile.embeddingDimensions ?? '-'}',
       if (profile.embeddingMinDimensions != null ||
           profile.embeddingMaxDimensions != null)
         '(${profile.embeddingMinDimensions ?? '-'}-${profile.embeddingMaxDimensions ?? '-'})',
     ].join(' ');
-    final rows = <(String, String)>[
-      (isZh ? '模型' : 'Model', _settings.modelId),
+    final metrics = <({IconData icon, String label, String value})>[
       (
-        isZh ? '模型路由' : 'Model Routing',
-        _listLabel(<String>[
-          if (profile.embeddingQueryModelId != null)
-            'query ${profile.embeddingQueryModelId}',
-          if (profile.embeddingDocumentModelId != null)
-            'doc ${profile.embeddingDocumentModelId}',
-        ]),
-      ),
-      (isZh ? '维度/范围' : 'Dimensions / Range', dimensions),
-      (
-        isZh ? '最大输入 token' : 'Max Input Tokens',
-        '${profile.embeddingMaxInputTokens ?? '-'}',
+        icon: Icons.straighten_rounded,
+        label: isZh ? '维度范围' : 'Dimensions',
+        value: dimensions,
       ),
       (
-        isZh ? 'Batch / 上限' : 'Batch / Limits',
-        [
+        icon: Icons.input_rounded,
+        label: isZh ? '最大输入' : 'Max input',
+        value: '${profile.embeddingMaxInputTokens ?? '-'}',
+      ),
+      (
+        icon: Icons.batch_prediction_outlined,
+        label: isZh ? 'Batch / 上限' : 'Batch / limit',
+        value: [
           profile.embeddingBatchSize ?? '-',
           profile.embeddingMaxInputsPerBatch == null
               ? null
@@ -1510,16 +1668,39 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         ].whereType<Object>().join(' / '),
       ),
       (
-        isZh ? '支持参数' : 'Supported Parameters',
-        _listLabel(profile.supportedParameters),
+        icon: Icons.radar_rounded,
+        label: isZh ? '距离/归一化' : 'Metric / normalized',
+        value: [
+          profile.embeddingSimilarityMetric ?? '-',
+          _nullableBoolLabel(context, profile.embeddingOutputsNormalized),
+        ].join(' / '),
+      ),
+    ];
+    final details = <({IconData icon, String label, String value})>[
+      (
+        icon: Icons.route_outlined,
+        label: isZh ? '模型路由' : 'Model routing',
+        value: _listLabel(<String>[
+          if (profile.embeddingQueryModelId != null)
+            'query ${profile.embeddingQueryModelId}',
+          if (profile.embeddingDocumentModelId != null)
+            'doc ${profile.embeddingDocumentModelId}',
+        ]),
       ),
       (
-        isZh ? '默认参数' : 'Default Parameters',
-        _jsonMapLabel(profile.defaultParameters),
+        icon: Icons.tune_rounded,
+        label: isZh ? '支持参数' : 'Supported parameters',
+        value: _listLabel(profile.supportedParameters),
       ),
       (
-        isZh ? '输入类型' : 'Input Types',
-        [
+        icon: Icons.data_object_rounded,
+        label: isZh ? '默认参数' : 'Default parameters',
+        value: _jsonMapLabel(profile.defaultParameters),
+      ),
+      (
+        icon: Icons.swap_vert_rounded,
+        label: isZh ? '输入类型' : 'Input types',
+        value: [
           _listLabel(profile.embeddingInputTypes),
           if (profile.embeddingDefaultInputType != null)
             '${isZh ? '默认' : 'default'} ${profile.embeddingDefaultInputType}',
@@ -1530,8 +1711,9 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         ].join(' / '),
       ),
       (
-        isZh ? '任务类型' : 'Task Types',
-        [
+        icon: Icons.task_alt_rounded,
+        label: isZh ? '任务类型' : 'Task types',
+        value: [
           _listLabel(profile.embeddingSupportedTaskTypes),
           if (profile.embeddingDefaultQueryTaskType != null)
             'query ${profile.embeddingDefaultQueryTaskType}',
@@ -1542,8 +1724,9 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         ].join(' / '),
       ),
       (
-        isZh ? '文本前缀' : 'Text Prefixes',
-        _listLabel(<String>[
+        icon: Icons.short_text_rounded,
+        label: isZh ? '文本前缀' : 'Text prefixes',
+        value: _listLabel(<String>[
           if (profile.embeddingQueryTextPrefix != null)
             'query ${profile.embeddingQueryTextPrefix}',
           if (profile.embeddingDocumentTextPrefix != null)
@@ -1551,104 +1734,689 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         ]),
       ),
       (
-        isZh ? '编码格式' : 'Encoding Formats',
-        [
+        icon: Icons.text_fields_rounded,
+        label: isZh ? '编码格式' : 'Encoding formats',
+        value: [
           _listLabel(profile.embeddingEncodingFormats),
           if (profile.embeddingDefaultEncodingFormat != null)
             '${isZh ? '默认' : 'default'} ${profile.embeddingDefaultEncodingFormat}',
         ].join(' / '),
       ),
       (
-        isZh ? '输出 dtype' : 'Output DType',
-        [
+        icon: Icons.memory_rounded,
+        label: isZh ? '输出 dtype' : 'Output dtype',
+        value: [
           _listLabel(profile.embeddingOutputDTypes),
           if (profile.embeddingDefaultOutputDType != null)
             '${isZh ? '默认' : 'default'} ${profile.embeddingDefaultOutputDType}',
-        ].join(' / '),
-      ),
-      (
-        isZh ? '距离/归一化' : 'Metric / Normalized',
-        [
-          '${profile.embeddingSimilarityMetric ?? '-'} / '
-              '${_nullableBoolLabel(context, profile.embeddingOutputsNormalized)}',
           if (profile.embeddingDefaultTruncation != null)
             '${isZh ? '截断' : 'truncate'} ${profile.embeddingDefaultTruncation}',
         ].join(' / '),
       ),
     ];
-
-    return Builder(
-      builder: (context) {
-        final metrics = _KnowledgeConfigGridScope.of(context);
-        final summaryWidth = metrics.columns == 1
-            ? metrics.fullWidth
-            : (metrics.fullWidth - 8) / 2;
-        return SizedBox(
-          width: metrics.fullWidth,
+    return _fullRow(
+      AnimatedSize(
+        duration: openHandMotionDurationMs(context, 240),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: AnimatedSwitcher(
+          duration: openHandMotionDurationMs(context, 220),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.985, end: 1).animate(animation),
+                alignment: Alignment.topCenter,
+                child: child,
+              ),
+            );
+          },
           child: Container(
-            padding: const EdgeInsets.all(12),
+            key: ValueKey(
+              'embedding-profile-${_settings.providerConfigId}-${_settings.modelId}',
+            ),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.36,
+                alpha: 0.34,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+                color: colorScheme.outlineVariant.withValues(alpha: 0.62),
               ),
             ),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final row in rows)
-                  SizedBox(
-                    width: summaryWidth,
-                    height: _knowledgeConfigSummaryItemHeight,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
-                        color: colorScheme.surface.withValues(alpha: 0.72),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: colorScheme.outlineVariant.withValues(
-                            alpha: 0.48,
-                          ),
+                        color: colorScheme.primaryContainer.withValues(
+                          alpha: 0.50,
                         ),
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      child: Icon(
+                        Icons.analytics_outlined,
+                        size: 19,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            row.$1,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                            isZh ? '模型画像' : 'Model Profile',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 3),
+                          const SizedBox(height: 2),
                           Text(
-                            row.$2.isEmpty ? '-' : row.$2,
-                            maxLines: 2,
+                            [selectedConfig?.providerLabel, _settings.modelId]
+                                .whereType<String>()
+                                .where((item) => item.trim().isNotEmpty)
+                                .join(' / '),
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w600,
+                              color: colorScheme.onSurfaceVariant,
                               height: 1.25,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      alignment: WrapAlignment.end,
+                      children: [
+                        if (profile.embeddingSupportsCustomDimensions)
+                          KnowledgeDialogChip(
+                            icon: Icons.open_in_full_rounded,
+                            label: isZh ? '可调维度' : 'Custom dims',
+                          ),
+                        if (profile.supportsRerank)
+                          KnowledgeDialogChip(
+                            icon: Icons.filter_alt_rounded,
+                            label: isZh ? '可重排' : 'Rerank',
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _embeddingMetricsGrid(context, metrics),
+                const SizedBox(height: 12),
+                _embeddingDetailsGrid(context, details),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _embeddingMetricsGrid(
+    BuildContext context,
+    List<({IconData icon, String label, String value})> metrics,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : _knowledgeConfigFallbackFullRowWidth;
+        final columns =
+            maxWidth >=
+                _knowledgeEmbeddingMetricMinWidth * 4 +
+                    _knowledgeEmbeddingPanelSpacing * 3
+            ? 4
+            : maxWidth >=
+                  _knowledgeEmbeddingMetricMinWidth * 2 +
+                      _knowledgeEmbeddingPanelSpacing
+            ? 2
+            : 1;
+        final itemWidth = columns == 1
+            ? maxWidth
+            : (maxWidth - _knowledgeEmbeddingPanelSpacing * (columns - 1)) /
+                  columns;
+        return Wrap(
+          spacing: _knowledgeEmbeddingPanelSpacing,
+          runSpacing: _knowledgeEmbeddingPanelSpacing,
+          children: [
+            for (final metric in metrics)
+              SizedBox(
+                width: itemWidth,
+                height: _knowledgeConfigSummaryItemHeight,
+                child: _embeddingMetricTile(context, metric),
+              ),
+          ],
         );
       },
+    );
+  }
+
+  Widget _embeddingMetricTile(
+    BuildContext context,
+    ({IconData icon, String label, String value}) metric,
+  ) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.74),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.46),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: colorScheme.secondaryContainer.withValues(alpha: 0.48),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              metric.icon,
+              size: 17,
+              color: colorScheme.onSecondaryContainer,
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  metric.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  metric.value.trim().isEmpty ? '-' : metric.value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _embeddingDetailsGrid(
+    BuildContext context,
+    List<({IconData icon, String label, String value})> details,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : _knowledgeConfigFallbackFullRowWidth;
+        final columns =
+            maxWidth >=
+                _knowledgeEmbeddingDetailMinWidth * 2 +
+                    _knowledgeEmbeddingPanelSpacing
+            ? 2
+            : 1;
+        final itemWidth = columns == 1
+            ? maxWidth
+            : (maxWidth - _knowledgeEmbeddingPanelSpacing) / 2;
+        return Wrap(
+          spacing: _knowledgeEmbeddingPanelSpacing,
+          runSpacing: _knowledgeEmbeddingPanelSpacing,
+          children: [
+            for (final detail in details)
+              SizedBox(
+                width: itemWidth,
+                child: _embeddingDetailTile(context, detail),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _embeddingDetailTile(
+    BuildContext context,
+    ({IconData icon, String label, String value}) detail,
+  ) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.54),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.34),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(detail.icon, size: 17, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  detail.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  detail.value.trim().isEmpty ? '-' : detail.value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface,
+                    height: 1.24,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _embeddingTuningPanel(BuildContext context) {
+    final isZh = openHandIsChineseLocale(context);
+    return _fullRow(
+      Builder(
+        builder: (context) {
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final maxWidth = constraints.maxWidth.isFinite
+                  ? constraints.maxWidth
+                  : _knowledgeConfigFallbackFullRowWidth;
+              final columns =
+                  maxWidth >=
+                      _knowledgeEmbeddingGroupMinWidth * 2 +
+                          _knowledgeEmbeddingPanelSpacing
+                  ? 2
+                  : 1;
+              final groupWidth = columns == 1
+                  ? maxWidth
+                  : (maxWidth - _knowledgeEmbeddingPanelSpacing) / 2;
+              return Wrap(
+                spacing: _knowledgeEmbeddingPanelSpacing,
+                runSpacing: _knowledgeEmbeddingPanelSpacing,
+                children: [
+                  _embeddingTuningGroup(
+                    context,
+                    width: groupWidth,
+                    icon: Icons.account_tree_outlined,
+                    title: isZh ? '向量输出' : 'Vector Output',
+                    subtitle: isZh
+                        ? '控制最终写入向量库的维度、输入预算与单批规模。'
+                        : 'Controls vector dimensions, input budget, and batch size.',
+                    child: _embeddingSettingsGrid(
+                      context,
+                      children: [
+                        _embeddingSettingTextField(
+                          context,
+                          controller: _dimensions,
+                          label: isZh ? '默认向量维度' : 'Default dimensions',
+                          icon: Icons.straighten_rounded,
+                        ),
+                        _embeddingSettingTextField(
+                          context,
+                          controller: _maxInputTokens,
+                          label: isZh ? '最大输入 token' : 'Max input tokens',
+                          icon: Icons.input_rounded,
+                        ),
+                        _embeddingSettingTextField(
+                          context,
+                          controller: _batchSize,
+                          label: isZh ? '批量大小' : 'Batch size',
+                          icon: Icons.batch_prediction_outlined,
+                        ),
+                      ],
+                    ),
+                  ),
+                  _embeddingTuningGroup(
+                    context,
+                    width: groupWidth,
+                    icon: Icons.speed_rounded,
+                    title: isZh ? '请求韧性' : 'Request Resilience',
+                    subtitle: isZh
+                        ? '限制请求耗时、失败重试和并发，避免资源被无限占用。'
+                        : 'Bounds timeout, retries, backoff, and concurrency.',
+                    child: _embeddingSettingsGrid(
+                      context,
+                      children: [
+                        _embeddingSettingTextField(
+                          context,
+                          controller: _timeout,
+                          label: isZh ? '请求超时' : 'Request timeout',
+                          icon: Icons.timer_outlined,
+                          suffix: 's',
+                        ),
+                        _embeddingSettingTextField(
+                          context,
+                          controller: _retryCount,
+                          label: isZh ? '失败重试' : 'Retry count',
+                          icon: Icons.replay_rounded,
+                        ),
+                        _embeddingSettingTextField(
+                          context,
+                          controller: _retryBackoffMs,
+                          label: isZh ? '重试退避' : 'Retry backoff',
+                          icon: Icons.more_time_rounded,
+                          suffix: 'ms',
+                        ),
+                        _embeddingSettingTextField(
+                          context,
+                          controller: _concurrentRequests,
+                          label: isZh ? '并发请求' : 'Concurrent requests',
+                          icon: Icons.call_split_rounded,
+                        ),
+                      ],
+                    ),
+                  ),
+                  _embeddingTuningGroup(
+                    context,
+                    width: maxWidth,
+                    icon: Icons.privacy_tip_outlined,
+                    title: isZh ? '隐私与缓存' : 'Privacy and Cache',
+                    subtitle: isZh
+                        ? '云端 embedding 会发送文档 chunk 或用户 query；默认保持关闭。'
+                        : 'Cloud embeddings send document chunks or user queries; keep them off unless approved.',
+                    child: _embeddingSettingsGrid(
+                      context,
+                      minItemWidth: 220,
+                      children: [
+                        _embeddingSwitchTile(
+                          context,
+                          label: isZh
+                              ? '允许发送文档内容'
+                              : 'Allow document cloud embedding',
+                          subtitle: isZh
+                              ? '导入文档向量化时生效'
+                              : 'Used while indexing documents',
+                          value: _settings.allowDocumentCloudEmbedding,
+                          onChanged: (value) {
+                            setState(
+                              () => _settings = _settings.copyWith(
+                                allowDocumentCloudEmbedding: value,
+                              ),
+                            );
+                          },
+                        ),
+                        _embeddingSwitchTile(
+                          context,
+                          label: isZh
+                              ? '允许发送用户查询'
+                              : 'Allow query cloud embedding',
+                          subtitle: isZh
+                              ? '发送消息检索时生效'
+                              : 'Used while retrieving on send',
+                          value: _settings.allowQueryCloudEmbedding,
+                          onChanged: (value) {
+                            setState(
+                              () => _settings = _settings.copyWith(
+                                allowQueryCloudEmbedding: value,
+                              ),
+                            );
+                          },
+                        ),
+                        _embeddingSwitchTile(
+                          context,
+                          label: isZh
+                              ? '缓存查询 embedding'
+                              : 'Cache query embedding',
+                          subtitle: isZh
+                              ? '复用重复查询向量'
+                              : 'Reuses vectors for repeated queries',
+                          value: _settings.cacheQueryEmbedding,
+                          onChanged: (value) {
+                            setState(
+                              () => _settings = _settings.copyWith(
+                                cacheQueryEmbedding: value,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _embeddingTuningGroup(
+    BuildContext context, {
+    required double width,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return SizedBox(
+      width: width,
+      child: Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.30),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.54),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.80,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 18, color: colorScheme.primary),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.24,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _embeddingSettingsGrid(
+    BuildContext context, {
+    required List<Widget> children,
+    double minItemWidth = _knowledgeEmbeddingSettingMinWidth,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : minItemWidth;
+        final columns =
+            maxWidth >= minItemWidth * 2 + _knowledgeEmbeddingPanelSpacing
+            ? 2
+            : 1;
+        final itemWidth = columns == 1
+            ? maxWidth
+            : (maxWidth - _knowledgeEmbeddingPanelSpacing) / 2;
+        return Wrap(
+          spacing: _knowledgeEmbeddingPanelSpacing,
+          runSpacing: _knowledgeEmbeddingPanelSpacing,
+          children: [
+            for (final child in children)
+              SizedBox(width: itemWidth, child: child),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _embeddingSettingTextField(
+    BuildContext context, {
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    String? suffix,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return TextField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+      decoration: knowledgeDialogInputDecoration(context, label).copyWith(
+        prefixIcon: Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 38,
+          minHeight: 38,
+        ),
+        suffixText: suffix,
+      ),
+    );
+  }
+
+  Widget _embeddingSwitchTile(
+    BuildContext context, {
+    required String label,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return AnimatedContainer(
+      duration: openHandMotionDurationMs(context, 180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color:
+            (value
+                    ? colorScheme.primaryContainer
+                    : colorScheme.surfaceContainerHigh)
+                .withValues(alpha: value ? 0.24 : 0.58),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: (value ? colorScheme.primary : colorScheme.outlineVariant)
+              .withValues(alpha: value ? 0.24 : 0.58),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                    height: 1.22,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.22,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
+      ),
     );
   }
 
