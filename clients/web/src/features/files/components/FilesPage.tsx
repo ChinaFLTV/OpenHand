@@ -22,6 +22,7 @@ import { CodeEditor } from '../../../components/CodeEditor';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { useReducedMotion } from '../../../hooks/useReducedMotion';
+import { useTransientFlag } from '../../../hooks/useTransientFlag';
 import { TopBar } from '../../../components/TopBar';
 import { describeApiError } from '../../../utils/api_error';
 
@@ -53,7 +54,11 @@ export function FilesPage() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveOk, setSaveOk] = useState(false);
+  const {
+    active: saveOk,
+    trigger: showSaveOk,
+    reset: resetSaveOk,
+  } = useTransientFlag(SAVE_OK_RESET_MS);
   const [deleteTarget, setDeleteTarget] = useState<WorkspaceItem | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [creating, setCreating] = useState<null | 'file' | 'directory'>(null);
@@ -62,24 +67,6 @@ export function FilesPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const reqIdRef = useRef(0);
   const detailSectionRef = useRef<HTMLElement | null>(null);
-  const saveOkTimerRef = useRef<number | null>(null);
-
-  const clearSaveOkTimer = () => {
-    if (saveOkTimerRef.current == null || typeof window === 'undefined') return;
-    window.clearTimeout(saveOkTimerRef.current);
-    saveOkTimerRef.current = null;
-  };
-
-  const scheduleSaveOkReset = () => {
-    clearSaveOkTimer();
-    if (typeof window === 'undefined') return;
-    saveOkTimerRef.current = window.setTimeout(() => {
-      saveOkTimerRef.current = null;
-      setSaveOk(false);
-    }, SAVE_OK_RESET_MS);
-  };
-
-  useEffect(() => () => clearSaveOkTimer(), []);
 
   const refresh = async () => {
     setListLoading(true);
@@ -131,7 +118,7 @@ export function FilesPage() {
     setContentMeta(null);
     setDirty(false);
     setSaveError(null);
-    setSaveOk(false);
+    resetSaveOk();
     try {
       const res = await readWorkspaceFile(item.path);
       if (myReq !== reqIdRef.current) return;
@@ -149,14 +136,13 @@ export function FilesPage() {
     if (!selected || !list?.write_enabled || !selected.editable) return;
     setSaving(true);
     setSaveError(null);
-    setSaveOk(false);
+    resetSaveOk();
     try {
       const res = await writeWorkspaceFile(selected.path, content);
       setContentMeta({ size: res.size, modified_at: res.modified_at });
       setDirty(false);
-      setSaveOk(true);
+      showSaveOk();
       showSnackbar(`${t('files.saveOk', '已保存')}：${selected.path}`, { tone: 'success' });
-      scheduleSaveOkReset();
     } catch (err) {
       const message = describeApiError(err);
       setSaveError(message);
@@ -565,7 +551,7 @@ export function FilesPage() {
                       onChange={(next) => {
                         setContent(next);
                         setDirty(true);
-                        setSaveOk(false);
+                        resetSaveOk();
                       }}
                     />
                   </div>
