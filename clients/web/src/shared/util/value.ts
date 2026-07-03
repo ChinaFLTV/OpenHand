@@ -4,6 +4,9 @@ export interface StringFromUnknownOptions {
   coerce?: boolean;
 }
 
+const BOOLEAN_TRUE_TEXT = new Set(['true', '1', 'yes', 'y', 'on', 'enabled']);
+const BOOLEAN_FALSE_TEXT = new Set(['false', '0', 'no', 'n', 'off', 'disabled']);
+
 export function stringFromUnknown(
   value: unknown,
   { coerce = true }: StringFromUnknownOptions = {},
@@ -19,15 +22,15 @@ export function strictStringFromUnknown(value: unknown): string {
 
 export function booleanOrNullFromUnknown(value: unknown): boolean | null {
   if (typeof value === 'boolean') return value;
-  if (typeof value === 'number' && Number.isFinite(value)) return value !== 0;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value === 1) return true;
+    if (value === 0) return false;
+    return null;
+  }
   if (typeof value === 'string') {
     const normalized = value.trim().toLowerCase();
-    if (normalized === 'true' || normalized === '1' || normalized === 'yes') {
-      return true;
-    }
-    if (normalized === 'false' || normalized === '0' || normalized === 'no') {
-      return false;
-    }
+    if (BOOLEAN_TRUE_TEXT.has(normalized)) return true;
+    if (BOOLEAN_FALSE_TEXT.has(normalized)) return false;
   }
   return null;
 }
