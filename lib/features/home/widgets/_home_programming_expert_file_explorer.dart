@@ -4315,22 +4315,48 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _lspUnavailableMessage(AiLspBackendResolution resolution) {
-    final isZh = openHandIsChineseLocale(context);
     return switch (resolution.availability) {
-      AiLspBackendAvailability.unsupportedLanguage =>
-        isZh
-            ? '当前语言 ${_programmingLanguageLabel(context, resolution.language)} 还没有映射到 LSP 后端。'
-            : 'No LSP backend mapping is configured for ${_programmingLanguageLabel(context, resolution.language)}.',
+      AiLspBackendAvailability.unsupportedLanguage => _localizedText(
+        context,
+        zh: '当前语言 ${_programmingLanguageLabel(context, resolution.language)} 还没有映射到 LSP 后端。',
+        zhHant:
+            '目前語言 ${_programmingLanguageLabel(context, resolution.language)} 尚未對應到 LSP 後端。',
+        en: 'No LSP backend mapping is configured for ${_programmingLanguageLabel(context, resolution.language)}.',
+        fr: 'Aucun backend LSP n’est configuré pour ${_programmingLanguageLabel(context, resolution.language)}.',
+        de: 'Für ${_programmingLanguageLabel(context, resolution.language)} ist kein LSP-Backend konfiguriert.',
+        ja: '${_programmingLanguageLabel(context, resolution.language)} には LSP バックエンドのマッピングが設定されていません。',
+      ),
       AiLspBackendAvailability.executableNotFound =>
         resolution.configuredInstallRoot?.trim().isNotEmpty == true
-            ? (isZh
-                  ? '已识别到 ${resolution.displayName ?? resolution.backendId}，但在你配置的 LSP 根路径 ${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)} 中没有找到命令 ${resolution.executable ?? ''}。'
-                  : 'The editor resolved ${resolution.displayName ?? resolution.backendId}, but ${resolution.executable ?? ''} was not found inside the configured LSP root ${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)}.')
-            : (isZh
-                  ? '已识别到 ${resolution.displayName ?? resolution.backendId}，但本机 PATH 中没有找到命令 ${resolution.executable ?? ''}。'
-                  : 'The editor resolved ${resolution.displayName ?? resolution.backendId}, but ${resolution.executable ?? ''} was not found on PATH.'),
-      AiLspBackendAvailability.available =>
-        isZh ? 'LSP 后端已就绪。' : 'The LSP backend is ready.',
+            ? _localizedText(
+                context,
+                zh: '已识别到 ${resolution.displayName ?? resolution.backendId}，但在你配置的 LSP 根路径 ${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)} 中没有找到命令 ${resolution.executable ?? ''}。',
+                zhHant:
+                    '已識別到 ${resolution.displayName ?? resolution.backendId}，但在你設定的 LSP 根路徑 ${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)} 中找不到命令 ${resolution.executable ?? ''}。',
+                en: 'The editor resolved ${resolution.displayName ?? resolution.backendId}, but ${resolution.executable ?? ''} was not found inside the configured LSP root ${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)}.',
+                fr: 'L’éditeur a résolu ${resolution.displayName ?? resolution.backendId}, mais ${resolution.executable ?? ''} est introuvable dans la racine LSP configurée ${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)}.',
+                de: 'Der Editor hat ${resolution.displayName ?? resolution.backendId} aufgelöst, aber ${resolution.executable ?? ''} wurde im konfigurierten LSP-Stamm ${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)} nicht gefunden.',
+                ja: 'エディタは ${resolution.displayName ?? resolution.backendId} を解決しましたが、設定済み LSP ルート ${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)} 内に ${resolution.executable ?? ''} が見つかりません。',
+              )
+            : _localizedText(
+                context,
+                zh: '已识别到 ${resolution.displayName ?? resolution.backendId}，但本机 PATH 中没有找到命令 ${resolution.executable ?? ''}。',
+                zhHant:
+                    '已識別到 ${resolution.displayName ?? resolution.backendId}，但本機 PATH 中找不到命令 ${resolution.executable ?? ''}。',
+                en: 'The editor resolved ${resolution.displayName ?? resolution.backendId}, but ${resolution.executable ?? ''} was not found on PATH.',
+                fr: 'L’éditeur a résolu ${resolution.displayName ?? resolution.backendId}, mais ${resolution.executable ?? ''} est introuvable dans PATH.',
+                de: 'Der Editor hat ${resolution.displayName ?? resolution.backendId} aufgelöst, aber ${resolution.executable ?? ''} wurde im PATH nicht gefunden.',
+                ja: 'エディタは ${resolution.displayName ?? resolution.backendId} を解決しましたが、PATH に ${resolution.executable ?? ''} が見つかりません。',
+              ),
+      AiLspBackendAvailability.available => _localizedText(
+        context,
+        zh: 'LSP 后端已就绪。',
+        zhHant: 'LSP 後端已就緒。',
+        en: 'The LSP backend is ready.',
+        fr: 'Le backend LSP est prêt.',
+        de: 'Das LSP-Backend ist bereit.',
+        ja: 'LSP バックエンドの準備ができています。',
+      ),
     };
   }
 
@@ -4978,26 +5004,44 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _diagnosticsUnavailableMessage(String filePath) {
-    final isZh = openHandIsChineseLocale(context);
     final resolution = _lspResolutionForFile(filePath);
     if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
-      return isZh
-          ? '正在为当前文件解析 LSP 后端…'
-          : 'Resolving an LSP backend for the current file...';
+      return _localizedText(
+        context,
+        zh: '正在为当前文件解析 LSP 后端…',
+        zhHant: '正在為目前檔案解析 LSP 後端…',
+        en: 'Resolving an LSP backend for the current file...',
+        fr: 'Résolution du backend LSP pour le fichier actuel...',
+        de: 'LSP-Backend für die aktuelle Datei wird aufgelöst...',
+        ja: '現在のファイルの LSP バックエンドを解決中...',
+      );
     }
     if (resolution == null) {
-      return isZh
-          ? '当前文件的 LSP 后端尚未解析完成。'
-          : 'The LSP backend for this file has not been resolved yet.';
+      return _localizedText(
+        context,
+        zh: '当前文件的 LSP 后端尚未解析完成。',
+        zhHant: '目前檔案的 LSP 後端尚未解析完成。',
+        en: 'The LSP backend for this file has not been resolved yet.',
+        fr: 'Le backend LSP de ce fichier n’est pas encore résolu.',
+        de: 'Das LSP-Backend für diese Datei wurde noch nicht aufgelöst.',
+        ja: 'このファイルの LSP バックエンドはまだ解決されていません。',
+      );
     }
     return _lspUnavailableMessage(resolution);
   }
 
   String _lspBackendStatusLabel(BuildContext context, String filePath) {
-    final isZh = openHandIsChineseLocale(context);
     final resolution = _lspResolutionForFile(filePath);
     if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
-      return isZh ? 'LSP 解析中' : 'LSP...';
+      return _localizedText(
+        context,
+        zh: 'LSP 解析中',
+        zhHant: 'LSP 解析中',
+        en: 'LSP...',
+        fr: 'LSP...',
+        de: 'LSP...',
+        ja: 'LSP...',
+      );
     }
     if (resolution == null) {
       return 'LSP';
@@ -5007,7 +5051,15 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           resolution.backendId ??
           _programmingLanguageLabel(context, resolution.language);
     }
-    return isZh ? '无 LSP' : 'No LSP';
+    return _localizedText(
+      context,
+      zh: '无 LSP',
+      zhHant: '無 LSP',
+      en: 'No LSP',
+      fr: 'Pas de LSP',
+      de: 'Kein LSP',
+      ja: 'LSP なし',
+    );
   }
 
   bool _hasProjectToolchainOverride() {
@@ -5020,25 +5072,64 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _projectToolchainStatusLabel(BuildContext context, String filePath) {
-    final isZh = openHandIsChineseLocale(context);
     final projectLanguage = normalizeAiLspLanguage(widget.projectLanguage);
     final hasOverride = _hasProjectToolchainOverride();
     final isResolving =
         _lspBackendLoadingFiles.contains(filePath) &&
         _lspResolutionForFile(filePath) == null;
     if (isResolving && hasOverride) {
-      return isZh ? '项目重绑' : 'Rebinding';
+      return _localizedText(
+        context,
+        zh: '项目重绑',
+        zhHant: '專案重綁',
+        en: 'Rebinding',
+        fr: 'Reliaison',
+        de: 'Neu binden',
+        ja: '再バインド',
+      );
     }
     if (isResolving) {
-      return isZh ? '解析中' : 'Resolving';
+      return _localizedText(
+        context,
+        zh: '解析中',
+        zhHant: '解析中',
+        en: 'Resolving',
+        fr: 'Résolution',
+        de: 'Auflösen',
+        ja: '解決中',
+      );
     }
     if (projectLanguage == 'mixed') {
-      return isZh ? '混合模式' : 'Mixed';
+      return _localizedText(
+        context,
+        zh: '混合模式',
+        zhHant: '混合模式',
+        en: 'Mixed',
+        fr: 'Mixte',
+        de: 'Gemischt',
+        ja: '混在',
+      );
     }
     if (hasOverride) {
-      return isZh ? '项目覆盖' : 'Project';
+      return _localizedText(
+        context,
+        zh: '项目覆盖',
+        zhHant: '專案覆寫',
+        en: 'Project',
+        fr: 'Projet',
+        de: 'Projekt',
+        ja: 'プロジェクト',
+      );
     }
-    return isZh ? '全局默认' : 'Global';
+    return _localizedText(
+      context,
+      zh: '全局默认',
+      zhHant: '全域預設',
+      en: 'Global',
+      fr: 'Global',
+      de: 'Global',
+      ja: 'グローバル',
+    );
   }
 
   Color _projectToolchainStatusColor(ColorScheme colorScheme, String filePath) {
@@ -5060,30 +5151,53 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _projectToolchainStatusTooltip(BuildContext context, String filePath) {
-    final isZh = openHandIsChineseLocale(context);
     final projectLanguage = normalizeAiLspLanguage(widget.projectLanguage);
     final hasOverride = _hasProjectToolchainOverride();
     final isResolving =
         _lspBackendLoadingFiles.contains(filePath) &&
         _lspResolutionForFile(filePath) == null;
     if (isResolving && hasOverride) {
-      return isZh
-          ? '项目级 SDK / LSP 覆盖刚刚更新，当前文件正在重新绑定后端。'
-          : 'Project-level SDK / LSP overrides were updated and the current file is rebinding its backend.';
+      return _localizedText(
+        context,
+        zh: '项目级 SDK / LSP 覆盖刚刚更新，当前文件正在重新绑定后端。',
+        zhHant: '專案級 SDK / LSP 覆寫剛剛更新，目前檔案正在重新綁定後端。',
+        en: 'Project-level SDK / LSP overrides were updated and the current file is rebinding its backend.',
+        fr: 'Les remplacements SDK / LSP du projet ont été mis à jour ; le fichier actuel relie à nouveau son backend.',
+        de: 'Projektweite SDK-/LSP-Überschreibungen wurden aktualisiert; die aktuelle Datei bindet ihr Backend neu.',
+        ja: 'プロジェクト単位の SDK / LSP 上書きが更新され、現在のファイルはバックエンドを再バインド中です。',
+      );
     }
     if (projectLanguage == 'mixed') {
-      return isZh
-          ? '混合模式下会按文件类型自动识别语言，并继续使用全局的按语言配置。点击展开来源树可查看当前文件命中的语言映射。'
-          : 'Mixed mode auto-detects the language per file and continues using the global per-language mappings. Expand the panel to inspect which mapping was matched for the current file.';
+      return _localizedText(
+        context,
+        zh: '混合模式下会按文件类型自动识别语言，并继续使用全局的按语言配置。点击展开来源树可查看当前文件命中的语言映射。',
+        zhHant: '混合模式會依檔案類型自動識別語言，並繼續使用全域的各語言設定。點擊展開來源樹可查看目前檔案命中的語言對應。',
+        en: 'Mixed mode auto-detects the language per file and continues using the global per-language mappings. Expand the panel to inspect which mapping was matched for the current file.',
+        fr: 'Le mode mixte détecte le langage par fichier et utilise les correspondances globales. Dépliez le panneau pour voir la correspondance utilisée.',
+        de: 'Der gemischte Modus erkennt die Sprache pro Datei und nutzt globale Sprachzuordnungen. Klappe das Panel auf, um die Zuordnung zu prüfen.',
+        ja: '混在モードではファイルごとに言語を自動検出し、グローバルな言語別設定を使います。パネルを展開して現在のファイルに一致したマッピングを確認できます。',
+      );
     }
     if (hasOverride) {
-      return isZh
-          ? '当前项目对 SDK 或 LSP 路径做了覆盖，点击展开项目级生效面板与来源树。'
-          : 'The current project overrides the SDK or LSP root. Click to expand the project-level status panel and source tree.';
+      return _localizedText(
+        context,
+        zh: '当前项目对 SDK 或 LSP 路径做了覆盖，点击展开项目级生效面板与来源树。',
+        zhHant: '目前專案已覆寫 SDK 或 LSP 路徑，點擊可展開專案級生效面板與來源樹。',
+        en: 'The current project overrides the SDK or LSP root. Click to expand the project-level status panel and source tree.',
+        fr: 'Le projet actuel remplace la racine SDK ou LSP. Cliquez pour ouvrir le panneau d’état et l’arbre des sources.',
+        de: 'Das aktuelle Projekt überschreibt den SDK- oder LSP-Stamm. Klicke, um Statuspanel und Quellbaum zu öffnen.',
+        ja: '現在のプロジェクトは SDK または LSP パスを上書きしています。クリックすると状態パネルとソースツリーを展開します。',
+      );
     }
-    return isZh
-        ? '当前项目没有单独覆盖，点击展开当前继承关系和全局映射命中来源。'
-        : 'This project has no dedicated override. Click to expand the current inheritance details and the matched global mapping.';
+    return _localizedText(
+      context,
+      zh: '当前项目没有单独覆盖，点击展开当前继承关系和全局映射命中来源。',
+      zhHant: '目前專案沒有單獨覆寫，點擊可展開目前繼承關係與全域映射命中來源。',
+      en: 'This project has no dedicated override. Click to expand the current inheritance details and the matched global mapping.',
+      fr: 'Ce projet n’a pas de remplacement dédié. Cliquez pour voir l’héritage actuel et la correspondance globale.',
+      de: 'Dieses Projekt hat keine eigene Überschreibung. Klicke, um Vererbung und globale Zuordnung anzuzeigen.',
+      ja: 'このプロジェクトには個別の上書きがありません。クリックすると継承関係と一致したグローバルマッピングを表示します。',
+    );
   }
 
   void _toggleProjectToolchainBar() {
@@ -5186,7 +5300,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!mounted) {
         return;
       }
-      final isZh = openHandIsChineseLocale(context);
       if (!resolution.isAvailable) {
         _showLspMessage(
           title: title,
@@ -5201,34 +5314,85 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       final projectLanguage = normalizeAiLspLanguage(widget.projectLanguage);
       final hasProjectOverride = _hasProjectToolchainOverride();
       final lspSourceLine = widget.projectLspPath.trim().isNotEmpty
-          ? (isZh
-                ? 'LSP 根路径来源：项目覆盖 (${OpenHandPaths.shortenHomePath(widget.projectLspPath)})'
-                : 'LSP root source: project override (${OpenHandPaths.shortenHomePath(widget.projectLspPath)})')
+          ? _localizedText(
+              context,
+              zh: 'LSP 根路径来源：项目覆盖 (${OpenHandPaths.shortenHomePath(widget.projectLspPath)})',
+              zhHant:
+                  'LSP 根路徑來源：專案覆寫 (${OpenHandPaths.shortenHomePath(widget.projectLspPath)})',
+              en: 'LSP root source: project override (${OpenHandPaths.shortenHomePath(widget.projectLspPath)})',
+              fr: 'Source racine LSP : remplacement du projet (${OpenHandPaths.shortenHomePath(widget.projectLspPath)})',
+              de: 'LSP-Stammquelle: Projektüberschreibung (${OpenHandPaths.shortenHomePath(widget.projectLspPath)})',
+              ja: 'LSP ルートのソース: プロジェクト上書き (${OpenHandPaths.shortenHomePath(widget.projectLspPath)})',
+            )
           : resolution.configuredInstallRoot?.trim().isNotEmpty == true
-          ? (isZh
-                ? 'LSP 根路径来源：已保存配置 (${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)})'
-                : 'LSP root source: saved mapping (${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)})')
-          : (isZh
-                ? 'LSP 根路径来源：PATH 自动探测'
-                : 'LSP root source: PATH auto-detection');
+          ? _localizedText(
+              context,
+              zh: 'LSP 根路径来源：已保存配置 (${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)})',
+              zhHant:
+                  'LSP 根路徑來源：已儲存設定 (${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)})',
+              en: 'LSP root source: saved mapping (${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)})',
+              fr: 'Source racine LSP : correspondance enregistrée (${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)})',
+              de: 'LSP-Stammquelle: gespeicherte Zuordnung (${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)})',
+              ja: 'LSP ルートのソース: 保存済みマッピング (${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)})',
+            )
+          : _localizedText(
+              context,
+              zh: 'LSP 根路径来源：PATH 自动探测',
+              zhHant: 'LSP 根路徑來源：PATH 自動偵測',
+              en: 'LSP root source: PATH auto-detection',
+              fr: 'Source racine LSP : détection automatique PATH',
+              de: 'LSP-Stammquelle: automatische PATH-Erkennung',
+              ja: 'LSP ルートのソース: PATH 自動検出',
+            );
       final sdkSourceLine = widget.projectSdkPath.trim().isNotEmpty
-          ? (isZh
-                ? 'SDK 来源：项目覆盖 (${OpenHandPaths.shortenHomePath(widget.projectSdkPath)})'
-                : 'SDK source: project override (${OpenHandPaths.shortenHomePath(widget.projectSdkPath)})')
-          : (isZh
-                ? 'SDK 来源：全局配置或系统默认'
-                : 'SDK source: global mapping or system default');
+          ? _localizedText(
+              context,
+              zh: 'SDK 来源：项目覆盖 (${OpenHandPaths.shortenHomePath(widget.projectSdkPath)})',
+              zhHant:
+                  'SDK 來源：專案覆寫 (${OpenHandPaths.shortenHomePath(widget.projectSdkPath)})',
+              en: 'SDK source: project override (${OpenHandPaths.shortenHomePath(widget.projectSdkPath)})',
+              fr: 'Source SDK : remplacement du projet (${OpenHandPaths.shortenHomePath(widget.projectSdkPath)})',
+              de: 'SDK-Quelle: Projektüberschreibung (${OpenHandPaths.shortenHomePath(widget.projectSdkPath)})',
+              ja: 'SDK ソース: プロジェクト上書き (${OpenHandPaths.shortenHomePath(widget.projectSdkPath)})',
+            )
+          : _localizedText(
+              context,
+              zh: 'SDK 来源：全局配置或系统默认',
+              zhHant: 'SDK 來源：全域設定或系統預設',
+              en: 'SDK source: global mapping or system default',
+              fr: 'Source SDK : correspondance globale ou valeur système',
+              de: 'SDK-Quelle: globale Zuordnung oder Systemstandard',
+              ja: 'SDK ソース: グローバル設定またはシステム既定値',
+            );
       final modeLine = projectLanguage == 'mixed'
-          ? (isZh
-                ? '项目模式：混合语言，按文件后缀自动选择语言后端'
-                : 'Project mode: mixed language, resolve the backend per file type')
+          ? _localizedText(
+              context,
+              zh: '项目模式：混合语言，按文件后缀自动选择语言后端',
+              zhHant: '專案模式：混合語言，依檔案副檔名自動選擇語言後端',
+              en: 'Project mode: mixed language, resolve the backend per file type',
+              fr: 'Mode projet : langage mixte, backend résolu par type de fichier',
+              de: 'Projektmodus: gemischte Sprachen, Backend pro Dateityp auflösen',
+              ja: 'プロジェクトモード: 混在言語、ファイル種別ごとにバックエンドを解決',
+            )
           : hasProjectOverride
-          ? (isZh
-                ? '项目模式：项目级工具链覆盖已启用'
-                : 'Project mode: project-level toolchain override enabled')
-          : (isZh
-                ? '项目模式：继续使用全局按语言配置'
-                : 'Project mode: using the global per-language mapping');
+          ? _localizedText(
+              context,
+              zh: '项目模式：项目级工具链覆盖已启用',
+              zhHant: '專案模式：已啟用專案級工具鏈覆寫',
+              en: 'Project mode: project-level toolchain override enabled',
+              fr: 'Mode projet : remplacement de chaîne d’outils activé au niveau projet',
+              de: 'Projektmodus: projektweite Toolchain-Überschreibung aktiviert',
+              ja: 'プロジェクトモード: プロジェクト単位のツールチェーン上書きが有効',
+            )
+          : _localizedText(
+              context,
+              zh: '项目模式：继续使用全局按语言配置',
+              zhHant: '專案模式：繼續使用全域各語言設定',
+              en: 'Project mode: using the global per-language mapping',
+              fr: 'Mode projet : utilisation de la correspondance globale par langage',
+              de: 'Projektmodus: globale Zuordnung pro Sprache verwenden',
+              ja: 'プロジェクトモード: グローバルな言語別設定を使用',
+            );
       final lspName = resolution.displayName ?? resolution.backendId ?? 'LSP';
       final projLang = _programmingLanguageLabel(
         context,
