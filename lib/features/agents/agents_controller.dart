@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../shared/core/managed_change_notifier.dart';
 import 'data/agents_store.dart';
 import 'model/agent_models.dart';
+import 'service/agent_runtime_availability.dart';
 
 typedef AgentsControllerProvider = AgentsController? Function();
 
@@ -34,15 +35,33 @@ class AgentsController extends ManagedChangeNotifier {
   List<AgentProfile> _agentsView;
   bool _isLoading;
   String? _errorMessage;
+  AgentRuntimeAvailabilityProvider? _runtimeAvailabilityProvider;
   final ChangePulse _saveSuccessPulse = ChangePulse();
 
   List<AgentProfile> get agents => _agentsView;
-  List<AgentProfile> get enabledAgents =>
-      _agentsView.where((agent) => agent.enabled).toList(growable: false);
+  List<AgentProfile> get enabledAgents {
+    if (!runtimeAvailability.canRun) return const <AgentProfile>[];
+    return _agentsView.where((agent) => agent.enabled).toList(growable: false);
+  }
+
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   ValueListenable<int> get saveSuccessSignal => _saveSuccessPulse.listenable;
   String get storageDirectoryPath => _store.storageDirectoryPath;
+  AgentRuntimeAvailability get runtimeAvailability =>
+      _runtimeAvailabilityProvider?.call() ??
+      AgentRuntimeAvailability.optimistic;
+
+  void setRuntimeAvailabilityProvider(
+    AgentRuntimeAvailabilityProvider provider,
+  ) {
+    _runtimeAvailabilityProvider = provider;
+    notifyListeners();
+  }
+
+  void notifyRuntimeAvailabilityChanged() {
+    notifyListeners();
+  }
 
   AgentProfile? agentById(String id) {
     final normalized = id.trim();
@@ -131,6 +150,12 @@ class AgentsController extends ManagedChangeNotifier {
   }
 
   Future<bool> setAgentEnabled(String id, {required bool enabled}) {
+    final runtime = runtimeAvailability;
+    if (enabled && !runtime.canRun) {
+      _errorMessage = runtime.blockingReason;
+      notifyListeners();
+      return Future<bool>.value(false);
+    }
     return updateAgent(id, (agent) {
       final now = DateTime.now().toUtc();
       final kind = enabled ? 'agent_started' : 'agent_stopped';

@@ -398,6 +398,15 @@ Future<void> _bootstrap() async {
 
   final pluginService = await pluginServiceModuleFuture;
   unawaited(pluginService.controller.initialize());
+  agents.controller.setRuntimeAvailabilityProvider(
+    () => AgentRuntimeAvailability.fromHermesPlugin(
+      pluginService.controller.pluginById(PluginCatalogIds.hermesAgent),
+      isLoading: pluginService.controller.isLoading,
+    ),
+  );
+  pluginService.controller.addListener(
+    agents.controller.notifyRuntimeAvailabilityChanged,
+  );
   messageGateway.controller.pluginServiceController = pluginService.controller;
   unawaited(knowledgeBase.controller.initialize());
 

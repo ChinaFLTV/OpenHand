@@ -14,6 +14,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../crons/index.dart';
 import '../../hooks/index.dart';
 import '../../knowledge_base/index.dart';
@@ -22,6 +23,7 @@ import '../../memory/index.dart';
 import '../../skills/index.dart';
 import '../agents_controller.dart';
 import '../model/agent_models.dart';
+import '../service/agent_runtime_availability.dart';
 
 enum _AgentCardAction {
   edit,
@@ -40,6 +42,46 @@ const double _agentCardRadius = 22;
 const double _agentDialogMaxWidth = 1040;
 const double _agentDialogMaxHeight = 780;
 
+FeatureStateCard _agentRuntimeNotice(
+  BuildContext context,
+  AgentRuntimeAvailability runtime,
+) {
+  final title = runtime.isLoading
+      ? openHandLocalizedText(
+          context,
+          zh: 'Hermes Agent 检查中',
+          en: 'Checking Hermes Agent',
+        )
+      : openHandLocalizedText(
+          context,
+          zh: 'Hermes Agent 未就绪',
+          en: 'Hermes Agent is not ready',
+        );
+  final body = runtime.isLoading
+      ? openHandLocalizedText(
+          context,
+          zh: '插件服务仍在扫描运行时状态，完成后即可启动智能体工作循环。',
+          en: 'Plugin service is still scanning the runtime. Agents can start once it finishes.',
+        )
+      : !runtime.isInstalled
+      ? openHandLocalizedText(
+          context,
+          zh: '请先在插件板块安装 Hermes Agent，然后再启动智能体工作循环。',
+          en: 'Install Hermes Agent from Plugins before starting an agent work loop.',
+        )
+      : openHandLocalizedText(
+          context,
+          zh: '请先在插件板块启用 Hermes Agent，然后再启动智能体工作循环。',
+          en: 'Enable Hermes Agent from Plugins before starting an agent work loop.',
+        );
+  return FeatureStateCard.inline(
+    icon: runtime.isLoading ? Icons.sync_rounded : Icons.extension_off_outlined,
+    tone: runtime.isLoading ? FeatureStateTone.neutral : FeatureStateTone.error,
+    title: title,
+    body: body,
+  );
+}
+
 class AgentsView extends StatelessWidget {
   const AgentsView({super.key});
 
@@ -48,12 +90,18 @@ class AgentsView extends StatelessWidget {
     final snapshot = context
         .select<
           AgentsController,
-          ({bool isLoading, String? errorMessage, List<AgentProfile> agents})
+          ({
+            bool isLoading,
+            String? errorMessage,
+            List<AgentProfile> agents,
+            AgentRuntimeAvailability runtime,
+          })
         >((controller) {
           return (
             isLoading: controller.isLoading,
             errorMessage: controller.errorMessage,
             agents: controller.agents,
+            runtime: controller.runtimeAvailability,
           );
         });
     final controller = context.read<AgentsController>();
@@ -86,6 +134,8 @@ class AgentsView extends StatelessWidget {
           title: l10n.agentsWorkspaceTitle,
           body: l10n.agentsWorkspaceBody,
         ),
+        if (snapshot.runtime.isLoading || !snapshot.runtime.canRun)
+          _agentRuntimeNotice(context, snapshot.runtime),
       ],
       body: _AgentsBody(snapshot: snapshot),
     );
@@ -95,7 +145,12 @@ class AgentsView extends StatelessWidget {
 class _AgentsBody extends StatelessWidget {
   const _AgentsBody({required this.snapshot});
 
-  final ({bool isLoading, String? errorMessage, List<AgentProfile> agents})
+  final ({
+    bool isLoading,
+    String? errorMessage,
+    List<AgentProfile> agents,
+    AgentRuntimeAvailability runtime,
+  })
   snapshot;
 
   @override
