@@ -53,7 +53,7 @@ class AiFilesService {
     if (data is List) {
       for (final item in data) {
         if (item is Map) {
-          final payload = Map<String, Object?>.from(item);
+          final payload = AiOperationHttp.stringKeyedMap(item);
           final id = '${payload['id'] ?? ''}'.trim();
           if (id.isNotEmpty) {
             items.add(AiFileRecord(id: id, payload: payload));

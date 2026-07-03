@@ -170,7 +170,7 @@ class AiRerankService {
     final items = <AiRerankItem>[];
     for (final item in rawResults) {
       if (item is! Map) continue;
-      final itemPayload = Map<String, Object?>.from(item);
+      final itemPayload = AiOperationHttp.stringKeyedMap(item);
       final index = _intValue(
         itemPayload['index'] ??
             itemPayload['document_index'] ??

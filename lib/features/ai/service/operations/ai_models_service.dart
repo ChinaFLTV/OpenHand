@@ -160,7 +160,7 @@ class AiModelsService {
     final records = <AiModelRecord>[];
     for (final item in rawList) {
       if (item is! Map) continue;
-      final recordPayload = Map<String, Object?>.from(item);
+      final recordPayload = AiOperationHttp.stringKeyedMap(item);
       var id = '${recordPayload['id'] ?? recordPayload['name'] ?? ''}'.trim();
       if (id.startsWith('models/')) {
         id = id.substring('models/'.length);

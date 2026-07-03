@@ -45,7 +45,7 @@ class AiFineTunesService {
     if (data is List) {
       for (final item in data) {
         if (item is Map) {
-          final payload = Map<String, Object?>.from(item);
+          final payload = AiOperationHttp.stringKeyedMap(item);
           final id = '${payload['id'] ?? ''}'.trim();
           if (id.isNotEmpty) {
             items.add(AiFineTuneJob(id: id, payload: payload));
@@ -132,7 +132,7 @@ class AiFineTunesService {
     if (data is! List) return const <Map<String, Object?>>[];
     return data
         .whereType<Map>()
-        .map((item) => Map<String, Object?>.from(item))
+        .map(AiOperationHttp.stringKeyedMap)
         .toList(growable: false);
   }
 

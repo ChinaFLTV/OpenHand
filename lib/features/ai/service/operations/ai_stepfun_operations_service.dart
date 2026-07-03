@@ -744,7 +744,7 @@ class AiStepFunOperationsService {
     if (raw is! List) return const <Map<String, Object?>>[];
     return raw
         .whereType<Map>()
-        .map((item) => Map<String, Object?>.from(item))
+        .map(AiOperationHttp.stringKeyedMap)
         .toList(growable: false);
   }
 
