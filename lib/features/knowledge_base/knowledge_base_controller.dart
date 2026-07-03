@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../app/support/openhand_paths.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../ai/index.dart';
 import '../plugin_service/index.dart';
 import 'data/knowledge_base_settings_store.dart';
@@ -304,11 +305,9 @@ class KnowledgeBaseController extends ChangeNotifier {
     if (raw is! Iterable) {
       return const <String>[];
     }
-    return raw
-        .map((tag) => '$tag'.trim())
-        .where((tag) => tag.isNotEmpty)
-        .toSet()
-        .toList(growable: false);
+    return stringListFromValue(
+      raw.toList(growable: false),
+    ).toSet().toList(growable: false);
   }
 
   Future<({int sourceCount, int chunkCount, int pendingJobs, int failedJobs})>
@@ -408,10 +407,9 @@ class KnowledgeBaseController extends ChangeNotifier {
       hasMore = offset != null;
       if (page.points.isEmpty || offset == null) break;
     }
-    final chunkIds = samples
-        .map((point) => '${point.payload['chunk_id'] ?? ''}'.trim())
-        .where((id) => id.isNotEmpty)
-        .toList(growable: false);
+    final chunkIds = stringListFromValue(
+      samples.map((point) => point.payload['chunk_id']).toList(growable: false),
+    );
     final chunksById = await _store.loadChunksByIds(chunkIds);
     final sourcesById = await _store.loadSourcesByIds(
       chunksById.values.map((chunk) => chunk.sourceId),

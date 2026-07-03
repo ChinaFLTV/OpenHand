@@ -94,11 +94,9 @@ class KnowledgeBaseStore {
   Future<Map<String, KnowledgeChunk>> loadChunksByIds(
     Iterable<String> ids,
   ) async {
-    final normalized = ids
-        .map((id) => id.trim())
-        .where((id) => id.isNotEmpty)
-        .toSet()
-        .toList(growable: false);
+    final normalized = stringListFromValue(
+      ids.toList(growable: false),
+    ).toSet().toList(growable: false);
     if (normalized.isEmpty) return const <String, KnowledgeChunk>{};
     final placeholders = List<String>.filled(normalized.length, '?').join(',');
     final rows = await _db.rawQuery(
@@ -115,11 +113,9 @@ class KnowledgeBaseStore {
   Future<Map<String, KnowledgeSource>> loadSourcesByIds(
     Iterable<String> ids,
   ) async {
-    final normalized = ids
-        .map((id) => id.trim())
-        .where((id) => id.isNotEmpty)
-        .toSet()
-        .toList(growable: false);
+    final normalized = stringListFromValue(
+      ids.toList(growable: false),
+    ).toSet().toList(growable: false);
     if (normalized.isEmpty) return const <String, KnowledgeSource>{};
     final placeholders = List<String>.filled(normalized.length, '?').join(',');
     final rows = await _db.rawQuery(
