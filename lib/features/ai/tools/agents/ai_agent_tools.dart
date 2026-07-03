@@ -30,6 +30,16 @@ const Set<String> _agentKpiStatusValues = <String>{
   'done',
   'paused',
 };
+const Set<String> _agentSchedulerPolicyValues = <String>{
+  'least_busy',
+  'priority_first',
+  'round_robin',
+};
+const Set<String> _agentWorkerRemovalPolicyValues = <String>{
+  'least_busy',
+  'newest_first',
+};
+const Set<String> _agentRetryPolicyValues = <String>{'bounded_retry', 'none'};
 
 enum _AgentToolOperation {
   list,
@@ -38,6 +48,7 @@ enum _AgentToolOperation {
   requestApproval,
   upsertKpi,
   updateResource,
+  configureCluster,
   publishTask,
   trackTask,
   progressTask,
@@ -107,6 +118,13 @@ class AiAgentTool extends AiTool {
         kind: AiBuiltinToolKind.agentResourceUpdate,
         name: 'AgentResourceUpdate',
         operation: _AgentToolOperation.updateResource,
+        agentsControllerProvider: agentsControllerProvider,
+        promptRenderer: renderer,
+      ),
+      AiAgentTool._(
+        kind: AiBuiltinToolKind.agentClusterConfigure,
+        name: 'AgentClusterConfigure',
+        operation: _AgentToolOperation.configureCluster,
         agentsControllerProvider: agentsControllerProvider,
         promptRenderer: renderer,
       ),
@@ -196,6 +214,7 @@ class AiAgentTool extends AiTool {
       _AgentToolOperation.requestApproval ||
       _AgentToolOperation.upsertKpi ||
       _AgentToolOperation.updateResource ||
+      _AgentToolOperation.configureCluster ||
       _AgentToolOperation.cancelTask ||
       _AgentToolOperation.pauseTask ||
       _AgentToolOperation.terminateTask ||
@@ -246,6 +265,11 @@ class AiAgentTool extends AiTool {
           stopwatch,
         ),
         _AgentToolOperation.updateResource => await _updateResource(
+          controller,
+          context,
+          stopwatch,
+        ),
+        _AgentToolOperation.configureCluster => await _configureCluster(
           controller,
           context,
           stopwatch,
@@ -388,6 +412,103 @@ class AiAgentTool extends AiTool {
       metadata: <String, Object?>{
         'action': 'detail',
         'agent_id': resolution.agent!.id,
+      },
+    );
+  }
+
+  Future<AiToolExecutionResult> _configureCluster(
+    AgentsController controller,
+    AiToolExecutionContext context,
+    Stopwatch stopwatch,
+  ) async {
+    final args = context.decodedArguments;
+    final resolution = _resolveAgent(controller, args);
+    if (resolution.error != null) return resolution.error!;
+    final agent = resolution.agent!;
+    final previous = agent.scaleSettings;
+
+    final schedulerPolicy = _optionalAllowedText(
+      args,
+      'scheduler_policy',
+      _agentSchedulerPolicyValues,
+    );
+    if (schedulerPolicy == '') {
+      return AiToolUtils.invalidResult(
+        _name,
+        'scheduler_policy must be one of: ${_agentSchedulerPolicyValues.join(', ')}.',
+      );
+    }
+    final workerRemovalPolicy = _optionalAllowedText(
+      args,
+      'worker_removal_policy',
+      _agentWorkerRemovalPolicyValues,
+    );
+    if (workerRemovalPolicy == '') {
+      return AiToolUtils.invalidResult(
+        _name,
+        'worker_removal_policy must be one of: ${_agentWorkerRemovalPolicyValues.join(', ')}.',
+      );
+    }
+    final retryPolicy = _optionalAllowedText(
+      args,
+      'retry_policy',
+      _agentRetryPolicyValues,
+    );
+    if (retryPolicy == '') {
+      return AiToolUtils.invalidResult(
+        _name,
+        'retry_policy must be one of: ${_agentRetryPolicyValues.join(', ')}.',
+      );
+    }
+
+    final tags = _hasAnyArgument(args, const <String>['tags', 'labels'])
+        ? stringListFromValueOrJsonText(args['tags'] ?? args['labels'])
+        : previous.tags;
+    final settings = AgentScaleSettings(
+      minWorkers:
+          optionalNonNegativeIntFromValue(args['min_workers']) ??
+          previous.minWorkers,
+      maxWorkers:
+          optionalPositiveIntFromValue(args['max_workers']) ??
+          previous.maxWorkers,
+      scaleOutThreshold:
+          _optionalRatio(args['scale_out_threshold']) ??
+          previous.scaleOutThreshold,
+      scaleInThreshold:
+          _optionalRatio(args['scale_in_threshold']) ??
+          previous.scaleInThreshold,
+      workerRemovalPolicy: workerRemovalPolicy ?? previous.workerRemovalPolicy,
+      retryPolicy: retryPolicy ?? previous.retryPolicy,
+      maxRetries:
+          optionalNonNegativeIntFromValue(args['max_retries']) ??
+          previous.maxRetries,
+      schedulerPolicy: schedulerPolicy ?? previous.schedulerPolicy,
+      tags: tags,
+    );
+    final saved = await controller.saveScaleSettings(
+      agent.id,
+      settings,
+      auditToolName: _name,
+    );
+    if (!saved) {
+      return AiToolUtils.invalidResult(
+        _name,
+        'Failed to configure cluster. The agent may have been removed.',
+      );
+    }
+    final currentAgent = controller.agentById(agent.id) ?? agent;
+    return _success(
+      <String, Object?>{
+        'agent': _agentSummaryJson(currentAgent),
+        'scale_settings': currentAgent.scaleSettings.toJson(),
+        'workers': currentAgent.workers
+            .map((worker) => worker.toJson())
+            .toList(growable: false),
+      },
+      stopwatch,
+      metadata: <String, Object?>{
+        'action': 'cluster_configured',
+        'agent_id': agent.id,
       },
     );
   }
@@ -1642,6 +1763,27 @@ String? _normalizedKpiStatus(String raw) {
   );
   if (_agentKpiStatusValues.contains(normalized)) return normalized;
   return null;
+}
+
+String? _optionalAllowedText(
+  Map<String, Object?> args,
+  String key,
+  Set<String> allowed,
+) {
+  if (!args.containsKey(key) || args[key] == null) return null;
+  final normalized = '${args[key]}'.trim().toLowerCase().replaceAll(
+    RegExp(r'[\s-]+'),
+    '_',
+  );
+  if (allowed.contains(normalized)) return normalized;
+  return '';
+}
+
+bool _hasAnyArgument(Map<String, Object?> args, List<String> keys) {
+  for (final key in keys) {
+    if (args.containsKey(key)) return true;
+  }
+  return false;
 }
 
 String _normalizeRouteText(String value) {

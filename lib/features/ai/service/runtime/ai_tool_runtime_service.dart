@@ -220,6 +220,7 @@ enum AiBuiltinToolKind {
   agentApprovalRequest,
   agentKpiUpsert,
   agentResourceUpdate,
+  agentClusterConfigure,
   agentTaskPublish,
   agentTaskTrack,
   agentTaskProgress,
@@ -360,6 +361,7 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.agentApprovalRequest,
         AiBuiltinToolKind.agentKpiUpsert,
         AiBuiltinToolKind.agentResourceUpdate,
+        AiBuiltinToolKind.agentClusterConfigure,
         AiBuiltinToolKind.agentTaskPublish,
         AiBuiltinToolKind.agentTaskCancel,
         AiBuiltinToolKind.agentTaskPause,
@@ -484,6 +486,7 @@ class AiToolRuntimeService {
         normalized.startsWith('agentapproval') ||
         normalized.startsWith('agentkpi') ||
         normalized.startsWith('agentresource') ||
+        normalized.startsWith('agentcluster') ||
         normalized.startsWith('agenttask');
   }
 
@@ -511,6 +514,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.agentApprovalRequest ||
       AiBuiltinToolKind.agentKpiUpsert ||
       AiBuiltinToolKind.agentResourceUpdate ||
+      AiBuiltinToolKind.agentClusterConfigure ||
       AiBuiltinToolKind.agentTaskPublish ||
       AiBuiltinToolKind.agentTaskTrack ||
       AiBuiltinToolKind.agentTaskProgress ||
@@ -1411,6 +1415,7 @@ class AiToolRuntimeService {
           kind == AiBuiltinToolKind.agentApprovalRequest ||
           kind == AiBuiltinToolKind.agentKpiUpsert ||
           kind == AiBuiltinToolKind.agentResourceUpdate ||
+          kind == AiBuiltinToolKind.agentClusterConfigure ||
           kind == AiBuiltinToolKind.agentTaskCancel ||
           kind == AiBuiltinToolKind.agentTaskPause ||
           kind == AiBuiltinToolKind.agentTaskTerminate ||
@@ -1953,6 +1958,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.agentApprovalRequest => 'AgentApprovalRequest',
       AiBuiltinToolKind.agentKpiUpsert => 'AgentKpiUpsert',
       AiBuiltinToolKind.agentResourceUpdate => 'AgentResourceUpdate',
+      AiBuiltinToolKind.agentClusterConfigure => 'AgentClusterConfigure',
       AiBuiltinToolKind.agentTaskPublish => 'AgentTaskPublish',
       AiBuiltinToolKind.agentTaskTrack => 'AgentTaskTrack',
       AiBuiltinToolKind.agentTaskProgress => 'AgentTaskProgress',
@@ -3787,6 +3793,72 @@ class AiToolRuntimeService {
           'token_used': <String, Object?>{'type': 'integer', 'minimum': 0},
           'open_handles': <String, Object?>{'type': 'integer', 'minimum': 0},
           'extra': _agentToolExtraSchema,
+        },
+        'anyOf': _agentToolAgentSelectorAnyOf,
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentClusterConfigure,
+      name: 'AgentClusterConfigure',
+      description:
+          'Configure one enabled digital employee worker cluster: min/max workers, scale thresholds, retry policy, scheduler policy, removal policy, and worker labels. Omitted fields keep their previous values. Use before publishing delegated work when capacity, retries, labels, or scheduling need to change.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{
+            'type': 'string',
+            'description': 'Agent id or exact display name.',
+          },
+          'min_workers': <String, Object?>{
+            'type': 'integer',
+            'minimum': 0,
+            'maximum': 999,
+          },
+          'max_workers': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1,
+            'maximum': 999,
+          },
+          'scale_out_threshold': <String, Object?>{
+            'type': 'number',
+            'minimum': 0,
+            'maximum': 1,
+          },
+          'scale_in_threshold': <String, Object?>{
+            'type': 'number',
+            'minimum': 0,
+            'maximum': 1,
+          },
+          'worker_removal_policy': <String, Object?>{
+            'type': 'string',
+            'enum': <String>['least_busy', 'newest_first'],
+          },
+          'retry_policy': <String, Object?>{
+            'type': 'string',
+            'enum': <String>['bounded_retry', 'none'],
+          },
+          'max_retries': <String, Object?>{
+            'type': 'integer',
+            'minimum': 0,
+            'maximum': 20,
+          },
+          'scheduler_policy': <String, Object?>{
+            'type': 'string',
+            'enum': <String>['least_busy', 'priority_first', 'round_robin'],
+          },
+          'tags': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+            'description': 'Worker labels. Passing an empty array clears tags.',
+          },
+          'labels': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+            'description': 'Alias for tags.',
+          },
         },
         'anyOf': _agentToolAgentSelectorAnyOf,
         'additionalProperties': false,

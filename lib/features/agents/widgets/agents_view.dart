@@ -84,6 +84,7 @@ const Set<AiBuiltinToolKind> _agentCoordinationBuiltinToolKinds =
       AiBuiltinToolKind.agentApprovalRequest,
       AiBuiltinToolKind.agentKpiUpsert,
       AiBuiltinToolKind.agentResourceUpdate,
+      AiBuiltinToolKind.agentClusterConfigure,
       AiBuiltinToolKind.agentTaskPublish,
       AiBuiltinToolKind.agentTaskTrack,
       AiBuiltinToolKind.agentTaskProgress,

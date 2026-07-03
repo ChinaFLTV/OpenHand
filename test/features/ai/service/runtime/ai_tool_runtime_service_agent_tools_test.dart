@@ -68,6 +68,9 @@ void main() {
       final resource = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentResourceUpdate,
       )!;
+      final cluster = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentClusterConfigure,
+      )!;
       final result = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentTaskResult,
       )!;
@@ -115,6 +118,11 @@ void main() {
         contains('Update one enabled digital employee resource snapshot'),
       );
       expect(resource.definition.description, contains('Omitted fields keep'));
+      expect(
+        cluster.definition.description,
+        contains('Configure one enabled digital employee worker cluster'),
+      );
+      expect(cluster.definition.description, contains('Omitted fields keep'));
       expect(
         result.definition.description,
         contains('terminal, requires attention'),
@@ -207,6 +215,19 @@ void main() {
       expect(resourceProperties['memory_bytes'], isA<Map<String, Object?>>());
       expect(resourceProperties['extra'], isA<Map<String, Object?>>());
 
+      final clusterParameters = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentClusterConfigure,
+      )!.definition.parameters;
+      expect(_schemaAnyOfAllowsRequired(clusterParameters, 'agent_id'), isTrue);
+      final clusterProperties =
+          clusterParameters['properties'] as Map<String, Object?>;
+      final schedulerSchema =
+          clusterProperties['scheduler_policy'] as Map<String, Object?>;
+      expect(schedulerSchema['enum'], contains('round_robin'));
+      final removalSchema =
+          clusterProperties['worker_removal_policy'] as Map<String, Object?>;
+      expect(removalSchema['enum'], contains('newest_first'));
+
       final auditParameters = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentAuditRecord,
       )!.definition.parameters;
@@ -260,6 +281,10 @@ void main() {
         AiBuiltinToolKind.agentResourceUpdate,
       );
       expect(
+        catalog.find('AgentClusterConfigure')?.builtinKind,
+        AiBuiltinToolKind.agentClusterConfigure,
+      );
+      expect(
         catalog.find('AgentTaskComplete')?.builtinKind,
         AiBuiltinToolKind.agentTaskComplete,
       );
@@ -274,6 +299,7 @@ void main() {
       expect(catalog.find('AgentApprovalRequest'), isNull);
       expect(catalog.find('AgentKpiUpsert'), isNull);
       expect(catalog.find('AgentResourceUpdate'), isNull);
+      expect(catalog.find('AgentClusterConfigure'), isNull);
       expect(catalog.find('AgentTaskComplete'), isNull);
     });
 
@@ -304,6 +330,7 @@ void main() {
         expect(catalog.find('AgentApprovalRequest'), isNull);
         expect(catalog.find('AgentKpiUpsert'), isNull);
         expect(catalog.find('AgentResourceUpdate'), isNull);
+        expect(catalog.find('AgentClusterConfigure'), isNull);
         expect(catalog.find('AgentTaskComplete'), isNull);
       },
     );
@@ -325,6 +352,7 @@ void main() {
         expect(catalog.find('AgentApprovalRequest'), isNull);
         expect(catalog.find('AgentKpiUpsert'), isNull);
         expect(catalog.find('AgentResourceUpdate'), isNull);
+        expect(catalog.find('AgentClusterConfigure'), isNull);
         expect(catalog.find('AgentTaskResult'), isNull);
         expect(catalog.find('Bash'), isNotNull);
       },
@@ -593,6 +621,62 @@ void main() {
       expect(toolCounts['finops-duizhang-expert'], 1);
       expect(agent.auditEvents.first.kind, 'skill_call');
       expect(agent.activities.first.kind, 'audit_recorded');
+    });
+
+    test('cluster configure tool updates scale settings and workers', () async {
+      await controller.saveAgent(_agent(enabled: true));
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(),
+      );
+      final result = await runtime.execute(
+        sessionId: 'session-cluster',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-cluster',
+          name: 'AgentClusterConfigure',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-1',
+            'min_workers': 2,
+            'max_workers': 3,
+            'scale_out_threshold': 0.6,
+            'scale_in_threshold': 0.2,
+            'scheduler_policy': 'round-robin',
+            'worker_removal_policy': 'newest_first',
+            'retry_policy': 'none',
+            'max_retries': 0,
+            'tags': <String>['ops', 'ops', 'urgent'],
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+      final settings = payload['scale_settings'] as Map<String, Object?>;
+      final workers = payload['workers'] as List<Object?>;
+      final agent = controller.agentById('agent-1')!;
+
+      expect(settings['min_workers'], 2);
+      expect(settings['max_workers'], 3);
+      expect(settings['scheduler_policy'], 'round_robin');
+      expect(settings['retry_policy'], 'none');
+      expect(settings['tags'], <String>['ops', 'urgent']);
+      expect(workers, hasLength(2));
+      expect(agent.scaleSettings.workerRemovalPolicy, 'newest_first');
+      expect(agent.workers, hasLength(2));
+      expect(
+        agent.workers.every((worker) => worker.labels.length == 2),
+        isTrue,
+      );
+      expect(agent.activities.first.kind, 'cluster_updated');
+      expect(agent.auditEvents.first.kind, 'cluster_updated');
+      expect(agent.auditEvents.first.toolName, 'AgentClusterConfigure');
     });
 
     test('publish tool routes to the best matching enabled agent', () async {
