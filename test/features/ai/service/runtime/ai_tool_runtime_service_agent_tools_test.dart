@@ -74,6 +74,9 @@ void main() {
       final cluster = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentClusterConfigure,
       )!;
+      final taskList = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentTaskList,
+      )!;
       final result = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentTaskResult,
       )!;
@@ -128,6 +131,11 @@ void main() {
         contains('Configure one enabled digital employee worker cluster'),
       );
       expect(cluster.definition.description, contains('Omitted fields keep'));
+      expect(
+        taskList.definition.description,
+        contains('List tasks from one digital employee task desk'),
+      );
+      expect(taskList.definition.description, contains('discover task ids'));
       expect(
         result.definition.description,
         contains('terminal, requires attention'),
@@ -233,6 +241,25 @@ void main() {
           clusterProperties['worker_removal_policy'] as Map<String, Object?>;
       expect(removalSchema['enum'], contains('newest_first'));
 
+      final taskListParameters = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentTaskList,
+      )!.definition.parameters;
+      expect(
+        _schemaAnyOfAllowsRequired(taskListParameters, 'agent_id'),
+        isTrue,
+      );
+      final taskListProperties =
+          taskListParameters['properties'] as Map<String, Object?>;
+      final taskStatusSchema =
+          taskListProperties['status'] as Map<String, Object?>;
+      expect(taskStatusSchema['enum'], contains('waiting_approval'));
+      expect(taskListProperties['worker_id'], isA<Map<String, Object?>>());
+      expect(taskListProperties['labels'], isA<Map<String, Object?>>());
+      expect(taskListProperties['label'], isA<Map<String, Object?>>());
+      final taskLimitSchema =
+          taskListProperties['limit'] as Map<String, Object?>;
+      expect(taskLimitSchema['maximum'], 200);
+
       final auditParameters = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentAuditRecord,
       )!.definition.parameters;
@@ -319,6 +346,10 @@ void main() {
         AiBuiltinToolKind.agentClusterConfigure,
       );
       expect(
+        catalog.find('AgentTaskList')?.builtinKind,
+        AiBuiltinToolKind.agentTaskList,
+      );
+      expect(
         catalog.find('AgentTaskComplete')?.builtinKind,
         AiBuiltinToolKind.agentTaskComplete,
       );
@@ -335,6 +366,7 @@ void main() {
       expect(catalog.find('AgentKpiUpsert'), isNull);
       expect(catalog.find('AgentResourceUpdate'), isNull);
       expect(catalog.find('AgentClusterConfigure'), isNull);
+      expect(catalog.find('AgentTaskList'), isNull);
       expect(catalog.find('AgentTaskComplete'), isNull);
     });
 
@@ -367,6 +399,7 @@ void main() {
         expect(catalog.find('AgentKpiUpsert'), isNull);
         expect(catalog.find('AgentResourceUpdate'), isNull);
         expect(catalog.find('AgentClusterConfigure'), isNull);
+        expect(catalog.find('AgentTaskList'), isNull);
         expect(catalog.find('AgentTaskComplete'), isNull);
       },
     );
@@ -390,6 +423,7 @@ void main() {
         expect(catalog.find('AgentKpiUpsert'), isNull);
         expect(catalog.find('AgentResourceUpdate'), isNull);
         expect(catalog.find('AgentClusterConfigure'), isNull);
+        expect(catalog.find('AgentTaskList'), isNull);
         expect(catalog.find('AgentTaskResult'), isNull);
         expect(catalog.find('Bash'), isNotNull);
       },
@@ -763,6 +797,105 @@ void main() {
       expect(result.metadata['activity_count'], 1);
       expect(result.metadata['audit_count'], 1);
     });
+
+    test(
+      'task list tool filters the task desk by status worker and label',
+      () async {
+        await controller.saveAgent(
+          _agent(enabled: true).copyWith(
+            scaleSettings: const AgentScaleSettings(
+              minWorkers: 0,
+              maxWorkers: 2,
+            ),
+            workers: <AgentWorker>[
+              const AgentWorker(
+                id: 'worker-1',
+                name: 'Worker 1',
+                status: AgentWorkerStatus.busy,
+                currentTaskId: 'task-1',
+                busyScore: 0.8,
+                executedTaskCount: 2,
+              ),
+              const AgentWorker(id: 'worker-2', name: 'Worker 2'),
+            ],
+            tasks: <AgentTask>[
+              AgentTask(
+                id: 'task-1',
+                title: 'Prepare weekly ops report',
+                status: AgentTaskStatus.running,
+                progress: 0.4,
+                createdAt: DateTime.utc(2026, 7, 4, 1),
+                extra: const <String, Object?>{
+                  'assigned_worker_id': 'worker-1',
+                  'labels': <String>['ops', 'weekly'],
+                },
+              ),
+              AgentTask(
+                id: 'task-2',
+                title: 'Archive finance result',
+                status: AgentTaskStatus.completed,
+                progress: 1,
+                createdAt: DateTime.utc(2026, 7, 4),
+                extra: const <String, Object?>{
+                  'assigned_worker_id': 'worker-2',
+                  'labels': <String>['finance'],
+                },
+              ),
+            ],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        final result = await runtime.execute(
+          sessionId: 'session-task-list',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-task-list',
+            name: 'AgentTaskList',
+            arguments: jsonEncode(<String, Object?>{
+              'agent_id': 'agent-1',
+              'status': 'running',
+              'worker_id': 'worker-1',
+              'label': 'ops',
+              'limit': 10,
+            }),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
+
+        expect(result.status, BashToolExecutionStatus.success);
+        final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+        final tasks = payload['tasks'] as List<Object?>;
+        final task = tasks.single as Map<String, Object?>;
+        final filters = payload['filters'] as Map<String, Object?>;
+        final metrics = payload['task_metrics'] as Map<String, Object?>;
+        final byStatus = metrics['by_status'] as Map<String, Object?>;
+        final capacity = payload['worker_capacity'] as Map<String, Object?>;
+        final capacityByStatus = capacity['by_status'] as Map<String, Object?>;
+
+        expect(filters['status'], 'running');
+        expect(filters['worker_id'], 'worker-1');
+        expect(filters['labels'], <Object?>['ops']);
+        expect(task['id'], 'task-1');
+        expect(task['title'], 'Prepare weekly ops report');
+        expect(task['status'], 'running');
+        expect(metrics['total'], 2);
+        expect(byStatus['running'], 1);
+        expect(byStatus['completed'], 1);
+        expect(capacity['total'], 2);
+        expect(capacity['busy'], 1);
+        expect(capacityByStatus['idle'], 1);
+        expect(result.metadata['action'], 'list_tasks');
+        expect(result.metadata['task_count'], 1);
+      },
+    );
 
     test('cluster configure tool updates scale settings and workers', () async {
       await controller.saveAgent(_agent(enabled: true));

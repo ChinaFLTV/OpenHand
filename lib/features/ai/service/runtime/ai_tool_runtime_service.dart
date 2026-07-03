@@ -222,6 +222,7 @@ enum AiBuiltinToolKind {
   agentKpiUpsert,
   agentResourceUpdate,
   agentClusterConfigure,
+  agentTaskList,
   agentTaskPublish,
   agentTaskTrack,
   agentTaskProgress,
@@ -518,6 +519,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.agentKpiUpsert ||
       AiBuiltinToolKind.agentResourceUpdate ||
       AiBuiltinToolKind.agentClusterConfigure ||
+      AiBuiltinToolKind.agentTaskList ||
       AiBuiltinToolKind.agentTaskPublish ||
       AiBuiltinToolKind.agentTaskTrack ||
       AiBuiltinToolKind.agentTaskProgress ||
@@ -1963,6 +1965,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.agentKpiUpsert => 'AgentKpiUpsert',
       AiBuiltinToolKind.agentResourceUpdate => 'AgentResourceUpdate',
       AiBuiltinToolKind.agentClusterConfigure => 'AgentClusterConfigure',
+      AiBuiltinToolKind.agentTaskList => 'AgentTaskList',
       AiBuiltinToolKind.agentTaskPublish => 'AgentTaskPublish',
       AiBuiltinToolKind.agentTaskTrack => 'AgentTaskTrack',
       AiBuiltinToolKind.agentTaskProgress => 'AgentTaskProgress',
@@ -3924,6 +3927,67 @@ class AiToolRuntimeService {
             'type': 'array',
             'items': <String, Object?>{'type': 'string'},
             'description': 'Alias for tags.',
+          },
+        },
+        'anyOf': _agentToolAgentSelectorAnyOf,
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentTaskList,
+      name: 'AgentTaskList',
+      description:
+          'List tasks from one digital employee task desk with optional status, worker, label, and limit filters. Use before tracking or changing a task when you need to discover task ids, inspect queue health, or summarize the current task board.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{
+            'type': 'string',
+            'description': 'Agent id or exact display name.',
+          },
+          'include_disabled': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'When true, allow inspecting a stopped/disabled agent task desk.',
+          },
+          'status': <String, Object?>{
+            'type': 'string',
+            'enum': <String>[
+              'backlog',
+              'ready',
+              'running',
+              'waiting_approval',
+              'paused',
+              'completed',
+              'failed',
+              'canceled',
+            ],
+          },
+          'worker_id': <String, Object?>{'type': 'string'},
+          'labels': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+          },
+          'tags': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+            'description': 'Alias for labels.',
+          },
+          'label': <String, Object?>{
+            'type': 'string',
+            'description': 'Single-label filter alias.',
+          },
+          'tag': <String, Object?>{
+            'type': 'string',
+            'description': 'Single-tag filter alias.',
+          },
+          'limit': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1,
+            'maximum': 200,
+            'description': 'Maximum tasks to return. Defaults to 50.',
           },
         },
         'anyOf': _agentToolAgentSelectorAnyOf,

@@ -50,6 +50,7 @@ enum _AgentToolOperation {
   upsertKpi,
   updateResource,
   configureCluster,
+  listTasks,
   publishTask,
   trackTask,
   progressTask,
@@ -133,6 +134,13 @@ class AiAgentTool extends AiTool {
         kind: AiBuiltinToolKind.agentClusterConfigure,
         name: 'AgentClusterConfigure',
         operation: _AgentToolOperation.configureCluster,
+        agentsControllerProvider: agentsControllerProvider,
+        promptRenderer: renderer,
+      ),
+      AiAgentTool._(
+        kind: AiBuiltinToolKind.agentTaskList,
+        name: 'AgentTaskList',
+        operation: _AgentToolOperation.listTasks,
         agentsControllerProvider: agentsControllerProvider,
         promptRenderer: renderer,
       ),
@@ -283,6 +291,11 @@ class AiAgentTool extends AiTool {
           stopwatch,
         ),
         _AgentToolOperation.configureCluster => await _configureCluster(
+          controller,
+          context,
+          stopwatch,
+        ),
+        _AgentToolOperation.listTasks => _listTasks(
           controller,
           context,
           stopwatch,
@@ -891,6 +904,74 @@ class AiAgentTool extends AiTool {
         'action': 'request_approval',
         'agent_id': resolution.agent!.id,
         'approval_id': approval.id,
+      },
+    );
+  }
+
+  AiToolExecutionResult _listTasks(
+    AgentsController controller,
+    AiToolExecutionContext context,
+    Stopwatch stopwatch,
+  ) {
+    final args = context.decodedArguments;
+    final includeDisabled = boolFromValue(args['include_disabled']);
+    final resolution = _resolveAgent(
+      controller,
+      args,
+      includeDisabled: includeDisabled,
+    );
+    if (resolution.error != null) return resolution.error!;
+    final agent = resolution.agent!;
+    final statusFilter = _optionalTaskStatus(args['status']);
+    if (statusFilter.invalid) {
+      return AiToolUtils.invalidResult(
+        _name,
+        'status must be one of: ${AgentTaskStatus.values.map((item) => item.storageValue).join(', ')}.',
+      );
+    }
+    final workerId = _optionalText(args['worker_id']);
+    final labels = stringListFromValueOrJsonText(
+      args['labels'] ?? args['tags'] ?? args['label'] ?? args['tag'],
+    );
+    final limit = clampedIntFromValue(
+      args['limit'],
+      fallback: 50,
+      min: 1,
+      max: 200,
+    );
+    final tasks = agent.tasks
+        .where(
+          (task) => _taskMatchesListFilter(
+            task,
+            status: statusFilter.status,
+            workerId: workerId,
+            labels: labels,
+          ),
+        )
+        .take(limit)
+        .toList(growable: false);
+    return _success(
+      <String, Object?>{
+        'agent': _agentSummaryJson(agent),
+        'filters': <String, Object?>{
+          'include_disabled': includeDisabled,
+          'limit': limit,
+          if (statusFilter.status != null)
+            'status': statusFilter.status!.storageValue,
+          if (workerId != null) 'worker_id': workerId,
+          if (labels.isNotEmpty) 'labels': labels,
+        },
+        'tasks': tasks
+            .map((task) => _taskJson(task, agent: agent))
+            .toList(growable: false),
+        'task_metrics': _taskMetricsJson(agent),
+        'worker_capacity': _workerCapacityJsonForAgent(agent),
+      },
+      stopwatch,
+      metadata: <String, Object?>{
+        'action': 'list_tasks',
+        'agent_id': agent.id,
+        'task_count': tasks.length,
       },
     );
   }
@@ -1685,6 +1766,28 @@ bool _taskIsTerminal(AgentTaskStatus status) {
   };
 }
 
+bool _taskMatchesListFilter(
+  AgentTask task, {
+  required AgentTaskStatus? status,
+  required String? workerId,
+  required List<String> labels,
+}) {
+  if (status != null && task.status != status) return false;
+  if (workerId != null &&
+      !_matchesText('${task.extra['assigned_worker_id'] ?? ''}', workerId)) {
+    return false;
+  }
+  if (labels.isNotEmpty) {
+    final taskLabels = stringListFromValueOrJsonText(
+      task.extra['labels'] ?? task.extra['tags'],
+    ).map((item) => item.toLowerCase()).toSet();
+    for (final label in labels) {
+      if (!taskLabels.contains(label.toLowerCase())) return false;
+    }
+  }
+  return true;
+}
+
 Map<String, Object?>? _assignedWorkerJson(AgentProfile agent, AgentTask task) {
   final workerId = '${task.extra['assigned_worker_id'] ?? ''}'.trim();
   if (workerId.isEmpty) return null;
@@ -1742,6 +1845,20 @@ Map<String, Object?> _taskMetricsJson(AgentProfile agent) {
 }
 
 Map<String, Object?> _workerCapacityJson(AgentProfile agent, AgentTask task) {
+  final payload = _workerCapacityJsonForAgent(agent);
+  final assignedWorkerId = '${task.extra['assigned_worker_id'] ?? ''}'.trim();
+  final assignedWorker = assignedWorkerId.isEmpty
+      ? null
+      : _assignedWorkerJson(agent, task);
+  return <String, Object?>{
+    ...payload,
+    if (assignedWorkerId.isNotEmpty) 'assigned_worker_id': assignedWorkerId,
+    if (assignedWorker != null)
+      'assigned_worker_status': assignedWorker['status'],
+  };
+}
+
+Map<String, Object?> _workerCapacityJsonForAgent(AgentProfile agent) {
   final byStatus = <String, int>{
     for (final status in AgentWorkerStatus.values) status.storageValue: 0,
   };
@@ -1749,10 +1866,6 @@ Map<String, Object?> _workerCapacityJson(AgentProfile agent, AgentTask task) {
     byStatus[worker.status.storageValue] =
         (byStatus[worker.status.storageValue] ?? 0) + 1;
   }
-  final assignedWorkerId = '${task.extra['assigned_worker_id'] ?? ''}'.trim();
-  final assignedWorker = assignedWorkerId.isEmpty
-      ? null
-      : _assignedWorkerJson(agent, task);
   return <String, Object?>{
     'total': agent.workers.length,
     'by_status': byStatus,
@@ -1763,9 +1876,6 @@ Map<String, Object?> _workerCapacityJson(AgentProfile agent, AgentTask task) {
     'utilization': agent.workerUtilization,
     'running_tasks': agent.runningTaskCount,
     'pending_approvals': agent.pendingApprovalCount,
-    if (assignedWorkerId.isNotEmpty) 'assigned_worker_id': assignedWorkerId,
-    if (assignedWorker != null)
-      'assigned_worker_status': assignedWorker['status'],
   };
 }
 
@@ -1964,6 +2074,21 @@ String? _normalizedKpiStatus(String raw) {
   );
   if (_agentKpiStatusValues.contains(normalized)) return normalized;
   return null;
+}
+
+({AgentTaskStatus? status, bool invalid}) _optionalTaskStatus(Object? raw) {
+  if (raw == null) return (status: null, invalid: false);
+  final normalized = '$raw'.trim().toLowerCase().replaceAll(
+    RegExp(r'[\s-]+'),
+    '_',
+  );
+  if (normalized.isEmpty) return (status: null, invalid: false);
+  for (final status in AgentTaskStatus.values) {
+    if (status.storageValue == normalized) {
+      return (status: status, invalid: false);
+    }
+  }
+  return (status: null, invalid: true);
 }
 
 String? _optionalAllowedText(
