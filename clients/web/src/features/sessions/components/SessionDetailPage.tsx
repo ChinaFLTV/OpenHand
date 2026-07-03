@@ -100,6 +100,7 @@ import {
   booleanFromUnknown,
   recordFromUnknown,
   recordOrNullFromUnknown,
+  strictStringFromUnknown,
   stringFromUnknown,
   stringListFromUnknown,
 } from '../../../shared/util/value';
@@ -367,11 +368,11 @@ interface RestoredSkillSelection {
 }
 
 function asObjectRecord(value: unknown): Record<string, unknown> | null {
-  return value != null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  return recordOrNullFromUnknown(value);
 }
 
 function trimString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
+  return strictStringFromUnknown(value);
 }
 
 function extractUserSkillSelection(message: SessionMessage): RestoredSkillSelection | null {
@@ -511,7 +512,7 @@ function messageWithFeedback(
 }
 
 function metadataString(value: unknown): string {
-  return value == null ? '' : String(value).trim();
+  return stringFromUnknown(value);
 }
 
 function metadataTextLength(value: unknown): number {

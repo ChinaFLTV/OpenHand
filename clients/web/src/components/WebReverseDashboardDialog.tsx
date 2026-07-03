@@ -18,6 +18,12 @@ import {
 import { t } from '../i18n';
 import type { SessionSummary } from '../api/sessions';
 import { strictPositiveIntegerFromUnknown } from '../shared/util/number';
+import {
+  booleanOrNullFromUnknown as booleanFromUnknown,
+  recordOrNullFromUnknown as asRecord,
+  strictStringFromUnknown as stringFromUnknown,
+  stringListFromUnknown,
+} from '../shared/util/value';
 
 export interface WebReverseDashboardDialogProps {
   session: SessionSummary;
@@ -55,37 +61,8 @@ interface WebReverseRuntimeSummary {
   tone: DashboardTone;
 }
 
-function asRecord(raw: unknown): Record<string, unknown> | null {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  return raw as Record<string, unknown>;
-}
-
 function asConfig(raw: unknown): WebReverseConfig | null {
   return asRecord(raw) as WebReverseConfig | null;
-}
-
-function stringFromUnknown(raw: unknown): string {
-  return typeof raw === 'string' ? raw.trim() : '';
-}
-
-function booleanFromUnknown(raw: unknown): boolean | null {
-  if (typeof raw === 'boolean') return raw;
-  if (typeof raw !== 'string') return null;
-  const normalized = raw.trim().toLowerCase();
-  if (normalized === 'true' || normalized === '1' || normalized === 'yes') {
-    return true;
-  }
-  if (normalized === 'false' || normalized === '0' || normalized === 'no') {
-    return false;
-  }
-  return null;
-}
-
-function stringListFromUnknown(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((item) => String(item ?? '').trim())
-    .filter((item) => item.length > 0);
 }
 
 function runtimeSummaryFromMetadata(

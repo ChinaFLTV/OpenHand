@@ -11,7 +11,11 @@ export function stringFromUnknown(
   return coerce ? String(value).trim() : '';
 }
 
-export function booleanFromUnknown(value: unknown, fallback = false): boolean {
+export function strictStringFromUnknown(value: unknown): string {
+  return stringFromUnknown(value, { coerce: false });
+}
+
+export function booleanOrNullFromUnknown(value: unknown): boolean | null {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number' && Number.isFinite(value)) return value !== 0;
   if (typeof value === 'string') {
@@ -23,7 +27,11 @@ export function booleanFromUnknown(value: unknown, fallback = false): boolean {
       return false;
     }
   }
-  return fallback;
+  return null;
+}
+
+export function booleanFromUnknown(value: unknown, fallback = false): boolean {
+  return booleanOrNullFromUnknown(value) ?? fallback;
 }
 
 export function finiteNumberOrNullFromUnknown(value: unknown): number | null {

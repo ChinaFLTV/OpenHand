@@ -52,6 +52,7 @@ import {
   booleanFromUnknown,
   finiteNumberOrNullFromUnknown,
   recordOrNullFromUnknown,
+  strictStringFromUnknown,
   stringFromUnknown,
 } from '../shared/util/value';
 import {
@@ -523,7 +524,7 @@ const ANDROID_REVERSE_PROMPT_FIELD_LABELS = [
 ] as const;
 
 function nonEmptyString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
+  return strictStringFromUnknown(value);
 }
 
 const STRICT_POSITIVE_NUMBER_RE = /^(?:[1-9]\d*(?:\.\d+)?|0?\.\d+)$/;
