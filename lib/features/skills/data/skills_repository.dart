@@ -10,6 +10,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/directory_cleanup.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/xml_escape.dart';
 import '../model/local_skill.dart';
@@ -133,7 +134,7 @@ class SkillsRepository {
     if (normalizedShortDescription == null) {
       throw const FileSystemException('Skill description is empty.');
     }
-    if (manifestContent.trim().isEmpty) {
+    if (nullIfBlank(manifestContent) == null) {
       throw const FileSystemException('Skill manifest is empty.');
     }
 
@@ -266,7 +267,7 @@ class SkillsRepository {
     String storagePath,
     String content,
   ) async {
-    if (content.trim().isEmpty) {
+    if (nullIfBlank(content) == null) {
       throw const FileSystemException('Skill manifest is empty.');
     }
 
@@ -318,7 +319,7 @@ class SkillsRepository {
     if (normalizedShortDescription == null) {
       throw const FileSystemException('Skill description is empty.');
     }
-    if (manifestContent.trim().isEmpty) {
+    if (nullIfBlank(manifestContent) == null) {
       throw const FileSystemException('Skill manifest is empty.');
     }
 
@@ -683,14 +684,7 @@ class SkillsRepository {
   }
 
   String? _sanitizeDisplayValue(String? value) {
-    if (value == null) {
-      return null;
-    }
-    final trimmedValue = value.trim();
-    if (trimmedValue.isEmpty) {
-      return null;
-    }
-    return trimmedValue;
+    return nullIfBlank(value);
   }
 
   String? _sanitizeEmojiIcon(String? value) {
@@ -937,9 +931,7 @@ class SkillsRepository {
     Directory rootDirectory, {
     String? preferredSlug,
   }) async {
-    final baseSlug = preferredSlug == null || preferredSlug.trim().isEmpty
-        ? _defaultSkillSlug
-        : preferredSlug;
+    final baseSlug = nullIfBlank(preferredSlug) ?? _defaultSkillSlug;
     for (var index = 1; index < 1000; index++) {
       final suffix = index == 1 ? '' : '-$index';
       final directory = Directory(
@@ -1039,7 +1031,7 @@ class SkillsRepository {
       throw const FileSystemException('Skill archive path is unsafe.');
     }
     final normalizedPath = p.posix.normalize(rawPath.replaceAll(r'\', '/'));
-    if (normalizedPath == '.' || normalizedPath.trim().isEmpty) {
+    if (normalizedPath == '.' || nullIfBlank(normalizedPath) == null) {
       return const <String>[];
     }
     if (p.posix.isAbsolute(normalizedPath) ||
