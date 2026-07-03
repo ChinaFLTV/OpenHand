@@ -5542,7 +5542,7 @@ class WebMessagePlatformService {
 
   Map<String, Object?> _webContext(Map<String, Object?> metadata) {
     final raw = metadata[webGatewayMetadataKey];
-    if (raw is Map) return Map<String, Object?>.from(raw);
+    if (raw is Map) return stringKeyedMapFromValue(raw);
     return const <String, Object?>{};
   }
 
@@ -5635,7 +5635,7 @@ class WebMessagePlatformService {
     for (final item in value) {
       final Map<String, Object?>? point = switch (item) {
         final Map<String, Object?> typed => typed,
-        final Map raw => Map<String, Object?>.from(raw),
+        final Map raw => stringKeyedMapFromValue(raw),
         _ => null,
       };
       if (point == null ||
@@ -6033,7 +6033,7 @@ class WebMessagePlatformService {
     String itemSignature(Object? value) {
       final Map<String, Object?>? message = switch (value) {
         final Map<String, Object?> typed => typed,
-        final Map raw => Map<String, Object?>.from(raw),
+        final Map raw => stringKeyedMapFromValue(raw),
         _ => null,
       };
       if (message == null) {
@@ -6432,7 +6432,7 @@ class WebMessagePlatformService {
     await dir.create(recursive: true);
     for (final item in raw) {
       if (item is! Map) continue;
-      final map = Map<String, Object?>.from(item);
+      final map = stringKeyedMapFromValue(item);
       final name = _safeFileName(_string(map['name'], 'attachment.bin'));
       final data = _string(map['data_base64'], '').trim();
       if (data.isEmpty) continue;
@@ -6598,7 +6598,7 @@ class WebMessagePlatformService {
     }
     if (chunks.isEmpty) return <String, Object?>{};
     final decoded = jsonDecode(utf8.decode(chunks));
-    if (decoded is Map) return Map<String, Object?>.from(decoded);
+    if (decoded is Map) return stringKeyedMapFromValue(decoded);
     return <String, Object?>{};
   }
 
