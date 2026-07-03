@@ -3163,6 +3163,51 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mcpDeleteConfirmBody => 'この MCP サービス設定を削除しますか？';
 
   @override
+  String mcpDeleteAlsoUninstallPackage(String packageName) {
+    return '基盤パッケージもアンインストール（$packageName）';
+  }
+
+  @override
+  String get mcpDeleteAlsoUninstallPackageBody =>
+      'グローバルパッケージをアンインストールし、隔離キャッシュを削除します。';
+
+  @override
+  String mcpDependencyCleanedUp(String packageName) {
+    return '$packageName の依存関係をクリーンアップしました';
+  }
+
+  @override
+  String mcpDependencyCleanupFailed(String packageName, String error) {
+    return '$packageName のクリーンアップに失敗しました: $error';
+  }
+
+  @override
+  String mcpDependencyCleanupError(String packageName, String error) {
+    return '$packageName のクリーンアップエラー: $error';
+  }
+
+  @override
+  String get mcpTemplateSessionManaged => 'セッション管理';
+
+  @override
+  String mcpTemplateSessionOn(String status) {
+    return 'セッション有効 · $status';
+  }
+
+  @override
+  String mcpTemplateSessionOff(String status) {
+    return 'セッション無効 · $status';
+  }
+
+  @override
+  String get mcpTemplateNotRegistered => '未登録';
+
+  @override
+  String mcpTemplateRuntimeEnabledCount(int count) {
+    return '$count セッション有効';
+  }
+
+  @override
   String get mcpDisabledTitle => 'MCP サービスは現在無効です';
 
   @override

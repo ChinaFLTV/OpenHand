@@ -5767,6 +5767,66 @@ abstract class AppLocalizations {
   /// **'确认删除这条 MCP 服务配置吗？'**
   String get mcpDeleteConfirmBody;
 
+  /// No description provided for @mcpDeleteAlsoUninstallPackage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'同时卸载底层包（{packageName}）'**
+  String mcpDeleteAlsoUninstallPackage(String packageName);
+
+  /// No description provided for @mcpDeleteAlsoUninstallPackageBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'将卸载全局包并清理隔离缓存。'**
+  String get mcpDeleteAlsoUninstallPackageBody;
+
+  /// No description provided for @mcpDependencyCleanedUp.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{packageName} 依赖已清理'**
+  String mcpDependencyCleanedUp(String packageName);
+
+  /// No description provided for @mcpDependencyCleanupFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{packageName} 清理失败：{error}'**
+  String mcpDependencyCleanupFailed(String packageName, String error);
+
+  /// No description provided for @mcpDependencyCleanupError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{packageName} 清理异常：{error}'**
+  String mcpDependencyCleanupError(String packageName, String error);
+
+  /// No description provided for @mcpTemplateSessionManaged.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话托管'**
+  String get mcpTemplateSessionManaged;
+
+  /// No description provided for @mcpTemplateSessionOn.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话启用 · {status}'**
+  String mcpTemplateSessionOn(String status);
+
+  /// No description provided for @mcpTemplateSessionOff.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话关闭 · {status}'**
+  String mcpTemplateSessionOff(String status);
+
+  /// No description provided for @mcpTemplateNotRegistered.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未注册'**
+  String get mcpTemplateNotRegistered;
+
+  /// No description provided for @mcpTemplateRuntimeEnabledCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话启用 {count}'**
+  String mcpTemplateRuntimeEnabledCount(int count);
+
   /// No description provided for @mcpDisabledTitle.
   ///
   /// In zh_Hans, this message translates to:

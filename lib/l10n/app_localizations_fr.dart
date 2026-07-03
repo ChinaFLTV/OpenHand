@@ -3264,6 +3264,51 @@ class AppLocalizationsFr extends AppLocalizations {
       'Supprimer cette configuration de service MCP ?';
 
   @override
+  String mcpDeleteAlsoUninstallPackage(String packageName) {
+    return 'Désinstaller aussi le paquet ($packageName)';
+  }
+
+  @override
+  String get mcpDeleteAlsoUninstallPackageBody =>
+      'Désinstalle le paquet global et nettoie le cache isolé.';
+
+  @override
+  String mcpDependencyCleanedUp(String packageName) {
+    return 'Dépendance $packageName nettoyée';
+  }
+
+  @override
+  String mcpDependencyCleanupFailed(String packageName, String error) {
+    return 'Nettoyage de $packageName échoué : $error';
+  }
+
+  @override
+  String mcpDependencyCleanupError(String packageName, String error) {
+    return 'Erreur de nettoyage de $packageName : $error';
+  }
+
+  @override
+  String get mcpTemplateSessionManaged => 'géré par session';
+
+  @override
+  String mcpTemplateSessionOn(String status) {
+    return 'session active · $status';
+  }
+
+  @override
+  String mcpTemplateSessionOff(String status) {
+    return 'session inactive · $status';
+  }
+
+  @override
+  String get mcpTemplateNotRegistered => 'non enregistré';
+
+  @override
+  String mcpTemplateRuntimeEnabledCount(int count) {
+    return '$count sessions actives';
+  }
+
+  @override
   String get mcpDisabledTitle =>
       'Les services MCP sont actuellement désactivés';
 

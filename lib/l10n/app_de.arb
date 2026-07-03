@@ -1719,6 +1719,71 @@
   "mcpServerDeleted": "MCP-Dienst gelöscht.",
   "mcpDeleteConfirmTitle": "MCP-Dienst löschen",
   "mcpDeleteConfirmBody": "Diese MCP-Dienstkonfiguration löschen?",
+  "mcpDeleteAlsoUninstallPackage": "Paket ebenfalls deinstallieren ({packageName})",
+  "@mcpDeleteAlsoUninstallPackage": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDeleteAlsoUninstallPackageBody": "Deinstalliert das globale Paket und bereinigt den isolierten Cache.",
+  "mcpDependencyCleanedUp": "{packageName}-Abhängigkeit bereinigt",
+  "@mcpDependencyCleanedUp": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDependencyCleanupFailed": "{packageName}-Bereinigung fehlgeschlagen: {error}",
+  "@mcpDependencyCleanupFailed": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDependencyCleanupError": "{packageName}-Bereinigungsfehler: {error}",
+  "@mcpDependencyCleanupError": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateSessionManaged": "sitzungsverwaltet",
+  "mcpTemplateSessionOn": "Sitzung an · {status}",
+  "@mcpTemplateSessionOn": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateSessionOff": "Sitzung aus · {status}",
+  "@mcpTemplateSessionOff": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateNotRegistered": "nicht registriert",
+  "mcpTemplateRuntimeEnabledCount": "{count} Sitzungen an",
+  "@mcpTemplateRuntimeEnabledCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "mcpDisabledTitle": "MCP-Dienste sind derzeit deaktiviert",
   "mcpDisabledBody": "Sie können hier weiterhin Dienstkonfigurationen verwalten. Um sie zur Laufzeit zu aktivieren, schalten Sie den MCP-Schalter unter Einstellungen > MCP ein.",
   "mcpTransportStreamableHttp": "Streamable HTTP",

@@ -1719,6 +1719,71 @@
   "mcpServerDeleted": "MCP サービスを削除しました。",
   "mcpDeleteConfirmTitle": "MCP サービスを削除",
   "mcpDeleteConfirmBody": "この MCP サービス設定を削除しますか？",
+  "mcpDeleteAlsoUninstallPackage": "基盤パッケージもアンインストール（{packageName}）",
+  "@mcpDeleteAlsoUninstallPackage": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDeleteAlsoUninstallPackageBody": "グローバルパッケージをアンインストールし、隔離キャッシュを削除します。",
+  "mcpDependencyCleanedUp": "{packageName} の依存関係をクリーンアップしました",
+  "@mcpDependencyCleanedUp": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDependencyCleanupFailed": "{packageName} のクリーンアップに失敗しました: {error}",
+  "@mcpDependencyCleanupFailed": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDependencyCleanupError": "{packageName} のクリーンアップエラー: {error}",
+  "@mcpDependencyCleanupError": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateSessionManaged": "セッション管理",
+  "mcpTemplateSessionOn": "セッション有効 · {status}",
+  "@mcpTemplateSessionOn": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateSessionOff": "セッション無効 · {status}",
+  "@mcpTemplateSessionOff": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateNotRegistered": "未登録",
+  "mcpTemplateRuntimeEnabledCount": "{count} セッション有効",
+  "@mcpTemplateRuntimeEnabledCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "mcpDisabledTitle": "MCP サービスは現在無効です",
   "mcpDisabledBody": "ここでサービス設定の管理は引き続き可能です。実行時に有効化するには、設定 > MCP のスイッチをオンにしてください。",
   "mcpTransportStreamableHttp": "ストリーマブル HTTP",

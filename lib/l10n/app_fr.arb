@@ -1719,6 +1719,71 @@
   "mcpServerDeleted": "Service MCP supprimé.",
   "mcpDeleteConfirmTitle": "Supprimer le service MCP",
   "mcpDeleteConfirmBody": "Supprimer cette configuration de service MCP ?",
+  "mcpDeleteAlsoUninstallPackage": "Désinstaller aussi le paquet ({packageName})",
+  "@mcpDeleteAlsoUninstallPackage": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDeleteAlsoUninstallPackageBody": "Désinstalle le paquet global et nettoie le cache isolé.",
+  "mcpDependencyCleanedUp": "Dépendance {packageName} nettoyée",
+  "@mcpDependencyCleanedUp": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDependencyCleanupFailed": "Nettoyage de {packageName} échoué : {error}",
+  "@mcpDependencyCleanupFailed": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDependencyCleanupError": "Erreur de nettoyage de {packageName} : {error}",
+  "@mcpDependencyCleanupError": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateSessionManaged": "géré par session",
+  "mcpTemplateSessionOn": "session active · {status}",
+  "@mcpTemplateSessionOn": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateSessionOff": "session inactive · {status}",
+  "@mcpTemplateSessionOff": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateNotRegistered": "non enregistré",
+  "mcpTemplateRuntimeEnabledCount": "{count} sessions actives",
+  "@mcpTemplateRuntimeEnabledCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "mcpDisabledTitle": "Les services MCP sont actuellement désactivés",
   "mcpDisabledBody": "Vous pouvez toujours gérer ici les configurations de service. Pour les activer à l’exécution, activez le commutateur MCP dans Paramètres > MCP.",
   "mcpTransportStreamableHttp": "HTTP en flux",

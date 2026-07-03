@@ -400,11 +400,19 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
               context,
               zh: '已添加 MCP 服务：$name',
               en: 'MCP added: $name',
+              zhHant: '已新增 MCP 服務：$name',
+              fr: 'MCP ajouté : $name',
+              de: 'MCP hinzugefügt: $name',
+              ja: 'MCP を追加しました: $name',
             )
           : _localizedText(
               context,
               zh: 'MCP 服务已存在或名称冲突：$name',
               en: 'MCP exists or name conflicts: $name',
+              zhHant: 'MCP 服務已存在或名稱衝突：$name',
+              fr: 'Le MCP existe déjà ou le nom est en conflit : $name',
+              de: 'MCP existiert bereits oder der Name kollidiert: $name',
+              ja: 'MCP は既に存在するか、名前が競合しています: $name',
             ),
       kind: saved ? OpenHandSnackKind.success : OpenHandSnackKind.error,
     );
@@ -477,7 +485,6 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     McpServer server,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final isZh = openHandIsChineseLocale(context);
 
     // 对于 STDIO 类型的 npx/uvx 服务，询问是否同时清理底层包
     bool shouldCleanupDeps = false;
@@ -510,15 +517,11 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                   title: Text(
-                    isZh
-                        ? '同时卸载底层包 ($npxPackageName)'
-                        : 'Also uninstall package ($npxPackageName)',
+                    l10n.mcpDeleteAlsoUninstallPackage(npxPackageName),
                     style: Theme.of(ctx).textTheme.bodySmall,
                   ),
                   subtitle: Text(
-                    isZh
-                        ? '将卸载全局包并清理隔离缓存'
-                        : 'Will uninstall global package and clean isolated cache',
+                    l10n.mcpDeleteAlsoUninstallPackageBody,
                     style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
                       color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                     ),
@@ -566,7 +569,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     String packageName,
     String serverName,
   ) async {
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     try {
       // 1. 卸载全局包
       final result = await runTrackedProcessOrFailed(
@@ -603,15 +606,13 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       if (result.exitCode == 0) {
         _showSnackBar(
           context,
-          isZh ? '$packageName 依赖已清理' : '$packageName dependency cleaned up',
+          l10n.mcpDependencyCleanedUp(packageName),
           kind: OpenHandSnackKind.success,
         );
       } else {
         _showSnackBar(
           context,
-          isZh
-              ? '$packageName 清理失败：${result.stderr}'
-              : '$packageName cleanup failed: ${result.stderr}',
+          l10n.mcpDependencyCleanupFailed(packageName, result.stderr),
           kind: OpenHandSnackKind.error,
         );
       }
@@ -619,7 +620,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       if (!context.mounted) return;
       _showSnackBar(
         context,
-        isZh ? '$packageName 清理异常：$e' : '$packageName cleanup error: $e',
+        l10n.mcpDependencyCleanupError(packageName, '$e'),
         kind: OpenHandSnackKind.error,
       );
     }
@@ -810,6 +811,10 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         context,
         zh: '已将 ${entries.length} 个服务的快照以 $formatLabel 复制到剪贴板',
         en: 'Copied snapshot of ${entries.length} servers as $formatLabel to clipboard',
+        zhHant: '已將 ${entries.length} 個服務的快照以 $formatLabel 複製到剪貼簿',
+        fr: 'Instantané de ${entries.length} services copié en $formatLabel dans le presse-papiers',
+        de: 'Snapshot von ${entries.length} Diensten als $formatLabel in die Zwischenablage kopiert',
+        ja: '${entries.length} 個のサービスのスナップショットを $formatLabel としてクリップボードにコピーしました',
       ),
       kind: OpenHandSnackKind.success,
     );
@@ -896,7 +901,7 @@ class _TemplateMcpCandidateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final latestState = linkageController.latestCapabilityState(
       spec.templateId,
       capability.id,
@@ -916,19 +921,11 @@ class _TemplateMcpCandidateCard extends StatelessWidget {
         : cs.error;
     final statusText = capability.openHandManaged
         ? latestState == null
-              ? (isZh ? '会话托管' : 'session-managed')
+              ? l10n.mcpTemplateSessionManaged
               : latestState.enabled
-              ? _localizedText(
-                  context,
-                  zh: '会话启用 · ${latestState.status}',
-                  en: 'session on · ${latestState.status}',
-                )
-              : _localizedText(
-                  context,
-                  zh: '会话关闭 · ${latestState.status}',
-                  en: 'session off · ${latestState.status}',
-                )
-        : (isZh ? '未注册' : 'not registered');
+              ? l10n.mcpTemplateSessionOn(latestState.status)
+              : l10n.mcpTemplateSessionOff(latestState.status)
+        : l10n.mcpTemplateNotRegistered;
     final hasPlaceholder = capability.suggestedArgs.any(
       (arg) => arg.contains('<') || arg.contains('>'),
     );
@@ -969,21 +966,35 @@ class _TemplateMcpCandidateCard extends StatelessWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
-                        isZh ? capability.labelZh : capability.labelEn,
+                        _localizedText(
+                          context,
+                          zh: capability.labelZh,
+                          en: capability.labelEn,
+                          zhHant: capability.labelZhHant,
+                          fr: capability.labelFr,
+                          de: capability.labelDe,
+                          ja: capability.labelJa,
+                        ),
                         style: theme.textTheme.titleLarge,
                       ),
                       _TemplateMcpStateChip(label: statusText, color: color),
                       _TemplateMcpTinyChip(
                         icon: Icons.account_tree_rounded,
-                        label: isZh ? spec.labelZh : spec.labelEn,
+                        label: _localizedText(
+                          context,
+                          zh: spec.labelZh,
+                          en: spec.labelEn,
+                          zhHant: spec.labelZhHant,
+                          fr: spec.labelFr,
+                          de: spec.labelDe,
+                          ja: spec.labelJa,
+                        ),
                       ),
                       if (runtimeEnabledCount > 0)
                         _TemplateMcpTinyChip(
                           icon: Icons.toggle_on_rounded,
-                          label: _localizedText(
-                            context,
-                            zh: '会话启用 $runtimeEnabledCount',
-                            en: '$runtimeEnabledCount sessions on',
+                          label: l10n.mcpTemplateRuntimeEnabledCount(
+                            runtimeEnabledCount,
                           ),
                         ),
                       if (capability.packageName != null)
@@ -997,9 +1008,15 @@ class _TemplateMcpCandidateCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     [
-                      isZh
-                          ? capability.descriptionZh
-                          : capability.descriptionEn,
+                      _localizedText(
+                        context,
+                        zh: capability.descriptionZh,
+                        en: capability.descriptionEn,
+                        zhHant: capability.descriptionZhHant,
+                        fr: capability.descriptionFr,
+                        de: capability.descriptionDe,
+                        ja: capability.descriptionJa,
+                      ),
                       if (latestState?.message?.trim().isNotEmpty ?? false)
                         latestState!.message!.trim(),
                     ].join(' · '),
@@ -1664,6 +1681,10 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
             context,
             zh: '第 ${index + 1} 个 Header 的名称和值都不能为空',
             en: 'Header ${index + 1} must include both name and value',
+            zhHant: '第 ${index + 1} 個 Header 的名稱和值都不能為空',
+            fr: 'L’en-tête ${index + 1} doit inclure un nom et une valeur',
+            de: 'Header ${index + 1} muss sowohl Name als auch Wert enthalten',
+            ja: 'ヘッダー ${index + 1} には名前と値の両方が必要です',
           ),
         );
       }
@@ -1675,6 +1696,10 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
             context,
             zh: '第 ${index + 1} 个 Header 名称重复',
             en: 'Header ${index + 1} uses a duplicate name',
+            zhHant: '第 ${index + 1} 個 Header 名稱重複',
+            fr: 'L’en-tête ${index + 1} utilise un nom en double',
+            de: 'Header ${index + 1} verwendet einen doppelten Namen',
+            ja: 'ヘッダー ${index + 1} の名前が重複しています',
           ),
         );
       }
@@ -2041,9 +2066,15 @@ class _McpServerCardState extends State<_McpServerCard> {
                         for (final spec in templateSpecs)
                           _McpStatusChip(
                             icon: Icons.account_tree_rounded,
-                            label: openHandIsChineseLocale(context)
-                                ? spec.labelZh
-                                : spec.labelEn,
+                            label: _localizedText(
+                              context,
+                              zh: spec.labelZh,
+                              en: spec.labelEn,
+                              zhHant: spec.labelZhHant,
+                              fr: spec.labelFr,
+                              de: spec.labelDe,
+                              ja: spec.labelJa,
+                            ),
                           ),
                         // STDIO 进程运行状态 chip
                         if (server.type == McpServerType.stdio)
@@ -2072,6 +2103,10 @@ class _McpServerCardState extends State<_McpServerCard> {
                                   context,
                                   zh: '进程运行中 · PID ${processInfo.pid}',
                                   en: 'Running · PID ${processInfo.pid}',
+                                  zhHant: '進程運行中 · PID ${processInfo.pid}',
+                                  fr: 'Processus en cours · PID ${processInfo.pid}',
+                                  de: 'Prozess läuft · PID ${processInfo.pid}',
+                                  ja: 'プロセス実行中 · PID ${processInfo.pid}',
                                 ),
                                 StdioProcessState.starting => _localizedText(
                                   context,
@@ -2102,6 +2137,10 @@ class _McpServerCardState extends State<_McpServerCard> {
                               context,
                               zh: '${server.headers.length} 个 Header',
                               en: '${server.headers.length} Headers',
+                              zhHant: '${server.headers.length} 個 Header',
+                              fr: '${server.headers.length} en-têtes',
+                              de: '${server.headers.length} Header',
+                              ja: '${server.headers.length} 件のヘッダー',
                             ),
                           ),
                         if (healthStatus.isChecking ||
@@ -2156,6 +2195,18 @@ class _McpServerCardState extends State<_McpServerCard> {
                                           'pulls npm / PyPI packages on demand. '
                                           'OpenHand grants stdio MCP servers up to '
                                           '6 minutes for discovery.',
+                                      zhHant:
+                                          '首次啟動通常較慢：npx / uvx 需要在線拉取 npm / PyPI 套件並安裝。\n'
+                                          '本應用給 stdio MCP 留最長 6 分鐘的發現視窗。',
+                                      fr:
+                                          'Le premier lancement est souvent lent : npx / uvx télécharge et installe les paquets npm / PyPI à la demande.\n'
+                                          'OpenHand accorde jusqu’à 6 minutes aux serveurs stdio MCP pour la découverte.',
+                                      de:
+                                          'Der erste Start ist oft langsam: npx / uvx lädt npm- / PyPI-Pakete bei Bedarf herunter und installiert sie.\n'
+                                          'OpenHand gibt stdio-MCP-Diensten bis zu 6 Minuten für die Erkennung.',
+                                      ja:
+                                          '初回起動は通常遅めです。npx / uvx が npm / PyPI パッケージを必要時に取得してインストールします。\n'
+                                          'OpenHand は stdio MCP サーバーの検出に最大 6 分を確保します。',
                                     )
                                   : _localizedText(
                                       context,
@@ -2198,6 +2249,10 @@ class _McpServerCardState extends State<_McpServerCard> {
                               context,
                               zh: '${toolCatalog.tools.length} 个 Tool',
                               en: '${toolCatalog.tools.length} Tools',
+                              zhHant: '${toolCatalog.tools.length} 個 Tool',
+                              fr: '${toolCatalog.tools.length} tools',
+                              de: '${toolCatalog.tools.length} Tools',
+                              ja: '${toolCatalog.tools.length} 件の Tool',
                             ),
                           ),
                         if (toolCatalog.lastScannedAt != null)
@@ -2498,6 +2553,10 @@ class _McpAttentionChip extends StatelessWidget {
         context,
         zh: '已连续 $consecutiveFailures 次探测失败，建议检查 MCP 服务配置或网络可达性。',
         en: '$consecutiveFailures consecutive probe failures. Please check MCP server configuration or connectivity.',
+        zhHant: '已連續 $consecutiveFailures 次探測失敗，建議檢查 MCP 服務配置或網路可達性。',
+        fr: '$consecutiveFailures échecs de sonde consécutifs. Vérifiez la configuration du service MCP ou la connectivité.',
+        de: '$consecutiveFailures Prüfungen in Folge fehlgeschlagen. Prüfen Sie die MCP-Dienstkonfiguration oder die Verbindung.',
+        ja: '$consecutiveFailures 回連続でプローブに失敗しました。MCP サービス設定またはネットワーク到達性を確認してください。',
       ),
       child: Chip(
         avatar: Icon(
@@ -2514,6 +2573,10 @@ class _McpAttentionChip extends StatelessWidget {
             context,
             zh: '需要处理 · 连续失败 $consecutiveFailures 次',
             en: 'Needs attention · $consecutiveFailures fails',
+            zhHant: '需要處理 · 連續失敗 $consecutiveFailures 次',
+            fr: 'À traiter · $consecutiveFailures échecs',
+            de: 'Aufmerksamkeit nötig · $consecutiveFailures Fehler',
+            ja: '対応が必要 · $consecutiveFailures 回失敗',
           ),
         ),
       ),
@@ -2708,7 +2771,7 @@ class _McpServerDetailsSheet extends StatelessWidget {
                 label: _localizedText(context, zh: '记录样本', en: 'Sample size'),
                 value:
                     '${probes.length} '
-                    '(${_localizedText(context, zh: '成功 $successCount / 失败 $failureCount', en: '$successCount ok / $failureCount fail')})',
+                    '(${_localizedText(context, zh: '成功 $successCount / 失败 $failureCount', en: '$successCount ok / $failureCount fail', zhHant: '成功 $successCount / 失敗 $failureCount', fr: '$successCount ok / $failureCount échec', de: '$successCount ok / $failureCount fehlgeschlagen', ja: '成功 $successCount / 失敗 $failureCount')})',
               ),
             ],
           ),
@@ -2796,6 +2859,10 @@ class _ProbeTrendSection extends StatelessWidget {
                   context,
                   zh: '最近 ${ordered.length} 次',
                   en: 'Last ${ordered.length}',
+                  zhHant: '最近 ${ordered.length} 次',
+                  fr: '${ordered.length} dernières',
+                  de: 'Letzte ${ordered.length}',
+                  ja: '直近 ${ordered.length} 回',
                 ),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
@@ -3078,6 +3145,10 @@ class _ToolListPreview extends StatelessWidget {
                   context,
                   zh: '另有 $overflow 个工具未在此列出',
                   en: '$overflow more tools not shown here',
+                  zhHant: '另有 $overflow 個工具未在此列出',
+                  fr: '$overflow autres tools non affichés ici',
+                  de: '$overflow weitere Tools hier nicht angezeigt',
+                  ja: 'ほかに $overflow 件の Tool はここに表示されていません',
                 ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
@@ -3531,6 +3602,10 @@ class _McpHealthHistorySheet extends StatelessWidget {
           context,
           zh: '已将最近 ${probes.length} 条探测记录以 $formatLabel 格式复制到剪贴板',
           en: 'Copied ${probes.length} recent probes as $formatLabel to clipboard',
+          zhHant: '已將最近 ${probes.length} 條探測記錄以 $formatLabel 格式複製到剪貼簿',
+          fr: '${probes.length} sondes récentes copiées en $formatLabel dans le presse-papiers',
+          de: '${probes.length} aktuelle Prüfungen als $formatLabel in die Zwischenablage kopiert',
+          ja: '直近 ${probes.length} 件のプローブ記録を $formatLabel としてクリップボードにコピーしました',
         ),
       ),
     );
@@ -3642,6 +3717,10 @@ class _McpHealthProbeTile extends StatelessWidget {
             context,
             zh: '耗时 ${probe.latencyMs} ms',
             en: '${probe.latencyMs} ms',
+            zhHant: '耗時 ${probe.latencyMs} ms',
+            fr: '${probe.latencyMs} ms',
+            de: '${probe.latencyMs} ms',
+            ja: '${probe.latencyMs} ms',
           )
         : null;
     final statusText = isHealthy
@@ -4391,6 +4470,10 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                         context,
                         zh: '匹配 "${widget.searchKeyword}" 的 Tool',
                         en: 'Tools matching "${widget.searchKeyword}"',
+                        zhHant: '匹配 "${widget.searchKeyword}" 的 Tool',
+                        fr: 'Tools correspondant à "${widget.searchKeyword}"',
+                        de: 'Tools passend zu "${widget.searchKeyword}"',
+                        ja: '"${widget.searchKeyword}" に一致する Tool',
                       ),
                 style: theme.textTheme.titleMedium,
               ),
@@ -4469,6 +4552,10 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                           context,
                           zh: '还有 $hiddenToolCount 个',
                           en: '+$hiddenToolCount more',
+                          zhHant: '還有 $hiddenToolCount 個',
+                          fr: '+$hiddenToolCount autres',
+                          de: '+$hiddenToolCount weitere',
+                          ja: 'ほか $hiddenToolCount 件',
                         ),
                       ),
                     ),
@@ -4851,6 +4938,10 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
             context,
             zh: '第 ${index + 1} 个 Header 的名称和值都不能为空',
             en: 'Header ${index + 1} must include both name and value',
+            zhHant: '第 ${index + 1} 個 Header 的名稱和值都不能為空',
+            fr: 'L’en-tête ${index + 1} doit inclure un nom et une valeur',
+            de: 'Header ${index + 1} muss sowohl Name als auch Wert enthalten',
+            ja: 'ヘッダー ${index + 1} には名前と値の両方が必要です',
           ),
         );
       }
@@ -4862,6 +4953,10 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
             context,
             zh: '第 ${index + 1} 个 Header 名称重复',
             en: 'Header ${index + 1} uses a duplicate name',
+            zhHant: '第 ${index + 1} 個 Header 名稱重複',
+            fr: 'L’en-tête ${index + 1} utilise un nom en double',
+            de: 'Header ${index + 1} verwendet einen doppelten Namen',
+            ja: 'ヘッダー ${index + 1} の名前が重複しています',
           ),
         );
       }
@@ -5105,6 +5200,10 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                       context,
                       zh: '${headers.length} 个',
                       en: '${headers.length}',
+                      zhHant: '${headers.length} 個',
+                      fr: '${headers.length}',
+                      de: '${headers.length}',
+                      ja: '${headers.length} 件',
                     ),
                   ),
               ],
@@ -6502,6 +6601,10 @@ String _schemaSummary(
       context,
       zh: '${fields.length} 个字段',
       en: '${fields.length} fields',
+      zhHant: '${fields.length} 個欄位',
+      fr: '${fields.length} champs',
+      de: '${fields.length} Felder',
+      ja: '${fields.length} 個のフィールド',
     );
   }
   final type = _schemaType(rawSchema).toLowerCase();
@@ -6717,9 +6820,850 @@ String _localizedText(
   BuildContext context, {
   required String zh,
   required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
 }) {
-  return openHandLocalizedText(context, zh: zh, en: en);
+  final fallback = _mcpLocalizedFallbacks[en];
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant ?? fallback?.zhHant,
+    fr: fr ?? fallback?.fr,
+    de: de ?? fallback?.de,
+    ja: ja ?? fallback?.ja,
+  );
 }
+
+class _McpLocalizedFallback {
+  const _McpLocalizedFallback({
+    required this.zhHant,
+    required this.fr,
+    required this.de,
+    required this.ja,
+  });
+
+  final String zhHant;
+  final String fr;
+  final String de;
+  final String ja;
+}
+
+const Map<String, _McpLocalizedFallback>
+_mcpLocalizedFallbacks = <String, _McpLocalizedFallback>{
+  'Export snapshot': _McpLocalizedFallback(
+    zhHant: '匯出快照',
+    fr: 'Exporter l’instantané',
+    de: 'Snapshot exportieren',
+    ja: 'スナップショットを書き出し',
+  ),
+  'Probe Details': _McpLocalizedFallback(
+    zhHant: '探測詳情',
+    fr: 'Détails de la sonde',
+    de: 'Prüfdetails',
+    ja: 'プローブ詳細',
+  ),
+  'This MCP needs a concrete package name or URL first.': _McpLocalizedFallback(
+    zhHant: '該 MCP 需要先按服務說明填寫套件名稱或地址。',
+    fr: 'Ce MCP nécessite d’abord un nom de paquet ou une URL concret.',
+    de: 'Für dieses MCP muss zuerst ein konkreter Paketname oder eine URL eingetragen werden.',
+    ja: 'この MCP には先に具体的なパッケージ名または URL が必要です。',
+  ),
+  'Export snapshot (JSON)': _McpLocalizedFallback(
+    zhHant: '匯出快照 (JSON)',
+    fr: 'Exporter l’instantané (JSON)',
+    de: 'Snapshot exportieren (JSON)',
+    ja: 'スナップショットを書き出し (JSON)',
+  ),
+  'Export snapshot (CSV)': _McpLocalizedFallback(
+    zhHant: '匯出快照 (CSV)',
+    fr: 'Exporter l’instantané (CSV)',
+    de: 'Snapshot exportieren (CSV)',
+    ja: 'スナップショットを書き出し (CSV)',
+  ),
+  'Register': _McpLocalizedFallback(
+    zhHant: '註冊服務',
+    fr: 'Enregistrer',
+    de: 'Registrieren',
+    ja: '登録',
+  ),
+  'Configure': _McpLocalizedFallback(
+    zhHant: '需配置',
+    fr: 'À configurer',
+    de: 'Konfigurieren',
+    ja: '設定が必要',
+  ),
+  'Request Headers': _McpLocalizedFallback(
+    zhHant: '請求 Header',
+    fr: 'En-têtes de requête',
+    de: 'Request-Header',
+    ja: 'リクエストヘッダー',
+  ),
+  'Manage headers as key-value rows for HTTP / SSE requests.': _McpLocalizedFallback(
+    zhHant: '按鍵值對逐項維護，會隨 HTTP / SSE 請求一起發送。',
+    fr: 'Gérez les en-têtes en lignes clé-valeur pour les requêtes HTTP / SSE.',
+    de: 'Header als Schlüssel-Wert-Zeilen für HTTP- / SSE-Anfragen verwalten.',
+    ja: 'HTTP / SSE リクエストに送るヘッダーをキーと値で管理します。',
+  ),
+  'Add Header': _McpLocalizedFallback(
+    zhHant: '新增 Header',
+    fr: 'Ajouter un en-tête',
+    de: 'Header hinzufügen',
+    ja: 'ヘッダーを追加',
+  ),
+  'Header Name': _McpLocalizedFallback(
+    zhHant: 'Header 名稱',
+    fr: 'Nom de l’en-tête',
+    de: 'Header-Name',
+    ja: 'ヘッダー名',
+  ),
+  'e.g. Authorization': _McpLocalizedFallback(
+    zhHant: '例如 Authorization',
+    fr: 'p. ex. Authorization',
+    de: 'z. B. Authorization',
+    ja: '例: Authorization',
+  ),
+  'Header Value': _McpLocalizedFallback(
+    zhHant: 'Header 值',
+    fr: 'Valeur de l’en-tête',
+    de: 'Header-Wert',
+    ja: 'ヘッダー値',
+  ),
+  'e.g. Bearer token': _McpLocalizedFallback(
+    zhHant: '例如 Bearer token',
+    fr: 'p. ex. Bearer token',
+    de: 'z. B. Bearer token',
+    ja: '例: Bearer token',
+  ),
+  'Remove Header': _McpLocalizedFallback(
+    zhHant: '刪除 Header',
+    fr: 'Supprimer l’en-tête',
+    de: 'Header entfernen',
+    ja: 'ヘッダーを削除',
+  ),
+  'Health Check': _McpLocalizedFallback(
+    zhHant: '健康檢測',
+    fr: 'Contrôle de santé',
+    de: 'Integritätsprüfung',
+    ja: 'ヘルスチェック',
+  ),
+  'Refresh Tool Scan': _McpLocalizedFallback(
+    zhHant: '重新整理 Tool 檢測',
+    fr: 'Actualiser l’analyse des tools',
+    de: 'Tool-Scan aktualisieren',
+    ja: 'Tool スキャンを更新',
+  ),
+  'Reconnect: re-scan Tools and re-run health check': _McpLocalizedFallback(
+    zhHant: '一鍵重連：重新拉取 Tools 並立即健康複測',
+    fr: 'Reconnecter : rescanner les tools et relancer le contrôle de santé',
+    de: 'Neu verbinden: Tools erneut scannen und Integritätsprüfung wiederholen',
+    ja: '再接続: Tools を再スキャンしてヘルスチェックを再実行',
+  ),
+  'Close search': _McpLocalizedFallback(
+    zhHant: '關閉搜尋',
+    fr: 'Fermer la recherche',
+    de: 'Suche schließen',
+    ja: '検索を閉じる',
+  ),
+  'Search tools': _McpLocalizedFallback(
+    zhHant: '搜尋 Tool',
+    fr: 'Rechercher des tools',
+    de: 'Tools suchen',
+    ja: 'Tools を検索',
+  ),
+  'More actions': _McpLocalizedFallback(
+    zhHant: '更多操作',
+    fr: 'Plus d’actions',
+    de: 'Weitere Aktionen',
+    ja: 'その他の操作',
+  ),
+  'Server details': _McpLocalizedFallback(
+    zhHant: '服務詳情',
+    fr: 'Détails du service',
+    de: 'Dienstdetails',
+    ja: 'サービス詳細',
+  ),
+  'View probe history': _McpLocalizedFallback(
+    zhHant: '查看探測歷史',
+    fr: 'Voir l’historique des sondes',
+    de: 'Prüfverlauf anzeigen',
+    ja: 'プローブ履歴を表示',
+  ),
+  'Starting': _McpLocalizedFallback(
+    zhHant: '進程啟動中',
+    fr: 'Démarrage',
+    de: 'Startet',
+    ja: '起動中',
+  ),
+  'Stopping': _McpLocalizedFallback(
+    zhHant: '進程停止中',
+    fr: 'Arrêt',
+    de: 'Stoppt',
+    ja: '停止中',
+  ),
+  'Process exited': _McpLocalizedFallback(
+    zhHant: '進程異常退出',
+    fr: 'Processus terminé',
+    de: 'Prozess beendet',
+    ja: 'プロセスが終了しました',
+  ),
+  'Scanning the tool list exposed by this MCP server.': _McpLocalizedFallback(
+    zhHant: '正在掃描該 MCP 服務暴露的 Tool 列表。',
+    fr: 'Analyse de la liste des tools exposés par ce serveur MCP.',
+    de: 'Die von diesem MCP-Dienst bereitgestellte Tool-Liste wird gescannt.',
+    ja: 'この MCP サービスが公開する Tool 一覧をスキャンしています。',
+  ),
+  'Bootstrapping…': _McpLocalizedFallback(
+    zhHant: '首啟準備中…',
+    fr: 'Préparation…',
+    de: 'Wird vorbereitet…',
+    ja: '初回準備中…',
+  ),
+  'Scanning Tools': _McpLocalizedFallback(
+    zhHant: '掃描 Tool 中',
+    fr: 'Analyse des tools',
+    de: 'Tools werden gescannt',
+    ja: 'Tools をスキャン中',
+  ),
+  'Type to filter tools…': _McpLocalizedFallback(
+    zhHant: '輸入關鍵字過濾 Tool…',
+    fr: 'Saisissez pour filtrer les tools…',
+    de: 'Zum Filtern der Tools eingeben…',
+    ja: 'キーワードで Tool を絞り込み…',
+  ),
+  'No tools were discovered yet. Try refreshing this service.':
+      _McpLocalizedFallback(
+        zhHant: '暫未發現可用 Tool，可手動重新整理重試。',
+        fr: 'Aucun tool n’a encore été découvert. Essayez d’actualiser ce service.',
+        de: 'Noch keine Tools gefunden. Aktualisieren Sie diesen Dienst erneut.',
+        ja: '利用可能な Tool はまだ見つかっていません。更新して再試行してください。',
+      ),
+  'This service is disabled. Refresh manually to inspect its tools.':
+      _McpLocalizedFallback(
+        zhHant: '服務已禁用，可手動重新整理檢測 Tool 資訊。',
+        fr: 'Ce service est désactivé. Actualisez manuellement pour inspecter ses tools.',
+        de: 'Dieser Dienst ist deaktiviert. Aktualisieren Sie manuell, um seine Tools zu prüfen.',
+        ja: 'このサービスは無効です。手動更新で Tool 情報を確認できます。',
+      ),
+  'Stop service': _McpLocalizedFallback(
+    zhHant: '停止服務',
+    fr: 'Arrêter le service',
+    de: 'Dienst stoppen',
+    ja: 'サービスを停止',
+  ),
+  'Start service': _McpLocalizedFallback(
+    zhHant: '啟動服務',
+    fr: 'Démarrer le service',
+    de: 'Dienst starten',
+    ja: 'サービスを起動',
+  ),
+  'View logs': _McpLocalizedFallback(
+    zhHant: '查看日誌',
+    fr: 'Voir les journaux',
+    de: 'Logs anzeigen',
+    ja: 'ログを表示',
+  ),
+  'Runtime details': _McpLocalizedFallback(
+    zhHant: '執行期詳情',
+    fr: 'Détails d’exécution',
+    de: 'Laufzeitdetails',
+    ja: 'ランタイム詳細',
+  ),
+  'Dependencies': _McpLocalizedFallback(
+    zhHant: '依賴管理',
+    fr: 'Dépendances',
+    de: 'Abhängigkeiten',
+    ja: '依存関係',
+  ),
+  'Edit configuration': _McpLocalizedFallback(
+    zhHant: '跳轉到編輯',
+    fr: 'Modifier la configuration',
+    de: 'Konfiguration bearbeiten',
+    ja: '設定を編集',
+  ),
+  'Edit': _McpLocalizedFallback(
+    zhHant: '編輯',
+    fr: 'Modifier',
+    de: 'Bearbeiten',
+    ja: '編集',
+  ),
+  'Configuration': _McpLocalizedFallback(
+    zhHant: '配置摘要',
+    fr: 'Configuration',
+    de: 'Konfiguration',
+    ja: '設定',
+  ),
+  'Protocol': _McpLocalizedFallback(
+    zhHant: '協議類型',
+    fr: 'Protocole',
+    de: 'Protokoll',
+    ja: 'プロトコル',
+  ),
+  'Enabled': _McpLocalizedFallback(
+    zhHant: '啟用狀態',
+    fr: 'Activé',
+    de: 'Aktiviert',
+    ja: '有効状態',
+  ),
+  'Yes': _McpLocalizedFallback(zhHant: '已啟用', fr: 'Oui', de: 'Ja', ja: 'はい'),
+  'No': _McpLocalizedFallback(zhHant: '已停用', fr: 'Non', de: 'Nein', ja: 'いいえ'),
+  'Endpoint': _McpLocalizedFallback(
+    zhHant: '入口',
+    fr: 'Point d’accès',
+    de: 'Endpunkt',
+    ja: 'エンドポイント',
+  ),
+  'Headers': _McpLocalizedFallback(
+    zhHant: 'Header 數量',
+    fr: 'En-têtes',
+    de: 'Header',
+    ja: 'ヘッダー',
+  ),
+  'Health': _McpLocalizedFallback(
+    zhHant: '健康統計',
+    fr: 'Santé',
+    de: 'Integrität',
+    ja: 'ヘルス',
+  ),
+  'Status': _McpLocalizedFallback(
+    zhHant: '當前狀態',
+    fr: 'État',
+    de: 'Status',
+    ja: '状態',
+  ),
+  'Healthy': _McpLocalizedFallback(
+    zhHant: '健康',
+    fr: 'Sain',
+    de: 'Fehlerfrei',
+    ja: '正常',
+  ),
+  'Unhealthy': _McpLocalizedFallback(
+    zhHant: '不健康',
+    fr: 'Dégradé',
+    de: 'Fehlerhaft',
+    ja: '異常',
+  ),
+  'Checking': _McpLocalizedFallback(
+    zhHant: '檢測中',
+    fr: 'Vérification',
+    de: 'Prüfung',
+    ja: '確認中',
+  ),
+  'Idle': _McpLocalizedFallback(
+    zhHant: '尚未探測',
+    fr: 'Inactif',
+    de: 'Inaktiv',
+    ja: '未実行',
+  ),
+  'Last success': _McpLocalizedFallback(
+    zhHant: '最近成功',
+    fr: 'Dernier succès',
+    de: 'Letzter Erfolg',
+    ja: '直近の成功',
+  ),
+  'Last failure': _McpLocalizedFallback(
+    zhHant: '最近失敗',
+    fr: 'Dernier échec',
+    de: 'Letzter Fehler',
+    ja: '直近の失敗',
+  ),
+  'Consecutive fails': _McpLocalizedFallback(
+    zhHant: '連續失敗',
+    fr: 'Échecs consécutifs',
+    de: 'Fehler in Folge',
+    ja: '連続失敗',
+  ),
+  'Recent success rate': _McpLocalizedFallback(
+    zhHant: '近期成功率',
+    fr: 'Taux de succès récent',
+    de: 'Aktuelle Erfolgsrate',
+    ja: '直近の成功率',
+  ),
+  'Average latency': _McpLocalizedFallback(
+    zhHant: '平均耗時',
+    fr: 'Latence moyenne',
+    de: 'Durchschnittslatenz',
+    ja: '平均レイテンシ',
+  ),
+  'Sample size': _McpLocalizedFallback(
+    zhHant: '記錄樣本',
+    fr: 'Taille d’échantillon',
+    de: 'Stichprobengröße',
+    ja: 'サンプル数',
+  ),
+  'Tool catalog': _McpLocalizedFallback(
+    zhHant: '工具目錄',
+    fr: 'Catalogue des tools',
+    de: 'Tool-Katalog',
+    ja: 'Tool カタログ',
+  ),
+  'Loading': _McpLocalizedFallback(
+    zhHant: '載入中',
+    fr: 'Chargement',
+    de: 'Lädt',
+    ja: '読み込み中',
+  ),
+  'Failed': _McpLocalizedFallback(
+    zhHant: '失敗',
+    fr: 'Échec',
+    de: 'Fehlgeschlagen',
+    ja: '失敗',
+  ),
+  'Loaded': _McpLocalizedFallback(
+    zhHant: '已載入',
+    fr: 'Chargé',
+    de: 'Geladen',
+    ja: '読み込み済み',
+  ),
+  'Tool count': _McpLocalizedFallback(
+    zhHant: 'Tool 數量',
+    fr: 'Nombre de tools',
+    de: 'Tool-Anzahl',
+    ja: 'Tool 数',
+  ),
+  'Last error': _McpLocalizedFallback(
+    zhHant: '最近錯誤',
+    fr: 'Dernière erreur',
+    de: 'Letzter Fehler',
+    ja: '直近のエラー',
+  ),
+  'Probe trend': _McpLocalizedFallback(
+    zhHant: '探測趨勢',
+    fr: 'Tendance des sondes',
+    de: 'Prüftrend',
+    ja: 'プローブ傾向',
+  ),
+  'Healthy (latency)': _McpLocalizedFallback(
+    zhHant: '健康 (耗時)',
+    fr: 'Sain (latence)',
+    de: 'Fehlerfrei (Latenz)',
+    ja: '正常 (レイテンシ)',
+  ),
+  'No latency samples': _McpLocalizedFallback(
+    zhHant: '暫無耗時樣本',
+    fr: 'Aucun échantillon de latence',
+    de: 'Keine Latenzproben',
+    ja: 'レイテンシサンプルなし',
+  ),
+  'Tool preview': _McpLocalizedFallback(
+    zhHant: '工具預覽',
+    fr: 'Aperçu des tools',
+    de: 'Tool-Vorschau',
+    ja: 'Tool プレビュー',
+  ),
+  'Input schema': _McpLocalizedFallback(
+    zhHant: '入參 Schema',
+    fr: 'Schéma d’entrée',
+    de: 'Eingabeschema',
+    ja: '入力スキーマ',
+  ),
+  'Output schema': _McpLocalizedFallback(
+    zhHant: '出參 Schema',
+    fr: 'Schéma de sortie',
+    de: 'Ausgabeschema',
+    ja: '出力スキーマ',
+  ),
+  'Copy': _McpLocalizedFallback(
+    zhHant: '複製',
+    fr: 'Copier',
+    de: 'Kopieren',
+    ja: 'コピー',
+  ),
+  'Schema copied': _McpLocalizedFallback(
+    zhHant: '已複製 Schema',
+    fr: 'Schéma copié',
+    de: 'Schema kopiert',
+    ja: 'スキーマをコピーしました',
+  ),
+  'Recent probe history': _McpLocalizedFallback(
+    zhHant: '最近探測歷史',
+    fr: 'Historique récent des sondes',
+    de: 'Aktueller Prüfverlauf',
+    ja: '直近のプローブ履歴',
+  ),
+  'Copy probe history': _McpLocalizedFallback(
+    zhHant: '複製探測歷史',
+    fr: 'Copier l’historique des sondes',
+    de: 'Prüfverlauf kopieren',
+    ja: 'プローブ履歴をコピー',
+  ),
+  'Copy as Markdown': _McpLocalizedFallback(
+    zhHant: '複製為 Markdown',
+    fr: 'Copier en Markdown',
+    de: 'Als Markdown kopieren',
+    ja: 'Markdown としてコピー',
+  ),
+  'Copy as JSON': _McpLocalizedFallback(
+    zhHant: '複製為 JSON',
+    fr: 'Copier en JSON',
+    de: 'Als JSON kopieren',
+    ja: 'JSON としてコピー',
+  ),
+  'Copy as CSV': _McpLocalizedFallback(
+    zhHant: '複製為 CSV',
+    fr: 'Copier en CSV',
+    de: 'Als CSV kopieren',
+    ja: 'CSV としてコピー',
+  ),
+  'No probes yet. Run a health check or reconnect to populate this list.':
+      _McpLocalizedFallback(
+        zhHant: '尚無探測記錄，請先發起一次健康檢測或一鍵重連。',
+        fr: 'Aucune sonde pour l’instant. Lancez un contrôle de santé ou reconnectez pour remplir cette liste.',
+        de: 'Noch keine Prüfungen. Führen Sie eine Integritätsprüfung aus oder verbinden Sie neu.',
+        ja: 'プローブ記録はまだありません。ヘルスチェックまたは再接続を実行してください。',
+      ),
+  'Click to Disable': _McpLocalizedFallback(
+    zhHant: '點擊停用',
+    fr: 'Cliquer pour désactiver',
+    de: 'Zum Deaktivieren klicken',
+    ja: 'クリックして無効化',
+  ),
+  'Click to Enable': _McpLocalizedFallback(
+    zhHant: '點擊啟用',
+    fr: 'Cliquer pour activer',
+    de: 'Zum Aktivieren klicken',
+    ja: 'クリックして有効化',
+  ),
+  'Available Tools': _McpLocalizedFallback(
+    zhHant: '可用 Tools',
+    fr: 'Tools disponibles',
+    de: 'Verfügbare Tools',
+    ja: '利用可能な Tools',
+  ),
+  'Collapse': _McpLocalizedFallback(
+    zhHant: '收起',
+    fr: 'Réduire',
+    de: 'Einklappen',
+    ja: '折りたたむ',
+  ),
+  'Expand': _McpLocalizedFallback(
+    zhHant: '展開',
+    fr: 'Développer',
+    de: 'Erweitern',
+    ja: '展開',
+  ),
+  'No matching tools': _McpLocalizedFallback(
+    zhHant: '沒有匹配的 Tool',
+    fr: 'Aucun tool correspondant',
+    de: 'Keine passenden Tools',
+    ja: '一致する Tool はありません',
+  ),
+  'Debug Tool': _McpLocalizedFallback(
+    zhHant: '調試 Tool',
+    fr: 'Déboguer le tool',
+    de: 'Tool debuggen',
+    ja: 'Tool をデバッグ',
+  ),
+  'Input Metadata': _McpLocalizedFallback(
+    zhHant: '入參資訊',
+    fr: 'Métadonnées d’entrée',
+    de: 'Eingabemetadaten',
+    ja: '入力メタデータ',
+  ),
+  'Output Metadata': _McpLocalizedFallback(
+    zhHant: '返回資訊',
+    fr: 'Métadonnées de sortie',
+    de: 'Ausgabemetadaten',
+    ja: '出力メタデータ',
+  ),
+  'Execution': _McpLocalizedFallback(
+    zhHant: '執行能力',
+    fr: 'Exécution',
+    de: 'Ausführung',
+    ja: '実行',
+  ),
+  'Parameters': _McpLocalizedFallback(
+    zhHant: '入參',
+    fr: 'Paramètres',
+    de: 'Parameter',
+    ja: 'パラメータ',
+  ),
+  'This tool does not declare structured input fields.': _McpLocalizedFallback(
+    zhHant: '該 Tool 未聲明結構化入參欄位。',
+    fr: 'Ce tool ne déclare aucun champ d’entrée structuré.',
+    de: 'Dieses Tool deklariert keine strukturierten Eingabefelder.',
+    ja: 'この Tool は構造化入力フィールドを宣言していません。',
+  ),
+  'Return Description': _McpLocalizedFallback(
+    zhHant: '返回說明',
+    fr: 'Description du retour',
+    de: 'Rückgabebeschreibung',
+    ja: '戻り値の説明',
+  ),
+  'Derived from the tool description': _McpLocalizedFallback(
+    zhHant: '基於 Tool 描述推斷',
+    fr: 'Déduit de la description du tool',
+    de: 'Aus der Tool-Beschreibung abgeleitet',
+    ja: 'Tool の説明から推定',
+  ),
+  'Return Value': _McpLocalizedFallback(
+    zhHant: '返回值',
+    fr: 'Valeur de retour',
+    de: 'Rückgabewert',
+    ja: '戻り値',
+  ),
+  'This tool does not declare a structured output schema.':
+      _McpLocalizedFallback(
+        zhHant: '該 Tool 未聲明結構化返回值 Schema。',
+        fr: 'Ce tool ne déclare aucun schéma de sortie structuré.',
+        de: 'Dieses Tool deklariert kein strukturiertes Ausgabeschema.',
+        ja: 'この Tool は構造化出力スキーマを宣言していません。',
+      ),
+  'This tool does not declare an output schema.': _McpLocalizedFallback(
+    zhHant: '該 Tool 未聲明返回值 Schema。',
+    fr: 'Ce tool ne déclare aucun schéma de sortie.',
+    de: 'Dieses Tool deklariert kein Ausgabeschema.',
+    ja: 'この Tool は出力スキーマを宣言していません。',
+  ),
+  'The output schema does not expose structured fields.': _McpLocalizedFallback(
+    zhHant: '返回值 Schema 未提供結構化欄位。',
+    fr: 'Le schéma de sortie n’expose aucun champ structuré.',
+    de: 'Das Ausgabeschema stellt keine strukturierten Felder bereit.',
+    ja: '出力スキーマに構造化フィールドがありません。',
+  ),
+  'Raw Server Metadata': _McpLocalizedFallback(
+    zhHant: '服務端原始元資料',
+    fr: 'Métadonnées serveur brutes',
+    de: 'Rohe Servermetadaten',
+    ja: 'サーバーの生メタデータ',
+  ),
+  'Arguments must be a valid JSON object.': _McpLocalizedFallback(
+    zhHant: '參數必須是合法的 JSON 物件。',
+    fr: 'Les arguments doivent être un objet JSON valide.',
+    de: 'Argumente müssen ein gültiges JSON-Objekt sein.',
+    ja: '引数は有効な JSON オブジェクトである必要があります。',
+  ),
+  'None': _McpLocalizedFallback(
+    zhHant: '未配置',
+    fr: 'Aucun',
+    de: 'Keine',
+    ja: 'なし',
+  ),
+  'Use server headers': _McpLocalizedFallback(
+    zhHant: '複用服務 Header',
+    fr: 'Utiliser les en-têtes du service',
+    de: 'Dienst-Header verwenden',
+    ja: 'サービスヘッダーを使用',
+  ),
+  'Reuse server headers or configure custom headers for debugging.':
+      _McpLocalizedFallback(
+        zhHant: '可複用 MCP 服務配置的 Header，或手動配置調試專用 Header。',
+        fr: 'Réutilisez les en-têtes du service MCP ou configurez des en-têtes dédiés au débogage.',
+        de: 'MCP-Dienst-Header wiederverwenden oder eigene Header für das Debugging konfigurieren.',
+        ja: 'MCP サービス設定のヘッダーを再利用するか、デバッグ専用ヘッダーを手動設定します。',
+      ),
+  'Custom Headers': _McpLocalizedFallback(
+    zhHant: '自訂 Header',
+    fr: 'En-têtes personnalisés',
+    de: 'Benutzerdefinierte Header',
+    ja: 'カスタムヘッダー',
+  ),
+  'Add': _McpLocalizedFallback(
+    zhHant: '新增',
+    fr: 'Ajouter',
+    de: 'Hinzufügen',
+    ja: '追加',
+  ),
+  'Name': _McpLocalizedFallback(zhHant: '名稱', fr: 'Nom', de: 'Name', ja: '名前'),
+  'Value': _McpLocalizedFallback(
+    zhHant: '值',
+    fr: 'Valeur',
+    de: 'Wert',
+    ja: '値',
+  ),
+  'Remove': _McpLocalizedFallback(
+    zhHant: '刪除',
+    fr: 'Supprimer',
+    de: 'Entfernen',
+    ja: '削除',
+  ),
+  'Debug MCP Tool': _McpLocalizedFallback(
+    zhHant: '調試 MCP Tool',
+    fr: 'Déboguer le tool MCP',
+    de: 'MCP-Tool debuggen',
+    ja: 'MCP Tool をデバッグ',
+  ),
+  'No tools are available for debugging yet. Refresh the tool list first.':
+      _McpLocalizedFallback(
+        zhHant: '目前服務還沒有可調試的 Tool，請先重新整理 Tool 列表。',
+        fr: 'Aucun tool n’est encore disponible pour le débogage. Actualisez d’abord la liste.',
+        de: 'Noch keine Tools zum Debuggen verfügbar. Aktualisieren Sie zuerst die Tool-Liste.',
+        ja: 'デバッグ可能な Tool はまだありません。先に Tool 一覧を更新してください。',
+      ),
+  'Tool': _McpLocalizedFallback(
+    zhHant: '選擇 Tool',
+    fr: 'Tool',
+    de: 'Tool',
+    ja: 'Tool',
+  ),
+  'Arguments JSON': _McpLocalizedFallback(
+    zhHant: '參數 JSON',
+    fr: 'Arguments JSON',
+    de: 'Argumente JSON',
+    ja: '引数 JSON',
+  ),
+  'Enter a JSON object, for example {"page": 1}': _McpLocalizedFallback(
+    zhHant: '請輸入 JSON 物件，例如 {"page": 1}',
+    fr: 'Saisissez un objet JSON, par exemple {"page": 1}',
+    de: 'JSON-Objekt eingeben, z. B. {"page": 1}',
+    ja: 'JSON オブジェクトを入力します。例: {"page": 1}',
+  ),
+  'Running': _McpLocalizedFallback(
+    zhHant: '執行中',
+    fr: 'Exécution',
+    de: 'Läuft',
+    ja: '実行中',
+  ),
+  'Run Tool': _McpLocalizedFallback(
+    zhHant: '執行 Tool',
+    fr: 'Exécuter le tool',
+    de: 'Tool ausführen',
+    ja: 'Tool を実行',
+  ),
+  'Reset Sample': _McpLocalizedFallback(
+    zhHant: '恢復範例參數',
+    fr: 'Réinitialiser l’exemple',
+    de: 'Beispiel zurücksetzen',
+    ja: 'サンプルをリセット',
+  ),
+  'Parameter Reference': _McpLocalizedFallback(
+    zhHant: '參數參考',
+    fr: 'Référence des paramètres',
+    de: 'Parameterreferenz',
+    ja: 'パラメータ参照',
+  ),
+  'Result': _McpLocalizedFallback(
+    zhHant: '執行結果',
+    fr: 'Résultat',
+    de: 'Ergebnis',
+    ja: '結果',
+  ),
+  'The raw tool result will appear here after execution.':
+      _McpLocalizedFallback(
+        zhHant: '執行後會在這裡展示原始返回結果。',
+        fr: 'Le résultat brut du tool s’affichera ici après l’exécution.',
+        de: 'Das rohe Tool-Ergebnis wird nach der Ausführung hier angezeigt.',
+        ja: '実行後、Tool の生の戻り値がここに表示されます。',
+      ),
+  'Server Returned Error': _McpLocalizedFallback(
+    zhHant: '服務端返回錯誤',
+    fr: 'Erreur retournée par le serveur',
+    de: 'Server gab einen Fehler zurück',
+    ja: 'サーバーがエラーを返しました',
+  ),
+  'Succeeded': _McpLocalizedFallback(
+    zhHant: '執行成功',
+    fr: 'Réussi',
+    de: 'Erfolgreich',
+    ja: '成功',
+  ),
+  'Waiting for the MCP service to return a result...': _McpLocalizedFallback(
+    zhHant: '正在等待 MCP 服務返回結果...',
+    fr: 'En attente du résultat du service MCP...',
+    de: 'Warten auf ein Ergebnis des MCP-Dienstes...',
+    ja: 'MCP サービスの結果を待っています...',
+  ),
+  'Required': _McpLocalizedFallback(
+    zhHant: '必填',
+    fr: 'Obligatoire',
+    de: 'Erforderlich',
+    ja: '必須',
+  ),
+  'Described': _McpLocalizedFallback(
+    zhHant: '已描述',
+    fr: 'Décrit',
+    de: 'Beschrieben',
+    ja: '説明あり',
+  ),
+  'Unspecified': _McpLocalizedFallback(
+    zhHant: '未聲明',
+    fr: 'Non spécifié',
+    de: 'Nicht angegeben',
+    ja: '未指定',
+  ),
+  'Array': _McpLocalizedFallback(
+    zhHant: '陣列',
+    fr: 'Tableau',
+    de: 'Array',
+    ja: '配列',
+  ),
+  'Text': _McpLocalizedFallback(
+    zhHant: '文字',
+    fr: 'Texte',
+    de: 'Text',
+    ja: 'テキスト',
+  ),
+  'Number': _McpLocalizedFallback(
+    zhHant: '數字',
+    fr: 'Nombre',
+    de: 'Zahl',
+    ja: '数値',
+  ),
+  'Boolean': _McpLocalizedFallback(
+    zhHant: '布林值',
+    fr: 'Booléen',
+    de: 'Boolesch',
+    ja: 'ブール値',
+  ),
+  'Enum': _McpLocalizedFallback(
+    zhHant: '枚舉',
+    fr: 'Énumération',
+    de: 'Enum',
+    ja: '列挙',
+  ),
+  'Raw Metadata': _McpLocalizedFallback(
+    zhHant: '原始元資料',
+    fr: 'Métadonnées brutes',
+    de: 'Rohmetadaten',
+    ja: '生メタデータ',
+  ),
+  'Default': _McpLocalizedFallback(
+    zhHant: '預設',
+    fr: 'Par défaut',
+    de: 'Standard',
+    ja: 'デフォルト',
+  ),
+  'Checking Health': _McpLocalizedFallback(
+    zhHant: '健康檢測中',
+    fr: 'Contrôle de santé',
+    de: 'Integrität wird geprüft',
+    ja: 'ヘルス確認中',
+  ),
+  'Unchecked': _McpLocalizedFallback(
+    zhHant: '未檢測',
+    fr: 'Non vérifié',
+    de: 'Nicht geprüft',
+    ja: '未確認',
+  ),
+  'Service Disabled': _McpLocalizedFallback(
+    zhHant: '服務已禁用',
+    fr: 'Service désactivé',
+    de: 'Dienst deaktiviert',
+    ja: 'サービス無効',
+  ),
+  'Health Not Checked': _McpLocalizedFallback(
+    zhHant: '尚未檢測健康狀態',
+    fr: 'Santé non vérifiée',
+    de: 'Integrität nicht geprüft',
+    ja: 'ヘルス未確認',
+  ),
+  'Service Healthy': _McpLocalizedFallback(
+    zhHant: '服務健康',
+    fr: 'Service sain',
+    de: 'Dienst fehlerfrei',
+    ja: 'サービス正常',
+  ),
+  'Service Unhealthy': _McpLocalizedFallback(
+    zhHant: '服務異常',
+    fr: 'Service dégradé',
+    de: 'Dienst fehlerhaft',
+    ja: 'サービス異常',
+  ),
+};
 
 /// 把 UTC 时间戳渲染成「12 秒前 / 3 分钟前 / 4 小时前」形式。
 String _formatRelativePast(BuildContext context, DateTime utc) {

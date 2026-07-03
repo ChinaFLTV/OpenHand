@@ -1719,6 +1719,71 @@
   "mcpServerDeleted": "MCP service deleted.",
   "mcpDeleteConfirmTitle": "Delete MCP Service",
   "mcpDeleteConfirmBody": "Delete this MCP service configuration?",
+  "mcpDeleteAlsoUninstallPackage": "Also uninstall package ({packageName})",
+  "@mcpDeleteAlsoUninstallPackage": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDeleteAlsoUninstallPackageBody": "Will uninstall the global package and clean the isolated cache.",
+  "mcpDependencyCleanedUp": "{packageName} dependency cleaned up",
+  "@mcpDependencyCleanedUp": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDependencyCleanupFailed": "{packageName} cleanup failed: {error}",
+  "@mcpDependencyCleanupFailed": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDependencyCleanupError": "{packageName} cleanup error: {error}",
+  "@mcpDependencyCleanupError": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateSessionManaged": "session-managed",
+  "mcpTemplateSessionOn": "session on · {status}",
+  "@mcpTemplateSessionOn": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateSessionOff": "session off · {status}",
+  "@mcpTemplateSessionOff": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateNotRegistered": "not registered",
+  "mcpTemplateRuntimeEnabledCount": "{count} sessions on",
+  "@mcpTemplateRuntimeEnabledCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "mcpDisabledTitle": "MCP services are currently disabled",
   "mcpDisabledBody": "You can still manage service configs here. To enable them at runtime, turn the MCP switch on in Settings > MCP.",
   "mcpTransportStreamableHttp": "Streamable HTTP",

@@ -1719,6 +1719,71 @@
   "mcpServerDeleted": "MCP 服务已删除",
   "mcpDeleteConfirmTitle": "删除 MCP 服务",
   "mcpDeleteConfirmBody": "确认删除这条 MCP 服务配置吗？",
+  "mcpDeleteAlsoUninstallPackage": "同时卸载底层包（{packageName}）",
+  "@mcpDeleteAlsoUninstallPackage": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDeleteAlsoUninstallPackageBody": "将卸载全局包并清理隔离缓存。",
+  "mcpDependencyCleanedUp": "{packageName} 依赖已清理",
+  "@mcpDependencyCleanedUp": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDependencyCleanupFailed": "{packageName} 清理失败：{error}",
+  "@mcpDependencyCleanupFailed": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpDependencyCleanupError": "{packageName} 清理异常：{error}",
+  "@mcpDependencyCleanupError": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateSessionManaged": "会话托管",
+  "mcpTemplateSessionOn": "会话启用 · {status}",
+  "@mcpTemplateSessionOn": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateSessionOff": "会话关闭 · {status}",
+  "@mcpTemplateSessionOff": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "mcpTemplateNotRegistered": "未注册",
+  "mcpTemplateRuntimeEnabledCount": "会话启用 {count}",
+  "@mcpTemplateRuntimeEnabledCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "mcpDisabledTitle": "MCP 服务当前已关闭",
   "mcpDisabledBody": "你仍然可以在这里维护服务配置；如需在运行时启用，请到设置页 MCP 板块打开 MCP 开关。",
   "mcpTransportStreamableHttp": "Streamable HTTP",

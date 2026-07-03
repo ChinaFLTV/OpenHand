@@ -3123,6 +3123,50 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpDeleteConfirmBody => '确认删除这条 MCP 服务配置吗？';
 
   @override
+  String mcpDeleteAlsoUninstallPackage(String packageName) {
+    return '同时卸载底层包（$packageName）';
+  }
+
+  @override
+  String get mcpDeleteAlsoUninstallPackageBody => '将卸载全局包并清理隔离缓存。';
+
+  @override
+  String mcpDependencyCleanedUp(String packageName) {
+    return '$packageName 依赖已清理';
+  }
+
+  @override
+  String mcpDependencyCleanupFailed(String packageName, String error) {
+    return '$packageName 清理失败：$error';
+  }
+
+  @override
+  String mcpDependencyCleanupError(String packageName, String error) {
+    return '$packageName 清理异常：$error';
+  }
+
+  @override
+  String get mcpTemplateSessionManaged => '会话托管';
+
+  @override
+  String mcpTemplateSessionOn(String status) {
+    return '会话启用 · $status';
+  }
+
+  @override
+  String mcpTemplateSessionOff(String status) {
+    return '会话关闭 · $status';
+  }
+
+  @override
+  String get mcpTemplateNotRegistered => '未注册';
+
+  @override
+  String mcpTemplateRuntimeEnabledCount(int count) {
+    return '会话启用 $count';
+  }
+
+  @override
   String get mcpDisabledTitle => 'MCP 服务当前已关闭';
 
   @override
@@ -14163,6 +14207,50 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get mcpDeleteConfirmBody => '确认删除这条 MCP 服务配置吗？';
+
+  @override
+  String mcpDeleteAlsoUninstallPackage(String packageName) {
+    return '同时卸载底层包（$packageName）';
+  }
+
+  @override
+  String get mcpDeleteAlsoUninstallPackageBody => '将卸载全局包并清理隔离缓存。';
+
+  @override
+  String mcpDependencyCleanedUp(String packageName) {
+    return '$packageName 依赖已清理';
+  }
+
+  @override
+  String mcpDependencyCleanupFailed(String packageName, String error) {
+    return '$packageName 清理失败：$error';
+  }
+
+  @override
+  String mcpDependencyCleanupError(String packageName, String error) {
+    return '$packageName 清理异常：$error';
+  }
+
+  @override
+  String get mcpTemplateSessionManaged => '会话托管';
+
+  @override
+  String mcpTemplateSessionOn(String status) {
+    return '会话启用 · $status';
+  }
+
+  @override
+  String mcpTemplateSessionOff(String status) {
+    return '会话关闭 · $status';
+  }
+
+  @override
+  String get mcpTemplateNotRegistered => '未注册';
+
+  @override
+  String mcpTemplateRuntimeEnabledCount(int count) {
+    return '会话启用 $count';
+  }
 
   @override
   String get mcpDisabledTitle => 'MCP 服务当前已关闭';
@@ -25206,6 +25294,50 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mcpDeleteConfirmBody => '確認刪除這條 MCP 服務配置嗎？';
+
+  @override
+  String mcpDeleteAlsoUninstallPackage(String packageName) {
+    return '同時卸載底層套件（$packageName）';
+  }
+
+  @override
+  String get mcpDeleteAlsoUninstallPackageBody => '將卸載全域套件並清理隔離快取。';
+
+  @override
+  String mcpDependencyCleanedUp(String packageName) {
+    return '$packageName 依賴已清理';
+  }
+
+  @override
+  String mcpDependencyCleanupFailed(String packageName, String error) {
+    return '$packageName 清理失敗：$error';
+  }
+
+  @override
+  String mcpDependencyCleanupError(String packageName, String error) {
+    return '$packageName 清理異常：$error';
+  }
+
+  @override
+  String get mcpTemplateSessionManaged => '會話託管';
+
+  @override
+  String mcpTemplateSessionOn(String status) {
+    return '會話啟用 · $status';
+  }
+
+  @override
+  String mcpTemplateSessionOff(String status) {
+    return '會話關閉 · $status';
+  }
+
+  @override
+  String get mcpTemplateNotRegistered => '未註冊';
+
+  @override
+  String mcpTemplateRuntimeEnabledCount(int count) {
+    return '會話啟用 $count';
+  }
 
   @override
   String get mcpDisabledTitle => 'MCP 服務目前已關閉';
