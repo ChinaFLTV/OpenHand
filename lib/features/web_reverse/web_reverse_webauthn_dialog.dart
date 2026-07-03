@@ -22,6 +22,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_select_button.dart';
 import 'web_reverse_session_controller.dart';
@@ -185,10 +186,7 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
       });
       final list = r?['credentials'];
       if (list is List) {
-        a.credentials = list
-            .whereType<Map>()
-            .map((e) => Map<String, Object?>.from(e))
-            .toList();
+        a.credentials = stringKeyedMapListFromValue(list);
       }
     } catch (e, st) {
       silentLog('web_reverse_webauthn', 'getCredentials', e, st);

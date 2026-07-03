@@ -864,7 +864,7 @@ class WebReverseSessionController extends ChangeNotifier {
                 droppedEvents += 1;
                 continue;
               }
-              final mapped = Map<String, Object?>.from(item);
+              final mapped = stringKeyedMapFromValue(item);
               final estimatedChars = mapped.toString().length;
               if (events.length >= _maxTraceEvents ||
                   tracePayloadChars + estimatedChars > _maxTracePayloadChars) {
@@ -2394,7 +2394,7 @@ class WebReverseSessionController extends ChangeNotifier {
         // 去掉首尾可能的引号，再 JSON.decode。
         final decoded = jsonDecode(raw);
         if (decoded is Map) {
-          _recorderSteps.add(Map<String, Object?>.from(decoded));
+          _recorderSteps.add(stringKeyedMapFromValue(decoded));
           _safeNotify();
         }
       } catch (error, stack) {
@@ -3088,7 +3088,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       final list = r['computedStyle'];
       if (list is! List) return const [];
-      return list.whereType<Map>().map((e) {
+      return stringKeyedMapListFromValue(list).map((e) {
         return <String, String>{
           'name': '${e['name']}',
           'value': '${e['value']}',
@@ -3392,7 +3392,7 @@ class WebReverseSessionController extends ChangeNotifier {
         if (decoded is! Map) {
           return <String, Object?>{'error': 'params JSON must be an object'};
         }
-        params = Map<String, Object?>.from(decoded);
+        params = stringKeyedMapFromValue(decoded);
       } catch (e) {
         return <String, Object?>{'error': 'invalid params JSON: $e'};
       }

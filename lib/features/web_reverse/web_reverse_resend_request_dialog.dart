@@ -250,7 +250,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       if (decoded is! Map) {
         throw const FormatException('Invalid browser replay response.');
       }
-      final map = Map<String, Object?>.from(decoded);
+      final map = stringKeyedMapFromValue(decoded);
       if (map['ok'] != true) {
         final name = '${map['name'] ?? ''}'.trim();
         final error = '${map['error'] ?? 'Browser fetch failed'}'.trim();

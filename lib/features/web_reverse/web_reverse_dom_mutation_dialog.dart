@@ -21,6 +21,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -260,7 +261,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
       bool dirty = false;
       for (final item in list) {
         if (item is Map) {
-          _records.add(Map<String, Object?>.from(item));
+          _records.add(stringKeyedMapFromValue(item));
           dirty = true;
         }
       }

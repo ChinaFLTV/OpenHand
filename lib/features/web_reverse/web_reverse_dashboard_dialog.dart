@@ -1274,8 +1274,8 @@ Future<void> _openOfficialDevToolsForController(
       final list = jsonDecode(body);
       if (list is List) {
         Map<String, Object?>? best;
-        for (final item in list.whereType<Map>()) {
-          final m = Map<String, Object?>.from(item);
+        final targets = stringKeyedMapListFromValue(list);
+        for (final m in targets) {
           final type = '${m['type'] ?? ''}';
           final url = '${m['url'] ?? ''}';
           if (type == 'page' && !url.startsWith('about:')) {
@@ -1283,15 +1283,8 @@ Future<void> _openOfficialDevToolsForController(
             break;
           }
         }
-        best ??= list
-            .whereType<Map>()
-            .where((m) => m['type'] == 'page')
-            .map((m) => Map<String, Object?>.from(m))
-            .firstOrNull;
-        best ??= list
-            .whereType<Map>()
-            .map((m) => Map<String, Object?>.from(m))
-            .firstOrNull;
+        best ??= targets.where((m) => m['type'] == 'page').firstOrNull;
+        best ??= targets.firstOrNull;
         final fe = best?['devtoolsFrontendUrl'] as String?;
         if (fe != null && fe.isNotEmpty) {
           frontendUrl = fe.startsWith('http')

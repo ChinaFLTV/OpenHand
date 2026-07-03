@@ -388,7 +388,7 @@ class WebReverseLspClient {
           final id = (decoded['id'] as num).toInt();
           final c = _pending.remove(id);
           if (c != null && !c.isCompleted) {
-            c.complete(Map<String, Object?>.from(decoded));
+            c.complete(stringKeyedMapFromValue(decoded));
           }
         }
         // notification（无 id）暂不处理。
