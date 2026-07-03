@@ -1195,7 +1195,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     final content = _trimmedField(toolMessage, 'content');
     toolMessage['content'] = <String>[
       if (content.isNotEmpty) content,
-      ...systemReminders.where((item) => item.trim().isNotEmpty),
+      ...systemReminders.where((item) => nullIfBlank(item) != null),
     ].join('\n\n');
     return toolMessage;
   }

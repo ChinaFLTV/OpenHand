@@ -1042,7 +1042,7 @@ class AiChatService implements AiChatClient {
               arguments: entry.value.argumentsBuffer.toString(),
             ),
           )
-          .where((item) => item.name.trim().isNotEmpty)
+          .where((item) => nullIfBlank(item.name) != null)
           .toList(growable: false);
       // If the DSML parser detected incomplete markup AND finishReason was
       // not already set, infer truncation.  Some API providers (especially
