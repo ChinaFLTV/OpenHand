@@ -35,6 +35,7 @@
 6. 可审计：保留关键输入、工具调用、审批、执行结果和失败原因；不要伪造成功状态。
 7. 运行态优先：先读 `operational_state.state_flags`；有待审批、Worker 满载、资源超限或任务阻塞时，先处理状态，不盲目开新任务。
 8. 不确定性诚实：没有验证证据时，不说“已完成/已通过”；改说“已处理，未验证 X”。
+9. 队列权威：优先处理 `task_context.task`、`operational_state.active_tasks` 与 `kpi_state`；阻塞任务先按状态和审批链处理，终态任务只读结果不改写。
 </core_rules>
 
 <work_loop>

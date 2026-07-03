@@ -85,6 +85,53 @@ domains: cloud, finops
             currentTaskId: 'task-1',
           ),
         ],
+        tasks: <AgentTask>[
+          AgentTask(
+            id: 'task-1',
+            title: 'Deploy release',
+            content: 'Roll out the release after approval.',
+            status: AgentTaskStatus.running,
+            progress: 0.35,
+            extra: <String, Object?>{'assigned_worker_id': 'worker-1'},
+          ),
+          AgentTask(
+            id: 'task-2',
+            title: 'Wait for security sign-off',
+            status: AgentTaskStatus.paused,
+          ),
+          AgentTask(
+            id: 'task-3',
+            title: 'Publish release notes',
+            status: AgentTaskStatus.completed,
+            result: 'Release notes published.',
+          ),
+        ],
+        kpis: <AgentKpiItem>[
+          AgentKpiItem(
+            id: 'kpi-1',
+            name: 'Weekly release quality',
+            target: 'Keep failed rollbacks at zero',
+            progress: 0.6,
+            plan: 'Verify release evidence before rollout.',
+          ),
+        ],
+        activities: <AgentActivityEvent>[
+          AgentActivityEvent(
+            id: 'activity-1',
+            kind: 'thought',
+            title: 'Review rollout risk',
+          ),
+        ],
+        auditEvents: <AgentAuditEvent>[
+          AgentAuditEvent(
+            id: 'audit-1',
+            kind: 'mcp_call',
+            summary: 'Checked deployment status',
+            toolName: 'DeployMcp',
+            tokenUsage: 42,
+            requestCount: 1,
+          ),
+        ],
       ),
     );
 
@@ -95,15 +142,45 @@ domains: cloud, finops
     final stateFlags = operationalState['state_flags'] as Map<String, Object?>;
     final workerCapacity =
         operationalState['worker_capacity'] as Map<String, Object?>;
+    final activeTasks = operationalState['active_tasks'] as List<Object?>;
+    final blockedTasks = operationalState['blocked_tasks'] as List<Object?>;
+    final terminalTasks =
+        operationalState['recent_terminal_tasks'] as List<Object?>;
+    final kpiState = operationalState['kpi_state'] as List<Object?>;
+    final recentActivity = operationalState['recent_activity'] as List<Object?>;
+    final recentAudit =
+        operationalState['recent_audit_events'] as List<Object?>;
 
+    expect(snapshot.version, '1.2.0');
     expect(routing['has_route'], isTrue);
     expect(routing['keywords'], <Object?>['release', 'deploy']);
     expect(snapshot.renderedPrompt, contains('"routing"'));
+    expect(snapshot.renderedPrompt, contains('"active_tasks"'));
+    expect(snapshot.renderedPrompt, contains('"kpi_state"'));
     expect(snapshot.renderedPrompt, contains('<operational_state>'));
     expect(operationalState['pending_approvals'], isNotEmpty);
     expect(operationalState['workers'], isNotEmpty);
     expect(stateFlags['has_pending_approvals'], isTrue);
     expect(stateFlags['workers_saturated'], isTrue);
+    expect(stateFlags['has_blocked_tasks'], isTrue);
     expect(workerCapacity['busy'], 1);
+    expect(activeTasks, hasLength(2));
+    expect(blockedTasks, hasLength(1));
+    expect(terminalTasks, hasLength(1));
+    expect(kpiState, hasLength(1));
+    expect(recentActivity, hasLength(1));
+    expect(recentAudit, hasLength(1));
+    expect(
+      (activeTasks.first as Map<String, Object?>)['extra'],
+      containsPair('assigned_worker_id', 'worker-1'),
+    );
+    expect(
+      (terminalTasks.single as Map<String, Object?>)['result'],
+      'Release notes published.',
+    );
+    expect(
+      (recentAudit.single as Map<String, Object?>)['tool_name'],
+      'DeployMcp',
+    );
   });
 }

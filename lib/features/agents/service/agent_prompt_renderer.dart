@@ -48,7 +48,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.1.0';
+  static const String promptVersion = '1.2.0';
 
   final Future<String> Function(String path) _loader;
 
@@ -149,6 +149,21 @@ Map<String, Object?> _runtimePolicyJson(AgentProfile agent) {
 }
 
 Map<String, Object?> _operationalStateJson(AgentProfile agent) {
+  final activeTasks = agent.tasks
+      .where((task) => !_taskIsTerminal(task.status))
+      .take(12)
+      .map(_taskJson)
+      .toList(growable: false);
+  final blockedTasks = agent.tasks
+      .where(_taskNeedsAttention)
+      .take(10)
+      .map(_taskJson)
+      .toList(growable: false);
+  final recentTerminalTasks = agent.tasks
+      .where((task) => _taskIsTerminal(task.status))
+      .take(6)
+      .map(_taskJson)
+      .toList(growable: false);
   final pendingApprovals = agent.approvals
       .where((item) => item.status == AgentApprovalStatus.pending)
       .take(10)
@@ -228,8 +243,20 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
       'utilization': agent.workerUtilization,
     },
     'pending_approvals': pendingApprovals,
+    'active_tasks': activeTasks,
+    'blocked_tasks': blockedTasks,
+    'recent_terminal_tasks': recentTerminalTasks,
+    'kpi_state': agent.kpis.take(12).map(_kpiJson).toList(growable: false),
     'workers': agent.workers.map(_workerJson).toList(growable: false),
     'resource_usage': agent.resourceUsage.toJson(),
+    'recent_activity': agent.activities
+        .take(12)
+        .map(_activityJson)
+        .toList(growable: false),
+    'recent_audit_events': agent.auditEvents
+        .take(12)
+        .map(_auditJson)
+        .toList(growable: false),
     'audit_summary': <String, Object?>{
       'events': agent.auditEvents.length,
       'requests': requests,
@@ -247,6 +274,32 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
   };
 }
 
+bool _taskIsTerminal(AgentTaskStatus status) {
+  return switch (status) {
+    AgentTaskStatus.completed ||
+    AgentTaskStatus.failed ||
+    AgentTaskStatus.canceled => true,
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running ||
+    AgentTaskStatus.waitingApproval ||
+    AgentTaskStatus.paused => false,
+  };
+}
+
+bool _taskNeedsAttention(AgentTask task) {
+  return switch (task.status) {
+    AgentTaskStatus.waitingApproval ||
+    AgentTaskStatus.paused ||
+    AgentTaskStatus.failed => true,
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running ||
+    AgentTaskStatus.completed ||
+    AgentTaskStatus.canceled => false,
+  };
+}
+
 Map<String, Object?> _approvalJson(AgentApprovalRequest approval) {
   return <String, Object?>{
     'id': approval.id,
@@ -255,6 +308,20 @@ Map<String, Object?> _approvalJson(AgentApprovalRequest approval) {
     'requested_action': approval.requestedAction,
     'status': approval.status.storageValue,
     'created_at': approval.createdAt?.toUtc().toIso8601String(),
+  };
+}
+
+Map<String, Object?> _kpiJson(AgentKpiItem item) {
+  return <String, Object?>{
+    'id': item.id,
+    'name': item.name,
+    'target': item.target,
+    'progress': item.progress,
+    'status': item.status,
+    'plan': item.plan,
+    'created_at': item.createdAt?.toUtc().toIso8601String(),
+    'updated_at': item.updatedAt?.toUtc().toIso8601String(),
+    'extra': item.extra,
   };
 }
 
@@ -280,9 +347,35 @@ Map<String, Object?> _taskJson(AgentTask task) {
     'content': task.content,
     'status': task.status.storageValue,
     'progress': task.progress,
+    'result': task.result,
     'note': task.note,
+    'extra': task.extra,
     'created_at': task.createdAt?.toUtc().toIso8601String(),
     'updated_at': task.updatedAt?.toUtc().toIso8601String(),
+  };
+}
+
+Map<String, Object?> _activityJson(AgentActivityEvent event) {
+  return <String, Object?>{
+    'id': event.id,
+    'kind': event.kind,
+    'title': event.title,
+    'content': event.content,
+    'created_at': event.createdAt?.toUtc().toIso8601String(),
+    'metadata': event.metadata,
+  };
+}
+
+Map<String, Object?> _auditJson(AgentAuditEvent event) {
+  return <String, Object?>{
+    'id': event.id,
+    'kind': event.kind,
+    'summary': event.summary,
+    'tool_name': event.toolName,
+    'token_usage': event.tokenUsage,
+    'request_count': event.requestCount,
+    'created_at': event.createdAt?.toUtc().toIso8601String(),
+    'metadata': event.metadata,
   };
 }
 
@@ -320,5 +413,6 @@ You are an OpenHand digital employee. Stay inside your profile, mentor chain, re
 3. Escalate uncertainty, missing permission, or high-risk actions to the mentor/user.
 4. Verify before claiming completion.
 5. Read `operational_state.state_flags` first; respect pending approvals, worker load, resource limits, and blocked tasks before starting new work.
+6. Treat `task_context.task`, `operational_state.active_tasks`, and `kpi_state` as the authoritative queue; read terminal tasks, do not rewrite them.
 </core_rules>
 ''';
