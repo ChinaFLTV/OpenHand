@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t } from '../i18n';
 import { clampNumber } from '../shared/util/number';
+import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
 import {
   DIALOG_OVERLAY_MEDIA_Z_INDEX,
   DialogFrame,
@@ -248,6 +249,8 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
 
   async function download(): Promise<void> {
     setBusy(true);
+    setStatus(null);
+    setError(null);
     try {
       await makeResult(true);
       setStatus(t('imageEditor.savedLocal', '已另存到本地'));
@@ -260,15 +263,17 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
 
   async function copyToClipboard(): Promise<void> {
     setBusy(true);
+    setStatus(null);
+    setError(null);
     try {
       const result = await makeResult(false);
-      if ('ClipboardItem' in window && navigator.clipboard?.write) {
-        const blob = await (await fetch(result.dataUrl)).blob();
-        await navigator.clipboard.write([new ClipboardItem({ [result.mime]: blob })]);
+      const blob = await (await fetch(result.dataUrl)).blob();
+      if (await copyBlobToClipboard(blob)) {
         setStatus(t('imageEditor.copiedBitmap', '已复制图片到剪贴板'));
+      } else if (await copyTextToClipboard(result.dataUrl)) {
+        setStatus(t('imageEditor.copiedDataUrl', '无法写入位图，已复制图片 data URL'));
       } else {
-        await navigator.clipboard.writeText(result.dataUrl);
-        setStatus(t('imageEditor.copiedDataUrl', '浏览器不支持位图复制，已复制图片 data URL'));
+        setError(t('imageEditor.copyFailed', '复制图片失败，请检查浏览器剪贴板权限'));
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
