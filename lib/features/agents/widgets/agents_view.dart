@@ -1606,48 +1606,226 @@ Future<void> _showAgentResourcesDialog(
   AgentProfile agent,
 ) {
   final l10n = AppLocalizations.of(context)!;
-  final resource = agent.resourceUsage;
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => buildOpenHandDialog(
-      maxWidth: 760,
-      maxHeight: 620,
+    builder: (_) => Consumer<AgentsController>(
+      builder: (context, controller, _) {
+        final currentAgent = controller.agentById(agent.id) ?? agent;
+        final resource = currentAgent.resourceUsage;
+        return buildOpenHandDialog(
+          maxWidth: 780,
+          maxHeight: 620,
+          child: _AgentDialogScaffold(
+            icon: Icons.storage_rounded,
+            title: l10n.agentsDialogTitleWithName(
+              l10n.agentsResources,
+              currentAgent.name,
+            ),
+            actions: [
+              FilledButton.icon(
+                onPressed: () async {
+                  final updated = await _showAgentResourceEditorDialog(
+                    context,
+                    resource,
+                  );
+                  if (updated == null || !context.mounted) return;
+                  await context.read<AgentsController>().saveResourceUsage(
+                    currentAgent.id,
+                    updated,
+                  );
+                },
+                icon: const Icon(Icons.edit_rounded),
+                label: Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '校准资源',
+                    en: 'Edit resources',
+                  ),
+                ),
+              ),
+            ],
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _MetricTile(
+                  label: 'CPU',
+                  value: '${(resource.cpuPercent * 100).round()}%',
+                ),
+                _MetricTile(
+                  label: l10n.agentsMetricMemory,
+                  value: formatByteSize(resource.memoryBytes),
+                ),
+                _MetricTile(
+                  label: l10n.agentsMetricDisk,
+                  value: formatByteSize(resource.diskBytes),
+                ),
+                _MetricTile(
+                  label: l10n.agentsMetricPersisted,
+                  value: formatByteSize(resource.persistedBytes),
+                ),
+                _MetricTile(
+                  label: 'Token',
+                  value: '${resource.tokenUsed}/${resource.tokenBudget}',
+                ),
+                _MetricTile(
+                  label: l10n.agentsMetricHandles,
+                  value: '${resource.openHandles}',
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+Future<AgentResourceUsage?> _showAgentResourceEditorDialog(
+  BuildContext context,
+  AgentResourceUsage initial,
+) {
+  return showAnimatedDialog<AgentResourceUsage>(
+    context: context,
+    builder: (_) => _AgentResourceEditorDialog(initial: initial),
+  );
+}
+
+class _AgentResourceEditorDialog extends StatefulWidget {
+  const _AgentResourceEditorDialog({required this.initial});
+
+  final AgentResourceUsage initial;
+
+  @override
+  State<_AgentResourceEditorDialog> createState() =>
+      _AgentResourceEditorDialogState();
+}
+
+class _AgentResourceEditorDialogState
+    extends State<_AgentResourceEditorDialog> {
+  late final TextEditingController _memoryBytes;
+  late final TextEditingController _diskBytes;
+  late final TextEditingController _persistedBytes;
+  late final TextEditingController _tokenBudget;
+  late final TextEditingController _tokenUsed;
+  late final TextEditingController _openHandles;
+  late double _cpuPercent;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _cpuPercent = initial.cpuPercent.clamp(0, 1).toDouble();
+    _memoryBytes = TextEditingController(text: '${initial.memoryBytes}');
+    _diskBytes = TextEditingController(text: '${initial.diskBytes}');
+    _persistedBytes = TextEditingController(text: '${initial.persistedBytes}');
+    _tokenBudget = TextEditingController(text: '${initial.tokenBudget}');
+    _tokenUsed = TextEditingController(text: '${initial.tokenUsed}');
+    _openHandles = TextEditingController(text: '${initial.openHandles}');
+  }
+
+  @override
+  void dispose() {
+    for (final controller in [
+      _memoryBytes,
+      _diskBytes,
+      _persistedBytes,
+      _tokenBudget,
+      _tokenUsed,
+      _openHandles,
+    ]) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return buildOpenHandDialog(
+      maxWidth: 720,
       child: _AgentDialogScaffold(
         icon: Icons.storage_rounded,
-        title: l10n.agentsDialogTitleWithName(l10n.agentsResources, agent.name),
-        child: Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            _MetricTile(
-              label: 'CPU',
-              value: '${(resource.cpuPercent * 100).round()}%',
+        title: openHandLocalizedText(context, zh: '校准资源', en: 'Edit resources'),
+        footer: buildOpenHandDialogActionsBar(
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(context).pop(),
+              label: l10n.commonCancel,
             ),
-            _MetricTile(
-              label: l10n.agentsMetricMemory,
-              value: formatByteSize(resource.memoryBytes),
-            ),
-            _MetricTile(
-              label: l10n.agentsMetricDisk,
-              value: formatByteSize(resource.diskBytes),
-            ),
-            _MetricTile(
-              label: l10n.agentsMetricPersisted,
-              value: formatByteSize(resource.persistedBytes),
-            ),
-            _MetricTile(
-              label: 'Token',
-              value: '${resource.tokenUsed}/${resource.tokenBudget}',
-            ),
-            _MetricTile(
-              label: l10n.agentsMetricHandles,
-              value: '${resource.openHandles}',
+            OpenHandDialogActionButton.primary(
+              onPressed: () => Navigator.of(context).pop(_buildUsage()),
+              label: l10n.commonSave,
             ),
           ],
         ),
+        child: _FormGrid(
+          children: [
+            _FormGridItem(
+              fullWidth: true,
+              child: InputDecorator(
+                decoration: const InputDecoration(labelText: 'CPU'),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Slider(
+                        value: _cpuPercent,
+                        divisions: 20,
+                        label: '${(_cpuPercent * 100).round()}%',
+                        onChanged: (value) =>
+                            setState(() => _cpuPercent = value),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 48,
+                      child: Text(
+                        '${(_cpuPercent * 100).round()}%',
+                        textAlign: TextAlign.end,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            _resourceField(_memoryBytes, l10n.agentsMetricMemory),
+            _resourceField(_diskBytes, l10n.agentsMetricDisk),
+            _resourceField(_persistedBytes, l10n.agentsMetricPersisted),
+            _resourceField(_tokenUsed, 'Token used'),
+            _resourceField(_tokenBudget, 'Token budget'),
+            _resourceField(_openHandles, l10n.agentsMetricHandles),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
+
+  Widget _resourceField(TextEditingController controller, String label) {
+    return _FormGridItem(
+      child: TextField(
+        controller: controller,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(labelText: label),
+      ),
+    );
+  }
+
+  AgentResourceUsage _buildUsage() {
+    return widget.initial.copyWith(
+      cpuPercent: _cpuPercent,
+      memoryBytes: _nonNegativeIntFromText(_memoryBytes.text),
+      diskBytes: _nonNegativeIntFromText(_diskBytes.text),
+      persistedBytes: _nonNegativeIntFromText(_persistedBytes.text),
+      tokenBudget: _nonNegativeIntFromText(_tokenBudget.text),
+      tokenUsed: _nonNegativeIntFromText(_tokenUsed.text),
+      openHandles: _nonNegativeIntFromText(_openHandles.text),
+    );
+  }
+}
+
+int _nonNegativeIntFromText(String value) {
+  final parsed = int.tryParse(value.trim());
+  if (parsed == null || parsed < 0) return 0;
+  return parsed;
 }
 
 class _MetricTile extends StatelessWidget {

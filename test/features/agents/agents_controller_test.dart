@@ -300,6 +300,35 @@ void main() {
       expect(agent.activities.first.kind, 'kpi_deleted');
       expect(agent.auditEvents.first.kind, 'kpi_deleted');
     });
+
+    test('saving resource usage records activity and audit', () async {
+      await controller.saveAgent(_runningAgent());
+
+      final saved = await controller.saveResourceUsage(
+        'agent-1',
+        const AgentResourceUsage(
+          cpuPercent: 1.4,
+          memoryBytes: 1024,
+          diskBytes: -20,
+          persistedBytes: 512,
+          tokenBudget: 1000,
+          tokenUsed: 250,
+          openHandles: -1,
+        ),
+        auditToolName: 'AgentResourcesTest',
+      );
+
+      expect(saved, isTrue);
+      final agent = controller.agentById('agent-1')!;
+      expect(agent.resourceUsage.cpuPercent, 1);
+      expect(agent.resourceUsage.memoryBytes, 1024);
+      expect(agent.resourceUsage.diskBytes, 0);
+      expect(agent.resourceUsage.openHandles, 0);
+      expect(agent.activities.first.kind, 'resource_updated');
+      expect(agent.auditEvents.first.kind, 'resource_updated');
+      expect(agent.auditEvents.first.toolName, 'AgentResourcesTest');
+      expect(agent.auditEvents.first.metadata['token_used'], 250);
+    });
   });
 }
 

@@ -673,6 +673,77 @@ class AgentsController extends ManagedChangeNotifier {
     });
   }
 
+  Future<bool> saveResourceUsage(
+    String agentId,
+    AgentResourceUsage usage, {
+    String auditToolName = 'AgentResourcesDialog',
+  }) {
+    final normalizedAgentId = agentId.trim();
+    if (normalizedAgentId.isEmpty) return Future<bool>.value(false);
+    return _commitMutation(() async {
+      final index = _agents.indexWhere(
+        (agent) => agent.id == normalizedAgentId,
+      );
+      if (index < 0) return false;
+      final agent = _agents[index];
+      final now = DateTime.now().toUtc();
+      final normalized = usage.copyWith(
+        cpuPercent: usage.cpuPercent.clamp(0, 1).toDouble(),
+        memoryBytes: math.max(0, usage.memoryBytes),
+        diskBytes: math.max(0, usage.diskBytes),
+        persistedBytes: math.max(0, usage.persistedBytes),
+        tokenBudget: math.max(0, usage.tokenBudget),
+        tokenUsed: math.max(0, usage.tokenUsed),
+        openHandles: math.max(0, usage.openHandles),
+      );
+      final metadata = <String, Object?>{
+        'cpu_percent': normalized.cpuPercent,
+        'memory_bytes': normalized.memoryBytes,
+        'disk_bytes': normalized.diskBytes,
+        'persisted_bytes': normalized.persistedBytes,
+        'token_budget': normalized.tokenBudget,
+        'token_used': normalized.tokenUsed,
+        'open_handles': normalized.openHandles,
+      };
+      final updated = _normalizeAgent(
+        agent.copyWith(
+          resourceUsage: normalized,
+          activities: _prependActivity(
+            agent.activities,
+            AgentActivityEvent(
+              id: _uuid.v4(),
+              kind: 'resource_updated',
+              title: 'resource_updated',
+              content: agent.name,
+              createdAt: now,
+              metadata: metadata,
+            ),
+          ),
+          auditEvents: _prependAudit(
+            agent.auditEvents,
+            AgentAuditEvent(
+              id: _uuid.v4(),
+              kind: 'resource_updated',
+              summary: 'resource_updated: ${agent.name}',
+              toolName: auditToolName,
+              requestCount: 1,
+              createdAt: now,
+              metadata: metadata,
+            ),
+          ),
+          updatedAt: now,
+        ),
+      );
+      _setAgents(<AgentProfile>[
+        ..._agents.sublist(0, index),
+        updated,
+        ..._agents.sublist(index + 1),
+      ]);
+      await _store.save(_agents);
+      return true;
+    });
+  }
+
   Future<bool> updateAgent(
     String id,
     AgentProfile Function(AgentProfile agent) mutate,

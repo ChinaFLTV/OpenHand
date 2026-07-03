@@ -242,6 +242,28 @@ class AgentResourceUsage {
   final int openHandles;
   final Map<String, Object?> extra;
 
+  AgentResourceUsage copyWith({
+    double? cpuPercent,
+    int? memoryBytes,
+    int? diskBytes,
+    int? persistedBytes,
+    int? tokenBudget,
+    int? tokenUsed,
+    int? openHandles,
+    Map<String, Object?>? extra,
+  }) {
+    return AgentResourceUsage(
+      cpuPercent: cpuPercent ?? this.cpuPercent,
+      memoryBytes: memoryBytes ?? this.memoryBytes,
+      diskBytes: diskBytes ?? this.diskBytes,
+      persistedBytes: persistedBytes ?? this.persistedBytes,
+      tokenBudget: tokenBudget ?? this.tokenBudget,
+      tokenUsed: tokenUsed ?? this.tokenUsed,
+      openHandles: openHandles ?? this.openHandles,
+      extra: extra ?? this.extra,
+    );
+  }
+
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'cpu_percent': cpuPercent,
