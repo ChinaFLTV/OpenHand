@@ -17,6 +17,7 @@ import { saveBlobWithPicker } from '../utils/save_blob';
 import { copyTextToClipboard, copyBlobToClipboard } from '../utils/clipboard';
 import { isAbortError } from '../utils/api_error';
 import { showSnackbar } from './Snackbar';
+import { finiteNumberFromText } from '../shared/util/number';
 
 interface MermaidViewProps {
   source: string;
@@ -46,6 +47,11 @@ const MERMAID_WHEEL_ZOOM_SENSITIVITY = 0.0025;
 function clampMermaidScale(value: number): number {
   if (!Number.isFinite(value)) return 1;
   return Math.min(MERMAID_VIEW_MAX_SCALE, Math.max(MERMAID_VIEW_MIN_SCALE, value));
+}
+
+function mermaidDatasetNumber(value: string | undefined, fallback: number): number {
+  if (value == null || value.trim().length === 0) return fallback;
+  return finiteNumberFromText(value) ?? fallback;
 }
 
 function svgMarkupOf(value: unknown): string | null {
@@ -594,10 +600,12 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
         clearLongPress();
       }
       if (dragReady && stage.dataset.dragX) {
-        const dx = e.clientX - parseFloat(stage.dataset.dragX ?? '0');
-        const dy = e.clientY - parseFloat(stage.dataset.dragY ?? '0');
-        tx = parseFloat(stage.dataset.dragTx ?? '0') + dx;
-        ty = parseFloat(stage.dataset.dragTy ?? '0') + dy;
+        const dragX = mermaidDatasetNumber(stage.dataset.dragX, e.clientX);
+        const dragY = mermaidDatasetNumber(stage.dataset.dragY, e.clientY);
+        const dragTx = mermaidDatasetNumber(stage.dataset.dragTx, tx);
+        const dragTy = mermaidDatasetNumber(stage.dataset.dragTy, ty);
+        tx = dragTx + e.clientX - dragX;
+        ty = dragTy + e.clientY - dragY;
         manualViewport = true;
         apply();
       }
