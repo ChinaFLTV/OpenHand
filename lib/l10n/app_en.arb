@@ -7458,5 +7458,47 @@
   "choiceInputCustomOptionDescription": "Pick this to type your own answer",
   "@choiceInputCustomOptionDescription": {
     "description": "OpenHand localized UI text."
+  },
+  "@commonCopy": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewImageCopied": "Copied image to clipboard.",
+  "@mediaPreviewImageCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewImageFileOrPathCopied": "Copied image file or path to clipboard.",
+  "@mediaPreviewImageFileOrPathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewMediaFileCopied": "Copied media file to clipboard.",
+  "@mediaPreviewMediaFileCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDirectCopyUnavailablePathCopied": "Direct media file copy is unavailable on this platform. Copied the file path.",
+  "@mediaPreviewDirectCopyUnavailablePathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewMediaUrlCopied": "Copied media URL.",
+  "@mediaPreviewMediaUrlCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDirectCopyUnavailableTempPathCopied": "Direct media file copy is unavailable on this platform. Copied the temporary file path.",
+  "@mediaPreviewDirectCopyUnavailableTempPathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDataCopyFailedUrlCopied": "Unable to copy media data. Copied the source URL.",
+  "@mediaPreviewDataCopyFailedUrlCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewCopyFailed": "Copy failed: {error}",
+  "@mediaPreviewCopyFailed": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "mediaPreviewNoSource": "Media source is unavailable.",
+  "@mediaPreviewNoSource": {
+    "description": "OpenHand localized UI text."
   }
 }

@@ -7456,5 +7456,47 @@
   "choiceInputCustomOptionDescription": "Diese Option wählen, um eine eigene Antwort einzugeben",
   "@choiceInputCustomOptionDescription": {
     "description": "OpenHand localized UI text."
+  },
+  "@commonCopy": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewImageCopied": "Bild in die Zwischenablage kopiert.",
+  "@mediaPreviewImageCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewImageFileOrPathCopied": "Bilddatei oder Pfad in die Zwischenablage kopiert.",
+  "@mediaPreviewImageFileOrPathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewMediaFileCopied": "Mediendatei in die Zwischenablage kopiert.",
+  "@mediaPreviewMediaFileCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDirectCopyUnavailablePathCopied": "Direktes Kopieren der Mediendatei ist auf dieser Plattform nicht verfügbar. Dateipfad kopiert.",
+  "@mediaPreviewDirectCopyUnavailablePathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewMediaUrlCopied": "Medien-URL kopiert.",
+  "@mediaPreviewMediaUrlCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDirectCopyUnavailableTempPathCopied": "Direktes Kopieren der Mediendatei ist auf dieser Plattform nicht verfügbar. Temporären Dateipfad kopiert.",
+  "@mediaPreviewDirectCopyUnavailableTempPathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDataCopyFailedUrlCopied": "Mediendaten konnten nicht kopiert werden. Quell-URL kopiert.",
+  "@mediaPreviewDataCopyFailedUrlCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewCopyFailed": "Kopieren fehlgeschlagen: {error}",
+  "@mediaPreviewCopyFailed": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "mediaPreviewNoSource": "Medienquelle ist nicht verfügbar.",
+  "@mediaPreviewNoSource": {
+    "description": "OpenHand localized UI text."
   }
 }

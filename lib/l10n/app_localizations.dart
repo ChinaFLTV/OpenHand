@@ -6686,7 +6686,7 @@ abstract class AppLocalizations {
   /// **'详情'**
   String get commonDetails;
 
-  /// No description provided for @commonCopy.
+  /// OpenHand localized UI text.
   ///
   /// In zh_Hans, this message translates to:
   /// **'复制'**
@@ -16270,6 +16270,60 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'选择此项以手动填写内容'**
   String get choiceInputCustomOptionDescription;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制图片到剪贴板。'**
+  String get mediaPreviewImageCopied;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制图片文件或路径到剪贴板。'**
+  String get mediaPreviewImageFileOrPathCopied;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制媒体文件到剪贴板。'**
+  String get mediaPreviewMediaFileCopied;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前平台不支持直接复制媒体文件，已复制文件路径。'**
+  String get mediaPreviewDirectCopyUnavailablePathCopied;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制媒体地址。'**
+  String get mediaPreviewMediaUrlCopied;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前平台不支持直接复制媒体文件，已复制临时文件路径。'**
+  String get mediaPreviewDirectCopyUnavailableTempPathCopied;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无法复制媒体数据，已复制来源地址。'**
+  String get mediaPreviewDataCopyFailedUrlCopied;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制失败：{error}'**
+  String mediaPreviewCopyFailed(Object error);
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'媒体来源不可用。'**
+  String get mediaPreviewNoSource;
 }
 
 class _AppLocalizationsDelegate

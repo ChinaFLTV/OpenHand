@@ -9274,4 +9274,38 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get choiceInputCustomOptionDescription =>
       'Choisissez cette option pour saisir votre propre réponse';
+
+  @override
+  String get mediaPreviewImageCopied => 'Image copiée dans le presse-papiers.';
+
+  @override
+  String get mediaPreviewImageFileOrPathCopied =>
+      'Fichier image ou chemin copié dans le presse-papiers.';
+
+  @override
+  String get mediaPreviewMediaFileCopied =>
+      'Fichier média copié dans le presse-papiers.';
+
+  @override
+  String get mediaPreviewDirectCopyUnavailablePathCopied =>
+      'La copie directe du fichier média n’est pas disponible sur cette plateforme. Chemin copié.';
+
+  @override
+  String get mediaPreviewMediaUrlCopied => 'URL du média copiée.';
+
+  @override
+  String get mediaPreviewDirectCopyUnavailableTempPathCopied =>
+      'La copie directe du fichier média n’est pas disponible sur cette plateforme. Chemin temporaire copié.';
+
+  @override
+  String get mediaPreviewDataCopyFailedUrlCopied =>
+      'Impossible de copier les données média. URL source copiée.';
+
+  @override
+  String mediaPreviewCopyFailed(Object error) {
+    return 'Échec de la copie : $error';
+  }
+
+  @override
+  String get mediaPreviewNoSource => 'La source média est indisponible.';
 }

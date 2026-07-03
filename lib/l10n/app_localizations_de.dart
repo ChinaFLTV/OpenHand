@@ -9239,4 +9239,38 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get choiceInputCustomOptionDescription =>
       'Diese Option wählen, um eine eigene Antwort einzugeben';
+
+  @override
+  String get mediaPreviewImageCopied => 'Bild in die Zwischenablage kopiert.';
+
+  @override
+  String get mediaPreviewImageFileOrPathCopied =>
+      'Bilddatei oder Pfad in die Zwischenablage kopiert.';
+
+  @override
+  String get mediaPreviewMediaFileCopied =>
+      'Mediendatei in die Zwischenablage kopiert.';
+
+  @override
+  String get mediaPreviewDirectCopyUnavailablePathCopied =>
+      'Direktes Kopieren der Mediendatei ist auf dieser Plattform nicht verfügbar. Dateipfad kopiert.';
+
+  @override
+  String get mediaPreviewMediaUrlCopied => 'Medien-URL kopiert.';
+
+  @override
+  String get mediaPreviewDirectCopyUnavailableTempPathCopied =>
+      'Direktes Kopieren der Mediendatei ist auf dieser Plattform nicht verfügbar. Temporären Dateipfad kopiert.';
+
+  @override
+  String get mediaPreviewDataCopyFailedUrlCopied =>
+      'Mediendaten konnten nicht kopiert werden. Quell-URL kopiert.';
+
+  @override
+  String mediaPreviewCopyFailed(Object error) {
+    return 'Kopieren fehlgeschlagen: $error';
+  }
+
+  @override
+  String get mediaPreviewNoSource => 'Medienquelle ist nicht verfügbar.';
 }

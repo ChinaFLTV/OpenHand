@@ -8832,6 +8832,37 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get choiceInputCustomOptionDescription => '选择此项以手动填写内容';
+
+  @override
+  String get mediaPreviewImageCopied => '已复制图片到剪贴板。';
+
+  @override
+  String get mediaPreviewImageFileOrPathCopied => '已复制图片文件或路径到剪贴板。';
+
+  @override
+  String get mediaPreviewMediaFileCopied => '已复制媒体文件到剪贴板。';
+
+  @override
+  String get mediaPreviewDirectCopyUnavailablePathCopied =>
+      '当前平台不支持直接复制媒体文件，已复制文件路径。';
+
+  @override
+  String get mediaPreviewMediaUrlCopied => '已复制媒体地址。';
+
+  @override
+  String get mediaPreviewDirectCopyUnavailableTempPathCopied =>
+      '当前平台不支持直接复制媒体文件，已复制临时文件路径。';
+
+  @override
+  String get mediaPreviewDataCopyFailedUrlCopied => '无法复制媒体数据，已复制来源地址。';
+
+  @override
+  String mediaPreviewCopyFailed(Object error) {
+    return '复制失败：$error';
+  }
+
+  @override
+  String get mediaPreviewNoSource => '媒体来源不可用。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -17662,6 +17693,37 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get choiceInputCustomOptionDescription => '选择此项以手动填写内容';
+
+  @override
+  String get mediaPreviewImageCopied => '已复制图片到剪贴板。';
+
+  @override
+  String get mediaPreviewImageFileOrPathCopied => '已复制图片文件或路径到剪贴板。';
+
+  @override
+  String get mediaPreviewMediaFileCopied => '已复制媒体文件到剪贴板。';
+
+  @override
+  String get mediaPreviewDirectCopyUnavailablePathCopied =>
+      '当前平台不支持直接复制媒体文件，已复制文件路径。';
+
+  @override
+  String get mediaPreviewMediaUrlCopied => '已复制媒体地址。';
+
+  @override
+  String get mediaPreviewDirectCopyUnavailableTempPathCopied =>
+      '当前平台不支持直接复制媒体文件，已复制临时文件路径。';
+
+  @override
+  String get mediaPreviewDataCopyFailedUrlCopied => '无法复制媒体数据，已复制来源地址。';
+
+  @override
+  String mediaPreviewCopyFailed(Object error) {
+    return '复制失败：$error';
+  }
+
+  @override
+  String get mediaPreviewNoSource => '媒体来源不可用。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -26488,4 +26550,35 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get choiceInputCustomOptionDescription => '選擇此項以手動填寫內容';
+
+  @override
+  String get mediaPreviewImageCopied => '已複製圖片到剪貼簿。';
+
+  @override
+  String get mediaPreviewImageFileOrPathCopied => '已複製圖片檔案或路徑到剪貼簿。';
+
+  @override
+  String get mediaPreviewMediaFileCopied => '已複製媒體檔案到剪貼簿。';
+
+  @override
+  String get mediaPreviewDirectCopyUnavailablePathCopied =>
+      '目前平台不支援直接複製媒體檔案，已複製檔案路徑。';
+
+  @override
+  String get mediaPreviewMediaUrlCopied => '已複製媒體位址。';
+
+  @override
+  String get mediaPreviewDirectCopyUnavailableTempPathCopied =>
+      '目前平台不支援直接複製媒體檔案，已複製臨時檔案路徑。';
+
+  @override
+  String get mediaPreviewDataCopyFailedUrlCopied => '無法複製媒體資料，已複製來源位址。';
+
+  @override
+  String mediaPreviewCopyFailed(Object error) {
+    return '複製失敗：$error';
+  }
+
+  @override
+  String get mediaPreviewNoSource => '媒體來源不可用。';
 }

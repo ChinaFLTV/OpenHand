@@ -9149,4 +9149,37 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get choiceInputCustomOptionDescription =>
       'Pick this to type your own answer';
+
+  @override
+  String get mediaPreviewImageCopied => 'Copied image to clipboard.';
+
+  @override
+  String get mediaPreviewImageFileOrPathCopied =>
+      'Copied image file or path to clipboard.';
+
+  @override
+  String get mediaPreviewMediaFileCopied => 'Copied media file to clipboard.';
+
+  @override
+  String get mediaPreviewDirectCopyUnavailablePathCopied =>
+      'Direct media file copy is unavailable on this platform. Copied the file path.';
+
+  @override
+  String get mediaPreviewMediaUrlCopied => 'Copied media URL.';
+
+  @override
+  String get mediaPreviewDirectCopyUnavailableTempPathCopied =>
+      'Direct media file copy is unavailable on this platform. Copied the temporary file path.';
+
+  @override
+  String get mediaPreviewDataCopyFailedUrlCopied =>
+      'Unable to copy media data. Copied the source URL.';
+
+  @override
+  String mediaPreviewCopyFailed(Object error) {
+    return 'Copy failed: $error';
+  }
+
+  @override
+  String get mediaPreviewNoSource => 'Media source is unavailable.';
 }

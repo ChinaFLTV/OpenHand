@@ -11,8 +11,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/support/silent_log.dart';
+import '../../l10n/app_localizations.dart';
 import '../util/byte_size_format.dart';
-import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 import 'dialog_motion_css.dart';
 import 'interactive_image_preview.dart';
@@ -183,7 +183,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       context,
       OpenHandMotionSettingsScope.dialog,
     );
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
 
     final maxDialogW = math.max(
       _kMinDialogW,
@@ -272,14 +272,14 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
                         ),
                       ),
                       IconButton(
-                        tooltip: isZh ? '复制' : 'Copy',
+                        tooltip: l10n.commonCopy,
                         onPressed: _copying
                             ? null
                             : () => _copyToClipboard(context),
                         icon: const Icon(Icons.content_copy_outlined),
                       ),
                       IconButton(
-                        tooltip: isZh ? '关闭' : 'Close',
+                        tooltip: l10n.commonClose,
                         onPressed: () => Navigator.of(context).pop(),
                         icon: const Icon(Icons.close_rounded),
                       ),
@@ -339,16 +339,16 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
   Future<void> _copyToClipboard(BuildContext context) async {
     if (_copying) return;
     setState(() => _copying = true);
+    final l10n = AppLocalizations.of(context)!;
     try {
       if (widget.kind == MediaPreviewKind.image) {
         final copiedImageData = await _copyImageSource();
         if (!context.mounted) return;
         _showCopySnack(
           context,
-          zh: copiedImageData ? '已复制图片到剪贴板。' : '已复制图片文件或路径到剪贴板。',
-          en: copiedImageData
-              ? 'Copied image to clipboard.'
-              : 'Copied image file or path to clipboard.',
+          message: copiedImageData
+              ? l10n.mediaPreviewImageCopied
+              : l10n.mediaPreviewImageFileOrPathCopied,
         );
         return;
       }
@@ -358,10 +358,9 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         if (!context.mounted) return;
         _showCopySnack(
           context,
-          zh: ok ? '已复制媒体文件到剪贴板。' : '当前平台不支持直接复制媒体文件，已复制文件路径。',
-          en: ok
-              ? 'Copied media file to clipboard.'
-              : 'Direct media file copy is unavailable on this platform. Copied the file path.',
+          message: ok
+              ? l10n.mediaPreviewMediaFileCopied
+              : l10n.mediaPreviewDirectCopyUnavailablePathCopied,
         );
         return;
       }
@@ -372,7 +371,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
           ClipboardData(text: url),
         ).timeout(_kClipboardTimeout);
         if (!context.mounted) return;
-        _showCopySnack(context, zh: '已复制媒体地址。', en: 'Copied media URL.');
+        _showCopySnack(context, message: l10n.mediaPreviewMediaUrlCopied);
         return;
       }
       final bytes = widget.bytes;
@@ -382,10 +381,9 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         if (!context.mounted) return;
         _showCopySnack(
           context,
-          zh: ok ? '已复制媒体文件到剪贴板。' : '当前平台不支持直接复制媒体文件，已复制临时文件路径。',
-          en: ok
-              ? 'Copied media file to clipboard.'
-              : 'Direct media file copy is unavailable on this platform. Copied the temporary file path.',
+          message: ok
+              ? l10n.mediaPreviewMediaFileCopied
+              : l10n.mediaPreviewDirectCopyUnavailableTempPathCopied,
         );
         return;
       }
@@ -401,8 +399,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
           if (!context.mounted) return;
           _showCopySnack(
             context,
-            zh: '无法复制媒体数据，已复制来源地址。',
-            en: 'Unable to copy media data. Copied the source URL.',
+            message: l10n.mediaPreviewDataCopyFailedUrlCopied,
           );
           return;
         } catch (_) {
@@ -412,8 +409,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       if (!context.mounted) return;
       _showCopySnack(
         context,
-        zh: '复制失败：$error',
-        en: 'Copy failed: $error',
+        message: l10n.mediaPreviewCopyFailed('$error'),
         isError: true,
       );
     } finally {
@@ -533,19 +529,17 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
 
   void _showCopySnack(
     BuildContext context, {
-    required String zh,
-    required String en,
+    required String message,
     bool isError = false,
   }) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
-    final isZh = openHandIsChineseLocale(context);
     OpenHandSnackBar.show(
       context,
       messenger,
       isError
-          ? OpenHandSnackBar.error(context, isZh ? zh : en, maxLines: 2)
-          : OpenHandSnackBar.success(context, isZh ? zh : en),
+          ? OpenHandSnackBar.error(context, message, maxLines: 2)
+          : OpenHandSnackBar.success(context, message),
     );
   }
 
@@ -665,7 +659,10 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
           src = Uri.file(f.path).toString();
         }
       } else {
-        setState(() => _error = 'no source');
+        if (!mounted) return;
+        setState(
+          () => _error = AppLocalizations.of(context)!.mediaPreviewNoSource,
+        );
         return;
       }
       final html = _buildVideoPlayerHtml(src: src);

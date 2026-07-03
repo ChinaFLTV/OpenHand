@@ -7456,5 +7456,47 @@
   "choiceInputCustomOptionDescription": "Choisissez cette option pour saisir votre propre réponse",
   "@choiceInputCustomOptionDescription": {
     "description": "OpenHand localized UI text."
+  },
+  "@commonCopy": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewImageCopied": "Image copiée dans le presse-papiers.",
+  "@mediaPreviewImageCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewImageFileOrPathCopied": "Fichier image ou chemin copié dans le presse-papiers.",
+  "@mediaPreviewImageFileOrPathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewMediaFileCopied": "Fichier média copié dans le presse-papiers.",
+  "@mediaPreviewMediaFileCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDirectCopyUnavailablePathCopied": "La copie directe du fichier média n’est pas disponible sur cette plateforme. Chemin copié.",
+  "@mediaPreviewDirectCopyUnavailablePathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewMediaUrlCopied": "URL du média copiée.",
+  "@mediaPreviewMediaUrlCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDirectCopyUnavailableTempPathCopied": "La copie directe du fichier média n’est pas disponible sur cette plateforme. Chemin temporaire copié.",
+  "@mediaPreviewDirectCopyUnavailableTempPathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDataCopyFailedUrlCopied": "Impossible de copier les données média. URL source copiée.",
+  "@mediaPreviewDataCopyFailedUrlCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewCopyFailed": "Échec de la copie : {error}",
+  "@mediaPreviewCopyFailed": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "mediaPreviewNoSource": "La source média est indisponible.",
+  "@mediaPreviewNoSource": {
+    "description": "OpenHand localized UI text."
   }
 }

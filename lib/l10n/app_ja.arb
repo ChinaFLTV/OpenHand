@@ -7456,5 +7456,47 @@
   "choiceInputCustomOptionDescription": "自分の回答を入力するにはこれを選択",
   "@choiceInputCustomOptionDescription": {
     "description": "OpenHand localized UI text."
+  },
+  "@commonCopy": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewImageCopied": "画像をクリップボードにコピーしました。",
+  "@mediaPreviewImageCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewImageFileOrPathCopied": "画像ファイルまたはパスをクリップボードにコピーしました。",
+  "@mediaPreviewImageFileOrPathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewMediaFileCopied": "メディアファイルをクリップボードにコピーしました。",
+  "@mediaPreviewMediaFileCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDirectCopyUnavailablePathCopied": "このプラットフォームではメディアファイルを直接コピーできません。ファイルパスをコピーしました。",
+  "@mediaPreviewDirectCopyUnavailablePathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewMediaUrlCopied": "メディア URL をコピーしました。",
+  "@mediaPreviewMediaUrlCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDirectCopyUnavailableTempPathCopied": "このプラットフォームではメディアファイルを直接コピーできません。一時ファイルパスをコピーしました。",
+  "@mediaPreviewDirectCopyUnavailableTempPathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDataCopyFailedUrlCopied": "メディアデータをコピーできません。ソース URL をコピーしました。",
+  "@mediaPreviewDataCopyFailedUrlCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewCopyFailed": "コピーに失敗しました: {error}",
+  "@mediaPreviewCopyFailed": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "mediaPreviewNoSource": "メディアソースを利用できません。",
+  "@mediaPreviewNoSource": {
+    "description": "OpenHand localized UI text."
   }
 }

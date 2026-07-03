@@ -8931,4 +8931,37 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get choiceInputCustomOptionDescription => '自分の回答を入力するにはこれを選択';
+
+  @override
+  String get mediaPreviewImageCopied => '画像をクリップボードにコピーしました。';
+
+  @override
+  String get mediaPreviewImageFileOrPathCopied =>
+      '画像ファイルまたはパスをクリップボードにコピーしました。';
+
+  @override
+  String get mediaPreviewMediaFileCopied => 'メディアファイルをクリップボードにコピーしました。';
+
+  @override
+  String get mediaPreviewDirectCopyUnavailablePathCopied =>
+      'このプラットフォームではメディアファイルを直接コピーできません。ファイルパスをコピーしました。';
+
+  @override
+  String get mediaPreviewMediaUrlCopied => 'メディア URL をコピーしました。';
+
+  @override
+  String get mediaPreviewDirectCopyUnavailableTempPathCopied =>
+      'このプラットフォームではメディアファイルを直接コピーできません。一時ファイルパスをコピーしました。';
+
+  @override
+  String get mediaPreviewDataCopyFailedUrlCopied =>
+      'メディアデータをコピーできません。ソース URL をコピーしました。';
+
+  @override
+  String mediaPreviewCopyFailed(Object error) {
+    return 'コピーに失敗しました: $error';
+  }
+
+  @override
+  String get mediaPreviewNoSource => 'メディアソースを利用できません。';
 }

@@ -7458,5 +7458,47 @@
   "choiceInputCustomOptionDescription": "選擇此項以手動填寫內容",
   "@choiceInputCustomOptionDescription": {
     "description": "OpenHand localized UI text."
+  },
+  "@commonCopy": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewImageCopied": "已複製圖片到剪貼簿。",
+  "@mediaPreviewImageCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewImageFileOrPathCopied": "已複製圖片檔案或路徑到剪貼簿。",
+  "@mediaPreviewImageFileOrPathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewMediaFileCopied": "已複製媒體檔案到剪貼簿。",
+  "@mediaPreviewMediaFileCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDirectCopyUnavailablePathCopied": "目前平台不支援直接複製媒體檔案，已複製檔案路徑。",
+  "@mediaPreviewDirectCopyUnavailablePathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewMediaUrlCopied": "已複製媒體位址。",
+  "@mediaPreviewMediaUrlCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDirectCopyUnavailableTempPathCopied": "目前平台不支援直接複製媒體檔案，已複製臨時檔案路徑。",
+  "@mediaPreviewDirectCopyUnavailableTempPathCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewDataCopyFailedUrlCopied": "無法複製媒體資料，已複製來源位址。",
+  "@mediaPreviewDataCopyFailedUrlCopied": {
+    "description": "OpenHand localized UI text."
+  },
+  "mediaPreviewCopyFailed": "複製失敗：{error}",
+  "@mediaPreviewCopyFailed": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "mediaPreviewNoSource": "媒體來源不可用。",
+  "@mediaPreviewNoSource": {
+    "description": "OpenHand localized UI text."
   }
 }
