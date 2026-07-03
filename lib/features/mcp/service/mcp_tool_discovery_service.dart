@@ -2797,16 +2797,8 @@ _NpxPackageResolution? _resolveNpxPackageDirectly(
     }
     // 按版本号降序排列，优先使用最新版本
     versions.sort((a, b) {
-      final ap = a
-          .substring(1)
-          .split('.')
-          .map((s) => int.tryParse(s) ?? 0)
-          .toList();
-      final bp = b
-          .substring(1)
-          .split('.')
-          .map((s) => int.tryParse(s) ?? 0)
-          .toList();
+      final ap = _nvmVersionSegments(a);
+      final bp = _nvmVersionSegments(b);
       for (int i = 0; i < 3; i++) {
         final av = i < ap.length ? ap[i] : 0;
         final bv = i < bp.length ? bp[i] : 0;
@@ -2876,6 +2868,14 @@ _NpxPackageResolution? _resolveNpxPackageDirectly(
   }
 
   return null;
+}
+
+List<int> _nvmVersionSegments(String version) {
+  final normalized = version.startsWith('v') ? version.substring(1) : version;
+  return normalized
+      .split('.')
+      .map((segment) => optionalIntFromValue(segment) ?? 0)
+      .toList(growable: false);
 }
 
 /// 从 package.json 的 bin 字段解析入口脚本绝对路径。
