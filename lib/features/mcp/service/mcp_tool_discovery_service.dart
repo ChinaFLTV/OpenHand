@@ -1223,13 +1223,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     if (normalized.isEmpty) {
       return null;
     }
-    final matchedLines = normalized
-        .split(RegExp(r'[\r\n]+'))
-        .map((item) => item.trim())
-        .where(
-          (item) => item.isNotEmpty && _looksLikeOutputDescriptionLine(item),
-        )
-        .toList(growable: false);
+    final matchedLines = splitTrimmedNonEmpty(
+      normalized,
+      separator: RegExp(r'[\r\n]+'),
+    ).where(_looksLikeOutputDescriptionLine).toList(growable: false);
     if (matchedLines.isNotEmpty) {
       return matchedLines.join('\n');
     }
@@ -1841,11 +1838,10 @@ Future<String> _probeLoginShellPath() {
 Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
   final separator = Platform.isWindows ? ';' : ':';
   final originalPath = Platform.environment['PATH'] ?? '';
-  final originalSegments = originalPath
-      .split(separator)
-      .map((segment) => segment.trim())
-      .where((segment) => segment.isNotEmpty)
-      .toList(growable: false);
+  final originalSegments = splitTrimmedNonEmpty(
+    originalPath,
+    separator: separator,
+  );
 
   final extraSegments = <String>[];
   final home =
@@ -1891,10 +1887,10 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
   if (!Platform.isWindows) {
     final shellPath = await _probeLoginShellPath();
     if (shellPath.isNotEmpty) {
-      final shellSegments = shellPath
-          .split(separator)
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty);
+      final shellSegments = splitTrimmedNonEmpty(
+        shellPath,
+        separator: separator,
+      );
       extraSegments.insertAll(0, shellSegments);
     }
   }

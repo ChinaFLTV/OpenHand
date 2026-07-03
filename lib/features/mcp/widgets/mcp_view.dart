@@ -1447,11 +1447,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
       enabled: _enabled,
       url: _urlController.text.trim(),
       command: _commandController.text.trim(),
-      args: _argsController.text
-          .split('\n')
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
-          .toList(growable: false),
+      args: splitTrimmedNonEmpty(_argsController.text, separator: '\n'),
       headers: headerParseResult.headers,
     );
 
