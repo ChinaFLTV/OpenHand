@@ -98,6 +98,8 @@ class McpStdioProcessManager extends ChangeNotifier {
   static const Duration _stdinCloseTimeout = Duration(milliseconds: 400);
   static const Duration _gracefulStopTimeout = Duration(seconds: 3);
   static const Duration _forceStopTimeout = Duration(seconds: 2);
+  static const Duration _initializeStartupDelay = Duration(seconds: 2);
+  static const Duration _initializeResponseTimeout = Duration(seconds: 90);
 
   final Map<String, _ManagedProcess> _processes = {};
 
@@ -522,7 +524,7 @@ class McpStdioProcessManager extends ChangeNotifier {
     _appendLog(serverName, '[${_timestamp()}] MCP 协议握手中…', isStderr: false);
     try {
       // 等待 npx 解析并启动实际的 MCP 服务进程（首次可能需要下载包）
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(_initializeStartupDelay);
       final managed = _processes[serverName];
       if (managed == null || !managed.info.isRunning) return;
 
@@ -539,7 +541,7 @@ class McpStdioProcessManager extends ChangeNotifier {
 
       // 等待 stdout 中出现响应（最多 90 秒，npx 首次运行需要下载包）
       final gotResponse = await responseCompleter.future.timeout(
-        const Duration(seconds: 90),
+        _initializeResponseTimeout,
         onTimeout: () => false,
       );
 
