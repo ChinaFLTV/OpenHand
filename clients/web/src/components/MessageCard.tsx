@@ -524,6 +524,7 @@ function nonEmptyString(value: unknown): string {
 
 const KB_VECTOR_DEFAULT_MAX_POINTS = 600;
 const KB_VECTOR_BATCH_SIZE = 120;
+const KB_VECTOR_BATCH_INTERVAL_MS = 92;
 const KB_VECTOR_MIN_ZOOM = 0.62;
 const KB_VECTOR_MAX_ZOOM = 10;
 const KB_VECTOR_ZOOM_BUTTON_FACTOR = 1.48;
@@ -3802,7 +3803,7 @@ function KnowledgeVectorDistributionScene({
         if (next >= allPoints.length) window.clearInterval(timer);
         return next;
       });
-    }, 92);
+    }, KB_VECTOR_BATCH_INTERVAL_MS);
     return () => window.clearInterval(timer);
   }, [allPoints]);
 

@@ -200,6 +200,7 @@ const COMPOSER_ITEM_EXIT_MS = 190;
 const QUEUE_SEND_SETTLE_MS = 600;
 const COMPOSER_COLLAPSED_STORAGE_KEY = 'openhand.web.composer_collapsed';
 const DEFAULT_COMPOSER_MODES = ['normal', 'image', 'video', 'audio', 'deep_research'];
+const THROTTLE_BUCKET_TICK_MS = 1000;
 const USER_SKILL_SELECTION_METADATA_KEY = 'user_skill_selection';
 const INFERRED_MODEL_CONTEXT_WINDOW_TOKENS = 128_000;
 const COMPOSER_TRIGGER_ROOT_OFFSET = 0;
@@ -8728,14 +8729,19 @@ function SessionThrottleDialog({
   }, [current?.throughputBuckets]);
   useEffect(() => {
     if (closing || typeof window === 'undefined') return undefined;
-    const id = window.setInterval(() => setTick((n) => n + 1), 1000);
+    const id = window.setInterval(
+      () => setTick((n) => n + 1),
+      THROTTLE_BUCKET_TICK_MS,
+    );
     return () => window.clearInterval(id);
   }, [closing]);
   const displayedBuckets = useMemo(() => {
     void tick;
     const base = lastBucketsRef.current;
     if (base.length === 0) return base;
-    const elapsed = Math.floor((Date.now() - lastUpdateRef.current) / 1000);
+    const elapsed = Math.floor(
+      (Date.now() - lastUpdateRef.current) / THROTTLE_BUCKET_TICK_MS,
+    );
     if (elapsed <= 0) return base;
     const keep = Math.max(0, base.length - elapsed);
     const out = new Array<number>(base.length).fill(0);
