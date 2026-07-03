@@ -4831,26 +4831,35 @@ export function SessionDetailPage() {
   async function readFileAsAttachment(file: File): Promise<{ att: SendMessageAttachment; mime: string; dataUrl: string }> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
+      const cleanup = () => {
+        reader.onload = null;
+        reader.onerror = null;
+      };
+      const rejectWithCleanup = (error: Error) => {
+        cleanup();
+        reject(error);
+      };
       reader.onload = () => {
         const result = reader.result;
         if (typeof result !== 'string') {
-          reject(new Error('reader.result not string'));
+          rejectWithCleanup(new Error('reader.result not string'));
           return;
         }
         const idx = result.indexOf('base64,');
         const data = idx >= 0 ? result.substring(idx + 'base64,'.length) : '';
         if (!data) {
-          reject(new Error('empty base64 payload'));
+          rejectWithCleanup(new Error('empty base64 payload'));
           return;
         }
         const mime = file.type || mimeForAttachmentName(file.name) || (idx > 0 ? result.substring(5, result.indexOf(';')) : 'application/octet-stream');
+        cleanup();
         resolve({
           att: { name: file.name, data_base64: data },
           mime,
           dataUrl: `data:${mime};base64,${data}`,
         });
       };
-      reader.onerror = () => reject(reader.error ?? new Error('FileReader failed'));
+      reader.onerror = () => rejectWithCleanup(reader.error ?? new Error('FileReader failed'));
       reader.readAsDataURL(file);
     });
   }

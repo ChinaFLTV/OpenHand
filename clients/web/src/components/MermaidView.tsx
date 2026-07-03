@@ -165,8 +165,18 @@ async function renderPngBlobFromSvg(
   const image = new Image();
   image.decoding = 'async';
   const loaded = await new Promise<HTMLImageElement>((resolve, reject) => {
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('failed_to_load_svg_image'));
+    const cleanup = () => {
+      image.onload = null;
+      image.onerror = null;
+    };
+    image.onload = () => {
+      cleanup();
+      resolve(image);
+    };
+    image.onerror = () => {
+      cleanup();
+      reject(new Error('failed_to_load_svg_image'));
+    };
     image.src = dataUrl;
   });
 
