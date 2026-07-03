@@ -292,9 +292,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       }
     }
     calls.add(_jsonSafeTelemetryMap(callJson));
-    if (calls.length > maxRecentCalls) {
-      calls.removeRange(0, calls.length - maxRecentCalls);
-    }
+    _keepNewestEntries(calls, maxRecentCalls);
     await callsFile.writeAsString(jsonEncode(calls), flush: true);
 
     // 2) engines.json
@@ -412,13 +410,21 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
             ...per.historyExtras,
           }),
         );
-        if (list.length > maxHistorySamples) {
-          list.removeRange(0, list.length - maxHistorySamples);
-        }
+        _keepNewestEntries(list, maxHistorySamples);
         hist[key] = list;
       }
       await histFile.writeAsString(jsonEncode(hist), flush: true);
     }
+  }
+}
+
+void _keepNewestEntries<T>(List<T> entries, int maxEntries) {
+  if (maxEntries <= 0) {
+    entries.clear();
+    return;
+  }
+  if (entries.length > maxEntries) {
+    entries.removeRange(0, entries.length - maxEntries);
   }
 }
 
