@@ -3561,7 +3561,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.agentTaskPublish,
       name: 'AgentTaskPublish',
       description:
-          'Publish a concrete task to an enabled digital employee. Prefer an explicit agent id/name after AgentList or AgentDetail; when omitted, OpenHand routes by task title, description, labels, and the agents route metadata. If the boundary is unclear, ask the mentor/user instead of publishing.',
+          'Publish a concrete task to an enabled digital employee only when the task matches an agent responsibility or needs delegated execution beyond the current session. Do not use this for work the current model and local tools can complete directly. Prefer an explicit agent id/name after AgentList or AgentDetail; when omitted, OpenHand routes by task context and route metadata. After publishing, poll AgentTaskProgress or AgentTaskTrack, then use AgentTaskResult when terminal or when you need the latest handoff.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -3608,7 +3608,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.agentTaskTrack,
       name: 'AgentTaskTrack',
       description:
-          'Read one agent task with status, progress, result, note, timestamps, and metadata.',
+          'Read one agent task with status, progress, result, state, assigned worker, operational summary, timestamps, and metadata. Use after AgentTaskPublish when you need the full task record.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -3640,7 +3640,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.agentTaskProgress,
       name: 'AgentTaskProgress',
       description:
-          'Read the current status and progress ratio for one agent task.',
+          'Read lightweight status, progress, state, assigned worker, and operational summary for one agent task. Use for polling while state.needs_polling is true.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -3838,7 +3838,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.agentTaskResult,
       name: 'AgentTaskResult',
       description:
-          'Read the final or latest task result, note, status, and progress for one agent task.',
+          'Read the final or latest task result, note, status, progress, assigned worker, and operational summary. Use when a task is terminal, requires attention, or the user asks for the current handoff.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{

@@ -43,6 +43,43 @@ void main() {
       }
     });
 
+    test('agent tool descriptions document delegation and polling rules', () {
+      final publish = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentTaskPublish,
+      )!;
+      final progress = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentTaskProgress,
+      )!;
+      final track = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentTaskTrack,
+      )!;
+      final result = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentTaskResult,
+      )!;
+
+      expect(
+        publish.definition.description,
+        contains('only when the task matches an agent responsibility'),
+      );
+      expect(
+        publish.definition.description,
+        contains('current model and local tools can complete directly'),
+      );
+      expect(
+        publish.definition.description,
+        contains('poll AgentTaskProgress or AgentTaskTrack'),
+      );
+      expect(
+        progress.definition.description,
+        contains('state.needs_polling is true'),
+      );
+      expect(track.definition.description, contains('operational summary'));
+      expect(
+        result.definition.description,
+        contains('terminal, requires attention'),
+      );
+    });
+
     test('hides agent tools until at least one agent is enabled', () async {
       var catalog = runtime.resolveCatalogFromRuntimeSnapshot(
         runtimeContext: _runtimeContext(),
