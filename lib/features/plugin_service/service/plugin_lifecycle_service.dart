@@ -11,6 +11,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/version_compare.dart';
+import 'plugin_toolchain_shell.dart';
 
 const Duration _pluginLifecycleDefaultTimeout = Duration(minutes: 3);
 const Duration _pluginLifecycleProbeTimeout = Duration(seconds: 5);
@@ -83,52 +84,11 @@ String hermesAgentNpmFailureMessage({
 String pluginLifecycleManagedToolchainCommandScript(
   String executable,
   List<String> arguments,
-) {
-  final command = _pluginShellQuote(executable);
-  final args = arguments.map(_pluginShellQuote).join(' ');
-  final invocation = args.isEmpty ? command : '$command $args';
-  return '''
-${_pluginLifecycleManagedToolchainShellPrefix()}
-if ! command -v $command >/dev/null 2>&1; then
-  if command -v npm >/dev/null 2>&1; then
-    npm_prefix="\$(npm prefix -g 2>/dev/null || true)"
-    if [ -n "\$npm_prefix" ]; then
-      export PATH="\$npm_prefix/bin:\$PATH"
-    fi
-  fi
-fi
-if ! command -v $command >/dev/null 2>&1; then
-  printf '%s not found\\n' $command >&2
-  exit 127
-fi
-exec $invocation
-''';
-}
+) => pluginToolchainManagedCommandScript(executable, arguments);
 
 @visibleForTesting
-String pluginLifecycleExecutableAvailabilityScript(String executable) {
-  final command = _pluginShellQuote(executable);
-  return '''
-command -v $command >/dev/null 2>&1
-''';
-}
-
-String _pluginLifecycleManagedToolchainShellPrefix() {
-  final home = Platform.environment['HOME'] ?? '';
-  return '''
-export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
-[ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
-if command -v fnm >/dev/null 2>&1; then
-  eval "\$(fnm env)"
-fi
-export VOLTA_HOME="\${VOLTA_HOME:-$home/.volta}"
-export PYENV_ROOT="\${PYENV_ROOT:-$home/.pyenv}"
-export PATH="\$PYENV_ROOT/bin:/opt/homebrew/bin:/usr/local/bin:\$VOLTA_HOME/bin:\$PATH"
-if command -v pyenv >/dev/null 2>&1; then
-  eval "\$(pyenv init -)"
-fi
-''';
-}
+String pluginLifecycleExecutableAvailabilityScript(String executable) =>
+    pluginToolchainExecutableAvailabilityScript(executable);
 
 /// 插件生命周期操作结果。
 class PluginOperationResult {
@@ -2729,8 +2689,7 @@ class _ProgressLineCollector {
 }
 
 String _pluginShellQuote(String value) {
-  if (value.isEmpty) return "''";
-  return "'${value.replaceAll("'", "'\"'\"'")}'";
+  return pluginToolchainShellQuote(value);
 }
 
 String _timeoutMessage(Duration timeout) {

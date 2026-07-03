@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/plugin_service/model/plugin_info.dart';
 import 'package:openhand/features/plugin_service/service/plugin_lifecycle_service.dart';
+import 'package:openhand/features/plugin_service/service/plugin_toolchain_shell.dart';
 
 void main() {
   group('Managed toolchain command probes', () {
@@ -71,6 +72,7 @@ printf 'openhand-hermes-test 1.2.3\\n'
           ],
           environment: <String, String>{
             'PATH': '/usr/bin:/bin',
+            'NVM_DIR': '${temp.path}/nvm',
             'PYENV_ROOT': '${temp.path}/pyenv',
             'VOLTA_HOME': '${temp.path}/volta',
           },
@@ -79,6 +81,58 @@ printf 'openhand-hermes-test 1.2.3\\n'
 
         expect(result.exitCode, 0);
         expect(result.stdout.toString(), contains('1.2.3'));
+      } finally {
+        temp.deleteSync(recursive: true);
+      }
+    });
+
+    test('resolves npm global bin command paths for scanners', () async {
+      if (Platform.isWindows) return;
+
+      final temp = Directory.systemTemp.createTempSync(
+        'openhand_plugin_scanner_',
+      );
+      try {
+        final pyenvBin = Directory('${temp.path}/pyenv/bin')
+          ..createSync(recursive: true);
+        final npmPrefixBin = Directory('${temp.path}/npm-prefix/bin')
+          ..createSync(recursive: true);
+        final npm = File('${pyenvBin.path}/npm');
+        npm.writeAsStringSync('''
+#!/bin/sh
+if [ "\$1" = "prefix" ] && [ "\$2" = "-g" ]; then
+  printf '%s\\n' '${temp.path}/npm-prefix'
+  exit 0
+fi
+exit 1
+''');
+        final command = File('${npmPrefixBin.path}/openhand-hermes-scan-test');
+        command.writeAsStringSync('''
+#!/bin/sh
+printf 'openhand-hermes-scan-test 2.3.4\\n'
+''');
+        await Process.run('/bin/chmod', ['+x', npm.path, command.path]);
+
+        final result = await Process.run(
+          '/bin/sh',
+          [
+            '-c',
+            pluginToolchainCommandPathScript(
+              'openhand-hermes-scan-test',
+              includeNpmGlobalBinFallback: true,
+            ),
+          ],
+          environment: <String, String>{
+            'PATH': '/usr/bin:/bin',
+            'NVM_DIR': '${temp.path}/nvm',
+            'PYENV_ROOT': '${temp.path}/pyenv',
+            'VOLTA_HOME': '${temp.path}/volta',
+          },
+          includeParentEnvironment: false,
+        );
+
+        expect(result.exitCode, 0);
+        expect(result.stdout.toString().trim(), command.path);
       } finally {
         temp.deleteSync(recursive: true);
       }

@@ -10,6 +10,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/version_compare.dart';
 import '../model/plugin_info.dart';
+import 'plugin_toolchain_shell.dart';
 
 @visibleForTesting
 Map<String, Object?>? qdrantInspectMetadataFromDecoded(Object? decoded) {
@@ -89,30 +90,34 @@ class PluginScannerService {
     return SystemProxyResolver.instance.resolveSubprocessEnvironment();
   }
 
-  /// 通过 shell 执行命令（用于 fnm/volta/brew/pyenv 等场景）。
-  Future<ProcessResult> _shellRun(String command) {
-    final home = Platform.environment['HOME'] ?? '';
-    final script = StringBuffer();
-    script.writeln('export NVM_DIR="\${NVM_DIR:-$home/.nvm}"');
-    script.writeln('[ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"');
-    script.writeln(
-      'if command -v fnm >/dev/null 2>&1; then eval "\$(fnm env)"; fi',
-    );
-    script.writeln('export VOLTA_HOME="\${VOLTA_HOME:-$home/.volta}"');
-    script.writeln('export PYENV_ROOT="\${PYENV_ROOT:-$home/.pyenv}"');
-    script.writeln(
-      'export PATH="\$PYENV_ROOT/bin:/opt/homebrew/bin:/usr/local/bin:\$VOLTA_HOME/bin:\$PATH"',
-    );
-    script.writeln(
-      'if command -v pyenv >/dev/null 2>&1; then eval "\$(pyenv init -)"; fi',
-    );
-    script.writeln(command);
+  Future<ProcessResult> _runShellScript(
+    String script, {
+    String tag = 'plugin_scanner.shell_probe',
+  }) {
     return runTrackedProcessOrFailed(
       _pickShell(),
-      ['-c', script.toString()],
+      ['-c', script],
       timeout: const Duration(seconds: 15),
-      tag: 'plugin_scanner.shell_probe',
+      tag: tag,
       environment: _proxyEnv(),
+    );
+  }
+
+  /// 通过 shell 执行命令（用于 fnm/volta/brew/pyenv 等场景）。
+  Future<ProcessResult> _shellRun(String command) {
+    return _runShellScript('${pluginToolchainShellPrefix()}$command');
+  }
+
+  Future<ProcessResult> _resolveCommandPath(
+    String command, {
+    required bool includeNpmGlobalBinFallback,
+  }) {
+    return _runShellScript(
+      pluginToolchainCommandPathScript(
+        command,
+        includeNpmGlobalBinFallback: includeNpmGlobalBinFallback,
+      ),
+      tag: 'plugin_scanner.command_path.$command',
     );
   }
 
@@ -453,8 +458,7 @@ class PluginScannerService {
   }
 
   static String _shellQuote(String value) {
-    if (value.isEmpty) return "''";
-    return "'${value.replaceAll("'", "'\"'\"'")}'";
+    return pluginToolchainShellQuote(value);
   }
 
   static String? _extractJavaVersion(String output) {
@@ -478,12 +482,15 @@ class PluginScannerService {
     bool supportsUninstall = true,
   }) async {
     for (final command in commands) {
-      final pathResult = await _shellRun('command -v ${_shellQuote(command)}');
+      final pathResult = await _resolveCommandPath(
+        command,
+        includeNpmGlobalBinFallback: latestNpmPackage != null,
+      );
       if (pathResult.exitCode != 0) continue;
       final installPath = _extractAbsolutePath(pathResult.stdout.toString());
       if (installPath == null || installPath.isEmpty) continue;
       final versionResult = await _shellRun(
-        [_shellQuote(command), ...versionArgs.map(_shellQuote)].join(' '),
+        [_shellQuote(installPath), ...versionArgs.map(_shellQuote)].join(' '),
       );
       final output = '${versionResult.stdout}\n${versionResult.stderr}'.trim();
       final version = versionResult.exitCode == 0
