@@ -1394,7 +1394,6 @@ class PluginScannerService {
   static List<PluginInfo> knownPluginPlaceholders() => const <PluginInfo>[
     _nodeNotInstalled,
     _playwrightNotInstalled,
-    _hermesAgentNotInstalled,
     _pythonNotInstalled,
     _pipNotInstalled,
     _javaNotInstalled,
@@ -1408,6 +1407,7 @@ class PluginScannerService {
     _anythingAnalyzerNotInstalled,
     _dockerNotInstalled,
     _qdrantNotInstalled,
+    _hermesAgentNotInstalled,
   ];
 
   Future<List<PluginInfo>> scanAll() async {
@@ -1471,7 +1471,6 @@ class PluginScannerService {
     return [
       updatedNodeJs,
       playwright,
-      hermesAgent,
       python,
       pip,
       updatedJava,
@@ -1485,6 +1484,7 @@ class PluginScannerService {
       anythingAnalyzer,
       updatedDocker,
       qdrant,
+      hermesAgent,
     ];
   }
 }

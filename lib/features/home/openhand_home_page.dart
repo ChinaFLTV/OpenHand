@@ -9623,12 +9623,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.knowledgeBase => KnowledgeBaseView(
         onOpenPlugins: () => _selectSection(AppSection.pluginService),
       ),
-      AppSection.agents => AgentsView(
-        onOpenPlugins: () => _selectSection(AppSection.pluginService),
-        onOpenCrons: () => _selectSection(AppSection.crons),
-        onOpenSettings: () => _selectSection(AppSection.settings),
-        onCreateThreadRequested: _createSessionFromDialog,
-      ),
+      AppSection.agents => const AgentsView(),
       AppSection.settings => Provider<ToolSearchReplayDispatcher>.value(
         value: _toolSearchReplayDispatcher,
         child: const SettingsView(),

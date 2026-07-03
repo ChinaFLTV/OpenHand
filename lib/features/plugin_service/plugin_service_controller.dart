@@ -95,10 +95,12 @@ class PluginServiceController extends ManagedChangeNotifier {
     };
     final result = <PluginInfo>[];
     final seen = <String>{};
+    // 插件页展示顺序按插件被纳入 OpenHand 的时间顺序固定；新增插件只能
+    // 追加到列表末尾，不能因为依赖关系或功能分组插入到中间，避免用户
+    // 看到既有插件位置跳动。
     for (final id in const <String>[
       'nodejs',
       'playwright',
-      PluginCatalogIds.hermesAgent,
       'python',
       'pip',
       'java',
@@ -112,6 +114,7 @@ class PluginServiceController extends ManagedChangeNotifier {
       'anything_analyzer',
       'docker',
       'qdrant',
+      PluginCatalogIds.hermesAgent,
     ]) {
       final plugin = byId[id];
       if (plugin == null) continue;
