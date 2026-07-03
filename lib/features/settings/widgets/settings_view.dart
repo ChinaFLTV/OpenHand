@@ -1161,19 +1161,39 @@ class _SettingsViewState extends State<SettingsView> {
           if (!kIsWeb) ...[
             const SizedBox(height: 18),
             _ResponsiveSettingRow(
-              title: openHandIsChineseLocale(context)
-                  ? '检查更新'
-                  : 'Check for Updates',
-              subtitle: openHandIsChineseLocale(context)
-                  ? '从 GitHub Release 检查是否有新版本可用。'
-                  : 'Check GitHub Releases for a newer version.',
+              title: _localizedText(
+                context,
+                zh: '检查更新',
+                zhHant: '檢查更新',
+                en: 'Check for Updates',
+                fr: 'Rechercher des mises à jour',
+                de: 'Nach Updates suchen',
+                ja: 'アップデートを確認',
+              ),
+              subtitle: _localizedText(
+                context,
+                zh: '从 GitHub Release 检查是否有新版本可用。',
+                zhHant: '從 GitHub Release 檢查是否有新版本可用。',
+                en: 'Check GitHub Releases for a newer version.',
+                fr: 'Vérifie les GitHub Releases pour une nouvelle version.',
+                de: 'Prüft GitHub Releases auf eine neuere Version.',
+                ja: 'GitHub Releases から新しいバージョンの有無を確認します。',
+              ),
               control: Align(
                 alignment: Alignment.centerLeft,
                 child: FilledButton.icon(
                   onPressed: () => _showUpdateCheckDialog(context, appInfo),
                   icon: const Icon(Icons.system_update_outlined, size: 18),
                   label: Text(
-                    openHandIsChineseLocale(context) ? '检查更新' : 'Check',
+                    _localizedText(
+                      context,
+                      zh: '检查更新',
+                      zhHant: '檢查更新',
+                      en: 'Check',
+                      fr: 'Vérifier',
+                      de: 'Prüfen',
+                      ja: '確認',
+                    ),
                   ),
                 ),
               ),
@@ -1900,12 +1920,24 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               // 先决定是否启用/自适应，再调整具体速率。
               _ResponsiveSettingRow(
-                title: openHandIsChineseLocale(context)
-                    ? '启用流式输出节流'
-                    : 'Enable Stream Throttle',
-                subtitle: openHandIsChineseLocale(context)
-                    ? '一键开关字符 / 卡片节流。关闭后所有节流参数失效，AI 输出按真实速率全速渲染。'
-                    : 'Master switch for char/card throttling. When off, AI output renders at full speed.',
+                title: _localizedText(
+                  context,
+                  zh: '启用流式输出节流',
+                  zhHant: '啟用串流輸出節流',
+                  en: 'Enable Stream Throttle',
+                  fr: 'Activer la limitation du flux',
+                  de: 'Stream-Drosselung aktivieren',
+                  ja: 'ストリーム出力のスロットリングを有効化',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '一键开关字符 / 卡片节流。关闭后所有节流参数失效，AI 输出按真实速率全速渲染。',
+                  zhHant: '一鍵開關字元 / 卡片節流。關閉後所有節流參數失效，AI 輸出會按真實速率全速渲染。',
+                  en: 'Master switch for char/card throttling. When off, AI output renders at full speed.',
+                  fr: 'Interrupteur global pour la limitation des caractères et cartes. Désactivé, la sortie IA s’affiche à pleine vitesse.',
+                  de: 'Hauptschalter für Zeichen-/Kartendrosselung. Ausgeschaltet rendert die KI-Ausgabe mit voller Geschwindigkeit.',
+                  ja: '文字とカードのスロットリングの一括スイッチです。オフにすると AI 出力は実際の速度で全速描画されます。',
+                ),
                 control: Align(
                   alignment: Alignment.centerLeft,
                   child: _SettingsSwitch(
@@ -1917,12 +1949,25 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: openHandIsChineseLocale(context)
-                    ? '节流自动模式'
-                    : 'Auto-Adaptive Throttle',
-                subtitle: openHandIsChineseLocale(context)
-                    ? '按平台 / 设备性能自动选速率：桌面 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 字符/秒、移动 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 字符/秒；卡片统一 ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。最近 1s FPS<55 自动再降速 50%。开启后忽略下方手动配置。'
-                    : 'Auto-pick rates by platform: desktop ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} chars/s, mobile ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} chars/s; cards ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/s. When recent FPS<55, halves the rate. Manual values below ignored when on.',
+                title: _localizedText(
+                  context,
+                  zh: '节流自动模式',
+                  zhHant: '節流自動模式',
+                  en: 'Auto-Adaptive Throttle',
+                  fr: 'Limitation adaptative',
+                  de: 'Adaptive Drosselung',
+                  ja: '自動適応スロットリング',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '按平台 / 设备性能自动选速率：桌面 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 字符/秒、移动 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 字符/秒；卡片统一 ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。最近 1s FPS<55 自动再降速 50%。开启后忽略下方手动配置。',
+                  zhHant:
+                      '依平台 / 裝置效能自動選速率：桌面 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 字元/秒、行動 ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 字元/秒；卡片統一 ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。最近 1s FPS<55 時自動再降速 50%。開啟後會忽略下方手動設定。',
+                  en: 'Auto-pick rates by platform: desktop ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} chars/s, mobile ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} chars/s; cards ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/s. When recent FPS<55, halves the rate. Manual values below ignored when on.',
+                  fr: 'Choisit les débits selon la plateforme : desktop ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} car./s, mobile ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} car./s ; cartes ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/s. Si le FPS récent est <55, le débit est divisé par 2. Les valeurs manuelles sont ignorées.',
+                  de: 'Wählt Raten je nach Plattform: Desktop ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} Zeichen/s, mobil ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} Zeichen/s; Karten ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/s. Bei FPS <55 in der letzten Sekunde wird halbiert. Manuelle Werte werden ignoriert.',
+                  ja: 'プラットフォームに応じて速度を自動選択します。デスクトップ ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop} 文字/秒、モバイル ${AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile} 文字/秒、カードは ${AppSettingsSnapshot.autoStreamMaxMessageCardsPerSecondAuto}/秒。直近 1 秒の FPS が 55 未満ならさらに 50% 低下します。オンの間は下の手動設定を無視します。',
+                ),
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1946,12 +1991,25 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               // 2026-05-17 — 流式输出节流：每秒最多向卡片追加渲染的字符数
               _ResponsiveSettingRow(
-                title: openHandIsChineseLocale(context)
-                    ? '每秒最大输出渲染字符'
-                    : 'Max Render Chars / Sec',
-                subtitle: openHandIsChineseLocale(context)
-                    ? 'AI 侧高速吐字时，UI 端按此速率均匀放出，避免卡片增量渲染卡顿、ANR 与列表抖动。0 表示关闭节流。默认 10。'
-                    : 'When AI streams chars at high speed, UI appends at this rate to avoid stutter, ANR and list bouncing. 0 disables throttling. Default 10.',
+                title: _localizedText(
+                  context,
+                  zh: '每秒最大输出渲染字符',
+                  zhHant: '每秒最大輸出渲染字元',
+                  en: 'Max Render Chars / Sec',
+                  fr: 'Caractères rendus max / s',
+                  de: 'Max. Render-Zeichen / s',
+                  ja: '1 秒あたりの最大描画文字数',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: 'AI 侧高速吐字时，UI 端按此速率均匀放出，避免卡片增量渲染卡顿、ANR 与列表抖动。0 表示关闭节流。默认 10。',
+                  zhHant:
+                      'AI 端高速輸出字元時，UI 端會按此速率均勻放出，避免卡片增量渲染卡頓、ANR 與列表抖動。0 表示關閉節流。預設 10。',
+                  en: 'When AI streams chars at high speed, UI appends at this rate to avoid stutter, ANR and list bouncing. 0 disables throttling. Default 10.',
+                  fr: 'Quand l’IA émet vite, l’UI ajoute les caractères à ce débit pour éviter les saccades, ANR et rebonds de liste. 0 désactive la limitation. Défaut 10.',
+                  de: 'Wenn die KI schnell Zeichen streamt, fügt die UI sie mit dieser Rate an, um Ruckeln, ANR und Listenspringen zu vermeiden. 0 deaktiviert die Drosselung. Standard 10.',
+                  ja: 'AI が高速に文字を出力する場合、UI はこの速度で均等に追加し、カードの差分描画のカクつきやリスト揺れを避けます。0 は無効化、既定は 10 です。',
+                ),
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1963,9 +2021,15 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText: openHandIsChineseLocale(context)
-                            ? '每秒最大输出渲染字符'
-                            : 'Max Render Chars / Sec',
+                        labelText: _localizedText(
+                          context,
+                          zh: '每秒最大输出渲染字符',
+                          zhHant: '每秒最大輸出渲染字元',
+                          en: 'Max Render Chars / Sec',
+                          fr: 'Caractères rendus max / s',
+                          de: 'Max. Render-Zeichen / s',
+                          ja: '1 秒あたりの最大描画文字数',
+                        ),
                         hintText:
                             '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
                       ),
@@ -1975,9 +2039,15 @@ class _SettingsViewState extends State<SettingsView> {
                     if (settingsController.aiStreamMaxCharsPerSecond <= 0) ...[
                       const SizedBox(height: 8),
                       _ThrottleDisabledBadge(
-                        message: openHandIsChineseLocale(context)
-                            ? '节流已关闭：AI 端字符将按真实速率全速渲染。'
-                            : 'Throttle disabled: chars will be rendered at full speed.',
+                        message: _localizedText(
+                          context,
+                          zh: '节流已关闭：AI 端字符将按真实速率全速渲染。',
+                          zhHant: '節流已關閉：AI 端字元會按真實速率全速渲染。',
+                          en: 'Throttle disabled: chars will be rendered at full speed.',
+                          fr: 'Limitation désactivée : les caractères seront rendus à pleine vitesse.',
+                          de: 'Drosselung deaktiviert: Zeichen werden mit voller Geschwindigkeit gerendert.',
+                          ja: 'スロットリング無効: 文字は実際の速度で全速描画されます。',
+                        ),
                       ),
                     ],
                     const SizedBox(height: 12),
@@ -2001,12 +2071,25 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               // 2026-05-17 — 卡片限速：每秒最多新追加多少张消息卡片
               _ResponsiveSettingRow(
-                title: openHandIsChineseLocale(context)
-                    ? '每秒最大输出消息卡片数'
-                    : 'Max Render Cards / Sec',
-                subtitle: openHandIsChineseLocale(context)
-                    ? 'AI 短时间内连续追加多张工具/助手卡片时，按此速率均匀放出，消除会话窗口的上下弹跳与抽搐。0 表示关闭节流。默认 1。'
-                    : 'When AI emits many tool/assistant cards in a burst, UI emits at this rate to eliminate jitter. 0 disables throttling. Default 1.',
+                title: _localizedText(
+                  context,
+                  zh: '每秒最大输出消息卡片数',
+                  zhHant: '每秒最大輸出訊息卡片數',
+                  en: 'Max Render Cards / Sec',
+                  fr: 'Cartes rendues max / s',
+                  de: 'Max. Render-Karten / s',
+                  ja: '1 秒あたりの最大描画カード数',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: 'AI 短时间内连续追加多张工具/助手卡片时，按此速率均匀放出，消除会话窗口的上下弹跳与抽搐。0 表示关闭节流。默认 1。',
+                  zhHant:
+                      'AI 短時間內連續追加多張工具/助手卡片時，會按此速率均勻放出，消除會話視窗上下彈跳與抖動。0 表示關閉節流。預設 1。',
+                  en: 'When AI emits many tool/assistant cards in a burst, UI emits at this rate to eliminate jitter. 0 disables throttling. Default 1.',
+                  fr: 'Quand l’IA ajoute plusieurs cartes outil/assistant d’un coup, l’UI les affiche à ce débit pour supprimer les rebonds. 0 désactive la limitation. Défaut 1.',
+                  de: 'Wenn die KI viele Tool-/Assistentenkarten auf einmal erzeugt, gibt die UI sie mit dieser Rate aus, um Springen zu vermeiden. 0 deaktiviert die Drosselung. Standard 1.',
+                  ja: 'AI が短時間に複数のツール/アシスタントカードを追加する場合、この速度で均等に表示し、会話画面の上下揺れを抑えます。0 は無効化、既定は 1 です。',
+                ),
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -2018,9 +2101,15 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText: openHandIsChineseLocale(context)
-                            ? '每秒最大输出消息卡片数'
-                            : 'Max Render Cards / Sec',
+                        labelText: _localizedText(
+                          context,
+                          zh: '每秒最大输出消息卡片数',
+                          zhHant: '每秒最大輸出訊息卡片數',
+                          en: 'Max Render Cards / Sec',
+                          fr: 'Cartes rendues max / s',
+                          de: 'Max. Render-Karten / s',
+                          ja: '1 秒あたりの最大描画カード数',
+                        ),
                         hintText:
                             '${AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond}',
                       ),
@@ -2031,9 +2120,15 @@ class _SettingsViewState extends State<SettingsView> {
                         0) ...[
                       const SizedBox(height: 8),
                       _ThrottleDisabledBadge(
-                        message: openHandIsChineseLocale(context)
-                            ? '节流已关闭：AI 端新增卡片将按真实速率全速追加。'
-                            : 'Throttle disabled: new cards will be appended at full speed.',
+                        message: _localizedText(
+                          context,
+                          zh: '节流已关闭：AI 端新增卡片将按真实速率全速追加。',
+                          zhHant: '節流已關閉：AI 端新增卡片會按真實速率全速追加。',
+                          en: 'Throttle disabled: new cards will be appended at full speed.',
+                          fr: 'Limitation désactivée : les nouvelles cartes seront ajoutées à pleine vitesse.',
+                          de: 'Drosselung deaktiviert: neue Karten werden mit voller Geschwindigkeit angefügt.',
+                          ja: 'スロットリング無効: 新しいカードは実際の速度で全速追加されます。',
+                        ),
                       ),
                     ],
                     const SizedBox(height: 12),
@@ -2057,12 +2152,25 @@ class _SettingsViewState extends State<SettingsView> {
               // 2026-05-17 — 节流持续时长入口。
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: openHandIsChineseLocale(context)
-                    ? '节流持续时长（秒）'
-                    : 'Throttle Duration (s)',
-                subtitle: openHandIsChineseLocale(context)
-                    ? '在该时长内按字符 / 卡片速率均匀放出；时长耗尽后剩余流式响应直接按 AI 实际接收节奏追加。0 = 持续节流（默认）。'
-                    : 'Throttle char/card output for this duration; afterwards the remainder streams at the AI actual arrival rate. 0 = continuous throttle (default).',
+                title: _localizedText(
+                  context,
+                  zh: '节流持续时长（秒）',
+                  zhHant: '節流持續時長（秒）',
+                  en: 'Throttle Duration (s)',
+                  fr: 'Durée de limitation (s)',
+                  de: 'Drosselungsdauer (s)',
+                  ja: 'スロットリング継続時間（秒）',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '在该时长内按字符 / 卡片速率均匀放出；时长耗尽后剩余流式响应直接按 AI 实际接收节奏追加。0 = 持续节流（默认）。',
+                  zhHant:
+                      '在該時長內按字元 / 卡片速率均勻放出；時長耗盡後剩餘串流回應會直接按 AI 實際接收節奏追加。0 = 持續節流（預設）。',
+                  en: 'Throttle char/card output for this duration; afterwards the remainder streams at the AI actual arrival rate. 0 = continuous throttle (default).',
+                  fr: 'Limite les caractères/cartes pendant cette durée ; ensuite le reste suit le rythme réel d’arrivée de l’IA. 0 = limitation continue (défaut).',
+                  de: 'Drosselt Zeichen/Karten für diese Dauer; danach folgt der Rest der tatsächlichen KI-Ankunftsrate. 0 = kontinuierliche Drosselung (Standard).',
+                  ja: 'この時間中は文字/カードの速度を均等化します。終了後の残りは AI の実際の受信ペースで追加されます。0 = 継続スロットリング（既定）。',
+                ),
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -2074,9 +2182,15 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText: openHandIsChineseLocale(context)
-                            ? '节流持续时长（秒）'
-                            : 'Throttle Duration (s)',
+                        labelText: _localizedText(
+                          context,
+                          zh: '节流持续时长（秒）',
+                          zhHant: '節流持續時長（秒）',
+                          en: 'Throttle Duration (s)',
+                          fr: 'Durée de limitation (s)',
+                          de: 'Drosselungsdauer (s)',
+                          ja: 'スロットリング継続時間（秒）',
+                        ),
                         hintText:
                             '${AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds}',
                       ),
@@ -2087,9 +2201,15 @@ class _SettingsViewState extends State<SettingsView> {
                         0) ...[
                       const SizedBox(height: 8),
                       _ThrottleDisabledBadge(
-                        message: openHandIsChineseLocale(context)
-                            ? '当前为持续节流：整个流式响应都按节流速率均匀放出。'
-                            : 'Continuous throttle: the entire stream is paced.',
+                        message: _localizedText(
+                          context,
+                          zh: '当前为持续节流：整个流式响应都按节流速率均匀放出。',
+                          zhHant: '目前為持續節流：整個串流回應都會按節流速率均勻放出。',
+                          en: 'Continuous throttle: the entire stream is paced.',
+                          fr: 'Limitation continue : tout le flux est cadencé.',
+                          de: 'Kontinuierliche Drosselung: der gesamte Stream wird getaktet.',
+                          ja: '継続スロットリング: ストリーム全体を一定速度で表示します。',
+                        ),
                       ),
                     ],
                     const SizedBox(height: 12),
@@ -2113,12 +2233,25 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               // 2026-05-18 — 节流配置 export / import 入口；带云端同步预留
               _ResponsiveSettingRow(
-                title: openHandIsChineseLocale(context)
-                    ? '导入 / 导出节流配置'
-                    : 'Import / Export Throttle Config',
-                subtitle: openHandIsChineseLocale(context)
-                    ? '把全局开关 / 自动模式 / 字符 / 卡片速率 / 模板覆盖打包为 JSON 文件，方便多设备同步。文档保留 cloud_sync 字段，用于后续接入远端同步。'
-                    : 'Bundle global switch / auto / chars / cards / template overrides as a JSON document for cross-device sync. The cloud_sync field is reserved for future remote sync.',
+                title: _localizedText(
+                  context,
+                  zh: '导入 / 导出节流配置',
+                  zhHant: '匯入 / 匯出節流設定',
+                  en: 'Import / Export Throttle Config',
+                  fr: 'Importer / exporter la config de limitation',
+                  de: 'Drosselungskonfiguration importieren / exportieren',
+                  ja: 'スロットリング設定のインポート / エクスポート',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '把全局开关 / 自动模式 / 字符 / 卡片速率 / 模板覆盖打包为 JSON 文件，方便多设备同步。文档保留 cloud_sync 字段，用于后续接入远端同步。',
+                  zhHant:
+                      '把全域開關 / 自動模式 / 字元 / 卡片速率 / 模板覆蓋打包為 JSON 檔案，方便多裝置同步。文件保留 cloud_sync 欄位，用於後續接入遠端同步。',
+                  en: 'Bundle global switch / auto / chars / cards / template overrides as a JSON document for cross-device sync. The cloud_sync field is reserved for future remote sync.',
+                  fr: 'Regroupe interrupteur global, auto, caractères, cartes et remplacements de modèles dans un JSON pour la synchro multi-appareils. Le champ cloud_sync est réservé.',
+                  de: 'Packt globalen Schalter, Auto, Zeichen, Karten und Template-Overrides als JSON für geräteübergreifende Synchronisierung. cloud_sync ist reserviert.',
+                  ja: 'グローバルスイッチ、自動モード、文字/カード速度、テンプレート上書きを JSON にまとめ、複数デバイス同期に使えます。cloud_sync フィールドは将来用に予約されています。',
+                ),
                 control: Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -2127,18 +2260,30 @@ class _SettingsViewState extends State<SettingsView> {
                       onPressed: () => _exportAiStreamThrottleConfig(context),
                       icon: const Icon(Icons.upload_rounded, size: 18),
                       label: Text(
-                        openHandIsChineseLocale(context)
-                            ? '导出 JSON'
-                            : 'Export JSON',
+                        _localizedText(
+                          context,
+                          zh: '导出 JSON',
+                          zhHant: '匯出 JSON',
+                          en: 'Export JSON',
+                          fr: 'Exporter JSON',
+                          de: 'JSON exportieren',
+                          ja: 'JSON をエクスポート',
+                        ),
                       ),
                     ),
                     FilledButton.tonalIcon(
                       onPressed: () => _importAiStreamThrottleConfig(context),
                       icon: const Icon(Icons.download_rounded, size: 18),
                       label: Text(
-                        openHandIsChineseLocale(context)
-                            ? '从 JSON 导入'
-                            : 'Import JSON',
+                        _localizedText(
+                          context,
+                          zh: '从 JSON 导入',
+                          zhHant: '從 JSON 匯入',
+                          en: 'Import JSON',
+                          fr: 'Importer JSON',
+                          de: 'JSON importieren',
+                          ja: 'JSON をインポート',
+                        ),
                       ),
                     ),
                   ],
@@ -2149,12 +2294,25 @@ class _SettingsViewState extends State<SettingsView> {
               // 2026-05-18 — 节流配置云端同步入口；custom 走真实 HTTP
               // PUT/GET，iCloud / OAuth 留占位入口
               _ResponsiveSettingRow(
-                title: openHandIsChineseLocale(context)
-                    ? '节流配置云端同步'
-                    : 'Cloud Sync',
-                subtitle: openHandIsChineseLocale(context)
-                    ? '把节流配置推送 / 拉取到自定义 HTTP 端点。token 走 Authorization Bearer header；iCloud / OAuth 入口为后续接入预留。'
-                    : 'Push / pull throttle config to a custom HTTP endpoint via Bearer token. iCloud / OAuth are reserved for future native bridging.',
+                title: _localizedText(
+                  context,
+                  zh: '节流配置云端同步',
+                  zhHant: '節流設定雲端同步',
+                  en: 'Cloud Sync',
+                  fr: 'Synchronisation cloud',
+                  de: 'Cloud-Synchronisierung',
+                  ja: 'クラウド同期',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '把节流配置推送 / 拉取到自定义 HTTP 端点。token 走 Authorization Bearer header；iCloud / OAuth 入口为后续接入预留。',
+                  zhHant:
+                      '把節流設定推送 / 拉取到自訂 HTTP 端點。token 會走 Authorization Bearer header；iCloud / OAuth 入口為後續接入預留。',
+                  en: 'Push / pull throttle config to a custom HTTP endpoint via Bearer token. iCloud / OAuth are reserved for future native bridging.',
+                  fr: 'Pousse / récupère la config de limitation via un endpoint HTTP personnalisé avec token Bearer. iCloud / OAuth sont réservés.',
+                  de: 'Push/Pull der Drosselungskonfiguration an einen eigenen HTTP-Endpunkt per Bearer-Token. iCloud/OAuth sind reserviert.',
+                  ja: 'Bearer トークン付きのカスタム HTTP エンドポイントへスロットリング設定をプッシュ/プルします。iCloud / OAuth は将来連携用です。',
+                ),
                 control: const _ThrottleCloudSyncEditor(),
                 controlMaxWidth: 720,
               ),
@@ -2212,12 +2370,24 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: openHandIsChineseLocale(context)
-                    ? '标题获取最大重试次数'
-                    : 'Title Retry Max Count',
-                subtitle: openHandIsChineseLocale(context)
-                    ? '当自动标题生成失败后，后续每次打开该会话时尝试重新获取标题的最大次数。超过此次数后将使用回退策略。'
-                    : 'Maximum number of retries to regenerate a session title on subsequent opens after the initial auto-title generation fails.',
+                title: _localizedText(
+                  context,
+                  zh: '标题获取最大重试次数',
+                  zhHant: '標題取得最大重試次數',
+                  en: 'Title Retry Max Count',
+                  fr: 'Nombre max. de tentatives de titre',
+                  de: 'Max. Titel-Wiederholungen',
+                  ja: 'タイトル取得の最大再試行回数',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '当自动标题生成失败后，后续每次打开该会话时尝试重新获取标题的最大次数。超过此次数后将使用回退策略。',
+                  zhHant: '當自動標題生成失敗後，後續每次開啟該會話時嘗試重新取得標題的最大次數。超過此次數後會使用回退策略。',
+                  en: 'Maximum number of retries to regenerate a session title on subsequent opens after the initial auto-title generation fails.',
+                  fr: 'Nombre maximal de nouvelles tentatives pour générer le titre d’une session lors des ouvertures suivantes après un échec initial.',
+                  de: 'Maximale Anzahl erneuter Versuche, einen Sitzungstitel bei späterem Öffnen neu zu erzeugen, nachdem die erste automatische Generierung fehlgeschlagen ist.',
+                  ja: '自動タイトル生成が失敗したあと、このセッションを開くたびにタイトル再生成を試す最大回数です。超過後はフォールバックを使います。',
+                ),
                 controlMaxWidth: 200,
                 control: Row(
                   children: [
@@ -4344,7 +4514,6 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     String rawValue,
   ) async {
-    final isZh = openHandIsChineseLocale(context);
     await _saveBoundedIntegerSetting(
       context: context,
       rawValue: rawValue,
@@ -4354,7 +4523,15 @@ class _SettingsViewState extends State<SettingsView> {
       currentValue: (controller) => controller.aiStreamMaxCharsPerSecond,
       saveValue: (controller, value) =>
           controller.updateAiStreamMaxCharsPerSecond(value),
-      successMessage: isZh ? '每秒最大输出渲染字符已保存。' : 'Max render chars / sec saved.',
+      successMessage: _localizedText(
+        context,
+        zh: '每秒最大输出渲染字符已保存。',
+        zhHant: '每秒最大輸出渲染字元已儲存。',
+        en: 'Max render chars / sec saved.',
+        fr: 'Nombre maximal de caractères rendus par seconde enregistré.',
+        de: 'Maximale Render-Zeichen pro Sekunde gespeichert.',
+        ja: '1 秒あたりの最大描画文字数を保存しました。',
+      ),
     );
   }
 
@@ -4362,7 +4539,6 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     String rawValue,
   ) async {
-    final isZh = openHandIsChineseLocale(context);
     await _saveBoundedIntegerSetting(
       context: context,
       rawValue: rawValue,
@@ -4372,9 +4548,15 @@ class _SettingsViewState extends State<SettingsView> {
       currentValue: (controller) => controller.aiStreamMaxMessageCardsPerSecond,
       saveValue: (controller, value) =>
           controller.updateAiStreamMaxMessageCardsPerSecond(value),
-      successMessage: isZh
-          ? '每秒最大输出消息卡片数已保存。'
-          : 'Max render cards / sec saved.',
+      successMessage: _localizedText(
+        context,
+        zh: '每秒最大输出消息卡片数已保存。',
+        zhHant: '每秒最大輸出訊息卡片數已儲存。',
+        en: 'Max render cards / sec saved.',
+        fr: 'Nombre maximal de cartes rendues par seconde enregistré.',
+        de: 'Maximale Render-Karten pro Sekunde gespeichert.',
+        ja: '1 秒あたりの最大描画カード数を保存しました。',
+      ),
     );
   }
 
@@ -4383,7 +4565,6 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     String rawValue,
   ) async {
-    final isZh = openHandIsChineseLocale(context);
     await _saveBoundedIntegerSetting(
       context: context,
       rawValue: rawValue,
@@ -4393,14 +4574,21 @@ class _SettingsViewState extends State<SettingsView> {
       currentValue: (controller) => controller.aiStreamThrottleDurationSeconds,
       saveValue: (controller, value) =>
           controller.updateAiStreamThrottleDurationSeconds(value),
-      successMessage: isZh ? '节流持续时长已保存。' : 'Throttle duration saved.',
+      successMessage: _localizedText(
+        context,
+        zh: '节流持续时长已保存。',
+        zhHant: '節流持續時長已儲存。',
+        en: 'Throttle duration saved.',
+        fr: 'Durée de limitation enregistrée.',
+        de: 'Drosselungsdauer gespeichert.',
+        ja: 'スロットリング継続時間を保存しました。',
+      ),
     );
   }
 
   /// 2026-05-18 — 把当前节流配置序列化为 JSON 文件。
   Future<void> _exportAiStreamThrottleConfig(BuildContext context) async {
     final controller = context.read<SettingsController>();
-    final isZh = openHandIsChineseLocale(context);
     final ts = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '-')
@@ -4423,7 +4611,15 @@ class _SettingsViewState extends State<SettingsView> {
       if (!context.mounted) return;
       _showSnackBar(
         context,
-        isZh ? '打开保存对话框失败。' : 'Failed to open save dialog.',
+        _localizedText(
+          context,
+          zh: '打开保存对话框失败。',
+          zhHant: '開啟儲存對話框失敗。',
+          en: 'Failed to open save dialog.',
+          fr: 'Impossible d’ouvrir la boîte de dialogue d’enregistrement.',
+          de: 'Speicherdialog konnte nicht geöffnet werden.',
+          ja: '保存ダイアログを開けませんでした。',
+        ),
         kind: OpenHandSnackKind.error,
       );
       return;
@@ -4450,7 +4646,15 @@ class _SettingsViewState extends State<SettingsView> {
       if (!context.mounted) return;
       _showSnackBar(
         context,
-        isZh ? '导出失败。' : 'Export failed.',
+        _localizedText(
+          context,
+          zh: '导出失败。',
+          zhHant: '匯出失敗。',
+          en: 'Export failed.',
+          fr: 'Échec de l’exportation.',
+          de: 'Export fehlgeschlagen.',
+          ja: 'エクスポートに失敗しました。',
+        ),
         kind: OpenHandSnackKind.error,
       );
       return;
@@ -4458,7 +4662,15 @@ class _SettingsViewState extends State<SettingsView> {
     if (!context.mounted) return;
     _showSnackBar(
       context,
-      isZh ? '已导出节流配置。' : 'Throttle config exported.',
+      _localizedText(
+        context,
+        zh: '已导出节流配置。',
+        zhHant: '已匯出節流設定。',
+        en: 'Throttle config exported.',
+        fr: 'Configuration de limitation exportée.',
+        de: 'Drosselungskonfiguration exportiert.',
+        ja: 'スロットリング設定をエクスポートしました。',
+      ),
       kind: OpenHandSnackKind.success,
     );
   }
@@ -4466,7 +4678,6 @@ class _SettingsViewState extends State<SettingsView> {
   /// 2026-05-18 — 从 JSON 文件 import 节流配置；缺失字段保持现值。
   Future<void> _importAiStreamThrottleConfig(BuildContext context) async {
     final controller = context.read<SettingsController>();
-    final isZh = openHandIsChineseLocale(context);
     const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
     XFile? file;
     try {
@@ -4481,7 +4692,15 @@ class _SettingsViewState extends State<SettingsView> {
       if (!context.mounted) return;
       _showSnackBar(
         context,
-        isZh ? '打开文件对话框失败。' : 'Failed to open file dialog.',
+        _localizedText(
+          context,
+          zh: '打开文件对话框失败。',
+          zhHant: '開啟檔案對話框失敗。',
+          en: 'Failed to open file dialog.',
+          fr: 'Impossible d’ouvrir la boîte de dialogue de fichier.',
+          de: 'Dateidialog konnte nicht geöffnet werden.',
+          ja: 'ファイルダイアログを開けませんでした。',
+        ),
         kind: OpenHandSnackKind.error,
       );
       return;
@@ -4505,7 +4724,15 @@ class _SettingsViewState extends State<SettingsView> {
       if (!context.mounted) return;
       _showSnackBar(
         context,
-        isZh ? '导入失败：${error.toString()}' : 'Import failed: $error',
+        _localizedText(
+          context,
+          zh: '导入失败：${error.toString()}',
+          zhHant: '匯入失敗：${error.toString()}',
+          en: 'Import failed: $error',
+          fr: 'Échec de l’importation : $error',
+          de: 'Import fehlgeschlagen: $error',
+          ja: 'インポートに失敗しました: $error',
+        ),
         kind: OpenHandSnackKind.error,
       );
       return;
@@ -4522,7 +4749,15 @@ class _SettingsViewState extends State<SettingsView> {
     if (diffs.isEmpty) {
       _showSnackBar(
         context,
-        isZh ? '配置无变化。' : 'No changes detected.',
+        _localizedText(
+          context,
+          zh: '配置无变化。',
+          zhHant: '設定無變化。',
+          en: 'No changes detected.',
+          fr: 'Aucune modification détectée.',
+          de: 'Keine Änderungen erkannt.',
+          ja: '変更はありません。',
+        ),
         kind: OpenHandSnackKind.success,
       );
       return;
@@ -4532,15 +4767,27 @@ class _SettingsViewState extends State<SettingsView> {
       content: buildOpenHandDialogConstrainedContent(
         width: 600,
         maxHeight: 420,
-        child: _ThrottleImportDiffContent(
-          diffs: diffs,
-          isZh: isZh,
-          showActions: false,
-        ),
+        child: _ThrottleImportDiffContent(diffs: diffs, showActions: false),
       ),
-      title: isZh ? '导入节流配置？' : 'Import throttle config?',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '导入 ${diffs.length} 项' : 'Import ${diffs.length}',
+      title: _localizedText(
+        context,
+        zh: '导入节流配置？',
+        zhHant: '匯入節流設定？',
+        en: 'Import throttle config?',
+        fr: 'Importer la configuration de limitation ?',
+        de: 'Drosselungskonfiguration importieren?',
+        ja: 'スロットリング設定をインポートしますか？',
+      ),
+      cancelLabel: AppLocalizations.of(context)!.commonCancel,
+      confirmLabel: _localizedText(
+        context,
+        zh: '导入 ${diffs.length} 项',
+        zhHant: '匯入 ${diffs.length} 項',
+        en: 'Import ${diffs.length}',
+        fr: 'Importer ${diffs.length}',
+        de: '${diffs.length} importieren',
+        ja: '${diffs.length} 件をインポート',
+      ),
     );
     if (!confirmed) return;
     if (!context.mounted) return;
@@ -4550,8 +4797,24 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         changed
-            ? (isZh ? '节流配置已导入并应用。' : 'Throttle config imported.')
-            : (isZh ? '配置无变化。' : 'No changes detected.'),
+            ? _localizedText(
+                context,
+                zh: '节流配置已导入并应用。',
+                zhHant: '節流設定已匯入並套用。',
+                en: 'Throttle config imported.',
+                fr: 'Configuration de limitation importée.',
+                de: 'Drosselungskonfiguration importiert.',
+                ja: 'スロットリング設定をインポートして適用しました。',
+              )
+            : _localizedText(
+                context,
+                zh: '配置无变化。',
+                zhHant: '設定無變化。',
+                en: 'No changes detected.',
+                fr: 'Aucune modification détectée.',
+                de: 'Keine Änderungen erkannt.',
+                ja: '変更はありません。',
+              ),
         kind: OpenHandSnackKind.success,
       );
     } catch (error, stack) {
@@ -4564,7 +4827,15 @@ class _SettingsViewState extends State<SettingsView> {
       if (!context.mounted) return;
       _showSnackBar(
         context,
-        isZh ? '应用失败：${error.toString()}' : 'Apply failed: $error',
+        _localizedText(
+          context,
+          zh: '应用失败：${error.toString()}',
+          zhHant: '套用失敗：${error.toString()}',
+          en: 'Apply failed: $error',
+          fr: 'Échec de l’application : $error',
+          de: 'Anwenden fehlgeschlagen: $error',
+          ja: '適用に失敗しました: $error',
+        ),
         kind: OpenHandSnackKind.error,
       );
     }
@@ -6302,7 +6573,6 @@ class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     final low = _fps > 0 && _fps < 55;
     final color = low ? scheme.error : scheme.primary;
     return Container(
@@ -6322,9 +6592,15 @@ class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
           ),
           const SizedBox(width: 6),
           Text(
-            isZh
-                ? '实时 FPS：${_fps.toStringAsFixed(1)}${low ? ' · 已降速' : ''}'
-                : 'FPS: ${_fps.toStringAsFixed(1)}${low ? ' · slowed' : ''}',
+            _localizedText(
+              context,
+              zh: '实时 FPS：${_fps.toStringAsFixed(1)}${low ? ' · 已降速' : ''}',
+              zhHant: '即時 FPS：${_fps.toStringAsFixed(1)}${low ? ' · 已降速' : ''}',
+              en: 'FPS: ${_fps.toStringAsFixed(1)}${low ? ' · slowed' : ''}',
+              fr: 'FPS : ${_fps.toStringAsFixed(1)}${low ? ' · ralenti' : ''}',
+              de: 'FPS: ${_fps.toStringAsFixed(1)}${low ? ' · verlangsamt' : ''}',
+              ja: 'FPS: ${_fps.toStringAsFixed(1)}${low ? ' · 低速化' : ''}',
+            ),
             style: theme.textTheme.labelSmall?.copyWith(
               color: color,
               fontFeatures: const [FontFeature.tabularFigures()],
@@ -6351,10 +6627,9 @@ class _ThrottleDiffRow {
 /// 项以 「key · before → after」 行形式展示，并提供 取消 / 应用 两个
 /// OpenHandDialogActionButton 让用户做最后决策。
 class _ThrottleImportDiffDialog extends StatelessWidget {
-  const _ThrottleImportDiffDialog({required this.diffs, required this.isZh});
+  const _ThrottleImportDiffDialog({required this.diffs});
 
   final List<_ThrottleDiffRow> diffs;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -6365,11 +6640,7 @@ class _ThrottleImportDiffDialog extends StatelessWidget {
       safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: _ThrottleImportDiffContent(
-          diffs: diffs,
-          isZh: isZh,
-          showActions: true,
-        ),
+        child: _ThrottleImportDiffContent(diffs: diffs, showActions: true),
       ),
     );
   }
@@ -6378,12 +6649,10 @@ class _ThrottleImportDiffDialog extends StatelessWidget {
 class _ThrottleImportDiffContent extends StatelessWidget {
   const _ThrottleImportDiffContent({
     required this.diffs,
-    required this.isZh,
     required this.showActions,
   });
 
   final List<_ThrottleDiffRow> diffs;
-  final bool isZh;
   final bool showActions;
 
   @override
@@ -6400,7 +6669,15 @@ class _ThrottleImportDiffContent extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                isZh ? '节流配置 · 冲突预览' : 'Throttle Config · Diff Preview',
+                _localizedText(
+                  context,
+                  zh: '节流配置 · 冲突预览',
+                  zhHant: '節流設定 · 衝突預覽',
+                  en: 'Throttle Config · Diff Preview',
+                  fr: 'Config de limitation · Aperçu des différences',
+                  de: 'Drosselungskonfiguration · Differenzvorschau',
+                  ja: 'スロットリング設定 · 差分プレビュー',
+                ),
                 style: theme.textTheme.titleLarge,
               ),
             ),
@@ -6408,9 +6685,15 @@ class _ThrottleImportDiffContent extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          isZh
-              ? '以下字段会被新 JSON 覆盖；确认后才正式生效。'
-              : 'Below fields will be overwritten after confirmation.',
+          _localizedText(
+            context,
+            zh: '以下字段会被新 JSON 覆盖；确认后才正式生效。',
+            zhHant: '以下欄位會被新的 JSON 覆蓋；確認後才會正式生效。',
+            en: 'Below fields will be overwritten after confirmation.',
+            fr: 'Les champs ci-dessous seront remplacés après confirmation.',
+            de: 'Die folgenden Felder werden nach der Bestätigung überschrieben.',
+            ja: '以下のフィールドは確認後に新しい JSON で上書きされます。',
+          ),
           style: theme.textTheme.bodySmall?.copyWith(
             color: scheme.onSurfaceVariant,
           ),
@@ -6486,12 +6769,20 @@ class _ThrottleImportDiffContent extends StatelessWidget {
             children: [
               OpenHandDialogActionButton.secondary(
                 onPressed: () => Navigator.of(context).pop(false),
-                label: isZh ? '取消' : 'Cancel',
+                label: AppLocalizations.of(context)!.commonCancel,
               ),
               const SizedBox(width: 8),
               OpenHandDialogActionButton.primary(
                 onPressed: () => Navigator.of(context).pop(true),
-                label: isZh ? '应用 ${diffs.length} 项' : 'Apply ${diffs.length}',
+                label: _localizedText(
+                  context,
+                  zh: '应用 ${diffs.length} 项',
+                  zhHant: '套用 ${diffs.length} 項',
+                  en: 'Apply ${diffs.length}',
+                  fr: 'Appliquer ${diffs.length}',
+                  de: '${diffs.length} anwenden',
+                  ja: '${diffs.length} 件を適用',
+                ),
               ),
             ],
           ),
@@ -6552,7 +6843,6 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
 
   Future<void> _push() async {
     final c = context.read<SettingsController>();
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _busy = true;
       _status = '';
@@ -6577,16 +6867,29 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       _busy = false;
       _statusError = !result.ok;
       _status = result.ok
-          ? (isZh ? '已推送：${result.message}' : 'Pushed: ${result.message}')
-          : (isZh
-                ? '推送失败：${result.message}'
-                : 'Push failed: ${result.message}');
+          ? _localizedText(
+              context,
+              zh: '已推送：${result.message}',
+              zhHant: '已推送：${result.message}',
+              en: 'Pushed: ${result.message}',
+              fr: 'Envoyé : ${result.message}',
+              de: 'Gepusht: ${result.message}',
+              ja: 'プッシュ済み: ${result.message}',
+            )
+          : _localizedText(
+              context,
+              zh: '推送失败：${result.message}',
+              zhHant: '推送失敗：${result.message}',
+              en: 'Push failed: ${result.message}',
+              fr: 'Échec de l’envoi : ${result.message}',
+              de: 'Push fehlgeschlagen: ${result.message}',
+              ja: 'プッシュに失敗しました: ${result.message}',
+            );
     });
   }
 
   Future<void> _pull() async {
     final c = context.read<SettingsController>();
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _busy = true;
       _status = '';
@@ -6609,9 +6912,15 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       setState(() {
         _busy = false;
         _statusError = true;
-        _status = isZh
-            ? '拉取失败：${result.message}'
-            : 'Pull failed: ${result.message}';
+        _status = _localizedText(
+          context,
+          zh: '拉取失败：${result.message}',
+          zhHant: '拉取失敗：${result.message}',
+          en: 'Pull failed: ${result.message}',
+          fr: 'Échec de la récupération : ${result.message}',
+          de: 'Pull fehlgeschlagen: ${result.message}',
+          ja: 'プルに失敗しました: ${result.message}',
+        );
       });
       return;
     }
@@ -6621,14 +6930,21 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
     if (diffs.isEmpty) {
       setState(() {
         _statusError = false;
-        _status = isZh ? '配置无变化。' : 'No changes detected.';
+        _status = _localizedText(
+          context,
+          zh: '配置无变化。',
+          zhHant: '設定無變化。',
+          en: 'No changes detected.',
+          fr: 'Aucune modification détectée.',
+          de: 'Keine Änderungen erkannt.',
+          ja: '変更はありません。',
+        );
       });
       return;
     }
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
-      builder: (dialogContext) =>
-          _ThrottleImportDiffDialog(diffs: diffs, isZh: isZh),
+      builder: (dialogContext) => _ThrottleImportDiffDialog(diffs: diffs),
     );
     if (confirmed != true || !mounted) return;
     setState(() => _busy = true);
@@ -6641,33 +6957,75 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       _busy = false;
       _statusError = false;
       _status = changed
-          ? (isZh ? '已应用云端配置。' : 'Cloud config applied.')
-          : (isZh ? '配置无变化。' : 'No changes detected.');
+          ? _localizedText(
+              context,
+              zh: '已应用云端配置。',
+              zhHant: '已套用雲端設定。',
+              en: 'Cloud config applied.',
+              fr: 'Configuration cloud appliquée.',
+              de: 'Cloud-Konfiguration angewendet.',
+              ja: 'クラウド設定を適用しました。',
+            )
+          : _localizedText(
+              context,
+              zh: '配置无变化。',
+              zhHant: '設定無變化。',
+              en: 'No changes detected.',
+              fr: 'Aucune modification détectée.',
+              de: 'Keine Änderungen erkannt.',
+              ja: '変更はありません。',
+            );
     });
   }
 
   static String _providerHintMessage(
+    BuildContext context,
     ThrottleCloudSyncProvider provider,
-    bool isZh,
   ) {
     switch (provider) {
       case ThrottleCloudSyncProvider.iCloud:
         if (Platform.isMacOS || Platform.isIOS) {
-          return isZh
-              ? 'iCloud Drive 同步已启用：通过 NSUbiquitousKeyValueStore 与同账号其他 Apple 设备自动同步（容量上限 1MB）。'
-              : 'iCloud sync is wired via NSUbiquitousKeyValueStore (1MB cap). Throttle config is mirrored across same-account Apple devices.';
+          return _localizedText(
+            context,
+            zh: 'iCloud Drive 同步已启用：通过 NSUbiquitousKeyValueStore 与同账号其他 Apple 设备自动同步（容量上限 1MB）。',
+            zhHant:
+                'iCloud Drive 同步已啟用：透過 NSUbiquitousKeyValueStore 與同帳號其他 Apple 裝置自動同步（容量上限 1MB）。',
+            en: 'iCloud sync is wired via NSUbiquitousKeyValueStore (1MB cap). Throttle config is mirrored across same-account Apple devices.',
+            fr: 'La synchro iCloud utilise NSUbiquitousKeyValueStore (limite 1 Mo) et réplique la config entre appareils Apple du même compte.',
+            de: 'iCloud-Synchronisierung nutzt NSUbiquitousKeyValueStore (1 MB Limit) und spiegelt die Konfiguration auf Apple-Geräten desselben Kontos.',
+            ja: 'iCloud 同期は NSUbiquitousKeyValueStore（上限 1MB）を使い、同じアカウントの Apple デバイス間で設定を同期します。',
+          );
         }
-        return isZh
-            ? 'iCloud 同步仅支持 macOS / iOS；当前平台请使用「自定义 HTTP」或 GitHub Gist。'
-            : 'iCloud sync is macOS / iOS only; use Custom HTTP or GitHub Gist on this platform.';
+        return _localizedText(
+          context,
+          zh: 'iCloud 同步仅支持 macOS / iOS；当前平台请使用「自定义 HTTP」或 GitHub Gist。',
+          zhHant: 'iCloud 同步僅支援 macOS / iOS；目前平台請使用「自訂 HTTP」或 GitHub Gist。',
+          en: 'iCloud sync is macOS / iOS only; use Custom HTTP or GitHub Gist on this platform.',
+          fr: 'La synchro iCloud est limitée à macOS / iOS ; utilisez HTTP personnalisé ou GitHub Gist sur cette plateforme.',
+          de: 'iCloud-Synchronisierung ist nur für macOS/iOS verfügbar; verwenden Sie auf dieser Plattform Custom HTTP oder GitHub Gist.',
+          ja: 'iCloud 同期は macOS / iOS のみ対応です。このプラットフォームではカスタム HTTP または GitHub Gist を使ってください。',
+        );
       case ThrottleCloudSyncProvider.oauth:
-        return isZh
-            ? 'OAuth 同步入口已预留；当前版本暂未接入 native SDK，请改用 GitHub Gist。'
-            : 'OAuth sync placeholder; native SDK not wired up yet — use GitHub Gist instead.';
+        return _localizedText(
+          context,
+          zh: 'OAuth 同步入口已预留；当前版本暂未接入 native SDK，请改用 GitHub Gist。',
+          zhHant: 'OAuth 同步入口已預留；目前版本尚未接入 native SDK，請改用 GitHub Gist。',
+          en: 'OAuth sync placeholder; native SDK not wired up yet — use GitHub Gist instead.',
+          fr: 'La synchro OAuth est réservée ; le SDK natif n’est pas encore branché. Utilisez GitHub Gist.',
+          de: 'OAuth-Synchronisierung ist reserviert; das native SDK ist noch nicht angebunden. Verwenden Sie GitHub Gist.',
+          ja: 'OAuth 同期は予約済みです。現バージョンでは native SDK 未接続のため GitHub Gist を使ってください。',
+        );
       case ThrottleCloudSyncProvider.gistGitHub:
-        return isZh
-            ? 'GitHub Gist 同步：在「Gist ID」处填入已有 secret gist 的 ID（首次推送可留空，会新建一个 secret gist 并把 ID 显示在状态栏，请手动回填），「PAT」需带 gist scope。'
-            : 'GitHub Gist sync: fill in the existing secret gist ID (leave empty on first push to create a new one — copy the ID from the status bar), PAT must have gist scope.';
+        return _localizedText(
+          context,
+          zh: 'GitHub Gist 同步：在「Gist ID」处填入已有 secret gist 的 ID（首次推送可留空，会新建一个 secret gist 并把 ID 显示在状态栏，请手动回填），「PAT」需带 gist scope。',
+          zhHant:
+              'GitHub Gist 同步：在「Gist ID」填入既有 secret gist 的 ID（首次推送可留空，會新建 secret gist 並把 ID 顯示在狀態列，請手動回填），「PAT」需帶 gist scope。',
+          en: 'GitHub Gist sync: fill in the existing secret gist ID (leave empty on first push to create a new one — copy the ID from the status bar), PAT must have gist scope.',
+          fr: 'Synchro GitHub Gist : indiquez l’ID d’un secret gist existant. Laissez vide au premier envoi pour en créer un, puis recopiez l’ID affiché. Le PAT doit avoir le scope gist.',
+          de: 'GitHub-Gist-Sync: vorhandene Secret-Gist-ID eintragen. Beim ersten Push leer lassen, um eine Secret Gist zu erstellen, dann die angezeigte ID übernehmen. PAT braucht gist-Scope.',
+          ja: 'GitHub Gist 同期: 既存の secret gist ID を入力します。初回プッシュ時は空欄で新規作成し、状態欄に表示された ID を手動で戻してください。PAT には gist scope が必要です。',
+        );
       case ThrottleCloudSyncProvider.custom:
         return '';
     }
@@ -6718,7 +7076,6 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     final c = context.watch<SettingsController>();
     final providerEnum = ThrottleCloudSyncProvider.fromStorage(
       c.aiStreamThrottleCloudSyncProvider,
@@ -6738,7 +7095,17 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
               ButtonSegment(
                 value: ThrottleCloudSyncProvider.custom,
                 icon: const Icon(Icons.cloud_outlined, size: 16),
-                label: Text(isZh ? '自定义 HTTP' : 'Custom HTTP'),
+                label: Text(
+                  _localizedText(
+                    context,
+                    zh: '自定义 HTTP',
+                    zhHant: '自訂 HTTP',
+                    en: 'Custom HTTP',
+                    fr: 'HTTP personnalisé',
+                    de: 'Eigenes HTTP',
+                    ja: 'カスタム HTTP',
+                  ),
+                ),
               ),
               const ButtonSegment(
                 value: ThrottleCloudSyncProvider.iCloud,
@@ -6772,7 +7139,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                _providerHintMessage(providerEnum, isZh),
+                _providerHintMessage(context, providerEnum),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onTertiaryContainer,
                 ),
@@ -6786,7 +7153,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                _providerHintMessage(providerEnum, isZh),
+                _providerHintMessage(context, providerEnum),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: scheme.onTertiaryContainer,
                 ),
@@ -6797,9 +7164,15 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
               controller: _endpointCtrl,
               focusNode: _endpointFocus,
               decoration: InputDecoration(
-                labelText: isZh
-                    ? 'Gist ID（首次推送可留空）'
-                    : 'Gist ID (leave empty for first push)',
+                labelText: _localizedText(
+                  context,
+                  zh: 'Gist ID（首次推送可留空）',
+                  zhHant: 'Gist ID（首次推送可留空）',
+                  en: 'Gist ID (leave empty for first push)',
+                  fr: 'ID Gist (vide au premier envoi)',
+                  de: 'Gist-ID (beim ersten Push leer lassen)',
+                  ja: 'Gist ID（初回プッシュ時は空欄可）',
+                ),
                 hintText: '83a1b9b0...',
               ),
             ),
@@ -6809,9 +7182,15 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
               focusNode: _tokenFocus,
               obscureText: true,
               decoration: InputDecoration(
-                labelText: isZh
-                    ? 'GitHub PAT (需 gist scope)'
-                    : 'GitHub PAT (gist scope)',
+                labelText: _localizedText(
+                  context,
+                  zh: 'GitHub PAT (需 gist scope)',
+                  zhHant: 'GitHub PAT (需 gist scope)',
+                  en: 'GitHub PAT (gist scope)',
+                  fr: 'PAT GitHub (scope gist)',
+                  de: 'GitHub PAT (gist-Scope)',
+                  ja: 'GitHub PAT（gist scope）',
+                ),
                 hintText: 'github_pat_••••••••',
               ),
             ),
@@ -6820,8 +7199,8 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
             TextField(
               controller: _endpointCtrl,
               focusNode: _endpointFocus,
-              decoration: InputDecoration(
-                labelText: isZh ? 'HTTP Endpoint URL' : 'HTTP Endpoint URL',
+              decoration: const InputDecoration(
+                labelText: 'HTTP Endpoint URL',
                 hintText: 'https://example.com/openhand/throttle',
               ),
             ),
@@ -6831,9 +7210,15 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
               focusNode: _tokenFocus,
               obscureText: true,
               decoration: InputDecoration(
-                labelText: isZh
-                    ? 'Bearer Token (可选)'
-                    : 'Bearer Token (optional)',
+                labelText: _localizedText(
+                  context,
+                  zh: 'Bearer Token (可选)',
+                  zhHant: 'Bearer Token (可選)',
+                  en: 'Bearer Token (optional)',
+                  fr: 'Bearer Token (facultatif)',
+                  de: 'Bearer Token (optional)',
+                  ja: 'Bearer Token（任意）',
+                ),
                 hintText: '••••••••',
               ),
             ),
@@ -6846,12 +7231,32 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
               FilledButton.tonalIcon(
                 onPressed: _busy ? null : _push,
                 icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                label: Text(isZh ? '推送到云端' : 'Push'),
+                label: Text(
+                  _localizedText(
+                    context,
+                    zh: '推送到云端',
+                    zhHant: '推送到雲端',
+                    en: 'Push',
+                    fr: 'Envoyer',
+                    de: 'Push',
+                    ja: 'プッシュ',
+                  ),
+                ),
               ),
               FilledButton.tonalIcon(
                 onPressed: _busy ? null : _pull,
                 icon: const Icon(Icons.cloud_download_outlined, size: 18),
-                label: Text(isZh ? '从云端拉取' : 'Pull'),
+                label: Text(
+                  _localizedText(
+                    context,
+                    zh: '从云端拉取',
+                    zhHant: '從雲端拉取',
+                    en: 'Pull',
+                    fr: 'Récupérer',
+                    de: 'Pull',
+                    ja: 'プル',
+                  ),
+                ),
               ),
             ],
           ),
