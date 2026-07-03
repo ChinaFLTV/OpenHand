@@ -228,12 +228,51 @@ List<int> invalidKeyValueLineNumbersFromText(
   return invalidLines;
 }
 
-DateTime? dateTimeFromValue(Object? value) {
+enum DateTimeNumericTimestampMode {
+  milliseconds,
+  seconds,
+  secondsOrMilliseconds,
+}
+
+DateTime? dateTimeFromValue(
+  Object? value, {
+  DateTimeNumericTimestampMode numericTimestampMode =
+      DateTimeNumericTimestampMode.milliseconds,
+  bool requirePositiveTimestamp = false,
+}) {
   if (value is DateTime) return value;
+  if (value is num) {
+    return _dateTimeFromNumericTimestamp(
+      value,
+      mode: numericTimestampMode,
+      requirePositive: requirePositiveTimestamp,
+    );
+  }
   if (value is String && value.trim().isNotEmpty) {
     return DateTime.tryParse(value.trim());
   }
   return null;
+}
+
+DateTime? _dateTimeFromNumericTimestamp(
+  num value, {
+  required DateTimeNumericTimestampMode mode,
+  required bool requirePositive,
+}) {
+  if (!value.isFinite) return null;
+  final raw = value.toInt();
+  if (requirePositive && raw <= 0) return null;
+  final milliseconds = switch (mode) {
+    DateTimeNumericTimestampMode.milliseconds => raw,
+    DateTimeNumericTimestampMode.seconds => raw * 1000,
+    DateTimeNumericTimestampMode.secondsOrMilliseconds =>
+      raw > 1000000000000 ? raw : raw * 1000,
+  };
+  try {
+    return DateTime.fromMillisecondsSinceEpoch(milliseconds, isUtc: true);
+  } on ArgumentError {
+    return null;
+  }
 }
 
 bool boolFromValue(Object? value, {bool defaultValue = false}) {

@@ -1961,18 +1961,8 @@ int? _auditFirstInt(Iterable<Object?> candidates) {
 
 DateTime? _auditFirstDate(Iterable<Object?> candidates) {
   for (final value in candidates) {
-    if (value is DateTime) return value;
-    if (value is String && value.trim().isNotEmpty) {
-      final parsed = DateTime.tryParse(value.trim());
-      if (parsed != null) return parsed;
-    }
-    if (value is int) {
-      try {
-        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
-      } catch (error, stack) {
-        silentLog('audit_dialog', 'parse epoch ms', error, stack);
-      }
-    }
+    final parsed = dateTimeFromValue(value);
+    if (parsed != null) return parsed;
   }
   return null;
 }

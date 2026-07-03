@@ -25,4 +25,40 @@ void main() {
       expect(boolFromValue(<String>[], defaultValue: true), isTrue);
     });
   });
+
+  group('dateTimeFromValue', () {
+    test('parses DateTime and ISO strings', () {
+      final value = DateTime.utc(2026, 7, 3, 9, 30);
+      expect(dateTimeFromValue(value), same(value));
+      expect(dateTimeFromValue('2026-07-03T09:30:00Z')?.toUtc(), value);
+    });
+
+    test('parses numeric timestamps with explicit modes', () {
+      expect(
+        dateTimeFromValue(1710000000000)?.toUtc(),
+        DateTime.fromMillisecondsSinceEpoch(1710000000000, isUtc: true),
+      );
+      expect(
+        dateTimeFromValue(
+          1710000000,
+          numericTimestampMode: DateTimeNumericTimestampMode.seconds,
+        )?.toUtc(),
+        DateTime.fromMillisecondsSinceEpoch(1710000000000, isUtc: true),
+      );
+      expect(
+        dateTimeFromValue(
+          1710000000,
+          numericTimestampMode:
+              DateTimeNumericTimestampMode.secondsOrMilliseconds,
+        )?.toUtc(),
+        DateTime.fromMillisecondsSinceEpoch(1710000000000, isUtc: true),
+      );
+    });
+
+    test('can reject non-positive numeric timestamps', () {
+      expect(dateTimeFromValue(0), isNotNull);
+      expect(dateTimeFromValue(0, requirePositiveTimestamp: true), isNull);
+      expect(dateTimeFromValue(double.nan), isNull);
+    });
+  });
 }

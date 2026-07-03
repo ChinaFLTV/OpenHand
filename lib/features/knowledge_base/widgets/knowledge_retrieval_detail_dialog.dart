@@ -864,22 +864,13 @@ bool _hasValue(Object? value) {
 }
 
 String _formatKnowledgeDateTime(Object? value) {
-  final parsed = _dateTimeFromValue(value);
+  final parsed = dateTimeFromValue(
+    value,
+    numericTimestampMode: DateTimeNumericTimestampMode.secondsOrMilliseconds,
+    requirePositiveTimestamp: true,
+  );
   if (parsed == null) return _hasValue(value) ? _text(value) : '';
   return formatYearMonthDayHms(parsed.toLocal());
-}
-
-DateTime? _dateTimeFromValue(Object? value) {
-  if (value is DateTime) return value;
-  if (value is num && value.isFinite) {
-    final raw = value.toInt();
-    if (raw <= 0) return null;
-    final milliseconds = raw > 1000000000000 ? raw : raw * 1000;
-    return DateTime.fromMillisecondsSinceEpoch(milliseconds, isUtc: true);
-  }
-  final text = _text(value);
-  if (text.isEmpty || text == 'null') return null;
-  return DateTime.tryParse(text);
 }
 
 List<String> _stringList(Object? value) {
