@@ -2580,9 +2580,7 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   void replaceReplHistory(List<String> items) {
-    final normalized = items
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
+    final normalized = stringListFromValue(items)
         .map(
           (e) => _capWebReverseText(
             e,
@@ -3440,9 +3438,7 @@ class WebReverseSessionController extends ChangeNotifier {
         if (urls is List) {
           _blockedUrls
             ..clear()
-            ..addAll(
-              urls.map((url) => '$url').where((url) => url.trim().isNotEmpty),
-            );
+            ..addAll(stringListFromValue(urls));
           changed = true;
         }
         break;

@@ -176,11 +176,9 @@ class _CorsDialogState extends State<_CorsDialog> {
             : (loc?.webReverseCorsMatchOrigin ?? 'matches current origin'),
       ),
     );
-    final allowMethods = '${hdr['access-control-allow-methods'] ?? ''}'
-        .split(',')
-        .map((s) => s.trim().toUpperCase())
-        .where((s) => s.isNotEmpty)
-        .toList();
+    final allowMethods = splitTrimmedNonEmpty(
+      '${hdr['access-control-allow-methods'] ?? ''}',
+    ).map((s) => s.toUpperCase()).toList(growable: false);
     out.add(
       _Diagnostic(
         label: 'Access-Control-Allow-Methods',
@@ -189,11 +187,9 @@ class _CorsDialogState extends State<_CorsDialog> {
         hint: loc?.webReverseCorsMustInclude(method) ?? 'must include $method',
       ),
     );
-    final allowHeaders = '${hdr['access-control-allow-headers'] ?? ''}'
-        .split(',')
-        .map((s) => s.trim().toLowerCase())
-        .where((s) => s.isNotEmpty)
-        .toList();
+    final allowHeaders = splitTrimmedNonEmpty(
+      '${hdr['access-control-allow-headers'] ?? ''}',
+    ).map((s) => s.toLowerCase()).toList(growable: false);
     final missing = names
         .where((n) => !allowHeaders.contains(n) && !allowHeaders.contains('*'))
         .toList();

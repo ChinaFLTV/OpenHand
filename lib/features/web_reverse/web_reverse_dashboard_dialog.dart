@@ -546,10 +546,9 @@ class _WebReverseDashboardDialogState
     final urls = <String, String>{
       for (final entry in urlsRaw.entries) '${entry.key}': '${entry.value}',
     };
-    final wantUrls = order
-        .map((id) => (urls[id] ?? '').trim())
-        .where((url) => url.isNotEmpty && !url.startsWith('about:'))
-        .toList(growable: false);
+    final wantUrls = stringListFromValue(
+      order.map((id) => urls[id]).toList(),
+    ).where((url) => !url.startsWith('about:')).toList(growable: false);
     if (wantUrls.isEmpty) return;
     final ctrl = widget.controller;
     final hasFirst = ctrl.pageTargets.isNotEmpty;
