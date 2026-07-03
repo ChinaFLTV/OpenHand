@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 import '../data/knowledge_base_store.dart';
 import '../model/knowledge_base_settings.dart';
@@ -49,10 +50,11 @@ class KnowledgeRetrievalService {
       filter: _filterForQuery(query, settings),
       includeVector: true,
     );
-    final chunkIds = rawHits
-        .map((hit) => '${hit.payload['chunk_id'] ?? hit.id}'.trim())
-        .where((id) => id.isNotEmpty)
-        .toList(growable: false);
+    final chunkIds = stringListFromValue(
+      rawHits
+          .map((hit) => hit.payload['chunk_id'] ?? hit.id)
+          .toList(growable: false),
+    );
     final chunksById = await _store.loadChunksByIds(chunkIds);
     final sourcesById = await _store.loadSourcesByIds(
       chunksById.values.map((chunk) => chunk.sourceId),
@@ -446,12 +448,12 @@ class KnowledgeRetrievalService {
     KnowledgeBaseSettings settings,
   ) {
     final must = <Object?>[];
-    final tags = RegExp(r'(?:^|\s)(?:tag:|#)([^\s#]+)')
-        .allMatches(query)
-        .map((match) => match.group(1)?.trim())
-        .whereType<String>()
-        .where((tag) => tag.isNotEmpty)
-        .toList(growable: false);
+    final tags = stringListFromValue(
+      RegExp(r'(?:^|\s)(?:tag:|#)([^\s#]+)')
+          .allMatches(query)
+          .map((match) => match.group(1))
+          .toList(growable: false),
+    );
     if (tags.isNotEmpty) {
       if (settings.tagFilterMode == KnowledgeTagFilterMode.all) {
         must.addAll(

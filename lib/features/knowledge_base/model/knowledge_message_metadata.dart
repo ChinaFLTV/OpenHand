@@ -643,10 +643,7 @@ class KnowledgeMessageMetadata {
         }
       }
       if (key == 'heading_path') {
-        for (final part in value.split(RegExp(r'[>/\\|]+'))) {
-          final trimmed = part.trim();
-          if (trimmed.isNotEmpty) yield trimmed;
-        }
+        yield* splitTrimmedNonEmpty(value, separator: RegExp(r'[>/\\|]+'));
       }
     }
     for (final key in const <String>['preview', 'content']) {
