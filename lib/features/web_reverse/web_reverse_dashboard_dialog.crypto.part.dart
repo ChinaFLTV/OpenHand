@@ -47,13 +47,10 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
     final copied = await setWebReverseClipboardText(text);
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    final isZh =
-        loc?.localeName.startsWith('zh') ??
-        Localizations.localeOf(context).languageCode.startsWith('zh');
     OpenHandSnackBar.showSuccess(
       context,
       webReverseClipboardSnackMessage(
-        isZh: isZh,
+        context: context,
         base: loc?.webReverseCryptoCopied(label) ?? '$label copied',
         result: copied,
       ),

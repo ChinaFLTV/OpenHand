@@ -118,13 +118,12 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
     }
     if (!mounted) return;
     final m = ScaffoldMessenger.maybeOf(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
         webReverseClipboardSnackMessage(
-          isZh: isZh,
+          context: context,
           base:
               AppLocalizations.of(context)?.webReverseConsoleClusterCopied ??
               'Cluster JSON copied',

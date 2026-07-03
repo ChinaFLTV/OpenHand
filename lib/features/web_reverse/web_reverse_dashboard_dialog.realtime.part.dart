@@ -117,15 +117,12 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
   }
 
   Future<void> _copyFrame(CdpWebSocketFrame f) async {
-    final isZh =
-        AppLocalizations.of(context)?.localeName.startsWith('zh') ??
-        Localizations.localeOf(context).languageCode.startsWith('zh');
     final copied = await setWebReverseClipboardText(f.payload);
     if (!mounted) return;
     OpenHandSnackBar.showSuccess(
       context,
       webReverseClipboardSnackMessage(
-        isZh: isZh,
+        context: context,
         base:
             AppLocalizations.of(context)?.webReverseRealtimePayloadCopied ??
             'Payload copied',

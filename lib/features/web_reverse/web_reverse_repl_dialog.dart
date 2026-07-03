@@ -160,13 +160,12 @@ class _ReplDialogState extends State<_ReplDialog> {
     }
     if (!mounted) return;
     final m = ScaffoldMessenger.maybeOf(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     if (m != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         m,
         webReverseClipboardSnackMessage(
-          isZh: isZh,
+          context: context,
           base: AppLocalizations.of(context)?.webReverseReplCopied ?? 'Copied',
           result: copied,
         ),

@@ -482,13 +482,12 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
     final loc = AppLocalizations.of(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     if (messenger != null) {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
         webReverseClipboardSnackMessage(
-          isZh: isZh,
+          context: context,
           base: loc?.webReverseAiCryptoCopied ?? 'Copied to clipboard',
           result: copied,
         ),

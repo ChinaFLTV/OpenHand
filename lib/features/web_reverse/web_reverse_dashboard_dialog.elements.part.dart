@@ -149,11 +149,10 @@ class _ElementsBodyState extends State<_ElementsBody> {
     final copied = await setWebReverseClipboardText(s);
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    final isZh = loc?.localeName.startsWith('zh') ?? false;
     OpenHandSnackBar.showSuccess(
       context,
       webReverseClipboardSnackMessage(
-        isZh: isZh,
+        context: context,
         base: loc?.webReverseElementsSelectorCopied ?? 'Selector copied',
         result: copied,
       ),
@@ -177,11 +176,10 @@ class _ElementsBodyState extends State<_ElementsBody> {
     final copied = await setWebReverseClipboardText(s);
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    final isZh = loc?.localeName.startsWith('zh') ?? false;
     OpenHandSnackBar.showSuccess(
       context,
       webReverseClipboardSnackMessage(
-        isZh: isZh,
+        context: context,
         base: loc?.webReverseElementsXPathCopied ?? 'XPath copied',
         result: copied,
       ),
