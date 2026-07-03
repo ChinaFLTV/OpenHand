@@ -22,6 +22,27 @@ bool webGatewayIsKnowledgeBaseBuiltinToolName(String value) {
   return normalized == 'knowledgesearch' || normalized == 'knowledgeread';
 }
 
+List<String> webGatewayNormalizeWorkspaceFileExtensions(Object? raw) {
+  final result = <String>[];
+  final seen = <String>{};
+  for (final item in stringListFromValue(raw, separator: RegExp(r'[\n,;；]+'))) {
+    final normalized = webGatewayNormalizeWorkspaceFileExtension(item);
+    if (normalized.isEmpty) continue;
+    if (seen.add(normalized)) result.add(normalized);
+  }
+  return result;
+}
+
+String webGatewayNormalizeWorkspaceFileExtension(String value) {
+  final trimmed = value.trim().toLowerCase();
+  if (trimmed.isEmpty) return '';
+  final withoutLeadingDot = trimmed.startsWith('.')
+      ? trimmed.substring(1)
+      : trimmed;
+  final safe = withoutLeadingDot.replaceAll(RegExp(r'[^a-z0-9_+-]'), '');
+  return safe.isEmpty ? '' : '.$safe';
+}
+
 enum WebGatewayLoginSource {
   webPc('WEB_PC'),
   webMobile('WEB_MOBILE'),
@@ -393,9 +414,10 @@ class WebMessagePlatformConfig {
         min: 1024,
         max: 32 * 1024 * 1024,
       ),
-      workspaceFileAllowedExtensions: _extensionList(
-        json['workspace_file_allowed_extensions'],
-      ),
+      workspaceFileAllowedExtensions:
+          webGatewayNormalizeWorkspaceFileExtensions(
+            json['workspace_file_allowed_extensions'],
+          ),
       uploadCacheRetentionDays: clampedIntFromValue(
         json['upload_cache_retention_days'],
         fallback: 7,
@@ -631,27 +653,6 @@ List<String> _stringList(
     if (seen.add(text.toLowerCase())) values.add(text);
   }
   return values;
-}
-
-List<String> _extensionList(Object? raw) {
-  final result = <String>[];
-  final seen = <String>{};
-  for (final item in _stringList(raw)) {
-    final normalized = _normalizeExtension(item);
-    if (normalized.isEmpty) continue;
-    if (seen.add(normalized)) result.add(normalized);
-  }
-  return result;
-}
-
-String _normalizeExtension(String value) {
-  final trimmed = value.trim().toLowerCase();
-  if (trimmed.isEmpty) return '';
-  final withoutLeadingDot = trimmed.startsWith('.')
-      ? trimmed.substring(1)
-      : trimmed;
-  final safe = withoutLeadingDot.replaceAll(RegExp(r'[^a-z0-9_+-]'), '');
-  return safe.isEmpty ? '' : '.$safe';
 }
 
 Map<String, String> _stringMap(Object? raw) {

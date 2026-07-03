@@ -1160,9 +1160,10 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
           math.max(1, _int(_workspaceFileMaxMbController.text, 1)) *
           1024 *
           1024,
-      workspaceFileAllowedExtensions: _parseExtensions(
-        _workspaceFileExtensionsController.text,
-      ),
+      workspaceFileAllowedExtensions:
+          webGatewayNormalizeWorkspaceFileExtensions(
+            _workspaceFileExtensionsController.text,
+          ),
       uploadCacheRetentionDays: _int(
         _uploadCacheRetentionDaysController.text,
         7,
@@ -5522,22 +5523,6 @@ Map<String, String> _parseQueryParameters(String raw) {
     final key = trimmed.substring(0, index).trim();
     final value = trimmed.substring(index + 1).trim();
     if (key.isNotEmpty) result[key] = value;
-  }
-  return result;
-}
-
-List<String> _parseExtensions(String raw) {
-  final result = <String>[];
-  final seen = <String>{};
-  final normalized = raw.replaceAll('\n', ',').replaceAll(';', ',');
-  for (final part in normalized.split(',')) {
-    final trimmed = part.trim().toLowerCase();
-    if (trimmed.isEmpty) continue;
-    final withoutDot = trimmed.startsWith('.') ? trimmed.substring(1) : trimmed;
-    final safe = withoutDot.replaceAll(RegExp(r'[^a-z0-9_+-]'), '');
-    if (safe.isEmpty) continue;
-    final extension = '.$safe';
-    if (seen.add(extension)) result.add(extension);
   }
   return result;
 }
