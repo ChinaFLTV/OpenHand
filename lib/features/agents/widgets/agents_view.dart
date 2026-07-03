@@ -870,51 +870,358 @@ Future<void> _showAgentTasksDialog(BuildContext context, AgentProfile agent) {
   final l10n = AppLocalizations.of(context)!;
   return showAnimatedDialog<void>(
     context: context,
-    builder: (dialogContext) => buildOpenHandDialog(
-      maxWidth: 900,
-      maxHeight: 720,
-      child: _AgentDialogScaffold(
-        icon: Icons.task_alt_rounded,
-        title: l10n.agentsDialogTitleWithName(l10n.agentsTaskDesk, agent.name),
-        actions: [
-          FilledButton.icon(
-            onPressed: () async {
-              await _showPublishTaskDialog(context, agent);
-              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-            },
-            icon: const Icon(Icons.add_task_rounded),
-            label: Text(l10n.agentsPublishTask),
-          ),
-        ],
-        child: agent.tasks.isEmpty
-            ? FeatureStateCard.inline(
-                icon: Icons.task_alt_rounded,
-                title: l10n.agentsNoTasksTitle,
-                body: l10n.agentsNoTasksBody,
-              )
-            : Column(
-                children: [
-                  for (final task in agent.tasks)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(task.title),
-                      subtitle: Text(
-                        [
-                          _agentTaskStatusLabel(l10n, task.status),
-                          '${(task.progress * 100).round()}%',
-                          _agentTaskAssignedWorkerLabel(l10n, task),
-                          task.description,
-                        ].where((item) => item.trim().isNotEmpty).join(' · '),
-                      ),
-                      trailing: task.createdAt == null
-                          ? null
-                          : Text(formatMonthDayHm(task.createdAt!.toLocal())),
-                    ),
-                ],
+    builder: (_) => Consumer<AgentsController>(
+      builder: (context, controller, _) {
+        final currentAgent = controller.agentById(agent.id) ?? agent;
+        return buildOpenHandDialog(
+          maxWidth: 960,
+          maxHeight: 720,
+          child: _AgentDialogScaffold(
+            icon: Icons.task_alt_rounded,
+            title: l10n.agentsDialogTitleWithName(
+              l10n.agentsTaskDesk,
+              currentAgent.name,
+            ),
+            actions: [
+              FilledButton.icon(
+                onPressed: () => _showPublishTaskDialog(context, currentAgent),
+                icon: const Icon(Icons.add_task_rounded),
+                label: Text(l10n.agentsPublishTask),
               ),
-      ),
+            ],
+            child: currentAgent.tasks.isEmpty
+                ? FeatureStateCard.inline(
+                    icon: Icons.task_alt_rounded,
+                    title: l10n.agentsNoTasksTitle,
+                    body: l10n.agentsNoTasksBody,
+                  )
+                : Column(
+                    children: [
+                      for (final task in currentAgent.tasks)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(task.title),
+                          subtitle: Text(
+                            [
+                                  _agentTaskStatusLabel(l10n, task.status),
+                                  '${(task.progress * 100).round()}%',
+                                  _agentTaskAssignedWorkerLabel(l10n, task),
+                                  if (task.createdAt != null)
+                                    formatMonthDayHm(task.createdAt!.toLocal()),
+                                  task.description,
+                                ]
+                                .where((item) => item.trim().isNotEmpty)
+                                .join(' · '),
+                          ),
+                          trailing: _AgentTaskActions(
+                            agent: currentAgent,
+                            task: task,
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
+        );
+      },
     ),
   );
+}
+
+class _AgentTaskActions extends StatelessWidget {
+  const _AgentTaskActions({required this.agent, required this.task});
+
+  final AgentProfile agent;
+  final AgentTask task;
+
+  @override
+  Widget build(BuildContext context) {
+    final terminal = _agentTaskIsTerminal(task.status);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (task.status == AgentTaskStatus.paused)
+          _AgentSmallIconButton(
+            icon: Icons.play_arrow_rounded,
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '恢复任务',
+              en: 'Resume task',
+            ),
+            onPressed: () => _updateAgentTaskFromDesk(
+              context,
+              agent,
+              task,
+              status: AgentTaskStatus.ready,
+              activityKind: 'task_resumed',
+              activityTitle: 'task_resumed',
+            ),
+          )
+        else if (!terminal)
+          _AgentSmallIconButton(
+            icon: Icons.pause_rounded,
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '暂停任务',
+              en: 'Pause task',
+            ),
+            onPressed: () => _updateAgentTaskFromDesk(
+              context,
+              agent,
+              task,
+              status: AgentTaskStatus.paused,
+              activityKind: 'task_paused',
+              activityTitle: 'task_paused',
+            ),
+          ),
+        if (!terminal) ...[
+          const SizedBox(width: 6),
+          _AgentSmallIconButton(
+            icon: Icons.done_rounded,
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '完成并回填结果',
+              en: 'Complete with result',
+            ),
+            onPressed: () => _showCompleteTaskDialog(context, agent, task),
+          ),
+          const SizedBox(width: 6),
+          _AgentSmallIconButton(
+            icon: Icons.cancel_outlined,
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '取消任务',
+              en: 'Cancel task',
+            ),
+            onPressed: () => _confirmAgentTaskStatus(
+              context,
+              agent,
+              task,
+              status: AgentTaskStatus.canceled,
+              activityKind: 'task_canceled',
+              activityTitle: 'task_canceled',
+              titleZh: '取消任务',
+              titleEn: 'Cancel task',
+              messageZh: '确认取消「${task.title}」吗？',
+              messageEn: 'Cancel "${task.title}"?',
+            ),
+          ),
+          const SizedBox(width: 6),
+          _AgentSmallIconButton(
+            icon: Icons.gpp_bad_outlined,
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '终止任务',
+              en: 'Terminate task',
+            ),
+            onPressed: () => _confirmAgentTaskStatus(
+              context,
+              agent,
+              task,
+              status: AgentTaskStatus.failed,
+              activityKind: 'task_terminated',
+              activityTitle: 'task_terminated',
+              titleZh: '终止任务',
+              titleEn: 'Terminate task',
+              messageZh: '确认将「${task.title}」标记为异常终止吗？',
+              messageEn: 'Mark "${task.title}" as terminated?',
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _AgentSmallIconButton extends StatelessWidget {
+  const _AgentSmallIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: 34,
+        height: 34,
+        child: IconButton.filledTonal(
+          onPressed: onPressed,
+          padding: EdgeInsets.zero,
+          iconSize: 18,
+          icon: Icon(icon),
+        ),
+      ),
+    );
+  }
+}
+
+bool _agentTaskIsTerminal(AgentTaskStatus status) {
+  return switch (status) {
+    AgentTaskStatus.completed ||
+    AgentTaskStatus.failed ||
+    AgentTaskStatus.canceled => true,
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running ||
+    AgentTaskStatus.waitingApproval ||
+    AgentTaskStatus.paused => false,
+  };
+}
+
+Future<void> _updateAgentTaskFromDesk(
+  BuildContext context,
+  AgentProfile agent,
+  AgentTask task, {
+  required AgentTaskStatus status,
+  required String activityKind,
+  required String activityTitle,
+  String note = '',
+  String result = '',
+}) async {
+  await context.read<AgentsController>().updateTaskState(
+    agent.id,
+    task.id,
+    status: status,
+    note: note.trim().isEmpty ? null : note.trim(),
+    result: result.trim().isEmpty ? null : result.trim(),
+    activityKind: activityKind,
+    activityTitle: activityTitle,
+  );
+}
+
+Future<void> _confirmAgentTaskStatus(
+  BuildContext context,
+  AgentProfile agent,
+  AgentTask task, {
+  required AgentTaskStatus status,
+  required String activityKind,
+  required String activityTitle,
+  required String titleZh,
+  required String titleEn,
+  required String messageZh,
+  required String messageEn,
+}) async {
+  final confirmed = await showOpenHandConfirmDialog(
+    context: context,
+    title: openHandLocalizedText(context, zh: titleZh, en: titleEn),
+    message: openHandLocalizedText(context, zh: messageZh, en: messageEn),
+    confirmLabel: openHandLocalizedText(context, zh: '确认', en: 'Confirm'),
+    destructive:
+        status == AgentTaskStatus.failed || status == AgentTaskStatus.canceled,
+  );
+  if (confirmed && context.mounted) {
+    await _updateAgentTaskFromDesk(
+      context,
+      agent,
+      task,
+      status: status,
+      activityKind: activityKind,
+      activityTitle: activityTitle,
+    );
+  }
+}
+
+Future<void> _showCompleteTaskDialog(
+  BuildContext context,
+  AgentProfile agent,
+  AgentTask task,
+) async {
+  final l10n = AppLocalizations.of(context)!;
+  final result = TextEditingController(text: task.result);
+  final note = TextEditingController(text: task.note);
+  try {
+    final submitted = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (dialogContext) => buildOpenHandDialog(
+        maxWidth: 680,
+        child: _AgentDialogScaffold(
+          icon: Icons.done_all_rounded,
+          title: openHandLocalizedText(
+            context,
+            zh: '完成任务',
+            en: 'Complete task',
+          ),
+          footer: buildOpenHandDialogActionsBar(
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                label: l10n.commonCancel,
+              ),
+              OpenHandDialogActionButton.primary(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                label: openHandLocalizedText(context, zh: '完成', en: 'Complete'),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  task.title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: result,
+                minLines: 4,
+                maxLines: 8,
+                decoration: InputDecoration(
+                  labelText: openHandLocalizedText(
+                    context,
+                    zh: '任务结果',
+                    en: 'Task result',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: note,
+                decoration: InputDecoration(labelText: l10n.agentsNoteLabel),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (submitted == true && context.mounted) {
+      final resultText = result.text.trim();
+      if (resultText.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              openHandLocalizedText(
+                context,
+                zh: '请先填写任务结果。',
+                en: 'Enter a task result first.',
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+      await _updateAgentTaskFromDesk(
+        context,
+        agent,
+        task,
+        status: AgentTaskStatus.completed,
+        note: note.text,
+        result: resultText,
+        activityKind: 'task_completed',
+        activityTitle: 'task_completed',
+      );
+    }
+  } finally {
+    result.dispose();
+    note.dispose();
+  }
 }
 
 Future<void> _showAgentAuditDialog(BuildContext context, AgentProfile agent) {
@@ -2323,6 +2630,11 @@ String _agentActivityTitle(AppLocalizations l10n, AgentActivityEvent event) {
     'task_paused' => l10n.agentsActivityTaskPaused,
     'task_terminated' => l10n.agentsActivityTaskTerminated,
     'task_resumed' => l10n.agentsActivityTaskResumed,
+    'task_completed' => _agentInlineText(
+      l10n,
+      zh: '任务已完成',
+      en: 'Task completed',
+    ),
     _ => event.title.trim().isEmpty ? event.kind : event.title,
   };
 }
@@ -2338,7 +2650,8 @@ String _agentActivitySubtitle(AppLocalizations l10n, AgentActivityEvent event) {
     'task_canceled' ||
     'task_paused' ||
     'task_terminated' ||
-    'task_resumed' => '',
+    'task_resumed' ||
+    'task_completed' => '',
     _ => _agentActivityMetadataFallback(event),
   };
 }
