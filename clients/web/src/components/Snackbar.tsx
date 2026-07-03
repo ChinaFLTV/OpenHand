@@ -80,6 +80,7 @@ export function SnackbarHost() {
   const [items, setItems] = useState<SnackbarItem[]>([]);
   const reduceMotion = useReducedMotion();
   const timerRefs = useRef<Set<number>>(new Set());
+  const autoDismissTimerRefs = useRef<Map<number, number>>(new Map());
 
   const clearManagedTimeout = useCallback((timer: number) => {
     if (typeof window !== 'undefined') {
@@ -87,6 +88,13 @@ export function SnackbarHost() {
     }
     timerRefs.current.delete(timer);
   }, []);
+
+  const clearAutoDismissTimer = useCallback((id: number) => {
+    const timer = autoDismissTimerRefs.current.get(id);
+    if (timer == null) return;
+    clearManagedTimeout(timer);
+    autoDismissTimerRefs.current.delete(id);
+  }, [clearManagedTimeout]);
 
   const setManagedTimeout = useCallback((callback: () => void, delayMs: number) => {
     if (typeof window === 'undefined') return null;
@@ -102,6 +110,7 @@ export function SnackbarHost() {
   }, []);
 
   const dismissItem = useCallback((item: SnackbarItem) => {
+    clearAutoDismissTimer(item.id);
     if (reduceMotion) {
       setItems((prev) => prev.filter((cur) => cur.id !== item.id));
       return;
@@ -112,7 +121,15 @@ export function SnackbarHost() {
     setManagedTimeout(() => {
       setItems((prev) => prev.filter((cur) => cur.id !== item.id));
     }, SNACKBAR_EXIT_DURATION_MS);
-  }, [reduceMotion, setManagedTimeout]);
+  }, [clearAutoDismissTimer, reduceMotion, setManagedTimeout]);
+
+  const scheduleAutoDismiss = useCallback((item: SnackbarItem) => {
+    clearAutoDismissTimer(item.id);
+    const timer = setManagedTimeout(() => dismissItem(item), item.durationMs);
+    if (timer != null) {
+      autoDismissTimerRefs.current.set(item.id, timer);
+    }
+  }, [clearAutoDismissTimer, dismissItem, setManagedTimeout]);
 
   useEffect(() => {
     const onItem = (item: SnackbarItem) => {
@@ -120,13 +137,20 @@ export function SnackbarHost() {
         ...prev.slice(-(MAX_VISIBLE_SNACKBAR_ITEMS - 1)),
         item,
       ]);
-      setManagedTimeout(() => dismissItem(item), item.durationMs);
+      scheduleAutoDismiss(item);
     };
     listeners.add(onItem);
     return () => {
       listeners.delete(onItem);
     };
-  }, [dismissItem, setManagedTimeout]);
+  }, [scheduleAutoDismiss]);
+
+  useEffect(() => {
+    const activeIds = new Set(items.map((item) => item.id));
+    for (const id of autoDismissTimerRefs.current.keys()) {
+      if (!activeIds.has(id)) clearAutoDismissTimer(id);
+    }
+  }, [clearAutoDismissTimer, items]);
 
   useEffect(() => {
     return () => {
@@ -134,6 +158,7 @@ export function SnackbarHost() {
         clearManagedTimeout(timer);
       }
       timerRefs.current.clear();
+      autoDismissTimerRefs.current.clear();
     };
   }, [clearManagedTimeout]);
 
