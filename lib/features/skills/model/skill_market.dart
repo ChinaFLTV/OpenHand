@@ -367,11 +367,7 @@ class SkillMarketVersion {
 String _readString(Object? value) => _readNullableString(value) ?? '';
 
 String? _readNullableString(Object? value) {
-  if (value == null) {
-    return null;
-  }
-  final text = '$value'.trim();
-  return text.isEmpty ? null : text;
+  return nullIfBlank(value == null ? null : '$value');
 }
 
 int _readInt(Object? value) {

@@ -1480,7 +1480,7 @@ class _SkillMarketDetailView extends StatelessWidget {
                 spacing: 10,
                 runSpacing: 10,
                 children: bundle.versions
-                    .where((version) => version.version.trim().isNotEmpty)
+                    .where((version) => version.version.isNotEmpty)
                     .take(12)
                     .map((version) {
                       final selected =

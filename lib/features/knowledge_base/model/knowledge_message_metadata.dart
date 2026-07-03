@@ -145,7 +145,7 @@ class KnowledgeMessageMetadata {
     String query = '',
   }) {
     final usable = results
-        .where((hit) => _contextContent(hit).trim().isNotEmpty)
+        .where((hit) => nullIfBlank(_contextContent(hit)) != null)
         .toList(growable: false);
     if (usable.isEmpty) return '';
     final buffer = StringBuffer()
