@@ -3220,13 +3220,25 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           ),
           options: agentTools,
           selected: selectedBuiltinTools,
-          onChanged: (v) => setState(() => _builtinToolNames = v),
+          onChanged: (v) => setState(
+            () => _builtinToolNames = _mergeOptionGroupSelection(
+              current: selectedBuiltinTools,
+              groupSelection: v,
+              groupOptions: agentTools,
+            ),
+          ),
         ),
         _OptionChips(
           title: l10n.agentsBuiltInTools,
           options: regularTools,
           selected: selectedBuiltinTools,
-          onChanged: (v) => setState(() => _builtinToolNames = v),
+          onChanged: (v) => setState(
+            () => _builtinToolNames = _mergeOptionGroupSelection(
+              current: selectedBuiltinTools,
+              groupSelection: v,
+              groupOptions: regularTools,
+            ),
+          ),
         ),
       ],
     );
@@ -3880,6 +3892,19 @@ class _Option {
   final String id;
   final String label;
   final String subtitle;
+}
+
+Set<String> _mergeOptionGroupSelection({
+  required Set<String> current,
+  required Set<String> groupSelection,
+  required List<_Option> groupOptions,
+}) {
+  final groupIds = groupOptions.map((option) => option.id).toSet();
+  return <String>{
+    for (final value in current)
+      if (!groupIds.contains(value)) value,
+    ...groupSelection,
+  };
 }
 
 class _OptionChips extends StatelessWidget {

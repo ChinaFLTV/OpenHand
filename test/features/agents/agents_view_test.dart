@@ -4,6 +4,7 @@ import 'package:openhand/app/model/dialog_animation_settings.dart';
 import 'package:openhand/app/state/settings_controller.dart';
 import 'package:openhand/features/agents/data/agents_store.dart';
 import 'package:openhand/features/agents/index.dart';
+import 'package:openhand/features/ai/model/ai_builtin_tool_config.dart';
 import 'package:openhand/features/crons/index.dart';
 import 'package:openhand/features/hooks/index.dart';
 import 'package:openhand/features/knowledge_base/index.dart';
@@ -132,6 +133,53 @@ void main() {
       expect(find.byType(SnackBar), findsOneWidget);
       expect(find.widgetWithText(TextField, '元数据 JSON'), findsOneWidget);
       expect(controller.agents, isEmpty);
+    });
+
+    testWidgets('preserves builtin selections across tool groups', (
+      tester,
+    ) async {
+      final dependencies = _AgentEditorDependencies.empty(
+        builtinToolConfigs: const <AiBuiltinToolConfig>[
+          AiBuiltinToolConfig(kind: AiBuiltinToolKind.bash),
+          AiBuiltinToolConfig(kind: AiBuiltinToolKind.agentTaskPublish),
+        ],
+      );
+      addTearDown(dependencies.dispose);
+      controller.setRuntimeAvailabilityProvider(
+        () => const AgentRuntimeAvailability(
+          isLoading: false,
+          isInstalled: true,
+          isEnabled: true,
+          pluginName: 'Hermes Agent',
+        ),
+      );
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.text('创建智能体'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, '名称 *'),
+        'Ops Agent',
+      );
+      await tester.pump();
+      DefaultTabController.of(
+        tester.element(find.byType(TabBar)),
+      ).animateTo(1, duration: Duration.zero);
+      await tester.pumpAndSettle();
+
+      final bashChip = find.widgetWithText(FilterChip, 'bash');
+      final publishChip = find.widgetWithText(FilterChip, 'agentTaskPublish');
+      await tester.ensureVisible(bashChip);
+      await tester.tap(bashChip);
+      await tester.pump();
+      await tester.ensureVisible(publishChip);
+      await tester.tap(publishChip);
+      await tester.pump();
+
+      expect(tester.widget<FilterChip>(bashChip).selected, isTrue);
+      expect(tester.widget<FilterChip>(publishChip).selected, isTrue);
     });
 
     testWidgets('opens a complete task detail dialog from task desk', (
@@ -291,9 +339,12 @@ class _AgentEditorDependencies {
     required this.hooks,
   });
 
-  factory _AgentEditorDependencies.empty() {
+  factory _AgentEditorDependencies.empty({
+    List<AiBuiltinToolConfig> builtinToolConfigs =
+        const <AiBuiltinToolConfig>[],
+  }) {
     return _AgentEditorDependencies(
-      settings: _FakeSettingsController(),
+      settings: _FakeSettingsController(builtinToolConfigs: builtinToolConfigs),
       skills: _FakeSkillsController(),
       knowledgeBase: _FakeKnowledgeBaseController(),
       memory: _FakeMemoryController(),
@@ -324,6 +375,13 @@ class _AgentEditorDependencies {
 
 class _FakeSettingsController extends ChangeNotifier
     implements SettingsController {
+  _FakeSettingsController({
+    this.builtinToolConfigs = const <AiBuiltinToolConfig>[],
+  });
+
+  @override
+  final List<AiBuiltinToolConfig> builtinToolConfigs;
+
   @override
   dynamic noSuchMethod(Invocation invocation) {
     if (invocation.memberName == #listItemAnimationSettings &&
