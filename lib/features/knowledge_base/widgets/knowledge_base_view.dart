@@ -31,6 +31,28 @@ import 'qdrant_status_dialog.dart';
 
 const double _kKnowledgeToolbarControlHeight = 54;
 
+String _kbViewText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
 class KnowledgeBaseView extends StatelessWidget {
   const KnowledgeBaseView({super.key, this.onOpenPlugins});
 
@@ -40,17 +62,30 @@ class KnowledgeBaseView extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<KnowledgeBaseController>();
     final settingsController = context.watch<SettingsController>();
-    final isZh = openHandIsChineseLocale(context);
     final colorScheme = Theme.of(context).colorScheme;
     final embeddingModel = controller.resolveEmbeddingModel(
       settingsController.aiModels,
     );
 
     return FeaturePageShell(
-      title: isZh ? '知识库' : 'Knowledge Base',
-      subtitle: isZh
-          ? '本地文档、笔记与 Qdrant 向量检索。'
-          : 'Local documents, notes, and Qdrant vector retrieval.',
+      title: _kbViewText(
+        context,
+        zh: '知识库',
+        zhHant: '知識庫',
+        en: 'Knowledge Base',
+        fr: 'Base de connaissances',
+        de: 'Wissensdatenbank',
+        ja: 'ナレッジベース',
+      ),
+      subtitle: _kbViewText(
+        context,
+        zh: '本地文档、笔记与 Qdrant 向量检索。',
+        zhHant: '本地文件、筆記與 Qdrant 向量檢索。',
+        en: 'Local documents, notes, and Qdrant vector retrieval.',
+        fr: 'Documents locaux, notes et recherche vectorielle Qdrant.',
+        de: 'Lokale Dokumente, Notizen und Qdrant-Vektorsuche.',
+        ja: 'ローカルドキュメント、ノート、Qdrant ベクトル検索。',
+      ),
       actions: _KnowledgeToolbarActions(
         controller: controller,
         embeddingModel: embeddingModel,
@@ -62,10 +97,26 @@ class KnowledgeBaseView extends StatelessWidget {
           FeatureStateCard.inline(
             icon: Icons.error_outline_rounded,
             tone: FeatureStateTone.error,
-            title: isZh ? '知识库操作失败' : 'Knowledge Base operation failed',
+            title: _kbViewText(
+              context,
+              zh: '知识库操作失败',
+              zhHant: '知識庫操作失敗',
+              en: 'Knowledge Base operation failed',
+              fr: 'Échec de l’opération',
+              de: 'Wissensdatenbank-Aktion fehlgeschlagen',
+              ja: 'ナレッジベース操作に失敗しました',
+            ),
             body: controller.error!,
             trailing: Tooltip(
-              message: isZh ? '关闭' : 'Dismiss',
+              message: _kbViewText(
+                context,
+                zh: '关闭',
+                zhHant: '關閉',
+                en: 'Dismiss',
+                fr: 'Fermer',
+                de: 'Schließen',
+                ja: '閉じる',
+              ),
               child: IconButton(
                 onPressed: controller.clearError,
                 icon: const Icon(Icons.close_rounded),
@@ -91,18 +142,33 @@ class KnowledgeBaseView extends StatelessWidget {
     required AiModelConfig? embeddingModel,
     required List<AiModelConfig> aiModels,
   }) async {
-    final isZh = openHandIsChineseLocale(context);
     if (embeddingModel == null) {
       OpenHandSnackBar.showError(
         context,
-        isZh ? '请先配置可用的嵌入模型。' : 'Configure an embedding model first.',
+        _kbViewText(
+          context,
+          zh: '请先配置可用的嵌入模型。',
+          zhHant: '請先設定可用的嵌入模型。',
+          en: 'Configure an embedding model first.',
+          fr: 'Configurez d’abord un modèle d’embedding.',
+          de: 'Konfigurieren Sie zuerst ein Embedding-Modell.',
+          ja: '先に利用可能な埋め込みモデルを設定してください。',
+        ),
       );
       return;
     }
     final file = await openFile(
       acceptedTypeGroups: <XTypeGroup>[
         XTypeGroup(
-          label: isZh ? '知识库文档' : 'Knowledge documents',
+          label: _kbViewText(
+            context,
+            zh: '知识库文档',
+            zhHant: '知識庫文件',
+            en: 'Knowledge documents',
+            fr: 'Documents de connaissance',
+            de: 'Wissensdokumente',
+            ja: 'ナレッジドキュメント',
+          ),
           extensions: KnowledgeDocumentParserRegistry.supportedExtensions,
         ),
       ],
@@ -120,8 +186,24 @@ class KnowledgeBaseView extends StatelessWidget {
       source = await runKnowledgeIndexingProgressTask<KnowledgeSource>(
         context: context,
         controller: progressController,
-        title: isZh ? '构建知识库向量' : 'Building Knowledge Vectors',
-        subtitle: isZh ? '正在准备导入文件。' : 'Preparing to import the file.',
+        title: _kbViewText(
+          context,
+          zh: '构建知识库向量',
+          zhHant: '建立知識庫向量',
+          en: 'Building Knowledge Vectors',
+          fr: 'Construction des vecteurs',
+          de: 'Wissensvektoren werden erstellt',
+          ja: 'ナレッジベースベクトルを構築',
+        ),
+        subtitle: _kbViewText(
+          context,
+          zh: '正在准备导入文件。',
+          zhHant: '正在準備匯入檔案。',
+          en: 'Preparing to import the file.',
+          fr: 'Préparation de l’import du fichier.',
+          de: 'Dateiimport wird vorbereitet.',
+          ja: 'ファイルのインポートを準備しています。',
+        ),
         task: () => controller.importFile(
           filePath: file.path,
           embeddingModel: embeddingModel,
@@ -137,19 +219,44 @@ class KnowledgeBaseView extends StatelessWidget {
     if (cancelToken.isCancelled) {
       OpenHandSnackBar.showInfo(
         context,
-        isZh ? '已停止构建向量。' : 'Vector indexing stopped.',
+        _kbViewText(
+          context,
+          zh: '已停止构建向量。',
+          zhHant: '已停止建立向量。',
+          en: 'Vector indexing stopped.',
+          fr: 'Indexation vectorielle arrêtée.',
+          de: 'Vektorindexierung gestoppt.',
+          ja: 'ベクトルのインデックス作成を停止しました。',
+        ),
       );
       return;
     }
     if (source != null) {
       OpenHandSnackBar.showSuccess(
         context,
-        isZh ? '已导入并建立索引。' : 'Imported and indexed.',
+        _kbViewText(
+          context,
+          zh: '已导入并建立索引。',
+          zhHant: '已匯入並建立索引。',
+          en: 'Imported and indexed.',
+          fr: 'Importé et indexé.',
+          de: 'Importiert und indexiert.',
+          ja: 'インポートしてインデックス化しました。',
+        ),
       );
     } else {
       OpenHandSnackBar.showError(
         context,
-        controller.error ?? (isZh ? '导入失败。' : 'Import failed.'),
+        controller.error ??
+            _kbViewText(
+              context,
+              zh: '导入失败。',
+              zhHant: '匯入失敗。',
+              en: 'Import failed.',
+              fr: 'Échec de l’import.',
+              de: 'Import fehlgeschlagen.',
+              ja: 'インポートに失敗しました。',
+            ),
       );
     }
   }
@@ -157,10 +264,14 @@ class KnowledgeBaseView extends StatelessWidget {
   static void _showReindexNotice(BuildContext context) {
     OpenHandSnackBar.showInfo(
       context,
-      openHandLocalizedText(
+      _kbViewText(
         context,
         zh: '重建索引入口已保留；可在 Qdrant 管理中检查一致性并删除/重建 collection。',
+        zhHant: '重建索引入口已保留；可在 Qdrant 管理中檢查一致性並刪除/重建 collection。',
         en: 'Reindex entry is available; use Qdrant Admin to inspect consistency and rebuild collections.',
+        fr: 'L’entrée de réindexation est disponible ; utilisez Qdrant Admin pour vérifier la cohérence et reconstruire les collections.',
+        de: 'Der Reindex-Einstieg ist verfügbar; prüfen Sie die Konsistenz in Qdrant Admin und erstellen Sie Collections neu.',
+        ja: '再インデックス入口は利用できます。Qdrant Admin で整合性を確認し、collection を再構築できます。',
       ),
     );
   }
@@ -196,13 +307,22 @@ class _KnowledgeToolbarActions extends StatelessWidget {
   }
 
   Widget _buildToolbar(BuildContext context, {required bool compact}) {
-    final isZh = openHandIsChineseLocale(context);
     final refreshButton = FilledButton.tonalIcon(
       onPressed: controller.loading || controller.busy
           ? null
           : () => controller.initialize(),
       icon: const Icon(Icons.refresh_rounded),
-      label: Text(isZh ? '刷新' : 'Refresh'),
+      label: Text(
+        _kbViewText(
+          context,
+          zh: '刷新',
+          zhHant: '重新整理',
+          en: 'Refresh',
+          fr: 'Actualiser',
+          de: 'Aktualisieren',
+          ja: '更新',
+        ),
+      ),
     );
     final importButton = FilledButton.icon(
       onPressed: controller.busy
@@ -214,13 +334,33 @@ class _KnowledgeToolbarActions extends StatelessWidget {
               aiModels: aiModels,
             ),
       icon: const Icon(Icons.upload_file_rounded),
-      label: Text(isZh ? '导入' : 'Import'),
+      label: Text(
+        _kbViewText(
+          context,
+          zh: '导入',
+          zhHant: '匯入',
+          en: 'Import',
+          fr: 'Importer',
+          de: 'Importieren',
+          ja: 'インポート',
+        ),
+      ),
     );
     final configButton = FilledButton.tonalIcon(
       onPressed: () =>
           showKnowledgeBaseConfigDialog(context, onOpenPlugins: onOpenPlugins),
       icon: const Icon(Icons.settings_rounded),
-      label: Text(isZh ? '配置' : 'Configure'),
+      label: Text(
+        _kbViewText(
+          context,
+          zh: '配置',
+          zhHant: '設定',
+          en: 'Configure',
+          fr: 'Configurer',
+          de: 'Konfigurieren',
+          ja: '設定',
+        ),
+      ),
     );
 
     if (compact) {
@@ -229,31 +369,71 @@ class _KnowledgeToolbarActions extends StatelessWidget {
           [refreshButton, importButton, configButton],
           [
             _KnowledgeToolbarIconButton(
-              tooltip: isZh ? '新建笔记' : 'New Note',
+              tooltip: _kbViewText(
+                context,
+                zh: '新建笔记',
+                zhHant: '新增筆記',
+                en: 'New Note',
+                fr: 'Nouvelle note',
+                de: 'Neue Notiz',
+                ja: '新規ノート',
+              ),
               icon: Icons.note_add_outlined,
               onPressed: controller.busy
                   ? null
                   : () => showKnowledgeImportDialog(context),
             ),
             _KnowledgeToolbarIconButton(
-              tooltip: isZh ? '向量分布' : 'Vector Map',
+              tooltip: _kbViewText(
+                context,
+                zh: '向量分布',
+                zhHant: '向量分布',
+                en: 'Vector Map',
+                fr: 'Carte vectorielle',
+                de: 'Vektorkarte',
+                ja: 'ベクトルマップ',
+              ),
               icon: Icons.scatter_plot_rounded,
               onPressed: controller.loading || controller.busy
                   ? null
                   : () => showKnowledgeVectorDistributionDialog(context),
             ),
             _KnowledgeToolbarIconButton(
-              tooltip: isZh ? '重建索引' : 'Reindex',
+              tooltip: _kbViewText(
+                context,
+                zh: '重建索引',
+                zhHant: '重建索引',
+                en: 'Reindex',
+                fr: 'Réindexer',
+                de: 'Neu indexieren',
+                ja: '再インデックス',
+              ),
               icon: Icons.manage_search_rounded,
               onPressed: () => KnowledgeBaseView._showReindexNotice(context),
             ),
             _KnowledgeToolbarIconButton(
-              tooltip: isZh ? 'Qdrant 运维' : 'Qdrant Ops',
+              tooltip: _kbViewText(
+                context,
+                zh: 'Qdrant 运维',
+                zhHant: 'Qdrant 維運',
+                en: 'Qdrant Ops',
+                fr: 'Ops Qdrant',
+                de: 'Qdrant-Betrieb',
+                ja: 'Qdrant 運用',
+              ),
               icon: Icons.monitor_heart_outlined,
               onPressed: () => showQdrantStatusDialog(context),
             ),
             _KnowledgeToolbarIconButton(
-              tooltip: isZh ? 'Qdrant 管理' : 'Qdrant Admin',
+              tooltip: _kbViewText(
+                context,
+                zh: 'Qdrant 管理',
+                zhHant: 'Qdrant 管理',
+                en: 'Qdrant Admin',
+                fr: 'Admin Qdrant',
+                de: 'Qdrant-Admin',
+                ja: 'Qdrant 管理',
+              ),
               icon: Icons.storage_outlined,
               onPressed: () => showQdrantAdminDialog(context),
             ),
@@ -269,33 +449,83 @@ class _KnowledgeToolbarActions extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: () => showQdrantStatusDialog(context),
             icon: const Icon(Icons.monitor_heart_outlined),
-            label: Text(isZh ? 'Qdrant 运维' : 'Qdrant Ops'),
+            label: Text(
+              _kbViewText(
+                context,
+                zh: 'Qdrant 运维',
+                zhHant: 'Qdrant 維運',
+                en: 'Qdrant Ops',
+                fr: 'Ops Qdrant',
+                de: 'Qdrant-Betrieb',
+                ja: 'Qdrant 運用',
+              ),
+            ),
           ),
           OutlinedButton.icon(
             onPressed: () => showQdrantAdminDialog(context),
             icon: const Icon(Icons.storage_outlined),
-            label: Text(isZh ? 'Qdrant 管理' : 'Qdrant Admin'),
+            label: Text(
+              _kbViewText(
+                context,
+                zh: 'Qdrant 管理',
+                zhHant: 'Qdrant 管理',
+                en: 'Qdrant Admin',
+                fr: 'Admin Qdrant',
+                de: 'Qdrant-Admin',
+                ja: 'Qdrant 管理',
+              ),
+            ),
           ),
           OutlinedButton.icon(
             onPressed: controller.loading || controller.busy
                 ? null
                 : () => showKnowledgeVectorDistributionDialog(context),
             icon: const Icon(Icons.scatter_plot_rounded),
-            label: Text(isZh ? '向量分布' : 'Vector Map'),
+            label: Text(
+              _kbViewText(
+                context,
+                zh: '向量分布',
+                zhHant: '向量分布',
+                en: 'Vector Map',
+                fr: 'Carte vectorielle',
+                de: 'Vektorkarte',
+                ja: 'ベクトルマップ',
+              ),
+            ),
           ),
         ],
         [
           OutlinedButton.icon(
             onPressed: () => KnowledgeBaseView._showReindexNotice(context),
             icon: const Icon(Icons.manage_search_rounded),
-            label: Text(isZh ? '重建索引' : 'Reindex'),
+            label: Text(
+              _kbViewText(
+                context,
+                zh: '重建索引',
+                zhHant: '重建索引',
+                en: 'Reindex',
+                fr: 'Réindexer',
+                de: 'Neu indexieren',
+                ja: '再インデックス',
+              ),
+            ),
           ),
           FilledButton.tonalIcon(
             onPressed: controller.busy
                 ? null
                 : () => showKnowledgeImportDialog(context),
             icon: const Icon(Icons.note_add_outlined),
-            label: Text(isZh ? '新建笔记' : 'New Note'),
+            label: Text(
+              _kbViewText(
+                context,
+                zh: '新建笔记',
+                zhHant: '新增筆記',
+                en: 'New Note',
+                fr: 'Nouvelle note',
+                de: 'Neue Notiz',
+                ja: '新規ノート',
+              ),
+            ),
           ),
           importButton,
           configButton,
@@ -384,7 +614,6 @@ class _KnowledgeBaseBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
     if (controller.loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -392,10 +621,25 @@ class _KnowledgeBaseBody extends StatelessWidget {
       return SizedBox.expand(
         child: FeatureStateCard.centered(
           icon: Icons.library_books_outlined,
-          title: isZh ? '知识库为空' : 'Knowledge Base is empty',
-          body: isZh
-              ? '导入 Markdown、Office、PDF、HTML、CSV、JSON、TOML、YAML、TXT 或代码文件，或新建一条笔记来生成本地向量索引。'
-              : 'Import Markdown, Office, PDF, HTML, CSV, JSON, TOML, YAML, TXT, or code files, or create a note to build the local vector index.',
+          title: _kbViewText(
+            context,
+            zh: '知识库为空',
+            zhHant: '知識庫為空',
+            en: 'Knowledge Base is empty',
+            fr: 'La base de connaissances est vide',
+            de: 'Wissensdatenbank ist leer',
+            ja: 'ナレッジベースは空です',
+          ),
+          body: _kbViewText(
+            context,
+            zh: '导入 Markdown、Office、PDF、HTML、CSV、JSON、TOML、YAML、TXT 或代码文件，或新建一条笔记来生成本地向量索引。',
+            zhHant:
+                '匯入 Markdown、Office、PDF、HTML、CSV、JSON、TOML、YAML、TXT 或程式碼檔案，或新增一條筆記來產生本地向量索引。',
+            en: 'Import Markdown, Office, PDF, HTML, CSV, JSON, TOML, YAML, TXT, or code files, or create a note to build the local vector index.',
+            fr: 'Importez des fichiers Markdown, Office, PDF, HTML, CSV, JSON, TOML, YAML, TXT ou code, ou créez une note pour bâtir l’index vectoriel local.',
+            de: 'Importieren Sie Markdown-, Office-, PDF-, HTML-, CSV-, JSON-, TOML-, YAML-, TXT- oder Codedateien oder erstellen Sie eine Notiz für den lokalen Vektorindex.',
+            ja: 'Markdown、Office、PDF、HTML、CSV、JSON、TOML、YAML、TXT、コードファイルをインポートするか、ノートを作成してローカルベクトルインデックスを構築します。',
+          ),
         ),
       );
     }
@@ -410,9 +654,15 @@ class _KnowledgeBaseBody extends StatelessWidget {
                 child: TextField(
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.search_rounded),
-                    hintText: isZh
-                        ? '搜索来源标题或路径'
-                        : 'Search source title or path',
+                    hintText: _kbViewText(
+                      context,
+                      zh: '搜索来源标题或路径',
+                      zhHant: '搜尋來源標題或路徑',
+                      en: 'Search source title or path',
+                      fr: 'Rechercher titre ou chemin',
+                      de: 'Quellentitel oder Pfad suchen',
+                      ja: 'ソースタイトルまたはパスを検索',
+                    ),
                     border: const OutlineInputBorder(),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(
@@ -477,7 +727,6 @@ class _KbStatStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
     return SizedBox(
       height: _kKnowledgeToolbarControlHeight,
       child: Align(
@@ -486,10 +735,54 @@ class _KbStatStrip extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _KbStatChip(label: isZh ? '来源' : 'Sources', value: sourceCount),
-            _KbStatChip(label: isZh ? '分块' : 'Chunks', value: chunkCount),
-            _KbStatChip(label: isZh ? '待处理' : 'Pending', value: pendingJobs),
-            _KbStatChip(label: isZh ? '失败' : 'Failed', value: failedJobs),
+            _KbStatChip(
+              label: _kbViewText(
+                context,
+                zh: '来源',
+                zhHant: '來源',
+                en: 'Sources',
+                fr: 'Sources',
+                de: 'Quellen',
+                ja: 'ソース',
+              ),
+              value: sourceCount,
+            ),
+            _KbStatChip(
+              label: _kbViewText(
+                context,
+                zh: '分块',
+                zhHant: '分塊',
+                en: 'Chunks',
+                fr: 'Fragments',
+                de: 'Chunks',
+                ja: 'チャンク',
+              ),
+              value: chunkCount,
+            ),
+            _KbStatChip(
+              label: _kbViewText(
+                context,
+                zh: '待处理',
+                zhHant: '待處理',
+                en: 'Pending',
+                fr: 'En attente',
+                de: 'Ausstehend',
+                ja: '保留中',
+              ),
+              value: pendingJobs,
+            ),
+            _KbStatChip(
+              label: _kbViewText(
+                context,
+                zh: '失败',
+                zhHant: '失敗',
+                en: 'Failed',
+                fr: 'Échec',
+                de: 'Fehlgeschlagen',
+                ja: '失敗',
+              ),
+              value: failedJobs,
+            ),
           ],
         ),
       ),
@@ -545,7 +838,6 @@ class _KnowledgeSourceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     final statusColor = switch (source.status) {
       'indexed' => Colors.green,
       'failed' => colorScheme.error,
@@ -652,7 +944,15 @@ class _KnowledgeSourceCard extends StatelessWidget {
                               alignment: WrapAlignment.end,
                               children: [
                                 _KnowledgeCardActionButton(
-                                  tooltip: isZh ? '查看内容' : 'View content',
+                                  tooltip: _kbViewText(
+                                    context,
+                                    zh: '查看内容',
+                                    zhHant: '查看內容',
+                                    en: 'View content',
+                                    fr: 'Voir le contenu',
+                                    de: 'Inhalt anzeigen',
+                                    ja: '内容を表示',
+                                  ),
                                   icon: Icons.article_outlined,
                                   onPressed: () =>
                                       showKnowledgeSourceContentDialog(
@@ -662,7 +962,15 @@ class _KnowledgeSourceCard extends StatelessWidget {
                                   size: _actionButtonSize,
                                 ),
                                 _KnowledgeCardActionButton(
-                                  tooltip: isZh ? '详情' : 'Details',
+                                  tooltip: _kbViewText(
+                                    context,
+                                    zh: '详情',
+                                    zhHant: '詳情',
+                                    en: 'Details',
+                                    fr: 'Détails',
+                                    de: 'Details',
+                                    ja: '詳細',
+                                  ),
                                   icon: Icons.edit_outlined,
                                   onPressed: () =>
                                       showKnowledgeSourceDetailDialog(
@@ -678,7 +986,15 @@ class _KnowledgeSourceCard extends StatelessWidget {
                                       AnimatedPopupMenuButton<
                                         _KnowledgeCardAction
                                       >(
-                                        tooltip: isZh ? '更多操作' : 'More actions',
+                                        tooltip: _kbViewText(
+                                          context,
+                                          zh: '更多操作',
+                                          zhHant: '更多操作',
+                                          en: 'More actions',
+                                          fr: 'Plus d’actions',
+                                          de: 'Weitere Aktionen',
+                                          ja: 'その他の操作',
+                                        ),
                                         onSelected: (action) {
                                           switch (action) {
                                             case _KnowledgeCardAction.delete:
@@ -689,7 +1005,15 @@ class _KnowledgeSourceCard extends StatelessWidget {
                                           PopupMenuItem<_KnowledgeCardAction>(
                                             value: _KnowledgeCardAction.delete,
                                             child: Text(
-                                              isZh ? '删除' : 'Delete',
+                                              _kbViewText(
+                                                context,
+                                                zh: '删除',
+                                                zhHant: '刪除',
+                                                en: 'Delete',
+                                                fr: 'Supprimer',
+                                                de: 'Löschen',
+                                                ja: '削除',
+                                              ),
                                               style: TextStyle(
                                                 color: colorScheme.error,
                                                 fontWeight: FontWeight.w700,
@@ -743,14 +1067,35 @@ class _KnowledgeSourceCard extends StatelessWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
-    final isZh = openHandIsChineseLocale(context);
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '删除知识库来源？' : 'Delete knowledge source?',
-      message: isZh
-          ? '将删除 SQLite 元数据、chunks，并尝试删除 Qdrant 中该来源的向量。原始文件不会删除。'
-          : 'This deletes SQLite metadata, chunks, and attempts to remove this source vectors from Qdrant. The original file is kept.',
-      confirmLabel: isZh ? '删除' : 'Delete',
+      title: _kbViewText(
+        context,
+        zh: '删除知识库来源？',
+        zhHant: '刪除知識庫來源？',
+        en: 'Delete knowledge source?',
+        fr: 'Supprimer la source ?',
+        de: 'Wissensquelle löschen?',
+        ja: 'ナレッジソースを削除しますか？',
+      ),
+      message: _kbViewText(
+        context,
+        zh: '将删除 SQLite 元数据、chunks，并尝试删除 Qdrant 中该来源的向量。原始文件不会删除。',
+        zhHant: '將刪除 SQLite 元資料、chunks，並嘗試刪除 Qdrant 中該來源的向量。原始檔案不會刪除。',
+        en: 'This deletes SQLite metadata, chunks, and attempts to remove this source vectors from Qdrant. The original file is kept.',
+        fr: 'Supprime les métadonnées SQLite, les chunks et tente de retirer les vecteurs de cette source dans Qdrant. Le fichier original est conservé.',
+        de: 'Löscht SQLite-Metadaten und Chunks und versucht, die Vektoren dieser Quelle aus Qdrant zu entfernen. Die Originaldatei bleibt erhalten.',
+        ja: 'SQLite メタデータとチャンクを削除し、Qdrant からこのソースのベクトル削除を試みます。元ファイルは削除されません。',
+      ),
+      confirmLabel: _kbViewText(
+        context,
+        zh: '删除',
+        zhHant: '刪除',
+        en: 'Delete',
+        fr: 'Supprimer',
+        de: 'Löschen',
+        ja: '削除',
+      ),
       destructive: true,
     );
     if (!confirmed || !context.mounted) return;
@@ -760,13 +1105,30 @@ class _KnowledgeSourceCard extends StatelessWidget {
     if (deleted) {
       OpenHandSnackBar.showSuccess(
         context,
-        isZh ? '来源已删除。' : 'Source deleted.',
+        _kbViewText(
+          context,
+          zh: '来源已删除。',
+          zhHant: '來源已刪除。',
+          en: 'Source deleted.',
+          fr: 'Source supprimée.',
+          de: 'Quelle gelöscht.',
+          ja: 'ソースを削除しました。',
+        ),
       );
       return;
     }
     OpenHandSnackBar.showError(
       context,
-      controller.error ?? (isZh ? '来源删除失败。' : 'Failed to delete source.'),
+      controller.error ??
+          _kbViewText(
+            context,
+            zh: '来源删除失败。',
+            zhHant: '來源刪除失敗。',
+            en: 'Failed to delete source.',
+            fr: 'Échec de la suppression de la source.',
+            de: 'Quelle konnte nicht gelöscht werden.',
+            ja: 'ソースの削除に失敗しました。',
+          ),
     );
   }
 
@@ -786,31 +1148,149 @@ class _KnowledgeSourceCard extends StatelessWidget {
   }
 
   String _localizedKind(String kind, BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
     return switch (kind) {
-      'markdown' => isZh ? 'Markdown 文档' : 'Markdown',
-      'text' => isZh ? '文本' : 'Text',
-      'code' => isZh ? '代码' : 'Code',
-      'pdf' => isZh ? 'PDF' : 'PDF',
-      'html' => isZh ? '网页 HTML' : 'HTML',
-      'docx' => isZh ? 'Word 文档' : 'Word document',
-      'spreadsheet' => isZh ? '电子表格' : 'Spreadsheet',
-      'presentation' => isZh ? '演示文稿' : 'Presentation',
-      'table' => isZh ? '表格数据' : 'Table data',
-      'structured' => isZh ? '结构化数据' : 'Structured data',
-      'note' => isZh ? '笔记' : 'Note',
+      'markdown' => _kbViewText(
+        context,
+        zh: 'Markdown 文档',
+        zhHant: 'Markdown 文件',
+        en: 'Markdown',
+        fr: 'Markdown',
+        de: 'Markdown',
+        ja: 'Markdown',
+      ),
+      'text' => _kbViewText(
+        context,
+        zh: '文本',
+        zhHant: '文字',
+        en: 'Text',
+        fr: 'Texte',
+        de: 'Text',
+        ja: 'テキスト',
+      ),
+      'code' => _kbViewText(
+        context,
+        zh: '代码',
+        zhHant: '程式碼',
+        en: 'Code',
+        fr: 'Code',
+        de: 'Code',
+        ja: 'コード',
+      ),
+      'pdf' => 'PDF',
+      'html' => _kbViewText(
+        context,
+        zh: '网页 HTML',
+        zhHant: '網頁 HTML',
+        en: 'HTML',
+        fr: 'HTML',
+        de: 'HTML',
+        ja: 'HTML',
+      ),
+      'docx' => _kbViewText(
+        context,
+        zh: 'Word 文档',
+        zhHant: 'Word 文件',
+        en: 'Word document',
+        fr: 'Document Word',
+        de: 'Word-Dokument',
+        ja: 'Word ドキュメント',
+      ),
+      'spreadsheet' => _kbViewText(
+        context,
+        zh: '电子表格',
+        zhHant: '試算表',
+        en: 'Spreadsheet',
+        fr: 'Feuille de calcul',
+        de: 'Tabelle',
+        ja: 'スプレッドシート',
+      ),
+      'presentation' => _kbViewText(
+        context,
+        zh: '演示文稿',
+        zhHant: '簡報',
+        en: 'Presentation',
+        fr: 'Présentation',
+        de: 'Präsentation',
+        ja: 'プレゼンテーション',
+      ),
+      'table' => _kbViewText(
+        context,
+        zh: '表格数据',
+        zhHant: '表格資料',
+        en: 'Table data',
+        fr: 'Données tabulaires',
+        de: 'Tabellendaten',
+        ja: '表データ',
+      ),
+      'structured' => _kbViewText(
+        context,
+        zh: '结构化数据',
+        zhHant: '結構化資料',
+        en: 'Structured data',
+        fr: 'Données structurées',
+        de: 'Strukturierte Daten',
+        ja: '構造化データ',
+      ),
+      'note' => _kbViewText(
+        context,
+        zh: '笔记',
+        zhHant: '筆記',
+        en: 'Note',
+        fr: 'Note',
+        de: 'Notiz',
+        ja: 'ノート',
+      ),
       _ => kind.trim().isEmpty ? '-' : kind,
     };
   }
 
   String _localizedStatus(String status, BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
     return switch (status) {
-      'indexed' => isZh ? '已索引' : 'Indexed',
-      'failed' => isZh ? '失败' : 'Failed',
-      'indexing' => isZh ? '索引中' : 'Indexing',
-      'pending' => isZh ? '待处理' : 'Pending',
-      'cancelled' => isZh ? '已停止' : 'Stopped',
+      'indexed' => _kbViewText(
+        context,
+        zh: '已索引',
+        zhHant: '已索引',
+        en: 'Indexed',
+        fr: 'Indexé',
+        de: 'Indexiert',
+        ja: 'インデックス済み',
+      ),
+      'failed' => _kbViewText(
+        context,
+        zh: '失败',
+        zhHant: '失敗',
+        en: 'Failed',
+        fr: 'Échec',
+        de: 'Fehlgeschlagen',
+        ja: '失敗',
+      ),
+      'indexing' => _kbViewText(
+        context,
+        zh: '索引中',
+        zhHant: '索引中',
+        en: 'Indexing',
+        fr: 'Indexation',
+        de: 'Indexierung',
+        ja: 'インデックス中',
+      ),
+      'pending' => _kbViewText(
+        context,
+        zh: '待处理',
+        zhHant: '待處理',
+        en: 'Pending',
+        fr: 'En attente',
+        de: 'Ausstehend',
+        ja: '保留中',
+      ),
+      'cancelled' => _kbViewText(
+        context,
+        zh: '已停止',
+        zhHant: '已停止',
+        en: 'Stopped',
+        fr: 'Arrêté',
+        de: 'Gestoppt',
+        ja: '停止済み',
+      ),
       _ => status.trim().isEmpty ? '-' : status,
     };
   }
