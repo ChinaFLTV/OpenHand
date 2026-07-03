@@ -658,9 +658,10 @@ class AiSessionStore {
         messageTotalCount: 0,
       );
     }
-    final effectiveLimit = limit <= 0
-        ? totalCount
-        : math.min(limit, totalCount);
+    final effectiveLimit = _boundedMessageLoadLimit(
+      requestedLimit: limit,
+      totalCount: totalCount,
+    );
     final rawRows = await _db.query(
       'messages',
       where: 'session_id = ?',
@@ -699,6 +700,15 @@ class AiSessionStore {
     return loadState == AiSessionMessageLoadState.complete
         ? restoreCompressionCheckpointFromSidecar(session)
         : session;
+  }
+
+  int _boundedMessageLoadLimit({
+    required int requestedLimit,
+    required int totalCount,
+  }) {
+    if (totalCount <= 0) return 0;
+    if (requestedLimit <= 0) return totalCount;
+    return math.min(requestedLimit, totalCount);
   }
 
   int _messageWindowStartOffset(
