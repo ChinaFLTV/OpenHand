@@ -168,8 +168,6 @@ class AgentsController extends ManagedChangeNotifier {
   Future<bool> setAgentEnabled(String id, {required bool enabled}) {
     final runtime = runtimeAvailability;
     if (enabled && !runtime.canRun) {
-      _errorMessage = runtime.blockingReason;
-      notifyListeners();
       return Future<bool>.value(false);
     }
     return updateAgent(id, (agent) {

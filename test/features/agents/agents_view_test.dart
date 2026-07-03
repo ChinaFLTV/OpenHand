@@ -1,7 +1,6 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/app/model/dialog_animation_settings.dart';
 import 'package:openhand/app/state/settings_controller.dart';
 import 'package:openhand/features/agents/data/agents_store.dart';
 import 'package:openhand/features/agents/index.dart';
@@ -12,39 +11,21 @@ import 'package:openhand/features/mcp/index.dart';
 import 'package:openhand/features/memory/index.dart';
 import 'package:openhand/features/skills/index.dart';
 import 'package:openhand/l10n/app_localizations.dart';
-import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('AgentsView empty board', () {
-    late Directory tempDir;
     late AgentsController controller;
 
     setUp(() async {
-      tempDir = await Directory.systemTemp.createTemp(
-        'openhand_agents_view_test_',
-      );
-      controller = AgentsController.uninitialized(
-        store: AgentsStore(filePath: p.join(tempDir.path, 'agents.json')),
-      );
-      controller.setRuntimeAvailabilityProvider(
-        () => const AgentRuntimeAvailability(
-          isLoading: false,
-          isInstalled: false,
-          isEnabled: false,
-          pluginName: 'Hermes Agent',
-        ),
-      );
+      controller = _testAgentsController();
       await controller.refresh();
     });
 
     tearDown(() async {
       controller.dispose();
-      if (await tempDir.exists()) {
-        await tempDir.delete(recursive: true);
-      }
     });
 
     testWidgets('shows only the centered empty card', (tester) async {
@@ -78,6 +59,38 @@ void main() {
 
       expect(find.textContaining('Hermes Agent 未就绪'), findsOneWidget);
       expect(find.byType(SnackBar), findsOneWidget);
+    });
+
+    testWidgets('shows a snackbar when runtime blocks starting an agent', (
+      tester,
+    ) async {
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(id: 'agent-1', name: 'Ops Agent'),
+      ]);
+      controller.setRuntimeAvailabilityProvider(
+        () => const AgentRuntimeAvailability(
+          isLoading: false,
+          isInstalled: true,
+          isEnabled: false,
+          pluginName: 'Hermes Agent',
+        ),
+      );
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('启动智能体'));
+      await tester.pump();
+
+      expect(find.text('Ops Agent'), findsOneWidget);
+      expect(find.text('加载失败'), findsNothing);
+      expect(find.textContaining('请先启用 Hermes Agent 插件'), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(controller.agentById('agent-1')!.enabled, isFalse);
     });
 
     testWidgets('keeps the editor open when metadata JSON is invalid', (
@@ -124,15 +137,10 @@ void main() {
     testWidgets('opens a complete task detail dialog from task desk', (
       tester,
     ) async {
-      controller.setRuntimeAvailabilityProvider(
-        () => const AgentRuntimeAvailability(
-          isLoading: false,
-          isInstalled: true,
-          isEnabled: true,
-          pluginName: 'Hermes Agent',
-        ),
-      );
-      await controller.saveAgent(
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(<AgentProfile>[
         AgentProfile(
           id: 'agent-1',
           name: 'Ops Agent',
@@ -166,13 +174,22 @@ void main() {
             ),
           ],
         ),
+      ]);
+      controller.setRuntimeAvailabilityProvider(
+        () => const AgentRuntimeAvailability(
+          isLoading: false,
+          isInstalled: true,
+          isEnabled: true,
+          pluginName: 'Hermes Agent',
+        ),
       );
+      await controller.refresh();
 
-      await tester.pumpWidget(_AgentsViewHarness(controller: controller));
-      await tester.tap(find.byTooltip('更多').first);
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(find.text('任务台'));
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('任务台').first);
+      await tester.pumpAndSettle(const Duration(milliseconds: 50));
       await tester.tap(find.text('Quarterly report').first);
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -188,13 +205,29 @@ void main() {
       expect(find.textContaining('"omitted": true'), findsOneWidget);
       expect(find.textContaining('secret prompt body'), findsNothing);
 
-      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
-      navigator.pop();
+      await tester.tap(find.byIcon(Icons.close_rounded).last);
       await tester.pump(const Duration(milliseconds: 300));
-      navigator.pop();
+      await tester.tap(find.byIcon(Icons.close_rounded).last);
       await tester.pump(const Duration(milliseconds: 300));
     });
   });
+}
+
+AgentsController _testAgentsController([
+  List<AgentProfile> agents = const <AgentProfile>[],
+]) {
+  final controller = AgentsController.uninitialized(
+    store: _MemoryAgentsStore(agents),
+  );
+  controller.setRuntimeAvailabilityProvider(
+    () => const AgentRuntimeAvailability(
+      isLoading: false,
+      isInstalled: false,
+      isEnabled: false,
+      pluginName: 'Hermes Agent',
+    ),
+  );
+  return controller;
 }
 
 class _AgentsViewHarness extends StatelessWidget {
@@ -293,6 +326,10 @@ class _FakeSettingsController extends ChangeNotifier
     implements SettingsController {
   @override
   dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #listItemAnimationSettings &&
+        invocation.isGetter) {
+      return OpenHandMotionDefaults.listItem;
+    }
     if (invocation.isGetter) return const <Never>[];
     return super.noSuchMethod(invocation);
   }
@@ -356,5 +393,23 @@ class _FakeHooksController extends ChangeNotifier implements HooksController {
       return const <Never>[];
     }
     return super.noSuchMethod(invocation);
+  }
+}
+
+class _MemoryAgentsStore extends AgentsStore {
+  _MemoryAgentsStore([List<AgentProfile> agents = const <AgentProfile>[]])
+    : _agents = List<AgentProfile>.from(agents),
+      super(filePath: 'memory://agents-view-test');
+
+  List<AgentProfile> _agents;
+
+  @override
+  Future<List<AgentProfile>> load() async {
+    return List<AgentProfile>.from(_agents);
+  }
+
+  @override
+  Future<void> save(List<AgentProfile> agents) async {
+    _agents = List<AgentProfile>.from(agents);
   }
 }

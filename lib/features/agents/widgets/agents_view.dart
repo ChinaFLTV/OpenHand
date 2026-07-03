@@ -229,9 +229,8 @@ class _AgentsBody extends StatelessWidget {
           child: RepaintBoundary(
             child: _AgentCard(
               agent: agent,
-              onToggleEnabled: (enabled) => context
-                  .read<AgentsController>()
-                  .setAgentEnabled(agent.id, enabled: enabled),
+              onToggleEnabled: (enabled) =>
+                  _handleToggleAgentEnabled(context, agent, enabled),
               onAction: (action) => _handleAgentAction(context, agent, action),
             ),
           ),
@@ -368,14 +367,16 @@ class _AgentCard extends StatelessWidget {
                       action: _AgentCardAction.cluster,
                       onAction: onAction,
                     ),
+                    _AgentIconAction(
+                      icon: Icons.task_alt_rounded,
+                      tooltip: l10n.agentsTaskDesk,
+                      action: _AgentCardAction.tasks,
+                      onAction: onAction,
+                    ),
                     PopupMenuButton<_AgentCardAction>(
                       tooltip: l10n.agentsMore,
                       onSelected: onAction,
                       itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: _AgentCardAction.tasks,
-                          child: Text(l10n.agentsTaskDesk),
-                        ),
                         PopupMenuItem(
                           value: _AgentCardAction.audit,
                           child: Text(l10n.agentsAuditReport),
@@ -2767,6 +2768,11 @@ class _AgentDialogScaffold extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
               ...actions,
+              IconButton(
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
             ],
           ),
           const SizedBox(height: 18),
@@ -2808,6 +2814,20 @@ void _handleCreateAgent(
     return;
   }
   _showAgentEditor(context);
+}
+
+Future<void> _handleToggleAgentEnabled(
+  BuildContext context,
+  AgentProfile agent,
+  bool enabled,
+) async {
+  final controller = context.read<AgentsController>();
+  final updated = await controller.setAgentEnabled(agent.id, enabled: enabled);
+  if (updated || !enabled || !context.mounted) return;
+  OpenHandSnackBar.showError(
+    context,
+    _agentRuntimeBlockingText(context, controller.runtimeAvailability),
+  );
 }
 
 class _AgentEditorDialog extends StatefulWidget {

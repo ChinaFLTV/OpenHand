@@ -47,6 +47,32 @@ void main() {
       expect(controller.errorMessage, contains('disabled'));
     });
 
+    test(
+      'starting an agent blocked by runtime does not poison page error',
+      () async {
+        controller.setRuntimeAvailabilityProvider(
+          () => const AgentRuntimeAvailability(
+            isLoading: false,
+            isInstalled: true,
+            isEnabled: false,
+            pluginName: 'Hermes Agent',
+          ),
+        );
+        await controller.saveAgent(
+          const AgentProfile(id: 'agent-1', name: 'Ops Agent'),
+        );
+
+        final started = await controller.setAgentEnabled(
+          'agent-1',
+          enabled: true,
+        );
+
+        expect(started, isFalse);
+        expect(controller.agentById('agent-1')!.enabled, isFalse);
+        expect(controller.errorMessage, isNull);
+      },
+    );
+
     test('publishing a task assigns an idle worker', () async {
       await controller.saveAgent(_runningAgent());
 
