@@ -256,7 +256,7 @@ class PluginScannerService {
 
   static int? _extractNodeMajor(String version) {
     final match = RegExp(r'v?(\d+)').firstMatch(version);
-    return int.tryParse(match?.group(1) ?? '');
+    return optionalNonNegativeIntFromValue(match?.group(1));
   }
 
   static bool _isNodeVersion(String value) {
