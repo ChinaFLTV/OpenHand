@@ -41,6 +41,16 @@ enum _AgentCardAction {
 const double _agentCardRadius = 22;
 const double _agentDialogMaxWidth = 1040;
 const double _agentDialogMaxHeight = 780;
+const List<String> _agentSchedulerPolicyOptions = <String>[
+  'least_busy',
+  'priority_first',
+  'round_robin',
+];
+const List<String> _agentWorkerRemovalPolicyOptions = <String>[
+  'least_busy',
+  'newest_first',
+];
+const List<String> _agentRetryPolicyOptions = <String>['bounded_retry', 'none'];
 
 FeatureStateCard _agentRuntimeNotice(
   BuildContext context,
@@ -1215,6 +1225,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   late final TextEditingController _workspacePath;
   late final TextEditingController _workspaceScope;
   late final TextEditingController _taskLabels;
+  late final TextEditingController _workerTags;
   late final TextEditingController _metadata;
   late final TextEditingController _kpiName;
   late final TextEditingController _kpiTarget;
@@ -1224,7 +1235,11 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   late int _minWorkers;
   late int _maxWorkers;
   late int _maxRetries;
+  late double _scaleOutThreshold;
+  late double _scaleInThreshold;
   late String _schedulerPolicy;
+  late String _workerRemovalPolicy;
+  late String _retryPolicy;
   String? _modelProviderConfigId;
   String? _modelId;
   late Set<String> _skillNames;
@@ -1262,6 +1277,9 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     _taskLabels = TextEditingController(
       text: agent?.taskLabels.join(', ') ?? '',
     );
+    _workerTags = TextEditingController(
+      text: agent?.scaleSettings.tags.join(', ') ?? '',
+    );
     _metadata = TextEditingController(
       text: agent == null || agent.metadata.isEmpty
           ? '{}'
@@ -1284,7 +1302,12 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     _minWorkers = agent?.scaleSettings.minWorkers ?? 1;
     _maxWorkers = agent?.scaleSettings.maxWorkers ?? 1;
     _maxRetries = agent?.scaleSettings.maxRetries ?? 2;
+    _scaleOutThreshold = agent?.scaleSettings.scaleOutThreshold ?? 0.75;
+    _scaleInThreshold = agent?.scaleSettings.scaleInThreshold ?? 0.25;
     _schedulerPolicy = agent?.scaleSettings.schedulerPolicy ?? 'least_busy';
+    _workerRemovalPolicy =
+        agent?.scaleSettings.workerRemovalPolicy ?? 'least_busy';
+    _retryPolicy = agent?.scaleSettings.retryPolicy ?? 'bounded_retry';
     _kpis = List<AgentKpiItem>.from(agent?.kpis ?? const <AgentKpiItem>[]);
   }
 
@@ -1306,6 +1329,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       _workspacePath,
       _workspaceScope,
       _taskLabels,
+      _workerTags,
       _metadata,
       _kpiName,
       _kpiTarget,
@@ -1650,7 +1674,10 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               child: _numberStepper(
                 l10n.agentsMaxWorkersLabel,
                 _maxWorkers,
-                (v) => setState(() => _maxWorkers = v.clamp(1, 999)),
+                (v) => setState(() {
+                  _maxWorkers = v.clamp(1, 999);
+                  if (_minWorkers > _maxWorkers) _minWorkers = _maxWorkers;
+                }),
               ),
             ),
             const SizedBox(width: 12),
@@ -1664,18 +1691,78 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           ],
         ),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          initialValue: _schedulerPolicy,
-          decoration: InputDecoration(
-            labelText: l10n.agentsSchedulerPolicyLabel,
-          ),
-          items: const ['least_busy', 'priority_first', 'round_robin']
-              .map(
-                (value) => DropdownMenuItem(value: value, child: Text(value)),
-              )
-              .toList(),
-          onChanged: (value) =>
-              setState(() => _schedulerPolicy = value ?? _schedulerPolicy),
+        Row(
+          children: [
+            Expanded(
+              child: _ratioSlider(
+                openHandLocalizedText(
+                  context,
+                  zh: '扩容阈值',
+                  en: 'Scale-out threshold',
+                ),
+                _scaleOutThreshold,
+                (value) => setState(() => _scaleOutThreshold = value),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _ratioSlider(
+                openHandLocalizedText(
+                  context,
+                  zh: '缩容阈值',
+                  en: 'Scale-in threshold',
+                ),
+                _scaleInThreshold,
+                (value) => setState(() => _scaleInThreshold = value),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _policyDropdown(
+                label: l10n.agentsSchedulerPolicyLabel,
+                value: _schedulerPolicy,
+                values: _agentSchedulerPolicyOptions,
+                onChanged: (value) => setState(() => _schedulerPolicy = value),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _policyDropdown(
+                label: openHandLocalizedText(
+                  context,
+                  zh: 'Worker 移出策略',
+                  en: 'Worker removal policy',
+                ),
+                value: _workerRemovalPolicy,
+                values: _agentWorkerRemovalPolicyOptions,
+                onChanged: (value) =>
+                    setState(() => _workerRemovalPolicy = value),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _policyDropdown(
+                label: openHandLocalizedText(
+                  context,
+                  zh: '重试策略',
+                  en: 'Retry policy',
+                ),
+                value: _retryPolicy,
+                values: _agentRetryPolicyOptions,
+                onChanged: (value) => setState(() => _retryPolicy = value),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _field(
+          _workerTags,
+          openHandLocalizedText(context, zh: 'Worker 标签', en: 'Worker tags'),
+          hint: l10n.agentsCommaSeparatedHint,
         ),
         const SizedBox(height: 14),
         _field(
@@ -1756,6 +1843,55 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     );
   }
 
+  Widget _policyDropdown({
+    required String label,
+    required String value,
+    required List<String> values,
+    required ValueChanged<String> onChanged,
+  }) {
+    final effectiveValue = values.contains(value) ? value : values.first;
+    return DropdownButtonFormField<String>(
+      initialValue: effectiveValue,
+      decoration: InputDecoration(labelText: label),
+      items: values
+          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .toList(),
+      onChanged: (next) {
+        if (next != null) onChanged(next);
+      },
+    );
+  }
+
+  Widget _ratioSlider(
+    String label,
+    double value,
+    ValueChanged<double> onChanged,
+  ) {
+    final normalized = value.clamp(0, 1).toDouble();
+    return InputDecorator(
+      decoration: InputDecoration(labelText: label),
+      child: Row(
+        children: [
+          Expanded(
+            child: Slider(
+              value: normalized,
+              divisions: 20,
+              label: '${(normalized * 100).round()}%',
+              onChanged: onChanged,
+            ),
+          ),
+          SizedBox(
+            width: 44,
+            child: Text(
+              '${(normalized * 100).round()}%',
+              textAlign: TextAlign.end,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _numberStepper(String label, int value, ValueChanged<int> onChanged) {
     return InputDecorator(
       decoration: InputDecoration(labelText: label),
@@ -1795,6 +1931,10 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   AgentProfile _buildAgent() {
     final now = DateTime.now().toUtc();
     final previous = widget.initialAgent;
+    final maxWorkers = _maxWorkers.clamp(1, 999);
+    final minWorkers = _minWorkers.clamp(0, maxWorkers);
+    final taskLabels = _commaSeparatedValues(_taskLabels.text);
+    final workerTags = _commaSeparatedValues(_workerTags.text);
     return AgentProfile(
       id: previous?.id ?? '',
       name: _name.text.trim(),
@@ -1814,11 +1954,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       skillNames: _skillNames.toList(),
       knowledgeSourceIds: _knowledgeSourceIds.toList(),
       memoryIds: _memoryIds.toList(),
-      taskLabels: _taskLabels.text
-          .split(',')
-          .map((v) => v.trim())
-          .where((v) => v.isNotEmpty)
-          .toList(),
+      taskLabels: taskLabels,
       mcpServerNames: _mcpServerNames.toList(),
       builtinToolNames: _builtinToolNames.toList(),
       workspacePath: _workspacePath.text.trim(),
@@ -1832,15 +1968,15 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           ? AgentLifecycleState.running
           : AgentLifecycleState.stopped,
       scaleSettings: AgentScaleSettings(
-        minWorkers: _minWorkers,
-        maxWorkers: _maxWorkers,
+        minWorkers: minWorkers,
+        maxWorkers: maxWorkers,
+        scaleOutThreshold: _scaleOutThreshold.clamp(0, 1).toDouble(),
+        scaleInThreshold: _scaleInThreshold.clamp(0, 1).toDouble(),
+        workerRemovalPolicy: _workerRemovalPolicy,
+        retryPolicy: _retryPolicy,
         maxRetries: _maxRetries,
         schedulerPolicy: _schedulerPolicy,
-        tags: _taskLabels.text
-            .split(',')
-            .map((v) => v.trim())
-            .where((v) => v.isNotEmpty)
-            .toList(),
+        tags: workerTags,
       ),
       tasks: previous?.tasks ?? const <AgentTask>[],
       approvals: previous?.approvals ?? const <AgentApprovalRequest>[],
@@ -1853,6 +1989,14 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
     );
+  }
+
+  List<String> _commaSeparatedValues(String value) {
+    return value
+        .split(',')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
   }
 
   Map<String, Object?> _metadataJson() {
