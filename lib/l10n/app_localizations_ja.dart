@@ -229,6 +229,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commonEdit => '編集';
 
   @override
+  String get exportProgressCancelling => 'キャンセル中…';
+
+  @override
   String get previewSectionTitle => 'デザイン方針';
 
   @override

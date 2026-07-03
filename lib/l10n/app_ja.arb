@@ -77,6 +77,10 @@
   "commonSave": "保存",
   "commonDelete": "削除",
   "commonEdit": "編集",
+  "exportProgressCancelling": "キャンセル中…",
+  "@exportProgressCancelling": {
+    "description": "Status text shown while a running export is being cancelled."
+  },
   "previewSectionTitle": "デザイン方針",
   "previewSectionBody": "Material 3 Expressive の考え方に基づき、レイヤー構造、広い余白、丸みのある形、柔らかな光感、明確な情報リズムを重視しています。",
   "threadPrimary": "OpenHand",

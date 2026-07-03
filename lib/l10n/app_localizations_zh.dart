@@ -228,6 +228,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonEdit => '编辑';
 
   @override
+  String get exportProgressCancelling => '正在取消…';
+
+  @override
   String get previewSectionTitle => '设计方向';
 
   @override
@@ -9911,6 +9914,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get commonEdit => '编辑';
 
   @override
+  String get exportProgressCancelling => '正在取消…';
+
+  @override
   String get previewSectionTitle => '设计方向';
 
   @override
@@ -19591,6 +19597,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get commonEdit => '編輯';
+
+  @override
+  String get exportProgressCancelling => '正在取消…';
 
   @override
   String get previewSectionTitle => '設計方向';

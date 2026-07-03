@@ -77,6 +77,10 @@
   "commonSave": "儲存",
   "commonDelete": "刪除",
   "commonEdit": "編輯",
+  "exportProgressCancelling": "正在取消…",
+  "@exportProgressCancelling": {
+    "description": "Status text shown while a running export is being cancelled."
+  },
   "previewSectionTitle": "設計方向",
   "previewSectionBody": "遵循 Material 3 Expressive 設計理念，強調層次、留白、圓角、柔和光感與清晰的資訊節奏。",
   "threadPrimary": "OpenHand",

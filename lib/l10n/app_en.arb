@@ -77,6 +77,10 @@
   "commonSave": "Save",
   "commonDelete": "Delete",
   "commonEdit": "Edit",
+  "exportProgressCancelling": "Cancelling…",
+  "@exportProgressCancelling": {
+    "description": "Status text shown while a running export is being cancelled."
+  },
   "previewSectionTitle": "Design Direction",
   "previewSectionBody": "Built around Material 3 Expressive, with layered surfaces, generous spacing, rounded forms, soft lighting, and clear information rhythm.",
   "threadPrimary": "OpenHand",

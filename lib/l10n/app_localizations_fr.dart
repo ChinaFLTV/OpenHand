@@ -237,6 +237,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get commonEdit => 'Modifier';
 
   @override
+  String get exportProgressCancelling => 'Annulation…';
+
+  @override
   String get previewSectionTitle => 'Direction du design';
 
   @override

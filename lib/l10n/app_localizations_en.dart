@@ -236,6 +236,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonEdit => 'Edit';
 
   @override
+  String get exportProgressCancelling => 'Cancelling…';
+
+  @override
   String get previewSectionTitle => 'Design Direction';
 
   @override

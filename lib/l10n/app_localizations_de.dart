@@ -237,6 +237,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get commonEdit => 'Bearbeiten';
 
   @override
+  String get exportProgressCancelling => 'Wird abgebrochen…';
+
+  @override
   String get previewSectionTitle => 'Designrichtung';
 
   @override

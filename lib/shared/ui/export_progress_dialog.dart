@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../features/ai/service/session_io/ai_session_jsonl_exporter.dart';
-import '../util/localized_text.dart';
+import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
 
@@ -57,6 +57,7 @@ class ExportProgressDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return PopScope(
       canPop: false,
       child: buildOpenHandAlertDialog(
@@ -92,11 +93,7 @@ class ExportProgressDialog extends StatelessWidget {
                   if (isCancelling) ...[
                     const SizedBox(height: 8),
                     Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '正在取消…',
-                        en: 'Cancelling…',
-                      ),
+                      l10n.exportProgressCancelling,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.outline,
                       ),

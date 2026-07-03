@@ -538,6 +538,12 @@ abstract class AppLocalizations {
   /// **'编辑'**
   String get commonEdit;
 
+  /// Status text shown while a running export is being cancelled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在取消…'**
+  String get exportProgressCancelling;
+
   /// No description provided for @previewSectionTitle.
   ///
   /// In zh_Hans, this message translates to:
