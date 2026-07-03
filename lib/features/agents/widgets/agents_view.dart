@@ -17,6 +17,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../ai/index.dart' show AiBuiltinToolConfig, AiBuiltinToolKind;
 import '../../crons/index.dart';
 import '../../hooks/index.dart';
 import '../../knowledge_base/index.dart';
@@ -62,6 +63,24 @@ const List<String> _agentKpiStatusOptions = <String>[
 ];
 const int _agentRoutePreviewKeywordLimit = 10;
 const String _agentTaskExtraJsonHint = '{"priority":"high","retryable":true}';
+const Set<AiBuiltinToolKind> _agentCoordinationBuiltinToolKinds =
+    <AiBuiltinToolKind>{
+      AiBuiltinToolKind.agentList,
+      AiBuiltinToolKind.agentDetail,
+      AiBuiltinToolKind.agentTaskPublish,
+      AiBuiltinToolKind.agentTaskTrack,
+      AiBuiltinToolKind.agentTaskProgress,
+      AiBuiltinToolKind.agentTaskCancel,
+      AiBuiltinToolKind.agentTaskPause,
+      AiBuiltinToolKind.agentTaskTerminate,
+      AiBuiltinToolKind.agentTaskResume,
+      AiBuiltinToolKind.agentTaskComplete,
+      AiBuiltinToolKind.agentTaskResult,
+    };
+
+bool _isAgentCoordinationBuiltinToolId(String id) {
+  return _agentCoordinationBuiltinToolKinds.any((kind) => kind.name == id);
+}
 
 String _agentRuntimeBlockingText(
   BuildContext context,
@@ -2941,7 +2960,10 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     final crons = context.watch<CronsController>().entries;
     final hooks = context.watch<HooksController>().entries;
     final runtime = context.watch<AgentsController>().runtimeAvailability;
-    final builtinTools = settings.builtinToolConfigs;
+    final builtinTools = _builtinToolOptions(settings.builtinToolConfigs);
+    final selectedBuiltinTools = _normalizedBuiltinToolSelection(
+      settings.builtinToolConfigs,
+    );
 
     return buildOpenHandDialog(
       maxWidth: _agentDialogMaxWidth,
@@ -3007,15 +3029,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                             mcpServers: mcpServers
                                 .map((m) => _Option(m.name, m.name, m.summary))
                                 .toList(),
-                            builtinTools: builtinTools
-                                .map(
-                                  (t) => _Option(
-                                    t.effectiveName,
-                                    t.effectiveName,
-                                    t.kind.name,
-                                  ),
-                                )
-                                .toList(),
+                            builtinTools: builtinTools,
+                            selectedBuiltinTools: selectedBuiltinTools,
                           ),
                         ),
                         _tabScroll(
@@ -3060,9 +3075,12 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                       OpenHandDialogActionButton.primary(
                         onPressed: _name.text.trim().isEmpty
                             ? null
-                            : () => Navigator.of(
-                                dialogContext,
-                              ).pop(_buildAgent()),
+                            : () => Navigator.of(dialogContext).pop(
+                                _buildAgent(
+                                  builtinToolConfigs:
+                                      settings.builtinToolConfigs,
+                                ),
+                              ),
                         label: l10n.commonSave,
                       ),
                     ],
@@ -3142,7 +3160,14 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     required List<_Option> memories,
     required List<_Option> mcpServers,
     required List<_Option> builtinTools,
+    required Set<String> selectedBuiltinTools,
   }) {
+    final agentTools = builtinTools
+        .where((option) => _isAgentCoordinationBuiltinToolId(option.id))
+        .toList(growable: false);
+    final regularTools = builtinTools
+        .where((option) => !_isAgentCoordinationBuiltinToolId(option.id))
+        .toList(growable: false);
     return Column(
       children: [
         _OptionChips(
@@ -3170,9 +3195,19 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           onChanged: (v) => setState(() => _mcpServerNames = v),
         ),
         _OptionChips(
+          title: openHandLocalizedText(
+            context,
+            zh: 'Agent 协同工具',
+            en: 'Agent coordination tools',
+          ),
+          options: agentTools,
+          selected: selectedBuiltinTools,
+          onChanged: (v) => setState(() => _builtinToolNames = v),
+        ),
+        _OptionChips(
           title: l10n.agentsBuiltInTools,
-          options: builtinTools,
-          selected: _builtinToolNames,
+          options: regularTools,
+          selected: selectedBuiltinTools,
           onChanged: (v) => setState(() => _builtinToolNames = v),
         ),
       ],
@@ -3547,13 +3582,18 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     );
   }
 
-  AgentProfile _buildAgent() {
+  AgentProfile _buildAgent({
+    required List<AiBuiltinToolConfig> builtinToolConfigs,
+  }) {
     final now = DateTime.now().toUtc();
     final previous = widget.initialAgent;
     final maxWorkers = _maxWorkers.clamp(1, 999);
     final minWorkers = _minWorkers.clamp(0, maxWorkers);
     final taskLabels = _commaSeparatedValues(_taskLabels.text);
     final workerTags = _commaSeparatedValues(_workerTags.text);
+    final builtinToolNames = _normalizedBuiltinToolSelection(
+      builtinToolConfigs,
+    ).toList();
     return AgentProfile(
       id: previous?.id ?? '',
       name: _name.text.trim(),
@@ -3575,7 +3615,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       memoryIds: _memoryIds.toList(),
       taskLabels: taskLabels,
       mcpServerNames: _mcpServerNames.toList(),
-      builtinToolNames: _builtinToolNames.toList(),
+      builtinToolNames: builtinToolNames,
       workspacePath: _workspacePath.text.trim(),
       workspaceScope: _workspaceScope.text.trim(),
       cronIds: _cronIds.toList(),
@@ -3616,6 +3656,49 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)
         .toList(growable: false);
+  }
+
+  List<_Option> _builtinToolOptions(List<AiBuiltinToolConfig> configs) {
+    final agentTools = <_Option>[];
+    final regularTools = <_Option>[];
+    for (final config in configs) {
+      final id = _builtinToolOptionId(config);
+      final option = _Option(id, config.effectiveName, config.kind.name);
+      if (_agentCoordinationBuiltinToolKinds.contains(config.kind)) {
+        agentTools.add(option);
+      } else {
+        regularTools.add(option);
+      }
+    }
+    return <_Option>[...regularTools, ...agentTools];
+  }
+
+  String _builtinToolOptionId(AiBuiltinToolConfig config) {
+    if (_agentCoordinationBuiltinToolKinds.contains(config.kind)) {
+      return config.kind.name;
+    }
+    return config.isCustom ? config.effectiveName : config.kind.name;
+  }
+
+  Set<String> _normalizedBuiltinToolSelection(
+    List<AiBuiltinToolConfig> configs,
+  ) {
+    final aliases = <String, String>{};
+    for (final config in configs) {
+      final id = _builtinToolOptionId(config);
+      aliases[config.kind.name.toLowerCase()] = id;
+      aliases[config.effectiveName.toLowerCase()] = id;
+      if (config.customToolName != null) {
+        aliases[config.customToolName!.trim().toLowerCase()] = id;
+      }
+    }
+    final normalized = <String>{};
+    for (final raw in _builtinToolNames) {
+      final value = raw.trim();
+      if (value.isEmpty) continue;
+      normalized.add(aliases[value.toLowerCase()] ?? value);
+    }
+    return normalized;
   }
 
   Map<String, Object?> _metadataJson() {

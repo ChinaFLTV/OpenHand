@@ -449,10 +449,15 @@ class AiToolRuntimeService {
     final controller = _agentsControllerProvider?.call();
     if (controller == null) return false;
     for (final agent in controller.enabledAgents) {
-      final configuredAgentToolNames = agent.builtinToolNames
+      final configuredToolNames = agent.builtinToolNames
+          .map((name) => name.trim())
+          .where((name) => name.isNotEmpty)
+          .toList(growable: false);
+      if (configuredToolNames.isEmpty) return true;
+      final configuredAgentToolNames = configuredToolNames
           .where((name) => _looksLikeAgentBuiltinToolName(name))
           .toList(growable: false);
-      if (configuredAgentToolNames.isEmpty) return true;
+      if (configuredAgentToolNames.isEmpty) continue;
       if (configuredAgentToolNames.any(
         (name) => _agentBuiltinToolNameMatches(kind, toolName, name),
       )) {

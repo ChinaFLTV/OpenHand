@@ -2,8 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/features/agents/agents_controller.dart';
 import 'package:openhand/features/agents/data/agents_store.dart';
-import 'package:openhand/features/agents/index.dart';
+import 'package:openhand/features/agents/model/agent_models.dart';
 import 'package:openhand/features/ai/model/ai_creation_mode.dart';
 import 'package:openhand/features/ai/model/ai_deny_command_rule.dart';
 import 'package:openhand/features/ai/model/ai_input_cache_runtime_config.dart';
@@ -195,6 +196,24 @@ void main() {
         );
         expect(catalog.find('AgentTaskPublish'), isNull);
         expect(catalog.find('AgentTaskComplete'), isNull);
+      },
+    );
+
+    test(
+      'does not expose agent tools when an enabled agent only binds non-agent builtins',
+      () async {
+        await controller.saveAgent(
+          _agent(enabled: true, builtinToolNames: const <String>['bash']),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+
+        expect(catalog.find('AgentList'), isNull);
+        expect(catalog.find('AgentTaskPublish'), isNull);
+        expect(catalog.find('AgentTaskResult'), isNull);
+        expect(catalog.find('Bash'), isNotNull);
       },
     );
 
