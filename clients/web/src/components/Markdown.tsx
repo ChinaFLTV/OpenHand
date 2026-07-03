@@ -35,6 +35,7 @@ import {
 } from '../utils/save_blob';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useTransientFlag } from '../hooks/useTransientFlag';
+import { useTimeoutController } from '../hooks/useTimeoutController';
 import 'katex/dist/katex.min.css';
 
 /// rehype-highlight 真正按需懒载：默认不在 entry / vendor 关键路径里拉，
@@ -106,6 +107,8 @@ const MARKDOWN_DEFERRED_PARSE_THRESHOLD = 8 * 1024;
 // 把"每 token 重 parse 整棵 react-markdown 树"压成最多 ~12 次/秒。
 const MARKDOWN_STREAM_FLUSH_MS = 80;
 const MARKDOWN_STREAM_FLUSH_DELTA = 64;
+const MARKDOWN_IDLE_CALLBACK_TIMEOUT_MS = 100;
+const MARKDOWN_FRAME_FALLBACK_TIMEOUT_MS = 16;
 // 跳过 highlight：无 ``` 代码块的消息没必要把 rehype-highlight (内置
 // highlight.js 子集) 跑一遍。大段中文/英文纯文本消息全跳过，主线程压力骤降。
 const FENCED_CODE_RE = /(^|\n)[ \t]*```/;
@@ -177,8 +180,8 @@ class MarkdownFrameScheduler {
 
   private scheduleDrain(): void {
     // 优先使用 requestIdleCallback：在浏览器主线程空闲时再 drain，给用户输入
-    // / 动画 / 滚动让位，长会话首屏批量解析不再与用户交互抢主线程。bound
-    // timeout 100ms 防止持续繁忙时彻底拖延 markdown 升级。Safari 不支持 rIC，
+    // / 动画 / 滚动让位，长会话首屏批量解析不再与用户交互抢主线程。bounded
+    // timeout 防止持续繁忙时彻底拖延 markdown 升级。Safari 不支持 rIC，
     // 自动退化到 rAF；rAF 也没有时退到 setTimeout。
     const cb = () => {
       const batch = this.pending.splice(0, MARKDOWN_FRAME_BUDGET_PER_FRAME);
@@ -201,11 +204,11 @@ class MarkdownFrameScheduler {
     }
     const ric = (globalThis as { requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => unknown }).requestIdleCallback;
     if (typeof ric === 'function') {
-      ric(cb, { timeout: 100 });
+      ric(cb, { timeout: MARKDOWN_IDLE_CALLBACK_TIMEOUT_MS });
     } else if (typeof requestAnimationFrame === 'function') {
       requestAnimationFrame(cb);
     } else {
-      setTimeout(cb, 16);
+      setTimeout(cb, MARKDOWN_FRAME_FALLBACK_TIMEOUT_MS);
     }
   }
 }
@@ -1139,6 +1142,10 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   const content = source ?? '';
   const markdownContent = useMemo(() => stripLocalMediaReferences(content), [content]);
   const tooBig = content.length > CONTENT_TOO_BIG_BYTES;
+  const {
+    clearTimer: clearStreamFlushTimer,
+    scheduleTimer: scheduleStreamFlushTimer,
+  } = useTimeoutController();
   // 流式 HTML 渲染稳态：必须在所有 hook 入口前调用，避免条件 hook。
   const stickyLooksHtml = useStickyLooksLikeHtml(content);
 
@@ -1213,7 +1220,7 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
     }
     const wait = Math.max(0, MARKDOWN_STREAM_FLUSH_MS - ageMs);
     let cancelAfterSettle: (() => void) | null = null;
-    const handle = window.setTimeout(() => {
+    scheduleStreamFlushTimer(() => {
       if (isTranscriptScrollActive()) {
         cancelAfterSettle = scheduleAfterTranscriptScrollSettles(flush);
         return;
@@ -1221,10 +1228,16 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
       flush();
     }, wait);
     return () => {
-      window.clearTimeout(handle);
+      clearStreamFlushTimer();
       cancelAfterSettle?.();
     };
-  }, [parseReady, markdownContent, renderedMarkdownContent]);
+  }, [
+    clearStreamFlushTimer,
+    parseReady,
+    markdownContent,
+    renderedMarkdownContent,
+    scheduleStreamFlushTimer,
+  ]);
   const renderedContent = useMemo(
     () => normalizeMarkdownMathDelimiters(renderedMarkdownContent),
     [renderedMarkdownContent],
