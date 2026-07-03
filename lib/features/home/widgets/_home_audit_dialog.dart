@@ -1988,10 +1988,8 @@ String? _auditFirstString(Iterable<Object?> candidates) {
 
 bool _auditFirstBool(Iterable<Object?> candidates) {
   for (final value in candidates) {
-    if (value is bool) return value;
-    final text = '$value'.trim().toLowerCase();
-    if (text == 'true') return true;
-    if (text == 'false') return false;
+    final parsed = optionalBoolFromValue(value);
+    if (parsed != null) return parsed;
   }
   return false;
 }
