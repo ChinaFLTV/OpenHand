@@ -15,13 +15,12 @@ class AiLspLanguageSettings {
   final String version;
 
   bool get isEmpty =>
-      backendId.trim().isEmpty &&
-      rootPath.trim().isEmpty &&
-      sdkPath.trim().isEmpty &&
-      version.trim().isEmpty;
+      nullIfBlank(backendId) == null &&
+      nullIfBlank(rootPath) == null &&
+      nullIfBlank(sdkPath) == null &&
+      nullIfBlank(version) == null;
 
-  String get normalizedVersion =>
-      version.trim().isEmpty ? 'latest' : version.trim();
+  String get normalizedVersion => nullIfBlank(version) ?? 'latest';
 
   AiLspLanguageSettings copyWith({
     String? backendId,
@@ -43,10 +42,10 @@ class AiLspLanguageSettings {
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
-      'backend_id': backendId.trim(),
-      'root_path': rootPath.trim(),
-      'sdk_path': sdkPath.trim(),
-      'version': version.trim(),
+      'backend_id': nullIfBlank(backendId) ?? '',
+      'root_path': nullIfBlank(rootPath) ?? '',
+      'sdk_path': nullIfBlank(sdkPath) ?? '',
+      'version': nullIfBlank(version) ?? '',
     };
   }
 

@@ -20,12 +20,12 @@ class AiRealtimeConfig {
   final Map<String, Object?> sessionDefaults;
 
   bool get isEmpty =>
-      (transport == null || transport!.trim().isEmpty) &&
-      (urlOverride == null || urlOverride!.trim().isEmpty) &&
-      (voice == null || voice!.trim().isEmpty) &&
+      nullIfBlank(transport) == null &&
+      nullIfBlank(urlOverride) == null &&
+      nullIfBlank(voice) == null &&
       sampleRate == null &&
-      (inputFormat == null || inputFormat!.trim().isEmpty) &&
-      (outputFormat == null || outputFormat!.trim().isEmpty) &&
+      nullIfBlank(inputFormat) == null &&
+      nullIfBlank(outputFormat) == null &&
       sessionDefaults.isEmpty;
 
   AiRealtimeConfig copyWith({
@@ -60,19 +60,17 @@ class AiRealtimeConfig {
   }
 
   Map<String, Object?> toJson() {
-    return <String, Object?>{
-      if (transport != null && transport!.trim().isNotEmpty)
-        'transport': transport,
-      if (urlOverride != null && urlOverride!.trim().isNotEmpty)
-        'url_override': urlOverride,
-      if (voice != null && voice!.trim().isNotEmpty) 'voice': voice,
-      if (sampleRate != null) 'sample_rate': sampleRate,
-      if (inputFormat != null && inputFormat!.trim().isNotEmpty)
-        'input_format': inputFormat,
-      if (outputFormat != null && outputFormat!.trim().isNotEmpty)
-        'output_format': outputFormat,
-      if (sessionDefaults.isNotEmpty) 'session_defaults': sessionDefaults,
-    };
+    final json = <String, Object?>{};
+    _putIfNotBlank(json, 'transport', transport);
+    _putIfNotBlank(json, 'url_override', urlOverride);
+    _putIfNotBlank(json, 'voice', voice);
+    if (sampleRate != null) json['sample_rate'] = sampleRate;
+    _putIfNotBlank(json, 'input_format', inputFormat);
+    _putIfNotBlank(json, 'output_format', outputFormat);
+    if (sessionDefaults.isNotEmpty) {
+      json['session_defaults'] = sessionDefaults;
+    }
+    return json;
   }
 
   static AiRealtimeConfig? fromJson(Object? raw) {
@@ -92,5 +90,14 @@ class AiRealtimeConfig {
   static int? _parseNullableInt(Object? raw) {
     final parsed = optionalIntFromValue(raw);
     return parsed != null && parsed > 0 ? parsed : null;
+  }
+
+  static void _putIfNotBlank(
+    Map<String, Object?> json,
+    String key,
+    String? value,
+  ) {
+    final normalized = nullIfBlank(value);
+    if (normalized != null) json[key] = normalized;
   }
 }
