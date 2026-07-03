@@ -2089,14 +2089,69 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
-    final titleText = isZh ? 'HTML 预览' : 'HTML Preview';
-    final closeText = isZh ? '关闭' : 'Close';
-    final openInBrowserText = isZh ? '在浏览器中打开' : 'Open in Browser';
-    final cleanupText = isZh ? '清理缓存' : 'Clean Cache';
-    final zoomInText = isZh ? '放大' : 'Zoom In';
-    final zoomOutText = isZh ? '缩小' : 'Zoom Out';
-    final zoomResetText = isZh ? '重置缩放' : 'Reset Zoom';
+    final titleText = openHandLocalizedText(
+      context,
+      zh: 'HTML 预览',
+      zhHant: 'HTML 預覽',
+      en: 'HTML Preview',
+      fr: 'Aperçu HTML',
+      de: 'HTML-Vorschau',
+      ja: 'HTML プレビュー',
+    );
+    final closeText = openHandLocalizedText(
+      context,
+      zh: '关闭',
+      zhHant: '關閉',
+      en: 'Close',
+      fr: 'Fermer',
+      de: 'Schließen',
+      ja: '閉じる',
+    );
+    final openInBrowserText = openHandLocalizedText(
+      context,
+      zh: '在浏览器中打开',
+      zhHant: '在瀏覽器中開啟',
+      en: 'Open in Browser',
+      fr: 'Ouvrir dans le navigateur',
+      de: 'Im Browser öffnen',
+      ja: 'ブラウザで開く',
+    );
+    final cleanupText = openHandLocalizedText(
+      context,
+      zh: '清理缓存',
+      zhHant: '清理快取',
+      en: 'Clean Cache',
+      fr: 'Nettoyer le cache',
+      de: 'Cache leeren',
+      ja: 'キャッシュを削除',
+    );
+    final zoomInText = openHandLocalizedText(
+      context,
+      zh: '放大',
+      zhHant: '放大',
+      en: 'Zoom In',
+      fr: 'Zoom avant',
+      de: 'Vergrößern',
+      ja: '拡大',
+    );
+    final zoomOutText = openHandLocalizedText(
+      context,
+      zh: '缩小',
+      zhHant: '縮小',
+      en: 'Zoom Out',
+      fr: 'Zoom arrière',
+      de: 'Verkleinern',
+      ja: '縮小',
+    );
+    final zoomResetText = openHandLocalizedText(
+      context,
+      zh: '重置缩放',
+      zhHant: '重設縮放',
+      en: 'Reset Zoom',
+      fr: 'Réinitialiser le zoom',
+      de: 'Zoom zurücksetzen',
+      ja: 'ズームをリセット',
+    );
     final zoomPercentText = '${(_zoom * 100).round()}%';
     final viewport = MediaQuery.sizeOf(context);
     final maxWidth = math.min(viewport.width * 0.9, _maxDialogWidth);
@@ -2254,7 +2309,6 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
   }
 
   Future<void> _cleanupTempHtmlFiles() async {
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _isCleaning = true;
     });
@@ -2290,9 +2344,15 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
         messenger,
         SnackBar(
           content: Text(
-            isZh
-                ? '已清理 $deletedCount 个临时 HTML 缓存目录。'
-                : 'Cleaned $deletedCount temporary HTML cache directories.',
+            openHandLocalizedText(
+              context,
+              zh: '已清理 $deletedCount 个临时 HTML 缓存目录。',
+              zhHant: '已清理 $deletedCount 個臨時 HTML 快取目錄。',
+              en: 'Cleaned $deletedCount temporary HTML cache directories.',
+              fr: '$deletedCount dossiers de cache HTML temporaires nettoyés.',
+              de: '$deletedCount temporäre HTML-Cache-Ordner wurden bereinigt.',
+              ja: '$deletedCount 個の一時 HTML キャッシュディレクトリを削除しました。',
+            ),
           ),
         ),
       );
@@ -2307,13 +2367,20 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       showFriendlyErrorSnackBar(
         context,
         message: '$e',
-        fallback: isZh ? '清理缓存失败' : 'Failed to clean cache',
+        fallback: openHandLocalizedText(
+          context,
+          zh: '清理缓存失败',
+          zhHant: '清理快取失敗',
+          en: 'Failed to clean cache',
+          fr: 'Échec du nettoyage du cache',
+          de: 'Cache konnte nicht geleert werden',
+          ja: 'キャッシュの削除に失敗しました',
+        ),
       );
     }
   }
 
   Future<void> _openInBrowser(BuildContext context) async {
-    final isZh = openHandIsChineseLocale(context);
     try {
       final tempDir = await Directory.systemTemp.createTemp('openhand_html_');
       final htmlFile = File(p.join(tempDir.path, 'preview.html'));
@@ -2347,7 +2414,17 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
         context,
         messenger,
         SnackBar(
-          content: Text(isZh ? '无法在浏览器中打开。' : 'Could not open in browser.'),
+          content: Text(
+            openHandLocalizedText(
+              context,
+              zh: '无法在浏览器中打开。',
+              zhHant: '無法在瀏覽器中開啟。',
+              en: 'Could not open in browser.',
+              fr: 'Impossible d’ouvrir dans le navigateur.',
+              de: 'Konnte nicht im Browser geöffnet werden.',
+              ja: 'ブラウザで開けませんでした。',
+            ),
+          ),
         ),
       );
     }
@@ -2750,11 +2827,16 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
       });
     } catch (e) {
       if (!mounted) return;
-      final isZh = openHandIsChineseLocale(context);
       setState(() {
-        _errorMessage = isZh
-            ? 'HTML 预览加载失败 (WebView 初始化或写临时文件出错)。\n原始错误：$e'
-            : 'HTML preview failed to load (WebView init or temp file write).\nRaw: $e';
+        _errorMessage = openHandLocalizedText(
+          context,
+          zh: 'HTML 预览加载失败（WebView 初始化或写临时文件出错）。\n原始错误：$e',
+          zhHant: 'HTML 預覽載入失敗（WebView 初始化或寫入臨時檔案出錯）。\n原始錯誤：$e',
+          en: 'HTML preview failed to load (WebView init or temp file write).\nRaw: $e',
+          fr: 'Échec du chargement de l’aperçu HTML (initialisation WebView ou fichier temporaire).\nErreur brute : $e',
+          de: 'HTML-Vorschau konnte nicht geladen werden (WebView-Init oder temporäre Datei).\nRohfehler: $e',
+          ja: 'HTML プレビューの読み込みに失敗しました（WebView 初期化または一時ファイル書き込み）。\n元のエラー: $e',
+        );
         _isLoading = false;
       });
     }
@@ -2782,7 +2864,6 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = openHandIsChineseLocale(context);
 
     if (_errorMessage != null) {
       return Center(
@@ -2798,7 +2879,15 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
               ),
               const SizedBox(height: 16),
               Text(
-                isZh ? '加载预览失败' : 'Failed to load preview',
+                openHandLocalizedText(
+                  context,
+                  zh: '加载预览失败',
+                  zhHant: '載入預覽失敗',
+                  en: 'Failed to load preview',
+                  fr: 'Échec du chargement',
+                  de: 'Vorschau konnte nicht geladen werden',
+                  ja: 'プレビューの読み込みに失敗',
+                ),
                 style: theme.textTheme.titleMedium?.copyWith(
                   color: theme.colorScheme.error,
                 ),
@@ -2823,7 +2912,15 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
             Text(
-              isZh ? '正在初始化预览...' : 'Initializing preview...',
+              openHandLocalizedText(
+                context,
+                zh: '正在初始化预览...',
+                zhHant: '正在初始化預覽...',
+                en: 'Initializing preview...',
+                fr: 'Initialisation de l’aperçu...',
+                de: 'Vorschau wird initialisiert...',
+                ja: 'プレビューを初期化中...',
+              ),
               style: theme.textTheme.bodyMedium,
             ),
           ],

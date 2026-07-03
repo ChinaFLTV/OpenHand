@@ -3681,10 +3681,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (dialogContext.mounted) {
         showFriendlyErrorSnackBar(
           dialogContext,
-          message: openHandIsChineseLocale(dialogContext)
-              ? 'Android 逆向会话缺少运行配置，无法打开调试面板。'
-              : 'Android reverse session config is missing; debugger cannot open.',
-          fallback: 'Android 逆向调试面板打开失败',
+          message: openHandLocalizedText(
+            dialogContext,
+            zh: 'Android 逆向会话缺少运行配置，无法打开调试面板。',
+            zhHant: 'Android 逆向會話缺少執行設定，無法開啟調試面板。',
+            en: 'Android reverse session config is missing; debugger cannot open.',
+            fr: 'La configuration de session Android Reverse manque ; impossible d’ouvrir le débogueur.',
+            de: 'Android-Reverse-Sitzungskonfiguration fehlt; Debugger kann nicht geöffnet werden.',
+            ja: 'Android Reverse セッション設定がないため、デバッガを開けません。',
+          ),
+          fallback: openHandLocalizedText(
+            dialogContext,
+            zh: 'Android 逆向调试面板打开失败',
+            zhHant: 'Android 逆向調試面板開啟失敗',
+            en: 'Failed to open Android Reverse debugger',
+            fr: 'Échec d’ouverture du débogueur Android Reverse',
+            de: 'Android-Reverse-Debugger konnte nicht geöffnet werden',
+            ja: 'Android Reverse デバッガを開けませんでした',
+          ),
         );
       }
       return;
