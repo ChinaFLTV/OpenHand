@@ -634,22 +634,7 @@ Future<void> _handleAgentAction(
             .toList(),
       );
     case _AgentCardAction.approvals:
-      await _showAgentListDialog(
-        context,
-        agent: agent,
-        title: l10n.agentsApprovals,
-        icon: Icons.verified_user_rounded,
-        emptyTitle: l10n.agentsApprovalsEmptyTitle,
-        rows: agent.approvals
-            .map(
-              (item) => _DialogRow(
-                title: item.title,
-                subtitle: item.reason,
-                trailing: _agentApprovalStatusLabel(l10n, item.status),
-              ),
-            )
-            .toList(),
-      );
+      await _showAgentApprovalsDialog(context, agent);
     case _AgentCardAction.cluster:
       await _showAgentClusterDialog(context, agent);
     case _AgentCardAction.tasks:
@@ -720,6 +705,85 @@ Future<void> _showAgentListDialog(
                   },
                 ),
         ),
+      );
+    },
+  );
+}
+
+Future<void> _showAgentApprovalsDialog(
+  BuildContext context,
+  AgentProfile agent,
+) {
+  final l10n = AppLocalizations.of(context)!;
+  return showAnimatedDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return Consumer<AgentsController>(
+        builder: (context, controller, _) {
+          final currentAgent = controller.agentById(agent.id) ?? agent;
+          return buildOpenHandDialog(
+            maxWidth: 820,
+            maxHeight: 680,
+            child: _AgentDialogScaffold(
+              icon: Icons.verified_user_rounded,
+              title: l10n.agentsDialogTitleWithName(
+                l10n.agentsApprovals,
+                currentAgent.name,
+              ),
+              child: currentAgent.approvals.isEmpty
+                  ? FeatureStateCard.inline(
+                      icon: Icons.verified_user_outlined,
+                      title: l10n.agentsApprovalsEmptyTitle,
+                      body: l10n.agentsListEmptyBody,
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: currentAgent.approvals.length,
+                      separatorBuilder: (_, _) => const Divider(height: 18),
+                      itemBuilder: (context, index) {
+                        final approval = currentAgent.approvals[index];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(approval.title),
+                          subtitle: Text(
+                            [
+                                  approval.reason,
+                                  approval.requestedAction,
+                                  _agentApprovalTimeLabel(context, approval),
+                                ]
+                                .where((item) => item.trim().isNotEmpty)
+                                .join(' · '),
+                          ),
+                          trailing:
+                              approval.status == AgentApprovalStatus.pending
+                              ? _AgentApprovalActions(
+                                  onApproved: () =>
+                                      _resolveAgentApprovalFromDialog(
+                                        dialogContext,
+                                        currentAgent,
+                                        approval,
+                                        AgentApprovalStatus.approved,
+                                      ),
+                                  onRejected: () =>
+                                      _resolveAgentApprovalFromDialog(
+                                        dialogContext,
+                                        currentAgent,
+                                        approval,
+                                        AgentApprovalStatus.rejected,
+                                      ),
+                                )
+                              : Text(
+                                  _agentApprovalStatusLabel(
+                                    l10n,
+                                    approval.status,
+                                  ),
+                                ),
+                        );
+                      },
+                    ),
+            ),
+          );
+        },
       );
     },
   );
@@ -1041,6 +1105,78 @@ class _MetricTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AgentApprovalActions extends StatelessWidget {
+  const _AgentApprovalActions({
+    required this.onApproved,
+    required this.onRejected,
+  });
+
+  final VoidCallback onApproved;
+  final VoidCallback onRejected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Tooltip(
+          message: openHandLocalizedText(context, zh: '批准', en: 'Approve'),
+          child: IconButton.filledTonal(
+            onPressed: onApproved,
+            icon: const Icon(Icons.check_rounded),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Tooltip(
+          message: openHandLocalizedText(context, zh: '拒绝', en: 'Reject'),
+          child: IconButton.filledTonal(
+            onPressed: onRejected,
+            icon: const Icon(Icons.close_rounded),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+Future<void> _resolveAgentApprovalFromDialog(
+  BuildContext context,
+  AgentProfile agent,
+  AgentApprovalRequest approval,
+  AgentApprovalStatus status,
+) async {
+  final resolved = await context.read<AgentsController>().resolveApproval(
+    agent.id,
+    approval.id,
+    status,
+  );
+  if (resolved == null && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          openHandLocalizedText(
+            context,
+            zh: '审批状态已变化，请刷新后再试。',
+            en: 'Approval state changed. Refresh and try again.',
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _agentApprovalTimeLabel(
+  BuildContext context,
+  AgentApprovalRequest approval,
+) {
+  final time = approval.resolvedAt ?? approval.createdAt;
+  if (time == null) return '';
+  final prefix = approval.resolvedAt == null
+      ? openHandLocalizedText(context, zh: '创建', en: 'Created')
+      : openHandLocalizedText(context, zh: '处理', en: 'Resolved');
+  return '$prefix ${formatMonthDayHm(time.toLocal())}';
 }
 
 Future<void> _showPublishTaskDialog(

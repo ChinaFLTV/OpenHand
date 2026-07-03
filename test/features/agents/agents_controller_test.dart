@@ -202,6 +202,54 @@ void main() {
         contains('task_retry_scheduled'),
       );
     });
+
+    test('resolving approval records status activity and audit', () async {
+      await controller.saveAgent(
+        _runningAgent(
+          approvals: <AgentApprovalRequest>[
+            AgentApprovalRequest(
+              id: 'approval-1',
+              title: 'Publish production change',
+              reason: 'Needs mentor confirmation',
+              requestedAction: 'deploy',
+              createdAt: DateTime.utc(2026, 7, 3),
+            ),
+          ],
+        ),
+      );
+
+      final resolved = await controller.resolveApproval(
+        'agent-1',
+        'approval-1',
+        AgentApprovalStatus.approved,
+        note: 'mentor approved',
+        auditToolName: 'AgentApprovalTest',
+      );
+
+      expect(resolved, isNotNull);
+      expect(resolved!.status, AgentApprovalStatus.approved);
+      expect(resolved.resolvedAt, isNotNull);
+      expect(resolved.extra['resolution_note'], 'mentor approved');
+
+      final agent = controller.agentById('agent-1')!;
+      expect(agent.approvals.single.status, AgentApprovalStatus.approved);
+      expect(agent.approvals.single.resolvedAt, isNotNull);
+      expect(agent.activities.first.kind, 'approval_approved');
+      expect(agent.auditEvents.first.kind, 'approval_approved');
+      expect(agent.auditEvents.first.toolName, 'AgentApprovalTest');
+      expect(agent.auditEvents.first.metadata['approval_id'], 'approval-1');
+
+      final rejectedAgain = await controller.resolveApproval(
+        'agent-1',
+        'approval-1',
+        AgentApprovalStatus.rejected,
+      );
+      expect(rejectedAgain, isNull);
+      expect(
+        controller.agentById('agent-1')!.approvals.single.status,
+        AgentApprovalStatus.approved,
+      );
+    });
   });
 }
 
@@ -210,6 +258,7 @@ AgentProfile _runningAgent({
   List<AgentWorker> workers = const <AgentWorker>[
     AgentWorker(id: 'worker-1', name: 'Worker 1'),
   ],
+  List<AgentApprovalRequest> approvals = const <AgentApprovalRequest>[],
 }) {
   return AgentProfile(
     id: 'agent-1',
@@ -218,5 +267,6 @@ AgentProfile _runningAgent({
     lifecycleState: AgentLifecycleState.running,
     scaleSettings: scaleSettings,
     workers: workers,
+    approvals: approvals,
   );
 }

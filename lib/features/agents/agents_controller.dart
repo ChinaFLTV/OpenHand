@@ -422,6 +422,102 @@ class AgentsController extends ManagedChangeNotifier {
     }).then((changed) => changed ? updatedTask : null);
   }
 
+  Future<AgentApprovalRequest?> resolveApproval(
+    String agentId,
+    String approvalId,
+    AgentApprovalStatus status, {
+    String note = '',
+    String auditToolName = 'AgentApprovalsDialog',
+  }) async {
+    final normalizedAgentId = agentId.trim();
+    final normalizedApprovalId = approvalId.trim();
+    if (normalizedAgentId.isEmpty ||
+        normalizedApprovalId.isEmpty ||
+        status == AgentApprovalStatus.pending) {
+      return null;
+    }
+    AgentApprovalRequest? resolvedApproval;
+    final changed = await _commitMutation(() async {
+      final index = _agents.indexWhere(
+        (agent) => agent.id == normalizedAgentId,
+      );
+      if (index < 0) return false;
+      final agent = _agents[index];
+      final now = DateTime.now().toUtc();
+      final trimmedNote = note.trim();
+      var found = false;
+      final approvals = agent.approvals
+          .map((approval) {
+            if (approval.id != normalizedApprovalId) return approval;
+            found = true;
+            if (approval.status != AgentApprovalStatus.pending) return approval;
+            resolvedApproval = approval.copyWith(
+              status: status,
+              resolvedAt: now,
+              extra: trimmedNote.isEmpty
+                  ? approval.extra
+                  : <String, Object?>{
+                      ...approval.extra,
+                      'resolution_note': trimmedNote,
+                    },
+            );
+            return resolvedApproval!;
+          })
+          .toList(growable: false);
+      if (!found || resolvedApproval == null) return false;
+      final kind = switch (status) {
+        AgentApprovalStatus.approved => 'approval_approved',
+        AgentApprovalStatus.rejected => 'approval_rejected',
+        AgentApprovalStatus.expired => 'approval_expired',
+        AgentApprovalStatus.pending => 'approval_pending',
+      };
+      final metadata = <String, Object?>{
+        'approval_id': resolvedApproval!.id,
+        'approval_status': resolvedApproval!.status.storageValue,
+        if (resolvedApproval!.requestedAction.trim().isNotEmpty)
+          'requested_action': resolvedApproval!.requestedAction,
+        if (trimmedNote.isNotEmpty) 'note': trimmedNote,
+      };
+      final updated = _normalizeAgent(
+        agent.copyWith(
+          approvals: approvals,
+          activities: _prependActivity(
+            agent.activities,
+            AgentActivityEvent(
+              id: _uuid.v4(),
+              kind: kind,
+              title: kind,
+              content: resolvedApproval!.title,
+              createdAt: now,
+              metadata: metadata,
+            ),
+          ),
+          auditEvents: _prependAudit(
+            agent.auditEvents,
+            AgentAuditEvent(
+              id: _uuid.v4(),
+              kind: kind,
+              summary: '$kind: ${resolvedApproval!.title}',
+              toolName: auditToolName,
+              requestCount: 1,
+              createdAt: now,
+              metadata: metadata,
+            ),
+          ),
+          updatedAt: now,
+        ),
+      );
+      _setAgents(<AgentProfile>[
+        ..._agents.sublist(0, index),
+        updated,
+        ..._agents.sublist(index + 1),
+      ]);
+      await _store.save(_agents);
+      return true;
+    });
+    return changed ? resolvedApproval : null;
+  }
+
   Future<bool> updateAgent(
     String id,
     AgentProfile Function(AgentProfile agent) mutate,

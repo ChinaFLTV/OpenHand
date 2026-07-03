@@ -381,6 +381,28 @@ class AgentApprovalRequest {
   final DateTime? resolvedAt;
   final Map<String, Object?> extra;
 
+  AgentApprovalRequest copyWith({
+    String? id,
+    String? title,
+    String? reason,
+    String? requestedAction,
+    AgentApprovalStatus? status,
+    DateTime? createdAt,
+    DateTime? resolvedAt,
+    Map<String, Object?>? extra,
+  }) {
+    return AgentApprovalRequest(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      reason: reason ?? this.reason,
+      requestedAction: requestedAction ?? this.requestedAction,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+      extra: extra ?? this.extra,
+    );
+  }
+
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'id': id,
