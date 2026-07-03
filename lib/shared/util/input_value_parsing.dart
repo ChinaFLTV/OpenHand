@@ -49,6 +49,16 @@ List<String> trimmedNonEmptyStrings(
       .toList(growable: false);
 }
 
+List<String> trimRightNonEmptyLines(Iterable<String> lines, {int? limit}) {
+  if (limit != null && limit <= 0) return const <String>[];
+  final normalized = lines
+      .map((line) => line.trimRight())
+      .where((line) => line.trim().isNotEmpty);
+  return (limit == null ? normalized : normalized.take(limit)).toList(
+    growable: false,
+  );
+}
+
 List<String> stringListFromListValue(
   Object? value, {
   bool ignoreLiteralNull = false,

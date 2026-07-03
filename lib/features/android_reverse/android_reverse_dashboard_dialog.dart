@@ -665,12 +665,10 @@ class _AndroidReverseDashboardDialogState
       if (summary.length >= _kPackageDumpsysSummaryMaxLines) break;
     }
     if (summary.isEmpty && raw.trim().isNotEmpty) {
-      return raw
-          .split('\n')
-          .map((line) => line.trimRight())
-          .where((line) => line.trim().isNotEmpty)
-          .take(_kPackageDumpsysSummaryMaxLines)
-          .join('\n');
+      return trimRightNonEmptyLines(
+        raw.split('\n'),
+        limit: _kPackageDumpsysSummaryMaxLines,
+      ).join('\n');
     }
     return summary.join('\n');
   }
@@ -742,12 +740,10 @@ class _AndroidReverseDashboardDialogState
   }
 
   String? _formatDeviceSnapshot(AdbCommandResult result, bool isZh) {
-    final lines = result.stdout
-        .split('\n')
-        .map((line) => line.trimRight())
-        .where((line) => line.trim().isNotEmpty)
-        .take(_kDeviceSnapshotMaxLines)
-        .toList(growable: false);
+    final lines = trimRightNonEmptyLines(
+      result.stdout.split('\n'),
+      limit: _kDeviceSnapshotMaxLines,
+    );
     final stderr = result.stderr.trim();
     if (lines.isEmpty && stderr.isEmpty) return null;
     final buffer = StringBuffer();

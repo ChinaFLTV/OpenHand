@@ -92,6 +92,22 @@ void main() {
     });
   });
 
+  group('trimRightNonEmptyLines', () {
+    test('drops blank lines while preserving leading whitespace', () {
+      expect(
+        trimRightNonEmptyLines(<String>['  alpha  ', '   ', '\tbeta\t']),
+        <String>['  alpha', '\tbeta'],
+      );
+    });
+
+    test('applies non-positive and positive limits safely', () {
+      final lines = <String>[' one ', ' two ', ' three '];
+      expect(trimRightNonEmptyLines(lines, limit: 0), isEmpty);
+      expect(trimRightNonEmptyLines(lines, limit: -1), isEmpty);
+      expect(trimRightNonEmptyLines(lines, limit: 2), <String>[' one', ' two']);
+    });
+  });
+
   group('splitTrimmedNonEmpty', () {
     test('trims entries and drops empty delimiter gaps', () {
       expect(splitTrimmedNonEmpty(' alpha, , beta ,'), <String>[

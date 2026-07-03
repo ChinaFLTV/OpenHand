@@ -914,10 +914,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     String? pid,
     String? serial,
   }) async {
-    final normalized = lines
-        .map((line) => line.trimRight())
-        .where((line) => line.trim().isNotEmpty)
-        .toList(growable: false);
+    final normalized = trimRightNonEmptyLines(lines);
     if (normalized.isEmpty) return 0;
     try {
       await Directory(logsDir).create(recursive: true);
@@ -1967,12 +1964,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
       if (summary.length >= _kPackageReportSummaryMaxLines) break;
     }
     if (summary.isEmpty && raw.trim().isNotEmpty) {
-      return raw
-          .split('\n')
-          .map((line) => line.trimRight())
-          .where((line) => line.trim().isNotEmpty)
-          .take(_kPackageReportSummaryMaxLines)
-          .join('\n');
+      return trimRightNonEmptyLines(
+        raw.split('\n'),
+        limit: _kPackageReportSummaryMaxLines,
+      ).join('\n');
     }
     return summary.join('\n');
   }
