@@ -494,10 +494,7 @@ class KnowledgeMessageMetadata {
     final toolKnowledgeMetadata = _toolKnowledgeMetadata(metadata);
     final direct = metadata['results'] ?? toolKnowledgeMetadata?['results'];
     if (direct is List) {
-      return direct
-          .whereType<Map>()
-          .map((item) => Map<String, Object?>.from(item))
-          .toList(growable: false);
+      return stringKeyedMapListFromValue(direct);
     }
     final resultText =
         '${metadata['tool_execution_result'] ?? metadata['result_text'] ?? ''}'
@@ -508,10 +505,7 @@ class KnowledgeMessageMetadata {
       if (decoded is Map) {
         final results = decoded['results'];
         if (results is List) {
-          return results
-              .whereType<Map>()
-              .map((item) => Map<String, Object?>.from(item))
-              .toList(growable: false);
+          return stringKeyedMapListFromValue(results);
         }
       }
     } catch (_) {
@@ -593,10 +587,7 @@ class KnowledgeMessageMetadata {
   static List<Map<String, Object?>> _resultMaps(Map<String, Object?> metadata) {
     final results = metadata['results'];
     if (results is! List) return const <Map<String, Object?>>[];
-    return results
-        .whereType<Map>()
-        .map((item) => Map<String, Object?>.from(item))
-        .toList(growable: false);
+    return stringKeyedMapListFromValue(results);
   }
 
   static List<Map<String, Object?>> _resultsUsedByAnswer(
