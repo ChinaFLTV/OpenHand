@@ -16,6 +16,28 @@ import '../service/knowledge_indexing_control.dart';
 import 'knowledge_dialog_widgets.dart';
 import 'knowledge_indexing_progress_dialog.dart';
 
+String _kbImportText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
 Future<void> showKnowledgeImportDialog(BuildContext context) {
   return showAnimatedDialog<void>(
     context: context,
@@ -160,18 +182,33 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
     final controller = context.read<KnowledgeBaseController>();
     final settings = context.read<SettingsController>();
     final embeddingModel = controller.resolveEmbeddingModel(settings.aiModels);
-    final isZh = openHandIsChineseLocale(context);
     if (embeddingModel == null) {
       OpenHandSnackBar.showError(
         context,
-        isZh ? '请先配置可用的嵌入模型。' : 'Configure an embedding model first.',
+        _kbImportText(
+          context,
+          zh: '请先配置可用的嵌入模型。',
+          zhHant: '請先設定可用的嵌入模型。',
+          en: 'Configure an embedding model first.',
+          fr: 'Configurez d’abord un modèle d’embedding.',
+          de: 'Konfigurieren Sie zuerst ein Embedding-Modell.',
+          ja: '先に利用可能な埋め込みモデルを設定してください。',
+        ),
       );
       return;
     }
     if (_content.text.trim().isEmpty) {
       OpenHandSnackBar.showError(
         context,
-        isZh ? '笔记内容不能为空。' : 'Note content cannot be empty.',
+        _kbImportText(
+          context,
+          zh: '笔记内容不能为空。',
+          zhHant: '筆記內容不能為空。',
+          en: 'Note content cannot be empty.',
+          fr: 'Le contenu de la note ne peut pas être vide.',
+          de: 'Der Notizinhalt darf nicht leer sein.',
+          ja: 'ノートの内容は空にできません。',
+        ),
       );
       return;
     }
@@ -181,7 +218,15 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       cancelToken: cancelToken,
       initialProgress: KnowledgeIndexingProgress(
         sourceTitle: _title.text.trim().isEmpty
-            ? (isZh ? 'OpenHand 笔记' : 'OpenHand Note')
+            ? _kbImportText(
+                context,
+                zh: 'OpenHand 笔记',
+                zhHant: 'OpenHand 筆記',
+                en: 'OpenHand Note',
+                fr: 'Note OpenHand',
+                de: 'OpenHand-Notiz',
+                ja: 'OpenHand ノート',
+              )
             : _title.text.trim(),
       ),
     );
@@ -189,8 +234,24 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       final source = await runKnowledgeIndexingProgressTask<KnowledgeSource>(
         context: context,
         controller: progressController,
-        title: isZh ? '构建知识库向量' : 'Building Knowledge Vectors',
-        subtitle: isZh ? '正在保存并索引笔记。' : 'Saving and indexing the note.',
+        title: _kbImportText(
+          context,
+          zh: '构建知识库向量',
+          zhHant: '建立知識庫向量',
+          en: 'Building Knowledge Vectors',
+          fr: 'Construction des vecteurs',
+          de: 'Wissensvektoren werden erstellt',
+          ja: 'ナレッジベースベクトルを構築',
+        ),
+        subtitle: _kbImportText(
+          context,
+          zh: '正在保存并索引笔记。',
+          zhHant: '正在儲存並索引筆記。',
+          en: 'Saving and indexing the note.',
+          fr: 'Enregistrement et indexation de la note.',
+          de: 'Notiz wird gespeichert und indexiert.',
+          ja: 'ノートを保存してインデックス化しています。',
+        ),
         task: () => controller.importNote(
           title: _title.text,
           content: _content.text,
@@ -204,21 +265,46 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       if (cancelToken.isCancelled) {
         OpenHandSnackBar.showInfo(
           context,
-          isZh ? '已停止构建向量。' : 'Vector indexing stopped.',
+          _kbImportText(
+            context,
+            zh: '已停止构建向量。',
+            zhHant: '已停止建立向量。',
+            en: 'Vector indexing stopped.',
+            fr: 'Indexation vectorielle arrêtée.',
+            de: 'Vektorindexierung gestoppt.',
+            ja: 'ベクトルのインデックス作成を停止しました。',
+          ),
         );
         return;
       }
       if (source == null) {
         OpenHandSnackBar.showError(
           context,
-          controller.error ?? (isZh ? '笔记导入失败。' : 'Note import failed.'),
+          controller.error ??
+              _kbImportText(
+                context,
+                zh: '笔记导入失败。',
+                zhHant: '筆記匯入失敗。',
+                en: 'Note import failed.',
+                fr: 'Échec de l’import de la note.',
+                de: 'Notizimport fehlgeschlagen.',
+                ja: 'ノートのインポートに失敗しました。',
+              ),
         );
         return;
       }
       Navigator.of(context).pop();
       OpenHandSnackBar.showSuccess(
         context,
-        isZh ? '笔记已导入并建立索引。' : 'Note imported and indexed.',
+        _kbImportText(
+          context,
+          zh: '笔记已导入并建立索引。',
+          zhHant: '筆記已匯入並建立索引。',
+          en: 'Note imported and indexed.',
+          fr: 'Note importée et indexée.',
+          de: 'Notiz importiert und indexiert.',
+          ja: 'ノートをインポートしてインデックス化しました。',
+        ),
       );
     } catch (error) {
       if (!mounted) return;
@@ -226,7 +312,15 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
           cancelToken.isCancelled) {
         OpenHandSnackBar.showInfo(
           context,
-          isZh ? '已停止构建向量。' : 'Vector indexing stopped.',
+          _kbImportText(
+            context,
+            zh: '已停止构建向量。',
+            zhHant: '已停止建立向量。',
+            en: 'Vector indexing stopped.',
+            fr: 'Indexation vectorielle arrêtée.',
+            de: 'Vektorindexierung gestoppt.',
+            ja: 'ベクトルのインデックス作成を停止しました。',
+          ),
         );
         return;
       }
@@ -239,13 +333,90 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
+    String t({
+      required String zh,
+      required String en,
+      String? zhHans,
+      String? zhHant,
+      String? fr,
+      String? de,
+      String? ja,
+    }) {
+      return _kbImportText(
+        context,
+        zh: zh,
+        en: en,
+        zhHans: zhHans,
+        zhHant: zhHant,
+        fr: fr,
+        de: de,
+        ja: ja,
+      );
+    }
+
+    final boldPlaceholder = t(
+      zh: '加粗',
+      zhHant: '粗體',
+      en: 'bold',
+      fr: 'gras',
+      de: 'fett',
+      ja: '太字',
+    );
+    final italicPlaceholder = t(
+      zh: '斜体',
+      zhHant: '斜體',
+      en: 'italic',
+      fr: 'italique',
+      de: 'kursiv',
+      ja: '斜体',
+    );
+    final strikePlaceholder = t(
+      zh: '删除线',
+      zhHant: '刪除線',
+      en: 'strikethrough',
+      fr: 'barré',
+      de: 'durchgestrichen',
+      ja: '取り消し線',
+    );
+    final codeComment = t(
+      zh: '// 在这里输入代码',
+      zhHant: '// 在這裡輸入程式碼',
+      en: '// code here',
+      fr: '// code ici',
+      de: '// Code hier',
+      ja: '// ここにコード',
+    );
+    final linkText = t(
+      zh: '链接文本',
+      zhHant: '連結文字',
+      en: 'link text',
+      fr: 'texte du lien',
+      de: 'Linktext',
+      ja: 'リンクテキスト',
+    );
+    final imageAlt = t(
+      zh: '图片描述',
+      zhHant: '圖片描述',
+      en: 'image alt',
+      fr: 'description image',
+      de: 'Bildbeschreibung',
+      ja: '画像の説明',
+    );
     final dialogHeight = math.min(
       MediaQuery.sizeOf(context).height * 0.82,
       700.0,
     );
     return buildOpenHandAlertDialog(
-      title: Text(isZh ? '新建知识库笔记' : 'New Knowledge Note'),
+      title: Text(
+        t(
+          zh: '新建知识库笔记',
+          zhHant: '新增知識庫筆記',
+          en: 'New Knowledge Note',
+          fr: 'Nouvelle note de connaissance',
+          de: 'Neue Wissensnotiz',
+          ja: '新規ナレッジノート',
+        ),
+      ),
       content: buildOpenHandDialogConstrainedContent(
         width: 760,
         height: dialogHeight,
@@ -255,36 +426,30 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
           tagInput: _tagInput,
           tags: _tags,
           preview: _preview,
-          isZh: isZh,
           onTogglePreview: (value) => setState(() => _preview = value),
           onAddTag: _addTag,
           onRemoveTag: _removeTag,
           onUndo: _undo,
           onRedo: _redo,
           onBold: () =>
-              _insertSnippet('**', '**', placeholder: isZh ? '加粗' : 'bold'),
+              _insertSnippet('**', '**', placeholder: boldPlaceholder),
           onItalic: () =>
-              _insertSnippet('*', '*', placeholder: isZh ? '斜体' : 'italic'),
-          onStrike: () => _insertSnippet(
-            '~~',
-            '~~',
-            placeholder: isZh ? '删除线' : 'strikethrough',
-          ),
+              _insertSnippet('*', '*', placeholder: italicPlaceholder),
+          onStrike: () =>
+              _insertSnippet('~~', '~~', placeholder: strikePlaceholder),
           onCode: () => _insertSnippet('`', '`', placeholder: 'code'),
-          onCodeBlock: () => _insertBlock(
-            '```dart\n${isZh ? '// 在这里输入代码' : '// code here'}\n```',
-          ),
+          onCodeBlock: () => _insertBlock('```dart\n$codeComment\n```'),
           onLink: () => _insertSnippet(
             '[',
             '](https://)',
-            placeholder: isZh ? '链接文本' : 'link text',
-            cursorOffset: (isZh ? '链接文本' : 'link text').length + 3,
+            placeholder: linkText,
+            cursorOffset: linkText.length + 3,
           ),
           onImage: () => _insertSnippet(
             '![',
             '](https://)',
-            placeholder: isZh ? '图片描述' : 'image alt',
-            cursorOffset: (isZh ? '图片描述' : 'image alt').length + 4,
+            placeholder: imageAlt,
+            cursorOffset: imageAlt.length + 4,
           ),
           onHeading1: () => _prefixSelectedLines('# '),
           onHeading2: () => _prefixSelectedLines('## '),
@@ -295,7 +460,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
           onQuote: () => _prefixSelectedLines('> '),
           onDivider: () => _insertBlock('---'),
           onTable: () => _insertBlock(
-            '| ${isZh ? '字段' : 'Field'} | ${isZh ? '说明' : 'Description'} |\n'
+            '| ${t(zh: '字段', zhHant: '欄位', en: 'Field', fr: 'Champ', de: 'Feld', ja: '項目')} | ${t(zh: '说明', zhHant: '說明', en: 'Description', fr: 'Description', de: 'Beschreibung', ja: '説明')} |\n'
             '| --- | --- |\n'
             '|  |  |',
           ),
@@ -304,13 +469,27 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          label: isZh ? '取消' : 'Cancel',
+          label: t(
+            zh: '取消',
+            zhHant: '取消',
+            en: 'Cancel',
+            fr: 'Annuler',
+            de: 'Abbrechen',
+            ja: 'キャンセル',
+          ),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: _saving ? null : _save,
           icon: Icons.save_rounded,
           busy: _saving,
-          label: isZh ? '保存并索引' : 'Save and Index',
+          label: t(
+            zh: '保存并索引',
+            zhHant: '儲存並索引',
+            en: 'Save and Index',
+            fr: 'Enregistrer et indexer',
+            de: 'Speichern und indexieren',
+            ja: '保存してインデックス',
+          ),
         ),
       ],
     );
@@ -324,7 +503,6 @@ class _KnowledgeNoteEditor extends StatelessWidget {
     required this.tagInput,
     required this.tags,
     required this.preview,
-    required this.isZh,
     required this.onTogglePreview,
     required this.onAddTag,
     required this.onRemoveTag,
@@ -353,7 +531,6 @@ class _KnowledgeNoteEditor extends StatelessWidget {
   final TextEditingController tagInput;
   final List<String> tags;
   final bool preview;
-  final bool isZh;
   final ValueChanged<bool> onTogglePreview;
   final VoidCallback onAddTag;
   final ValueChanged<String> onRemoveTag;
@@ -413,7 +590,15 @@ class _KnowledgeNoteEditor extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  isZh ? '笔记内容' : 'Note Content',
+                  _kbImportText(
+                    context,
+                    zh: '笔记内容',
+                    zhHant: '筆記內容',
+                    en: 'Note Content',
+                    fr: 'Contenu de la note',
+                    de: 'Notizinhalt',
+                    ja: 'ノート内容',
+                  ),
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
@@ -426,12 +611,32 @@ class _KnowledgeNoteEditor extends StatelessWidget {
                   ButtonSegment<bool>(
                     value: false,
                     icon: const Icon(Icons.edit_outlined, size: 16),
-                    label: Text(isZh ? '编辑' : 'Edit'),
+                    label: Text(
+                      _kbImportText(
+                        context,
+                        zh: '编辑',
+                        zhHant: '編輯',
+                        en: 'Edit',
+                        fr: 'Éditer',
+                        de: 'Bearbeiten',
+                        ja: '編集',
+                      ),
+                    ),
                   ),
                   ButtonSegment<bool>(
                     value: true,
                     icon: const Icon(Icons.visibility_outlined, size: 16),
-                    label: Text(isZh ? '预览' : 'Preview'),
+                    label: Text(
+                      _kbImportText(
+                        context,
+                        zh: '预览',
+                        zhHant: '預覽',
+                        en: 'Preview',
+                        fr: 'Aperçu',
+                        de: 'Vorschau',
+                        ja: 'プレビュー',
+                      ),
+                    ),
                   ),
                 ],
                 selected: {preview},
@@ -456,7 +661,15 @@ class _KnowledgeNoteEditor extends StatelessWidget {
             controller: title,
             decoration: knowledgeDialogInputDecoration(
               context,
-              isZh ? '标题' : 'Title',
+              _kbImportText(
+                context,
+                zh: '标题',
+                zhHant: '標題',
+                en: 'Title',
+                fr: 'Titre',
+                de: 'Titel',
+                ja: 'タイトル',
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -468,7 +681,15 @@ class _KnowledgeNoteEditor extends StatelessWidget {
                   onSubmitted: (_) => onAddTag(),
                   decoration: knowledgeDialogInputDecoration(
                     context,
-                    isZh ? '标签' : 'Tag',
+                    _kbImportText(
+                      context,
+                      zh: '标签',
+                      zhHant: '標籤',
+                      en: 'Tag',
+                      fr: 'Étiquette',
+                      de: 'Tag',
+                      ja: 'タグ',
+                    ),
                   ),
                 ),
               ),
@@ -483,7 +704,15 @@ class _KnowledgeNoteEditor extends StatelessWidget {
                     label: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        isZh ? '添加' : 'Add',
+                        _kbImportText(
+                          context,
+                          zh: '添加',
+                          zhHant: '新增',
+                          en: 'Add',
+                          fr: 'Ajouter',
+                          de: 'Hinzufügen',
+                          ja: '追加',
+                        ),
                         maxLines: 1,
                         softWrap: false,
                       ),
@@ -511,7 +740,6 @@ class _KnowledgeNoteEditor extends StatelessWidget {
           ],
           const SizedBox(height: 10),
           _MarkdownToolbar(
-            isZh: isZh,
             onUndo: onUndo,
             onRedo: onRedo,
             onBold: onBold,
@@ -541,12 +769,10 @@ class _KnowledgeNoteEditor extends StatelessWidget {
                   ? _MarkdownPreview(
                       key: const ValueKey<String>('preview'),
                       controller: content,
-                      isZh: isZh,
                     )
                   : _MarkdownTextEditor(
                       key: const ValueKey<String>('editor'),
                       controller: content,
-                      isZh: isZh,
                     ),
             ),
           ),
@@ -558,7 +784,6 @@ class _KnowledgeNoteEditor extends StatelessWidget {
 
 class _MarkdownToolbar extends StatelessWidget {
   const _MarkdownToolbar({
-    required this.isZh,
     required this.onUndo,
     required this.onRedo,
     required this.onBold,
@@ -579,7 +804,6 @@ class _MarkdownToolbar extends StatelessWidget {
     required this.onTable,
   });
 
-  final bool isZh;
   final VoidCallback onUndo;
   final VoidCallback onRedo;
   final VoidCallback onBold;
@@ -616,96 +840,240 @@ class _MarkdownToolbar extends StatelessWidget {
         runSpacing: 6,
         children: [
           _ToolbarButton(
-            tooltip: isZh ? '撤销' : 'Undo',
+            tooltip: _kbImportText(
+              context,
+              zh: '撤销',
+              zhHant: '復原',
+              en: 'Undo',
+              fr: 'Annuler',
+              de: 'Rückgängig',
+              ja: '元に戻す',
+            ),
             icon: Icons.undo_rounded,
             onPressed: onUndo,
           ),
           _ToolbarButton(
-            tooltip: isZh ? '重做' : 'Redo',
+            tooltip: _kbImportText(
+              context,
+              zh: '重做',
+              zhHant: '重做',
+              en: 'Redo',
+              fr: 'Rétablir',
+              de: 'Wiederholen',
+              ja: 'やり直す',
+            ),
             icon: Icons.redo_rounded,
             onPressed: onRedo,
           ),
           _ToolbarDivider(),
           _ToolbarButton(
-            tooltip: isZh ? '一级标题' : 'Heading 1',
+            tooltip: _kbImportText(
+              context,
+              zh: '一级标题',
+              zhHant: '一級標題',
+              en: 'Heading 1',
+              fr: 'Titre 1',
+              de: 'Überschrift 1',
+              ja: '見出し 1',
+            ),
             label: 'H1',
             onPressed: onHeading1,
           ),
           _ToolbarButton(
-            tooltip: isZh ? '二级标题' : 'Heading 2',
+            tooltip: _kbImportText(
+              context,
+              zh: '二级标题',
+              zhHant: '二級標題',
+              en: 'Heading 2',
+              fr: 'Titre 2',
+              de: 'Überschrift 2',
+              ja: '見出し 2',
+            ),
             label: 'H2',
             onPressed: onHeading2,
           ),
           _ToolbarButton(
-            tooltip: isZh ? '三级标题' : 'Heading 3',
+            tooltip: _kbImportText(
+              context,
+              zh: '三级标题',
+              zhHant: '三級標題',
+              en: 'Heading 3',
+              fr: 'Titre 3',
+              de: 'Überschrift 3',
+              ja: '見出し 3',
+            ),
             label: 'H3',
             onPressed: onHeading3,
           ),
           _ToolbarDivider(),
           _ToolbarButton(
-            tooltip: isZh ? '加粗' : 'Bold',
+            tooltip: _kbImportText(
+              context,
+              zh: '加粗',
+              zhHant: '粗體',
+              en: 'Bold',
+              fr: 'Gras',
+              de: 'Fett',
+              ja: '太字',
+            ),
             icon: Icons.format_bold_rounded,
             onPressed: onBold,
           ),
           _ToolbarButton(
-            tooltip: isZh ? '斜体' : 'Italic',
+            tooltip: _kbImportText(
+              context,
+              zh: '斜体',
+              zhHant: '斜體',
+              en: 'Italic',
+              fr: 'Italique',
+              de: 'Kursiv',
+              ja: '斜体',
+            ),
             icon: Icons.format_italic_rounded,
             onPressed: onItalic,
           ),
           _ToolbarButton(
-            tooltip: isZh ? '删除线' : 'Strikethrough',
+            tooltip: _kbImportText(
+              context,
+              zh: '删除线',
+              zhHant: '刪除線',
+              en: 'Strikethrough',
+              fr: 'Barré',
+              de: 'Durchgestrichen',
+              ja: '取り消し線',
+            ),
             icon: Icons.format_strikethrough_rounded,
             onPressed: onStrike,
           ),
           _ToolbarButton(
-            tooltip: isZh ? '代码' : 'Code',
+            tooltip: _kbImportText(
+              context,
+              zh: '代码',
+              zhHant: '程式碼',
+              en: 'Code',
+              fr: 'Code',
+              de: 'Code',
+              ja: 'コード',
+            ),
             icon: Icons.code_rounded,
             onPressed: onCode,
           ),
           _ToolbarButton(
-            tooltip: isZh ? '代码块' : 'Code block',
+            tooltip: _kbImportText(
+              context,
+              zh: '代码块',
+              zhHant: '程式碼區塊',
+              en: 'Code block',
+              fr: 'Bloc de code',
+              de: 'Codeblock',
+              ja: 'コードブロック',
+            ),
             icon: Icons.integration_instructions_rounded,
             onPressed: onCodeBlock,
           ),
           _ToolbarDivider(),
           _ToolbarButton(
-            tooltip: isZh ? '无序列表' : 'Bullet list',
+            tooltip: _kbImportText(
+              context,
+              zh: '无序列表',
+              zhHant: '無序清單',
+              en: 'Bullet list',
+              fr: 'Liste à puces',
+              de: 'Aufzählung',
+              ja: '箇条書き',
+            ),
             icon: Icons.format_list_bulleted_rounded,
             onPressed: onBulletList,
           ),
           _ToolbarButton(
-            tooltip: isZh ? '有序列表' : 'Ordered list',
+            tooltip: _kbImportText(
+              context,
+              zh: '有序列表',
+              zhHant: '有序清單',
+              en: 'Ordered list',
+              fr: 'Liste numérotée',
+              de: 'Nummerierte Liste',
+              ja: '番号付きリスト',
+            ),
             icon: Icons.format_list_numbered_rounded,
             onPressed: onOrderedList,
           ),
           _ToolbarButton(
-            tooltip: isZh ? '任务列表' : 'Task list',
+            tooltip: _kbImportText(
+              context,
+              zh: '任务列表',
+              zhHant: '任務清單',
+              en: 'Task list',
+              fr: 'Liste de tâches',
+              de: 'Aufgabenliste',
+              ja: 'タスクリスト',
+            ),
             icon: Icons.checklist_rounded,
             onPressed: onTaskList,
           ),
           _ToolbarButton(
-            tooltip: isZh ? '引用' : 'Quote',
+            tooltip: _kbImportText(
+              context,
+              zh: '引用',
+              zhHant: '引用',
+              en: 'Quote',
+              fr: 'Citation',
+              de: 'Zitat',
+              ja: '引用',
+            ),
             icon: Icons.format_quote_rounded,
             onPressed: onQuote,
           ),
           _ToolbarDivider(),
           _ToolbarButton(
-            tooltip: isZh ? '链接' : 'Link',
+            tooltip: _kbImportText(
+              context,
+              zh: '链接',
+              zhHant: '連結',
+              en: 'Link',
+              fr: 'Lien',
+              de: 'Link',
+              ja: 'リンク',
+            ),
             icon: Icons.link_rounded,
             onPressed: onLink,
           ),
           _ToolbarButton(
-            tooltip: isZh ? '图片' : 'Image',
+            tooltip: _kbImportText(
+              context,
+              zh: '图片',
+              zhHant: '圖片',
+              en: 'Image',
+              fr: 'Image',
+              de: 'Bild',
+              ja: '画像',
+            ),
             icon: Icons.image_outlined,
             onPressed: onImage,
           ),
           _ToolbarButton(
-            tooltip: isZh ? '表格' : 'Table',
+            tooltip: _kbImportText(
+              context,
+              zh: '表格',
+              zhHant: '表格',
+              en: 'Table',
+              fr: 'Tableau',
+              de: 'Tabelle',
+              ja: '表',
+            ),
             icon: Icons.table_chart_outlined,
             onPressed: onTable,
           ),
           _ToolbarButton(
-            tooltip: isZh ? '分割线' : 'Divider',
+            tooltip: _kbImportText(
+              context,
+              zh: '分割线',
+              zhHant: '分隔線',
+              en: 'Divider',
+              fr: 'Séparateur',
+              de: 'Trennlinie',
+              ja: '区切り線',
+            ),
             icon: Icons.horizontal_rule_rounded,
             onPressed: onDivider,
           ),
@@ -769,14 +1137,9 @@ class _ToolbarDivider extends StatelessWidget {
 }
 
 class _MarkdownTextEditor extends StatelessWidget {
-  const _MarkdownTextEditor({
-    super.key,
-    required this.controller,
-    required this.isZh,
-  });
+  const _MarkdownTextEditor({super.key, required this.controller});
 
   final TextEditingController controller;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -787,7 +1150,15 @@ class _MarkdownTextEditor extends StatelessWidget {
       textAlignVertical: TextAlignVertical.top,
       decoration: knowledgeDialogInputDecoration(
         context,
-        isZh ? 'Markdown 内容' : 'Markdown content',
+        _kbImportText(
+          context,
+          zh: 'Markdown 内容',
+          zhHant: 'Markdown 內容',
+          en: 'Markdown content',
+          fr: 'Contenu Markdown',
+          de: 'Markdown-Inhalt',
+          ja: 'Markdown 内容',
+        ),
         alignLabelWithHint: true,
       ),
     );
@@ -795,14 +1166,9 @@ class _MarkdownTextEditor extends StatelessWidget {
 }
 
 class _MarkdownPreview extends StatelessWidget {
-  const _MarkdownPreview({
-    super.key,
-    required this.controller,
-    required this.isZh,
-  });
+  const _MarkdownPreview({super.key, required this.controller});
 
   final TextEditingController controller;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -823,7 +1189,15 @@ class _MarkdownPreview extends StatelessWidget {
           if (data.isEmpty) {
             return Center(
               child: Text(
-                isZh ? '暂无内容可预览。' : 'Nothing to preview yet.',
+                _kbImportText(
+                  context,
+                  zh: '暂无内容可预览。',
+                  zhHant: '暫無內容可預覽。',
+                  en: 'Nothing to preview yet.',
+                  fr: 'Aucun contenu à prévisualiser.',
+                  de: 'Noch kein Inhalt für die Vorschau.',
+                  ja: 'プレビューできる内容はまだありません。',
+                ),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
