@@ -19,7 +19,7 @@ import { t } from '../i18n';
 import type { SessionSummary } from '../api/sessions';
 import { strictPositiveIntegerFromUnknown } from '../shared/util/number';
 import {
-  booleanOrNullFromUnknown as booleanFromUnknown,
+  booleanOrNullFromUnknown,
   recordOrNullFromUnknown as asRecord,
   strictStringFromUnknown as stringFromUnknown,
   stringListFromUnknown,
@@ -76,9 +76,9 @@ function runtimeSummaryFromMetadata(
   const availability = asRecord(runtime?.['cdp_mcp_tool_availability']);
   const localArtifacts = asRecord(runtime?.['local_artifacts']);
   const browserAlive =
-    booleanFromUnknown(currentCdpRuntime?.['browser_alive']) ??
-    booleanFromUnknown(bridge?.['browser_alive']) ??
-    booleanFromUnknown(availability?.['browser_runtime_live']);
+    booleanOrNullFromUnknown(currentCdpRuntime?.['browser_alive']) ??
+    booleanOrNullFromUnknown(bridge?.['browser_alive']) ??
+    booleanOrNullFromUnknown(availability?.['browser_runtime_live']);
   const currentToolNames = stringListFromUnknown(
     availability?.['current_turn_callable_names'],
   );
@@ -94,10 +94,10 @@ function runtimeSummaryFromMetadata(
       availability?.['tool_search_deferred_cdp_mcp_count'],
     );
   const currentCallable =
-    booleanFromUnknown(
+    booleanOrNullFromUnknown(
       availability?.['live_cdp_actions_current_turn_callable'],
     ) === true ||
-    booleanFromUnknown(availability?.['current_turn_callable']) === true;
+    booleanOrNullFromUnknown(availability?.['current_turn_callable']) === true;
   const hasDeferredCdpTools =
     deferredToolNames.length > 0 ||
     (strictPositiveIntegerFromUnknown(
@@ -117,7 +117,7 @@ function runtimeSummaryFromMetadata(
     strictPositiveIntegerFromUnknown(currentCdpRuntime?.['cdp_port']) ??
     strictPositiveIntegerFromUnknown(bridge?.['cdp_port']);
   const bridgeReady =
-    booleanFromUnknown(bridge?.['live_actions_callable']) === true ||
+    booleanOrNullFromUnknown(bridge?.['live_actions_callable']) === true ||
     rawBridgeStatus === 'ready';
   const nextAction =
     stringFromUnknown(availability?.['tool_search_recommended_query']) ||
