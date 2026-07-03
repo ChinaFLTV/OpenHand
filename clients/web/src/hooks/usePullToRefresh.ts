@@ -55,6 +55,14 @@ export function usePullToRefresh<E extends HTMLElement>(
   const activePointerId = useRef<number | null>(null);
   const pulledRef = useRef(0);
   const tracking = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!enabled) return;
@@ -115,6 +123,7 @@ export function usePullToRefresh<E extends HTMLElement>(
       try {
         await onRefresh();
       } finally {
+        if (!mountedRef.current) return;
         setRefreshing(false);
         updatePulled(0);
       }

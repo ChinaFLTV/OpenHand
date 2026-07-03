@@ -285,7 +285,7 @@ export interface SessionMessagesResponse {
   pending_write_approval?: PendingWriteApproval | null;
 }
 
-export interface ListSessionsOptions {
+export interface ListSessionsOptions extends ApiRequestSignalOptions {
   page?: number;
   pageSize?: number;
   source?: string;
@@ -307,6 +307,10 @@ export function listSessions(
 ): Promise<SessionListResponse> {
   return apiRequest<SessionListResponse>(
     `/api/sessions${buildSessionListQuery(options)}`,
+    {
+      signal: options.signal,
+      timeoutMs: options.timeoutMs,
+    },
   );
 }
 

@@ -155,7 +155,11 @@ export function SessionsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await listSessions({ page: targetPage, pageSize });
+      const res = await listSessions({
+        page: targetPage,
+        pageSize,
+        signal: ctrl.signal,
+      });
       if (ctrl.signal.aborted) return;
       setData(res);
       setLoading(false);
