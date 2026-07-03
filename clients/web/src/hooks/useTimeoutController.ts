@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef } from 'preact/hooks';
-import { normalizeDurationMs } from '../shared/util/number';
-
-const MAX_BROWSER_TIMEOUT_MS = 2_147_483_647;
+import {
+  MAX_BROWSER_TIMEOUT_MS,
+  normalizeDurationMs,
+} from '../shared/util/number';
 
 export interface TimeoutController {
   clearTimer: () => void;

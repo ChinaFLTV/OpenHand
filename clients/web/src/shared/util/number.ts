@@ -12,6 +12,8 @@ export interface NormalizeIntegerOptions {
   zeroDisables?: boolean;
 }
 
+export const MAX_BROWSER_TIMEOUT_MS = 2_147_483_647;
+
 export function finiteNumberOr(
   value: number | null | undefined,
   fallback: number,

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useReducedMotion } from '../hooks/useReducedMotion';
-import { normalizeDurationMs } from '../shared/util/number';
+import {
+  MAX_BROWSER_TIMEOUT_MS,
+  normalizeDurationMs,
+} from '../shared/util/number';
 import { OverlayPortal } from './OverlayPortal';
 
 export type SnackbarTone = 'default' | 'success' | 'warning' | 'error';
@@ -20,12 +23,15 @@ interface SnackbarItem {
 
 const listeners = new Set<(item: SnackbarItem) => void>();
 let nextId = 1;
+const MAX_VISIBLE_SNACKBAR_ITEMS = 3;
 const DEFAULT_SNACKBAR_DURATION_MS = 2600;
+const MAX_SNACKBAR_DURATION_MS = 60_000;
 const SNACKBAR_EXIT_DURATION_MS = 180;
 
 function normalizeSnackbarDurationMs(value: number | undefined): number {
   return normalizeDurationMs(value, {
     fallback: DEFAULT_SNACKBAR_DURATION_MS,
+    max: MAX_SNACKBAR_DURATION_MS,
   });
 }
 
@@ -87,7 +93,10 @@ export function SnackbarHost() {
     const timer = window.setTimeout(() => {
       timerRefs.current.delete(timer);
       callback();
-    }, normalizeDurationMs(delayMs, { fallback: 0 }));
+    }, normalizeDurationMs(delayMs, {
+      fallback: 0,
+      max: MAX_BROWSER_TIMEOUT_MS,
+    }));
     timerRefs.current.add(timer);
     return timer;
   }, []);
@@ -107,7 +116,10 @@ export function SnackbarHost() {
 
   useEffect(() => {
     const onItem = (item: SnackbarItem) => {
-      setItems((prev) => [...prev.slice(-2), item]);
+      setItems((prev) => [
+        ...prev.slice(-(MAX_VISIBLE_SNACKBAR_ITEMS - 1)),
+        item,
+      ]);
       setManagedTimeout(() => dismissItem(item), item.durationMs);
     };
     listeners.add(onItem);
