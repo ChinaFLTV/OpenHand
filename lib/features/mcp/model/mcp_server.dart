@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 enum McpServerType {
   streamableHttp('streamable_http'),
   sse('sse'),
@@ -69,7 +71,7 @@ class McpServer {
       McpServerType.streamableHttp || McpServerType.sse => url.trim(),
       McpServerType.stdio => [
         command.trim(),
-        ...args.map((item) => item.trim()).where((item) => item.isNotEmpty),
+        ...stringListFromValue(args),
       ].where((item) => item.isNotEmpty).join(' '),
     };
   }

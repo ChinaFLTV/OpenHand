@@ -13,6 +13,7 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../data/memory_store.dart';
 import '../memory_controller.dart';
 import '../model/user_memory_entry.dart';
@@ -678,11 +679,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
   }
 
   List<String> _splitTagInput(String value) {
-    return value
-        .split(RegExp(r'[\n,，;；]+'))
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
+    return splitTrimmedNonEmpty(value, separator: RegExp(r'[\n,，;；]+'));
   }
 
   void _handleTagInputChanged(String value) {
