@@ -1851,10 +1851,11 @@ String _localizedSummary(
   required String zh,
   required String en,
 }) {
-  if (openHandIsChineseLocale(context) && zh.trim().isNotEmpty) {
-    return zh.trim();
-  }
-  return en.trim().isNotEmpty ? en.trim() : zh.trim();
+  final zhText = zh.trim();
+  final enText = en.trim();
+  if (enText.isEmpty) return zhText;
+  if (zhText.isEmpty) return enText;
+  return openHandLocalizedText(context, zh: zhText, en: enText);
 }
 
 Set<String> _installedSkillKeys(SkillsController controller) {

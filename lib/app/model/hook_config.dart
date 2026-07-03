@@ -1,25 +1,130 @@
+import 'dart:ui';
+
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/localized_text.dart';
 
 /// Hook lifecycle event types matching GitHub Copilot agent lifecycle stages.
 enum HookEvent {
-  sessionStart('session_start', 'Session Start', '会话开始'),
-  userPromptSubmit('user_prompt_submit', 'User Prompt Submit', '用户提交提示词'),
-  preToolUse('pre_tool_use', 'Pre-Tool Use', '工具调用前'),
-  postToolUse('post_tool_use', 'Post-Tool Use', '工具调用后'),
-  subagentStart('subagent_start', 'Subagent Start', '子代理启动'),
-  subagentStop('subagent_stop', 'Subagent Stop', '子代理停止'),
-  stop('stop', 'Stop', '代理停止'),
-  preCompact('pre_compact', 'Pre-Compact', '上下文压缩前'),
-  sessionEnd('session_end', 'Session End', '会话结束'),
-  errorOccurred('error_occurred', 'Error Occurred', '发生错误');
+  sessionStart(
+    'session_start',
+    'Session Start',
+    '会话开始',
+    zhHant: '會話開始',
+    fr: 'Début de session',
+    de: 'Sitzungsstart',
+    ja: 'セッション開始',
+  ),
+  userPromptSubmit(
+    'user_prompt_submit',
+    'User Prompt Submit',
+    '用户提交提示词',
+    zhHant: '使用者提交提示詞',
+    fr: 'Soumission du prompt',
+    de: 'Prompt gesendet',
+    ja: 'ユーザープロンプト送信',
+  ),
+  preToolUse(
+    'pre_tool_use',
+    'Pre-Tool Use',
+    '工具调用前',
+    zhHant: '工具呼叫前',
+    fr: 'Avant outil',
+    de: 'Vor Werkzeugnutzung',
+    ja: 'ツール使用前',
+  ),
+  postToolUse(
+    'post_tool_use',
+    'Post-Tool Use',
+    '工具调用后',
+    zhHant: '工具呼叫後',
+    fr: 'Après outil',
+    de: 'Nach Werkzeugnutzung',
+    ja: 'ツール使用後',
+  ),
+  subagentStart(
+    'subagent_start',
+    'Subagent Start',
+    '子代理启动',
+    zhHant: '子代理啟動',
+    fr: 'Démarrage du sous-agent',
+    de: 'Subagent gestartet',
+    ja: 'サブエージェント開始',
+  ),
+  subagentStop(
+    'subagent_stop',
+    'Subagent Stop',
+    '子代理停止',
+    zhHant: '子代理停止',
+    fr: 'Arrêt du sous-agent',
+    de: 'Subagent gestoppt',
+    ja: 'サブエージェント停止',
+  ),
+  stop(
+    'stop',
+    'Stop',
+    '代理停止',
+    zhHant: '代理停止',
+    fr: 'Arrêt',
+    de: 'Stopp',
+    ja: '停止',
+  ),
+  preCompact(
+    'pre_compact',
+    'Pre-Compact',
+    '上下文压缩前',
+    zhHant: '上下文壓縮前',
+    fr: 'Avant compactage',
+    de: 'Vor Kompaktierung',
+    ja: 'コンテキスト圧縮前',
+  ),
+  sessionEnd(
+    'session_end',
+    'Session End',
+    '会话结束',
+    zhHant: '會話結束',
+    fr: 'Fin de session',
+    de: 'Sitzungsende',
+    ja: 'セッション終了',
+  ),
+  errorOccurred(
+    'error_occurred',
+    'Error Occurred',
+    '发生错误',
+    zhHant: '發生錯誤',
+    fr: 'Erreur survenue',
+    de: 'Fehler aufgetreten',
+    ja: 'エラー発生',
+  );
 
-  const HookEvent(this.storageValue, this.labelEn, this.labelZh);
+  const HookEvent(
+    this.storageValue,
+    this.labelEn,
+    this.labelZh, {
+    required this.zhHant,
+    required this.fr,
+    required this.de,
+    required this.ja,
+  });
 
   final String storageValue;
   final String labelEn;
   final String labelZh;
+  final String zhHant;
+  final String fr;
+  final String de;
+  final String ja;
 
-  String label(bool isZh) => isZh ? labelZh : labelEn;
+  String labelForLocale(Locale locale) {
+    return openHandLocalizedTextForLocale(
+      locale,
+      zh: labelZh,
+      zhHant: zhHant,
+      en: labelEn,
+      fr: fr,
+      de: de,
+      ja: ja,
+    );
+  }
 
   static HookEvent? fromStorage(String? value) {
     if (value == null || value.isEmpty) return null;
