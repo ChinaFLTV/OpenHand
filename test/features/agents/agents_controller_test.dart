@@ -271,6 +271,33 @@ void main() {
       );
     });
 
+    test(
+      'requesting approval records pending request activity and audit',
+      () async {
+        await controller.saveAgent(_runningAgent());
+
+        final approval = await controller.requestApproval(
+          'agent-1',
+          title: 'Access production logs',
+          reason: 'Need mentor confirmation before reading sensitive logs',
+          requestedAction: 'read_prod_logs',
+          auditToolName: 'AgentApprovalRequestTest',
+        );
+
+        expect(approval, isNotNull);
+        expect(approval!.id, isNotEmpty);
+        expect(approval.status, AgentApprovalStatus.pending);
+        expect(approval.reason, contains('mentor confirmation'));
+        final agent = controller.agentById('agent-1')!;
+        expect(agent.approvals.single.id, approval.id);
+        expect(agent.pendingApprovalCount, 1);
+        expect(agent.activities.first.kind, 'approval_requested');
+        expect(agent.auditEvents.first.kind, 'approval_requested');
+        expect(agent.auditEvents.first.toolName, 'AgentApprovalRequestTest');
+        expect(agent.auditEvents.first.metadata['approval_id'], approval.id);
+      },
+    );
+
     test('saving and deleting KPI records activity and audit', () async {
       await controller.saveAgent(_runningAgent());
 

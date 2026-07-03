@@ -431,6 +431,82 @@ class AgentsController extends ManagedChangeNotifier {
     }).then((changed) => changed ? updatedTask : null);
   }
 
+  Future<AgentApprovalRequest?> requestApproval(
+    String agentId, {
+    required String title,
+    String reason = '',
+    String requestedAction = '',
+    Map<String, Object?> extra = const <String, Object?>{},
+    String auditToolName = 'AgentApprovalsDialog',
+  }) async {
+    final normalizedAgentId = agentId.trim();
+    final trimmedTitle = title.trim();
+    if (normalizedAgentId.isEmpty || trimmedTitle.isEmpty) return null;
+    AgentApprovalRequest? createdApproval;
+    final changed = await _commitMutation(() async {
+      final index = _agents.indexWhere(
+        (agent) => agent.id == normalizedAgentId,
+      );
+      if (index < 0) return false;
+      final agent = _agents[index];
+      final now = DateTime.now().toUtc();
+      createdApproval = AgentApprovalRequest(
+        id: _uuid.v4(),
+        title: trimmedTitle,
+        reason: reason.trim(),
+        requestedAction: requestedAction.trim(),
+        createdAt: now,
+        extra: extra,
+      );
+      final metadata = <String, Object?>{
+        'approval_id': createdApproval!.id,
+        'approval_status': createdApproval!.status.storageValue,
+        if (createdApproval!.requestedAction.trim().isNotEmpty)
+          'requested_action': createdApproval!.requestedAction,
+      };
+      final updated = _normalizeAgent(
+        agent.copyWith(
+          approvals: <AgentApprovalRequest>[
+            createdApproval!,
+            ...agent.approvals,
+          ],
+          activities: _prependActivity(
+            agent.activities,
+            AgentActivityEvent(
+              id: _uuid.v4(),
+              kind: 'approval_requested',
+              title: 'approval_requested',
+              content: createdApproval!.title,
+              createdAt: now,
+              metadata: metadata,
+            ),
+          ),
+          auditEvents: _prependAudit(
+            agent.auditEvents,
+            AgentAuditEvent(
+              id: _uuid.v4(),
+              kind: 'approval_requested',
+              summary: 'approval_requested: ${createdApproval!.title}',
+              toolName: auditToolName,
+              requestCount: 1,
+              createdAt: now,
+              metadata: metadata,
+            ),
+          ),
+          updatedAt: now,
+        ),
+      );
+      _setAgents(<AgentProfile>[
+        ..._agents.sublist(0, index),
+        updated,
+        ..._agents.sublist(index + 1),
+      ]);
+      await _store.save(_agents);
+      return true;
+    });
+    return changed ? createdApproval : null;
+  }
+
   Future<AgentApprovalRequest?> resolveApproval(
     String agentId,
     String approvalId,

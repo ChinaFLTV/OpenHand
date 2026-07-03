@@ -766,6 +766,20 @@ Future<void> _showAgentApprovalsDialog(
                 l10n.agentsApprovals,
                 currentAgent.name,
               ),
+              actions: [
+                FilledButton.icon(
+                  onPressed: () =>
+                      _showAgentApprovalRequestDialog(context, currentAgent),
+                  icon: const Icon(Icons.add_moderator_outlined),
+                  label: Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '发起审批',
+                      en: 'Request approval',
+                    ),
+                  ),
+                ),
+              ],
               child: currentAgent.approvals.isEmpty
                   ? FeatureStateCard.inline(
                       icon: Icons.verified_user_outlined,
@@ -2248,6 +2262,103 @@ class _AgentApprovalActions extends StatelessWidget {
   }
 }
 
+Future<void> _showAgentApprovalRequestDialog(
+  BuildContext context,
+  AgentProfile agent,
+) async {
+  final l10n = AppLocalizations.of(context)!;
+  final title = TextEditingController();
+  final reason = TextEditingController();
+  final requestedAction = TextEditingController();
+  try {
+    final submitted = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (dialogContext) => buildOpenHandDialog(
+        maxWidth: 680,
+        child: _AgentDialogScaffold(
+          icon: Icons.add_moderator_outlined,
+          title: openHandLocalizedText(
+            context,
+            zh: '发起审批',
+            en: 'Request approval',
+          ),
+          footer: buildOpenHandDialogActionsBar(
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                label: l10n.commonCancel,
+              ),
+              OpenHandDialogActionButton.primary(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                label: openHandLocalizedText(context, zh: '提交', en: 'Submit'),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              TextField(
+                controller: title,
+                decoration: InputDecoration(labelText: l10n.agentsFieldName),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reason,
+                minLines: 3,
+                maxLines: 6,
+                decoration: InputDecoration(
+                  labelText: openHandLocalizedText(
+                    context,
+                    zh: '审批原因',
+                    en: 'Reason',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: requestedAction,
+                decoration: InputDecoration(
+                  labelText: openHandLocalizedText(
+                    context,
+                    zh: '请求动作',
+                    en: 'Requested action',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (submitted == true && context.mounted) {
+      final titleText = title.text.trim();
+      if (titleText.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              openHandLocalizedText(
+                context,
+                zh: '请先填写审批标题。',
+                en: 'Enter an approval title first.',
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+      await context.read<AgentsController>().requestApproval(
+        agent.id,
+        title: titleText,
+        reason: reason.text,
+        requestedAction: requestedAction.text,
+      );
+    }
+  } finally {
+    title.dispose();
+    reason.dispose();
+    requestedAction.dispose();
+  }
+}
+
 Future<void> _resolveAgentApprovalFromDialog(
   BuildContext context,
   AgentProfile agent,
@@ -3445,6 +3556,26 @@ String _agentActivityTitle(AppLocalizations l10n, AgentActivityEvent event) {
       zh: '任务已完成',
       en: 'Task completed',
     ),
+    'approval_requested' => _agentInlineText(
+      l10n,
+      zh: '审批已发起',
+      en: 'Approval requested',
+    ),
+    'approval_approved' => _agentInlineText(
+      l10n,
+      zh: '审批已批准',
+      en: 'Approval approved',
+    ),
+    'approval_rejected' => _agentInlineText(
+      l10n,
+      zh: '审批已拒绝',
+      en: 'Approval rejected',
+    ),
+    'approval_expired' => _agentInlineText(
+      l10n,
+      zh: '审批已过期',
+      en: 'Approval expired',
+    ),
     _ => event.title.trim().isEmpty ? event.kind : event.title,
   };
 }
@@ -3461,7 +3592,11 @@ String _agentActivitySubtitle(AppLocalizations l10n, AgentActivityEvent event) {
     'task_paused' ||
     'task_terminated' ||
     'task_resumed' ||
-    'task_completed' => '',
+    'task_completed' ||
+    'approval_requested' ||
+    'approval_approved' ||
+    'approval_rejected' ||
+    'approval_expired' => '',
     _ => _agentActivityMetadataFallback(event),
   };
 }
