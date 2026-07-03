@@ -35,6 +35,19 @@ type MermaidRenderResult = {
   bindFunctions?: unknown;
 };
 
+const MERMAID_VIEW_MIN_SCALE = 0.25;
+const MERMAID_VIEW_MAX_SCALE = 8;
+const MERMAID_FIT_PADDING_PX = 24;
+const MERMAID_INTERACTIVE_TRANSITION_MS = 80;
+const MERMAID_TOUCH_DRAG_LONG_PRESS_MS = 280;
+const MERMAID_TOUCH_DRAG_CANCEL_DISTANCE_PX = 8;
+const MERMAID_WHEEL_ZOOM_SENSITIVITY = 0.0025;
+
+function clampMermaidScale(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(MERMAID_VIEW_MAX_SCALE, Math.max(MERMAID_VIEW_MIN_SCALE, value));
+}
+
 function svgMarkupOf(value: unknown): string | null {
   if (typeof value === 'string') return value;
   if (value instanceof SVGElement) return value.outerHTML;
@@ -431,7 +444,9 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
     options.onZoomChanged?.(scale);
   };
   const setInteractiveTransition = (enabled: boolean): void => {
-    inner.style.transition = enabled ? 'transform 80ms ease-out' : 'none';
+    inner.style.transition = enabled
+      ? `transform ${MERMAID_INTERACTIVE_TRANSITION_MS}ms ease-out`
+      : 'none';
   };
   const clearLongPress = (): void => {
     if (longPressTimer != null) {
@@ -467,20 +482,17 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
       reset();
       return;
     }
-    const padding = 24;
-    const fitScale = Math.min(
-      8,
-      Math.max(
-        0.25,
-        Math.min(
-          (stageRect.width - padding * 2) / svgBox.width,
-          (stageRect.height - padding * 2) / svgBox.height,
-        ),
+    const fitScale = clampMermaidScale(
+      Math.min(
+        (stageRect.width - MERMAID_FIT_PADDING_PX * 2) / svgBox.width,
+        (stageRect.height - MERMAID_FIT_PADDING_PX * 2) / svgBox.height,
       ),
     );
     scale = fitScale;
-    tx = padding - svgBox.x * fitScale + Math.max(0, (stageRect.width - svgBox.width * fitScale - padding * 2) / 2);
-    ty = padding - svgBox.y * fitScale + Math.max(0, (stageRect.height - svgBox.height * fitScale - padding * 2) / 2);
+    tx = MERMAID_FIT_PADDING_PX - svgBox.x * fitScale +
+      Math.max(0, (stageRect.width - svgBox.width * fitScale - MERMAID_FIT_PADDING_PX * 2) / 2);
+    ty = MERMAID_FIT_PADDING_PX - svgBox.y * fitScale +
+      Math.max(0, (stageRect.height - svgBox.height * fitScale - MERMAID_FIT_PADDING_PX * 2) / 2);
     emitDragState(false);
     apply();
   };
@@ -504,8 +516,8 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
     e.preventDefault();
     clearLongPress();
     setInteractiveTransition(false);
-    const delta = -e.deltaY * 0.0025;
-    const newScale = Math.min(8, Math.max(0.25, scale * (1 + delta)));
+    const delta = -e.deltaY * MERMAID_WHEEL_ZOOM_SENSITIVITY;
+    const newScale = clampMermaidScale(scale * (1 + delta));
     const rect = stage.getBoundingClientRect();
     const cx = e.clientX - rect.left;
     const cy = e.clientY - rect.top;
@@ -549,7 +561,7 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
         emitDragState(true);
         setInteractiveTransition(false);
       }
-    }, 280);
+    }, MERMAID_TOUCH_DRAG_LONG_PRESS_MS);
   };
 
   const onPointerMove = (e: PointerEvent): void => {
@@ -567,7 +579,7 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
         const rect = stage.getBoundingClientRect();
         const centerX = (pts[0]!.x + pts[1]!.x) / 2 - rect.left;
         const centerY = (pts[0]!.y + pts[1]!.y) / 2 - rect.top;
-        const newScale = Math.min(8, Math.max(0.25, pinchStartScale * (dist / pinchStartDist)));
+        const newScale = clampMermaidScale(pinchStartScale * (dist / pinchStartDist));
         tx = centerX - (centerX - tx) * (newScale / scale);
         ty = centerY - (centerY - ty) * (newScale / scale);
         scale = newScale;
@@ -578,7 +590,7 @@ function attachPanZoom(stage: HTMLElement, inner: HTMLElement, options: PanZoomO
     }
     if (pointers.size === 1) {
       const moved = Math.hypot(e.clientX - previous.x, e.clientY - previous.y);
-      if (!dragReady && moved > 8) {
+      if (!dragReady && moved > MERMAID_TOUCH_DRAG_CANCEL_DISTANCE_PX) {
         clearLongPress();
       }
       if (dragReady && stage.dataset.dragX) {
