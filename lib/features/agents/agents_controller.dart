@@ -1064,9 +1064,7 @@ class AgentsController extends ManagedChangeNotifier {
   }
 
   DateTime? _workerLastAssignedAt(AgentWorker worker) {
-    final raw = '${worker.extra['last_assigned_at'] ?? ''}'.trim();
-    if (raw.isEmpty) return null;
-    return DateTime.tryParse(raw);
+    return dateTimeFromValue(worker.extra['last_assigned_at']);
   }
 
   String _nextWorkerId(AgentProfile agent, List<AgentWorker> workers) {

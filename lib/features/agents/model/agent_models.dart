@@ -978,9 +978,7 @@ List<T> _listFromValue<T>(Object? raw, T Function(Object? raw) parse) {
 }
 
 DateTime? _dateFromValue(Object? raw) {
-  final text = stringFromValue(raw).trim();
-  if (text.isEmpty) return null;
-  return DateTime.tryParse(text)?.toUtc();
+  return utcDateTimeFromValue(raw);
 }
 
 String _nonEmpty(Object? raw, String fallback) {
@@ -989,12 +987,7 @@ String _nonEmpty(Object? raw, String fallback) {
 }
 
 double _ratioFromValue(Object? raw, {required double fallback}) {
-  final value = switch (raw) {
-    num n => n.toDouble(),
-    String s => double.tryParse(s.trim()) ?? fallback,
-    _ => fallback,
-  };
-  if (!value.isFinite) return fallback;
+  final value = optionalDoubleFromValue(raw) ?? fallback;
   if (value < 0) return 0;
   if (value > 1) return 1;
   return value;
