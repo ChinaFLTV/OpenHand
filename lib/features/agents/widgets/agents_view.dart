@@ -67,7 +67,6 @@ const List<String> _agentKpiStatusOptions = <String>[
   'paused',
 ];
 const int _agentRoutePreviewKeywordLimit = 10;
-const String _agentTaskExtraJsonHint = '{"priority":"high","retryable":true}';
 const List<String> _agentImageExtensions = <String>[
   'jpg',
   'jpeg',
@@ -3304,112 +3303,186 @@ Future<void> _showPublishTaskDialog(
   BuildContext context,
   AgentProfile agent,
 ) async {
-  final l10n = AppLocalizations.of(context)!;
-  final title = TextEditingController();
-  final description = TextEditingController();
-  final content = TextEditingController();
-  final note = TextEditingController();
-  final extra = TextEditingController();
-  try {
-    final submitted = await showAnimatedDialog<bool>(
-      context: context,
-      builder: (dialogContext) => buildOpenHandDialog(
-        maxWidth: 680,
-        child: _AgentDialogScaffold(
-          icon: Icons.add_task_rounded,
-          title: l10n.agentsDialogTitleWithName(
-            l10n.agentsPublishTask,
-            agent.name,
-          ),
-          footer: buildOpenHandDialogActionsBar(
-            actions: [
-              OpenHandDialogActionButton.secondary(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                label: l10n.commonCancel,
+  final draft = await showAnimatedDialog<_AgentPublishTaskDraft>(
+    context: context,
+    builder: (_) => _AgentPublishTaskDialog(agent: agent),
+  );
+  if (draft != null && context.mounted) {
+    await context.read<AgentsController>().publishTask(
+      agent.id,
+      title: draft.title,
+      description: draft.description,
+      content: draft.content,
+      note: draft.note,
+      extra: draft.extra,
+    );
+  }
+}
+
+class _AgentPublishTaskDraft {
+  const _AgentPublishTaskDraft({
+    required this.title,
+    required this.description,
+    required this.content,
+    required this.note,
+    required this.extra,
+  });
+
+  final String title;
+  final String description;
+  final String content;
+  final String note;
+  final Map<String, Object?> extra;
+}
+
+class _AgentPublishTaskDialog extends StatefulWidget {
+  const _AgentPublishTaskDialog({required this.agent});
+
+  final AgentProfile agent;
+
+  @override
+  State<_AgentPublishTaskDialog> createState() =>
+      _AgentPublishTaskDialogState();
+}
+
+class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
+  late final TextEditingController _title;
+  late final TextEditingController _description;
+  late final TextEditingController _content;
+  late final TextEditingController _note;
+  final List<_KeyValueDraft> _extraEntries = <_KeyValueDraft>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _title = TextEditingController();
+    _description = TextEditingController();
+    _content = TextEditingController();
+    _note = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _description.dispose();
+    _content.dispose();
+    _note.dispose();
+    for (final entry in _extraEntries) {
+      entry.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return buildOpenHandDialog(
+      maxWidth: 680,
+      child: _AgentDialogScaffold(
+        icon: Icons.add_task_rounded,
+        title: l10n.agentsDialogTitleWithName(
+          l10n.agentsPublishTask,
+          widget.agent.name,
+        ),
+        footer: buildOpenHandDialogActionsBar(
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(context).pop(),
+              label: l10n.commonCancel,
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: _submit,
+              label: l10n.agentsPublish,
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            TextField(
+              controller: _title,
+              decoration: InputDecoration(labelText: l10n.agentsTaskTitleLabel),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _description,
+              decoration: InputDecoration(
+                labelText: l10n.agentsDescriptionLabel,
               ),
-              OpenHandDialogActionButton.primary(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                label: l10n.agentsPublish,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _content,
+              minLines: 4,
+              maxLines: 8,
+              decoration: InputDecoration(labelText: l10n.agentsContentLabel),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _note,
+              decoration: InputDecoration(labelText: l10n.agentsNoteLabel),
+            ),
+            const SizedBox(height: 12),
+            _AgentKeyValueEditor(
+              title: openHandLocalizedText(
+                context,
+                zh: '扩展字段',
+                en: 'Extra fields',
+                fr: 'Champs supplémentaires',
+                de: 'Zusatzfelder',
+                ja: '追加フィールド',
               ),
-            ],
-          ),
-          child: Column(
-            children: [
-              TextField(
-                controller: title,
-                decoration: InputDecoration(
-                  labelText: l10n.agentsTaskTitleLabel,
-                ),
+              entries: _extraEntries,
+              keyLabel: openHandLocalizedText(
+                context,
+                zh: '键',
+                en: 'Key',
+                fr: 'Clé',
+                de: 'Schlüssel',
+                ja: 'キー',
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: description,
-                decoration: InputDecoration(
-                  labelText: l10n.agentsDescriptionLabel,
-                ),
+              valueLabel: openHandLocalizedText(
+                context,
+                zh: '值',
+                en: 'Value',
+                fr: 'Valeur',
+                de: 'Wert',
+                ja: '値',
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: content,
-                minLines: 4,
-                maxLines: 8,
-                decoration: InputDecoration(labelText: l10n.agentsContentLabel),
+              emptyText: openHandLocalizedText(
+                context,
+                zh: '暂无扩展字段。数值、布尔值、数组和对象会自动结构化保存。',
+                en: 'No extra fields yet. Numbers, booleans, arrays, and objects are saved structurally.',
+                fr: 'Aucun champ supplémentaire. Les nombres, booléens, tableaux et objets sont enregistrés de manière structurée.',
+                de: 'Noch keine Zusatzfelder. Zahlen, Boolesche Werte, Arrays und Objekte werden strukturiert gespeichert.',
+                ja: '追加フィールドはまだありません。数値、真偽値、配列、オブジェクトは構造化して保存されます。',
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: note,
-                decoration: InputDecoration(labelText: l10n.agentsNoteLabel),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: extra,
-                minLines: 3,
-                maxLines: 8,
-                decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh: '扩展元数据 JSON',
-                    en: 'extra JSON',
-                  ),
-                  hintText: _agentTaskExtraJsonHint,
-                ),
-              ),
-            ],
-          ),
+              onAdd: () => setState(() => _extraEntries.add(_KeyValueDraft())),
+              onRemove: _removeExtraEntry,
+            ),
+          ],
         ),
       ),
     );
-    if (submitted == true && context.mounted) {
-      final rawExtra = extra.text.trim();
-      final parsedExtra = rawExtra.isEmpty
-          ? const <String, Object?>{}
-          : optionalStringKeyedMapFromJsonText(rawExtra);
-      if (parsedExtra == null) {
-        OpenHandSnackBar.showError(
-          context,
-          openHandLocalizedText(
-            context,
-            zh: '扩展元数据必须是合法的 JSON 对象。',
-            en: 'extra must be a valid JSON object.',
-          ),
-        );
-        return;
-      }
-      await context.read<AgentsController>().publishTask(
-        agent.id,
-        title: title.text,
-        description: description.text,
-        content: content.text,
-        note: note.text,
-        extra: parsedExtra,
-      );
-    }
-  } finally {
-    title.dispose();
-    description.dispose();
-    content.dispose();
-    note.dispose();
-    extra.dispose();
+  }
+
+  void _removeExtraEntry(_KeyValueDraft entry) {
+    setState(() {
+      _extraEntries.remove(entry);
+      entry.dispose();
+    });
+  }
+
+  void _submit() {
+    FocusScope.of(context).unfocus();
+    Navigator.of(context).pop(
+      _AgentPublishTaskDraft(
+        title: _title.text,
+        description: _description.text,
+        content: _content.text,
+        note: _note.text,
+        extra: _agentKeyValueDraftMapFromEntries(_extraEntries),
+      ),
+    );
   }
 }
 
@@ -4766,85 +4839,16 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     VoidCallback? onChanged,
     bool framed = true,
   }) {
-    final theme = Theme.of(context);
-    final addButton = IconButton.filledTonal(
-      tooltip: openHandLocalizedText(context, zh: '添加字段', en: 'Add field'),
-      onPressed: onAdd,
-      icon: const Icon(Icons.add_rounded),
-    );
-    final content = entries.isEmpty
-        ? Text(
-            emptyText,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          )
-        : Column(
-            children: [
-              for (final entry in entries)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 5,
-                        child: TextField(
-                          controller: entry.key,
-                          decoration: InputDecoration(labelText: keyLabel),
-                          onChanged: (_) => onChanged?.call(),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 7,
-                        child: TextField(
-                          controller: entry.value,
-                          decoration: InputDecoration(labelText: valueLabel),
-                          onChanged: (_) => onChanged?.call(),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      IconButton(
-                        tooltip: openHandLocalizedText(
-                          context,
-                          zh: '删除字段',
-                          en: 'Remove field',
-                        ),
-                        onPressed: () => onRemove(entry),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          );
-    if (framed) {
-      return _AgentEditorPanel(
-        title: title,
-        icon: Icons.schema_rounded,
-        trailing: addButton,
-        child: content,
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            addButton,
-          ],
-        ),
-        const SizedBox(height: 8),
-        content,
-      ],
+    return _AgentKeyValueEditor(
+      title: title,
+      entries: entries,
+      keyLabel: keyLabel,
+      valueLabel: valueLabel,
+      emptyText: emptyText,
+      onAdd: onAdd,
+      onRemove: onRemove,
+      onChanged: onChanged,
+      framed: framed,
     );
   }
 
@@ -5252,28 +5256,11 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   }
 
   Map<String, Object?> _mapFromEntries(List<_KeyValueDraft> entries) {
-    final result = <String, Object?>{};
-    for (final entry in entries) {
-      final key = entry.key.text.trim();
-      if (key.isEmpty) continue;
-      result[key] = _parseStructuredValue(entry.value.text);
-    }
-    return result;
+    return _agentKeyValueDraftMapFromEntries(entries);
   }
 
   Object? _parseStructuredValue(String raw) {
-    final value = raw.trim();
-    if (value.isEmpty) return '';
-    final decoded = _tryDecodeJsonValue(value);
-    return decoded.$1 ? decoded.$2 : value;
-  }
-
-  (bool, Object?) _tryDecodeJsonValue(String value) {
-    try {
-      return (true, jsonDecode(value));
-    } on FormatException {
-      return (false, null);
-    }
+    return _agentParseStructuredValue(raw);
   }
 
   List<_KeyValueDraft> _metadataEntriesFromMap(Map<String, Object?>? map) {
@@ -5441,6 +5428,114 @@ class _AgentAvatarContent extends StatelessWidget {
   }
 }
 
+class _AgentKeyValueEditor extends StatelessWidget {
+  const _AgentKeyValueEditor({
+    required this.title,
+    required this.entries,
+    required this.keyLabel,
+    required this.valueLabel,
+    required this.emptyText,
+    required this.onAdd,
+    required this.onRemove,
+    this.onChanged,
+    this.framed = true,
+  });
+
+  final String title;
+  final List<_KeyValueDraft> entries;
+  final String keyLabel;
+  final String valueLabel;
+  final String emptyText;
+  final VoidCallback onAdd;
+  final ValueChanged<_KeyValueDraft> onRemove;
+  final VoidCallback? onChanged;
+  final bool framed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final addButton = IconButton.filledTonal(
+      tooltip: openHandLocalizedText(context, zh: '添加字段', en: 'Add field'),
+      onPressed: onAdd,
+      icon: const Icon(Icons.add_rounded),
+    );
+    final content = entries.isEmpty
+        ? Text(
+            emptyText,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        : Column(
+            children: [
+              for (final entry in entries)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: TextField(
+                          controller: entry.key,
+                          decoration: InputDecoration(labelText: keyLabel),
+                          onChanged: (_) => onChanged?.call(),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 7,
+                        child: TextField(
+                          controller: entry.value,
+                          decoration: InputDecoration(labelText: valueLabel),
+                          onChanged: (_) => onChanged?.call(),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton(
+                        tooltip: openHandLocalizedText(
+                          context,
+                          zh: '删除字段',
+                          en: 'Remove field',
+                        ),
+                        onPressed: () => onRemove(entry),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          );
+    if (framed) {
+      return _AgentEditorPanel(
+        title: title,
+        icon: Icons.schema_rounded,
+        trailing: addButton,
+        child: content,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            addButton,
+          ],
+        ),
+        const SizedBox(height: 8),
+        content,
+      ],
+    );
+  }
+}
+
 class _AgentEditorPanel extends StatelessWidget {
   const _AgentEditorPanel({
     required this.title,
@@ -5573,6 +5668,28 @@ class _KeyValueDraft {
     } catch (_) {
       return '$value';
     }
+  }
+}
+
+Map<String, Object?> _agentKeyValueDraftMapFromEntries(
+  Iterable<_KeyValueDraft> entries,
+) {
+  final result = <String, Object?>{};
+  for (final entry in entries) {
+    final key = entry.key.text.trim();
+    if (key.isEmpty) continue;
+    result[key] = _agentParseStructuredValue(entry.value.text);
+  }
+  return result;
+}
+
+Object? _agentParseStructuredValue(String raw) {
+  final value = raw.trim();
+  if (value.isEmpty) return '';
+  try {
+    return jsonDecode(value);
+  } on FormatException {
+    return value;
   }
 }
 

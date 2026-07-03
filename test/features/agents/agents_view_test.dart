@@ -334,6 +334,64 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
     });
 
+    testWidgets('publishes a task with structured extra fields', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          enabled: true,
+          lifecycleState: AgentLifecycleState.running,
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('任务台').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('发布任务').first);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, '任务标题'),
+        'Prepare weekly report',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, '介绍'),
+        'Collect weekly evidence.',
+      );
+      final addFieldButton = find.byTooltip('添加字段').last;
+      await tester.ensureVisible(addFieldButton);
+      await tester.pumpAndSettle();
+      await tester.tap(addFieldButton);
+      await tester.pump();
+      await tester.enterText(find.widgetWithText(TextField, '键'), 'retryable');
+      await tester.enterText(find.widgetWithText(TextField, '值'), 'true');
+
+      final publishButton = find.ancestor(
+        of: find.text('发布').last,
+        matching: find.byType(FilledButton),
+      );
+      await tester.tap(publishButton);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      final tasks = controller.agentById('agent-1')!.tasks;
+      expect(tasks, hasLength(1));
+      expect(tasks.single.title, 'Prepare weekly report');
+      expect(tasks.single.description, 'Collect weekly evidence.');
+      expect(tasks.single.extra['retryable'], isTrue);
+    });
+
     testWidgets('audit dialog renders capability and worker reports', (
       tester,
     ) async {
