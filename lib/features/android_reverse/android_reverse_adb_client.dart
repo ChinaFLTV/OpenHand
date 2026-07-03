@@ -37,20 +37,21 @@ class AdbCommandResult {
 
   bool get ok => exitCode == 0 && !timedOut;
 
-  bool get hasOutput => stdout.trim().isNotEmpty || stderr.trim().isNotEmpty;
+  bool get hasOutput =>
+      nullIfBlank(stdout) != null || nullIfBlank(stderr) != null;
 
-  bool get hasUsableStdout => stdout.trim().isNotEmpty;
+  bool get hasUsableStdout => nullIfBlank(stdout) != null;
 
   bool get partialOk => timedOut && hasUsableStdout;
 
   String get commandLine => displayCommand ?? 'adb ${args.join(' ')}';
 
   String get combinedOutput {
-    final out = stdout.trim();
-    final err = stderr.trim();
-    if (out.isEmpty && err.isEmpty) return '';
-    if (out.isEmpty) return err;
-    if (err.isEmpty) return out;
+    final out = nullIfBlank(stdout);
+    final err = nullIfBlank(stderr);
+    if (out == null && err == null) return '';
+    if (out == null) return err!;
+    if (err == null) return out;
     return '$out\n$err';
   }
 
@@ -127,7 +128,7 @@ class AndroidPackagePidLookupResult {
   final bool timedOut;
   final String stderr;
 
-  bool get found => pid?.trim().isNotEmpty ?? false;
+  bool get found => nullIfBlank(pid) != null;
 }
 
 /// 精简 ADB 客户端，封装 `adb` 命令行调用。
@@ -309,8 +310,8 @@ class AndroidReverseAdbClient {
     if (!result.ok && !result.hasUsableStdout) {
       return const <String, String>{};
     }
-    final raw = result.stdout;
-    if (raw.trim().isEmpty) return const <String, String>{};
+    final raw = nullIfBlank(result.stdout);
+    if (raw == null) return const <String, String>{};
     final props = <String, String>{};
     final pattern = RegExp(r'^\[([^\]]+)\]: \[(.*)\]$');
     for (final line in raw.split('\n')) {
@@ -334,8 +335,8 @@ class AndroidReverseAdbClient {
     String localApkPath, {
     bool grantRuntimePermissions = true,
   }) {
-    final path = localApkPath.trim();
-    if (path.isEmpty) {
+    final path = nullIfBlank(localApkPath);
+    if (path == null) {
       return Future<AdbCommandResult>.value(
         const AdbCommandResult(
           args: <String>['install', '<empty-apk-path>'],
@@ -412,8 +413,8 @@ class AndroidReverseAdbClient {
 
   Future<bool> startActivity(String packageName, {String? activity}) async {
     if (!_looksLikePackageName(packageName)) return false;
-    final activityValue = activity?.trim();
-    if (activityValue == null || activityValue.isEmpty) {
+    final activityValue = nullIfBlank(activity);
+    if (activityValue == null) {
       final result = await startPackageDetailed(packageName);
       return result.ok || result.partialOk;
     }
@@ -505,7 +506,7 @@ class AndroidReverseAdbClient {
   Future<AndroidPackagePidLookupResult> pidOfPackageDetailed(
     String packageName,
   ) async {
-    final normalizedPackageName = packageName.trim();
+    final normalizedPackageName = nullIfBlank(packageName) ?? '';
     if (!_looksLikePackageName(normalizedPackageName)) {
       return AndroidPackagePidLookupResult(
         packageName: normalizedPackageName,
@@ -525,7 +526,7 @@ class AndroidReverseAdbClient {
         packageName: normalizedPackageName,
         pid: directPid,
         timedOut: direct.timedOut,
-        stderr: direct.stderr.trim(),
+        stderr: nullIfBlank(direct.stderr) ?? '',
       );
     }
     final ps = await _runDeviceDetailed(const <String>[
@@ -588,9 +589,9 @@ class AndroidReverseAdbClient {
   }
 
   Future<AdbCommandResult> pushDetailed(String localPath, String remotePath) {
-    final local = localPath.trim();
-    final remote = remotePath.trim();
-    if (local.isEmpty || remote.isEmpty) {
+    final local = nullIfBlank(localPath);
+    final remote = nullIfBlank(remotePath);
+    if (local == null || remote == null) {
       return Future<AdbCommandResult>.value(
         const AdbCommandResult(
           args: <String>['push', '<local>', '<remote>'],
@@ -608,9 +609,9 @@ class AndroidReverseAdbClient {
   }
 
   Future<AdbCommandResult> pullDetailed(String remotePath, String localPath) {
-    final remote = remotePath.trim();
-    final local = localPath.trim();
-    if (remote.isEmpty || local.isEmpty) {
+    final remote = nullIfBlank(remotePath);
+    final local = nullIfBlank(localPath);
+    if (remote == null || local == null) {
       return Future<AdbCommandResult>.value(
         const AdbCommandResult(
           args: <String>['pull', '<remote>', '<local>'],
@@ -646,9 +647,11 @@ class AndroidReverseAdbClient {
     final filter = <String>[];
     final boundedLines = lines.clamp(1, _kMaxLogcatLines).toInt();
     final normalizedLevel = _normalizeLogcatLevel(level);
-    if (tag != null && tag.trim().isNotEmpty) {
+    final normalizedTag = nullIfBlank(tag);
+    final normalizedPid = nullIfBlank(pid);
+    if (normalizedTag != null) {
       filter
-        ..add('${tag.trim()}:$normalizedLevel')
+        ..add('$normalizedTag:$normalizedLevel')
         ..add('*:S');
     } else if (normalizedLevel != 'V') {
       filter.add('*:$normalizedLevel');
@@ -658,9 +661,10 @@ class AndroidReverseAdbClient {
       '-d',
       '-t',
       '$boundedLines',
-      if (pid != null && RegExp(r'^\d+$').hasMatch(pid.trim())) ...[
+      if (normalizedPid != null &&
+          RegExp(r'^\d+$').hasMatch(normalizedPid)) ...[
         '--pid',
-        pid.trim(),
+        normalizedPid,
       ],
       if (filter.isNotEmpty) ...filter,
     ], timeout: const Duration(seconds: 15));
@@ -779,20 +783,33 @@ class AndroidReverseAdbClient {
   }
 
   Future<AdbCommandResult> connect(String endpoint) {
-    return _runDetailed(<String>['connect', endpoint]);
+    final normalizedEndpoint = nullIfBlank(endpoint);
+    if (normalizedEndpoint == null) {
+      return Future<AdbCommandResult>.value(
+        const AdbCommandResult(
+          args: <String>['connect', '<empty-endpoint>'],
+          exitCode: -1,
+          stdout: '',
+          stderr: 'ADB connect endpoint is empty.',
+        ),
+      );
+    }
+    return _runDetailed(<String>['connect', normalizedEndpoint]);
   }
 
   Future<AdbCommandResult> disconnect([String? endpoint]) {
+    final normalizedEndpoint = nullIfBlank(endpoint);
     return _runDetailed(<String>[
       'disconnect',
-      if (endpoint != null && endpoint.trim().isNotEmpty) endpoint.trim(),
+      if (normalizedEndpoint != null) normalizedEndpoint,
     ]);
   }
 
   Future<AdbCommandResult> reboot([String? mode]) {
+    final normalizedMode = nullIfBlank(mode);
     return _runDeviceDetailed(<String>[
       'reboot',
-      if (mode != null && mode.trim().isNotEmpty) mode.trim(),
+      if (normalizedMode != null) normalizedMode,
     ]);
   }
 
@@ -815,8 +832,8 @@ class AndroidReverseAdbClient {
   }
 
   Future<AdbCommandResult> captureScreenshotDetailed(String remotePath) {
-    final path = remotePath.trim();
-    if (path.isEmpty) {
+    final path = nullIfBlank(remotePath);
+    if (path == null) {
       return Future<AdbCommandResult>.value(
         const AdbCommandResult(
           args: <String>['shell', 'screencap -p <remote-path>'],
@@ -839,8 +856,8 @@ class AndroidReverseAdbClient {
     String remotePath, {
     int seconds = 10,
   }) {
-    final path = remotePath.trim();
-    if (path.isEmpty || seconds <= 0 || seconds > 180) {
+    final path = nullIfBlank(remotePath);
+    if (path == null || seconds <= 0 || seconds > 180) {
       return Future<AdbCommandResult>.value(
         const AdbCommandResult(
           args: <String>['shell', 'screenrecord --time-limit <seconds> <path>'],
@@ -870,10 +887,10 @@ class AndroidReverseAdbClient {
     final result = await _runDetailed(args, timeout: timeout);
     if (result.timedOut && !result.hasUsableStdout) return null;
     if (!result.ok && !result.hasUsableStdout) {
-      final stderr = result.stderr.trim();
+      final stderr = nullIfBlank(result.stderr);
       silentLog(
         _kTag,
-        'adb ${args.join(' ')} exited ${result.exitCode}${stderr.isNotEmpty ? ": $stderr" : ""}',
+        'adb ${args.join(' ')} exited ${result.exitCode}${stderr == null ? "" : ": $stderr"}',
         'exitCode=${result.exitCode}',
       );
     }
@@ -940,7 +957,7 @@ class AndroidReverseAdbClient {
       await drainOutput();
       final stdout = stdoutBuffer.toString();
       var stderr = stderrBuffer.toString();
-      if (timedOut && stderr.trim().isEmpty) {
+      if (timedOut && nullIfBlank(stderr) == null) {
         stderr = 'ADB command timed out before completion.';
       }
       return AdbCommandResult(
@@ -956,12 +973,12 @@ class AndroidReverseAdbClient {
       await stderrSub?.cancel();
       silentLog(_kTag, 'adb ${args.join(' ')} failed', e, st);
       final stdout = stdoutBuffer.toString();
-      final stderr = stderrBuffer.toString().trim();
+      final stderr = nullIfBlank(stderrBuffer.toString());
       return AdbCommandResult(
         args: List<String>.unmodifiable(args),
         exitCode: -1,
         stdout: stdout,
-        stderr: stderr.isEmpty ? '$e' : '$stderr\n$e',
+        stderr: stderr == null ? '$e' : '$stderr\n$e',
       );
     }
   }
@@ -978,8 +995,8 @@ class AndroidReverseAdbClient {
   }
 
   List<String>? _shellCommandArgs(String command) {
-    final trimmed = command.trim();
-    if (trimmed.isEmpty) return null;
+    final trimmed = nullIfBlank(command);
+    if (trimmed == null) return null;
     final wrapped = trimmed.endsWith('\nexit') || trimmed.endsWith('\nexit\n')
         ? trimmed
         : '$trimmed\nexit';
@@ -1020,16 +1037,16 @@ class AndroidReverseAdbClient {
   }
 
   bool _looksLikePackageName(String value) {
-    final packageName = value.trim();
-    if (packageName.length > 220) return false;
+    final packageName = nullIfBlank(value);
+    if (packageName == null || packageName.length > 220) return false;
     return RegExp(
       r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$',
     ).hasMatch(packageName);
   }
 
   bool _looksLikeActivityComponent(String value) {
-    final component = value.trim();
-    if (component.length > 320) return false;
+    final component = nullIfBlank(value);
+    if (component == null || component.length > 320) return false;
     return RegExp(
       r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+/(\.[A-Za-z0-9_.$]+|[A-Za-z][A-Za-z0-9_.$]*)$',
     ).hasMatch(component);
@@ -1057,16 +1074,17 @@ class AndroidReverseAdbClient {
   }
 
   String? _firstPidFromText(String? raw) {
-    if (raw == null) return null;
-    final match = RegExp(r'\b\d+\b').firstMatch(raw);
+    final text = nullIfBlank(raw);
+    if (text == null) return null;
+    final match = RegExp(r'\b\d+\b').firstMatch(text);
     return match?.group(0);
   }
 
   String _combineAdbErrors(List<AdbCommandResult> results) {
     final errors = <String>{};
     for (final result in results) {
-      final stderr = result.stderr.trim();
-      if (stderr.isNotEmpty) {
+      final stderr = nullIfBlank(result.stderr);
+      if (stderr != null) {
         errors.add(stderr);
       }
     }
@@ -1074,7 +1092,7 @@ class AndroidReverseAdbClient {
   }
 
   String _normalizeLogcatLevel(String? raw) {
-    final value = (raw ?? 'V').trim().toUpperCase();
+    final value = (nullIfBlank(raw) ?? 'V').toUpperCase();
     return const <String>{'V', 'D', 'I', 'W', 'E', 'F'}.contains(value)
         ? value
         : 'V';
@@ -1093,14 +1111,15 @@ class AndroidReverseAdbClient {
         output.contains('exception') ||
         output.contains('unable to resolve intent');
     if (!launchCompleted || launchFailed) return result;
-    final warning = result.stderr.trim().isEmpty
+    final stderr = nullIfBlank(result.stderr);
+    final warning = stderr == null
         ? 'ADB shell did not close after launch output; treated as success from stdout.'
-        : '${result.stderr.trim()}\nADB shell did not close after launch output; treated as success from stdout.';
+        : '$stderr\nADB shell did not close after launch output; treated as success from stdout.';
     return result.copyWith(exitCode: 0, stderr: warning, timedOut: false);
   }
 
   String _remoteParent(String path) {
-    final normalized = path.trim();
+    final normalized = nullIfBlank(path) ?? '';
     final slash = normalized.lastIndexOf('/');
     if (slash <= 0) return '/sdcard';
     return normalized.substring(0, slash);

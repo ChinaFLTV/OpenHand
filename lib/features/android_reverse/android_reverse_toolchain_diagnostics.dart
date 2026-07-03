@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../../app/support/safe_subprocess.dart';
+import '../../shared/util/input_value_parsing.dart';
 
 const Duration _kToolchainProbeTimeout = Duration(seconds: 5);
 const Duration _kToolchainCommandTimeout = Duration(minutes: 10);
@@ -44,7 +45,8 @@ class AndroidReverseToolchainCommandResult {
   final bool timedOut;
 
   bool get ok => exitCode == 0 && !timedOut;
-  bool get hasOutput => stdout.trim().isNotEmpty || stderr.trim().isNotEmpty;
+  bool get hasOutput =>
+      nullIfBlank(stdout) != null || nullIfBlank(stderr) != null;
 }
 
 class AndroidReverseToolchainProbe {
@@ -96,13 +98,12 @@ class AndroidReverseToolchainProbeResult {
   final String stderr;
   final int durationMs;
 
-  bool get ok => exitCode == 0 && stdout.trim().isNotEmpty;
+  bool get ok => exitCode == 0 && nullIfBlank(stdout) != null;
 
   String get displayValue {
-    final text = stdout.trim();
-    if (text.isNotEmpty) return text;
-    final err = stderr.trim();
-    return err.isEmpty ? 'NOT_FOUND' : err;
+    final text = nullIfBlank(stdout);
+    if (text != null) return text;
+    return nullIfBlank(stderr) ?? 'NOT_FOUND';
   }
 
   String installHint(bool isZh) =>
@@ -318,8 +319,8 @@ Future<AndroidReverseToolchainCommandResult> runAndroidReverseToolchainCommand(
   AndroidReverseToolchainProbe probe,
   AndroidReverseToolchainCommandAction action,
 ) async {
-  final command = probe.commandFor(action)?.trim() ?? '';
-  if (command.isEmpty) {
+  final command = nullIfBlank(probe.commandFor(action));
+  if (command == null) {
     return AndroidReverseToolchainCommandResult(
       probe: probe,
       action: action,
@@ -356,8 +357,8 @@ Future<AndroidReverseToolchainCommandResult> runAndroidReverseToolchainCommand(
     final stderr = result.stderr.toString();
     final timedOut =
         result.exitCode == -1 &&
-        stdout.trim().isEmpty &&
-        stderr.trim().isEmpty &&
+        nullIfBlank(stdout) == null &&
+        nullIfBlank(stderr) == null &&
         sw.elapsed >= _kToolchainCommandTimeout;
     return AndroidReverseToolchainCommandResult(
       probe: probe,
