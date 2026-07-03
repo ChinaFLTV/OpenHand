@@ -1,3 +1,8 @@
+const int _minHourOfDay = 0;
+const int _maxHourOfDay = 23;
+const int _minMinuteOfHour = 0;
+const int _maxMinuteOfHour = 59;
+
 String twoDigit(int value) => value.toString().padLeft(2, '0');
 
 String threeDigit(int value) => value.toString().padLeft(3, '0');
@@ -9,7 +14,7 @@ String formatHourMinute(DateTime value) {
 }
 
 String formatHourMinuteParts({required int hour, required int minute}) {
-  return '${twoDigit(hour.clamp(0, 23))}:${twoDigit(minute.clamp(0, 59))}';
+  return '${twoDigit(_clampHour(hour))}:${twoDigit(_clampMinute(minute))}';
 }
 
 ({int hour, int minute}) parseHourMinuteOfDay(
@@ -17,8 +22,8 @@ String formatHourMinuteParts({required int hour, required int minute}) {
   int fallbackHour = 0,
   int fallbackMinute = 0,
 }) {
-  final safeFallbackHour = fallbackHour.clamp(0, 23);
-  final safeFallbackMinute = fallbackMinute.clamp(0, 59);
+  final safeFallbackHour = _clampHour(fallbackHour);
+  final safeFallbackMinute = _clampMinute(fallbackMinute);
   final value = raw.trim();
   final colon = value.indexOf(':');
   if (colon <= 0 || colon >= value.length - 1) {
@@ -29,8 +34,12 @@ String formatHourMinuteParts({required int hour, required int minute}) {
   if (hour == null || minute == null) {
     return (hour: safeFallbackHour, minute: safeFallbackMinute);
   }
-  return (hour: hour.clamp(0, 23), minute: minute.clamp(0, 59));
+  return (hour: _clampHour(hour), minute: _clampMinute(minute));
 }
+
+int _clampHour(int value) => value.clamp(_minHourOfDay, _maxHourOfDay);
+
+int _clampMinute(int value) => value.clamp(_minMinuteOfHour, _maxMinuteOfHour);
 
 String normalizeHourMinuteOfDay(
   String raw, {
