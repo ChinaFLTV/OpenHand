@@ -26,6 +26,7 @@ import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/structured_text_format.dart';
 import '../../thread_template_runtime/index.dart';
@@ -6678,11 +6679,7 @@ Object? _displayedSchemaMetadata({
 }
 
 bool _readBoolFlag(Object? value) {
-  if (value is bool) {
-    return value;
-  }
-  final text = _readText(value).toLowerCase();
-  return text == 'true' || text == '1' || text == 'yes';
+  return boolFromValue(value);
 }
 
 String? _firstNonEmptyText(Map<String, Object?> source, List<String> keys) {
