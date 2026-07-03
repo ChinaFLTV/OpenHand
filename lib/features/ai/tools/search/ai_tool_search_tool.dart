@@ -81,9 +81,12 @@ class AiToolSearchTool extends AiTool {
         catalogDefinitions == null || catalogDefinitions.isEmpty
         ? deferredToolDefinitions
         : catalogDefinitions;
-    final deferred = definitionsByName.isEmpty
-        ? deferredToolNames
-        : definitionsByName.keys.toList(growable: false);
+    final deferred =
+        (definitionsByName.isEmpty
+                ? deferredToolNames
+                : definitionsByName.keys.toList(growable: false))
+            .toList(growable: false)
+          ..sort(_compareToolNames);
     if (deferred.isEmpty) {
       return AiToolUtils.simpleSuccessResult(
         command: 'ToolSearch query=$query',
@@ -110,7 +113,6 @@ class AiToolSearchTool extends AiTool {
         ..add(
           'ToolSearch matched 0 of ${deferred.length} deferred runtime tool(s).',
         )
-        ..add('query: $query')
         ..add('')
         ..add(
           'No deferred tool matched. Try different keywords, or list a name '
@@ -122,7 +124,6 @@ class AiToolSearchTool extends AiTool {
           'ToolSearch loaded ${matches.length} of ${deferred.length} '
           'deferred runtime tool(s).',
         )
-        ..add('query: $query')
         ..add('loaded: ${matches.join(', ')}')
         ..add('')
         ..add(
@@ -174,6 +175,7 @@ class AiToolSearchTool extends AiTool {
         if (hit != null && !found.contains(hit)) found.add(hit);
         if (found.length >= maxResults) break;
       }
+      found.sort(_compareToolNames);
       return found;
     }
 
@@ -239,8 +241,16 @@ class AiToolSearchTool extends AiTool {
       }
       if (score > 0) scored.add(_ScoredToolMatch(name, score));
     }
-    scored.sort((a, b) => b.score.compareTo(a.score));
+    scored.sort((a, b) {
+      final scoreCompare = b.score.compareTo(a.score);
+      if (scoreCompare != 0) return scoreCompare;
+      return _compareToolNames(a.name, b.name);
+    });
     return scored.take(maxResults).map((s) => s.name).toList(growable: false);
+  }
+
+  static int _compareToolNames(String left, String right) {
+    return compareToolNamesForAiRequest(left, right);
   }
 
   static bool _matchesWord(String haystack, String term) {
@@ -254,12 +264,12 @@ class AiToolSearchTool extends AiTool {
       final stripped = name.substring(5).toLowerCase();
       final parts = stripped
           .split('__')
-          .expand((p) => p.split('_'))
+          .expand((p) => p.split(RegExp(r'[_-]+')))
           .where((p) => p.isNotEmpty)
           .toList(growable: false);
       return _ParsedToolName(
         parts: parts,
-        full: stripped.replaceAll('__', ' ').replaceAll('_', ' '),
+        full: stripped.replaceAll('__', ' ').replaceAll(RegExp(r'[_-]+'), ' '),
         isMcp: true,
       );
     }
@@ -268,7 +278,7 @@ class AiToolSearchTool extends AiTool {
           RegExp(r'([a-z])([A-Z])'),
           (m) => '${m.group(1)} ${m.group(2)}',
         )
-        .replaceAll('_', ' ')
+        .replaceAll(RegExp(r'[_-]+'), ' ')
         .toLowerCase()
         .split(RegExp(r'\s+'))
         .where((p) => p.isNotEmpty)
@@ -285,10 +295,11 @@ class AiToolSearchTool extends AiTool {
     for (final n in names) {
       final def = definitionsByName[n];
       if (def == null) continue;
+      final stableDef = stableToolDefinitionForAiRequest(def);
       final entry = jsonEncode(<String, Object?>{
-        'name': def.name,
-        'description': def.description,
-        'parameters': def.parameters,
+        'name': stableDef.name,
+        'description': stableDef.description,
+        'parameters': stableDef.parameters,
       });
       buffer
         ..write('<function>')

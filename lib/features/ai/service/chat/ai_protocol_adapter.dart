@@ -782,30 +782,38 @@ bool? _profileInlineImageSupport(AiModelConfig model) {
   return null;
 }
 
-List<AiToolDefinition> _stableToolDefinitions(List<AiToolDefinition> tools) {
-  final sorted = tools.map(_stableToolDefinition).toList(growable: false);
+List<AiToolDefinition> stableToolDefinitionsForAiRequest(
+  List<AiToolDefinition> tools,
+) {
+  final sorted = tools
+      .map(stableToolDefinitionForAiRequest)
+      .toList(growable: false);
   if (sorted.length <= 1) {
     return sorted;
   }
   sorted.sort((a, b) {
-    final byName = _normalizeToolNameForRequest(
-      a.name,
-    ).compareTo(_normalizeToolNameForRequest(b.name));
-    if (byName != 0) return byName;
-    return a.name.compareTo(b.name);
+    return compareToolNamesForAiRequest(a.name, b.name);
   });
   return sorted;
 }
 
-AiToolDefinition _stableToolDefinition(AiToolDefinition tool) {
+int compareToolNamesForAiRequest(String left, String right) {
+  final byName = _normalizeToolNameForRequest(
+    left,
+  ).compareTo(_normalizeToolNameForRequest(right));
+  if (byName != 0) return byName;
+  return left.compareTo(right);
+}
+
+AiToolDefinition stableToolDefinitionForAiRequest(AiToolDefinition tool) {
   return AiToolDefinition(
     name: tool.name,
     description: tool.description,
-    parameters: _stableJsonObject(tool.parameters),
+    parameters: stableJsonObjectForAiRequest(tool.parameters),
   );
 }
 
-Map<String, Object?> _stableJsonObject(Map<String, Object?> value) {
+Map<String, Object?> stableJsonObjectForAiRequest(Map<String, Object?> value) {
   return Map<String, Object?>.unmodifiable(
     _stableJsonValue(value) as Map<String, Object?>,
   );
@@ -888,7 +896,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     bool stream = false,
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
-    final stableTools = _stableToolDefinitions(tools);
+    final stableTools = stableToolDefinitionsForAiRequest(tools);
     final systemPartition = _partitionLeadingSystemTurns(
       messages,
       preserveToolExchangeSystemReminders: true,
@@ -1540,7 +1548,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
 
     Object? toolsPayload;
     if (tools.isNotEmpty) {
-      final toolJson = _stableToolDefinitions(
+      final toolJson = stableToolDefinitionsForAiRequest(
         tools,
       ).map((item) => item.toClaudeJson()).toList(growable: false);
       if (cacheEnabled && remainingBreakpoints > 0 && toolJson.isNotEmpty) {
@@ -2086,7 +2094,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
       if (tools.isNotEmpty)
         'tools': <Map<String, Object?>>[
           <String, Object?>{
-            'functionDeclarations': _stableToolDefinitions(tools)
+            'functionDeclarations': stableToolDefinitionsForAiRequest(tools)
                 .map(
                   (item) => <String, Object?>{
                     'name': item.name,
