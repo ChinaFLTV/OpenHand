@@ -434,10 +434,15 @@ async function speakWithBrowserSystem(
 
   return new Promise<void>((resolve, reject) => {
     let settled = false;
+    const cleanupUtterance = () => {
+      utterance.onend = null;
+      utterance.onerror = null;
+    };
     const finish = (error?: unknown) => {
       if (settled) return;
       settled = true;
       clearSpeechTimer();
+      cleanupUtterance();
       if (generation === speechGeneration) {
         emitPlaybackState({ playing: false, messageId: null, provider: null });
       }
@@ -452,12 +457,12 @@ async function speakWithBrowserSystem(
       finish(new Error(reason));
     };
     speechTimeout = window.setTimeout(() => {
+      finish(new Error('Speech synthesis timed out.'));
       try {
         window.speechSynthesis.cancel();
       } catch {
         // Ignore; timeout still ends this attempt.
       }
-      finish(new Error('Speech synthesis timed out.'));
     }, timeoutMs);
     emitPlaybackState({ playing: true, messageId, provider });
     try {
