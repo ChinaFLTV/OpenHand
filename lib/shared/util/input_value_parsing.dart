@@ -15,16 +15,21 @@ final RegExp _looseDelimitedValueSeparator = RegExp(r'[\s,，;；]+');
   }
 }
 
-List<String> splitTrimmedNonEmpty(String value, {Pattern separator = ','}) {
+List<String> splitTrimmed(String value, {Pattern separator = ','}) {
   if (separator is String && separator.isEmpty) {
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? const <String>[] : <String>[trimmed];
+    return <String>[value.trim()];
   }
   return value
       .split(separator)
       .map((item) => item.trim())
-      .where((item) => item.isNotEmpty)
       .toList(growable: false);
+}
+
+List<String> splitTrimmedNonEmpty(String value, {Pattern separator = ','}) {
+  return splitTrimmed(
+    value,
+    separator: separator,
+  ).where((item) => item.isNotEmpty).toList(growable: false);
 }
 
 List<String> splitLooseDelimitedValues(String value) {

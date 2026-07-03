@@ -18,6 +18,9 @@ class AiReadTool extends AiTool {
 
   static const int _maxPdfPageRangeCount = 20;
   static const String _macScreenshotThinSpace = '\u202f';
+  static final RegExp _pdfPageRangePattern = RegExp(
+    r'^(\d+)(?:\s*-\s*(\d+))?$',
+  );
 
   static const String _unchangedSinceLastReadMessage =
       'File unchanged since last read. The content from the earlier Read tool result in this conversation is still current; refer to that result instead of re-reading.';
@@ -299,11 +302,11 @@ class AiReadTool extends AiTool {
 
     final pages = <int>{};
     for (final segment in segments) {
-      final part = segment.trim();
-      if (part.isEmpty) {
+      final part = nullIfBlank(segment);
+      if (part == null) {
         return _invalidPdfPages(raw);
       }
-      final rangeMatch = RegExp(r'^(\d+)(?:\s*-\s*(\d+))?$').firstMatch(part);
+      final rangeMatch = _pdfPageRangePattern.firstMatch(part);
       if (rangeMatch == null) {
         return _invalidPdfPages(raw);
       }
@@ -330,7 +333,7 @@ class AiReadTool extends AiTool {
   }
 
   String _pdfPagesRawLabel(Object rawPages) {
-    if (rawPages is String) return rawPages.trim();
+    if (rawPages is String) return nullIfBlank(rawPages) ?? '';
     if (rawPages is Iterable) {
       return rawPages.map(_pdfPageRangeSegmentText).join(',').trim();
     }
@@ -342,14 +345,11 @@ class AiReadTool extends AiTool {
       return rawPages.map(_pdfPageRangeSegmentText).toList(growable: false);
     }
     if (rawPages is String) {
-      final trimmed = rawPages.trim();
-      if (trimmed.isEmpty) return const <String>[];
+      final trimmed = nullIfBlank(rawPages);
+      if (trimmed == null) return const <String>[];
       final jsonList = _pdfPageRangeSegmentsFromJsonList(trimmed);
       if (jsonList != null) return jsonList;
-      return trimmed
-          .split(',')
-          .map((part) => part.trim())
-          .toList(growable: false);
+      return splitTrimmed(trimmed);
     }
     return <String>[_pdfPageRangeSegmentText(rawPages)];
   }

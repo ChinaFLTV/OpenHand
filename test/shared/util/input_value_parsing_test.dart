@@ -124,6 +124,24 @@ void main() {
     });
   });
 
+  group('splitTrimmed', () {
+    test('trims entries while preserving empty delimiter gaps', () {
+      expect(splitTrimmed(' alpha, , beta ,'), <String>[
+        'alpha',
+        '',
+        'beta',
+        '',
+      ]);
+    });
+
+    test('treats an empty string separator as one trimmed item', () {
+      expect(splitTrimmed('  alpha,beta  ', separator: ''), <String>[
+        'alpha,beta',
+      ]);
+      expect(splitTrimmed('   ', separator: ''), <String>['']);
+    });
+  });
+
   group('splitLooseDelimitedValues', () {
     test('splits comma, Chinese punctuation, semicolon, and whitespace', () {
       expect(
