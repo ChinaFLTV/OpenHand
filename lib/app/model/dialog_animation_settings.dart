@@ -1,52 +1,66 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 /// Available dialog entrance / exit animation styles.
 enum DialogAnimationStyle {
   /// No animation — dialogs appear and disappear instantly.
-  none('none', 'None', '无动画'),
+  none('none'),
 
   /// Plain opacity-only transition.
-  fade('fade', 'Fade', '淡入淡出'),
+  fade('fade'),
 
   /// Classic Material fade + scale from center.
-  fadeScale('fade_scale', 'Fade & Scale', '渐显缩放'),
+  fadeScale('fade_scale'),
 
   /// Slide up from the bottom with fade.
-  slideUp('slide_up', 'Slide Up', '底部上滑'),
+  slideUp('slide_up'),
 
   /// Slide down from the top with fade.
-  slideDown('slide_down', 'Slide Down', '顶部下滑'),
+  slideDown('slide_down'),
 
   /// Slide in from the left with fade — perfect for in-row chips.
-  slideLeft('slide_left', 'Slide Left', '左侧滑入'),
+  slideLeft('slide_left'),
 
   /// Slide in from the right with fade — perfect for in-row chips.
-  slideRight('slide_right', 'Slide Right', '右侧滑入'),
+  slideRight('slide_right'),
 
   /// Expands from center outward (scale + fade).
-  expand('expand', 'Expand', '中心展开'),
+  expand('expand'),
 
   /// Rotates in with scale (3D feel).
-  rotateScale('rotate_scale', 'Rotate & Scale', '旋转缩放'),
+  rotateScale('rotate_scale'),
 
   /// Elastic / bouncy scale entrance.
-  elastic('elastic', 'Elastic', '弹性动画'),
+  elastic('elastic'),
 
   /// Spring scale — Q-bouncy overshoot scale entrance with fade.
-  springScale('spring_scale', 'Spring Scale', '弹簧缩放'),
+  springScale('spring_scale'),
 
   /// 3D X-axis flip with fade — cinematic card flip.
-  flipX('flip_x', 'Flip X', 'X 轴翻转');
+  flipX('flip_x');
 
-  const DialogAnimationStyle(this.storageValue, this.labelEn, this.labelZh);
+  const DialogAnimationStyle(this.storageValue);
 
   final String storageValue;
-  final String labelEn;
-  final String labelZh;
 
-  String label(bool isZh) => isZh ? labelZh : labelEn;
+  String label(AppLocalizations l10n) {
+    return switch (this) {
+      DialogAnimationStyle.none => l10n.dialogAnimationStyleNone,
+      DialogAnimationStyle.fade => l10n.dialogAnimationStyleFade,
+      DialogAnimationStyle.fadeScale => l10n.dialogAnimationStyleFadeScale,
+      DialogAnimationStyle.slideUp => l10n.dialogAnimationStyleSlideUp,
+      DialogAnimationStyle.slideDown => l10n.dialogAnimationStyleSlideDown,
+      DialogAnimationStyle.slideLeft => l10n.dialogAnimationStyleSlideLeft,
+      DialogAnimationStyle.slideRight => l10n.dialogAnimationStyleSlideRight,
+      DialogAnimationStyle.expand => l10n.dialogAnimationStyleExpand,
+      DialogAnimationStyle.rotateScale => l10n.dialogAnimationStyleRotateScale,
+      DialogAnimationStyle.elastic => l10n.dialogAnimationStyleElastic,
+      DialogAnimationStyle.springScale => l10n.dialogAnimationStyleSpringScale,
+      DialogAnimationStyle.flipX => l10n.dialogAnimationStyleFlipX,
+    };
+  }
 
   static DialogAnimationStyle fromStorage(String? value) {
     final normalizedValue = nullIfBlank(value);
@@ -59,25 +73,31 @@ enum DialogAnimationStyle {
 
 /// Available easing curves for dialog transitions.
 enum DialogAnimationCurve {
-  easeInOut('ease_in_out', 'Ease In-Out', '缓入缓出'),
-  easeOut('ease_out', 'Ease Out', '缓出'),
-  easeOutCubic('ease_out_cubic', 'Ease Out Cubic', '缓出三次'),
-  easeInOutCubicEmphasized(
-    'ease_in_out_cubic_emphasized',
-    'Cubic Emphasized',
-    '三次加强',
-  ),
-  elasticOut('elastic_out', 'Elastic Out', '弹性缓出'),
-  bounceOut('bounce_out', 'Bounce Out', '弹跳'),
-  decelerate('decelerate', 'Decelerate', '减速');
+  easeInOut('ease_in_out'),
+  easeOut('ease_out'),
+  easeOutCubic('ease_out_cubic'),
+  easeInOutCubicEmphasized('ease_in_out_cubic_emphasized'),
+  elasticOut('elastic_out'),
+  bounceOut('bounce_out'),
+  decelerate('decelerate');
 
-  const DialogAnimationCurve(this.storageValue, this.labelEn, this.labelZh);
+  const DialogAnimationCurve(this.storageValue);
 
   final String storageValue;
-  final String labelEn;
-  final String labelZh;
 
-  String label(bool isZh) => isZh ? labelZh : labelEn;
+  String label(AppLocalizations l10n) {
+    return switch (this) {
+      DialogAnimationCurve.easeInOut => l10n.dialogAnimationCurveEaseInOut,
+      DialogAnimationCurve.easeOut => l10n.dialogAnimationCurveEaseOut,
+      DialogAnimationCurve.easeOutCubic =>
+        l10n.dialogAnimationCurveEaseOutCubic,
+      DialogAnimationCurve.easeInOutCubicEmphasized =>
+        l10n.dialogAnimationCurveEaseInOutCubicEmphasized,
+      DialogAnimationCurve.elasticOut => l10n.dialogAnimationCurveElasticOut,
+      DialogAnimationCurve.bounceOut => l10n.dialogAnimationCurveBounceOut,
+      DialogAnimationCurve.decelerate => l10n.dialogAnimationCurveDecelerate,
+    };
+  }
 
   Curve get curve => switch (this) {
     DialogAnimationCurve.easeInOut => Curves.easeInOut,

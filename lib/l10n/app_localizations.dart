@@ -2846,6 +2846,264 @@ abstract class AppLocalizations {
   /// **'关闭提示'**
   String get settingsPersistenceDismiss;
 
+  /// No description provided for @settingsAnimationRestoreDefaultsTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'恢复默认动画'**
+  String get settingsAnimationRestoreDefaultsTitle;
+
+  /// No description provided for @settingsAnimationRestoreDefaultsSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'一键将弹窗、菜单、页面 / 模块、工作区面板、胶囊、列表项这六组动画的进场 / 退场风格、时长、速率曲线全部重置为 OpenHand 推荐的默认值。'**
+  String get settingsAnimationRestoreDefaultsSubtitle;
+
+  /// No description provided for @settingsAnimationRestoreDefaultsButton.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'恢复默认'**
+  String get settingsAnimationRestoreDefaultsButton;
+
+  /// No description provided for @settingsAnimationRestoreConfirmTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'恢复默认动画？'**
+  String get settingsAnimationRestoreConfirmTitle;
+
+  /// No description provided for @settingsAnimationRestoreConfirmMessage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'将把弹窗、菜单、页面 / 模块、工作区面板、胶囊、列表项六组动画全部重置为默认值，已自定义的设置会被覆盖，此操作不可撤销。'**
+  String get settingsAnimationRestoreConfirmMessage;
+
+  /// No description provided for @settingsAnimationRestoreConfirm.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'恢复'**
+  String get settingsAnimationRestoreConfirm;
+
+  /// No description provided for @settingsAnimationRestoreSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已恢复默认动画设置'**
+  String get settingsAnimationRestoreSuccess;
+
+  /// No description provided for @settingsAnimationRestorePartialFailure.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'部分设置保存失败，请重试'**
+  String get settingsAnimationRestorePartialFailure;
+
+  /// No description provided for @settingsDialogAnimationTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'弹窗动画'**
+  String get settingsDialogAnimationTitle;
+
+  /// No description provided for @settingsDialogAnimationSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'配置全局弹窗的进场动画、退场动画、时长和速率曲线。'**
+  String get settingsDialogAnimationSubtitle;
+
+  /// No description provided for @settingsMenuAnimationTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'菜单动画'**
+  String get settingsMenuAnimationTitle;
+
+  /// No description provided for @settingsMenuAnimationSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'配置弹出菜单、右键菜单和下拉菜单的进场动画、退场动画、时长和速率曲线。'**
+  String get settingsMenuAnimationSubtitle;
+
+  /// No description provided for @settingsPanelAnimationTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工作区面板动画'**
+  String get settingsPanelAnimationTitle;
+
+  /// No description provided for @settingsPanelAnimationSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'配置工作区左右面板切换的进场动画、退场动画、时长和速率曲线，例如左侧导航与文件浏览器切换、右侧会话与代码编辑器切换。Settings、MCP、记忆等右侧模块页面切换由“页面动画”控制。'**
+  String get settingsPanelAnimationSubtitle;
+
+  /// No description provided for @settingsPageAnimationTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'页面 / 模块动画'**
+  String get settingsPageAnimationTitle;
+
+  /// No description provided for @settingsPageAnimationSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、Hooks、Crons、技能、自动化等页面之间的切换。'**
+  String get settingsPageAnimationSubtitle;
+
+  /// No description provided for @settingsChipAnimationTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'胶囊动画'**
+  String get settingsChipAnimationTitle;
+
+  /// No description provided for @settingsChipAnimationSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'配置技能、附件、项目引用、队列消息、编辑提示等所有可关闭胶囊（chip）的进场 / 退场动画样式、时长和速率曲线。点击叉号关闭时会先播放退场动效再从布局中移除。'**
+  String get settingsChipAnimationSubtitle;
+
+  /// No description provided for @settingsListItemAnimationTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'列表项动画'**
+  String get settingsListItemAnimationTitle;
+
+  /// No description provided for @settingsListItemAnimationSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'配置 MCP 服务器、记忆条目、指令卡片、左侧导航会话、工具调用卡片等列表项的进场动画样式与时长。设置为「无」则禁用列表项进场动画。'**
+  String get settingsListItemAnimationSubtitle;
+
+  /// No description provided for @settingsAnimationEnter.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'进场'**
+  String get settingsAnimationEnter;
+
+  /// No description provided for @settingsAnimationExit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'退场'**
+  String get settingsAnimationExit;
+
+  /// No description provided for @settingsAnimationDuration.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'时长'**
+  String get settingsAnimationDuration;
+
+  /// No description provided for @settingsAnimationCurve.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'曲线'**
+  String get settingsAnimationCurve;
+
+  /// No description provided for @dialogAnimationStyleNone.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无动画'**
+  String get dialogAnimationStyleNone;
+
+  /// No description provided for @dialogAnimationStyleFade.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'淡入淡出'**
+  String get dialogAnimationStyleFade;
+
+  /// No description provided for @dialogAnimationStyleFadeScale.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'渐显缩放'**
+  String get dialogAnimationStyleFadeScale;
+
+  /// No description provided for @dialogAnimationStyleSlideUp.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'底部上滑'**
+  String get dialogAnimationStyleSlideUp;
+
+  /// No description provided for @dialogAnimationStyleSlideDown.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'顶部下滑'**
+  String get dialogAnimationStyleSlideDown;
+
+  /// No description provided for @dialogAnimationStyleSlideLeft.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'左侧滑入'**
+  String get dialogAnimationStyleSlideLeft;
+
+  /// No description provided for @dialogAnimationStyleSlideRight.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'右侧滑入'**
+  String get dialogAnimationStyleSlideRight;
+
+  /// No description provided for @dialogAnimationStyleExpand.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'中心展开'**
+  String get dialogAnimationStyleExpand;
+
+  /// No description provided for @dialogAnimationStyleRotateScale.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'旋转缩放'**
+  String get dialogAnimationStyleRotateScale;
+
+  /// No description provided for @dialogAnimationStyleElastic.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'弹性动画'**
+  String get dialogAnimationStyleElastic;
+
+  /// No description provided for @dialogAnimationStyleSpringScale.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'弹簧缩放'**
+  String get dialogAnimationStyleSpringScale;
+
+  /// No description provided for @dialogAnimationStyleFlipX.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'X 轴翻转'**
+  String get dialogAnimationStyleFlipX;
+
+  /// No description provided for @dialogAnimationCurveEaseInOut.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓入缓出'**
+  String get dialogAnimationCurveEaseInOut;
+
+  /// No description provided for @dialogAnimationCurveEaseOut.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓出'**
+  String get dialogAnimationCurveEaseOut;
+
+  /// No description provided for @dialogAnimationCurveEaseOutCubic.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓出三次'**
+  String get dialogAnimationCurveEaseOutCubic;
+
+  /// No description provided for @dialogAnimationCurveEaseInOutCubicEmphasized.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'三次加强'**
+  String get dialogAnimationCurveEaseInOutCubicEmphasized;
+
+  /// No description provided for @dialogAnimationCurveElasticOut.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'弹性缓出'**
+  String get dialogAnimationCurveElasticOut;
+
+  /// No description provided for @dialogAnimationCurveBounceOut.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'弹跳'**
+  String get dialogAnimationCurveBounceOut;
+
+  /// No description provided for @dialogAnimationCurveDecelerate.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'减速'**
+  String get dialogAnimationCurveDecelerate;
+
   /// No description provided for @aiModelAdd.
   ///
   /// In zh_Hans, this message translates to:

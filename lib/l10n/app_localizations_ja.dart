@@ -1619,6 +1619,144 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsPersistenceDismiss => '閉じる';
 
   @override
+  String get settingsAnimationRestoreDefaultsTitle => '既定のアニメーションに戻す';
+
+  @override
+  String get settingsAnimationRestoreDefaultsSubtitle =>
+      'ダイアログ、メニュー、ページ/モジュール、ワークスペースパネル、チップ、リスト項目の入場/退場スタイル、時間、カーブを OpenHand 推奨値に戻します。';
+
+  @override
+  String get settingsAnimationRestoreDefaultsButton => '既定に戻す';
+
+  @override
+  String get settingsAnimationRestoreConfirmTitle => '既定のアニメーションに戻しますか？';
+
+  @override
+  String get settingsAnimationRestoreConfirmMessage =>
+      'ダイアログ、メニュー、ページ/モジュール、ワークスペースパネル、チップ、リスト項目のアニメーションをすべて既定値に戻します。カスタム値は上書きされます。';
+
+  @override
+  String get settingsAnimationRestoreConfirm => '戻す';
+
+  @override
+  String get settingsAnimationRestoreSuccess => '既定のアニメーションに戻しました';
+
+  @override
+  String get settingsAnimationRestorePartialFailure =>
+      '一部の設定を保存できませんでした。再試行してください。';
+
+  @override
+  String get settingsDialogAnimationTitle => 'ダイアログアニメーション';
+
+  @override
+  String get settingsDialogAnimationSubtitle =>
+      'すべてのダイアログの入場/退場スタイル、時間、カーブを設定します。';
+
+  @override
+  String get settingsMenuAnimationTitle => 'メニューアニメーション';
+
+  @override
+  String get settingsMenuAnimationSubtitle =>
+      'ポップアップ、コンテキスト、ドロップダウンメニューの入場/退場スタイル、時間、カーブを設定します。';
+
+  @override
+  String get settingsPanelAnimationTitle => 'ワークスペースパネルアニメーション';
+
+  @override
+  String get settingsPanelAnimationSubtitle =>
+      '左側のナビ/ファイル、右側の会話/エディタなど、ワークスペースパネルの切り替えを設定します。右側モジュールはページアニメーションで制御します。';
+
+  @override
+  String get settingsPageAnimationTitle => 'ページ / モジュールアニメーション';
+
+  @override
+  String get settingsPageAnimationSubtitle =>
+      'Workspace、設定、MCP、メモリ、Hooks、Crons、スキル、自動化など、右側メインコンテンツの切り替えを設定します。';
+
+  @override
+  String get settingsChipAnimationTitle => 'チップアニメーション';
+
+  @override
+  String get settingsChipAnimationSubtitle =>
+      '選択スキル、添付、プロジェクト参照、キュー内メッセージ、編集ピルなど、閉じられるチップの入場/退場アニメーションを設定します。';
+
+  @override
+  String get settingsListItemAnimationTitle => 'リスト項目アニメーション';
+
+  @override
+  String get settingsListItemAnimationSubtitle =>
+      'MCP サーバー、メモリ、指示カード、サイドバーのスレッド、ツール呼び出しカードなど、リスト項目の入場アニメーションを設定します。';
+
+  @override
+  String get settingsAnimationEnter => '入場';
+
+  @override
+  String get settingsAnimationExit => '退場';
+
+  @override
+  String get settingsAnimationDuration => '時間';
+
+  @override
+  String get settingsAnimationCurve => 'カーブ';
+
+  @override
+  String get dialogAnimationStyleNone => 'なし';
+
+  @override
+  String get dialogAnimationStyleFade => 'フェード';
+
+  @override
+  String get dialogAnimationStyleFadeScale => 'フェード + スケール';
+
+  @override
+  String get dialogAnimationStyleSlideUp => '下からスライド';
+
+  @override
+  String get dialogAnimationStyleSlideDown => '上からスライド';
+
+  @override
+  String get dialogAnimationStyleSlideLeft => '左からスライド';
+
+  @override
+  String get dialogAnimationStyleSlideRight => '右からスライド';
+
+  @override
+  String get dialogAnimationStyleExpand => '展開';
+
+  @override
+  String get dialogAnimationStyleRotateScale => '回転 + スケール';
+
+  @override
+  String get dialogAnimationStyleElastic => 'エラスティック';
+
+  @override
+  String get dialogAnimationStyleSpringScale => 'スプリングスケール';
+
+  @override
+  String get dialogAnimationStyleFlipX => 'Flip X';
+
+  @override
+  String get dialogAnimationCurveEaseInOut => 'Ease In-Out';
+
+  @override
+  String get dialogAnimationCurveEaseOut => 'Ease Out';
+
+  @override
+  String get dialogAnimationCurveEaseOutCubic => 'Ease Out Cubic';
+
+  @override
+  String get dialogAnimationCurveEaseInOutCubicEmphasized => 'Cubic 強調';
+
+  @override
+  String get dialogAnimationCurveElasticOut => 'Elastic Out';
+
+  @override
+  String get dialogAnimationCurveBounceOut => 'Bounce Out';
+
+  @override
+  String get dialogAnimationCurveDecelerate => '減速';
+
+  @override
   String get aiModelAdd => 'プロバイダーを追加';
 
   @override

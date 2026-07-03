@@ -1657,6 +1657,148 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsPersistenceDismiss => 'Schließen';
 
   @override
+  String get settingsAnimationRestoreDefaultsTitle =>
+      'Animationsvorgaben wiederherstellen';
+
+  @override
+  String get settingsAnimationRestoreDefaultsSubtitle =>
+      'Setzt Eingangs-/Ausgangsstil, Dauer und Kurve für Dialoge, Menüs, Seiten/Module, Arbeitsbereichspanels, Chips und Listenelemente auf die empfohlenen OpenHand-Standardwerte zurück.';
+
+  @override
+  String get settingsAnimationRestoreDefaultsButton =>
+      'Standard wiederherstellen';
+
+  @override
+  String get settingsAnimationRestoreConfirmTitle =>
+      'Standardanimationen wiederherstellen?';
+
+  @override
+  String get settingsAnimationRestoreConfirmMessage =>
+      'Alle Animationen für Dialoge, Menüs, Seiten/Module, Arbeitsbereichspanels, Chips und Listenelemente werden zurückgesetzt. Eigene Werte werden überschrieben.';
+
+  @override
+  String get settingsAnimationRestoreConfirm => 'Wiederherstellen';
+
+  @override
+  String get settingsAnimationRestoreSuccess =>
+      'Animationsvorgaben wiederhergestellt';
+
+  @override
+  String get settingsAnimationRestorePartialFailure =>
+      'Einige Einstellungen konnten nicht gespeichert werden. Bitte erneut versuchen.';
+
+  @override
+  String get settingsDialogAnimationTitle => 'Dialoganimation';
+
+  @override
+  String get settingsDialogAnimationSubtitle =>
+      'Eingangs-/Ausgangsstil, Dauer und Kurve für alle Dialoge konfigurieren.';
+
+  @override
+  String get settingsMenuAnimationTitle => 'Menüanimation';
+
+  @override
+  String get settingsMenuAnimationSubtitle =>
+      'Eingangs-/Ausgangsstil, Dauer und Kurve für Popup-, Kontext- und Dropdown-Menüs konfigurieren.';
+
+  @override
+  String get settingsPanelAnimationTitle => 'Arbeitsbereichspanel-Animation';
+
+  @override
+  String get settingsPanelAnimationSubtitle =>
+      'Übergänge der Arbeitsbereichspanels konfigurieren, etwa Navigation/Dateien links und Unterhaltung/Editor rechts. Rechte Module nutzen die Seitenanimation.';
+
+  @override
+  String get settingsPageAnimationTitle => 'Seiten-/Modulanimation';
+
+  @override
+  String get settingsPageAnimationSubtitle =>
+      'Übergänge des rechten Hauptinhalts konfigurieren, einschließlich Workspace, Einstellungen, MCP, Speicher, Hooks, Crons, Skills und Automatisierungen.';
+
+  @override
+  String get settingsChipAnimationTitle => 'Chip-Animation';
+
+  @override
+  String get settingsChipAnimationSubtitle =>
+      'Eingangs-/Ausgangsanimationen für entfernbare Chips konfigurieren: ausgewählte Skills, Anhänge, Projektreferenzen, Warteschlangen-Nachrichten, Bearbeitungspille usw.';
+
+  @override
+  String get settingsListItemAnimationTitle => 'Listenelement-Animation';
+
+  @override
+  String get settingsListItemAnimationSubtitle =>
+      'Eingangsanimationen für Listenelemente wie MCP-Server, Speichereinträge, Anweisungskarten, Sidebar-Threads und Toolaufruf-Karten konfigurieren.';
+
+  @override
+  String get settingsAnimationEnter => 'Eintritt';
+
+  @override
+  String get settingsAnimationExit => 'Austritt';
+
+  @override
+  String get settingsAnimationDuration => 'Dauer';
+
+  @override
+  String get settingsAnimationCurve => 'Kurve';
+
+  @override
+  String get dialogAnimationStyleNone => 'Keine';
+
+  @override
+  String get dialogAnimationStyleFade => 'Fade';
+
+  @override
+  String get dialogAnimationStyleFadeScale => 'Fade & Skalierung';
+
+  @override
+  String get dialogAnimationStyleSlideUp => 'Nach oben gleiten';
+
+  @override
+  String get dialogAnimationStyleSlideDown => 'Nach unten gleiten';
+
+  @override
+  String get dialogAnimationStyleSlideLeft => 'Nach links gleiten';
+
+  @override
+  String get dialogAnimationStyleSlideRight => 'Nach rechts gleiten';
+
+  @override
+  String get dialogAnimationStyleExpand => 'Expandieren';
+
+  @override
+  String get dialogAnimationStyleRotateScale => 'Drehen & Skalieren';
+
+  @override
+  String get dialogAnimationStyleElastic => 'Elastisch';
+
+  @override
+  String get dialogAnimationStyleSpringScale => 'Feder-Skalierung';
+
+  @override
+  String get dialogAnimationStyleFlipX => 'Flip X';
+
+  @override
+  String get dialogAnimationCurveEaseInOut => 'Ease In-Out';
+
+  @override
+  String get dialogAnimationCurveEaseOut => 'Ease Out';
+
+  @override
+  String get dialogAnimationCurveEaseOutCubic => 'Ease Out Cubic';
+
+  @override
+  String get dialogAnimationCurveEaseInOutCubicEmphasized => 'Cubic betont';
+
+  @override
+  String get dialogAnimationCurveElasticOut => 'Elastic Out';
+
+  @override
+  String get dialogAnimationCurveBounceOut => 'Bounce Out';
+
+  @override
+  String get dialogAnimationCurveDecelerate => 'Verlangsamen';
+
+  @override
   String get aiModelAdd => 'Anbieter hinzufügen';
 
   @override

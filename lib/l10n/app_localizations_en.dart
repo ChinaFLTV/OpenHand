@@ -1647,6 +1647,146 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsPersistenceDismiss => 'Dismiss';
 
   @override
+  String get settingsAnimationRestoreDefaultsTitle =>
+      'Restore Animation Defaults';
+
+  @override
+  String get settingsAnimationRestoreDefaultsSubtitle =>
+      'Reset entrance/exit style, duration, and easing curve for dialog, menu, page/module, workspace panel, chip, and list item animations to OpenHand\'s recommended defaults in one click.';
+
+  @override
+  String get settingsAnimationRestoreDefaultsButton => 'Restore Defaults';
+
+  @override
+  String get settingsAnimationRestoreConfirmTitle =>
+      'Restore default animations?';
+
+  @override
+  String get settingsAnimationRestoreConfirmMessage =>
+      'Dialog, menu, page/module, workspace panel, chip, and list item animations will all be reset to defaults. Customized values will be overwritten and this cannot be undone.';
+
+  @override
+  String get settingsAnimationRestoreConfirm => 'Restore';
+
+  @override
+  String get settingsAnimationRestoreSuccess => 'Animation defaults restored';
+
+  @override
+  String get settingsAnimationRestorePartialFailure =>
+      'Some settings failed to persist, please retry';
+
+  @override
+  String get settingsDialogAnimationTitle => 'Dialog Animation';
+
+  @override
+  String get settingsDialogAnimationSubtitle =>
+      'Configure entrance/exit animation style, duration, and easing curve for all dialogs.';
+
+  @override
+  String get settingsMenuAnimationTitle => 'Menu Animation';
+
+  @override
+  String get settingsMenuAnimationSubtitle =>
+      'Configure entrance/exit animation style, duration, and easing curve for popup menus and context menus.';
+
+  @override
+  String get settingsPanelAnimationTitle => 'Workspace Panel Animation';
+
+  @override
+  String get settingsPanelAnimationSubtitle =>
+      'Configure entrance/exit animation style, duration, and easing curve for workspace panel transitions, such as left navigation/file explorer and right conversation/code editor switches. Settings, MCP, Memory, and other right-side module page switches are controlled by Page Animation.';
+
+  @override
+  String get settingsPageAnimationTitle => 'Page / Module Animation';
+
+  @override
+  String get settingsPageAnimationSubtitle =>
+      'Configure entrance/exit animation style, duration, and easing curve for right-side main content module switches, including Workspace, Settings, MCP, Memory, Hooks, Crons, Skills, and Automations.';
+
+  @override
+  String get settingsChipAnimationTitle => 'Chip Animation';
+
+  @override
+  String get settingsChipAnimationSubtitle =>
+      'Configure entrance/exit animation style, duration, and easing curve for all removable chips (selected skill, attachments, project references, queued messages, editing pill, etc.). Tapping × plays the exit animation before the chip is removed from layout.';
+
+  @override
+  String get settingsListItemAnimationTitle => 'List Item Animation';
+
+  @override
+  String get settingsListItemAnimationSubtitle =>
+      'Configure entrance animation style and duration for list items including MCP servers, memory entries, instruction cards, sidebar threads, and tool-call cards. Set to \"None\" to disable list-item entrance animation entirely.';
+
+  @override
+  String get settingsAnimationEnter => 'Enter';
+
+  @override
+  String get settingsAnimationExit => 'Exit';
+
+  @override
+  String get settingsAnimationDuration => 'Duration';
+
+  @override
+  String get settingsAnimationCurve => 'Curve';
+
+  @override
+  String get dialogAnimationStyleNone => 'None';
+
+  @override
+  String get dialogAnimationStyleFade => 'Fade';
+
+  @override
+  String get dialogAnimationStyleFadeScale => 'Fade & Scale';
+
+  @override
+  String get dialogAnimationStyleSlideUp => 'Slide Up';
+
+  @override
+  String get dialogAnimationStyleSlideDown => 'Slide Down';
+
+  @override
+  String get dialogAnimationStyleSlideLeft => 'Slide Left';
+
+  @override
+  String get dialogAnimationStyleSlideRight => 'Slide Right';
+
+  @override
+  String get dialogAnimationStyleExpand => 'Expand';
+
+  @override
+  String get dialogAnimationStyleRotateScale => 'Rotate & Scale';
+
+  @override
+  String get dialogAnimationStyleElastic => 'Elastic';
+
+  @override
+  String get dialogAnimationStyleSpringScale => 'Spring Scale';
+
+  @override
+  String get dialogAnimationStyleFlipX => 'Flip X';
+
+  @override
+  String get dialogAnimationCurveEaseInOut => 'Ease In-Out';
+
+  @override
+  String get dialogAnimationCurveEaseOut => 'Ease Out';
+
+  @override
+  String get dialogAnimationCurveEaseOutCubic => 'Ease Out Cubic';
+
+  @override
+  String get dialogAnimationCurveEaseInOutCubicEmphasized => 'Cubic Emphasized';
+
+  @override
+  String get dialogAnimationCurveElasticOut => 'Elastic Out';
+
+  @override
+  String get dialogAnimationCurveBounceOut => 'Bounce Out';
+
+  @override
+  String get dialogAnimationCurveDecelerate => 'Decelerate';
+
+  @override
   String get aiModelAdd => 'Add Provider';
 
   @override

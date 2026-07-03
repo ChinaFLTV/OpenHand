@@ -1602,6 +1602,142 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsPersistenceDismiss => '关闭提示';
 
   @override
+  String get settingsAnimationRestoreDefaultsTitle => '恢复默认动画';
+
+  @override
+  String get settingsAnimationRestoreDefaultsSubtitle =>
+      '一键将弹窗、菜单、页面 / 模块、工作区面板、胶囊、列表项这六组动画的进场 / 退场风格、时长、速率曲线全部重置为 OpenHand 推荐的默认值。';
+
+  @override
+  String get settingsAnimationRestoreDefaultsButton => '恢复默认';
+
+  @override
+  String get settingsAnimationRestoreConfirmTitle => '恢复默认动画？';
+
+  @override
+  String get settingsAnimationRestoreConfirmMessage =>
+      '将把弹窗、菜单、页面 / 模块、工作区面板、胶囊、列表项六组动画全部重置为默认值，已自定义的设置会被覆盖，此操作不可撤销。';
+
+  @override
+  String get settingsAnimationRestoreConfirm => '恢复';
+
+  @override
+  String get settingsAnimationRestoreSuccess => '已恢复默认动画设置';
+
+  @override
+  String get settingsAnimationRestorePartialFailure => '部分设置保存失败，请重试';
+
+  @override
+  String get settingsDialogAnimationTitle => '弹窗动画';
+
+  @override
+  String get settingsDialogAnimationSubtitle => '配置全局弹窗的进场动画、退场动画、时长和速率曲线。';
+
+  @override
+  String get settingsMenuAnimationTitle => '菜单动画';
+
+  @override
+  String get settingsMenuAnimationSubtitle =>
+      '配置弹出菜单、右键菜单和下拉菜单的进场动画、退场动画、时长和速率曲线。';
+
+  @override
+  String get settingsPanelAnimationTitle => '工作区面板动画';
+
+  @override
+  String get settingsPanelAnimationSubtitle =>
+      '配置工作区左右面板切换的进场动画、退场动画、时长和速率曲线，例如左侧导航与文件浏览器切换、右侧会话与代码编辑器切换。Settings、MCP、记忆等右侧模块页面切换由“页面动画”控制。';
+
+  @override
+  String get settingsPageAnimationTitle => '页面 / 模块动画';
+
+  @override
+  String get settingsPageAnimationSubtitle =>
+      '配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、Hooks、Crons、技能、自动化等页面之间的切换。';
+
+  @override
+  String get settingsChipAnimationTitle => '胶囊动画';
+
+  @override
+  String get settingsChipAnimationSubtitle =>
+      '配置技能、附件、项目引用、队列消息、编辑提示等所有可关闭胶囊（chip）的进场 / 退场动画样式、时长和速率曲线。点击叉号关闭时会先播放退场动效再从布局中移除。';
+
+  @override
+  String get settingsListItemAnimationTitle => '列表项动画';
+
+  @override
+  String get settingsListItemAnimationSubtitle =>
+      '配置 MCP 服务器、记忆条目、指令卡片、左侧导航会话、工具调用卡片等列表项的进场动画样式与时长。设置为「无」则禁用列表项进场动画。';
+
+  @override
+  String get settingsAnimationEnter => '进场';
+
+  @override
+  String get settingsAnimationExit => '退场';
+
+  @override
+  String get settingsAnimationDuration => '时长';
+
+  @override
+  String get settingsAnimationCurve => '曲线';
+
+  @override
+  String get dialogAnimationStyleNone => '无动画';
+
+  @override
+  String get dialogAnimationStyleFade => '淡入淡出';
+
+  @override
+  String get dialogAnimationStyleFadeScale => '渐显缩放';
+
+  @override
+  String get dialogAnimationStyleSlideUp => '底部上滑';
+
+  @override
+  String get dialogAnimationStyleSlideDown => '顶部下滑';
+
+  @override
+  String get dialogAnimationStyleSlideLeft => '左侧滑入';
+
+  @override
+  String get dialogAnimationStyleSlideRight => '右侧滑入';
+
+  @override
+  String get dialogAnimationStyleExpand => '中心展开';
+
+  @override
+  String get dialogAnimationStyleRotateScale => '旋转缩放';
+
+  @override
+  String get dialogAnimationStyleElastic => '弹性动画';
+
+  @override
+  String get dialogAnimationStyleSpringScale => '弹簧缩放';
+
+  @override
+  String get dialogAnimationStyleFlipX => 'X 轴翻转';
+
+  @override
+  String get dialogAnimationCurveEaseInOut => '缓入缓出';
+
+  @override
+  String get dialogAnimationCurveEaseOut => '缓出';
+
+  @override
+  String get dialogAnimationCurveEaseOutCubic => '缓出三次';
+
+  @override
+  String get dialogAnimationCurveEaseInOutCubicEmphasized => '三次加强';
+
+  @override
+  String get dialogAnimationCurveElasticOut => '弹性缓出';
+
+  @override
+  String get dialogAnimationCurveBounceOut => '弹跳';
+
+  @override
+  String get dialogAnimationCurveDecelerate => '减速';
+
+  @override
   String get aiModelAdd => '新增提供商';
 
   @override
@@ -11901,6 +12037,142 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get settingsPersistenceDismiss => '关闭提示';
+
+  @override
+  String get settingsAnimationRestoreDefaultsTitle => '恢复默认动画';
+
+  @override
+  String get settingsAnimationRestoreDefaultsSubtitle =>
+      '一键将弹窗、菜单、页面 / 模块、工作区面板、胶囊、列表项这六组动画的进场 / 退场风格、时长、速率曲线全部重置为 OpenHand 推荐的默认值。';
+
+  @override
+  String get settingsAnimationRestoreDefaultsButton => '恢复默认';
+
+  @override
+  String get settingsAnimationRestoreConfirmTitle => '恢复默认动画？';
+
+  @override
+  String get settingsAnimationRestoreConfirmMessage =>
+      '将把弹窗、菜单、页面 / 模块、工作区面板、胶囊、列表项六组动画全部重置为默认值，已自定义的设置会被覆盖，此操作不可撤销。';
+
+  @override
+  String get settingsAnimationRestoreConfirm => '恢复';
+
+  @override
+  String get settingsAnimationRestoreSuccess => '已恢复默认动画设置';
+
+  @override
+  String get settingsAnimationRestorePartialFailure => '部分设置保存失败，请重试';
+
+  @override
+  String get settingsDialogAnimationTitle => '弹窗动画';
+
+  @override
+  String get settingsDialogAnimationSubtitle => '配置全局弹窗的进场动画、退场动画、时长和速率曲线。';
+
+  @override
+  String get settingsMenuAnimationTitle => '菜单动画';
+
+  @override
+  String get settingsMenuAnimationSubtitle =>
+      '配置弹出菜单、右键菜单和下拉菜单的进场动画、退场动画、时长和速率曲线。';
+
+  @override
+  String get settingsPanelAnimationTitle => '工作区面板动画';
+
+  @override
+  String get settingsPanelAnimationSubtitle =>
+      '配置工作区左右面板切换的进场动画、退场动画、时长和速率曲线，例如左侧导航与文件浏览器切换、右侧会话与代码编辑器切换。Settings、MCP、记忆等右侧模块页面切换由“页面动画”控制。';
+
+  @override
+  String get settingsPageAnimationTitle => '页面 / 模块动画';
+
+  @override
+  String get settingsPageAnimationSubtitle =>
+      '配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、Hooks、Crons、技能、自动化等页面之间的切换。';
+
+  @override
+  String get settingsChipAnimationTitle => '胶囊动画';
+
+  @override
+  String get settingsChipAnimationSubtitle =>
+      '配置技能、附件、项目引用、队列消息、编辑提示等所有可关闭胶囊（chip）的进场 / 退场动画样式、时长和速率曲线。点击叉号关闭时会先播放退场动效再从布局中移除。';
+
+  @override
+  String get settingsListItemAnimationTitle => '列表项动画';
+
+  @override
+  String get settingsListItemAnimationSubtitle =>
+      '配置 MCP 服务器、记忆条目、指令卡片、左侧导航会话、工具调用卡片等列表项的进场动画样式与时长。设置为「无」则禁用列表项进场动画。';
+
+  @override
+  String get settingsAnimationEnter => '进场';
+
+  @override
+  String get settingsAnimationExit => '退场';
+
+  @override
+  String get settingsAnimationDuration => '时长';
+
+  @override
+  String get settingsAnimationCurve => '曲线';
+
+  @override
+  String get dialogAnimationStyleNone => '无动画';
+
+  @override
+  String get dialogAnimationStyleFade => '淡入淡出';
+
+  @override
+  String get dialogAnimationStyleFadeScale => '渐显缩放';
+
+  @override
+  String get dialogAnimationStyleSlideUp => '底部上滑';
+
+  @override
+  String get dialogAnimationStyleSlideDown => '顶部下滑';
+
+  @override
+  String get dialogAnimationStyleSlideLeft => '左侧滑入';
+
+  @override
+  String get dialogAnimationStyleSlideRight => '右侧滑入';
+
+  @override
+  String get dialogAnimationStyleExpand => '中心展开';
+
+  @override
+  String get dialogAnimationStyleRotateScale => '旋转缩放';
+
+  @override
+  String get dialogAnimationStyleElastic => '弹性动画';
+
+  @override
+  String get dialogAnimationStyleSpringScale => '弹簧缩放';
+
+  @override
+  String get dialogAnimationStyleFlipX => 'X 轴翻转';
+
+  @override
+  String get dialogAnimationCurveEaseInOut => '缓入缓出';
+
+  @override
+  String get dialogAnimationCurveEaseOut => '缓出';
+
+  @override
+  String get dialogAnimationCurveEaseOutCubic => '缓出三次';
+
+  @override
+  String get dialogAnimationCurveEaseInOutCubicEmphasized => '三次加强';
+
+  @override
+  String get dialogAnimationCurveElasticOut => '弹性缓出';
+
+  @override
+  String get dialogAnimationCurveBounceOut => '弹跳';
+
+  @override
+  String get dialogAnimationCurveDecelerate => '减速';
 
   @override
   String get aiModelAdd => '新增提供商';
@@ -22203,6 +22475,142 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsPersistenceDismiss => '關閉提示';
+
+  @override
+  String get settingsAnimationRestoreDefaultsTitle => '恢復預設動畫';
+
+  @override
+  String get settingsAnimationRestoreDefaultsSubtitle =>
+      '一鍵將彈窗、選單、頁面 / 模組、工作區面板、膠囊、列表項這六組動畫的進場 / 退場風格、時長、速率曲線全部重設為 OpenHand 推薦的預設值。';
+
+  @override
+  String get settingsAnimationRestoreDefaultsButton => '恢復預設';
+
+  @override
+  String get settingsAnimationRestoreConfirmTitle => '恢復預設動畫？';
+
+  @override
+  String get settingsAnimationRestoreConfirmMessage =>
+      '將把彈窗、選單、頁面 / 模組、工作區面板、膠囊、列表項六組動畫全部重設為預設值，已自訂的設定會被覆蓋，此操作無法復原。';
+
+  @override
+  String get settingsAnimationRestoreConfirm => '恢復';
+
+  @override
+  String get settingsAnimationRestoreSuccess => '已恢復預設動畫設定';
+
+  @override
+  String get settingsAnimationRestorePartialFailure => '部分設定儲存失敗，請重試';
+
+  @override
+  String get settingsDialogAnimationTitle => '彈窗動畫';
+
+  @override
+  String get settingsDialogAnimationSubtitle => '設定全域彈窗的進場動畫、退場動畫、時長和速率曲線。';
+
+  @override
+  String get settingsMenuAnimationTitle => '選單動畫';
+
+  @override
+  String get settingsMenuAnimationSubtitle =>
+      '設定彈出選單、右鍵選單和下拉選單的進場動畫、退場動畫、時長和速率曲線。';
+
+  @override
+  String get settingsPanelAnimationTitle => '工作區面板動畫';
+
+  @override
+  String get settingsPanelAnimationSubtitle =>
+      '設定工作區左右面板切換的進場動畫、退場動畫、時長和速率曲線，例如左側導覽與檔案瀏覽器切換、右側會話與程式碼編輯器切換。Settings、MCP、記憶等右側模組頁面切換由「頁面動畫」控制。';
+
+  @override
+  String get settingsPageAnimationTitle => '頁面 / 模組動畫';
+
+  @override
+  String get settingsPageAnimationSubtitle =>
+      '設定右側主內容模組切換的進場動畫、退場動畫、時長和速率曲線，包括會話、設定、MCP、記憶、Hooks、Crons、技能、自動化等頁面之間的切換。';
+
+  @override
+  String get settingsChipAnimationTitle => '膠囊動畫';
+
+  @override
+  String get settingsChipAnimationSubtitle =>
+      '設定技能、附件、專案引用、佇列訊息、編輯提示等所有可關閉膠囊（chip）的進場 / 退場動畫樣式、時長和速率曲線。點擊叉號關閉時會先播放退場動效再從版面中移除。';
+
+  @override
+  String get settingsListItemAnimationTitle => '列表項動畫';
+
+  @override
+  String get settingsListItemAnimationSubtitle =>
+      '設定 MCP 伺服器、記憶條目、指令卡片、左側導覽會話、工具呼叫卡片等列表項的進場動畫樣式與時長。設為「無」則停用列表項進場動畫。';
+
+  @override
+  String get settingsAnimationEnter => '進場';
+
+  @override
+  String get settingsAnimationExit => '退場';
+
+  @override
+  String get settingsAnimationDuration => '時長';
+
+  @override
+  String get settingsAnimationCurve => '曲線';
+
+  @override
+  String get dialogAnimationStyleNone => '無動畫';
+
+  @override
+  String get dialogAnimationStyleFade => '淡入淡出';
+
+  @override
+  String get dialogAnimationStyleFadeScale => '漸顯縮放';
+
+  @override
+  String get dialogAnimationStyleSlideUp => '底部上滑';
+
+  @override
+  String get dialogAnimationStyleSlideDown => '頂部下滑';
+
+  @override
+  String get dialogAnimationStyleSlideLeft => '左側滑入';
+
+  @override
+  String get dialogAnimationStyleSlideRight => '右側滑入';
+
+  @override
+  String get dialogAnimationStyleExpand => '中心展開';
+
+  @override
+  String get dialogAnimationStyleRotateScale => '旋轉縮放';
+
+  @override
+  String get dialogAnimationStyleElastic => '彈性動畫';
+
+  @override
+  String get dialogAnimationStyleSpringScale => '彈簧縮放';
+
+  @override
+  String get dialogAnimationStyleFlipX => 'X 軸翻轉';
+
+  @override
+  String get dialogAnimationCurveEaseInOut => '緩入緩出';
+
+  @override
+  String get dialogAnimationCurveEaseOut => '緩出';
+
+  @override
+  String get dialogAnimationCurveEaseOutCubic => '緩出三次';
+
+  @override
+  String get dialogAnimationCurveEaseInOutCubicEmphasized => '三次加強';
+
+  @override
+  String get dialogAnimationCurveElasticOut => '彈性緩出';
+
+  @override
+  String get dialogAnimationCurveBounceOut => '彈跳';
+
+  @override
+  String get dialogAnimationCurveDecelerate => '減速';
 
   @override
   String get aiModelAdd => '新增提供者';

@@ -1659,6 +1659,147 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsPersistenceDismiss => 'Ignorer';
 
   @override
+  String get settingsAnimationRestoreDefaultsTitle =>
+      'Restaurer les animations';
+
+  @override
+  String get settingsAnimationRestoreDefaultsSubtitle =>
+      'Réinitialise en une action le style d’entrée/sortie, la durée et la courbe des animations des boîtes de dialogue, menus, pages/modules, panneaux, chips et éléments de liste.';
+
+  @override
+  String get settingsAnimationRestoreDefaultsButton => 'Restaurer';
+
+  @override
+  String get settingsAnimationRestoreConfirmTitle =>
+      'Restaurer les animations par défaut ?';
+
+  @override
+  String get settingsAnimationRestoreConfirmMessage =>
+      'Toutes les animations des boîtes de dialogue, menus, pages/modules, panneaux, chips et éléments de liste seront réinitialisées. Les valeurs personnalisées seront remplacées.';
+
+  @override
+  String get settingsAnimationRestoreConfirm => 'Restaurer';
+
+  @override
+  String get settingsAnimationRestoreSuccess =>
+      'Animations par défaut restaurées';
+
+  @override
+  String get settingsAnimationRestorePartialFailure =>
+      'Certains paramètres n’ont pas été enregistrés. Réessayez.';
+
+  @override
+  String get settingsDialogAnimationTitle => 'Animation des dialogues';
+
+  @override
+  String get settingsDialogAnimationSubtitle =>
+      'Configure le style d’entrée/sortie, la durée et la courbe de toutes les boîtes de dialogue.';
+
+  @override
+  String get settingsMenuAnimationTitle => 'Animation des menus';
+
+  @override
+  String get settingsMenuAnimationSubtitle =>
+      'Configure le style d’entrée/sortie, la durée et la courbe des menus contextuels et déroulants.';
+
+  @override
+  String get settingsPanelAnimationTitle => 'Animation des panneaux';
+
+  @override
+  String get settingsPanelAnimationSubtitle =>
+      'Configure les transitions des panneaux de l’espace de travail, comme navigation/fichiers à gauche et conversation/éditeur à droite. Les modules de droite utilisent l’animation de page.';
+
+  @override
+  String get settingsPageAnimationTitle => 'Animation page / module';
+
+  @override
+  String get settingsPageAnimationSubtitle =>
+      'Configure les transitions du contenu principal à droite, notamment Workspace, Paramètres, MCP, Mémoire, Hooks, Crons, Compétences et Automatisations.';
+
+  @override
+  String get settingsChipAnimationTitle => 'Animation des chips';
+
+  @override
+  String get settingsChipAnimationSubtitle =>
+      'Configure les animations d’entrée/sortie des chips amovibles : compétence sélectionnée, pièces jointes, références projet, messages en file, indicateur d’édition, etc.';
+
+  @override
+  String get settingsListItemAnimationTitle => 'Animation des listes';
+
+  @override
+  String get settingsListItemAnimationSubtitle =>
+      'Configure l’animation d’entrée des éléments de liste comme serveurs MCP, mémoires, cartes d’instructions, sessions latérales et appels d’outils.';
+
+  @override
+  String get settingsAnimationEnter => 'Entrée';
+
+  @override
+  String get settingsAnimationExit => 'Sortie';
+
+  @override
+  String get settingsAnimationDuration => 'Durée';
+
+  @override
+  String get settingsAnimationCurve => 'Courbe';
+
+  @override
+  String get dialogAnimationStyleNone => 'Aucune';
+
+  @override
+  String get dialogAnimationStyleFade => 'Fondu';
+
+  @override
+  String get dialogAnimationStyleFadeScale => 'Fondu + zoom';
+
+  @override
+  String get dialogAnimationStyleSlideUp => 'Glisser haut';
+
+  @override
+  String get dialogAnimationStyleSlideDown => 'Glisser bas';
+
+  @override
+  String get dialogAnimationStyleSlideLeft => 'Glisser gauche';
+
+  @override
+  String get dialogAnimationStyleSlideRight => 'Glisser droite';
+
+  @override
+  String get dialogAnimationStyleExpand => 'Expansion';
+
+  @override
+  String get dialogAnimationStyleRotateScale => 'Rotation + zoom';
+
+  @override
+  String get dialogAnimationStyleElastic => 'Élastique';
+
+  @override
+  String get dialogAnimationStyleSpringScale => 'Ressort';
+
+  @override
+  String get dialogAnimationStyleFlipX => 'Flip X';
+
+  @override
+  String get dialogAnimationCurveEaseInOut => 'Ease In-Out';
+
+  @override
+  String get dialogAnimationCurveEaseOut => 'Ease Out';
+
+  @override
+  String get dialogAnimationCurveEaseOutCubic => 'Ease Out Cubic';
+
+  @override
+  String get dialogAnimationCurveEaseInOutCubicEmphasized => 'Cubic accentué';
+
+  @override
+  String get dialogAnimationCurveElasticOut => 'Elastic Out';
+
+  @override
+  String get dialogAnimationCurveBounceOut => 'Bounce Out';
+
+  @override
+  String get dialogAnimationCurveDecelerate => 'Décélération';
+
+  @override
   String get aiModelAdd => 'Ajouter un fournisseur';
 
   @override
