@@ -445,7 +445,6 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
 
   Future<void> _showCopyPathMenu(_FileNode node, Offset position) async {
     if (!mounted) return;
-    final isZh = openHandIsChineseLocale(context);
     final rootPath = widget.rootPath;
     final absolutePath = node.path;
     final fileName = node.name;
@@ -464,7 +463,19 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
           value: 'abs',
           child: Row(
             children: [
-              Expanded(child: Text(isZh ? '绝对路径' : 'Absolute Path')),
+              Expanded(
+                child: Text(
+                  _localizedText(
+                    context,
+                    zh: '绝对路径',
+                    zhHant: '絕對路徑',
+                    en: 'Absolute Path',
+                    fr: 'Chemin absolu',
+                    de: 'Absoluter Pfad',
+                    ja: '絶対パス',
+                  ),
+                ),
+              ),
               const SizedBox(width: 16),
               Text(
                 '⇧⌘C',
@@ -480,15 +491,45 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         ),
         PopupMenuItem<String>(
           value: 'name',
-          child: Text(isZh ? '文件名' : 'File Name'),
+          child: Text(
+            _localizedText(
+              context,
+              zh: '文件名',
+              zhHant: '檔案名稱',
+              en: 'File Name',
+              fr: 'Nom du fichier',
+              de: 'Dateiname',
+              ja: 'ファイル名',
+            ),
+          ),
         ),
         PopupMenuItem<String>(
           value: 'content_root',
-          child: Text(isZh ? '内容根目录相对路径' : 'Path from Content Root'),
+          child: Text(
+            _localizedText(
+              context,
+              zh: '内容根目录相对路径',
+              zhHant: '內容根目錄相對路徑',
+              en: 'Path from Content Root',
+              fr: 'Chemin depuis la racine du contenu',
+              de: 'Pfad ab Inhaltswurzel',
+              ja: 'コンテンツルートからのパス',
+            ),
+          ),
         ),
         PopupMenuItem<String>(
           value: 'repo_root',
-          child: Text(isZh ? '仓库根目录相对路径' : 'Path from Repository Root'),
+          child: Text(
+            _localizedText(
+              context,
+              zh: '仓库根目录相对路径',
+              zhHant: '倉庫根目錄相對路徑',
+              en: 'Path from Repository Root',
+              fr: 'Chemin depuis la racine du dépôt',
+              de: 'Pfad ab Repository-Wurzel',
+              ja: 'リポジトリルートからのパス',
+            ),
+          ),
         ),
       ],
     );
@@ -504,14 +545,45 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   }
 
   Future<void> _renameNode(_FileNode node) async {
-    final isZh = openHandIsChineseLocale(context);
     final newName = await showOpenHandTextInputDialog(
       context: context,
-      title: isZh ? '重命名' : 'Rename',
+      title: _localizedText(
+        context,
+        zh: '重命名',
+        zhHant: '重新命名',
+        en: 'Rename',
+        fr: 'Renommer',
+        de: 'Umbenennen',
+        ja: '名前を変更',
+      ),
       initialValue: node.name,
-      hintText: isZh ? '输入新名称' : 'Enter new name',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '确定' : 'OK',
+      hintText: _localizedText(
+        context,
+        zh: '输入新名称',
+        zhHant: '輸入新名稱',
+        en: 'Enter new name',
+        fr: 'Saisir le nouveau nom',
+        de: 'Neuen Namen eingeben',
+        ja: '新しい名前を入力',
+      ),
+      cancelLabel: _localizedText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _localizedText(
+        context,
+        zh: '确定',
+        zhHant: '確定',
+        en: 'OK',
+        fr: 'OK',
+        de: 'OK',
+        ja: 'OK',
+      ),
     );
     if (newName == null || newName.isEmpty || newName == node.name) return;
     try {
@@ -530,15 +602,44 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   }
 
   Future<void> _deleteNode(_FileNode node) async {
-    final isZh = openHandIsChineseLocale(context);
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '删除确认' : 'Confirm Delete',
-      message: isZh
-          ? '确定要删除 "${node.name}" 吗？此操作不可撤销。'
-          : 'Are you sure you want to delete "${node.name}"? This cannot be undone.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '删除' : 'Delete',
+      title: _localizedText(
+        context,
+        zh: '删除确认',
+        zhHant: '刪除確認',
+        en: 'Confirm Delete',
+        fr: 'Confirmer la suppression',
+        de: 'Löschen bestätigen',
+        ja: '削除の確認',
+      ),
+      message: _localizedText(
+        context,
+        zh: '确定要删除 "${node.name}" 吗？此操作不可撤销。',
+        zhHant: '確定要刪除 "${node.name}" 嗎？此操作無法復原。',
+        en: 'Are you sure you want to delete "${node.name}"? This cannot be undone.',
+        fr: 'Voulez-vous vraiment supprimer "${node.name}" ? Cette action est irréversible.',
+        de: 'Möchtest du "${node.name}" wirklich löschen? Dies kann nicht rückgängig gemacht werden.',
+        ja: '"${node.name}" を削除しますか？この操作は元に戻せません。',
+      ),
+      cancelLabel: _localizedText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _localizedText(
+        context,
+        zh: '删除',
+        zhHant: '刪除',
+        en: 'Delete',
+        fr: 'Supprimer',
+        de: 'Löschen',
+        ja: '削除',
+      ),
       destructive: true,
     );
     if (confirmed != true) return;
@@ -779,9 +880,15 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                     horizontal: 12,
                     vertical: 8,
                   ),
-                  hintText: openHandIsChineseLocale(context)
-                      ? '搜索文件或目录…'
-                      : 'Search files…',
+                  hintText: _localizedText(
+                    context,
+                    zh: '搜索文件或目录…',
+                    zhHant: '搜尋檔案或目錄…',
+                    en: 'Search files…',
+                    fr: 'Rechercher des fichiers…',
+                    de: 'Dateien suchen…',
+                    ja: 'ファイルを検索…',
+                  ),
                   hintStyle: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
@@ -905,12 +1012,19 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       );
     }
     if (_searchResults.isEmpty) {
-      final isZh = openHandIsChineseLocale(context);
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            isZh ? '未找到匹配项' : 'No matches found',
+            _localizedText(
+              context,
+              zh: '未找到匹配项',
+              zhHant: '找不到相符項目',
+              en: 'No matches found',
+              fr: 'Aucun résultat',
+              de: 'Keine Treffer',
+              ja: '一致する項目はありません',
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
@@ -1062,7 +1176,25 @@ class _FileTreeTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final indent = _kFileTreeIndentBase + depth * _kFileTreeIndentPerLevel;
-    final isZh = openHandIsChineseLocale(context);
+    String text({
+      required String zh,
+      String? zhHant,
+      required String en,
+      String? fr,
+      String? de,
+      String? ja,
+    }) {
+      return _localizedText(
+        context,
+        zh: zh,
+        zhHant: zhHant,
+        en: en,
+        fr: fr,
+        de: de,
+        ja: ja,
+      );
+    }
+
     final labelStyle = theme.textTheme.bodySmall?.copyWith(
       fontWeight: node.isDirectory
           ? FontWeight.w600
@@ -1102,7 +1234,16 @@ class _FileTreeTile extends StatelessWidget {
                 children: [
                   const Icon(Icons.drive_file_rename_outline, size: 18),
                   const SizedBox(width: 8),
-                  Text(isZh ? '重命名' : 'Rename'),
+                  Text(
+                    text(
+                      zh: '重命名',
+                      zhHant: '重新命名',
+                      en: 'Rename',
+                      fr: 'Renommer',
+                      de: 'Umbenennen',
+                      ja: '名前を変更',
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1113,7 +1254,16 @@ class _FileTreeTile extends StatelessWidget {
                 children: [
                   const Icon(Icons.content_cut_rounded, size: 18),
                   const SizedBox(width: 8),
-                  Text(isZh ? '剪切' : 'Cut'),
+                  Text(
+                    text(
+                      zh: '剪切',
+                      zhHant: '剪下',
+                      en: 'Cut',
+                      fr: 'Couper',
+                      de: 'Ausschneiden',
+                      ja: '切り取り',
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1123,7 +1273,16 @@ class _FileTreeTile extends StatelessWidget {
                 children: [
                   const Icon(Icons.content_copy_rounded, size: 18),
                   const SizedBox(width: 8),
-                  Text(isZh ? '复制' : 'Copy'),
+                  Text(
+                    text(
+                      zh: '复制',
+                      zhHant: '複製',
+                      en: 'Copy',
+                      fr: 'Copier',
+                      de: 'Kopieren',
+                      ja: 'コピー',
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1134,7 +1293,16 @@ class _FileTreeTile extends StatelessWidget {
                   children: [
                     const Icon(Icons.content_paste_rounded, size: 18),
                     const SizedBox(width: 8),
-                    Text(isZh ? '粘贴' : 'Paste'),
+                    Text(
+                      text(
+                        zh: '粘贴',
+                        zhHant: '貼上',
+                        en: 'Paste',
+                        fr: 'Coller',
+                        de: 'Einfügen',
+                        ja: '貼り付け',
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1146,7 +1314,16 @@ class _FileTreeTile extends StatelessWidget {
                   const Icon(Icons.link_rounded, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(isZh ? '复制路径/引用' : 'Copy Path/Reference'),
+                    child: Text(
+                      text(
+                        zh: '复制路径/引用',
+                        zhHant: '複製路徑/引用',
+                        en: 'Copy Path/Reference',
+                        fr: 'Copier chemin/référence',
+                        de: 'Pfad/Referenz kopieren',
+                        ja: 'パス/参照をコピー',
+                      ),
+                    ),
                   ),
                   Icon(
                     Icons.chevron_right_rounded,
@@ -1168,7 +1345,14 @@ class _FileTreeTile extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    isZh ? '删除' : 'Delete',
+                    text(
+                      zh: '删除',
+                      zhHant: '刪除',
+                      en: 'Delete',
+                      fr: 'Supprimer',
+                      de: 'Löschen',
+                      ja: '削除',
+                    ),
                     style: TextStyle(color: colorScheme.error),
                   ),
                 ],
@@ -1181,7 +1365,16 @@ class _FileTreeTile extends StatelessWidget {
                 children: [
                   const Icon(Icons.folder_open_outlined, size: 18),
                   const SizedBox(width: 8),
-                  Text(isZh ? '在系统文件浏览器中打开' : 'Open in System Explorer'),
+                  Text(
+                    text(
+                      zh: '在系统文件浏览器中打开',
+                      zhHant: '在系統檔案瀏覽器中開啟',
+                      en: 'Open in System Explorer',
+                      fr: 'Ouvrir dans l’explorateur système',
+                      de: 'Im System-Dateimanager öffnen',
+                      ja: 'システムファイルブラウザで開く',
+                    ),
+                  ),
                 ],
               ),
             ),
