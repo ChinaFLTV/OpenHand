@@ -7281,7 +7281,7 @@ class WebReverseSessionController extends ChangeNotifier {
               _maxImportedUrlChars,
             ),
             method: _capPlainWebReverseText('${m['method'] ?? 'GET'}', 32),
-            timestamp: DateTime.tryParse('${m['ts'] ?? ''}') ?? DateTime.now(),
+            timestamp: dateTimeFromValue(m['ts']) ?? DateTime.now(),
             resourceType: _capPlainWebReverseText(
               '${m['resource_type'] ?? 'Other'}',
               64,
@@ -7348,8 +7348,7 @@ class WebReverseSessionController extends ChangeNotifier {
               entry.wsFrames.add(
                 CdpWebSocketFrame(
                   direction: dir,
-                  timestamp:
-                      DateTime.tryParse('${fm['ts'] ?? ''}') ?? DateTime.now(),
+                  timestamp: dateTimeFromValue(fm['ts']) ?? DateTime.now(),
                   opcode: fm['opcode'] is int ? fm['opcode'] as int : 1,
                   mask: fm['mask'] == true,
                   payload: _capPlainWebReverseText(
@@ -7381,8 +7380,7 @@ class WebReverseSessionController extends ChangeNotifier {
                 _maxConsoleTextChars,
                 'console text',
               ),
-              timestamp:
-                  DateTime.tryParse('${m['ts'] ?? ''}') ?? DateTime.now(),
+              timestamp: dateTimeFromValue(m['ts']) ?? DateTime.now(),
             ),
           );
         }

@@ -6586,9 +6586,9 @@ class AiSessionController extends ChangeNotifier {
         }
         final now = _clock().toUtc();
         final startedAt =
-            DateTime.tryParse(
-              '${currentMessage.metadata[aiSessionMessageReasoningStartedAtKey] ?? ''}',
-            )?.toUtc() ??
+            utcDateTimeFromValue(
+              currentMessage.metadata[aiSessionMessageReasoningStartedAtKey],
+            ) ??
             reasoningStartedAt ??
             currentMessage.createdAt.toUtc();
         final nextMetadata = <String, Object?>{
@@ -8646,6 +8646,7 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.agentTaskPause:
       case AiBuiltinToolKind.agentTaskTerminate:
       case AiBuiltinToolKind.agentTaskResume:
+      case AiBuiltinToolKind.agentTaskComplete:
         return false;
     }
   }
@@ -9491,9 +9492,9 @@ class AiSessionController extends ChangeNotifier {
       final finishedAt =
           '${message.metadata['tool_execution_finished_at'] ?? ''}'.trim();
       if (finishedAt.isNotEmpty) {
-        final parsed = DateTime.tryParse(finishedAt);
+        final parsed = utcDateTimeFromValue(finishedAt);
         if (parsed != null) {
-          return parsed.toUtc();
+          return parsed;
         }
       }
       return message.createdAt;
@@ -12185,10 +12186,7 @@ $tail''';
   }
 
   int _toolExecutionMetadataInt(Object? rawValue) {
-    if (rawValue is int) {
-      return rawValue;
-    }
-    return int.tryParse('${rawValue ?? ''}'.trim()) ?? 0;
+    return intFromValue(rawValue, fallback: 0);
   }
 
   Future<T> _enqueueOperation<T>(Future<T> Function() operation) {

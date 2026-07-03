@@ -685,9 +685,9 @@ class AiPromptBuilder {
     final currentCapturedAt = DateTime.now().toUtc();
     final idleGapSeconds = () {
       if (previousCapturedAt.isEmpty) return null;
-      final previousInstant = DateTime.tryParse(previousCapturedAt);
+      final previousInstant = utcDateTimeFromValue(previousCapturedAt);
       if (previousInstant == null) return null;
-      return currentCapturedAt.difference(previousInstant.toUtc()).inSeconds;
+      return currentCapturedAt.difference(previousInstant).inSeconds;
     }();
     metadata
       ..['captured_at'] = currentCapturedAt.toIso8601String()

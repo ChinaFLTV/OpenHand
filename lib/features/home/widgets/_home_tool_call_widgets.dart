@@ -2141,11 +2141,7 @@ int? _nonNegativeIntFromMetadata(Object? rawValue) {
 }
 
 DateTime? _dateTimeFromMetadata(Object? rawValue) {
-  final text = '${rawValue ?? ''}'.trim();
-  if (text.isEmpty) {
-    return null;
-  }
-  return DateTime.tryParse(text)?.toUtc();
+  return utcDateTimeFromValue(rawValue);
 }
 
 int? _toolExecutionExitCode(AiSessionMessage message) {
