@@ -16,8 +16,16 @@ class OpenHandModelSelectorField extends StatefulWidget {
     this.required = false,
     this.labelZh = '使用模型',
     this.labelEn = 'Model',
+    this.labelZhHant,
+    this.labelFr,
+    this.labelDe,
+    this.labelJa,
     this.helperZh,
     this.helperEn,
+    this.helperZhHant,
+    this.helperFr,
+    this.helperDe,
+    this.helperJa,
     this.modelFilter,
   });
 
@@ -29,8 +37,16 @@ class OpenHandModelSelectorField extends StatefulWidget {
   final bool required;
   final String labelZh;
   final String labelEn;
+  final String? labelZhHant;
+  final String? labelFr;
+  final String? labelDe;
+  final String? labelJa;
   final String? helperZh;
   final String? helperEn;
+  final String? helperZhHant;
+  final String? helperFr;
+  final String? helperDe;
+  final String? helperJa;
   final bool Function(AiModelConfig config, String modelId)? modelFilter;
 
   @override
@@ -106,14 +122,18 @@ class _OpenHandModelSelectorFieldState
     final cs = theme.colorScheme;
     final usesDefaultLabel =
         widget.labelZh == '使用模型' && widget.labelEn == 'Model';
-    final labelFr = usesDefaultLabel ? 'Modèle' : widget.labelEn;
-    final labelDe = usesDefaultLabel ? 'Modell' : widget.labelEn;
-    final labelJa = usesDefaultLabel ? 'モデル' : widget.labelEn;
+    final labelZhHant = widget.labelZhHant ?? widget.labelZh;
+    final labelFr =
+        widget.labelFr ?? (usesDefaultLabel ? 'Modèle' : widget.labelEn);
+    final labelDe =
+        widget.labelDe ?? (usesDefaultLabel ? 'Modell' : widget.labelEn);
+    final labelJa =
+        widget.labelJa ?? (usesDefaultLabel ? 'モデル' : widget.labelEn);
     final label = openHandLocalizedText(
       context,
       zh: widget.required ? '${widget.labelZh} *' : widget.labelZh,
       en: widget.required ? '${widget.labelEn} *' : widget.labelEn,
-      zhHant: widget.required ? '${widget.labelZh} *' : widget.labelZh,
+      zhHant: widget.required ? '$labelZhHant *' : labelZhHant,
       fr: widget.required ? '$labelFr *' : labelFr,
       de: widget.required ? '$labelDe *' : labelDe,
       ja: widget.required ? '$labelJa *' : labelJa,
@@ -143,21 +163,25 @@ class _OpenHandModelSelectorFieldState
               ? 'This template sends the first message automatically, so choose the model before creating it.'
               : 'Applies only to this new session; otherwise the active model is kept.'),
       zhHant:
+          widget.helperZhHant ??
           widget.helperZh ??
           (widget.required
               ? '此範本建立後會自動傳送第一則訊息，請先指定本次會話使用的模型。'
               : '僅影響本次新建會話；未選擇時沿用目前啟用模型。'),
       fr:
+          widget.helperFr ??
           widget.helperEn ??
           (widget.required
               ? 'Ce modèle envoie automatiquement le premier message ; choisissez le modèle avant de le créer.'
               : 'S’applique uniquement à cette nouvelle session ; sinon le modèle actif est conservé.'),
       de:
+          widget.helperDe ??
           widget.helperEn ??
           (widget.required
               ? 'Diese Vorlage sendet die erste Nachricht automatisch. Wählen Sie vorher das Modell.'
               : 'Gilt nur für diese neue Sitzung; sonst bleibt das aktive Modell erhalten.'),
       ja:
+          widget.helperJa ??
           widget.helperEn ??
           (widget.required
               ? 'このテンプレートは最初のメッセージを自動送信します。作成前にモデルを選択してください。'

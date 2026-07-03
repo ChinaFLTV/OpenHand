@@ -45,6 +45,28 @@ const double _knowledgeEmbeddingGroupMinWidth = 300;
 const double _knowledgeEmbeddingSettingMinWidth = 176;
 const List<String> _knowledgeDependencyPluginIds = <String>['docker', 'qdrant'];
 
+String _kbConfigText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
 Future<void> showKnowledgeBaseConfigDialog(
   BuildContext context, {
   VoidCallback? onOpenPlugins,
@@ -478,10 +500,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     Navigator.of(context).pop();
     OpenHandSnackBar.showSuccess(
       context,
-      openHandLocalizedText(
+      _kbConfigText(
         context,
         zh: '知识库配置已保存。',
+        zhHant: '知識庫設定已儲存。',
         en: 'Knowledge Base settings saved.',
+        fr: 'Paramètres de la base de connaissances enregistrés.',
+        de: 'Wissensdatenbank-Einstellungen gespeichert.',
+        ja: 'ナレッジベース設定を保存しました。',
       ),
     );
   }
@@ -500,7 +526,27 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         _knowledgeDependencyPluginIds.contains(
           pluginController.checkingPluginId,
         );
-    final isZh = openHandIsChineseLocale(context);
+    String t({
+      required String zh,
+      required String en,
+      String? zhHans,
+      String? zhHant,
+      String? fr,
+      String? de,
+      String? ja,
+    }) {
+      return _kbConfigText(
+        context,
+        zh: zh,
+        en: en,
+        zhHans: zhHans,
+        zhHant: zhHant,
+        fr: fr,
+        de: de,
+        ja: ja,
+      );
+    }
+
     final knowledgeBuiltinToolsEnabled =
         settingsController.knowledgeBuiltinToolsEnabled;
     final embeddingModelSupportsRerank =
@@ -510,7 +556,16 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         _settings.skipModelRerankWhenEmbeddingSupportsRerank &&
         embeddingModelSupportsRerank;
     return buildOpenHandAlertDialog(
-      title: Text(isZh ? '知识库配置' : 'Knowledge Base Settings'),
+      title: Text(
+        t(
+          zh: '知识库配置',
+          zhHant: '知識庫設定',
+          en: 'Knowledge Base Settings',
+          fr: 'Paramètres de la base de connaissances',
+          de: 'Wissensdatenbank-Einstellungen',
+          ja: 'ナレッジベース設定',
+        ),
+      ),
       content: buildOpenHandDialogConstrainedContent(
         width: 760,
         maxHeight: MediaQuery.sizeOf(context).height * 0.82,
@@ -528,11 +583,23 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
               ),
               _section(
                 context,
-                title: isZh ? '嵌入模型' : 'Embedding Model',
+                title: t(
+                  zh: '嵌入模型',
+                  zhHant: '嵌入模型',
+                  en: 'Embedding Model',
+                  fr: 'Modèle d’embedding',
+                  de: 'Embedding-Modell',
+                  ja: '埋め込みモデル',
+                ),
                 icon: Icons.hub_outlined,
-                subtitle: isZh
-                    ? '选择具备嵌入生成能力的模型，并统一调整向量输出、请求韧性与缓存策略。'
-                    : 'Choose an embedding-capable model and tune vector output, request resilience, and caching together.',
+                subtitle: t(
+                  zh: '选择具备嵌入生成能力的模型，并统一调整向量输出、请求韧性与缓存策略。',
+                  zhHant: '選擇具備嵌入生成能力的模型，並統一調整向量輸出、請求韌性與快取策略。',
+                  en: 'Choose an embedding-capable model and tune vector output, request resilience, and caching together.',
+                  fr: 'Choisissez un modèle capable d’embedding et ajustez la sortie vectorielle, la résilience des requêtes et le cache.',
+                  de: 'Wählen Sie ein embedding-fähiges Modell und stimmen Sie Vektorausgabe, Anfrage-Resilienz und Cache gemeinsam ab.',
+                  ja: '埋め込み生成に対応したモデルを選び、ベクトル出力、リクエスト耐性、キャッシュをまとめて調整します。',
+                ),
                 children: _embeddingModelSectionChildren(
                   context: context,
                   embeddingModels: embeddingModels,
@@ -541,21 +608,81 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
               ),
               _section(
                 context,
-                title: isZh ? '向量库' : 'Vector Store',
+                title: t(
+                  zh: '向量库',
+                  zhHant: '向量庫',
+                  en: 'Vector Store',
+                  fr: 'Stockage vectoriel',
+                  de: 'Vektorspeicher',
+                  ja: 'ベクトルストア',
+                ),
                 icon: Icons.storage_outlined,
                 children: [
-                  _readonly(context, isZh ? '类型' : 'Type', 'Qdrant'),
-                  _field(_qdrantHost, isZh ? 'Qdrant 主机' : 'Qdrant host'),
-                  _field(_qdrantRestPort, isZh ? 'REST 端口' : 'REST port'),
-                  _field(_qdrantGrpcPort, isZh ? 'gRPC 端口' : 'gRPC port'),
+                  _readonly(
+                    context,
+                    t(
+                      zh: '类型',
+                      zhHant: '類型',
+                      en: 'Type',
+                      fr: 'Type',
+                      de: 'Typ',
+                      ja: '種類',
+                    ),
+                    'Qdrant',
+                  ),
+                  _field(
+                    _qdrantHost,
+                    t(
+                      zh: 'Qdrant 主机',
+                      zhHant: 'Qdrant 主機',
+                      en: 'Qdrant host',
+                      fr: 'Hôte Qdrant',
+                      de: 'Qdrant-Host',
+                      ja: 'Qdrant ホスト',
+                    ),
+                  ),
+                  _field(
+                    _qdrantRestPort,
+                    t(
+                      zh: 'REST 端口',
+                      zhHant: 'REST 連接埠',
+                      en: 'REST port',
+                      fr: 'Port REST',
+                      de: 'REST-Port',
+                      ja: 'REST ポート',
+                    ),
+                  ),
+                  _field(
+                    _qdrantGrpcPort,
+                    t(
+                      zh: 'gRPC 端口',
+                      zhHant: 'gRPC 連接埠',
+                      en: 'gRPC port',
+                      fr: 'Port gRPC',
+                      de: 'gRPC-Port',
+                      ja: 'gRPC ポート',
+                    ),
+                  ),
                   _field(
                     _collectionName,
-                    isZh
-                        ? 'Collection 名称（留空自动生成）'
-                        : 'Collection name (auto when empty)',
+                    t(
+                      zh: 'Collection 名称（留空自动生成）',
+                      zhHant: 'Collection 名稱（留空自動產生）',
+                      en: 'Collection name (auto when empty)',
+                      fr: 'Nom de collection (auto si vide)',
+                      de: 'Collection-Name (leer = automatisch)',
+                      ja: 'コレクション名（空なら自動）',
+                    ),
                   ),
                   _dropdown(
-                    label: isZh ? '距离度量' : 'Distance metric',
+                    label: t(
+                      zh: '距离度量',
+                      zhHant: '距離度量',
+                      en: 'Distance metric',
+                      fr: 'Métrique de distance',
+                      de: 'Distanzmetrik',
+                      ja: '距離メトリック',
+                    ),
                     value: _settings.distanceMetric,
                     values: KnowledgeDistanceMetric.values,
                     itemLabel: (value) => switch (value) {
@@ -572,14 +699,28 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       );
                     },
                   ),
-                  _field(_hnswM, isZh ? 'HNSW M' : 'HNSW M'),
+                  _field(_hnswM, 'HNSW M'),
+                  _field(_hnswEfConstruct, 'HNSW ef_construct'),
                   _field(
-                    _hnswEfConstruct,
-                    isZh ? 'HNSW ef_construct' : 'HNSW ef_construct',
+                    _searchEf,
+                    t(
+                      zh: '搜索 hnsw_ef',
+                      zhHant: '搜尋 hnsw_ef',
+                      en: 'Search hnsw_ef',
+                      fr: 'Recherche hnsw_ef',
+                      de: 'Suche hnsw_ef',
+                      ja: '検索 hnsw_ef',
+                    ),
                   ),
-                  _field(_searchEf, isZh ? '搜索 hnsw_ef' : 'Search hnsw_ef'),
                   _switch(
-                    isZh ? '自动启动 sidecar' : 'Auto-start sidecar',
+                    t(
+                      zh: '自动启动 sidecar',
+                      zhHant: '自動啟動 sidecar',
+                      en: 'Auto-start sidecar',
+                      fr: 'Démarrer le sidecar automatiquement',
+                      de: 'Sidecar automatisch starten',
+                      ja: 'sidecar を自動起動',
+                    ),
                     _settings.autoStartSidecar,
                     (value) => setState(
                       () => _settings = _settings.copyWith(
@@ -591,27 +732,69 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
               ),
               _section(
                 context,
-                title: isZh ? '文档导入与分块' : 'Document Import and Chunking',
+                title: t(
+                  zh: '文档导入与分块',
+                  zhHant: '文件匯入與分塊',
+                  en: 'Document Import and Chunking',
+                  fr: 'Import et découpage des documents',
+                  de: 'Dokumentimport und Chunking',
+                  ja: 'ドキュメントのインポートとチャンク化',
+                ),
                 icon: Icons.segment_outlined,
-                subtitle: isZh
-                    ? '支持 ${KnowledgeDocumentParserRegistry.supportedFilesLabelZh}'
-                    : 'Supports ${KnowledgeDocumentParserRegistry.supportedFilesLabelEn}',
+                subtitle: t(
+                  zh: '支持 ${KnowledgeDocumentParserRegistry.supportedFilesLabelZh}',
+                  zhHant:
+                      '支援 ${KnowledgeDocumentParserRegistry.supportedFilesLabelZh}',
+                  en: 'Supports ${KnowledgeDocumentParserRegistry.supportedFilesLabelEn}',
+                  fr: 'Prend en charge ${KnowledgeDocumentParserRegistry.supportedFilesLabelEn}',
+                  de: 'Unterstützt ${KnowledgeDocumentParserRegistry.supportedFilesLabelEn}',
+                  ja: '${KnowledgeDocumentParserRegistry.supportedFilesLabelEn} に対応',
+                ),
                 children: [
                   _dropdown(
-                    label: isZh ? '分块策略' : 'Chunk strategy',
+                    label: t(
+                      zh: '分块策略',
+                      zhHant: '分塊策略',
+                      en: 'Chunk strategy',
+                      fr: 'Stratégie de découpage',
+                      de: 'Chunking-Strategie',
+                      ja: 'チャンク戦略',
+                    ),
                     value: _settings.chunkStrategy,
                     values: _knowledgeChunkStrategies,
                     itemLabel: (value) => switch (value) {
-                      KnowledgeChunkStrategy.markdownHeadingRecursive =>
-                        isZh
-                            ? 'Markdown 标题递归窗口'
-                            : 'Markdown heading recursive windows',
-                      KnowledgeChunkStrategy.paragraphWindow =>
-                        isZh ? '段落窗口' : 'Paragraph windows',
-                      KnowledgeChunkStrategy.fixedTokenWindow =>
-                        isZh ? '固定 token 窗口' : 'Fixed token windows',
-                      KnowledgeChunkStrategy.semanticLight =>
-                        isZh ? '轻量语义边界' : 'Light semantic boundaries',
+                      KnowledgeChunkStrategy.markdownHeadingRecursive => t(
+                        zh: 'Markdown 标题递归窗口',
+                        zhHant: 'Markdown 標題遞迴視窗',
+                        en: 'Markdown heading recursive windows',
+                        fr: 'Fenêtres récursives par titres Markdown',
+                        de: 'Rekursive Markdown-Überschriftenfenster',
+                        ja: 'Markdown 見出し再帰ウィンドウ',
+                      ),
+                      KnowledgeChunkStrategy.paragraphWindow => t(
+                        zh: '段落窗口',
+                        zhHant: '段落視窗',
+                        en: 'Paragraph windows',
+                        fr: 'Fenêtres par paragraphes',
+                        de: 'Absatzfenster',
+                        ja: '段落ウィンドウ',
+                      ),
+                      KnowledgeChunkStrategy.fixedTokenWindow => t(
+                        zh: '固定 token 窗口',
+                        zhHant: '固定 token 視窗',
+                        en: 'Fixed token windows',
+                        fr: 'Fenêtres de tokens fixes',
+                        de: 'Feste Token-Fenster',
+                        ja: '固定トークンウィンドウ',
+                      ),
+                      KnowledgeChunkStrategy.semanticLight => t(
+                        zh: '轻量语义边界',
+                        zhHant: '輕量語意邊界',
+                        en: 'Light semantic boundaries',
+                        fr: 'Frontières sémantiques légères',
+                        de: 'Leichte semantische Grenzen',
+                        ja: '軽量セマンティック境界',
+                      ),
                       _ => value,
                     },
                     onChanged: (value) {
@@ -623,11 +806,25 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _dropdown(
-                    label: isZh ? '文档解析引擎' : 'Document parser engine',
+                    label: t(
+                      zh: '文档解析引擎',
+                      zhHant: '文件解析引擎',
+                      en: 'Document parser engine',
+                      fr: 'Moteur d’analyse de document',
+                      de: 'Dokumentparser',
+                      ja: 'ドキュメント解析エンジン',
+                    ),
                     value: _settings.documentParsingEngine,
                     values: const ['auto'],
                     itemLabel: (value) => switch (value) {
-                      'auto' => isZh ? '自动选择' : 'Auto registry',
+                      'auto' => t(
+                        zh: '自动选择',
+                        zhHant: '自動選擇',
+                        en: 'Auto registry',
+                        fr: 'Registre automatique',
+                        de: 'Automatische Registry',
+                        ja: '自動レジストリ',
+                      ),
                       _ => value,
                     },
                     onChanged: (value) {
@@ -639,12 +836,25 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _dropdown(
-                    label: isZh ? 'Office 解析引擎' : 'Office parser engine',
+                    label: t(
+                      zh: 'Office 解析引擎',
+                      zhHant: 'Office 解析引擎',
+                      en: 'Office parser engine',
+                      fr: 'Moteur d’analyse Office',
+                      de: 'Office-Parser',
+                      ja: 'Office 解析エンジン',
+                    ),
                     value: _settings.officeParsingEngine,
                     values: const ['open_xml'],
                     itemLabel: (value) => switch (value) {
-                      'open_xml' =>
-                        isZh ? 'Open XML 内置解析' : 'Built-in Open XML',
+                      'open_xml' => t(
+                        zh: 'Open XML 内置解析',
+                        zhHant: 'Open XML 內建解析',
+                        en: 'Built-in Open XML',
+                        fr: 'Open XML intégré',
+                        de: 'Integriertes Open XML',
+                        ja: '内蔵 Open XML',
+                      ),
                       _ => value,
                     },
                     onChanged: (value) {
@@ -656,12 +866,25 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _dropdown(
-                    label: isZh ? 'PDF 解析引擎' : 'PDF parser engine',
+                    label: t(
+                      zh: 'PDF 解析引擎',
+                      zhHant: 'PDF 解析引擎',
+                      en: 'PDF parser engine',
+                      fr: 'Moteur d’analyse PDF',
+                      de: 'PDF-Parser',
+                      ja: 'PDF 解析エンジン',
+                    ),
                     value: _settings.pdfParsingEngine,
                     values: const ['basic_text_stream'],
                     itemLabel: (value) => switch (value) {
-                      'basic_text_stream' =>
-                        isZh ? '基础文本流解析' : 'Basic text-stream extraction',
+                      'basic_text_stream' => t(
+                        zh: '基础文本流解析',
+                        zhHant: '基礎文字流解析',
+                        en: 'Basic text-stream extraction',
+                        fr: 'Extraction basique du flux texte',
+                        de: 'Einfache Textstrom-Extraktion',
+                        ja: '基本テキストストリーム抽出',
+                      ),
                       _ => value,
                     },
                     onChanged: (value) {
@@ -673,13 +896,33 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _dropdown(
-                    label: isZh ? 'HTML 解析策略' : 'HTML parsing strategy',
+                    label: t(
+                      zh: 'HTML 解析策略',
+                      zhHant: 'HTML 解析策略',
+                      en: 'HTML parsing strategy',
+                      fr: 'Stratégie d’analyse HTML',
+                      de: 'HTML-Parsing-Strategie',
+                      ja: 'HTML 解析戦略',
+                    ),
                     value: _settings.htmlParsingMode,
                     values: const ['readable_text', 'plain_text'],
                     itemLabel: (value) => switch (value) {
-                      'readable_text' =>
-                        isZh ? '结构化可读文本' : 'Readable structure',
-                      'plain_text' => isZh ? '纯文本提取' : 'Plain text',
+                      'readable_text' => t(
+                        zh: '结构化可读文本',
+                        zhHant: '結構化可讀文字',
+                        en: 'Readable structure',
+                        fr: 'Structure lisible',
+                        de: 'Lesbare Struktur',
+                        ja: '読みやすい構造',
+                      ),
+                      'plain_text' => t(
+                        zh: '纯文本提取',
+                        zhHant: '純文字擷取',
+                        en: 'Plain text',
+                        fr: 'Texte brut',
+                        de: 'Nur Text',
+                        ja: 'プレーンテキスト',
+                      ),
                       _ => value,
                     },
                     onChanged: (value) {
@@ -691,13 +934,33 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _dropdown(
-                    label: isZh ? '结构化数据策略' : 'Structured data strategy',
+                    label: t(
+                      zh: '结构化数据策略',
+                      zhHant: '結構化資料策略',
+                      en: 'Structured data strategy',
+                      fr: 'Stratégie des données structurées',
+                      de: 'Strategie für strukturierte Daten',
+                      ja: '構造化データ戦略',
+                    ),
                     value: _settings.structuredDataParsingMode,
                     values: const ['readable_markdown', 'raw_fenced'],
                     itemLabel: (value) => switch (value) {
-                      'readable_markdown' =>
-                        isZh ? '可读 Markdown' : 'Readable Markdown',
-                      'raw_fenced' => isZh ? '原文代码块' : 'Raw fenced block',
+                      'readable_markdown' => t(
+                        zh: '可读 Markdown',
+                        zhHant: '可讀 Markdown',
+                        en: 'Readable Markdown',
+                        fr: 'Markdown lisible',
+                        de: 'Lesbares Markdown',
+                        ja: '読みやすい Markdown',
+                      ),
+                      'raw_fenced' => t(
+                        zh: '原文代码块',
+                        zhHant: '原文程式碼區塊',
+                        en: 'Raw fenced block',
+                        fr: 'Bloc brut clôturé',
+                        de: 'Roher Codeblock',
+                        ja: '生の fenced ブロック',
+                      ),
                       _ => value,
                     },
                     onChanged: (value) {
@@ -709,13 +972,33 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _dropdown(
-                    label: isZh ? '表格解析策略' : 'Table parsing strategy',
+                    label: t(
+                      zh: '表格解析策略',
+                      zhHant: '表格解析策略',
+                      en: 'Table parsing strategy',
+                      fr: 'Stratégie d’analyse des tableaux',
+                      de: 'Tabellen-Parsing-Strategie',
+                      ja: '表解析戦略',
+                    ),
                     value: _settings.spreadsheetParsingMode,
                     values: const ['markdown_table', 'row_blocks'],
                     itemLabel: (value) => switch (value) {
-                      'markdown_table' =>
-                        isZh ? 'Markdown 表格' : 'Markdown table',
-                      'row_blocks' => isZh ? '行块文本' : 'Row blocks',
+                      'markdown_table' => t(
+                        zh: 'Markdown 表格',
+                        zhHant: 'Markdown 表格',
+                        en: 'Markdown table',
+                        fr: 'Tableau Markdown',
+                        de: 'Markdown-Tabelle',
+                        ja: 'Markdown 表',
+                      ),
+                      'row_blocks' => t(
+                        zh: '行块文本',
+                        zhHant: '列區塊文字',
+                        en: 'Row blocks',
+                        fr: 'Blocs de lignes',
+                        de: 'Zeilenblöcke',
+                        ja: '行ブロック',
+                      ),
                       _ => value,
                     },
                     onChanged: (value) {
@@ -727,12 +1010,33 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _dropdown(
-                    label: isZh ? '演示文稿策略' : 'Presentation strategy',
+                    label: t(
+                      zh: '演示文稿策略',
+                      zhHant: '簡報策略',
+                      en: 'Presentation strategy',
+                      fr: 'Stratégie de présentation',
+                      de: 'Präsentationsstrategie',
+                      ja: 'プレゼンテーション戦略',
+                    ),
                     value: _settings.presentationParsingMode,
                     values: const ['slide_text', 'outline'],
                     itemLabel: (value) => switch (value) {
-                      'slide_text' => isZh ? '按幻灯片文本' : 'Slide text',
-                      'outline' => isZh ? '大纲文本' : 'Outline',
+                      'slide_text' => t(
+                        zh: '按幻灯片文本',
+                        zhHant: '按投影片文字',
+                        en: 'Slide text',
+                        fr: 'Texte des diapositives',
+                        de: 'Folientext',
+                        ja: 'スライドテキスト',
+                      ),
+                      'outline' => t(
+                        zh: '大纲文本',
+                        zhHant: '大綱文字',
+                        en: 'Outline',
+                        fr: 'Plan',
+                        de: 'Gliederung',
+                        ja: 'アウトライン',
+                      ),
                       _ => value,
                     },
                     onChanged: (value) {
@@ -752,16 +1056,57 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   ),
                   _field(
                     _targetTokens,
-                    isZh ? '子分块目标 token' : 'Child target tokens',
+                    t(
+                      zh: '子分块目标 token',
+                      zhHant: '子分塊目標 token',
+                      en: 'Child target tokens',
+                      fr: 'Tokens cible enfant',
+                      de: 'Ziel-Tokens je Kindabschnitt',
+                      ja: '子チャンク目標トークン',
+                    ),
                   ),
                   _field(
                     _hardMaxTokens,
-                    isZh ? '子分块硬上限 token' : 'Child hard max tokens',
+                    t(
+                      zh: '子分块硬上限 token',
+                      zhHant: '子分塊硬上限 token',
+                      en: 'Child hard max tokens',
+                      fr: 'Limite dure de tokens enfant',
+                      de: 'Harte Token-Obergrenze je Kindabschnitt',
+                      ja: '子チャンク最大トークン',
+                    ),
                   ),
-                  _field(_overlapTokens, isZh ? '重叠 token' : 'Overlap tokens'),
-                  _field(_maxFileSizeMb, isZh ? '单文件 MB 上限' : 'Max file MB'),
+                  _field(
+                    _overlapTokens,
+                    t(
+                      zh: '重叠 token',
+                      zhHant: '重疊 token',
+                      en: 'Overlap tokens',
+                      fr: 'Tokens de chevauchement',
+                      de: 'Überlappungs-Tokens',
+                      ja: '重複トークン',
+                    ),
+                  ),
+                  _field(
+                    _maxFileSizeMb,
+                    t(
+                      zh: '单文件 MB 上限',
+                      zhHant: '單檔 MB 上限',
+                      en: 'Max file MB',
+                      fr: 'Taille max fichier (Mo)',
+                      de: 'Max. Dateigröße (MB)',
+                      ja: 'ファイル上限 MB',
+                    ),
+                  ),
                   _switch(
-                    isZh ? '复制导入文件' : 'Copy imported files',
+                    t(
+                      zh: '复制导入文件',
+                      zhHant: '複製匯入檔案',
+                      en: 'Copy imported files',
+                      fr: 'Copier les fichiers importés',
+                      de: 'Importierte Dateien kopieren',
+                      ja: 'インポートファイルをコピー',
+                    ),
                     _settings.copyImportedFiles,
                     (value) {
                       setState(
@@ -772,7 +1117,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '监听原始文件' : 'Watch original files',
+                    t(
+                      zh: '监听原始文件',
+                      zhHant: '監聽原始檔案',
+                      en: 'Watch original files',
+                      fr: 'Surveiller les fichiers source',
+                      de: 'Originaldateien überwachen',
+                      ja: '元ファイルを監視',
+                    ),
                     _settings.watchOriginalFiles,
                     (value) {
                       setState(
@@ -783,7 +1135,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? 'parent-child 检索' : 'Parent-child retrieval',
+                    t(
+                      zh: 'parent-child 检索',
+                      zhHant: 'parent-child 檢索',
+                      en: 'Parent-child retrieval',
+                      fr: 'Recherche parent-enfant',
+                      de: 'Parent-Child-Abruf',
+                      ja: '親子検索',
+                    ),
                     _settings.parentChildEnabled,
                     (value) {
                       setState(
@@ -797,11 +1156,25 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
               ),
               _section(
                 context,
-                title: isZh ? '标签与时间' : 'Tags and Time',
+                title: t(
+                  zh: '标签与时间',
+                  zhHant: '標籤與時間',
+                  en: 'Tags and Time',
+                  fr: 'Étiquettes et temps',
+                  de: 'Tags und Zeit',
+                  ja: 'タグと時間',
+                ),
                 icon: Icons.sell_outlined,
                 children: [
                   _switch(
-                    isZh ? '从路径生成标签' : 'Path-derived tags',
+                    t(
+                      zh: '从路径生成标签',
+                      zhHant: '從路徑產生標籤',
+                      en: 'Path-derived tags',
+                      fr: 'Étiquettes depuis le chemin',
+                      de: 'Tags aus Pfaden ableiten',
+                      ja: 'パスからタグを生成',
+                    ),
                     _settings.autoPathTags,
                     (value) {
                       setState(
@@ -811,7 +1184,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '读取 front matter 标签' : 'Front matter tags',
+                    t(
+                      zh: '读取 front matter 标签',
+                      zhHant: '讀取 front matter 標籤',
+                      en: 'Front matter tags',
+                      fr: 'Étiquettes front matter',
+                      de: 'Front-Matter-Tags',
+                      ja: 'front matter タグを読む',
+                    ),
                     _settings.autoFrontMatterTags,
                     (value) {
                       setState(
@@ -822,7 +1202,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '自动标签建议' : 'Auto tag suggestions',
+                    t(
+                      zh: '自动标签建议',
+                      zhHant: '自動標籤建議',
+                      en: 'Auto tag suggestions',
+                      fr: 'Suggestions automatiques d’étiquettes',
+                      de: 'Automatische Tag-Vorschläge',
+                      ja: 'タグを自動提案',
+                    ),
                     _settings.autoTagSuggestions,
                     (value) {
                       setState(
@@ -833,14 +1220,34 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _dropdown(
-                    label: isZh ? '文档时间来源' : 'Document time source',
+                    label: t(
+                      zh: '文档时间来源',
+                      zhHant: '文件時間來源',
+                      en: 'Document time source',
+                      fr: 'Source de date du document',
+                      de: 'Quelle der Dokumentzeit',
+                      ja: 'ドキュメント日時の取得元',
+                    ),
                     value: _settings.defaultDocumentTimeSource,
                     values: _knowledgeDocumentTimeSources,
                     itemLabel: (value) => switch (value) {
-                      'front_matter' => isZh ? 'Front matter' : 'Front matter',
-                      'file_modified_at' =>
-                        isZh ? '文件修改时间' : 'File modified time',
-                      'imported_at' => isZh ? '导入时间' : 'Imported time',
+                      'front_matter' => 'Front matter',
+                      'file_modified_at' => t(
+                        zh: '文件修改时间',
+                        zhHant: '檔案修改時間',
+                        en: 'File modified time',
+                        fr: 'Date de modification du fichier',
+                        de: 'Dateiänderungszeit',
+                        ja: 'ファイル更新日時',
+                      ),
+                      'imported_at' => t(
+                        zh: '导入时间',
+                        zhHant: '匯入時間',
+                        en: 'Imported time',
+                        fr: 'Date d’import',
+                        de: 'Importzeit',
+                        ja: 'インポート日時',
+                      ),
                       _ => value,
                     },
                     onChanged: (value) {
@@ -852,7 +1259,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '解析自然语言时间' : 'Parse natural language time',
+                    t(
+                      zh: '解析自然语言时间',
+                      zhHant: '解析自然語言時間',
+                      en: 'Parse natural language time',
+                      fr: 'Analyser les dates en langage naturel',
+                      de: 'Natürliche Zeitangaben parsen',
+                      ja: '自然言語の日時を解析',
+                    ),
                     _settings.parseNaturalLanguageTime,
                     (value) {
                       setState(
@@ -863,7 +1277,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '最新/最近 boost' : 'Recency boost',
+                    t(
+                      zh: '最新/最近 boost',
+                      zhHant: '最新/最近 boost',
+                      en: 'Recency boost',
+                      fr: 'Boost de récence',
+                      de: 'Aktualitäts-Boost',
+                      ja: '新しさブースト',
+                    ),
                     _settings.recencyBoostEnabled,
                     (value) {
                       setState(
@@ -877,21 +1298,88 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
               ),
               _section(
                 context,
-                title: isZh ? '检索召回' : 'Retrieval Recall',
+                title: t(
+                  zh: '检索召回',
+                  zhHant: '檢索召回',
+                  en: 'Retrieval Recall',
+                  fr: 'Rappel de recherche',
+                  de: 'Abruf',
+                  ja: '検索リコール',
+                ),
                 icon: Icons.travel_explore_rounded,
                 children: [
-                  _field(_topN, isZh ? '召回 topN' : 'topN recall'),
-                  _field(_topK, isZh ? '最终 topK' : 'topK final'),
-                  _field(_minSimilarity, isZh ? '最低相似度' : 'Min similarity'),
-                  _field(_sourceCap, isZh ? '单来源上限' : 'Source cap'),
+                  _field(
+                    _topN,
+                    t(
+                      zh: '召回 topN',
+                      zhHant: '召回 topN',
+                      en: 'topN recall',
+                      fr: 'Rappel topN',
+                      de: 'Abruf topN',
+                      ja: '取得 topN',
+                    ),
+                  ),
+                  _field(
+                    _topK,
+                    t(
+                      zh: '最终 topK',
+                      zhHant: '最終 topK',
+                      en: 'topK final',
+                      fr: 'TopK final',
+                      de: 'Finales topK',
+                      ja: '最終 topK',
+                    ),
+                  ),
+                  _field(
+                    _minSimilarity,
+                    t(
+                      zh: '最低相似度',
+                      zhHant: '最低相似度',
+                      en: 'Min similarity',
+                      fr: 'Similarité min.',
+                      de: 'Min. Ähnlichkeit',
+                      ja: '最小類似度',
+                    ),
+                  ),
+                  _field(
+                    _sourceCap,
+                    t(
+                      zh: '单来源上限',
+                      zhHant: '單來源上限',
+                      en: 'Source cap',
+                      fr: 'Limite par source',
+                      de: 'Limit je Quelle',
+                      ja: 'ソース上限',
+                    ),
+                  ),
                   _dropdown(
-                    label: isZh ? '标签过滤模式' : 'Tag filter mode',
+                    label: t(
+                      zh: '标签过滤模式',
+                      zhHant: '標籤篩選模式',
+                      en: 'Tag filter mode',
+                      fr: 'Mode de filtre des étiquettes',
+                      de: 'Tag-Filtermodus',
+                      ja: 'タグフィルターモード',
+                    ),
                     value: _settings.tagFilterMode,
                     values: KnowledgeTagFilterMode.values,
                     itemLabel: (value) => switch (value) {
-                      KnowledgeTagFilterMode.any => isZh ? '任一标签命中' : 'Any tag',
-                      KnowledgeTagFilterMode.all =>
-                        isZh ? '全部标签命中' : 'All tags',
+                      KnowledgeTagFilterMode.any => t(
+                        zh: '任一标签命中',
+                        zhHant: '任一標籤命中',
+                        en: 'Any tag',
+                        fr: 'N’importe quelle étiquette',
+                        de: 'Beliebiger Tag',
+                        ja: '任意のタグ',
+                      ),
+                      KnowledgeTagFilterMode.all => t(
+                        zh: '全部标签命中',
+                        zhHant: '全部標籤命中',
+                        en: 'All tags',
+                        fr: 'Toutes les étiquettes',
+                        de: 'Alle Tags',
+                        ja: 'すべてのタグ',
+                      ),
                       _ => value,
                     },
                     onChanged: (value) {
@@ -903,15 +1391,41 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _dropdown(
-                    label: isZh ? '日期过滤模式' : 'Date filter mode',
+                    label: t(
+                      zh: '日期过滤模式',
+                      zhHant: '日期篩選模式',
+                      en: 'Date filter mode',
+                      fr: 'Mode de filtre de date',
+                      de: 'Datumsfiltermodus',
+                      ja: '日付フィルターモード',
+                    ),
                     value: _settings.dateFilterMode,
                     values: KnowledgeDateFilterMode.values,
                     itemLabel: (value) => switch (value) {
-                      KnowledgeDateFilterMode.hardWhenExplicit =>
-                        isZh ? '显式时间硬过滤' : 'Hard when explicit',
-                      KnowledgeDateFilterMode.softBoost =>
-                        isZh ? '软加权' : 'Soft boost',
-                      KnowledgeDateFilterMode.off => isZh ? '关闭' : 'Off',
+                      KnowledgeDateFilterMode.hardWhenExplicit => t(
+                        zh: '显式时间硬过滤',
+                        zhHant: '顯式時間硬篩選',
+                        en: 'Hard when explicit',
+                        fr: 'Strict si explicite',
+                        de: 'Hart bei expliziter Zeit',
+                        ja: '明示時は厳密',
+                      ),
+                      KnowledgeDateFilterMode.softBoost => t(
+                        zh: '软加权',
+                        zhHant: '軟加權',
+                        en: 'Soft boost',
+                        fr: 'Boost souple',
+                        de: 'Weicher Boost',
+                        ja: 'ソフトブースト',
+                      ),
+                      KnowledgeDateFilterMode.off => t(
+                        zh: '关闭',
+                        zhHant: '關閉',
+                        en: 'Off',
+                        fr: 'Désactivé',
+                        de: 'Aus',
+                        ja: 'オフ',
+                      ),
                       _ => value,
                     },
                     onChanged: (value) {
@@ -922,37 +1436,130 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       );
                     },
                   ),
-                  _field(_vectorWeight, isZh ? '向量权重' : 'Vector weight'),
-                  _field(_titleWeight, isZh ? '标题权重' : 'Title weight'),
-                  _field(_tagWeight, isZh ? '标签权重' : 'Tag weight'),
-                  _field(_timeWeight, isZh ? '时间权重' : 'Time weight'),
+                  _field(
+                    _vectorWeight,
+                    t(
+                      zh: '向量权重',
+                      zhHant: '向量權重',
+                      en: 'Vector weight',
+                      fr: 'Poids vectoriel',
+                      de: 'Vektorgewicht',
+                      ja: 'ベクトル重み',
+                    ),
+                  ),
+                  _field(
+                    _titleWeight,
+                    t(
+                      zh: '标题权重',
+                      zhHant: '標題權重',
+                      en: 'Title weight',
+                      fr: 'Poids du titre',
+                      de: 'Titelgewicht',
+                      ja: 'タイトル重み',
+                    ),
+                  ),
+                  _field(
+                    _tagWeight,
+                    t(
+                      zh: '标签权重',
+                      zhHant: '標籤權重',
+                      en: 'Tag weight',
+                      fr: 'Poids des étiquettes',
+                      de: 'Tag-Gewicht',
+                      ja: 'タグ重み',
+                    ),
+                  ),
+                  _field(
+                    _timeWeight,
+                    t(
+                      zh: '时间权重',
+                      zhHant: '時間權重',
+                      en: 'Time weight',
+                      fr: 'Poids temporel',
+                      de: 'Zeitgewicht',
+                      ja: '時間重み',
+                    ),
+                  ),
                   _field(
                     _exactPhraseWeight,
-                    isZh ? '精确短语权重' : 'Exact phrase weight',
+                    t(
+                      zh: '精确短语权重',
+                      zhHant: '精確片語權重',
+                      en: 'Exact phrase weight',
+                      fr: 'Poids des phrases exactes',
+                      de: 'Gewicht exakter Phrasen',
+                      ja: '完全一致フレーズ重み',
+                    ),
                   ),
                   _field(
                     _sourceQualityWeight,
-                    isZh ? '来源质量权重' : 'Source quality weight',
+                    t(
+                      zh: '来源质量权重',
+                      zhHant: '來源品質權重',
+                      en: 'Source quality weight',
+                      fr: 'Poids de qualité de source',
+                      de: 'Quellenqualitätsgewicht',
+                      ja: 'ソース品質重み',
+                    ),
                   ),
                 ],
               ),
               _section(
                 context,
-                title: isZh ? '重排与去重' : 'Rerank and Deduplication',
+                title: t(
+                  zh: '重排与去重',
+                  zhHant: '重排與去重',
+                  en: 'Rerank and Deduplication',
+                  fr: 'Reclassement et déduplication',
+                  de: 'Reranking und Deduplizierung',
+                  ja: '再ランクと重複排除',
+                ),
                 icon: Icons.filter_alt_outlined,
                 children: [
                   _dropdown(
-                    label: isZh ? '重排序方式' : 'Rerank mode',
+                    label: t(
+                      zh: '重排序方式',
+                      zhHant: '重排序方式',
+                      en: 'Rerank mode',
+                      fr: 'Mode de reclassement',
+                      de: 'Reranking-Modus',
+                      ja: '再ランク方式',
+                    ),
                     value: _settings.rerankMode,
                     values: KnowledgeRerankMode.values,
                     itemLabel: (value) => switch (value) {
-                      KnowledgeRerankMode.off => isZh ? '关闭' : 'Off',
-                      KnowledgeRerankMode.localHybrid =>
-                        isZh ? '本地混合评分' : 'Local hybrid scoring',
-                      KnowledgeRerankMode.mmr =>
-                        isZh ? 'MMR 多样性重排' : 'MMR diversity',
-                      KnowledgeRerankMode.model =>
-                        isZh ? '模型重排序' : 'Model rerank',
+                      KnowledgeRerankMode.off => t(
+                        zh: '关闭',
+                        zhHant: '關閉',
+                        en: 'Off',
+                        fr: 'Désactivé',
+                        de: 'Aus',
+                        ja: 'オフ',
+                      ),
+                      KnowledgeRerankMode.localHybrid => t(
+                        zh: '本地混合评分',
+                        zhHant: '本地混合評分',
+                        en: 'Local hybrid scoring',
+                        fr: 'Score hybride local',
+                        de: 'Lokale Hybridbewertung',
+                        ja: 'ローカル混合スコア',
+                      ),
+                      KnowledgeRerankMode.mmr => t(
+                        zh: 'MMR 多样性重排',
+                        zhHant: 'MMR 多樣性重排',
+                        en: 'MMR diversity',
+                        fr: 'Diversité MMR',
+                        de: 'MMR-Diversität',
+                        ja: 'MMR 多様性',
+                      ),
+                      KnowledgeRerankMode.model => t(
+                        zh: '模型重排序',
+                        zhHant: '模型重排序',
+                        en: 'Model rerank',
+                        fr: 'Reclassement par modèle',
+                        de: 'Modell-Reranking',
+                        ja: 'モデル再ランク',
+                      ),
                       _ => value,
                     },
                     onChanged: (value) {
@@ -981,9 +1588,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               _switch(
-                                isZh
-                                    ? '双能力嵌入模型跳过额外重排'
-                                    : 'Skip extra rerank for dual-capability embeddings',
+                                t(
+                                  zh: '双能力嵌入模型跳过额外重排',
+                                  zhHant: '雙能力嵌入模型跳過額外重排',
+                                  en: 'Skip extra rerank for dual-capability embeddings',
+                                  fr: 'Ignorer le reclassement supplémentaire pour les embeddings à double capacité',
+                                  de: 'Zusätzliches Reranking bei Dual-Capability-Embeddings überspringen',
+                                  ja: '両対応の埋め込みモデルでは追加再ランクを省略',
+                                ),
                                 _settings
                                     .skipModelRerankWhenEmbeddingSupportsRerank,
                                 (value) {
@@ -999,16 +1611,27 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                               if (skipModelRerankEffective)
                                 KnowledgeDialogNotice(
                                   icon: Icons.check_circle_outline_rounded,
-                                  message: isZh
-                                      ? '当前嵌入模型同时具备“嵌入生成”和“重排序”能力，检索时会直接采用向量召回顺序，不再额外请求重排序模型。'
-                                      : 'The current embedding model also supports rerank. Retrieval will use vector recall order without an extra rerank request.',
+                                  message: t(
+                                    zh: '当前嵌入模型同时具备“嵌入生成”和“重排序”能力，检索时会直接采用向量召回顺序，不再额外请求重排序模型。',
+                                    zhHant:
+                                        '目前嵌入模型同時具備「嵌入生成」與「重排序」能力，檢索時會直接採用向量召回順序，不再額外請求重排序模型。',
+                                    en: 'The current embedding model also supports rerank. Retrieval will use vector recall order without an extra rerank request.',
+                                    fr: 'Le modèle d’embedding actuel prend aussi en charge le reclassement. La recherche utilisera l’ordre de rappel vectoriel sans requête supplémentaire.',
+                                    de: 'Das aktuelle Embedding-Modell unterstützt auch Reranking. Der Abruf nutzt die Vektor-Reihenfolge ohne zusätzliche Reranking-Anfrage.',
+                                    ja: '現在の埋め込みモデルは再ランクにも対応しています。検索では追加リクエストなしでベクトル取得順を使います。',
+                                  ),
                                 )
                               else if (rerankModels.isEmpty)
                                 KnowledgeDialogNotice(
                                   icon: Icons.filter_alt_outlined,
-                                  message: isZh
-                                      ? '没有已开启“重排序”的模型。请先在设置的模型配置中启用该能力。'
-                                      : 'No model profile has Rerank enabled. Enable it in model settings first.',
+                                  message: t(
+                                    zh: '没有已开启“重排序”的模型。请先在设置的模型配置中启用该能力。',
+                                    zhHant: '沒有已啟用「重排序」的模型。請先在設定的模型配置中啟用該能力。',
+                                    en: 'No model profile has Rerank enabled. Enable it in model settings first.',
+                                    fr: 'Aucun profil de modèle n’a le reclassement activé. Activez-le d’abord dans les paramètres du modèle.',
+                                    de: 'Kein Modellprofil hat Rerank aktiviert. Aktivieren Sie es zuerst in den Modelleinstellungen.',
+                                    ja: '再ランクが有効なモデルプロファイルがありません。先にモデル設定で有効にしてください。',
+                                  ),
                                 )
                               else ...[
                                 if (_settings
@@ -1016,9 +1639,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                                     !embeddingModelSupportsRerank) ...[
                                   KnowledgeDialogNotice(
                                     icon: Icons.info_outline_rounded,
-                                    message: isZh
-                                        ? '当前嵌入模型未标记“重排序”能力，仍会请求下方选择的重排序模型。'
-                                        : 'The current embedding model is not marked rerank-capable, so the selected rerank model will still be requested.',
+                                    message: t(
+                                      zh: '当前嵌入模型未标记“重排序”能力，仍会请求下方选择的重排序模型。',
+                                      zhHant:
+                                          '目前嵌入模型未標記「重排序」能力，仍會請求下方選擇的重排序模型。',
+                                      en: 'The current embedding model is not marked rerank-capable, so the selected rerank model will still be requested.',
+                                      fr: 'Le modèle d’embedding actuel n’est pas marqué compatible reclassement ; le modèle choisi ci-dessous sera donc utilisé.',
+                                      de: 'Das aktuelle Embedding-Modell ist nicht als Rerank-fähig markiert, daher wird das unten gewählte Rerank-Modell genutzt.',
+                                      ja: '現在の埋め込みモデルは再ランク対応としてマークされていないため、下で選択した再ランクモデルをリクエストします。',
+                                    ),
                                   ),
                                   const SizedBox(height: 12),
                                 ],
@@ -1032,9 +1661,19 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                                   required: true,
                                   labelZh: '重排序模型',
                                   labelEn: 'Rerank model',
+                                  labelZhHant: '重排序模型',
+                                  labelFr: 'Modèle de reclassement',
+                                  labelDe: 'Rerank-Modell',
+                                  labelJa: '再ランクモデル',
                                   helperZh: '仅显示已开启“重排序”的模型配置。',
                                   helperEn:
                                       'Only rerank-capable model profiles are shown.',
+                                  helperZhHant: '僅顯示已啟用「重排序」的模型配置。',
+                                  helperFr:
+                                      'Seuls les profils compatibles reclassement sont affichés.',
+                                  helperDe:
+                                      'Es werden nur Rerank-fähige Modellprofile angezeigt.',
+                                  helperJa: '再ランク対応のモデルプロファイルのみ表示します。',
                                   modelFilter: (config, modelId) =>
                                       config.profileFor(modelId).supportsRerank,
                                   onSelected: (selection) {
@@ -1054,9 +1693,16 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                           ),
                   ),
                   if (_settings.rerankMode == KnowledgeRerankMode.mmr)
-                    _field(_mmrLambda, isZh ? 'MMR lambda' : 'MMR lambda'),
+                    _field(_mmrLambda, 'MMR lambda'),
                   _switch(
-                    isZh ? '邻居扩展' : 'Neighbor expansion',
+                    t(
+                      zh: '邻居扩展',
+                      zhHant: '鄰近擴展',
+                      en: 'Neighbor expansion',
+                      fr: 'Expansion voisine',
+                      de: 'Nachbarerweiterung',
+                      ja: '近傍拡張',
+                    ),
                     _settings.neighborExpansionEnabled,
                     (value) {
                       setState(
@@ -1067,7 +1713,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '父级扩展' : 'Parent expansion',
+                    t(
+                      zh: '父级扩展',
+                      zhHant: '父級擴展',
+                      en: 'Parent expansion',
+                      fr: 'Expansion parent',
+                      de: 'Parent-Erweiterung',
+                      ja: '親拡張',
+                    ),
                     _settings.parentExpansionEnabled,
                     (value) {
                       setState(
@@ -1079,33 +1732,75 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   ),
                   _field(
                     _maxChunksPerSource,
-                    isZh ? '单来源最终 chunk 上限' : 'Max chunks per source',
+                    t(
+                      zh: '单来源最终 chunk 上限',
+                      zhHant: '單來源最終 chunk 上限',
+                      en: 'Max chunks per source',
+                      fr: 'Chunks max par source',
+                      de: 'Max. Chunks je Quelle',
+                      ja: 'ソースごとの最大チャンク数',
+                    ),
                   ),
                   if (_settings.rerankMode == KnowledgeRerankMode.model &&
                       !skipModelRerankEffective) ...[
-                    _field(_rerankTopN, isZh ? 'Rerank topN' : 'Rerank topN'),
+                    _field(_rerankTopN, 'Rerank topN'),
                     _field(
                       _rerankTimeout,
-                      isZh ? 'Rerank 超时秒数' : 'Rerank timeout seconds',
+                      t(
+                        zh: 'Rerank 超时秒数',
+                        zhHant: 'Rerank 逾時秒數',
+                        en: 'Rerank timeout seconds',
+                        fr: 'Délai de reclassement (s)',
+                        de: 'Rerank-Timeout in Sekunden',
+                        ja: '再ランクタイムアウト秒数',
+                      ),
                     ),
                   ],
                 ],
               ),
               _section(
                 context,
-                title: isZh ? 'Prompt 追加' : 'Prompt Append',
+                title: t(
+                  zh: 'Prompt 追加',
+                  zhHant: 'Prompt 追加',
+                  en: 'Prompt Append',
+                  fr: 'Ajout au prompt',
+                  de: 'Prompt-Anhang',
+                  ja: 'Prompt 追加',
+                ),
                 icon: Icons.post_add_outlined,
                 children: [
                   _field(
                     _maxPromptChunks,
-                    isZh ? '最多追加 chunk' : 'Max prompt chunks',
+                    t(
+                      zh: '最多追加 chunk',
+                      zhHant: '最多追加 chunk',
+                      en: 'Max prompt chunks',
+                      fr: 'Chunks max ajoutés',
+                      de: 'Max. Prompt-Chunks',
+                      ja: '最大追加チャンク数',
+                    ),
                   ),
                   _field(
                     _maxPromptTokens,
-                    isZh ? '最大追加 token' : 'Max prompt tokens',
+                    t(
+                      zh: '最大追加 token',
+                      zhHant: '最大追加 token',
+                      en: 'Max prompt tokens',
+                      fr: 'Tokens max ajoutés',
+                      de: 'Max. Prompt-Tokens',
+                      ja: '最大追加トークン',
+                    ),
                   ),
                   _switch(
-                    isZh ? '包含 score' : 'Include score',
+                    t(
+                      zh: '包含 score',
+                      zhHant: '包含 score',
+                      en: 'Include score',
+                      fr: 'Inclure le score',
+                      de: 'Score einschließen',
+                      ja: 'スコアを含める',
+                    ),
                     _settings.includeScore,
                     (value) {
                       setState(
@@ -1115,7 +1810,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '包含标签' : 'Include tags',
+                    t(
+                      zh: '包含标签',
+                      zhHant: '包含標籤',
+                      en: 'Include tags',
+                      fr: 'Inclure les étiquettes',
+                      de: 'Tags einschließen',
+                      ja: 'タグを含める',
+                    ),
                     _settings.includeTags,
                     (value) {
                       setState(
@@ -1125,7 +1827,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '包含日期' : 'Include date',
+                    t(
+                      zh: '包含日期',
+                      zhHant: '包含日期',
+                      en: 'Include date',
+                      fr: 'Inclure la date',
+                      de: 'Datum einschließen',
+                      ja: '日付を含める',
+                    ),
                     _settings.includeDate,
                     (value) {
                       setState(
@@ -1135,7 +1844,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '包含来源路径' : 'Include source path',
+                    t(
+                      zh: '包含来源路径',
+                      zhHant: '包含來源路徑',
+                      en: 'Include source path',
+                      fr: 'Inclure le chemin source',
+                      de: 'Quellpfad einschließen',
+                      ja: 'ソースパスを含める',
+                    ),
                     _settings.includeSourcePath,
                     (value) {
                       setState(
@@ -1146,7 +1862,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '包含 chunk ID' : 'Include chunk ID',
+                    t(
+                      zh: '包含 chunk ID',
+                      zhHant: '包含 chunk ID',
+                      en: 'Include chunk ID',
+                      fr: 'Inclure l’ID du chunk',
+                      de: 'Chunk-ID einschließen',
+                      ja: 'チャンク ID を含める',
+                    ),
                     _settings.includeChunkId,
                     (value) {
                       setState(
@@ -1160,18 +1883,44 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
               ),
               _section(
                 context,
-                title: isZh ? '发送时行为' : 'Send-time Behavior',
+                title: t(
+                  zh: '发送时行为',
+                  zhHant: '傳送時行為',
+                  en: 'Send-time Behavior',
+                  fr: 'Comportement à l’envoi',
+                  de: 'Verhalten beim Senden',
+                  ja: '送信時の動作',
+                ),
                 icon: Icons.send_time_extension_outlined,
                 children: [
                   _dropdown(
-                    label: isZh ? '检索失败策略' : 'Retrieval failure strategy',
+                    label: t(
+                      zh: '检索失败策略',
+                      zhHant: '檢索失敗策略',
+                      en: 'Retrieval failure strategy',
+                      fr: 'Stratégie en cas d’échec de recherche',
+                      de: 'Strategie bei Abruffehlern',
+                      ja: '検索失敗時の戦略',
+                    ),
                     value: _settings.failureStrategy,
                     values: KnowledgeFailureStrategy.values,
                     itemLabel: (value) => switch (value) {
-                      KnowledgeFailureStrategy.failOpen =>
-                        isZh ? '失败后继续发送' : 'Fail open',
-                      KnowledgeFailureStrategy.failClosed =>
-                        isZh ? '失败后阻止发送' : 'Fail closed',
+                      KnowledgeFailureStrategy.failOpen => t(
+                        zh: '失败后继续发送',
+                        zhHant: '失敗後繼續傳送',
+                        en: 'Fail open',
+                        fr: 'Continuer après échec',
+                        de: 'Bei Fehler fortfahren',
+                        ja: '失敗しても送信',
+                      ),
+                      KnowledgeFailureStrategy.failClosed => t(
+                        zh: '失败后阻止发送',
+                        zhHant: '失敗後阻止傳送',
+                        en: 'Fail closed',
+                        fr: 'Bloquer après échec',
+                        de: 'Bei Fehler blockieren',
+                        ja: '失敗時は送信を止める',
+                      ),
                       _ => value,
                     },
                     onChanged: (value) {
@@ -1183,7 +1932,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? 'Embedding 失败继续发送' : 'Fail open on embedding error',
+                    t(
+                      zh: 'Embedding 失败继续发送',
+                      zhHant: 'Embedding 失敗繼續傳送',
+                      en: 'Fail open on embedding error',
+                      fr: 'Continuer si l’embedding échoue',
+                      de: 'Bei Embedding-Fehler fortfahren',
+                      ja: '埋め込み失敗時も送信',
+                    ),
                     _settings.embeddingFailureStrategy ==
                         KnowledgeFailureStrategy.failOpen,
                     (value) {
@@ -1197,7 +1953,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '无命中继续发送' : 'Continue when no hits',
+                    t(
+                      zh: '无命中继续发送',
+                      zhHant: '無命中繼續傳送',
+                      en: 'Continue when no hits',
+                      fr: 'Continuer sans résultat',
+                      de: 'Ohne Treffer fortfahren',
+                      ja: 'ヒットなしでも送信',
+                    ),
                     _settings.continueWhenNoHits,
                     (value) {
                       setState(
@@ -1208,7 +1971,14 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     },
                   ),
                   _switch(
-                    isZh ? '发送前预览' : 'Preview before send',
+                    t(
+                      zh: '发送前预览',
+                      zhHant: '傳送前預覽',
+                      en: 'Preview before send',
+                      fr: 'Aperçu avant envoi',
+                      de: 'Vor dem Senden anzeigen',
+                      ja: '送信前プレビュー',
+                    ),
                     _settings.showPreviewBeforeSend,
                     (value) {
                       setState(
@@ -1222,11 +1992,25 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
               ),
               _section(
                 context,
-                title: isZh ? '工具权限' : 'Tool Access',
+                title: t(
+                  zh: '工具权限',
+                  zhHant: '工具權限',
+                  en: 'Tool Access',
+                  fr: 'Accès aux outils',
+                  de: 'Tool-Zugriff',
+                  ja: 'ツールアクセス',
+                ),
                 icon: Icons.admin_panel_settings_outlined,
                 children: [
                   _switch(
-                    isZh ? '暴露知识库内建工具' : 'Expose Knowledge Base built-in tools',
+                    t(
+                      zh: '暴露知识库内建工具',
+                      zhHant: '暴露知識庫內建工具',
+                      en: 'Expose Knowledge Base built-in tools',
+                      fr: 'Exposer les outils intégrés de la base de connaissances',
+                      de: 'Integrierte Wissensdatenbank-Tools verfügbar machen',
+                      ja: 'ナレッジベース内蔵ツールを公開',
+                    ),
                     knowledgeBuiltinToolsEnabled,
                     (value) {
                       setState(
@@ -1240,32 +2024,66 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         ),
                       );
                     },
-                    subtitle: isZh
-                        ? '开启后 KnowledgeSearch / KnowledgeRead 会直接出现在工具目录，由 AI 自主检索和读取；关闭后两个工具同时禁用。'
-                        : 'When enabled, KnowledgeSearch / KnowledgeRead are exposed directly and the AI can decide when to search or read. Disabling turns both tools off.',
+                    subtitle: t(
+                      zh: '开启后 KnowledgeSearch / KnowledgeRead 会直接出现在工具目录，由 AI 自主检索和读取；关闭后两个工具同时禁用。',
+                      zhHant:
+                          '開啟後 KnowledgeSearch / KnowledgeRead 會直接出現在工具目錄，由 AI 自主檢索和讀取；關閉後兩個工具同時停用。',
+                      en: 'When enabled, KnowledgeSearch / KnowledgeRead are exposed directly and the AI can decide when to search or read. Disabling turns both tools off.',
+                      fr: 'Si activés, KnowledgeSearch / KnowledgeRead apparaissent directement et l’IA choisit quand rechercher ou lire. Les désactiver coupe les deux outils.',
+                      de: 'Wenn aktiviert, werden KnowledgeSearch / KnowledgeRead direkt angeboten und die KI entscheidet über Suche oder Lesen. Deaktivieren schaltet beide Tools aus.',
+                      ja: '有効にすると KnowledgeSearch / KnowledgeRead が直接ツール一覧に出て、AI が検索や読み取りを判断します。無効にすると両方のツールが停止します。',
+                    ),
                   ),
                 ],
               ),
               _section(
                 context,
-                title: isZh ? '维护与诊断' : 'Maintenance and Diagnostics',
+                title: t(
+                  zh: '维护与诊断',
+                  zhHant: '維護與診斷',
+                  en: 'Maintenance and Diagnostics',
+                  fr: 'Maintenance et diagnostics',
+                  de: 'Wartung und Diagnose',
+                  ja: 'メンテナンスと診断',
+                ),
                 icon: Icons.build_circle_outlined,
                 children: [
                   _readonly(
                     context,
-                    isZh ? 'Collection' : 'Collection',
+                    'Collection',
                     _settings.effectiveCollectionName,
                   ),
                   _field(
                     _qdrantMetricsRefreshSeconds,
-                    isZh ? 'Qdrant 指标刷新秒数' : 'Qdrant metrics refresh seconds',
+                    t(
+                      zh: 'Qdrant 指标刷新秒数',
+                      zhHant: 'Qdrant 指標重新整理秒數',
+                      en: 'Qdrant metrics refresh seconds',
+                      fr: 'Intervalle métriques Qdrant (s)',
+                      de: 'Qdrant-Metrikintervall (s)',
+                      ja: 'Qdrant メトリクス更新秒数',
+                    ),
                   ),
                   _field(
                     _qdrantLogRetainLines,
-                    isZh ? 'Qdrant 日志保留行数' : 'Qdrant log retained lines',
+                    t(
+                      zh: 'Qdrant 日志保留行数',
+                      zhHant: 'Qdrant 日誌保留行數',
+                      en: 'Qdrant log retained lines',
+                      fr: 'Lignes de journal Qdrant conservées',
+                      de: 'Behaltene Qdrant-Logzeilen',
+                      ja: 'Qdrant ログ保持行数',
+                    ),
                   ),
                   _switch(
-                    isZh ? '启用危险管理操作' : 'Enable dangerous admin operations',
+                    t(
+                      zh: '启用危险管理操作',
+                      zhHant: '啟用危險管理操作',
+                      en: 'Enable dangerous admin operations',
+                      fr: 'Activer les opérations admin dangereuses',
+                      de: 'Gefährliche Admin-Aktionen aktivieren',
+                      ja: '危険な管理操作を有効化',
+                    ),
                     _settings.enableDangerousAdminOperations,
                     (value) {
                       setState(
@@ -1284,12 +2102,26 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: isZh ? '取消' : 'Cancel',
+          label: t(
+            zh: '取消',
+            zhHant: '取消',
+            en: 'Cancel',
+            fr: 'Annuler',
+            de: 'Abbrechen',
+            ja: 'キャンセル',
+          ),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: _save,
           icon: Icons.save_rounded,
-          label: isZh ? '保存' : 'Save',
+          label: t(
+            zh: '保存',
+            zhHant: '儲存',
+            en: 'Save',
+            fr: 'Enregistrer',
+            de: 'Speichern',
+            ja: '保存',
+          ),
         ),
       ],
     );
@@ -1313,12 +2145,24 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 : Icons.dns_outlined,
             tone: KnowledgeDialogNoticeTone.warning,
             message: dependencyRefreshing
-                ? (isZh
-                      ? '正在重新检测 Docker/Qdrant 状态；当前缓存：$dependencyMessage'
-                      : 'Refreshing Docker/Qdrant status; cached state: $dependencyMessage')
-                : (isZh
-                      ? '知识库依赖未就绪：$dependencyMessage'
-                      : 'Knowledge dependencies are unavailable: $dependencyMessage'),
+                ? _kbConfigText(
+                    context,
+                    zh: '正在重新检测 Docker/Qdrant 状态；当前缓存：$dependencyMessage',
+                    zhHant: '正在重新檢測 Docker/Qdrant 狀態；目前快取：$dependencyMessage',
+                    en: 'Refreshing Docker/Qdrant status; cached state: $dependencyMessage',
+                    fr: 'Actualisation de l’état Docker/Qdrant ; état en cache : $dependencyMessage',
+                    de: 'Docker/Qdrant-Status wird aktualisiert; zwischengespeicherter Status: $dependencyMessage',
+                    ja: 'Docker/Qdrant の状態を再確認しています。キャッシュ状態: $dependencyMessage',
+                  )
+                : _kbConfigText(
+                    context,
+                    zh: '知识库依赖未就绪：$dependencyMessage',
+                    zhHant: '知識庫依賴尚未就緒：$dependencyMessage',
+                    en: 'Knowledge dependencies are unavailable: $dependencyMessage',
+                    fr: 'Les dépendances de la base de connaissances sont indisponibles : $dependencyMessage',
+                    de: 'Wissensdatenbank-Abhängigkeiten sind nicht verfügbar: $dependencyMessage',
+                    ja: 'ナレッジベースの依存関係が利用できません: $dependencyMessage',
+                  ),
             trailing: widget.onOpenPlugins == null
                 ? null
                 : KnowledgeDialogNoticeAction(
@@ -1328,7 +2172,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       widget.onOpenPlugins?.call();
                     },
                     icon: Icons.power_rounded,
-                    label: isZh ? '前往插件' : 'Open Plugins',
+                    label: _kbConfigText(
+                      context,
+                      zh: '前往插件',
+                      zhHant: '前往外掛',
+                      en: 'Open Plugins',
+                      fr: 'Ouvrir les plugins',
+                      de: 'Plugins öffnen',
+                      ja: 'プラグインを開く',
+                    ),
                   ),
           ),
         ),
@@ -1337,9 +2189,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           padding: const EdgeInsets.only(bottom: 12),
           child: KnowledgeDialogNotice(
             icon: Icons.hub_outlined,
-            message: isZh
-                ? '未配置可用的嵌入模型。请选择已开启“嵌入生成”的模型，并确认隐私开关。'
-                : 'No usable embedding model is configured. Choose an embedding-capable model and confirm privacy options.',
+            message: _kbConfigText(
+              context,
+              zh: '未配置可用的嵌入模型。请选择已开启“嵌入生成”的模型，并确认隐私开关。',
+              zhHant: '未設定可用的嵌入模型。請選擇已啟用「嵌入生成」的模型，並確認隱私開關。',
+              en: 'No usable embedding model is configured. Choose an embedding-capable model and confirm privacy options.',
+              fr: 'Aucun modèle d’embedding utilisable n’est configuré. Choisissez un modèle compatible et vérifiez les options de confidentialité.',
+              de: 'Es ist kein nutzbares Embedding-Modell konfiguriert. Wählen Sie ein embedding-fähiges Modell und prüfen Sie die Datenschutzeinstellungen.',
+              ja: '利用可能な埋め込みモデルが設定されていません。埋め込み対応モデルを選び、プライバシー設定を確認してください。',
+            ),
           ),
         ),
     ];
@@ -1365,11 +2223,34 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   }
 
   String _nullableBoolLabel(BuildContext context, bool? value) {
-    final isZh = openHandIsChineseLocale(context);
     return switch (value) {
-      true => isZh ? '是' : 'Yes',
-      false => isZh ? '否' : 'No',
-      null => isZh ? '未知' : 'Unknown',
+      true => _kbConfigText(
+        context,
+        zh: '是',
+        zhHant: '是',
+        en: 'Yes',
+        fr: 'Oui',
+        de: 'Ja',
+        ja: 'はい',
+      ),
+      false => _kbConfigText(
+        context,
+        zh: '否',
+        zhHant: '否',
+        en: 'No',
+        fr: 'Non',
+        de: 'Nein',
+        ja: 'いいえ',
+      ),
+      null => _kbConfigText(
+        context,
+        zh: '未知',
+        zhHant: '未知',
+        en: 'Unknown',
+        fr: 'Inconnu',
+        de: 'Unbekannt',
+        ja: '不明',
+      ),
     };
   }
 
@@ -1479,9 +2360,19 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   required: true,
                   labelZh: '嵌入模型',
                   labelEn: 'Embedding model',
+                  labelZhHant: '嵌入模型',
+                  labelFr: 'Modèle d’embedding',
+                  labelDe: 'Embedding-Modell',
+                  labelJa: '埋め込みモデル',
                   helperZh: '只列出具备嵌入生成能力的模型。切换后会同步模型建议参数。',
                   helperEn:
                       'Only embedding-capable models are shown. Changing model syncs recommended parameters.',
+                  helperZhHant: '只列出具備嵌入生成能力的模型。切換後會同步模型建議參數。',
+                  helperFr:
+                      'Seuls les modèles compatibles embedding sont affichés. Le changement synchronise les paramètres recommandés.',
+                  helperDe:
+                      'Es werden nur embedding-fähige Modelle angezeigt. Beim Wechsel werden empfohlene Parameter synchronisiert.',
+                  helperJa: '埋め込み対応モデルのみ表示します。切り替えると推奨パラメータを同期します。',
                   modelFilter: (config, modelId) =>
                       config.profileFor(modelId).supportsEmbeddings,
                   onSelected: (selection) =>
@@ -1528,7 +2419,6 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     final ready = profile != null;
     final foreground = ready
         ? colorScheme.primary
@@ -1563,8 +2453,24 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
               Expanded(
                 child: Text(
                   ready
-                      ? (isZh ? '模型可用' : 'Model ready')
-                      : (isZh ? '等待选择' : 'Pick a model'),
+                      ? _kbConfigText(
+                          context,
+                          zh: '模型可用',
+                          zhHant: '模型可用',
+                          en: 'Model ready',
+                          fr: 'Modèle prêt',
+                          de: 'Modell bereit',
+                          ja: 'モデル利用可能',
+                        )
+                      : _kbConfigText(
+                          context,
+                          zh: '等待选择',
+                          zhHant: '等待選擇',
+                          en: 'Pick a model',
+                          fr: 'Choisir un modèle',
+                          de: 'Modell auswählen',
+                          ja: 'モデルを選択',
+                        ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelLarge?.copyWith(
@@ -1585,9 +2491,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                       .whereType<String>()
                       .where((item) => item.trim().isNotEmpty)
                       .join(' / ')
-                : (isZh
-                      ? '请选择已启用嵌入生成的模型配置。'
-                      : 'Choose an embedding-enabled profile.'),
+                : _kbConfigText(
+                    context,
+                    zh: '请选择已启用嵌入生成的模型配置。',
+                    zhHant: '請選擇已啟用嵌入生成的模型配置。',
+                    en: 'Choose an embedding-enabled profile.',
+                    fr: 'Choisissez un profil compatible embedding.',
+                    de: 'Wählen Sie ein embedding-fähiges Profil.',
+                    ja: '埋め込み対応のプロファイルを選択してください。',
+                  ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -1609,7 +2521,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                 if (profile.supportsRerank)
                   KnowledgeDialogChip(
                     icon: Icons.filter_alt_rounded,
-                    label: isZh ? '可重排' : 'Rerank',
+                    label: _kbConfigText(
+                      context,
+                      zh: '可重排',
+                      zhHant: '可重排',
+                      en: 'Rerank',
+                      fr: 'Reclassement',
+                      de: 'Rerank',
+                      ja: '再ランク',
+                    ),
                   ),
               ],
             ),
@@ -1624,14 +2544,19 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     List<AiModelConfig> models,
   ) {
     final profile = _selectedEmbeddingProfile(models);
-    final isZh = openHandIsChineseLocale(context);
     if (profile == null) {
       return _fullRow(
         KnowledgeDialogNotice(
           icon: Icons.hub_outlined,
-          message: isZh
-              ? '当前保存的嵌入模型已不可用。请重新选择一个已开启“嵌入生成”的模型。'
-              : 'The saved embedding model is unavailable. Choose an embedding-enabled model again.',
+          message: _kbConfigText(
+            context,
+            zh: '当前保存的嵌入模型已不可用。请重新选择一个已开启“嵌入生成”的模型。',
+            zhHant: '目前儲存的嵌入模型已不可用。請重新選擇一個已啟用「嵌入生成」的模型。',
+            en: 'The saved embedding model is unavailable. Choose an embedding-enabled model again.',
+            fr: 'Le modèle d’embedding enregistré est indisponible. Choisissez à nouveau un modèle compatible.',
+            de: 'Das gespeicherte Embedding-Modell ist nicht verfügbar. Wählen Sie erneut ein embedding-fähiges Modell.',
+            ja: '保存済みの埋め込みモデルは利用できません。埋め込み対応モデルを選び直してください。',
+          ),
         ),
       );
     }
@@ -1647,17 +2572,41 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     final metrics = <({IconData icon, String label, String value})>[
       (
         icon: Icons.straighten_rounded,
-        label: isZh ? '维度范围' : 'Dimensions',
+        label: _kbConfigText(
+          context,
+          zh: '维度范围',
+          zhHant: '維度範圍',
+          en: 'Dimensions',
+          fr: 'Dimensions',
+          de: 'Dimensionen',
+          ja: '次元範囲',
+        ),
         value: dimensions,
       ),
       (
         icon: Icons.input_rounded,
-        label: isZh ? '最大输入' : 'Max input',
+        label: _kbConfigText(
+          context,
+          zh: '最大输入',
+          zhHant: '最大輸入',
+          en: 'Max input',
+          fr: 'Entrée max',
+          de: 'Max. Eingabe',
+          ja: '最大入力',
+        ),
         value: '${profile.embeddingMaxInputTokens ?? '-'}',
       ),
       (
         icon: Icons.batch_prediction_outlined,
-        label: isZh ? 'Batch / 上限' : 'Batch / limit',
+        label: _kbConfigText(
+          context,
+          zh: 'Batch / 上限',
+          zhHant: 'Batch / 上限',
+          en: 'Batch / limit',
+          fr: 'Batch / limite',
+          de: 'Batch / Limit',
+          ja: 'Batch / 上限',
+        ),
         value: [
           profile.embeddingBatchSize ?? '-',
           profile.embeddingMaxInputsPerBatch == null
@@ -1670,7 +2619,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
       (
         icon: Icons.radar_rounded,
-        label: isZh ? '距离/归一化' : 'Metric / normalized',
+        label: _kbConfigText(
+          context,
+          zh: '距离/归一化',
+          zhHant: '距離/正規化',
+          en: 'Metric / normalized',
+          fr: 'Métrique / normalisé',
+          de: 'Metrik / normalisiert',
+          ja: '距離/正規化',
+        ),
         value: [
           profile.embeddingSimilarityMetric ?? '-',
           _nullableBoolLabel(context, profile.embeddingOutputsNormalized),
@@ -1680,7 +2637,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     final details = <({IconData icon, String label, String value})>[
       (
         icon: Icons.route_outlined,
-        label: isZh ? '模型路由' : 'Model routing',
+        label: _kbConfigText(
+          context,
+          zh: '模型路由',
+          zhHant: '模型路由',
+          en: 'Model routing',
+          fr: 'Routage du modèle',
+          de: 'Modell-Routing',
+          ja: 'モデルルーティング',
+        ),
         value: _listLabel(<String>[
           if (profile.embeddingQueryModelId != null)
             'query ${profile.embeddingQueryModelId}',
@@ -1690,21 +2655,45 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
       (
         icon: Icons.tune_rounded,
-        label: isZh ? '支持参数' : 'Supported parameters',
+        label: _kbConfigText(
+          context,
+          zh: '支持参数',
+          zhHant: '支援參數',
+          en: 'Supported parameters',
+          fr: 'Paramètres pris en charge',
+          de: 'Unterstützte Parameter',
+          ja: '対応パラメータ',
+        ),
         value: _listLabel(profile.supportedParameters),
       ),
       (
         icon: Icons.data_object_rounded,
-        label: isZh ? '默认参数' : 'Default parameters',
+        label: _kbConfigText(
+          context,
+          zh: '默认参数',
+          zhHant: '預設參數',
+          en: 'Default parameters',
+          fr: 'Paramètres par défaut',
+          de: 'Standardparameter',
+          ja: '既定パラメータ',
+        ),
         value: _jsonMapLabel(profile.defaultParameters),
       ),
       (
         icon: Icons.swap_vert_rounded,
-        label: isZh ? '输入类型' : 'Input types',
+        label: _kbConfigText(
+          context,
+          zh: '输入类型',
+          zhHant: '輸入類型',
+          en: 'Input types',
+          fr: 'Types d’entrée',
+          de: 'Eingabetypen',
+          ja: '入力タイプ',
+        ),
         value: [
           _listLabel(profile.embeddingInputTypes),
           if (profile.embeddingDefaultInputType != null)
-            '${isZh ? '默认' : 'default'} ${profile.embeddingDefaultInputType}',
+            '${_kbConfigText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultInputType}',
           if (profile.embeddingQueryInputType != null)
             'query ${profile.embeddingQueryInputType}',
           if (profile.embeddingDocumentInputType != null)
@@ -1713,7 +2702,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
       (
         icon: Icons.task_alt_rounded,
-        label: isZh ? '任务类型' : 'Task types',
+        label: _kbConfigText(
+          context,
+          zh: '任务类型',
+          zhHant: '任務類型',
+          en: 'Task types',
+          fr: 'Types de tâche',
+          de: 'Aufgabentypen',
+          ja: 'タスクタイプ',
+        ),
         value: [
           _listLabel(profile.embeddingSupportedTaskTypes),
           if (profile.embeddingDefaultQueryTaskType != null)
@@ -1721,12 +2718,20 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           if (profile.embeddingDefaultDocumentTaskType != null)
             'doc ${profile.embeddingDefaultDocumentTaskType}',
           if (profile.embeddingDefaultTaskType != null)
-            '${isZh ? '默认' : 'default'} ${profile.embeddingDefaultTaskType}',
+            '${_kbConfigText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultTaskType}',
         ].join(' / '),
       ),
       (
         icon: Icons.short_text_rounded,
-        label: isZh ? '文本前缀' : 'Text prefixes',
+        label: _kbConfigText(
+          context,
+          zh: '文本前缀',
+          zhHant: '文字前綴',
+          en: 'Text prefixes',
+          fr: 'Préfixes texte',
+          de: 'Textpräfixe',
+          ja: 'テキスト接頭辞',
+        ),
         value: _listLabel(<String>[
           if (profile.embeddingQueryTextPrefix != null)
             'query ${profile.embeddingQueryTextPrefix}',
@@ -1736,22 +2741,38 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       ),
       (
         icon: Icons.text_fields_rounded,
-        label: isZh ? '编码格式' : 'Encoding formats',
+        label: _kbConfigText(
+          context,
+          zh: '编码格式',
+          zhHant: '編碼格式',
+          en: 'Encoding formats',
+          fr: 'Formats d’encodage',
+          de: 'Kodierungsformate',
+          ja: 'エンコード形式',
+        ),
         value: [
           _listLabel(profile.embeddingEncodingFormats),
           if (profile.embeddingDefaultEncodingFormat != null)
-            '${isZh ? '默认' : 'default'} ${profile.embeddingDefaultEncodingFormat}',
+            '${_kbConfigText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultEncodingFormat}',
         ].join(' / '),
       ),
       (
         icon: Icons.memory_rounded,
-        label: isZh ? '输出 dtype' : 'Output dtype',
+        label: _kbConfigText(
+          context,
+          zh: '输出 dtype',
+          zhHant: '輸出 dtype',
+          en: 'Output dtype',
+          fr: 'dtype de sortie',
+          de: 'Ausgabe-dtype',
+          ja: '出力 dtype',
+        ),
         value: [
           _listLabel(profile.embeddingOutputDTypes),
           if (profile.embeddingDefaultOutputDType != null)
-            '${isZh ? '默认' : 'default'} ${profile.embeddingDefaultOutputDType}',
+            '${_kbConfigText(context, zh: '默认', zhHant: '預設', en: 'default', fr: 'défaut', de: 'Standard', ja: '既定')} ${profile.embeddingDefaultOutputDType}',
           if (profile.embeddingDefaultTruncation != null)
-            '${isZh ? '截断' : 'truncate'} ${profile.embeddingDefaultTruncation}',
+            '${_kbConfigText(context, zh: '截断', zhHant: '截斷', en: 'truncate', fr: 'troncature', de: 'Kürzung', ja: '切り詰め')} ${profile.embeddingDefaultTruncation}',
         ].join(' / '),
       ),
     ];
@@ -1815,7 +2836,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isZh ? '模型画像' : 'Model Profile',
+                            _kbConfigText(
+                              context,
+                              zh: '模型画像',
+                              zhHant: '模型画像',
+                              en: 'Model Profile',
+                              fr: 'Profil du modèle',
+                              de: 'Modellprofil',
+                              ja: 'モデルプロファイル',
+                            ),
                             style: theme.textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w800,
                             ),
@@ -1845,12 +2874,28 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         if (profile.embeddingSupportsCustomDimensions)
                           KnowledgeDialogChip(
                             icon: Icons.open_in_full_rounded,
-                            label: isZh ? '可调维度' : 'Custom dims',
+                            label: _kbConfigText(
+                              context,
+                              zh: '可调维度',
+                              zhHant: '可調維度',
+                              en: 'Custom dims',
+                              fr: 'Dimensions ajustables',
+                              de: 'Anpassbare Dimensionen',
+                              ja: '次元調整可',
+                            ),
                           ),
                         if (profile.supportsRerank)
                           KnowledgeDialogChip(
                             icon: Icons.filter_alt_rounded,
-                            label: isZh ? '可重排' : 'Rerank',
+                            label: _kbConfigText(
+                              context,
+                              zh: '可重排',
+                              zhHant: '可重排',
+                              en: 'Rerank',
+                              fr: 'Reclassement',
+                              de: 'Rerank',
+                              ja: '再ランク',
+                            ),
                           ),
                       ],
                     ),
@@ -2058,7 +3103,6 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   }
 
   Widget _embeddingTuningPanel(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
     return _fullRow(
       Builder(
         builder: (context) {
@@ -2084,29 +3128,67 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     context,
                     width: groupWidth,
                     icon: Icons.account_tree_outlined,
-                    title: isZh ? '向量输出' : 'Vector Output',
-                    subtitle: isZh
-                        ? '控制最终写入向量库的维度、输入预算与单批规模。'
-                        : 'Controls vector dimensions, input budget, and batch size.',
+                    title: _kbConfigText(
+                      context,
+                      zh: '向量输出',
+                      zhHant: '向量輸出',
+                      en: 'Vector Output',
+                      fr: 'Sortie vectorielle',
+                      de: 'Vektorausgabe',
+                      ja: 'ベクトル出力',
+                    ),
+                    subtitle: _kbConfigText(
+                      context,
+                      zh: '控制最终写入向量库的维度、输入预算与单批规模。',
+                      zhHant: '控制最終寫入向量庫的維度、輸入預算與單批規模。',
+                      en: 'Controls vector dimensions, input budget, and batch size.',
+                      fr: 'Contrôle les dimensions vectorielles, le budget d’entrée et la taille de batch.',
+                      de: 'Steuert Vektordimensionen, Eingabebudget und Batchgröße.',
+                      ja: 'ベクトルストアへ書き込む次元、入力予算、バッチサイズを制御します。',
+                    ),
                     child: _embeddingSettingsGrid(
                       context,
                       children: [
                         _embeddingSettingTextField(
                           context,
                           controller: _dimensions,
-                          label: isZh ? '默认向量维度' : 'Default dimensions',
+                          label: _kbConfigText(
+                            context,
+                            zh: '默认向量维度',
+                            zhHant: '預設向量維度',
+                            en: 'Default dimensions',
+                            fr: 'Dimensions par défaut',
+                            de: 'Standarddimensionen',
+                            ja: '既定ベクトル次元',
+                          ),
                           icon: Icons.straighten_rounded,
                         ),
                         _embeddingSettingTextField(
                           context,
                           controller: _maxInputTokens,
-                          label: isZh ? '最大输入 token' : 'Max input tokens',
+                          label: _kbConfigText(
+                            context,
+                            zh: '最大输入 token',
+                            zhHant: '最大輸入 token',
+                            en: 'Max input tokens',
+                            fr: 'Tokens d’entrée max',
+                            de: 'Max. Eingabetokens',
+                            ja: '最大入力トークン',
+                          ),
                           icon: Icons.input_rounded,
                         ),
                         _embeddingSettingTextField(
                           context,
                           controller: _batchSize,
-                          label: isZh ? '批量大小' : 'Batch size',
+                          label: _kbConfigText(
+                            context,
+                            zh: '批量大小',
+                            zhHant: '批次大小',
+                            en: 'Batch size',
+                            fr: 'Taille de batch',
+                            de: 'Batchgröße',
+                            ja: 'バッチサイズ',
+                          ),
                           icon: Icons.batch_prediction_outlined,
                         ),
                       ],
@@ -2116,37 +3198,83 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     context,
                     width: groupWidth,
                     icon: Icons.speed_rounded,
-                    title: isZh ? '请求韧性' : 'Request Resilience',
-                    subtitle: isZh
-                        ? '限制请求耗时、失败重试和并发，避免资源被无限占用。'
-                        : 'Bounds timeout, retries, backoff, and concurrency.',
+                    title: _kbConfigText(
+                      context,
+                      zh: '请求韧性',
+                      zhHant: '請求韌性',
+                      en: 'Request Resilience',
+                      fr: 'Résilience des requêtes',
+                      de: 'Anfrage-Resilienz',
+                      ja: 'リクエスト耐性',
+                    ),
+                    subtitle: _kbConfigText(
+                      context,
+                      zh: '限制请求耗时、失败重试和并发，避免资源被无限占用。',
+                      zhHant: '限制請求耗時、失敗重試和並發，避免資源被無限占用。',
+                      en: 'Bounds timeout, retries, backoff, and concurrency.',
+                      fr: 'Encadre le délai, les retries, le backoff et la concurrence.',
+                      de: 'Begrenzt Timeout, Wiederholungen, Backoff und Nebenläufigkeit.',
+                      ja: 'タイムアウト、再試行、バックオフ、並列数を制限し、リソース占有を防ぎます。',
+                    ),
                     child: _embeddingSettingsGrid(
                       context,
                       children: [
                         _embeddingSettingTextField(
                           context,
                           controller: _timeout,
-                          label: isZh ? '请求超时' : 'Request timeout',
+                          label: _kbConfigText(
+                            context,
+                            zh: '请求超时',
+                            zhHant: '請求逾時',
+                            en: 'Request timeout',
+                            fr: 'Délai de requête',
+                            de: 'Anfrage-Timeout',
+                            ja: 'リクエストタイムアウト',
+                          ),
                           icon: Icons.timer_outlined,
                           suffix: 's',
                         ),
                         _embeddingSettingTextField(
                           context,
                           controller: _retryCount,
-                          label: isZh ? '失败重试' : 'Retry count',
+                          label: _kbConfigText(
+                            context,
+                            zh: '失败重试',
+                            zhHant: '失敗重試',
+                            en: 'Retry count',
+                            fr: 'Nombre de retries',
+                            de: 'Wiederholungen',
+                            ja: '再試行回数',
+                          ),
                           icon: Icons.replay_rounded,
                         ),
                         _embeddingSettingTextField(
                           context,
                           controller: _retryBackoffMs,
-                          label: isZh ? '重试退避' : 'Retry backoff',
+                          label: _kbConfigText(
+                            context,
+                            zh: '重试退避',
+                            zhHant: '重試退避',
+                            en: 'Retry backoff',
+                            fr: 'Backoff des retries',
+                            de: 'Retry-Backoff',
+                            ja: '再試行バックオフ',
+                          ),
                           icon: Icons.more_time_rounded,
                           suffix: 'ms',
                         ),
                         _embeddingSettingTextField(
                           context,
                           controller: _concurrentRequests,
-                          label: isZh ? '并发请求' : 'Concurrent requests',
+                          label: _kbConfigText(
+                            context,
+                            zh: '并发请求',
+                            zhHant: '並發請求',
+                            en: 'Concurrent requests',
+                            fr: 'Requêtes concurrentes',
+                            de: 'Parallele Anfragen',
+                            ja: '同時リクエスト',
+                          ),
                           icon: Icons.call_split_rounded,
                         ),
                       ],
@@ -2156,22 +3284,48 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                     context,
                     width: maxWidth,
                     icon: Icons.privacy_tip_outlined,
-                    title: isZh ? '隐私与缓存' : 'Privacy and Cache',
-                    subtitle: isZh
-                        ? '云端 embedding 会发送文档 chunk 或用户 query；默认保持关闭。'
-                        : 'Cloud embeddings send document chunks or user queries; keep them off unless approved.',
+                    title: _kbConfigText(
+                      context,
+                      zh: '隐私与缓存',
+                      zhHant: '隱私與快取',
+                      en: 'Privacy and Cache',
+                      fr: 'Confidentialité et cache',
+                      de: 'Datenschutz und Cache',
+                      ja: 'プライバシーとキャッシュ',
+                    ),
+                    subtitle: _kbConfigText(
+                      context,
+                      zh: '云端 embedding 会发送文档 chunk 或用户 query；默认保持关闭。',
+                      zhHant: '雲端 embedding 會傳送文件 chunk 或使用者 query；預設保持關閉。',
+                      en: 'Cloud embeddings send document chunks or user queries; keep them off unless approved.',
+                      fr: 'Les embeddings cloud envoient des chunks de document ou des requêtes utilisateur ; gardez-les désactivés sans approbation.',
+                      de: 'Cloud-Embeddings senden Dokument-Chunks oder Nutzerabfragen; lassen Sie sie ohne Freigabe deaktiviert.',
+                      ja: 'クラウド埋め込みはドキュメントチャンクやユーザークエリを送信します。承認がない限りオフにしてください。',
+                    ),
                     child: _embeddingSettingsGrid(
                       context,
                       minItemWidth: 220,
                       children: [
                         _embeddingSwitchTile(
                           context,
-                          label: isZh
-                              ? '允许发送文档内容'
-                              : 'Allow document cloud embedding',
-                          subtitle: isZh
-                              ? '导入文档向量化时生效'
-                              : 'Used while indexing documents',
+                          label: _kbConfigText(
+                            context,
+                            zh: '允许发送文档内容',
+                            zhHant: '允許傳送文件內容',
+                            en: 'Allow document cloud embedding',
+                            fr: 'Autoriser l’embedding cloud des documents',
+                            de: 'Cloud-Embedding für Dokumente erlauben',
+                            ja: 'ドキュメントのクラウド埋め込みを許可',
+                          ),
+                          subtitle: _kbConfigText(
+                            context,
+                            zh: '导入文档向量化时生效',
+                            zhHant: '匯入文件向量化時生效',
+                            en: 'Used while indexing documents',
+                            fr: 'Utilisé lors de l’indexation des documents',
+                            de: 'Wird beim Indexieren von Dokumenten genutzt',
+                            ja: 'ドキュメントのインデックス作成時に使用',
+                          ),
                           value: _settings.allowDocumentCloudEmbedding,
                           onChanged: (value) {
                             setState(
@@ -2183,12 +3337,24 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         ),
                         _embeddingSwitchTile(
                           context,
-                          label: isZh
-                              ? '允许发送用户查询'
-                              : 'Allow query cloud embedding',
-                          subtitle: isZh
-                              ? '发送消息检索时生效'
-                              : 'Used while retrieving on send',
+                          label: _kbConfigText(
+                            context,
+                            zh: '允许发送用户查询',
+                            zhHant: '允許傳送使用者查詢',
+                            en: 'Allow query cloud embedding',
+                            fr: 'Autoriser l’embedding cloud des requêtes',
+                            de: 'Cloud-Embedding für Abfragen erlauben',
+                            ja: 'クエリのクラウド埋め込みを許可',
+                          ),
+                          subtitle: _kbConfigText(
+                            context,
+                            zh: '发送消息检索时生效',
+                            zhHant: '傳送訊息檢索時生效',
+                            en: 'Used while retrieving on send',
+                            fr: 'Utilisé lors de la recherche à l’envoi',
+                            de: 'Wird beim Abruf während des Sendens genutzt',
+                            ja: '送信時の検索で使用',
+                          ),
                           value: _settings.allowQueryCloudEmbedding,
                           onChanged: (value) {
                             setState(
@@ -2200,12 +3366,24 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                         ),
                         _embeddingSwitchTile(
                           context,
-                          label: isZh
-                              ? '缓存查询 embedding'
-                              : 'Cache query embedding',
-                          subtitle: isZh
-                              ? '复用重复查询向量'
-                              : 'Reuses vectors for repeated queries',
+                          label: _kbConfigText(
+                            context,
+                            zh: '缓存查询 embedding',
+                            zhHant: '快取查詢 embedding',
+                            en: 'Cache query embedding',
+                            fr: 'Mettre en cache l’embedding des requêtes',
+                            de: 'Abfrage-Embedding cachen',
+                            ja: 'クエリ埋め込みをキャッシュ',
+                          ),
+                          subtitle: _kbConfigText(
+                            context,
+                            zh: '复用重复查询向量',
+                            zhHant: '重複使用重複查詢向量',
+                            en: 'Reuses vectors for repeated queries',
+                            fr: 'Réutilise les vecteurs des requêtes répétées',
+                            de: 'Verwendet Vektoren für wiederholte Abfragen erneut',
+                            ja: '繰り返しクエリのベクトルを再利用',
+                          ),
                           value: _settings.cacheQueryEmbedding,
                           onChanged: (value) {
                             setState(
@@ -2422,13 +3600,18 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   }
 
   Widget _emptyModelState(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
     return _fullRow(
       KnowledgeDialogNotice(
         icon: Icons.info_outline_rounded,
-        message: isZh
-            ? '没有已开启“嵌入生成”的模型。请先在设置的模型配置中启用该能力。'
-            : 'No model profile has Embedding Generation enabled. Enable it in model settings first.',
+        message: _kbConfigText(
+          context,
+          zh: '没有已开启“嵌入生成”的模型。请先在设置的模型配置中启用该能力。',
+          zhHant: '沒有已啟用「嵌入生成」的模型。請先在設定的模型配置中啟用該能力。',
+          en: 'No model profile has Embedding Generation enabled. Enable it in model settings first.',
+          fr: 'Aucun profil de modèle n’a la génération d’embedding activée. Activez-la d’abord dans les paramètres du modèle.',
+          de: 'Kein Modellprofil hat Embedding-Erzeugung aktiviert. Aktivieren Sie sie zuerst in den Modelleinstellungen.',
+          ja: '埋め込み生成が有効なモデルプロファイルがありません。先にモデル設定で有効にしてください。',
+        ),
       ),
     );
   }
@@ -2440,7 +3623,6 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -2463,7 +3645,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  isZh ? '模型解析规则' : 'Model Parsing Rules',
+                  _kbConfigText(
+                    context,
+                    zh: '模型解析规则',
+                    zhHant: '模型解析規則',
+                    en: 'Model Parsing Rules',
+                    fr: 'Règles d’analyse par modèle',
+                    de: 'Modellbasierte Parsing-Regeln',
+                    ja: 'モデル解析ルール',
+                  ),
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -2473,9 +3663,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           ),
           const SizedBox(height: 6),
           Text(
-            isZh
-                ? '为指定源文件类型启用 reader 模型后，导入时会先转换为目标类型，再进入分块与向量化。'
-                : 'When a reader model is enabled for a source type, import converts it to the target type before chunking and embedding.',
+            _kbConfigText(
+              context,
+              zh: '为指定源文件类型启用 reader 模型后，导入时会先转换为目标类型，再进入分块与向量化。',
+              zhHant: '為指定來源檔案類型啟用 reader 模型後，匯入時會先轉換為目標類型，再進入分塊與向量化。',
+              en: 'When a reader model is enabled for a source type, import converts it to the target type before chunking and embedding.',
+              fr: 'Lorsqu’un modèle reader est activé pour un type source, l’import le convertit vers le type cible avant le découpage et l’embedding.',
+              de: 'Wenn ein Reader-Modell für einen Quelltyp aktiviert ist, wird beim Import vor Chunking und Embedding in den Zieltyp konvertiert.',
+              ja: '指定したソースファイル種別で reader モデルを有効にすると、インポート時にチャンク化と埋め込みの前に対象種別へ変換します。',
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
@@ -2498,9 +3694,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
             const SizedBox(height: 12),
             KnowledgeDialogNotice(
               icon: Icons.info_outline_rounded,
-              message: isZh
-                  ? '当前没有已开启“读取转换”的模型。请先在设置的模型配置中启用该能力并配置源/目标类型。'
-                  : 'No model profile has Read Conversion enabled. Enable it in model settings and configure source/target types first.',
+              message: _kbConfigText(
+                context,
+                zh: '当前没有已开启“读取转换”的模型。请先在设置的模型配置中启用该能力并配置源/目标类型。',
+                zhHant: '目前沒有已啟用「讀取轉換」的模型。請先在設定的模型配置中啟用該能力並設定來源/目標類型。',
+                en: 'No model profile has Read Conversion enabled. Enable it in model settings and configure source/target types first.',
+                fr: 'Aucun profil de modèle n’a la conversion de lecture activée. Activez-la et configurez les types source/cible.',
+                de: 'Kein Modellprofil hat Lese-Konvertierung aktiviert. Aktivieren Sie sie und konfigurieren Sie Quell-/Zieltypen.',
+                ja: '読み取り変換が有効なモデルプロファイルがありません。先にモデル設定で有効化し、ソース/対象種別を設定してください。',
+              ),
             ),
           ],
         ],
@@ -2516,7 +3718,6 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     final l10n = AppLocalizations.of(context)!;
     final rule = _settings.readerRuleForSourceType(sourceType);
     final selectedProfile = _selectedReaderProfile(
@@ -2566,16 +3767,44 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                   isExpanded: true,
                   decoration: knowledgeDialogInputDecoration(
                     context,
-                    isZh ? '解析方式' : 'Parser',
+                    _kbConfigText(
+                      context,
+                      zh: '解析方式',
+                      zhHant: '解析方式',
+                      en: 'Parser',
+                      fr: 'Analyseur',
+                      de: 'Parser',
+                      ja: '解析方式',
+                    ),
                   ),
                   items: [
                     DropdownMenuItem(
                       value: KnowledgeReaderParserMode.local,
-                      child: Text(isZh ? '本地解析' : 'Local'),
+                      child: Text(
+                        _kbConfigText(
+                          context,
+                          zh: '本地解析',
+                          zhHant: '本地解析',
+                          en: 'Local',
+                          fr: 'Local',
+                          de: 'Lokal',
+                          ja: 'ローカル解析',
+                        ),
+                      ),
                     ),
                     DropdownMenuItem(
                       value: KnowledgeReaderParserMode.model,
-                      child: Text(isZh ? '模型解析' : 'Model'),
+                      child: Text(
+                        _kbConfigText(
+                          context,
+                          zh: '模型解析',
+                          zhHant: '模型解析',
+                          en: 'Model',
+                          fr: 'Modèle',
+                          de: 'Modell',
+                          ja: 'モデル解析',
+                        ),
+                      ),
                     ),
                   ],
                   onChanged: (value) {
@@ -2651,9 +3880,19 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                               required: true,
                               labelZh: 'Reader 模型',
                               labelEn: 'Reader model',
+                              labelZhHant: 'Reader 模型',
+                              labelFr: 'Modèle reader',
+                              labelDe: 'Reader-Modell',
+                              labelJa: 'Reader モデル',
                               helperZh: '仅显示具备“读取转换”且支持当前源文件类型的模型。',
                               helperEn:
                                   'Only read-conversion models supporting this source type are shown.',
+                              helperZhHant: '僅顯示具備「讀取轉換」且支援目前來源檔案類型的模型。',
+                              helperFr:
+                                  'Seuls les modèles de conversion de lecture compatibles avec ce type source sont affichés.',
+                              helperDe:
+                                  'Es werden nur Lese-Konvertierungsmodelle angezeigt, die diesen Quelltyp unterstützen.',
+                              helperJa: '現在のソースファイル種別に対応する読み取り変換モデルのみ表示します。',
                               modelFilter: (config, modelId) => config
                                   .profileFor(modelId)
                                   .supportsReaderSourceType(sourceType),
@@ -2687,7 +3926,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                               isExpanded: true,
                               decoration: knowledgeDialogInputDecoration(
                                 context,
-                                isZh ? '转换目标类型' : 'Target type',
+                                _kbConfigText(
+                                  context,
+                                  zh: '转换目标类型',
+                                  zhHant: '轉換目標類型',
+                                  en: 'Target type',
+                                  fr: 'Type cible',
+                                  de: 'Zieltyp',
+                                  ja: '変換先の種類',
+                                ),
                               ),
                               items: [
                                 for (final item in safeTargetValues)
