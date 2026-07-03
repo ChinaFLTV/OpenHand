@@ -627,7 +627,6 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
     final relatedMessage = _auditRelatedTelemetryMessage(session, message);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     final size = MediaQuery.sizeOf(context);
     final maxWidth = size.width * 0.88;
     final maxHeight = size.height * 0.88;
@@ -992,19 +991,43 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                         ),
                       if (sendPreflightElapsedMs != null)
                         _AuditKvRow(
-                          label: isZh ? '发送前耗时 (ms)' : 'Send Preflight (ms)',
+                          label: _localizedText(
+                            context,
+                            zh: '发送前耗时 (ms)',
+                            zhHant: '送出前耗時 (ms)',
+                            en: 'Send Preflight (ms)',
+                            fr: 'Pré-envoi (ms)',
+                            de: 'Vor dem Senden (ms)',
+                            ja: '送信前処理 (ms)',
+                          ),
                           value: '$sendPreflightElapsedMs',
                         ),
                       if (preRequestElapsedMs != null)
                         _AuditKvRow(
-                          label: isZh ? '请求前耗时 (ms)' : 'Pre-request (ms)',
+                          label: _localizedText(
+                            context,
+                            zh: '请求前耗时 (ms)',
+                            zhHant: '請求前耗時 (ms)',
+                            en: 'Pre-request (ms)',
+                            fr: 'Avant requête (ms)',
+                            de: 'Vor Anfrage (ms)',
+                            ja: 'リクエスト前 (ms)',
+                          ),
                           value: '$preRequestElapsedMs',
                         ),
                       if (sendPreflightTimings != null &&
                           sendPreflightTimings.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         _AuditJsonBlock(
-                          label: isZh ? '发送前阶段耗时' : 'Send Preflight Timings',
+                          label: _localizedText(
+                            context,
+                            zh: '发送前阶段耗时',
+                            zhHant: '送出前階段耗時',
+                            en: 'Send Preflight Timings',
+                            fr: 'Durées de pré-envoi',
+                            de: 'Vor-Senden-Zeiten',
+                            ja: '送信前処理の時間',
+                          ),
                           json: sendPreflightTimings,
                         ),
                       ],
@@ -1012,7 +1035,15 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                           preRequestTimings.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         _AuditJsonBlock(
-                          label: isZh ? '请求前阶段耗时' : 'Pre-request Timings',
+                          label: _localizedText(
+                            context,
+                            zh: '请求前阶段耗时',
+                            zhHant: '請求前階段耗時',
+                            en: 'Pre-request Timings',
+                            fr: 'Durées avant requête',
+                            de: 'Vor-Anfrage-Zeiten',
+                            ja: 'リクエスト前の時間',
+                          ),
                           json: preRequestTimings,
                         ),
                       ],
@@ -1133,7 +1164,15 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                           prefixDriftSuspected ||
                           automaticProviderMissSuspected)
                         _AuditJsonBlock(
-                          label: isZh ? '缓存诊断' : 'Cache Diagnostics',
+                          label: _localizedText(
+                            context,
+                            zh: '缓存诊断',
+                            zhHant: '快取診斷',
+                            en: 'Cache Diagnostics',
+                            fr: 'Diagnostics du cache',
+                            de: 'Cache-Diagnose',
+                            ja: 'キャッシュ診断',
+                          ),
                           initiallyExpanded: true,
                           json: <String, Object?>{
                             'idle_gap_seconds': cacheIdleGapSeconds,
