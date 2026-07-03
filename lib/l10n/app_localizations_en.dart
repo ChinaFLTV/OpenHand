@@ -1586,6 +1586,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsActiveToolCallsCancel => 'Stop';
 
   @override
+  String get settingsActiveToolKindBuiltin => 'Built-in';
+
+  @override
+  String get settingsActiveToolKindMcp => 'MCP';
+
+  @override
+  String get settingsActiveToolKindSkill => 'Skill';
+
+  @override
+  String get settingsActiveToolSessionLabel => 'session';
+
+  @override
+  String get settingsToolHardeningTitle => 'Tool Hardening Parameters';
+
+  @override
+  String get settingsToolHardeningBody =>
+      'Subprocess graceful shutdown duration, bash output cap, and concurrent tool-call limit.';
+
+  @override
   String get settingsSubprocessGracefulShutdownLabel =>
       'Subprocess graceful shutdown (ms)';
 
@@ -6347,6 +6366,24 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsClickRecordThenPressTheNew =>
       'Click record, then press the new key combination to update a binding. Model and session switching wrap around automatically.';
+
+  @override
+  String get settingsShortcutRecord => 'Record';
+
+  @override
+  String get settingsShortcutResetToDefault => 'Reset to default';
+
+  @override
+  String get settingsShortcutMaxKeysError =>
+      'OpenHand supports up to four simultaneous keys.';
+
+  @override
+  String get settingsShortcutRecorderBody =>
+      'Press the new key combination to update this binding. OpenHand supports up to four simultaneous keys.';
+
+  @override
+  String get settingsShortcutRecorderTip =>
+      'Tip: include at least one non-modifier key such as Enter, P, or an arrow key.';
 
   @override
   String get settingsAutoCleanupExecutionHistory =>

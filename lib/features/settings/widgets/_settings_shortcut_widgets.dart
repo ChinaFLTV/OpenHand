@@ -21,6 +21,7 @@ class _ShortcutBindingTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     return Material(
       color: colorScheme.surfaceContainerLow,
       borderRadius: BorderRadius.circular(20),
@@ -99,9 +100,7 @@ class _ShortcutBindingTile extends StatelessWidget {
                     ),
                     onPressed: onRecord,
                     icon: const Icon(Icons.keyboard_alt_rounded, size: 18),
-                    label: Text(
-                      openHandIsChineseLocale(context) ? '录制' : 'Record',
-                    ),
+                    label: Text(l10n.settingsShortcutRecord),
                   ),
                 ),
                 SizedBox(
@@ -118,9 +117,7 @@ class _ShortcutBindingTile extends StatelessWidget {
                       ),
                       side: BorderSide(color: colorScheme.outlineVariant),
                     ),
-                    tooltip: openHandIsChineseLocale(context)
-                        ? '恢复默认'
-                        : 'Reset to default',
+                    tooltip: l10n.settingsShortcutResetToDefault,
                     icon: const Icon(Icons.restart_alt_rounded, size: 18),
                   ),
                 ),
@@ -193,9 +190,7 @@ class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
     );
     if (nextKeyIds.length > openHandShortcutMaxKeyCount) {
       setState(() {
-        _errorText = openHandIsChineseLocale(context)
-            ? '最多支持同时按下 4 个按键。'
-            : 'OpenHand supports up to four simultaneous keys.';
+        _errorText = AppLocalizations.of(context)!.settingsShortcutMaxKeysError;
       });
       return KeyEventResult.handled;
     }
@@ -208,7 +203,7 @@ class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isChinese = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final canSave = isValidShortcutBinding(_currentKeyIds);
     return buildOpenHandAlertDialog(
       title: Text(widget.title),
@@ -222,11 +217,7 @@ class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                isChinese
-                    ? '按下新的组合键即可更新绑定。最多支持同时按下 4 个按键。'
-                    : 'Press the new key combination to update this binding. OpenHand supports up to four simultaneous keys.',
-              ),
+              Text(l10n.settingsShortcutRecorderBody),
               const SizedBox(height: 14),
               Container(
                 width: double.infinity,
@@ -244,9 +235,7 @@ class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
               ),
               const SizedBox(height: 10),
               Text(
-                isChinese
-                    ? '提示：至少需要一个非修饰键，例如 Enter、P、方向键。'
-                    : 'Tip: include at least one non-modifier key such as Enter, P, or an arrow key.',
+                l10n.settingsShortcutRecorderTip,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -267,7 +256,7 @@ class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: AppLocalizations.of(context)!.commonCancel,
+          label: l10n.commonCancel,
         ),
         OpenHandDialogActionButton.primary(
           onPressed: canSave
@@ -275,7 +264,7 @@ class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
                   context,
                 ).pop(normalizeShortcutKeyIds(_currentKeyIds))
               : null,
-          label: AppLocalizations.of(context)!.commonSave,
+          label: l10n.commonSave,
         ),
       ],
     );

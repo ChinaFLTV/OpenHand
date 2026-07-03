@@ -1592,7 +1592,27 @@ class AppLocalizationsFr extends AppLocalizations {
       'Aucun appel d’outil n’est en cours d’exécution.';
 
   @override
-  String get settingsActiveToolCallsCancel => 'Stop';
+  String get settingsActiveToolCallsCancel => 'Arrêter';
+
+  @override
+  String get settingsActiveToolKindBuiltin => 'Intégré';
+
+  @override
+  String get settingsActiveToolKindMcp => 'MCP';
+
+  @override
+  String get settingsActiveToolKindSkill => 'Skill';
+
+  @override
+  String get settingsActiveToolSessionLabel => 'session';
+
+  @override
+  String get settingsToolHardeningTitle =>
+      'Paramètres de durcissement des outils';
+
+  @override
+  String get settingsToolHardeningBody =>
+      'Durée d’arrêt gracieux des sous-processus, limite de sortie bash et limite d’appels d’outils simultanés.';
 
   @override
   String get settingsSubprocessGracefulShutdownLabel =>
@@ -6433,6 +6453,24 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get settingsClickRecordThenPressTheNew =>
       'Cliquez sur Enregistrer, puis appuyez sur la nouvelle combinaison de touches pour mettre à jour une affectation. Le changement de modèle et de session boucle automatiquement.';
+
+  @override
+  String get settingsShortcutRecord => 'Enregistrer';
+
+  @override
+  String get settingsShortcutResetToDefault => 'Réinitialiser';
+
+  @override
+  String get settingsShortcutMaxKeysError =>
+      'OpenHand prend en charge jusqu’à quatre touches simultanées.';
+
+  @override
+  String get settingsShortcutRecorderBody =>
+      'Appuyez sur la nouvelle combinaison de touches pour mettre à jour cette affectation. OpenHand prend en charge jusqu’à quatre touches simultanées.';
+
+  @override
+  String get settingsShortcutRecorderTip =>
+      'Astuce : incluez au moins une touche non modificatrice, comme Entrée, P ou une flèche.';
 
   @override
   String get settingsAutoCleanupExecutionHistory =>

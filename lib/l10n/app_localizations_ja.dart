@@ -1557,7 +1557,26 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsActiveToolCallsEmpty => '現在実行中のツール呼び出しはありません。';
 
   @override
-  String get settingsActiveToolCallsCancel => 'Stop';
+  String get settingsActiveToolCallsCancel => '停止';
+
+  @override
+  String get settingsActiveToolKindBuiltin => '内蔵';
+
+  @override
+  String get settingsActiveToolKindMcp => 'MCP';
+
+  @override
+  String get settingsActiveToolKindSkill => 'Skill';
+
+  @override
+  String get settingsActiveToolSessionLabel => 'セッション';
+
+  @override
+  String get settingsToolHardeningTitle => 'ツール保護パラメータ';
+
+  @override
+  String get settingsToolHardeningBody =>
+      'サブプロセスの graceful shutdown 時間、bash 出力上限、同時ツール呼び出し上限。';
 
   @override
   String get settingsSubprocessGracefulShutdownLabel =>
@@ -6170,6 +6189,23 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get settingsClickRecordThenPressTheNew =>
       '録画をクリックし、新しいキー組み合わせを押してバインディングを更新します。モデルとセッションの切り替えは自動的にラップアラウンドします。';
+
+  @override
+  String get settingsShortcutRecord => '録画';
+
+  @override
+  String get settingsShortcutResetToDefault => '既定に戻す';
+
+  @override
+  String get settingsShortcutMaxKeysError => 'OpenHand は同時に最大 4 キーまで対応します。';
+
+  @override
+  String get settingsShortcutRecorderBody =>
+      '新しいキー組み合わせを押すと、この割り当てを更新できます。OpenHand は同時に最大 4 キーまで対応します。';
+
+  @override
+  String get settingsShortcutRecorderTip =>
+      'ヒント: Enter、P、矢印キーなど、修飾キー以外を少なくとも 1 つ含めてください。';
 
   @override
   String get settingsAutoCleanupExecutionHistory => '実行履歴の自動クリーンアップ';

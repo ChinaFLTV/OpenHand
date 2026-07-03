@@ -1589,7 +1589,26 @@ class AppLocalizationsDe extends AppLocalizations {
       'Aktuell laufen keine Tool-Aufrufe.';
 
   @override
-  String get settingsActiveToolCallsCancel => 'Stop';
+  String get settingsActiveToolCallsCancel => 'Stoppen';
+
+  @override
+  String get settingsActiveToolKindBuiltin => 'Integriert';
+
+  @override
+  String get settingsActiveToolKindMcp => 'MCP';
+
+  @override
+  String get settingsActiveToolKindSkill => 'Skill';
+
+  @override
+  String get settingsActiveToolSessionLabel => 'Sitzung';
+
+  @override
+  String get settingsToolHardeningTitle => 'Tool-Härtungsparameter';
+
+  @override
+  String get settingsToolHardeningBody =>
+      'Graceful-Shutdown-Dauer für Subprozesse, Bash-Ausgabelimit und Limit paralleler Toolaufrufe.';
 
   @override
   String get settingsSubprocessGracefulShutdownLabel =>
@@ -6410,6 +6429,24 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get settingsClickRecordThenPressTheNew =>
       'Klicken Sie auf „Aufzeichnen“ und drücken Sie dann die neue Tastenkombination, um eine Zuweisung zu aktualisieren. Modell- und Sitzungswechsel umlaufen automatisch.';
+
+  @override
+  String get settingsShortcutRecord => 'Aufzeichnen';
+
+  @override
+  String get settingsShortcutResetToDefault => 'Auf Standard zurücksetzen';
+
+  @override
+  String get settingsShortcutMaxKeysError =>
+      'OpenHand unterstützt bis zu vier gleichzeitig gedrückte Tasten.';
+
+  @override
+  String get settingsShortcutRecorderBody =>
+      'Drücken Sie die neue Tastenkombination, um diese Zuweisung zu aktualisieren. OpenHand unterstützt bis zu vier gleichzeitig gedrückte Tasten.';
+
+  @override
+  String get settingsShortcutRecorderTip =>
+      'Tipp: Verwenden Sie mindestens eine Nicht-Modifikatortaste, z. B. Enter, P oder eine Pfeiltaste.';
 
   @override
   String get settingsAutoCleanupExecutionHistory =>

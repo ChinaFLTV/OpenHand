@@ -1542,7 +1542,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsActiveToolCallsEmpty => '目前没有正在运行的工具调用。';
 
   @override
-  String get settingsActiveToolCallsCancel => 'Stop';
+  String get settingsActiveToolCallsCancel => '停止';
+
+  @override
+  String get settingsActiveToolKindBuiltin => '内建';
+
+  @override
+  String get settingsActiveToolKindMcp => 'MCP';
+
+  @override
+  String get settingsActiveToolKindSkill => '技能';
+
+  @override
+  String get settingsActiveToolSessionLabel => '会话';
+
+  @override
+  String get settingsToolHardeningTitle => '工具加固参数';
+
+  @override
+  String get settingsToolHardeningBody =>
+      '子进程 graceful shutdown 时长、bash 输出上限、并发工具调用上限。';
 
   @override
   String get settingsSubprocessGracefulShutdownLabel =>
@@ -6080,6 +6099,21 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get settingsClickRecordThenPressTheNew =>
       '点击录制后，按下新的组合键即可更新绑定。模型切换和会话切换会自动绕圈循环。';
+
+  @override
+  String get settingsShortcutRecord => '录制';
+
+  @override
+  String get settingsShortcutResetToDefault => '恢复默认';
+
+  @override
+  String get settingsShortcutMaxKeysError => '最多支持同时按下 4 个按键。';
+
+  @override
+  String get settingsShortcutRecorderBody => '按下新的组合键即可更新绑定。最多支持同时按下 4 个按键。';
+
+  @override
+  String get settingsShortcutRecorderTip => '提示：至少需要一个非修饰键，例如 Enter、P、方向键。';
 
   @override
   String get settingsAutoCleanupExecutionHistory => '自动清理执行历史';
@@ -12550,7 +12584,26 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get settingsActiveToolCallsEmpty => '目前没有正在运行的工具调用。';
 
   @override
-  String get settingsActiveToolCallsCancel => 'Stop';
+  String get settingsActiveToolCallsCancel => '停止';
+
+  @override
+  String get settingsActiveToolKindBuiltin => '内建';
+
+  @override
+  String get settingsActiveToolKindMcp => 'MCP';
+
+  @override
+  String get settingsActiveToolKindSkill => '技能';
+
+  @override
+  String get settingsActiveToolSessionLabel => '会话';
+
+  @override
+  String get settingsToolHardeningTitle => '工具加固参数';
+
+  @override
+  String get settingsToolHardeningBody =>
+      '子进程 graceful shutdown 时长、bash 输出上限、并发工具调用上限。';
 
   @override
   String get settingsSubprocessGracefulShutdownLabel =>
@@ -17088,6 +17141,21 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   @override
   String get settingsClickRecordThenPressTheNew =>
       '点击录制后，按下新的组合键即可更新绑定。模型切换和会话切换会自动绕圈循环。';
+
+  @override
+  String get settingsShortcutRecord => '录制';
+
+  @override
+  String get settingsShortcutResetToDefault => '恢复默认';
+
+  @override
+  String get settingsShortcutMaxKeysError => '最多支持同时按下 4 个按键。';
+
+  @override
+  String get settingsShortcutRecorderBody => '按下新的组合键即可更新绑定。最多支持同时按下 4 个按键。';
+
+  @override
+  String get settingsShortcutRecorderTip => '提示：至少需要一个非修饰键，例如 Enter、P、方向键。';
 
   @override
   String get settingsAutoCleanupExecutionHistory => '自动清理执行历史';
@@ -23559,7 +23627,26 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get settingsActiveToolCallsEmpty => '目前沒有正在執行的工具呼叫。';
 
   @override
-  String get settingsActiveToolCallsCancel => 'Stop';
+  String get settingsActiveToolCallsCancel => '停止';
+
+  @override
+  String get settingsActiveToolKindBuiltin => '內建';
+
+  @override
+  String get settingsActiveToolKindMcp => 'MCP';
+
+  @override
+  String get settingsActiveToolKindSkill => '技能';
+
+  @override
+  String get settingsActiveToolSessionLabel => '會話';
+
+  @override
+  String get settingsToolHardeningTitle => '工具加固參數';
+
+  @override
+  String get settingsToolHardeningBody =>
+      '子行程 graceful shutdown 時長、bash 輸出上限、並行工具呼叫上限。';
 
   @override
   String get settingsSubprocessGracefulShutdownLabel =>
@@ -28097,6 +28184,21 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get settingsClickRecordThenPressTheNew =>
       '点击录制后，按下新的组合键即可更新绑定。模型切换和会话切换会自动绕圈循环。';
+
+  @override
+  String get settingsShortcutRecord => '錄製';
+
+  @override
+  String get settingsShortcutResetToDefault => '恢復預設';
+
+  @override
+  String get settingsShortcutMaxKeysError => '最多支援同時按下 4 個按鍵。';
+
+  @override
+  String get settingsShortcutRecorderBody => '按下新的組合鍵即可更新綁定。最多支援同時按下 4 個按鍵。';
+
+  @override
+  String get settingsShortcutRecorderTip => '提示：至少需要一個非修飾鍵，例如 Enter、P、方向鍵。';
 
   @override
   String get settingsAutoCleanupExecutionHistory => '自动清理执行历史';

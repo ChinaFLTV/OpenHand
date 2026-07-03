@@ -2741,8 +2741,44 @@ abstract class AppLocalizations {
   /// No description provided for @settingsActiveToolCallsCancel.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'Stop'**
+  /// **'停止'**
   String get settingsActiveToolCallsCancel;
+
+  /// No description provided for @settingsActiveToolKindBuiltin.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'内建'**
+  String get settingsActiveToolKindBuiltin;
+
+  /// No description provided for @settingsActiveToolKindMcp.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP'**
+  String get settingsActiveToolKindMcp;
+
+  /// No description provided for @settingsActiveToolKindSkill.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能'**
+  String get settingsActiveToolKindSkill;
+
+  /// No description provided for @settingsActiveToolSessionLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话'**
+  String get settingsActiveToolSessionLabel;
+
+  /// No description provided for @settingsToolHardeningTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具加固参数'**
+  String get settingsToolHardeningTitle;
+
+  /// No description provided for @settingsToolHardeningBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'子进程 graceful shutdown 时长、bash 输出上限、并发工具调用上限。'**
+  String get settingsToolHardeningBody;
 
   /// No description provided for @settingsSubprocessGracefulShutdownLabel.
   ///
@@ -11274,6 +11310,36 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'点击录制后，按下新的组合键即可更新绑定。模型切换和会话切换会自动绕圈循环。'**
   String get settingsClickRecordThenPressTheNew;
+
+  /// No description provided for @settingsShortcutRecord.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'录制'**
+  String get settingsShortcutRecord;
+
+  /// No description provided for @settingsShortcutResetToDefault.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'恢复默认'**
+  String get settingsShortcutResetToDefault;
+
+  /// No description provided for @settingsShortcutMaxKeysError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最多支持同时按下 4 个按键。'**
+  String get settingsShortcutMaxKeysError;
+
+  /// No description provided for @settingsShortcutRecorderBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按下新的组合键即可更新绑定。最多支持同时按下 4 个按键。'**
+  String get settingsShortcutRecorderBody;
+
+  /// No description provided for @settingsShortcutRecorderTip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'提示：至少需要一个非修饰键，例如 Enter、P、方向键。'**
+  String get settingsShortcutRecorderTip;
 
   /// No description provided for @settingsAutoCleanupExecutionHistory.
   ///

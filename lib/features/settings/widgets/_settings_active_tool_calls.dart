@@ -89,14 +89,14 @@ class _ActiveToolCallsPanelState extends State<_ActiveToolCallsPanel> {
     }
   }
 
-  String _kindLabel(AiToolExecutionKind kind) {
+  String _kindLabel(AiToolExecutionKind kind, AppLocalizations l10n) {
     switch (kind) {
       case AiToolExecutionKind.builtin:
-        return '内建';
+        return l10n.settingsActiveToolKindBuiltin;
       case AiToolExecutionKind.mcp:
-        return 'MCP';
+        return l10n.settingsActiveToolKindMcp;
       case AiToolExecutionKind.skill:
-        return 'Skill';
+        return l10n.settingsActiveToolKindSkill;
     }
   }
 
@@ -149,10 +149,10 @@ class _ActiveToolCallsPanelState extends State<_ActiveToolCallsPanel> {
                             const SizedBox(height: 2),
                             Text(
                               [
-                                _kindLabel(record.kind),
+                                _kindLabel(record.kind, l10n),
                                 if (record.pid != null) 'PID ${record.pid}',
                                 _formatElapsed(record.elapsed),
-                                'session ${record.sessionId.length > 8 ? record.sessionId.substring(0, 8) : record.sessionId}',
+                                '${l10n.settingsActiveToolSessionLabel} ${record.sessionId.length > 8 ? record.sessionId.substring(0, 8) : record.sessionId}',
                               ].join(' · '),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: colors.onSurfaceVariant,
@@ -262,6 +262,7 @@ class _ToolHardeningParamsPanelState extends State<_ToolHardeningParamsPanel> {
     required String? errorText,
     required VoidCallback onSave,
   }) {
+    final l10n = AppLocalizations.of(context)!;
     return _ResponsiveSettingRow(
       title: title,
       subtitle: subtitle,
@@ -282,7 +283,7 @@ class _ToolHardeningParamsPanelState extends State<_ToolHardeningParamsPanel> {
             ),
           ),
           const SizedBox(width: 8),
-          FilledButton.tonal(onPressed: onSave, child: const Text('Save')),
+          FilledButton.tonal(onPressed: onSave, child: Text(l10n.commonSave)),
         ],
       ),
     );
@@ -307,8 +308,8 @@ class _ToolHardeningParamsPanelState extends State<_ToolHardeningParamsPanel> {
       _maxConcurCtrl.text = '${settings.maxConcurrentTools}';
     }
     return _SettingsGroupCard(
-      title: '工具加固参数',
-      description: '子进程 graceful shutdown 时长、bash 输出上限、并发工具调用上限。',
+      title: l10n.settingsToolHardeningTitle,
+      description: l10n.settingsToolHardeningBody,
       children: [
         _row(
           title: l10n.settingsSubprocessGracefulShutdownLabel,
