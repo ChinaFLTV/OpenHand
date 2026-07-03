@@ -66,7 +66,17 @@ HardnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.readLints => HardnessToolCategory.lsp,
     AiBuiltinToolKind.todoWrite ||
     AiBuiltinToolKind.exitPlanMode => HardnessToolCategory.planning,
-    AiBuiltinToolKind.task => HardnessToolCategory.agent,
+    AiBuiltinToolKind.task ||
+    AiBuiltinToolKind.agentList ||
+    AiBuiltinToolKind.agentDetail ||
+    AiBuiltinToolKind.agentTaskPublish ||
+    AiBuiltinToolKind.agentTaskTrack ||
+    AiBuiltinToolKind.agentTaskProgress ||
+    AiBuiltinToolKind.agentTaskCancel ||
+    AiBuiltinToolKind.agentTaskPause ||
+    AiBuiltinToolKind.agentTaskTerminate ||
+    AiBuiltinToolKind.agentTaskResume ||
+    AiBuiltinToolKind.agentTaskResult => HardnessToolCategory.agent,
     // Interactive user-facing tool; not tied to any phase category so it stays
     // available across all phases without affinity filtering.
     AiBuiltinToolKind.askUserChoice => null,

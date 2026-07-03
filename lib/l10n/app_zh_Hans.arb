@@ -1155,7 +1155,11 @@
   "inputRepairDoneDetail": "已重置输入上下文，回收 {count} 个后台子进程",
   "@inputRepairDoneDetail": {
     "description": "Snackbar shown after input repair, including count of orphan child processes reclaimed.",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "proxySectionTitle": "系统",
   "proxySectionBody": "所有 OpenHand 内建 HTTP 客户端（WebSearch / WebFetch 等）将按此处代理设置选择路由。保存后即时生效，无需重启。",
@@ -1633,7 +1637,13 @@
   "sessMetaCacheHitFormulaClaude": "Claude 公式",
   "sessMetaCacheHitFormulaOpenAi": "OpenAI 公式",
   "sessMetaCacheHitPoint": "第 {index} 轮",
-  "@sessMetaCacheHitPoint": { "placeholders": { "index": { "type": "int" } } },
+  "@sessMetaCacheHitPoint": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
   "sessMetaMessages": "消息总数",
   "sessMetaPromptBuilds": "Prompt 构建",
   "sessMetaCompressions": "压缩次数",
@@ -6163,5 +6173,819 @@
         "type": "String"
       }
     }
+  },
+  "agentsTitle": "智能体",
+  "@agentsTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsSubtitle": "统一管理 Hermes Agent 数字员工的档案、权限、任务、集群、审计与 KPI。",
+  "@agentsSubtitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsOpenFolder": "打开目录",
+  "@agentsOpenFolder": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCreateAgent": "创建智能体",
+  "@agentsCreateAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEditAgent": "编辑智能体",
+  "@agentsEditAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsWorkspaceTitle": "Hermes Agent 工作台",
+  "@agentsWorkspaceTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsWorkspaceBody": "智能体开启后会暴露任务发布、追踪和结果获取能力；当前页用于配置职责、权限、集群与治理边界。",
+  "@agentsWorkspaceBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsLoadFailed": "智能体配置加载失败",
+  "@agentsLoadFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsRetry": "重试",
+  "@agentsRetry": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEmptyTitle": "还没有智能体",
+  "@agentsEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEmptyBody": "点击右上角创建按钮，配置第一个具备职责边界、权限、任务台和治理能力的数字员工。",
+  "@agentsEmptyBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMentorLabel": "导师",
+  "@agentsMentorLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsStopAgent": "停止智能体",
+  "@agentsStopAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsStartAgent": "启动智能体",
+  "@agentsStartAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivities": "历史活动",
+  "@agentsActivities": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsLogs": "日志",
+  "@agentsLogs": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCapabilityLogs": "能力调用日志",
+  "@agentsCapabilityLogs": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsApprovals": "审批",
+  "@agentsApprovals": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCluster": "集群",
+  "@agentsCluster": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMore": "更多",
+  "@agentsMore": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTaskDesk": "任务台",
+  "@agentsTaskDesk": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsAuditReport": "审计报表",
+  "@agentsAuditReport": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsKpi": "KPI",
+  "@agentsKpi": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsResources": "资源管理",
+  "@agentsResources": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEditConfig": "编辑配置",
+  "@agentsEditConfig": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDeleteAgent": "删除智能体",
+  "@agentsDeleteAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTasksCount": "任务 {running}/{total}",
+  "@agentsTasksCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "running": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsApprovalsCount": "审批 {count}",
+  "@agentsApprovalsCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsWorkersCount": "Worker {count}/{max}",
+  "@agentsWorkersCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilitySkillsCount": "技能 {count}",
+  "@agentsCapabilitySkillsCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityKnowledgeCount": "知识库 {count}",
+  "@agentsCapabilityKnowledgeCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityMemoryCount": "记忆 {count}",
+  "@agentsCapabilityMemoryCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityToolsCount": "工具 {count}",
+  "@agentsCapabilityToolsCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityCronsCount": "Crons {count}",
+  "@agentsCapabilityCronsCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityHooksCount": "Hooks {count}",
+  "@agentsCapabilityHooksCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsSelfLearningOn": "自我学习开启",
+  "@agentsSelfLearningOn": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoCapabilityResources": "尚未绑定能力资源",
+  "@agentsNoCapabilityResources": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDialogTitleWithName": "{title} · {name}",
+  "@agentsDialogTitleWithName": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentsActivitiesEmptyTitle": "暂无历史活动。",
+  "@agentsActivitiesEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsLogsEmptyTitle": "暂无 Skill、记忆、MCP 或工具调用日志。",
+  "@agentsLogsEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsApprovalsEmptyTitle": "暂无待审批请求。",
+  "@agentsApprovalsEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsListEmptyBody": "智能体启动并执行任务后会自动沉淀这里。",
+  "@agentsListEmptyBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMinWorkersCount": "最小 {count}",
+  "@agentsMinWorkersCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsMaxWorkersCount": "最大 {count}",
+  "@agentsMaxWorkersCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsNoWorkersTitle": "暂无 Worker",
+  "@agentsNoWorkersTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoWorkersBody": "保存配置后会按最小 Worker 数自动预置本地 Worker 状态。",
+  "@agentsNoWorkersBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsWorkerSubtitle": "{status} · 已执行 {done} · 优先级 {priority}",
+  "@agentsWorkerSubtitle": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "done": {
+        "type": "int"
+      },
+      "priority": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsPublishTask": "发布任务",
+  "@agentsPublishTask": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoTasksTitle": "暂无任务",
+  "@agentsNoTasksTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoTasksBody": "可以从这里发布任务，后续 Worker 会按调度策略执行并回填结果。",
+  "@agentsNoTasksBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsAuditRequests": "请求量",
+  "@agentsAuditRequests": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsAuditCompleted": "完成任务",
+  "@agentsAuditCompleted": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsAuditUtilization": "利用率",
+  "@agentsAuditUtilization": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsRecentAuditEvents": "最近审计事件",
+  "@agentsRecentAuditEvents": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoAuditData": "暂无审计数据。",
+  "@agentsNoAuditData": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoKpiTitle": "暂无 KPI",
+  "@agentsNoKpiTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoKpiBody": "在编辑配置里录入 KPI，智能体工作循环会据此规划推进。",
+  "@agentsNoKpiBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetricMemory": "内存",
+  "@agentsMetricMemory": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetricDisk": "磁盘",
+  "@agentsMetricDisk": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetricPersisted": "持久化",
+  "@agentsMetricPersisted": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetricHandles": "句柄",
+  "@agentsMetricHandles": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsPublish": "发布",
+  "@agentsPublish": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTaskTitleLabel": "任务标题",
+  "@agentsTaskTitleLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDescriptionLabel": "介绍",
+  "@agentsDescriptionLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsContentLabel": "内容",
+  "@agentsContentLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoteLabel": "备注",
+  "@agentsNoteLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDeleteConfirmTitle": "删除智能体",
+  "@agentsDeleteConfirmTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDeleteConfirmMessage": "确定删除 {name}？此操作不会删除已绑定的技能、知识库或 MCP。",
+  "@agentsDeleteConfirmMessage": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentsTabProfile": "档案",
+  "@agentsTabProfile": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTabCapabilities": "能力",
+  "@agentsTabCapabilities": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTabRuntime": "运行",
+  "@agentsTabRuntime": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTabGovernance": "治理",
+  "@agentsTabGovernance": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTabMetadata": "元数据",
+  "@agentsTabMetadata": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldAvatar": "头像",
+  "@agentsFieldAvatar": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldAvatarHint": "文字、Emoji 或图片标识",
+  "@agentsFieldAvatarHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldNameRequired": "名称 *",
+  "@agentsFieldNameRequired": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldPosition": "岗位",
+  "@agentsFieldPosition": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldDepartment": "部门",
+  "@agentsFieldDepartment": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldLevel": "等级",
+  "@agentsFieldLevel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldIntroduction": "介绍",
+  "@agentsFieldIntroduction": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldArchive": "档案",
+  "@agentsFieldArchive": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldRouteFrontMatter": "路由信息",
+  "@agentsFieldRouteFrontMatter": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldWelcomeMessage": "欢迎语",
+  "@agentsFieldWelcomeMessage": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldPersona": "人设",
+  "@agentsFieldPersona": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldResponsibilityBoundary": "职责边界",
+  "@agentsFieldResponsibilityBoundary": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsKnowledgeBase": "知识库",
+  "@agentsKnowledgeBase": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsBuiltInTools": "内建工具",
+  "@agentsBuiltInTools": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsModelLabel": "模型",
+  "@agentsModelLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEnableAgentTitle": "启用智能体",
+  "@agentsEnableAgentTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEnableAgentBody": "启用后智能体工作循环和智能体内建工具可用。",
+  "@agentsEnableAgentBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsSelfLearningTitle": "自我学习",
+  "@agentsSelfLearningTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsSelfLearningBody": "依托 Hermes Agent 沉淀 Skill、记忆与经验。",
+  "@agentsSelfLearningBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldWorkspacePath": "工作目录",
+  "@agentsFieldWorkspacePath": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldWorkspaceScope": "工作目录范围",
+  "@agentsFieldWorkspaceScope": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCrons": "定时任务",
+  "@agentsCrons": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsClusterScaling": "集群伸缩",
+  "@agentsClusterScaling": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMinWorkersLabel": "最小 Worker",
+  "@agentsMinWorkersLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMaxWorkersLabel": "最大 Worker",
+  "@agentsMaxWorkersLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMaxRetriesLabel": "最大重试",
+  "@agentsMaxRetriesLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsSchedulerPolicyLabel": "调度策略",
+  "@agentsSchedulerPolicyLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTaskLabelsLabel": "任务标签",
+  "@agentsTaskLabelsLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCommaSeparatedHint": "逗号分隔",
+  "@agentsCommaSeparatedHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldName": "名称",
+  "@agentsFieldName": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldTarget": "目标",
+  "@agentsFieldTarget": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetadataJsonLabel": "元数据 JSON",
+  "@agentsMetadataJsonLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetadataInfoTitle": "权限与轮廓元数据",
+  "@agentsMetadataInfoTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetadataInfoBody": "这里保存扩展字段。格式错误时会安全降级为空对象，不影响智能体基础配置。",
+  "@agentsMetadataInfoBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoOptionsAvailable": "暂无可选项。",
+  "@agentsNoOptionsAvailable": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentExecutionModeNormal": "默认模式",
+  "@agentExecutionModeNormal": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentExecutionModeFullAccess": "完全访问模式",
+  "@agentExecutionModeFullAccess": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentLifecycleStopped": "已停止",
+  "@agentLifecycleStopped": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentLifecycleRunning": "运行中",
+  "@agentLifecycleRunning": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentLifecyclePaused": "已暂停",
+  "@agentLifecyclePaused": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentLifecycleDegraded": "降级中",
+  "@agentLifecycleDegraded": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusBacklog": "待分配",
+  "@agentTaskStatusBacklog": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusReady": "可执行",
+  "@agentTaskStatusReady": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusRunning": "执行中",
+  "@agentTaskStatusRunning": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusWaitingApproval": "待审批",
+  "@agentTaskStatusWaitingApproval": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusPaused": "已暂停",
+  "@agentTaskStatusPaused": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusCompleted": "已完成",
+  "@agentTaskStatusCompleted": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusFailed": "失败",
+  "@agentTaskStatusFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusCanceled": "已取消",
+  "@agentTaskStatusCanceled": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentApprovalStatusPending": "待审批",
+  "@agentApprovalStatusPending": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentApprovalStatusApproved": "已批准",
+  "@agentApprovalStatusApproved": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentApprovalStatusRejected": "已拒绝",
+  "@agentApprovalStatusRejected": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentApprovalStatusExpired": "已过期",
+  "@agentApprovalStatusExpired": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentWorkerStatusIdle": "空闲",
+  "@agentWorkerStatusIdle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentWorkerStatusBusy": "忙碌",
+  "@agentWorkerStatusBusy": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentWorkerStatusDraining": "移出中",
+  "@agentWorkerStatusDraining": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentWorkerStatusOffline": "离线",
+  "@agentWorkerStatusOffline": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityAgentStarted": "智能体已启动",
+  "@agentsActivityAgentStarted": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityAgentStopped": "智能体已停止",
+  "@agentsActivityAgentStopped": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskPublished": "任务已发布",
+  "@agentsActivityTaskPublished": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskUpdated": "任务已更新",
+  "@agentsActivityTaskUpdated": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskCanceled": "任务已取消",
+  "@agentsActivityTaskCanceled": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskPaused": "任务已暂停",
+  "@agentsActivityTaskPaused": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskTerminated": "任务已终止",
+  "@agentsActivityTaskTerminated": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskResumed": "任务已恢复",
+  "@agentsActivityTaskResumed": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventSessionStart": "会话开始",
+  "@hookEventSessionStart": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventUserPromptSubmit": "用户提交提示词",
+  "@hookEventUserPromptSubmit": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventPreToolUse": "工具调用前",
+  "@hookEventPreToolUse": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventPostToolUse": "工具调用后",
+  "@hookEventPostToolUse": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventSubagentStart": "子代理启动",
+  "@hookEventSubagentStart": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventSubagentStop": "子代理停止",
+  "@hookEventSubagentStop": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventStop": "代理停止",
+  "@hookEventStop": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventPreCompact": "上下文压缩前",
+  "@hookEventPreCompact": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventSessionEnd": "会话结束",
+  "@hookEventSessionEnd": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventErrorOccurred": "发生错误",
+  "@hookEventErrorOccurred": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyEagerShort": "立即",
+  "@builtinToolLoadStrategyEagerShort": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyLazy": "懒加载",
+  "@builtinToolLoadStrategyLazy": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyDeferred": "缓加载",
+  "@builtinToolLoadStrategyDeferred": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyEagerFull": "立即加载",
+  "@builtinToolLoadStrategyEagerFull": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolCustomBadge": "自定义",
+  "@builtinToolCustomBadge": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolForceBadge": "强制加载",
+  "@builtinToolForceBadge": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolMoveUp": "上移",
+  "@builtinToolMoveUp": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolMoveDown": "下移",
+  "@builtinToolMoveDown": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolEditorTitle": "编辑工具 — {kind}",
+  "@builtinToolEditorTitle": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
+  "builtinToolEnableTitle": "启用工具",
+  "@builtinToolEnableTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolEnableBody": "禁用后该工具不会出现在模型的工具目录中。",
+  "@builtinToolEnableBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolDisplayNameLabel": "显示名称（可选）",
+  "@builtinToolDisplayNameLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolDisplayNameHelper": "覆盖默认工具名称，留空则使用内建默认名。",
+  "@builtinToolDisplayNameHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolSummaryLabel": "简介（可选）",
+  "@builtinToolSummaryLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolSummaryHelper": "用于在工具列表中快速了解工具用途。",
+  "@builtinToolSummaryHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolPromptOverrideLabel": "Prompt 追加覆盖（可选）",
+  "@builtinToolPromptOverrideLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolPromptOverrideHelper": "追加到工具 description 末尾，可用来微调模型对该工具的使用策略。",
+  "@builtinToolPromptOverrideHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolSchemaOverrideLabel": "Schema 覆盖（JSON，可选）",
+  "@builtinToolSchemaOverrideLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolSchemaOverrideHelper": "完整的 JSON Schema 对象，覆盖工具的输入参数定义。留空使用默认。",
+  "@builtinToolSchemaOverrideHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolPriorityLabel": "优先级 (0–9999)",
+  "@builtinToolPriorityLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolPriorityHelper": "越小越优先",
+  "@builtinToolPriorityHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyLabel": "加载策略",
+  "@builtinToolLoadStrategyLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolForceLoadTitle": "强制加载",
+  "@builtinToolForceLoadTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolForceLoadBody": "开启后，即使全局内建工具懒加载处于自动或开启，也会默认直接携带该工具 schema。",
+  "@builtinToolForceLoadBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolMaxOutputLabel": "输出上限（字符）",
+  "@builtinToolMaxOutputLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolGlobalDefaultHint": "使用全局默认",
+  "@builtinToolGlobalDefaultHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolTagsLabel": "标签（逗号分隔）",
+  "@builtinToolTagsLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolTagsHelper": "例如: io, file, dangerous",
+  "@builtinToolTagsHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolRequireConfirmationTitle": "执行确认",
+  "@builtinToolRequireConfirmationTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolRequireConfirmationBody": "是否在执行前弹窗让用户确认。选“默认”时使用工具自身的行为。",
+  "@builtinToolRequireConfirmationBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolConfirmationDefault": "默认",
+  "@builtinToolConfirmationDefault": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolConfirmationYes": "需要确认",
+  "@builtinToolConfirmationYes": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolConfirmationNo": "无需确认",
+  "@builtinToolConfirmationNo": {
+    "description": "OpenHand localized UI text."
   }
 }

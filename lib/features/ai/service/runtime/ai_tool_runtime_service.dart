@@ -12,6 +12,7 @@ import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/tool_name_normalization.dart';
+import '../../../agents/agents_controller.dart';
 import '../../../knowledge_base/knowledge_base_controller.dart';
 import '../../../mcp/index.dart';
 import '../../../skills/index.dart';
@@ -185,6 +186,16 @@ enum AiBuiltinToolKind {
   memory,
   knowledgeSearch,
   knowledgeRead,
+  agentList,
+  agentDetail,
+  agentTaskPublish,
+  agentTaskTrack,
+  agentTaskProgress,
+  agentTaskCancel,
+  agentTaskPause,
+  agentTaskTerminate,
+  agentTaskResume,
+  agentTaskResult,
 }
 
 class AiToolExecutionResult {
@@ -265,6 +276,7 @@ class AiToolRuntimeService {
     AiFileMutationLedger? mutationLedger,
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
+    AgentsControllerProvider? agentsControllerProvider,
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
     String Function(String sessionId)? toolOutputDirectoryProvider,
@@ -279,6 +291,7 @@ class AiToolRuntimeService {
        _fileTracker = fileTrackerService ?? AiFileTrackerService(),
        _fileHistory = fileHistoryService ?? AiFileHistoryService(),
        _mutationLedger = mutationLedger ?? AiFileMutationLedger(),
+       _agentsControllerProvider = agentsControllerProvider,
        _toolOutputDirectoryProvider = toolOutputDirectoryProvider {
     // 2026-04-01 02:02:39 初始化完整服务依赖注入的多态工具注册中心
     _toolRegistry = AiToolRegistry.withServiceDependencies(
@@ -290,6 +303,7 @@ class AiToolRuntimeService {
       hostLookup: _hostLookup,
       skillsDirProvider: skillsDirProvider,
       memoryControllerProvider: memoryControllerProvider,
+      agentsControllerProvider: agentsControllerProvider,
       knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
       aiModelsProvider: aiModelsProvider,
     );
@@ -309,6 +323,11 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.notebookEdit,
         AiBuiltinToolKind.deleteFile,
         AiBuiltinToolKind.skillManager,
+        AiBuiltinToolKind.agentTaskPublish,
+        AiBuiltinToolKind.agentTaskCancel,
+        AiBuiltinToolKind.agentTaskPause,
+        AiBuiltinToolKind.agentTaskTerminate,
+        AiBuiltinToolKind.agentTaskResume,
       };
 
   final AiBashToolService _bashToolService;
@@ -327,6 +346,7 @@ class AiToolRuntimeService {
   final AiFileTrackerService _fileTracker;
   final AiFileHistoryService _fileHistory;
   final AiFileMutationLedger _mutationLedger;
+  final AgentsControllerProvider? _agentsControllerProvider;
   final String Function(String sessionId)? _toolOutputDirectoryProvider;
 
   /// 获取文件追踪服务（供外部访问，如会话重置时清理）
@@ -386,7 +406,27 @@ class AiToolRuntimeService {
     if (tool.builtinKind == AiBuiltinToolKind.memory) {
       return templateId == _skillManagerTemplateId;
     }
+    if (_isAgentBuiltinKind(tool.builtinKind)) {
+      final controller = _agentsControllerProvider?.call();
+      return controller != null && controller.enabledAgents.isNotEmpty;
+    }
     return true;
+  }
+
+  bool _isAgentBuiltinKind(AiBuiltinToolKind? kind) {
+    return switch (kind) {
+      AiBuiltinToolKind.agentList ||
+      AiBuiltinToolKind.agentDetail ||
+      AiBuiltinToolKind.agentTaskPublish ||
+      AiBuiltinToolKind.agentTaskTrack ||
+      AiBuiltinToolKind.agentTaskProgress ||
+      AiBuiltinToolKind.agentTaskCancel ||
+      AiBuiltinToolKind.agentTaskPause ||
+      AiBuiltinToolKind.agentTaskTerminate ||
+      AiBuiltinToolKind.agentTaskResume ||
+      AiBuiltinToolKind.agentTaskResult => true,
+      _ => false,
+    };
   }
 
   int _toolNameCompare(String left, String right) {
@@ -1271,6 +1311,13 @@ class AiToolRuntimeService {
       final action = '${decodedArguments['action'] ?? ''}'.trim().toLowerCase();
       return action.isNotEmpty && action != 'list';
     }
+    if (_isAgentBuiltinKind(kind)) {
+      return kind == AiBuiltinToolKind.agentTaskPublish ||
+          kind == AiBuiltinToolKind.agentTaskCancel ||
+          kind == AiBuiltinToolKind.agentTaskPause ||
+          kind == AiBuiltinToolKind.agentTaskTerminate ||
+          kind == AiBuiltinToolKind.agentTaskResume;
+    }
     return false;
   }
 
@@ -1806,6 +1853,16 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.memory => 'Memory',
       AiBuiltinToolKind.knowledgeSearch => 'KnowledgeSearch',
       AiBuiltinToolKind.knowledgeRead => 'KnowledgeRead',
+      AiBuiltinToolKind.agentList => 'AgentList',
+      AiBuiltinToolKind.agentDetail => 'AgentDetail',
+      AiBuiltinToolKind.agentTaskPublish => 'AgentTaskPublish',
+      AiBuiltinToolKind.agentTaskTrack => 'AgentTaskTrack',
+      AiBuiltinToolKind.agentTaskProgress => 'AgentTaskProgress',
+      AiBuiltinToolKind.agentTaskCancel => 'AgentTaskCancel',
+      AiBuiltinToolKind.agentTaskPause => 'AgentTaskPause',
+      AiBuiltinToolKind.agentTaskTerminate => 'AgentTaskTerminate',
+      AiBuiltinToolKind.agentTaskResume => 'AgentTaskResume',
+      AiBuiltinToolKind.agentTaskResult => 'AgentTaskResult',
       null => tool.name,
     };
   }
@@ -3383,6 +3440,347 @@ class AiToolRuntimeService {
           },
           <String, Object?>{
             'required': <String>['around_chunk_id'],
+          },
+        ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentList,
+      name: 'AgentList',
+      description:
+          'List enabled OpenHand digital employees (Hermes Agents). Use this before assigning work when you need to discover available specialist agents. Disabled agents are hidden by default.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'include_disabled': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'When true, include stopped/disabled agents for inspection only. Do not assign tasks to disabled agents.',
+          },
+        },
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentDetail,
+      name: 'AgentDetail',
+      description:
+          'Fetch one digital employee profile, including persona, mentor, responsibility boundary, linked capabilities, tasks, approvals, workers, and optional audit/resource details.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{
+            'type': 'string',
+            'description': 'Agent id or exact display name.',
+          },
+          'include_disabled': <String, Object?>{'type': 'boolean'},
+          'include_tasks': <String, Object?>{
+            'type': 'boolean',
+            'description': 'Defaults to true.',
+          },
+          'include_audit': <String, Object?>{'type': 'boolean'},
+          'include_resources': <String, Object?>{'type': 'boolean'},
+          'include_prompt': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'When true, return the rendered prompt metadata without the full prompt text.',
+          },
+          'include_prompt_text': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'When true, include the full rendered digital employee system prompt. Use sparingly.',
+          },
+        },
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['agent_id'],
+          },
+          <String, Object?>{
+            'required': <String>['agent_name'],
+          },
+          <String, Object?>{
+            'required': <String>['agent'],
+          },
+        ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentTaskPublish,
+      name: 'AgentTaskPublish',
+      description:
+          'Publish a concrete task to an enabled digital employee. The task should stay inside the agent responsibility boundary; if the boundary is unclear, ask the mentor/user instead of publishing.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{
+            'type': 'string',
+            'description': 'Agent id or exact display name.',
+          },
+          'title': <String, Object?>{
+            'type': 'string',
+            'description': 'Short task title.',
+          },
+          'description': <String, Object?>{
+            'type': 'string',
+            'description': 'What should be done and why.',
+          },
+          'content': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Detailed task payload, inputs, constraints, and acceptance criteria.',
+          },
+          'note': <String, Object?>{'type': 'string'},
+          'labels': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+          },
+          'tags': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+            'description': 'Alias for labels.',
+          },
+          'extra': <String, Object?>{
+            'type': 'object',
+            'additionalProperties': true,
+          },
+        },
+        'required': <String>['title'],
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['agent_id'],
+          },
+          <String, Object?>{
+            'required': <String>['agent_name'],
+          },
+          <String, Object?>{
+            'required': <String>['agent'],
+          },
+        ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentTaskTrack,
+      name: 'AgentTaskTrack',
+      description:
+          'Read one agent task with status, progress, result, note, timestamps, and metadata.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{'type': 'string'},
+          'task_id': <String, Object?>{'type': 'string'},
+          'id': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for task_id.',
+          },
+        },
+        'required': <String>['task_id'],
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['agent_id'],
+          },
+          <String, Object?>{
+            'required': <String>['agent_name'],
+          },
+          <String, Object?>{
+            'required': <String>['agent'],
+          },
+        ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentTaskProgress,
+      name: 'AgentTaskProgress',
+      description:
+          'Read the current status and progress ratio for one agent task.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{'type': 'string'},
+          'task_id': <String, Object?>{'type': 'string'},
+          'id': <String, Object?>{'type': 'string'},
+        },
+        'required': <String>['task_id'],
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['agent_id'],
+          },
+          <String, Object?>{
+            'required': <String>['agent_name'],
+          },
+          <String, Object?>{
+            'required': <String>['agent'],
+          },
+        ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentTaskCancel,
+      name: 'AgentTaskCancel',
+      description:
+          'Cancel a queued or active agent task and keep the cancellation auditable in the agent activity log.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{'type': 'string'},
+          'task_id': <String, Object?>{'type': 'string'},
+          'id': <String, Object?>{'type': 'string'},
+          'note': <String, Object?>{'type': 'string'},
+          'result': <String, Object?>{'type': 'string'},
+        },
+        'required': <String>['task_id'],
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['agent_id'],
+          },
+          <String, Object?>{
+            'required': <String>['agent_name'],
+          },
+          <String, Object?>{
+            'required': <String>['agent'],
+          },
+        ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentTaskPause,
+      name: 'AgentTaskPause',
+      description:
+          'Pause an agent task so a mentor/user can inspect or unblock it before it resumes.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{'type': 'string'},
+          'task_id': <String, Object?>{'type': 'string'},
+          'id': <String, Object?>{'type': 'string'},
+          'note': <String, Object?>{'type': 'string'},
+          'progress': <String, Object?>{
+            'type': 'number',
+            'minimum': 0,
+            'maximum': 1,
+          },
+        },
+        'required': <String>['task_id'],
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['agent_id'],
+          },
+          <String, Object?>{
+            'required': <String>['agent_name'],
+          },
+          <String, Object?>{
+            'required': <String>['agent'],
+          },
+        ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentTaskTerminate,
+      name: 'AgentTaskTerminate',
+      description:
+          'Terminate an agent task as failed when it must stop immediately. Use cancel for normal withdrawal and terminate for abnormal stop/failure.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{'type': 'string'},
+          'task_id': <String, Object?>{'type': 'string'},
+          'id': <String, Object?>{'type': 'string'},
+          'note': <String, Object?>{'type': 'string'},
+          'result': <String, Object?>{'type': 'string'},
+          'progress': <String, Object?>{
+            'type': 'number',
+            'minimum': 0,
+            'maximum': 1,
+          },
+        },
+        'required': <String>['task_id'],
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['agent_id'],
+          },
+          <String, Object?>{
+            'required': <String>['agent_name'],
+          },
+          <String, Object?>{
+            'required': <String>['agent'],
+          },
+        ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentTaskResume,
+      name: 'AgentTaskResume',
+      description: 'Resume a paused agent task by returning it to ready state.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{'type': 'string'},
+          'task_id': <String, Object?>{'type': 'string'},
+          'id': <String, Object?>{'type': 'string'},
+          'note': <String, Object?>{'type': 'string'},
+        },
+        'required': <String>['task_id'],
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['agent_id'],
+          },
+          <String, Object?>{
+            'required': <String>['agent_name'],
+          },
+          <String, Object?>{
+            'required': <String>['agent'],
+          },
+        ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentTaskResult,
+      name: 'AgentTaskResult',
+      description:
+          'Read the final or latest task result, note, status, and progress for one agent task.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{'type': 'string'},
+          'task_id': <String, Object?>{'type': 'string'},
+          'id': <String, Object?>{'type': 'string'},
+        },
+        'required': <String>['task_id'],
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['agent_id'],
+          },
+          <String, Object?>{
+            'required': <String>['agent_name'],
+          },
+          <String, Object?>{
+            'required': <String>['agent'],
           },
         ],
         'additionalProperties': false,

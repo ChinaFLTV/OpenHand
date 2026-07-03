@@ -56,29 +56,28 @@ class _BuiltinToolTile extends StatelessWidget {
       AiBuiltinToolKind.memory => Icons.psychology_rounded,
       AiBuiltinToolKind.knowledgeSearch => Icons.library_books_outlined,
       AiBuiltinToolKind.knowledgeRead => Icons.menu_book_outlined,
+      AiBuiltinToolKind.agentList => Icons.badge_outlined,
+      AiBuiltinToolKind.agentDetail => Icons.assignment_ind_outlined,
+      AiBuiltinToolKind.agentTaskPublish => Icons.send_to_mobile_rounded,
+      AiBuiltinToolKind.agentTaskTrack => Icons.track_changes_rounded,
+      AiBuiltinToolKind.agentTaskProgress => Icons.trending_up_rounded,
+      AiBuiltinToolKind.agentTaskCancel => Icons.cancel_outlined,
+      AiBuiltinToolKind.agentTaskPause => Icons.pause_circle_outline_rounded,
+      AiBuiltinToolKind.agentTaskTerminate => Icons.gpp_bad_outlined,
+      AiBuiltinToolKind.agentTaskResume => Icons.play_circle_outline_rounded,
+      AiBuiltinToolKind.agentTaskResult => Icons.fact_check_outlined,
     };
   }
 
   String _loadStrategyLabel(
-    BuildContext context,
+    AppLocalizations l10n,
     AiBuiltinToolLoadStrategy strategy,
   ) {
     return switch (strategy) {
-      AiBuiltinToolLoadStrategy.eager => _localizedText(
-        context,
-        zh: '立即',
-        en: 'Eager',
-      ),
-      AiBuiltinToolLoadStrategy.lazy => _localizedText(
-        context,
-        zh: '懒加载',
-        en: 'Lazy',
-      ),
-      AiBuiltinToolLoadStrategy.deferred => _localizedText(
-        context,
-        zh: '缓加载',
-        en: 'Deferred',
-      ),
+      AiBuiltinToolLoadStrategy.eager => l10n.builtinToolLoadStrategyEagerShort,
+      AiBuiltinToolLoadStrategy.lazy => l10n.builtinToolLoadStrategyLazy,
+      AiBuiltinToolLoadStrategy.deferred =>
+        l10n.builtinToolLoadStrategyDeferred,
     };
   }
 
@@ -86,6 +85,7 @@ class _BuiltinToolTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final displayName = config.displayName?.trim().isNotEmpty == true
         ? config.displayName!.trim()
         : config.kind.name;
@@ -149,7 +149,7 @@ class _BuiltinToolTile extends StatelessWidget {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            _localizedText(context, zh: '自定义', en: 'Custom'),
+                            l10n.builtinToolCustomBadge,
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: colorScheme.tertiary,
                             ),
@@ -169,7 +169,7 @@ class _BuiltinToolTile extends StatelessWidget {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          _loadStrategyLabel(context, config.loadStrategy),
+                          _loadStrategyLabel(l10n, config.loadStrategy),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: colorScheme.onSecondaryContainer,
                           ),
@@ -189,7 +189,7 @@ class _BuiltinToolTile extends StatelessWidget {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            _localizedText(context, zh: '强制加载', en: 'Force'),
+                            l10n.builtinToolForceBadge,
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: colorScheme.onPrimaryContainer,
                             ),
@@ -268,7 +268,7 @@ class _BuiltinToolTile extends StatelessWidget {
                 if (onMoveUp != null)
                   IconButton(
                     icon: const Icon(Icons.arrow_upward_rounded, size: 18),
-                    tooltip: _localizedText(context, zh: '上移', en: 'Move Up'),
+                    tooltip: l10n.builtinToolMoveUp,
                     onPressed: onMoveUp,
                     visualDensity: VisualDensity.compact,
                   ),
@@ -276,14 +276,14 @@ class _BuiltinToolTile extends StatelessWidget {
                 if (onMoveDown != null)
                   IconButton(
                     icon: const Icon(Icons.arrow_downward_rounded, size: 18),
-                    tooltip: _localizedText(context, zh: '下移', en: 'Move Down'),
+                    tooltip: l10n.builtinToolMoveDown,
                     onPressed: onMoveDown,
                     visualDensity: VisualDensity.compact,
                   ),
                 if (onMoveDown != null) const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 18),
-                  tooltip: _localizedText(context, zh: '编辑', en: 'Edit'),
+                  tooltip: l10n.commonEdit,
                   onPressed: onEdit,
                   visualDensity: VisualDensity.compact,
                 ),
@@ -295,7 +295,7 @@ class _BuiltinToolTile extends StatelessWidget {
                       size: 18,
                       color: colorScheme.error,
                     ),
-                    tooltip: _localizedText(context, zh: '删除', en: 'Delete'),
+                    tooltip: l10n.commonDelete,
                     onPressed: onDelete,
                     visualDensity: VisualDensity.compact,
                   ),
@@ -505,6 +505,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     return PopScope(
       canPop: !_isSaving,
@@ -526,11 +527,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      _localizedText(
-                        context,
-                        zh: '编辑工具 — ${widget.initial.kind.name}',
-                        en: 'Edit Tool — ${widget.initial.kind.name}',
-                      ),
+                      l10n.builtinToolEditorTitle(widget.initial.kind.name),
                       style: theme.textTheme.headlineSmall,
                     ),
                   ),
@@ -553,19 +550,9 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       // Enabled toggle
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          _localizedText(
-                            context,
-                            zh: '启用工具',
-                            en: 'Enable Tool',
-                          ),
-                        ),
+                        title: Text(l10n.builtinToolEnableTitle),
                         subtitle: Text(
-                          _localizedText(
-                            context,
-                            zh: '禁用后该工具不会出现在模型的工具目录中。',
-                            en: 'When disabled, this tool will not appear in the model\'s tool catalog.',
-                          ),
+                          l10n.builtinToolEnableBody,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -579,17 +566,9 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       TextField(
                         controller: _displayNameController,
                         decoration: InputDecoration(
-                          labelText: _localizedText(
-                            context,
-                            zh: '显示名称（可选）',
-                            en: 'Display Name (optional)',
-                          ),
+                          labelText: l10n.builtinToolDisplayNameLabel,
                           hintText: widget.initial.kind.name,
-                          helperText: _localizedText(
-                            context,
-                            zh: '覆盖默认工具名称，留空则使用内建默认名。',
-                            en: 'Overrides the default tool name. Leave blank for the built-in default.',
-                          ),
+                          helperText: l10n.builtinToolDisplayNameHelper,
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -598,16 +577,8 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       TextField(
                         controller: _summaryController,
                         decoration: InputDecoration(
-                          labelText: _localizedText(
-                            context,
-                            zh: '简介（可选）',
-                            en: 'Summary (optional)',
-                          ),
-                          helperText: _localizedText(
-                            context,
-                            zh: '用于在工具列表中快速了解工具用途。',
-                            en: 'Shown in the tool list for quick reference.',
-                          ),
+                          labelText: l10n.builtinToolSummaryLabel,
+                          helperText: l10n.builtinToolSummaryHelper,
                         ),
                         maxLines: 2,
                       ),
@@ -617,16 +588,8 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       TextField(
                         controller: _promptOverrideController,
                         decoration: InputDecoration(
-                          labelText: _localizedText(
-                            context,
-                            zh: 'Prompt 追加覆盖（可选）',
-                            en: 'Prompt Override (optional)',
-                          ),
-                          helperText: _localizedText(
-                            context,
-                            zh: '追加到工具 description 末尾，可用来微调模型对该工具的使用策略。',
-                            en: 'Appended to the tool description. Use it to fine-tune how the model uses this tool.',
-                          ),
+                          labelText: l10n.builtinToolPromptOverrideLabel,
+                          helperText: l10n.builtinToolPromptOverrideHelper,
                         ),
                         maxLines: 4,
                         minLines: 2,
@@ -637,16 +600,8 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       TextField(
                         controller: _schemaOverrideController,
                         decoration: InputDecoration(
-                          labelText: _localizedText(
-                            context,
-                            zh: 'Schema 覆盖（JSON，可选）',
-                            en: 'Schema Override (JSON, optional)',
-                          ),
-                          helperText: _localizedText(
-                            context,
-                            zh: '完整的 JSON Schema 对象，覆盖工具的输入参数定义。留空使用默认。',
-                            en: 'Full JSON Schema object to override the tool\'s input parameters. Leave blank for default.',
-                          ),
+                          labelText: l10n.builtinToolSchemaOverrideLabel,
+                          helperText: l10n.builtinToolSchemaOverrideHelper,
                         ),
                         maxLines: 6,
                         minLines: 3,
@@ -667,16 +622,8 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                                 FilteringTextInputFormatter.digitsOnly,
                               ],
                               decoration: InputDecoration(
-                                labelText: _localizedText(
-                                  context,
-                                  zh: '优先级 (0–9999)',
-                                  en: 'Priority (0–9999)',
-                                ),
-                                helperText: _localizedText(
-                                  context,
-                                  zh: '越小越优先',
-                                  en: 'Lower = higher priority',
-                                ),
+                                labelText: l10n.builtinToolPriorityLabel,
+                                helperText: l10n.builtinToolPriorityHelper,
                               ),
                             ),
                           ),
@@ -688,21 +635,15 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                                 >(
                                   initialValue: _loadStrategy,
                                   decoration: InputDecoration(
-                                    labelText: _localizedText(
-                                      context,
-                                      zh: '加载策略',
-                                      en: 'Load Strategy',
-                                    ),
+                                    labelText:
+                                        l10n.builtinToolLoadStrategyLabel,
                                   ),
                                   items: AiBuiltinToolLoadStrategy.values
                                       .map(
                                         (s) => DropdownMenuItem(
                                           value: s,
                                           child: Text(
-                                            _loadStrategyLabelStatic(
-                                              context,
-                                              s,
-                                            ),
+                                            _loadStrategyLabelStatic(l10n, s),
                                           ),
                                         ),
                                       )
@@ -720,15 +661,9 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
 
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          _localizedText(context, zh: '强制加载', en: 'Force load'),
-                        ),
+                        title: Text(l10n.builtinToolForceLoadTitle),
                         subtitle: Text(
-                          _localizedText(
-                            context,
-                            zh: '开启后，即使全局内建工具懒加载处于自动或开启，也会默认直接携带该工具 schema。',
-                            en: 'When enabled, this schema is sent directly even when built-in lazy loading is Auto or On.',
-                          ),
+                          l10n.builtinToolForceLoadBody,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -750,16 +685,8 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                                 FilteringTextInputFormatter.digitsOnly,
                               ],
                               decoration: InputDecoration(
-                                labelText: _localizedText(
-                                  context,
-                                  zh: '输出上限（字符）',
-                                  en: 'Max Output (chars)',
-                                ),
-                                hintText: _localizedText(
-                                  context,
-                                  zh: '使用全局默认',
-                                  en: 'Global default',
-                                ),
+                                labelText: l10n.builtinToolMaxOutputLabel,
+                                hintText: l10n.builtinToolGlobalDefaultHint,
                               ),
                             ),
                           ),
@@ -772,17 +699,13 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                                 FilteringTextInputFormatter.digitsOnly,
                               ],
                               decoration: InputDecoration(
-                                labelText: AppLocalizations.of(
-                                  context,
-                                )!.builtinToolTimeoutLabel,
-                                hintText: AppLocalizations.of(context)!
-                                    .builtinToolTimeoutHint(
-                                      AiBuiltinToolConfig.defaultTimeoutSeconds,
-                                    ),
-                                helperText: AppLocalizations.of(context)!
-                                    .builtinToolTimeoutHelper(
-                                      AiBuiltinToolConfig.defaultTimeoutSeconds,
-                                    ),
+                                labelText: l10n.builtinToolTimeoutLabel,
+                                hintText: l10n.builtinToolTimeoutHint(
+                                  AiBuiltinToolConfig.defaultTimeoutSeconds,
+                                ),
+                                helperText: l10n.builtinToolTimeoutHelper(
+                                  AiBuiltinToolConfig.defaultTimeoutSeconds,
+                                ),
                               ),
                             ),
                           ),
@@ -797,15 +720,9 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                           Expanded(
                             child: SwitchListTile(
                               contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                AppLocalizations.of(
-                                  context,
-                                )!.builtinToolRetryLabel,
-                              ),
+                              title: Text(l10n.builtinToolRetryLabel),
                               subtitle: Text(
-                                AppLocalizations.of(
-                                  context,
-                                )!.builtinToolRetryBody,
+                                l10n.builtinToolRetryBody,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: colorScheme.onSurfaceVariant,
                                 ),
@@ -825,14 +742,12 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                                 FilteringTextInputFormatter.digitsOnly,
                               ],
                               decoration: InputDecoration(
-                                labelText: AppLocalizations.of(context)!
-                                    .builtinToolMaxRetriesLabel(
-                                      AiBuiltinToolConfig.maxRetriesUpperBound,
-                                    ),
-                                helperText: AppLocalizations.of(context)!
-                                    .builtinToolMaxRetriesHelper(
-                                      AiBuiltinToolConfig.maxRetriesUpperBound,
-                                    ),
+                                labelText: l10n.builtinToolMaxRetriesLabel(
+                                  AiBuiltinToolConfig.maxRetriesUpperBound,
+                                ),
+                                helperText: l10n.builtinToolMaxRetriesHelper(
+                                  AiBuiltinToolConfig.maxRetriesUpperBound,
+                                ),
                               ),
                             ),
                           ),
@@ -849,17 +764,13 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                           FilteringTextInputFormatter.digitsOnly,
                         ],
                         decoration: InputDecoration(
-                          labelText: AppLocalizations.of(
-                            context,
-                          )!.builtinToolBackoffLabel,
-                          hintText: AppLocalizations.of(context)!
-                              .builtinToolBackoffHint(
-                                AiBuiltinToolConfig.defaultRetryBackoffMs,
-                              ),
-                          helperText: AppLocalizations.of(context)!
-                              .builtinToolBackoffHelper(
-                                AiBuiltinToolConfig.maxRetryBackoffMs,
-                              ),
+                          labelText: l10n.builtinToolBackoffLabel,
+                          hintText: l10n.builtinToolBackoffHint(
+                            AiBuiltinToolConfig.defaultRetryBackoffMs,
+                          ),
+                          helperText: l10n.builtinToolBackoffHelper(
+                            AiBuiltinToolConfig.maxRetryBackoffMs,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -902,16 +813,8 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       TextField(
                         controller: _tagsController,
                         decoration: InputDecoration(
-                          labelText: _localizedText(
-                            context,
-                            zh: '标签（逗号分隔）',
-                            en: 'Tags (comma-separated)',
-                          ),
-                          helperText: _localizedText(
-                            context,
-                            zh: '例如: io, file, dangerous',
-                            en: 'e.g. io, file, dangerous',
-                          ),
+                          labelText: l10n.builtinToolTagsLabel,
+                          helperText: l10n.builtinToolTagsHelper,
                         ),
                       ),
                     ],
@@ -928,7 +831,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                     onPressed: _isSaving
                         ? null
                         : () => Navigator.of(context).pop(),
-                    label: _localizedText(context, zh: '取消', en: 'Cancel'),
+                    label: l10n.commonCancel,
                   ),
                   const SizedBox(width: 12),
                   OpenHandDialogActionButton.primary(
@@ -938,7 +841,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                             setState(() => _isSaving = true);
                             Navigator.of(context).pop(_buildConfig());
                           },
-                    label: _localizedText(context, zh: '保存', en: 'Save'),
+                    label: l10n.commonSave,
                   ),
                 ],
               ),
@@ -950,14 +853,14 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
   }
 
   static String _loadStrategyLabelStatic(
-    BuildContext context,
+    AppLocalizations l10n,
     AiBuiltinToolLoadStrategy strategy,
   ) {
-    final zh = openHandIsChineseLocale(context);
     return switch (strategy) {
-      AiBuiltinToolLoadStrategy.eager => zh ? '立即加载' : 'Eager',
-      AiBuiltinToolLoadStrategy.lazy => zh ? '懒加载' : 'Lazy',
-      AiBuiltinToolLoadStrategy.deferred => zh ? '缓加载' : 'Deferred',
+      AiBuiltinToolLoadStrategy.eager => l10n.builtinToolLoadStrategyEagerFull,
+      AiBuiltinToolLoadStrategy.lazy => l10n.builtinToolLoadStrategyLazy,
+      AiBuiltinToolLoadStrategy.deferred =>
+        l10n.builtinToolLoadStrategyDeferred,
     };
   }
 }
@@ -974,22 +877,17 @@ class _RequireConfirmationField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _localizedText(context, zh: '执行确认', en: 'Require Confirmation'),
+          l10n.builtinToolRequireConfirmationTitle,
           style: theme.textTheme.titleSmall,
         ),
         const SizedBox(height: 6),
         Text(
-          _localizedText(
-            context,
-            zh: '是否在执行前弹窗让用户确认。选"默认"时使用工具自身的行为。',
-            en:
-                'Whether to prompt user confirmation before execution. '
-                '"Default" uses the tool\'s built-in behavior.',
-          ),
+          l10n.builtinToolRequireConfirmationBody,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -999,24 +897,15 @@ class _RequireConfirmationField extends StatelessWidget {
           segments: [
             ButtonSegment<bool?>(
               value: null,
-              label: Text(
-                _localizedText(context, zh: '默认', en: 'Default'),
-                softWrap: false,
-              ),
+              label: Text(l10n.builtinToolConfirmationDefault, softWrap: false),
             ),
             ButtonSegment<bool?>(
               value: true,
-              label: Text(
-                _localizedText(context, zh: '需要确认', en: 'Yes'),
-                softWrap: false,
-              ),
+              label: Text(l10n.builtinToolConfirmationYes, softWrap: false),
             ),
             ButtonSegment<bool?>(
               value: false,
-              label: Text(
-                _localizedText(context, zh: '无需确认', en: 'No'),
-                softWrap: false,
-              ),
+              label: Text(l10n.builtinToolConfirmationNo, softWrap: false),
             ),
           ],
           selected: {value},

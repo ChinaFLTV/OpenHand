@@ -7848,6 +7848,584 @@ class AppLocalizationsZh extends AppLocalizations {
   String webReverseSnippetsNewName(String time) {
     return '脚本 $time';
   }
+
+  @override
+  String get agentsTitle => '智能体';
+
+  @override
+  String get agentsSubtitle => '统一管理 Hermes Agent 数字员工的档案、权限、任务、集群、审计与 KPI。';
+
+  @override
+  String get agentsOpenFolder => '打开目录';
+
+  @override
+  String get agentsCreateAgent => '创建智能体';
+
+  @override
+  String get agentsEditAgent => '编辑智能体';
+
+  @override
+  String get agentsWorkspaceTitle => 'Hermes Agent 工作台';
+
+  @override
+  String get agentsWorkspaceBody =>
+      '智能体开启后会暴露任务发布、追踪和结果获取能力；当前页用于配置职责、权限、集群与治理边界。';
+
+  @override
+  String get agentsLoadFailed => '智能体配置加载失败';
+
+  @override
+  String get agentsRetry => '重试';
+
+  @override
+  String get agentsEmptyTitle => '还没有智能体';
+
+  @override
+  String get agentsEmptyBody => '点击右上角创建按钮，配置第一个具备职责边界、权限、任务台和治理能力的数字员工。';
+
+  @override
+  String get agentsMentorLabel => '导师';
+
+  @override
+  String get agentsStopAgent => '停止智能体';
+
+  @override
+  String get agentsStartAgent => '启动智能体';
+
+  @override
+  String get agentsActivities => '历史活动';
+
+  @override
+  String get agentsLogs => '日志';
+
+  @override
+  String get agentsCapabilityLogs => '能力调用日志';
+
+  @override
+  String get agentsApprovals => '审批';
+
+  @override
+  String get agentsCluster => '集群';
+
+  @override
+  String get agentsMore => '更多';
+
+  @override
+  String get agentsTaskDesk => '任务台';
+
+  @override
+  String get agentsAuditReport => '审计报表';
+
+  @override
+  String get agentsKpi => 'KPI';
+
+  @override
+  String get agentsResources => '资源管理';
+
+  @override
+  String get agentsEditConfig => '编辑配置';
+
+  @override
+  String get agentsDeleteAgent => '删除智能体';
+
+  @override
+  String agentsTasksCount(int running, int total) {
+    return '任务 $running/$total';
+  }
+
+  @override
+  String agentsApprovalsCount(int count) {
+    return '审批 $count';
+  }
+
+  @override
+  String agentsWorkersCount(int count, int max) {
+    return 'Worker $count/$max';
+  }
+
+  @override
+  String agentsCapabilitySkillsCount(int count) {
+    return '技能 $count';
+  }
+
+  @override
+  String agentsCapabilityKnowledgeCount(int count) {
+    return '知识库 $count';
+  }
+
+  @override
+  String agentsCapabilityMemoryCount(int count) {
+    return '记忆 $count';
+  }
+
+  @override
+  String agentsCapabilityToolsCount(int count) {
+    return '工具 $count';
+  }
+
+  @override
+  String agentsCapabilityCronsCount(int count) {
+    return 'Crons $count';
+  }
+
+  @override
+  String agentsCapabilityHooksCount(int count) {
+    return 'Hooks $count';
+  }
+
+  @override
+  String get agentsSelfLearningOn => '自我学习开启';
+
+  @override
+  String get agentsNoCapabilityResources => '尚未绑定能力资源';
+
+  @override
+  String agentsDialogTitleWithName(String title, String name) {
+    return '$title · $name';
+  }
+
+  @override
+  String get agentsActivitiesEmptyTitle => '暂无历史活动。';
+
+  @override
+  String get agentsLogsEmptyTitle => '暂无 Skill、记忆、MCP 或工具调用日志。';
+
+  @override
+  String get agentsApprovalsEmptyTitle => '暂无待审批请求。';
+
+  @override
+  String get agentsListEmptyBody => '智能体启动并执行任务后会自动沉淀这里。';
+
+  @override
+  String agentsMinWorkersCount(int count) {
+    return '最小 $count';
+  }
+
+  @override
+  String agentsMaxWorkersCount(int count) {
+    return '最大 $count';
+  }
+
+  @override
+  String get agentsNoWorkersTitle => '暂无 Worker';
+
+  @override
+  String get agentsNoWorkersBody => '保存配置后会按最小 Worker 数自动预置本地 Worker 状态。';
+
+  @override
+  String agentsWorkerSubtitle(String status, int done, int priority) {
+    return '$status · 已执行 $done · 优先级 $priority';
+  }
+
+  @override
+  String get agentsPublishTask => '发布任务';
+
+  @override
+  String get agentsNoTasksTitle => '暂无任务';
+
+  @override
+  String get agentsNoTasksBody => '可以从这里发布任务，后续 Worker 会按调度策略执行并回填结果。';
+
+  @override
+  String get agentsAuditRequests => '请求量';
+
+  @override
+  String get agentsAuditCompleted => '完成任务';
+
+  @override
+  String get agentsAuditUtilization => '利用率';
+
+  @override
+  String get agentsRecentAuditEvents => '最近审计事件';
+
+  @override
+  String get agentsNoAuditData => '暂无审计数据。';
+
+  @override
+  String get agentsNoKpiTitle => '暂无 KPI';
+
+  @override
+  String get agentsNoKpiBody => '在编辑配置里录入 KPI，智能体工作循环会据此规划推进。';
+
+  @override
+  String get agentsMetricMemory => '内存';
+
+  @override
+  String get agentsMetricDisk => '磁盘';
+
+  @override
+  String get agentsMetricPersisted => '持久化';
+
+  @override
+  String get agentsMetricHandles => '句柄';
+
+  @override
+  String get agentsPublish => '发布';
+
+  @override
+  String get agentsTaskTitleLabel => '任务标题';
+
+  @override
+  String get agentsDescriptionLabel => '介绍';
+
+  @override
+  String get agentsContentLabel => '内容';
+
+  @override
+  String get agentsNoteLabel => '备注';
+
+  @override
+  String get agentsDeleteConfirmTitle => '删除智能体';
+
+  @override
+  String agentsDeleteConfirmMessage(String name) {
+    return '确定删除 $name？此操作不会删除已绑定的技能、知识库或 MCP。';
+  }
+
+  @override
+  String get agentsTabProfile => '档案';
+
+  @override
+  String get agentsTabCapabilities => '能力';
+
+  @override
+  String get agentsTabRuntime => '运行';
+
+  @override
+  String get agentsTabGovernance => '治理';
+
+  @override
+  String get agentsTabMetadata => '元数据';
+
+  @override
+  String get agentsFieldAvatar => '头像';
+
+  @override
+  String get agentsFieldAvatarHint => '文字、Emoji 或图片标识';
+
+  @override
+  String get agentsFieldNameRequired => '名称 *';
+
+  @override
+  String get agentsFieldPosition => '岗位';
+
+  @override
+  String get agentsFieldDepartment => '部门';
+
+  @override
+  String get agentsFieldLevel => '等级';
+
+  @override
+  String get agentsFieldIntroduction => '介绍';
+
+  @override
+  String get agentsFieldArchive => '档案';
+
+  @override
+  String get agentsFieldRouteFrontMatter => '路由信息';
+
+  @override
+  String get agentsFieldWelcomeMessage => '欢迎语';
+
+  @override
+  String get agentsFieldPersona => '人设';
+
+  @override
+  String get agentsFieldResponsibilityBoundary => '职责边界';
+
+  @override
+  String get agentsKnowledgeBase => '知识库';
+
+  @override
+  String get agentsBuiltInTools => '内建工具';
+
+  @override
+  String get agentsModelLabel => '模型';
+
+  @override
+  String get agentsEnableAgentTitle => '启用智能体';
+
+  @override
+  String get agentsEnableAgentBody => '启用后智能体工作循环和智能体内建工具可用。';
+
+  @override
+  String get agentsSelfLearningTitle => '自我学习';
+
+  @override
+  String get agentsSelfLearningBody => '依托 Hermes Agent 沉淀 Skill、记忆与经验。';
+
+  @override
+  String get agentsFieldWorkspacePath => '工作目录';
+
+  @override
+  String get agentsFieldWorkspaceScope => '工作目录范围';
+
+  @override
+  String get agentsCrons => '定时任务';
+
+  @override
+  String get agentsClusterScaling => '集群伸缩';
+
+  @override
+  String get agentsMinWorkersLabel => '最小 Worker';
+
+  @override
+  String get agentsMaxWorkersLabel => '最大 Worker';
+
+  @override
+  String get agentsMaxRetriesLabel => '最大重试';
+
+  @override
+  String get agentsSchedulerPolicyLabel => '调度策略';
+
+  @override
+  String get agentsTaskLabelsLabel => '任务标签';
+
+  @override
+  String get agentsCommaSeparatedHint => '逗号分隔';
+
+  @override
+  String get agentsFieldName => '名称';
+
+  @override
+  String get agentsFieldTarget => '目标';
+
+  @override
+  String get agentsMetadataJsonLabel => '元数据 JSON';
+
+  @override
+  String get agentsMetadataInfoTitle => '权限与轮廓元数据';
+
+  @override
+  String get agentsMetadataInfoBody => '这里保存扩展字段。格式错误时会安全降级为空对象，不影响智能体基础配置。';
+
+  @override
+  String get agentsNoOptionsAvailable => '暂无可选项。';
+
+  @override
+  String get agentExecutionModeNormal => '默认模式';
+
+  @override
+  String get agentExecutionModeFullAccess => '完全访问模式';
+
+  @override
+  String get agentLifecycleStopped => '已停止';
+
+  @override
+  String get agentLifecycleRunning => '运行中';
+
+  @override
+  String get agentLifecyclePaused => '已暂停';
+
+  @override
+  String get agentLifecycleDegraded => '降级中';
+
+  @override
+  String get agentTaskStatusBacklog => '待分配';
+
+  @override
+  String get agentTaskStatusReady => '可执行';
+
+  @override
+  String get agentTaskStatusRunning => '执行中';
+
+  @override
+  String get agentTaskStatusWaitingApproval => '待审批';
+
+  @override
+  String get agentTaskStatusPaused => '已暂停';
+
+  @override
+  String get agentTaskStatusCompleted => '已完成';
+
+  @override
+  String get agentTaskStatusFailed => '失败';
+
+  @override
+  String get agentTaskStatusCanceled => '已取消';
+
+  @override
+  String get agentApprovalStatusPending => '待审批';
+
+  @override
+  String get agentApprovalStatusApproved => '已批准';
+
+  @override
+  String get agentApprovalStatusRejected => '已拒绝';
+
+  @override
+  String get agentApprovalStatusExpired => '已过期';
+
+  @override
+  String get agentWorkerStatusIdle => '空闲';
+
+  @override
+  String get agentWorkerStatusBusy => '忙碌';
+
+  @override
+  String get agentWorkerStatusDraining => '移出中';
+
+  @override
+  String get agentWorkerStatusOffline => '离线';
+
+  @override
+  String get agentsActivityAgentStarted => '智能体已启动';
+
+  @override
+  String get agentsActivityAgentStopped => '智能体已停止';
+
+  @override
+  String get agentsActivityTaskPublished => '任务已发布';
+
+  @override
+  String get agentsActivityTaskUpdated => '任务已更新';
+
+  @override
+  String get agentsActivityTaskCanceled => '任务已取消';
+
+  @override
+  String get agentsActivityTaskPaused => '任务已暂停';
+
+  @override
+  String get agentsActivityTaskTerminated => '任务已终止';
+
+  @override
+  String get agentsActivityTaskResumed => '任务已恢复';
+
+  @override
+  String get hookEventSessionStart => '会话开始';
+
+  @override
+  String get hookEventUserPromptSubmit => '用户提交提示词';
+
+  @override
+  String get hookEventPreToolUse => '工具调用前';
+
+  @override
+  String get hookEventPostToolUse => '工具调用后';
+
+  @override
+  String get hookEventSubagentStart => '子代理启动';
+
+  @override
+  String get hookEventSubagentStop => '子代理停止';
+
+  @override
+  String get hookEventStop => '代理停止';
+
+  @override
+  String get hookEventPreCompact => '上下文压缩前';
+
+  @override
+  String get hookEventSessionEnd => '会话结束';
+
+  @override
+  String get hookEventErrorOccurred => '发生错误';
+
+  @override
+  String get builtinToolLoadStrategyEagerShort => '立即';
+
+  @override
+  String get builtinToolLoadStrategyLazy => '懒加载';
+
+  @override
+  String get builtinToolLoadStrategyDeferred => '缓加载';
+
+  @override
+  String get builtinToolLoadStrategyEagerFull => '立即加载';
+
+  @override
+  String get builtinToolCustomBadge => '自定义';
+
+  @override
+  String get builtinToolForceBadge => '强制加载';
+
+  @override
+  String get builtinToolMoveUp => '上移';
+
+  @override
+  String get builtinToolMoveDown => '下移';
+
+  @override
+  String builtinToolEditorTitle(String kind) {
+    return '编辑工具 — $kind';
+  }
+
+  @override
+  String get builtinToolEnableTitle => '启用工具';
+
+  @override
+  String get builtinToolEnableBody => '禁用后该工具不会出现在模型的工具目录中。';
+
+  @override
+  String get builtinToolDisplayNameLabel => '显示名称（可选）';
+
+  @override
+  String get builtinToolDisplayNameHelper => '覆盖默认工具名称，留空则使用内建默认名。';
+
+  @override
+  String get builtinToolSummaryLabel => '简介（可选）';
+
+  @override
+  String get builtinToolSummaryHelper => '用于在工具列表中快速了解工具用途。';
+
+  @override
+  String get builtinToolPromptOverrideLabel => 'Prompt 追加覆盖（可选）';
+
+  @override
+  String get builtinToolPromptOverrideHelper =>
+      '追加到工具 description 末尾，可用来微调模型对该工具的使用策略。';
+
+  @override
+  String get builtinToolSchemaOverrideLabel => 'Schema 覆盖（JSON，可选）';
+
+  @override
+  String get builtinToolSchemaOverrideHelper =>
+      '完整的 JSON Schema 对象，覆盖工具的输入参数定义。留空使用默认。';
+
+  @override
+  String get builtinToolPriorityLabel => '优先级 (0–9999)';
+
+  @override
+  String get builtinToolPriorityHelper => '越小越优先';
+
+  @override
+  String get builtinToolLoadStrategyLabel => '加载策略';
+
+  @override
+  String get builtinToolForceLoadTitle => '强制加载';
+
+  @override
+  String get builtinToolForceLoadBody =>
+      '开启后，即使全局内建工具懒加载处于自动或开启，也会默认直接携带该工具 schema。';
+
+  @override
+  String get builtinToolMaxOutputLabel => '输出上限（字符）';
+
+  @override
+  String get builtinToolGlobalDefaultHint => '使用全局默认';
+
+  @override
+  String get builtinToolTagsLabel => '标签（逗号分隔）';
+
+  @override
+  String get builtinToolTagsHelper => '例如: io, file, dangerous';
+
+  @override
+  String get builtinToolRequireConfirmationTitle => '执行确认';
+
+  @override
+  String get builtinToolRequireConfirmationBody =>
+      '是否在执行前弹窗让用户确认。选“默认”时使用工具自身的行为。';
+
+  @override
+  String get builtinToolConfirmationDefault => '默认';
+
+  @override
+  String get builtinToolConfirmationYes => '需要确认';
+
+  @override
+  String get builtinToolConfirmationNo => '无需确认';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -15694,6 +16272,584 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String webReverseSnippetsNewName(String time) {
     return '脚本 $time';
   }
+
+  @override
+  String get agentsTitle => '智能体';
+
+  @override
+  String get agentsSubtitle => '统一管理 Hermes Agent 数字员工的档案、权限、任务、集群、审计与 KPI。';
+
+  @override
+  String get agentsOpenFolder => '打开目录';
+
+  @override
+  String get agentsCreateAgent => '创建智能体';
+
+  @override
+  String get agentsEditAgent => '编辑智能体';
+
+  @override
+  String get agentsWorkspaceTitle => 'Hermes Agent 工作台';
+
+  @override
+  String get agentsWorkspaceBody =>
+      '智能体开启后会暴露任务发布、追踪和结果获取能力；当前页用于配置职责、权限、集群与治理边界。';
+
+  @override
+  String get agentsLoadFailed => '智能体配置加载失败';
+
+  @override
+  String get agentsRetry => '重试';
+
+  @override
+  String get agentsEmptyTitle => '还没有智能体';
+
+  @override
+  String get agentsEmptyBody => '点击右上角创建按钮，配置第一个具备职责边界、权限、任务台和治理能力的数字员工。';
+
+  @override
+  String get agentsMentorLabel => '导师';
+
+  @override
+  String get agentsStopAgent => '停止智能体';
+
+  @override
+  String get agentsStartAgent => '启动智能体';
+
+  @override
+  String get agentsActivities => '历史活动';
+
+  @override
+  String get agentsLogs => '日志';
+
+  @override
+  String get agentsCapabilityLogs => '能力调用日志';
+
+  @override
+  String get agentsApprovals => '审批';
+
+  @override
+  String get agentsCluster => '集群';
+
+  @override
+  String get agentsMore => '更多';
+
+  @override
+  String get agentsTaskDesk => '任务台';
+
+  @override
+  String get agentsAuditReport => '审计报表';
+
+  @override
+  String get agentsKpi => 'KPI';
+
+  @override
+  String get agentsResources => '资源管理';
+
+  @override
+  String get agentsEditConfig => '编辑配置';
+
+  @override
+  String get agentsDeleteAgent => '删除智能体';
+
+  @override
+  String agentsTasksCount(int running, int total) {
+    return '任务 $running/$total';
+  }
+
+  @override
+  String agentsApprovalsCount(int count) {
+    return '审批 $count';
+  }
+
+  @override
+  String agentsWorkersCount(int count, int max) {
+    return 'Worker $count/$max';
+  }
+
+  @override
+  String agentsCapabilitySkillsCount(int count) {
+    return '技能 $count';
+  }
+
+  @override
+  String agentsCapabilityKnowledgeCount(int count) {
+    return '知识库 $count';
+  }
+
+  @override
+  String agentsCapabilityMemoryCount(int count) {
+    return '记忆 $count';
+  }
+
+  @override
+  String agentsCapabilityToolsCount(int count) {
+    return '工具 $count';
+  }
+
+  @override
+  String agentsCapabilityCronsCount(int count) {
+    return 'Crons $count';
+  }
+
+  @override
+  String agentsCapabilityHooksCount(int count) {
+    return 'Hooks $count';
+  }
+
+  @override
+  String get agentsSelfLearningOn => '自我学习开启';
+
+  @override
+  String get agentsNoCapabilityResources => '尚未绑定能力资源';
+
+  @override
+  String agentsDialogTitleWithName(String title, String name) {
+    return '$title · $name';
+  }
+
+  @override
+  String get agentsActivitiesEmptyTitle => '暂无历史活动。';
+
+  @override
+  String get agentsLogsEmptyTitle => '暂无 Skill、记忆、MCP 或工具调用日志。';
+
+  @override
+  String get agentsApprovalsEmptyTitle => '暂无待审批请求。';
+
+  @override
+  String get agentsListEmptyBody => '智能体启动并执行任务后会自动沉淀这里。';
+
+  @override
+  String agentsMinWorkersCount(int count) {
+    return '最小 $count';
+  }
+
+  @override
+  String agentsMaxWorkersCount(int count) {
+    return '最大 $count';
+  }
+
+  @override
+  String get agentsNoWorkersTitle => '暂无 Worker';
+
+  @override
+  String get agentsNoWorkersBody => '保存配置后会按最小 Worker 数自动预置本地 Worker 状态。';
+
+  @override
+  String agentsWorkerSubtitle(String status, int done, int priority) {
+    return '$status · 已执行 $done · 优先级 $priority';
+  }
+
+  @override
+  String get agentsPublishTask => '发布任务';
+
+  @override
+  String get agentsNoTasksTitle => '暂无任务';
+
+  @override
+  String get agentsNoTasksBody => '可以从这里发布任务，后续 Worker 会按调度策略执行并回填结果。';
+
+  @override
+  String get agentsAuditRequests => '请求量';
+
+  @override
+  String get agentsAuditCompleted => '完成任务';
+
+  @override
+  String get agentsAuditUtilization => '利用率';
+
+  @override
+  String get agentsRecentAuditEvents => '最近审计事件';
+
+  @override
+  String get agentsNoAuditData => '暂无审计数据。';
+
+  @override
+  String get agentsNoKpiTitle => '暂无 KPI';
+
+  @override
+  String get agentsNoKpiBody => '在编辑配置里录入 KPI，智能体工作循环会据此规划推进。';
+
+  @override
+  String get agentsMetricMemory => '内存';
+
+  @override
+  String get agentsMetricDisk => '磁盘';
+
+  @override
+  String get agentsMetricPersisted => '持久化';
+
+  @override
+  String get agentsMetricHandles => '句柄';
+
+  @override
+  String get agentsPublish => '发布';
+
+  @override
+  String get agentsTaskTitleLabel => '任务标题';
+
+  @override
+  String get agentsDescriptionLabel => '介绍';
+
+  @override
+  String get agentsContentLabel => '内容';
+
+  @override
+  String get agentsNoteLabel => '备注';
+
+  @override
+  String get agentsDeleteConfirmTitle => '删除智能体';
+
+  @override
+  String agentsDeleteConfirmMessage(String name) {
+    return '确定删除 $name？此操作不会删除已绑定的技能、知识库或 MCP。';
+  }
+
+  @override
+  String get agentsTabProfile => '档案';
+
+  @override
+  String get agentsTabCapabilities => '能力';
+
+  @override
+  String get agentsTabRuntime => '运行';
+
+  @override
+  String get agentsTabGovernance => '治理';
+
+  @override
+  String get agentsTabMetadata => '元数据';
+
+  @override
+  String get agentsFieldAvatar => '头像';
+
+  @override
+  String get agentsFieldAvatarHint => '文字、Emoji 或图片标识';
+
+  @override
+  String get agentsFieldNameRequired => '名称 *';
+
+  @override
+  String get agentsFieldPosition => '岗位';
+
+  @override
+  String get agentsFieldDepartment => '部门';
+
+  @override
+  String get agentsFieldLevel => '等级';
+
+  @override
+  String get agentsFieldIntroduction => '介绍';
+
+  @override
+  String get agentsFieldArchive => '档案';
+
+  @override
+  String get agentsFieldRouteFrontMatter => '路由信息';
+
+  @override
+  String get agentsFieldWelcomeMessage => '欢迎语';
+
+  @override
+  String get agentsFieldPersona => '人设';
+
+  @override
+  String get agentsFieldResponsibilityBoundary => '职责边界';
+
+  @override
+  String get agentsKnowledgeBase => '知识库';
+
+  @override
+  String get agentsBuiltInTools => '内建工具';
+
+  @override
+  String get agentsModelLabel => '模型';
+
+  @override
+  String get agentsEnableAgentTitle => '启用智能体';
+
+  @override
+  String get agentsEnableAgentBody => '启用后智能体工作循环和智能体内建工具可用。';
+
+  @override
+  String get agentsSelfLearningTitle => '自我学习';
+
+  @override
+  String get agentsSelfLearningBody => '依托 Hermes Agent 沉淀 Skill、记忆与经验。';
+
+  @override
+  String get agentsFieldWorkspacePath => '工作目录';
+
+  @override
+  String get agentsFieldWorkspaceScope => '工作目录范围';
+
+  @override
+  String get agentsCrons => '定时任务';
+
+  @override
+  String get agentsClusterScaling => '集群伸缩';
+
+  @override
+  String get agentsMinWorkersLabel => '最小 Worker';
+
+  @override
+  String get agentsMaxWorkersLabel => '最大 Worker';
+
+  @override
+  String get agentsMaxRetriesLabel => '最大重试';
+
+  @override
+  String get agentsSchedulerPolicyLabel => '调度策略';
+
+  @override
+  String get agentsTaskLabelsLabel => '任务标签';
+
+  @override
+  String get agentsCommaSeparatedHint => '逗号分隔';
+
+  @override
+  String get agentsFieldName => '名称';
+
+  @override
+  String get agentsFieldTarget => '目标';
+
+  @override
+  String get agentsMetadataJsonLabel => '元数据 JSON';
+
+  @override
+  String get agentsMetadataInfoTitle => '权限与轮廓元数据';
+
+  @override
+  String get agentsMetadataInfoBody => '这里保存扩展字段。格式错误时会安全降级为空对象，不影响智能体基础配置。';
+
+  @override
+  String get agentsNoOptionsAvailable => '暂无可选项。';
+
+  @override
+  String get agentExecutionModeNormal => '默认模式';
+
+  @override
+  String get agentExecutionModeFullAccess => '完全访问模式';
+
+  @override
+  String get agentLifecycleStopped => '已停止';
+
+  @override
+  String get agentLifecycleRunning => '运行中';
+
+  @override
+  String get agentLifecyclePaused => '已暂停';
+
+  @override
+  String get agentLifecycleDegraded => '降级中';
+
+  @override
+  String get agentTaskStatusBacklog => '待分配';
+
+  @override
+  String get agentTaskStatusReady => '可执行';
+
+  @override
+  String get agentTaskStatusRunning => '执行中';
+
+  @override
+  String get agentTaskStatusWaitingApproval => '待审批';
+
+  @override
+  String get agentTaskStatusPaused => '已暂停';
+
+  @override
+  String get agentTaskStatusCompleted => '已完成';
+
+  @override
+  String get agentTaskStatusFailed => '失败';
+
+  @override
+  String get agentTaskStatusCanceled => '已取消';
+
+  @override
+  String get agentApprovalStatusPending => '待审批';
+
+  @override
+  String get agentApprovalStatusApproved => '已批准';
+
+  @override
+  String get agentApprovalStatusRejected => '已拒绝';
+
+  @override
+  String get agentApprovalStatusExpired => '已过期';
+
+  @override
+  String get agentWorkerStatusIdle => '空闲';
+
+  @override
+  String get agentWorkerStatusBusy => '忙碌';
+
+  @override
+  String get agentWorkerStatusDraining => '移出中';
+
+  @override
+  String get agentWorkerStatusOffline => '离线';
+
+  @override
+  String get agentsActivityAgentStarted => '智能体已启动';
+
+  @override
+  String get agentsActivityAgentStopped => '智能体已停止';
+
+  @override
+  String get agentsActivityTaskPublished => '任务已发布';
+
+  @override
+  String get agentsActivityTaskUpdated => '任务已更新';
+
+  @override
+  String get agentsActivityTaskCanceled => '任务已取消';
+
+  @override
+  String get agentsActivityTaskPaused => '任务已暂停';
+
+  @override
+  String get agentsActivityTaskTerminated => '任务已终止';
+
+  @override
+  String get agentsActivityTaskResumed => '任务已恢复';
+
+  @override
+  String get hookEventSessionStart => '会话开始';
+
+  @override
+  String get hookEventUserPromptSubmit => '用户提交提示词';
+
+  @override
+  String get hookEventPreToolUse => '工具调用前';
+
+  @override
+  String get hookEventPostToolUse => '工具调用后';
+
+  @override
+  String get hookEventSubagentStart => '子代理启动';
+
+  @override
+  String get hookEventSubagentStop => '子代理停止';
+
+  @override
+  String get hookEventStop => '代理停止';
+
+  @override
+  String get hookEventPreCompact => '上下文压缩前';
+
+  @override
+  String get hookEventSessionEnd => '会话结束';
+
+  @override
+  String get hookEventErrorOccurred => '发生错误';
+
+  @override
+  String get builtinToolLoadStrategyEagerShort => '立即';
+
+  @override
+  String get builtinToolLoadStrategyLazy => '懒加载';
+
+  @override
+  String get builtinToolLoadStrategyDeferred => '缓加载';
+
+  @override
+  String get builtinToolLoadStrategyEagerFull => '立即加载';
+
+  @override
+  String get builtinToolCustomBadge => '自定义';
+
+  @override
+  String get builtinToolForceBadge => '强制加载';
+
+  @override
+  String get builtinToolMoveUp => '上移';
+
+  @override
+  String get builtinToolMoveDown => '下移';
+
+  @override
+  String builtinToolEditorTitle(String kind) {
+    return '编辑工具 — $kind';
+  }
+
+  @override
+  String get builtinToolEnableTitle => '启用工具';
+
+  @override
+  String get builtinToolEnableBody => '禁用后该工具不会出现在模型的工具目录中。';
+
+  @override
+  String get builtinToolDisplayNameLabel => '显示名称（可选）';
+
+  @override
+  String get builtinToolDisplayNameHelper => '覆盖默认工具名称，留空则使用内建默认名。';
+
+  @override
+  String get builtinToolSummaryLabel => '简介（可选）';
+
+  @override
+  String get builtinToolSummaryHelper => '用于在工具列表中快速了解工具用途。';
+
+  @override
+  String get builtinToolPromptOverrideLabel => 'Prompt 追加覆盖（可选）';
+
+  @override
+  String get builtinToolPromptOverrideHelper =>
+      '追加到工具 description 末尾，可用来微调模型对该工具的使用策略。';
+
+  @override
+  String get builtinToolSchemaOverrideLabel => 'Schema 覆盖（JSON，可选）';
+
+  @override
+  String get builtinToolSchemaOverrideHelper =>
+      '完整的 JSON Schema 对象，覆盖工具的输入参数定义。留空使用默认。';
+
+  @override
+  String get builtinToolPriorityLabel => '优先级 (0–9999)';
+
+  @override
+  String get builtinToolPriorityHelper => '越小越优先';
+
+  @override
+  String get builtinToolLoadStrategyLabel => '加载策略';
+
+  @override
+  String get builtinToolForceLoadTitle => '强制加载';
+
+  @override
+  String get builtinToolForceLoadBody =>
+      '开启后，即使全局内建工具懒加载处于自动或开启，也会默认直接携带该工具 schema。';
+
+  @override
+  String get builtinToolMaxOutputLabel => '输出上限（字符）';
+
+  @override
+  String get builtinToolGlobalDefaultHint => '使用全局默认';
+
+  @override
+  String get builtinToolTagsLabel => '标签（逗号分隔）';
+
+  @override
+  String get builtinToolTagsHelper => '例如: io, file, dangerous';
+
+  @override
+  String get builtinToolRequireConfirmationTitle => '执行确认';
+
+  @override
+  String get builtinToolRequireConfirmationBody =>
+      '是否在执行前弹窗让用户确认。选“默认”时使用工具自身的行为。';
+
+  @override
+  String get builtinToolConfirmationDefault => '默认';
+
+  @override
+  String get builtinToolConfirmationYes => '需要确认';
+
+  @override
+  String get builtinToolConfirmationNo => '无需确认';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -23536,4 +24692,582 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String webReverseSnippetsNewName(String time) {
     return '脚本 $time';
   }
+
+  @override
+  String get agentsTitle => '智慧體';
+
+  @override
+  String get agentsSubtitle => '統一管理 Hermes Agent 數位員工的檔案、權限、任務、叢集、稽核與 KPI。';
+
+  @override
+  String get agentsOpenFolder => '開啟目錄';
+
+  @override
+  String get agentsCreateAgent => '建立智慧體';
+
+  @override
+  String get agentsEditAgent => '編輯智慧體';
+
+  @override
+  String get agentsWorkspaceTitle => 'Hermes Agent 工作台';
+
+  @override
+  String get agentsWorkspaceBody =>
+      '智慧體啟用後會提供任務發布、追蹤與結果取得能力；此頁用於設定職責、權限、叢集與治理邊界。';
+
+  @override
+  String get agentsLoadFailed => '智慧體設定載入失敗';
+
+  @override
+  String get agentsRetry => '重試';
+
+  @override
+  String get agentsEmptyTitle => '尚無智慧體';
+
+  @override
+  String get agentsEmptyBody => '點擊右上角建立按鈕，設定第一個具備職責邊界、權限、任務台與治理能力的數位員工。';
+
+  @override
+  String get agentsMentorLabel => '導師';
+
+  @override
+  String get agentsStopAgent => '停止智慧體';
+
+  @override
+  String get agentsStartAgent => '啟動智慧體';
+
+  @override
+  String get agentsActivities => '歷史活動';
+
+  @override
+  String get agentsLogs => '日誌';
+
+  @override
+  String get agentsCapabilityLogs => '能力呼叫日誌';
+
+  @override
+  String get agentsApprovals => '審批';
+
+  @override
+  String get agentsCluster => '叢集';
+
+  @override
+  String get agentsMore => '更多';
+
+  @override
+  String get agentsTaskDesk => '任務台';
+
+  @override
+  String get agentsAuditReport => '稽核報表';
+
+  @override
+  String get agentsKpi => 'KPI';
+
+  @override
+  String get agentsResources => '資源管理';
+
+  @override
+  String get agentsEditConfig => '編輯設定';
+
+  @override
+  String get agentsDeleteAgent => '刪除智慧體';
+
+  @override
+  String agentsTasksCount(int running, int total) {
+    return '任務 $running/$total';
+  }
+
+  @override
+  String agentsApprovalsCount(int count) {
+    return '審批 $count';
+  }
+
+  @override
+  String agentsWorkersCount(int count, int max) {
+    return 'Worker $count/$max';
+  }
+
+  @override
+  String agentsCapabilitySkillsCount(int count) {
+    return '技能 $count';
+  }
+
+  @override
+  String agentsCapabilityKnowledgeCount(int count) {
+    return '知識庫 $count';
+  }
+
+  @override
+  String agentsCapabilityMemoryCount(int count) {
+    return '記憶 $count';
+  }
+
+  @override
+  String agentsCapabilityToolsCount(int count) {
+    return '工具 $count';
+  }
+
+  @override
+  String agentsCapabilityCronsCount(int count) {
+    return 'Crons $count';
+  }
+
+  @override
+  String agentsCapabilityHooksCount(int count) {
+    return 'Hooks $count';
+  }
+
+  @override
+  String get agentsSelfLearningOn => '自我學習已開啟';
+
+  @override
+  String get agentsNoCapabilityResources => '尚未綁定能力資源';
+
+  @override
+  String agentsDialogTitleWithName(String title, String name) {
+    return '$title · $name';
+  }
+
+  @override
+  String get agentsActivitiesEmptyTitle => '暫無歷史活動。';
+
+  @override
+  String get agentsLogsEmptyTitle => '暫無 Skill、記憶、MCP 或工具呼叫日誌。';
+
+  @override
+  String get agentsApprovalsEmptyTitle => '暫無待審批請求。';
+
+  @override
+  String get agentsListEmptyBody => '智慧體啟動並執行任務後會自動沉澱於此。';
+
+  @override
+  String agentsMinWorkersCount(int count) {
+    return '最小 $count';
+  }
+
+  @override
+  String agentsMaxWorkersCount(int count) {
+    return '最大 $count';
+  }
+
+  @override
+  String get agentsNoWorkersTitle => '暫無 Worker';
+
+  @override
+  String get agentsNoWorkersBody => '儲存設定後會依最小 Worker 數自動預置本地 Worker 狀態。';
+
+  @override
+  String agentsWorkerSubtitle(String status, int done, int priority) {
+    return '$status · 已執行 $done · 優先級 $priority';
+  }
+
+  @override
+  String get agentsPublishTask => '發布任務';
+
+  @override
+  String get agentsNoTasksTitle => '暫無任務';
+
+  @override
+  String get agentsNoTasksBody => '可從這裡發布任務，後續 Worker 會按調度策略執行並回填結果。';
+
+  @override
+  String get agentsAuditRequests => '請求量';
+
+  @override
+  String get agentsAuditCompleted => '完成任務';
+
+  @override
+  String get agentsAuditUtilization => '利用率';
+
+  @override
+  String get agentsRecentAuditEvents => '最近稽核事件';
+
+  @override
+  String get agentsNoAuditData => '暫無稽核資料。';
+
+  @override
+  String get agentsNoKpiTitle => '暫無 KPI';
+
+  @override
+  String get agentsNoKpiBody => '在編輯設定中輸入 KPI，智慧體工作循環會據此規劃推進。';
+
+  @override
+  String get agentsMetricMemory => '記憶體';
+
+  @override
+  String get agentsMetricDisk => '磁碟';
+
+  @override
+  String get agentsMetricPersisted => '持久化';
+
+  @override
+  String get agentsMetricHandles => '控制代碼';
+
+  @override
+  String get agentsPublish => '發布';
+
+  @override
+  String get agentsTaskTitleLabel => '任務標題';
+
+  @override
+  String get agentsDescriptionLabel => '介紹';
+
+  @override
+  String get agentsContentLabel => '內容';
+
+  @override
+  String get agentsNoteLabel => '備註';
+
+  @override
+  String get agentsDeleteConfirmTitle => '刪除智慧體';
+
+  @override
+  String agentsDeleteConfirmMessage(String name) {
+    return '確定刪除 $name？此操作不會刪除已綁定的技能、知識庫或 MCP。';
+  }
+
+  @override
+  String get agentsTabProfile => '檔案';
+
+  @override
+  String get agentsTabCapabilities => '能力';
+
+  @override
+  String get agentsTabRuntime => '執行';
+
+  @override
+  String get agentsTabGovernance => '治理';
+
+  @override
+  String get agentsTabMetadata => '中繼資料';
+
+  @override
+  String get agentsFieldAvatar => '頭像';
+
+  @override
+  String get agentsFieldAvatarHint => '文字、Emoji 或圖片標識';
+
+  @override
+  String get agentsFieldNameRequired => '名稱 *';
+
+  @override
+  String get agentsFieldPosition => '職位';
+
+  @override
+  String get agentsFieldDepartment => '部門';
+
+  @override
+  String get agentsFieldLevel => '等級';
+
+  @override
+  String get agentsFieldIntroduction => '介紹';
+
+  @override
+  String get agentsFieldArchive => '檔案';
+
+  @override
+  String get agentsFieldRouteFrontMatter => '路由資訊';
+
+  @override
+  String get agentsFieldWelcomeMessage => '歡迎語';
+
+  @override
+  String get agentsFieldPersona => '角色設定';
+
+  @override
+  String get agentsFieldResponsibilityBoundary => '職責邊界';
+
+  @override
+  String get agentsKnowledgeBase => '知識庫';
+
+  @override
+  String get agentsBuiltInTools => '内建工具';
+
+  @override
+  String get agentsModelLabel => '模型';
+
+  @override
+  String get agentsEnableAgentTitle => '啟用智慧體';
+
+  @override
+  String get agentsEnableAgentBody => '啟用後智慧體工作循環與智慧體內建工具可用。';
+
+  @override
+  String get agentsSelfLearningTitle => '自我學習';
+
+  @override
+  String get agentsSelfLearningBody => '依託 Hermes Agent 沉澱 Skill、記憶與經驗。';
+
+  @override
+  String get agentsFieldWorkspacePath => '工作目錄';
+
+  @override
+  String get agentsFieldWorkspaceScope => '工作目錄範圍';
+
+  @override
+  String get agentsCrons => '定時任務';
+
+  @override
+  String get agentsClusterScaling => '叢集伸縮';
+
+  @override
+  String get agentsMinWorkersLabel => '最小 Worker';
+
+  @override
+  String get agentsMaxWorkersLabel => '最大 Worker';
+
+  @override
+  String get agentsMaxRetriesLabel => '最大重試';
+
+  @override
+  String get agentsSchedulerPolicyLabel => '調度策略';
+
+  @override
+  String get agentsTaskLabelsLabel => '任務標籤';
+
+  @override
+  String get agentsCommaSeparatedHint => '逗號分隔';
+
+  @override
+  String get agentsFieldName => '名稱';
+
+  @override
+  String get agentsFieldTarget => '目標';
+
+  @override
+  String get agentsMetadataJsonLabel => '中繼資料 JSON';
+
+  @override
+  String get agentsMetadataInfoTitle => '權限與輪廓中繼資料';
+
+  @override
+  String get agentsMetadataInfoBody => '這裡儲存擴充欄位。格式錯誤時會安全降級為空物件，不影響智慧體基礎設定。';
+
+  @override
+  String get agentsNoOptionsAvailable => '暫無可選項。';
+
+  @override
+  String get agentExecutionModeNormal => '預設模式';
+
+  @override
+  String get agentExecutionModeFullAccess => '完全存取模式';
+
+  @override
+  String get agentLifecycleStopped => '已停止';
+
+  @override
+  String get agentLifecycleRunning => '執行中';
+
+  @override
+  String get agentLifecyclePaused => '已暫停';
+
+  @override
+  String get agentLifecycleDegraded => '降級中';
+
+  @override
+  String get agentTaskStatusBacklog => '待分配';
+
+  @override
+  String get agentTaskStatusReady => '可執行';
+
+  @override
+  String get agentTaskStatusRunning => '執行中';
+
+  @override
+  String get agentTaskStatusWaitingApproval => '待審批';
+
+  @override
+  String get agentTaskStatusPaused => '已暫停';
+
+  @override
+  String get agentTaskStatusCompleted => '已完成';
+
+  @override
+  String get agentTaskStatusFailed => '失敗';
+
+  @override
+  String get agentTaskStatusCanceled => '已取消';
+
+  @override
+  String get agentApprovalStatusPending => '待審批';
+
+  @override
+  String get agentApprovalStatusApproved => '已核准';
+
+  @override
+  String get agentApprovalStatusRejected => '已拒絕';
+
+  @override
+  String get agentApprovalStatusExpired => '已過期';
+
+  @override
+  String get agentWorkerStatusIdle => '閒置';
+
+  @override
+  String get agentWorkerStatusBusy => '忙碌';
+
+  @override
+  String get agentWorkerStatusDraining => '移出中';
+
+  @override
+  String get agentWorkerStatusOffline => '離線';
+
+  @override
+  String get agentsActivityAgentStarted => '智慧體已啟動';
+
+  @override
+  String get agentsActivityAgentStopped => '智慧體已停止';
+
+  @override
+  String get agentsActivityTaskPublished => '任務已發布';
+
+  @override
+  String get agentsActivityTaskUpdated => '任務已更新';
+
+  @override
+  String get agentsActivityTaskCanceled => '任務已取消';
+
+  @override
+  String get agentsActivityTaskPaused => '任務已暫停';
+
+  @override
+  String get agentsActivityTaskTerminated => '任務已終止';
+
+  @override
+  String get agentsActivityTaskResumed => '任務已恢復';
+
+  @override
+  String get hookEventSessionStart => '會話開始';
+
+  @override
+  String get hookEventUserPromptSubmit => '使用者提交提示詞';
+
+  @override
+  String get hookEventPreToolUse => '工具呼叫前';
+
+  @override
+  String get hookEventPostToolUse => '工具呼叫後';
+
+  @override
+  String get hookEventSubagentStart => '子代理啟動';
+
+  @override
+  String get hookEventSubagentStop => '子代理停止';
+
+  @override
+  String get hookEventStop => '代理停止';
+
+  @override
+  String get hookEventPreCompact => '上下文壓縮前';
+
+  @override
+  String get hookEventSessionEnd => '會話結束';
+
+  @override
+  String get hookEventErrorOccurred => '發生錯誤';
+
+  @override
+  String get builtinToolLoadStrategyEagerShort => '立即';
+
+  @override
+  String get builtinToolLoadStrategyLazy => '懶載入';
+
+  @override
+  String get builtinToolLoadStrategyDeferred => '緩載入';
+
+  @override
+  String get builtinToolLoadStrategyEagerFull => '立即載入';
+
+  @override
+  String get builtinToolCustomBadge => '自訂';
+
+  @override
+  String get builtinToolForceBadge => '強制載入';
+
+  @override
+  String get builtinToolMoveUp => '上移';
+
+  @override
+  String get builtinToolMoveDown => '下移';
+
+  @override
+  String builtinToolEditorTitle(String kind) {
+    return '編輯工具 — $kind';
+  }
+
+  @override
+  String get builtinToolEnableTitle => '啟用工具';
+
+  @override
+  String get builtinToolEnableBody => '停用後，此工具不會出現在模型的工具目錄中。';
+
+  @override
+  String get builtinToolDisplayNameLabel => '顯示名稱（可選）';
+
+  @override
+  String get builtinToolDisplayNameHelper => '覆寫預設工具名稱；留空則使用內建預設名稱。';
+
+  @override
+  String get builtinToolSummaryLabel => '簡介（可選）';
+
+  @override
+  String get builtinToolSummaryHelper => '用於在工具清單中快速了解工具用途。';
+
+  @override
+  String get builtinToolPromptOverrideLabel => 'Prompt 追加覆寫（可選）';
+
+  @override
+  String get builtinToolPromptOverrideHelper =>
+      '追加到工具 description 末尾，可用於微調模型對此工具的使用策略。';
+
+  @override
+  String get builtinToolSchemaOverrideLabel => 'Schema 覆寫（JSON，可選）';
+
+  @override
+  String get builtinToolSchemaOverrideHelper =>
+      '完整的 JSON Schema 物件，用於覆寫工具輸入參數定義。留空使用預設。';
+
+  @override
+  String get builtinToolPriorityLabel => '優先級 (0–9999)';
+
+  @override
+  String get builtinToolPriorityHelper => '越小越優先';
+
+  @override
+  String get builtinToolLoadStrategyLabel => '載入策略';
+
+  @override
+  String get builtinToolForceLoadTitle => '強制載入';
+
+  @override
+  String get builtinToolForceLoadBody =>
+      '開啟後，即使全域內建工具懶載入處於自動或開啟，也會預設直接攜帶此工具 schema。';
+
+  @override
+  String get builtinToolMaxOutputLabel => '輸出上限（字元）';
+
+  @override
+  String get builtinToolGlobalDefaultHint => '使用全域預設';
+
+  @override
+  String get builtinToolTagsLabel => '標籤（逗號分隔）';
+
+  @override
+  String get builtinToolTagsHelper => '例如: io, file, dangerous';
+
+  @override
+  String get builtinToolRequireConfirmationTitle => '執行確認';
+
+  @override
+  String get builtinToolRequireConfirmationBody =>
+      '是否在執行前彈窗讓使用者確認。選「預設」時使用工具自身行為。';
+
+  @override
+  String get builtinToolConfirmationDefault => '預設';
+
+  @override
+  String get builtinToolConfirmationYes => '需要確認';
+
+  @override
+  String get builtinToolConfirmationNo => '無需確認';
 }

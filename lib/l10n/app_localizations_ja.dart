@@ -7943,4 +7943,583 @@ class AppLocalizationsJa extends AppLocalizations {
   String webReverseSnippetsNewName(String time) {
     return 'スニペット $time';
   }
+
+  @override
+  String get agentsTitle => 'エージェント';
+
+  @override
+  String get agentsSubtitle =>
+      'Hermes Agent のデジタル従業員、権限、タスク、クラスタ、監査、KPI を管理します。';
+
+  @override
+  String get agentsOpenFolder => 'フォルダを開く';
+
+  @override
+  String get agentsCreateAgent => 'エージェントを作成';
+
+  @override
+  String get agentsEditAgent => 'エージェントを編集';
+
+  @override
+  String get agentsWorkspaceTitle => 'Hermes Agent ワークスペース';
+
+  @override
+  String get agentsWorkspaceBody =>
+      '有効なエージェントはタスクの発行、追跡、結果取得を提供します。ここで範囲、権限、クラスタ、ガバナンスを設定します。';
+
+  @override
+  String get agentsLoadFailed => 'エージェントを読み込めませんでした';
+
+  @override
+  String get agentsRetry => '再試行';
+
+  @override
+  String get agentsEmptyTitle => 'エージェントはまだありません';
+
+  @override
+  String get agentsEmptyBody => '作成から、範囲、権限、タスクデスク、ガバナンスを備えた最初のデジタル従業員を設定します。';
+
+  @override
+  String get agentsMentorLabel => 'メンター';
+
+  @override
+  String get agentsStopAgent => 'エージェントを停止';
+
+  @override
+  String get agentsStartAgent => 'エージェントを開始';
+
+  @override
+  String get agentsActivities => 'アクティビティ';
+
+  @override
+  String get agentsLogs => 'ログ';
+
+  @override
+  String get agentsCapabilityLogs => '機能ログ';
+
+  @override
+  String get agentsApprovals => '承認';
+
+  @override
+  String get agentsCluster => 'クラスタ';
+
+  @override
+  String get agentsMore => 'その他';
+
+  @override
+  String get agentsTaskDesk => 'タスクデスク';
+
+  @override
+  String get agentsAuditReport => '監査レポート';
+
+  @override
+  String get agentsKpi => 'KPI';
+
+  @override
+  String get agentsResources => 'リソース';
+
+  @override
+  String get agentsEditConfig => '編集';
+
+  @override
+  String get agentsDeleteAgent => 'エージェントを削除';
+
+  @override
+  String agentsTasksCount(int running, int total) {
+    return 'タスク $running/$total';
+  }
+
+  @override
+  String agentsApprovalsCount(int count) {
+    return '承認 $count';
+  }
+
+  @override
+  String agentsWorkersCount(int count, int max) {
+    return 'Worker $count/$max';
+  }
+
+  @override
+  String agentsCapabilitySkillsCount(int count) {
+    return 'スキル $count';
+  }
+
+  @override
+  String agentsCapabilityKnowledgeCount(int count) {
+    return 'ナレッジ $count';
+  }
+
+  @override
+  String agentsCapabilityMemoryCount(int count) {
+    return 'メモリ $count';
+  }
+
+  @override
+  String agentsCapabilityToolsCount(int count) {
+    return 'ツール $count';
+  }
+
+  @override
+  String agentsCapabilityCronsCount(int count) {
+    return 'Crons $count';
+  }
+
+  @override
+  String agentsCapabilityHooksCount(int count) {
+    return 'Hooks $count';
+  }
+
+  @override
+  String get agentsSelfLearningOn => '自己学習オン';
+
+  @override
+  String get agentsNoCapabilityResources => '機能リソース未接続';
+
+  @override
+  String agentsDialogTitleWithName(String title, String name) {
+    return '$title · $name';
+  }
+
+  @override
+  String get agentsActivitiesEmptyTitle => 'アクティビティはまだありません。';
+
+  @override
+  String get agentsLogsEmptyTitle => 'Skill、メモリ、MCP、ツールのログはまだありません。';
+
+  @override
+  String get agentsApprovalsEmptyTitle => '承認リクエストはありません。';
+
+  @override
+  String get agentsListEmptyBody => 'エージェントが稼働するとここに記録されます。';
+
+  @override
+  String agentsMinWorkersCount(int count) {
+    return '最小 $count';
+  }
+
+  @override
+  String agentsMaxWorkersCount(int count) {
+    return '最大 $count';
+  }
+
+  @override
+  String get agentsNoWorkersTitle => 'Worker はありません';
+
+  @override
+  String get agentsNoWorkersBody => '設定した最小数に基づいて Worker が準備されます。';
+
+  @override
+  String agentsWorkerSubtitle(String status, int done, int priority) {
+    return '$status · 完了 $done · 優先度 $priority';
+  }
+
+  @override
+  String get agentsPublishTask => 'タスクを発行';
+
+  @override
+  String get agentsNoTasksTitle => 'タスクはありません';
+
+  @override
+  String get agentsNoTasksBody => 'ここでタスクを発行すると、Worker が実行して結果を返します。';
+
+  @override
+  String get agentsAuditRequests => 'リクエスト';
+
+  @override
+  String get agentsAuditCompleted => '完了';
+
+  @override
+  String get agentsAuditUtilization => '利用率';
+
+  @override
+  String get agentsRecentAuditEvents => '最近の監査イベント';
+
+  @override
+  String get agentsNoAuditData => '監査データはまだありません。';
+
+  @override
+  String get agentsNoKpiTitle => 'KPI はありません';
+
+  @override
+  String get agentsNoKpiBody => 'エディタで KPI を追加すると、エージェントがそれに沿って計画します。';
+
+  @override
+  String get agentsMetricMemory => 'メモリ';
+
+  @override
+  String get agentsMetricDisk => 'ディスク';
+
+  @override
+  String get agentsMetricPersisted => '永続化';
+
+  @override
+  String get agentsMetricHandles => 'ハンドル';
+
+  @override
+  String get agentsPublish => '発行';
+
+  @override
+  String get agentsTaskTitleLabel => 'タイトル';
+
+  @override
+  String get agentsDescriptionLabel => '説明';
+
+  @override
+  String get agentsContentLabel => '内容';
+
+  @override
+  String get agentsNoteLabel => 'メモ';
+
+  @override
+  String get agentsDeleteConfirmTitle => 'エージェントを削除';
+
+  @override
+  String agentsDeleteConfirmMessage(String name) {
+    return '$name を削除しますか？関連付けたスキル、ナレッジ、MCP サーバーは保持されます。';
+  }
+
+  @override
+  String get agentsTabProfile => 'プロフィール';
+
+  @override
+  String get agentsTabCapabilities => '機能';
+
+  @override
+  String get agentsTabRuntime => 'ランタイム';
+
+  @override
+  String get agentsTabGovernance => 'ガバナンス';
+
+  @override
+  String get agentsTabMetadata => 'メタデータ';
+
+  @override
+  String get agentsFieldAvatar => 'アバター';
+
+  @override
+  String get agentsFieldAvatarHint => 'テキスト、絵文字、画像マーカー';
+
+  @override
+  String get agentsFieldNameRequired => '名前 *';
+
+  @override
+  String get agentsFieldPosition => '役割';
+
+  @override
+  String get agentsFieldDepartment => '部門';
+
+  @override
+  String get agentsFieldLevel => 'レベル';
+
+  @override
+  String get agentsFieldIntroduction => '紹介';
+
+  @override
+  String get agentsFieldArchive => 'アーカイブ';
+
+  @override
+  String get agentsFieldRouteFrontMatter => 'ルート情報';
+
+  @override
+  String get agentsFieldWelcomeMessage => 'ウェルカムメッセージ';
+
+  @override
+  String get agentsFieldPersona => 'ペルソナ';
+
+  @override
+  String get agentsFieldResponsibilityBoundary => '責任範囲';
+
+  @override
+  String get agentsKnowledgeBase => 'ナレッジベース';
+
+  @override
+  String get agentsBuiltInTools => '組み込みツール';
+
+  @override
+  String get agentsModelLabel => 'モデル';
+
+  @override
+  String get agentsEnableAgentTitle => 'エージェントを有効化';
+
+  @override
+  String get agentsEnableAgentBody => 'エージェントループと組み込みツールを有効にします。';
+
+  @override
+  String get agentsSelfLearningTitle => '自己学習';
+
+  @override
+  String get agentsSelfLearningBody => 'Hermes Agent でスキル、メモリ、経験を蓄積します。';
+
+  @override
+  String get agentsFieldWorkspacePath => 'ワークスペースパス';
+
+  @override
+  String get agentsFieldWorkspaceScope => 'ワークスペース範囲';
+
+  @override
+  String get agentsCrons => 'Crons';
+
+  @override
+  String get agentsClusterScaling => 'クラスタスケーリング';
+
+  @override
+  String get agentsMinWorkersLabel => '最小 Worker';
+
+  @override
+  String get agentsMaxWorkersLabel => '最大 Worker';
+
+  @override
+  String get agentsMaxRetriesLabel => '最大リトライ';
+
+  @override
+  String get agentsSchedulerPolicyLabel => 'スケジューラーポリシー';
+
+  @override
+  String get agentsTaskLabelsLabel => 'タスクラベル';
+
+  @override
+  String get agentsCommaSeparatedHint => 'カンマ区切り';
+
+  @override
+  String get agentsFieldName => '名前';
+
+  @override
+  String get agentsFieldTarget => '目標';
+
+  @override
+  String get agentsMetadataJsonLabel => 'メタデータ JSON';
+
+  @override
+  String get agentsMetadataInfoTitle => '権限とプロフィールメタデータ';
+
+  @override
+  String get agentsMetadataInfoBody =>
+      '拡張フィールドを保存します。JSON が不正な場合は安全に空オブジェクトへフォールバックします。';
+
+  @override
+  String get agentsNoOptionsAvailable => '利用可能な項目はありません。';
+
+  @override
+  String get agentExecutionModeNormal => 'デフォルト';
+
+  @override
+  String get agentExecutionModeFullAccess => 'フルアクセス';
+
+  @override
+  String get agentLifecycleStopped => '停止中';
+
+  @override
+  String get agentLifecycleRunning => '実行中';
+
+  @override
+  String get agentLifecyclePaused => '一時停止';
+
+  @override
+  String get agentLifecycleDegraded => '低下中';
+
+  @override
+  String get agentTaskStatusBacklog => 'バックログ';
+
+  @override
+  String get agentTaskStatusReady => '準備完了';
+
+  @override
+  String get agentTaskStatusRunning => '実行中';
+
+  @override
+  String get agentTaskStatusWaitingApproval => '承認待ち';
+
+  @override
+  String get agentTaskStatusPaused => '一時停止';
+
+  @override
+  String get agentTaskStatusCompleted => '完了';
+
+  @override
+  String get agentTaskStatusFailed => '失敗';
+
+  @override
+  String get agentTaskStatusCanceled => 'キャンセル済み';
+
+  @override
+  String get agentApprovalStatusPending => '保留中';
+
+  @override
+  String get agentApprovalStatusApproved => '承認済み';
+
+  @override
+  String get agentApprovalStatusRejected => '却下';
+
+  @override
+  String get agentApprovalStatusExpired => '期限切れ';
+
+  @override
+  String get agentWorkerStatusIdle => 'アイドル';
+
+  @override
+  String get agentWorkerStatusBusy => 'ビジー';
+
+  @override
+  String get agentWorkerStatusDraining => 'ドレイン中';
+
+  @override
+  String get agentWorkerStatusOffline => 'オフライン';
+
+  @override
+  String get agentsActivityAgentStarted => 'エージェント開始';
+
+  @override
+  String get agentsActivityAgentStopped => 'エージェント停止';
+
+  @override
+  String get agentsActivityTaskPublished => 'タスク発行済み';
+
+  @override
+  String get agentsActivityTaskUpdated => 'タスク更新済み';
+
+  @override
+  String get agentsActivityTaskCanceled => 'タスクキャンセル済み';
+
+  @override
+  String get agentsActivityTaskPaused => 'タスク一時停止';
+
+  @override
+  String get agentsActivityTaskTerminated => 'タスク終了';
+
+  @override
+  String get agentsActivityTaskResumed => 'タスク再開';
+
+  @override
+  String get hookEventSessionStart => 'セッション開始';
+
+  @override
+  String get hookEventUserPromptSubmit => 'ユーザープロンプト送信';
+
+  @override
+  String get hookEventPreToolUse => 'ツール使用前';
+
+  @override
+  String get hookEventPostToolUse => 'ツール使用後';
+
+  @override
+  String get hookEventSubagentStart => 'サブエージェント開始';
+
+  @override
+  String get hookEventSubagentStop => 'サブエージェント停止';
+
+  @override
+  String get hookEventStop => '停止';
+
+  @override
+  String get hookEventPreCompact => '圧縮前';
+
+  @override
+  String get hookEventSessionEnd => 'セッション終了';
+
+  @override
+  String get hookEventErrorOccurred => 'エラー発生';
+
+  @override
+  String get builtinToolLoadStrategyEagerShort => '即時';
+
+  @override
+  String get builtinToolLoadStrategyLazy => '遅延';
+
+  @override
+  String get builtinToolLoadStrategyDeferred => '後回し';
+
+  @override
+  String get builtinToolLoadStrategyEagerFull => '即時読み込み';
+
+  @override
+  String get builtinToolCustomBadge => 'カスタム';
+
+  @override
+  String get builtinToolForceBadge => '強制';
+
+  @override
+  String get builtinToolMoveUp => '上へ移動';
+
+  @override
+  String get builtinToolMoveDown => '下へ移動';
+
+  @override
+  String builtinToolEditorTitle(String kind) {
+    return 'ツールを編集 — $kind';
+  }
+
+  @override
+  String get builtinToolEnableTitle => 'ツールを有効化';
+
+  @override
+  String get builtinToolEnableBody => '無効にすると、このツールはモデルのツールカタログに表示されません。';
+
+  @override
+  String get builtinToolDisplayNameLabel => '表示名（任意）';
+
+  @override
+  String get builtinToolDisplayNameHelper => '既定のツール名を上書きします。空欄なら組み込み既定値を使います。';
+
+  @override
+  String get builtinToolSummaryLabel => '概要（任意）';
+
+  @override
+  String get builtinToolSummaryHelper => 'ツール一覧で用途を素早く確認するために表示されます。';
+
+  @override
+  String get builtinToolPromptOverrideLabel => 'プロンプト追記（任意）';
+
+  @override
+  String get builtinToolPromptOverrideHelper => 'ツール説明の末尾に追加され、モデルの使い方を微調整します。';
+
+  @override
+  String get builtinToolSchemaOverrideLabel => 'スキーマ上書き（JSON、任意）';
+
+  @override
+  String get builtinToolSchemaOverrideHelper =>
+      '入力パラメータ定義を上書きする完全な JSON Schema。空欄なら既定値です。';
+
+  @override
+  String get builtinToolPriorityLabel => '優先度 (0–9999)';
+
+  @override
+  String get builtinToolPriorityHelper => '小さいほど優先';
+
+  @override
+  String get builtinToolLoadStrategyLabel => '読み込み戦略';
+
+  @override
+  String get builtinToolForceLoadTitle => '強制読み込み';
+
+  @override
+  String get builtinToolForceLoadBody =>
+      '有効にすると、組み込み遅延読み込みが Auto/On でもこのスキーマを直接送ります。';
+
+  @override
+  String get builtinToolMaxOutputLabel => '最大出力（文字）';
+
+  @override
+  String get builtinToolGlobalDefaultHint => 'グローバル既定値';
+
+  @override
+  String get builtinToolTagsLabel => 'タグ（カンマ区切り）';
+
+  @override
+  String get builtinToolTagsHelper => '例: io, file, dangerous';
+
+  @override
+  String get builtinToolRequireConfirmationTitle => '実行確認';
+
+  @override
+  String get builtinToolRequireConfirmationBody =>
+      '実行前にユーザー確認を求めるかどうか。「既定」はツール本来の動作を使います。';
+
+  @override
+  String get builtinToolConfirmationDefault => '既定';
+
+  @override
+  String get builtinToolConfirmationYes => 'はい';
+
+  @override
+  String get builtinToolConfirmationNo => 'いいえ';
 }

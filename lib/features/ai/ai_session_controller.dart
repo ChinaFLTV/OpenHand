@@ -25,6 +25,7 @@ import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/stable_hash.dart';
 import '../../shared/util/timer_safety.dart';
+import '../agents/agents_controller.dart';
 import '../home/index.dart';
 import '../hooks/index.dart';
 import '../knowledge_base/index.dart';
@@ -266,6 +267,7 @@ class AiSessionController extends ChangeNotifier {
     DateTime Function()? clock,
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
+    AgentsControllerProvider? agentsControllerProvider,
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
   }) async {
@@ -297,6 +299,7 @@ class AiSessionController extends ChangeNotifier {
             backgroundChatClient: resolvedBackgroundChatClient,
             skillsDirProvider: skillsDirProvider,
             memoryControllerProvider: memoryControllerProvider,
+            agentsControllerProvider: agentsControllerProvider,
             knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
             aiModelsProvider: aiModelsProvider,
             toolOutputDirectoryProvider:
@@ -8601,6 +8604,11 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.readLints:
       case AiBuiltinToolKind.knowledgeSearch:
       case AiBuiltinToolKind.knowledgeRead:
+      case AiBuiltinToolKind.agentList:
+      case AiBuiltinToolKind.agentDetail:
+      case AiBuiltinToolKind.agentTaskTrack:
+      case AiBuiltinToolKind.agentTaskProgress:
+      case AiBuiltinToolKind.agentTaskResult:
         return true;
       case AiBuiltinToolKind.task:
         return _isParallelizableTaskToolCall(toolCall);
@@ -8633,6 +8641,11 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.skillManager:
       // Memory tool mutates shared MemoryController state — must run serially.
       case AiBuiltinToolKind.memory:
+      case AiBuiltinToolKind.agentTaskPublish:
+      case AiBuiltinToolKind.agentTaskCancel:
+      case AiBuiltinToolKind.agentTaskPause:
+      case AiBuiltinToolKind.agentTaskTerminate:
+      case AiBuiltinToolKind.agentTaskResume:
         return false;
     }
   }

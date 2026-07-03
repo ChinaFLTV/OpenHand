@@ -1,6 +1,7 @@
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
+import '../agents/agents_controller.dart';
 import '../hooks/index.dart';
 import '../knowledge_base/knowledge_base_controller.dart';
 import '../memory/index.dart';
@@ -29,6 +30,7 @@ class AiModule {
     required HooksExecutor userHooksExecutor,
     required String Function() skillsDirProvider,
     required MemoryController? Function() memoryControllerProvider,
+    required AgentsControllerProvider agentsControllerProvider,
     required List<AiModelConfig> Function() aiModelsProvider,
     required KnowledgeBaseController? Function()
     knowledgeBaseControllerProvider,
@@ -38,6 +40,7 @@ class AiModule {
       userHooksExecutor: userHooksExecutor,
       skillsDirProvider: skillsDirProvider,
       memoryControllerProvider: memoryControllerProvider,
+      agentsControllerProvider: agentsControllerProvider,
       aiModelsProvider: aiModelsProvider,
       knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
     );

@@ -19,6 +19,7 @@ import 'app/support/input_repair_service.dart';
 import 'app/support/safe_subprocess.dart';
 import 'app/support/silent_log.dart';
 import 'app/support/system_proxy.dart';
+import 'features/agents/index.dart';
 import 'features/ai/index.dart';
 import 'features/ai/service/chat/ai_protocol_adapter.dart'
     as ai_protocol_adapter;
@@ -197,6 +198,7 @@ Future<void> _bootstrap() async {
   final hooksModuleFuture = HooksModule.bootstrap();
   final instructionsModuleFuture = InstructionsModule.bootstrap();
   final memoryModuleFuture = MemoryModule.bootstrap();
+  final agentsModuleFuture = AgentsModule.bootstrap();
   final pluginServiceModuleFuture = PluginServiceModule.bootstrap();
   final knowledgeBaseModuleFuture = KnowledgeBaseModule.bootstrap();
   // 预加载输出格式控制 Prompt 片段；未就绪时 AiPromptBuilder 会回退到内置兜底。
@@ -224,11 +226,13 @@ Future<void> _bootstrap() async {
   });
   // MemoryController 懒加载完成后再暴露给 AI 内建 Memory 工具。
   MemoryController? memoryControllerHandle;
+  AgentsController? agentsControllerHandle;
   KnowledgeBaseController? knowledgeBaseControllerHandle;
   final aiModuleFuture = AiModule.bootstrap(
     userHooksExecutor: hooks.executor,
     skillsDirProvider: () => settingsController.skillsStoragePath,
     memoryControllerProvider: () => memoryControllerHandle,
+    agentsControllerProvider: () => agentsControllerHandle,
     aiModelsProvider: () => settingsController.aiModels,
     knowledgeBaseControllerProvider: () => knowledgeBaseControllerHandle,
   );
@@ -254,6 +258,9 @@ Future<void> _bootstrap() async {
   // MemoryController 只在用户动作路径使用，刷新放到后台以缩短冷启动关键路径。
   final memory = await memoryModuleFuture;
   unawaited(memory.controller.refresh());
+  final agents = await agentsModuleFuture;
+  agentsControllerHandle = agents.controller;
+  unawaited(agents.controller.refresh());
   // CronsController 先注册 agent handler，再把数据库加载和调度器启动放到后台。
   final crons = await cronsModuleFuture;
   final cronsController = crons.controller;
@@ -419,6 +426,7 @@ Future<void> _bootstrap() async {
         ...McpModule.providers(mcp),
         ...HooksModule.providers(hooks),
         ...MemoryModule.providers(memory),
+        ...AgentsModule.providers(agents),
         ...CronsModule.providers(crons),
         ...InstructionsModule.providers(instructions),
         ...MessageGatewayModule.providers(messageGateway),

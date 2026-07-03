@@ -8225,4 +8225,597 @@ class AppLocalizationsDe extends AppLocalizations {
   String webReverseSnippetsNewName(String time) {
     return 'Snippet $time';
   }
+
+  @override
+  String get agentsTitle => 'Agenten';
+
+  @override
+  String get agentsSubtitle =>
+      'Verwalten Sie Hermes-Agent-Digitalmitarbeiter, Rechte, Aufgaben, Cluster, Audits und KPIs.';
+
+  @override
+  String get agentsOpenFolder => 'Ordner öffnen';
+
+  @override
+  String get agentsCreateAgent => 'Agent erstellen';
+
+  @override
+  String get agentsEditAgent => 'Agent bearbeiten';
+
+  @override
+  String get agentsWorkspaceTitle => 'Hermes-Agent-Arbeitsbereich';
+
+  @override
+  String get agentsWorkspaceBody =>
+      'Aktivierte Agenten stellen Aufgabenvergabe, Nachverfolgung und Ergebnisse bereit. Hier konfigurieren Sie Umfang, Rechte, Cluster und Governance.';
+
+  @override
+  String get agentsLoadFailed => 'Agenten konnten nicht geladen werden';
+
+  @override
+  String get agentsRetry => 'Wiederholen';
+
+  @override
+  String get agentsEmptyTitle => 'Noch keine Agenten';
+
+  @override
+  String get agentsEmptyBody =>
+      'Mit Erstellen konfigurieren Sie den ersten Digitalmitarbeiter mit Umfang, Rechten, Aufgabenbereich und Governance.';
+
+  @override
+  String get agentsMentorLabel => 'Mentor';
+
+  @override
+  String get agentsStopAgent => 'Agent stoppen';
+
+  @override
+  String get agentsStartAgent => 'Agent starten';
+
+  @override
+  String get agentsActivities => 'Aktivitäten';
+
+  @override
+  String get agentsLogs => 'Protokolle';
+
+  @override
+  String get agentsCapabilityLogs => 'Fähigkeitsprotokolle';
+
+  @override
+  String get agentsApprovals => 'Freigaben';
+
+  @override
+  String get agentsCluster => 'Cluster';
+
+  @override
+  String get agentsMore => 'Mehr';
+
+  @override
+  String get agentsTaskDesk => 'Aufgabenbereich';
+
+  @override
+  String get agentsAuditReport => 'Auditbericht';
+
+  @override
+  String get agentsKpi => 'KPI';
+
+  @override
+  String get agentsResources => 'Ressourcen';
+
+  @override
+  String get agentsEditConfig => 'Bearbeiten';
+
+  @override
+  String get agentsDeleteAgent => 'Agent löschen';
+
+  @override
+  String agentsTasksCount(int running, int total) {
+    return 'Aufgaben $running/$total';
+  }
+
+  @override
+  String agentsApprovalsCount(int count) {
+    return 'Freigaben $count';
+  }
+
+  @override
+  String agentsWorkersCount(int count, int max) {
+    return 'Worker $count/$max';
+  }
+
+  @override
+  String agentsCapabilitySkillsCount(int count) {
+    return 'Skills $count';
+  }
+
+  @override
+  String agentsCapabilityKnowledgeCount(int count) {
+    return 'Wissen $count';
+  }
+
+  @override
+  String agentsCapabilityMemoryCount(int count) {
+    return 'Speicher $count';
+  }
+
+  @override
+  String agentsCapabilityToolsCount(int count) {
+    return 'Werkzeuge $count';
+  }
+
+  @override
+  String agentsCapabilityCronsCount(int count) {
+    return 'Crons $count';
+  }
+
+  @override
+  String agentsCapabilityHooksCount(int count) {
+    return 'Hooks $count';
+  }
+
+  @override
+  String get agentsSelfLearningOn => 'Selbstlernen aktiv';
+
+  @override
+  String get agentsNoCapabilityResources =>
+      'Keine Fähigkeitenressourcen verknüpft';
+
+  @override
+  String agentsDialogTitleWithName(String title, String name) {
+    return '$title · $name';
+  }
+
+  @override
+  String get agentsActivitiesEmptyTitle => 'Noch keine Aktivitäten.';
+
+  @override
+  String get agentsLogsEmptyTitle =>
+      'Noch keine Skill-, Speicher-, MCP- oder Werkzeugprotokolle.';
+
+  @override
+  String get agentsApprovalsEmptyTitle => 'Keine Freigabeanfragen.';
+
+  @override
+  String get agentsListEmptyBody =>
+      'Einträge erscheinen hier, nachdem der Agent arbeitet.';
+
+  @override
+  String agentsMinWorkersCount(int count) {
+    return 'Min. $count';
+  }
+
+  @override
+  String agentsMaxWorkersCount(int count) {
+    return 'Max. $count';
+  }
+
+  @override
+  String get agentsNoWorkersTitle => 'Keine Worker';
+
+  @override
+  String get agentsNoWorkersBody =>
+      'Worker werden anhand der konfigurierten Mindestgröße vorbereitet.';
+
+  @override
+  String agentsWorkerSubtitle(String status, int done, int priority) {
+    return '$status · Erledigt $done · Priorität $priority';
+  }
+
+  @override
+  String get agentsPublishTask => 'Aufgabe veröffentlichen';
+
+  @override
+  String get agentsNoTasksTitle => 'Keine Aufgaben';
+
+  @override
+  String get agentsNoTasksBody =>
+      'Veröffentlichen Sie hier Aufgaben; Worker führen sie aus und melden Ergebnisse.';
+
+  @override
+  String get agentsAuditRequests => 'Anfragen';
+
+  @override
+  String get agentsAuditCompleted => 'Abgeschlossen';
+
+  @override
+  String get agentsAuditUtilization => 'Auslastung';
+
+  @override
+  String get agentsRecentAuditEvents => 'Aktuelle Auditereignisse';
+
+  @override
+  String get agentsNoAuditData => 'Noch keine Auditdaten.';
+
+  @override
+  String get agentsNoKpiTitle => 'Keine KPI-Einträge';
+
+  @override
+  String get agentsNoKpiBody =>
+      'Fügen Sie KPI im Editor hinzu, damit der Agent daran planen kann.';
+
+  @override
+  String get agentsMetricMemory => 'Speicher';
+
+  @override
+  String get agentsMetricDisk => 'Datenträger';
+
+  @override
+  String get agentsMetricPersisted => 'Persistiert';
+
+  @override
+  String get agentsMetricHandles => 'Handles';
+
+  @override
+  String get agentsPublish => 'Veröffentlichen';
+
+  @override
+  String get agentsTaskTitleLabel => 'Titel';
+
+  @override
+  String get agentsDescriptionLabel => 'Beschreibung';
+
+  @override
+  String get agentsContentLabel => 'Inhalt';
+
+  @override
+  String get agentsNoteLabel => 'Notiz';
+
+  @override
+  String get agentsDeleteConfirmTitle => 'Agent löschen';
+
+  @override
+  String agentsDeleteConfirmMessage(String name) {
+    return '$name löschen? Verknüpfte Skills, Wissen und MCP-Server bleiben erhalten.';
+  }
+
+  @override
+  String get agentsTabProfile => 'Profil';
+
+  @override
+  String get agentsTabCapabilities => 'Fähigkeiten';
+
+  @override
+  String get agentsTabRuntime => 'Laufzeit';
+
+  @override
+  String get agentsTabGovernance => 'Governance';
+
+  @override
+  String get agentsTabMetadata => 'Metadaten';
+
+  @override
+  String get agentsFieldAvatar => 'Avatar';
+
+  @override
+  String get agentsFieldAvatarHint => 'Text, Emoji oder Bildmarke';
+
+  @override
+  String get agentsFieldNameRequired => 'Name *';
+
+  @override
+  String get agentsFieldPosition => 'Position';
+
+  @override
+  String get agentsFieldDepartment => 'Abteilung';
+
+  @override
+  String get agentsFieldLevel => 'Stufe';
+
+  @override
+  String get agentsFieldIntroduction => 'Einführung';
+
+  @override
+  String get agentsFieldArchive => 'Archiv';
+
+  @override
+  String get agentsFieldRouteFrontMatter => 'Routing-Frontmatter';
+
+  @override
+  String get agentsFieldWelcomeMessage => 'Begrüßung';
+
+  @override
+  String get agentsFieldPersona => 'Persona';
+
+  @override
+  String get agentsFieldResponsibilityBoundary => 'Verantwortungsgrenze';
+
+  @override
+  String get agentsKnowledgeBase => 'Wissensbasis';
+
+  @override
+  String get agentsBuiltInTools => 'Integrierte Werkzeuge';
+
+  @override
+  String get agentsModelLabel => 'Modell';
+
+  @override
+  String get agentsEnableAgentTitle => 'Agent aktivieren';
+
+  @override
+  String get agentsEnableAgentBody =>
+      'Aktiviert Agentenschleife und integrierte Agentenwerkzeuge.';
+
+  @override
+  String get agentsSelfLearningTitle => 'Selbstlernen';
+
+  @override
+  String get agentsSelfLearningBody =>
+      'Nutzt Hermes Agent, um Skills, Speicher und Erfahrung aufzubauen.';
+
+  @override
+  String get agentsFieldWorkspacePath => 'Arbeitsverzeichnis';
+
+  @override
+  String get agentsFieldWorkspaceScope => 'Arbeitsbereichsumfang';
+
+  @override
+  String get agentsCrons => 'Crons';
+
+  @override
+  String get agentsClusterScaling => 'Clusterskalierung';
+
+  @override
+  String get agentsMinWorkersLabel => 'Min. Worker';
+
+  @override
+  String get agentsMaxWorkersLabel => 'Max. Worker';
+
+  @override
+  String get agentsMaxRetriesLabel => 'Max. Wiederholungen';
+
+  @override
+  String get agentsSchedulerPolicyLabel => 'Planungsrichtlinie';
+
+  @override
+  String get agentsTaskLabelsLabel => 'Aufgabenlabels';
+
+  @override
+  String get agentsCommaSeparatedHint => 'Kommagetrennt';
+
+  @override
+  String get agentsFieldName => 'Name';
+
+  @override
+  String get agentsFieldTarget => 'Ziel';
+
+  @override
+  String get agentsMetadataJsonLabel => 'Metadaten-JSON';
+
+  @override
+  String get agentsMetadataInfoTitle => 'Berechtigungs- und Profilmetadaten';
+
+  @override
+  String get agentsMetadataInfoBody =>
+      'Erweiterungsfelder liegen hier. Ungültiges JSON fällt sicher auf ein leeres Objekt zurück.';
+
+  @override
+  String get agentsNoOptionsAvailable => 'Keine Optionen verfügbar.';
+
+  @override
+  String get agentExecutionModeNormal => 'Standard';
+
+  @override
+  String get agentExecutionModeFullAccess => 'Vollzugriff';
+
+  @override
+  String get agentLifecycleStopped => 'Gestoppt';
+
+  @override
+  String get agentLifecycleRunning => 'Läuft';
+
+  @override
+  String get agentLifecyclePaused => 'Pausiert';
+
+  @override
+  String get agentLifecycleDegraded => 'Eingeschränkt';
+
+  @override
+  String get agentTaskStatusBacklog => 'Backlog';
+
+  @override
+  String get agentTaskStatusReady => 'Bereit';
+
+  @override
+  String get agentTaskStatusRunning => 'Läuft';
+
+  @override
+  String get agentTaskStatusWaitingApproval => 'Freigabe';
+
+  @override
+  String get agentTaskStatusPaused => 'Pausiert';
+
+  @override
+  String get agentTaskStatusCompleted => 'Abgeschlossen';
+
+  @override
+  String get agentTaskStatusFailed => 'Fehlgeschlagen';
+
+  @override
+  String get agentTaskStatusCanceled => 'Abgebrochen';
+
+  @override
+  String get agentApprovalStatusPending => 'Ausstehend';
+
+  @override
+  String get agentApprovalStatusApproved => 'Genehmigt';
+
+  @override
+  String get agentApprovalStatusRejected => 'Abgelehnt';
+
+  @override
+  String get agentApprovalStatusExpired => 'Abgelaufen';
+
+  @override
+  String get agentWorkerStatusIdle => 'Leerlauf';
+
+  @override
+  String get agentWorkerStatusBusy => 'Beschäftigt';
+
+  @override
+  String get agentWorkerStatusDraining => 'Wird entleert';
+
+  @override
+  String get agentWorkerStatusOffline => 'Offline';
+
+  @override
+  String get agentsActivityAgentStarted => 'Agent gestartet';
+
+  @override
+  String get agentsActivityAgentStopped => 'Agent gestoppt';
+
+  @override
+  String get agentsActivityTaskPublished => 'Aufgabe veröffentlicht';
+
+  @override
+  String get agentsActivityTaskUpdated => 'Aufgabe aktualisiert';
+
+  @override
+  String get agentsActivityTaskCanceled => 'Aufgabe abgebrochen';
+
+  @override
+  String get agentsActivityTaskPaused => 'Aufgabe pausiert';
+
+  @override
+  String get agentsActivityTaskTerminated => 'Aufgabe beendet';
+
+  @override
+  String get agentsActivityTaskResumed => 'Aufgabe fortgesetzt';
+
+  @override
+  String get hookEventSessionStart => 'Sitzungsstart';
+
+  @override
+  String get hookEventUserPromptSubmit => 'Prompt gesendet';
+
+  @override
+  String get hookEventPreToolUse => 'Vor Werkzeugnutzung';
+
+  @override
+  String get hookEventPostToolUse => 'Nach Werkzeugnutzung';
+
+  @override
+  String get hookEventSubagentStart => 'Subagent gestartet';
+
+  @override
+  String get hookEventSubagentStop => 'Subagent gestoppt';
+
+  @override
+  String get hookEventStop => 'Stopp';
+
+  @override
+  String get hookEventPreCompact => 'Vor Komprimierung';
+
+  @override
+  String get hookEventSessionEnd => 'Sitzungsende';
+
+  @override
+  String get hookEventErrorOccurred => 'Fehler aufgetreten';
+
+  @override
+  String get builtinToolLoadStrategyEagerShort => 'Sofort';
+
+  @override
+  String get builtinToolLoadStrategyLazy => 'Lazy';
+
+  @override
+  String get builtinToolLoadStrategyDeferred => 'Verzögert';
+
+  @override
+  String get builtinToolLoadStrategyEagerFull => 'Sofort laden';
+
+  @override
+  String get builtinToolCustomBadge => 'Benutzerdefiniert';
+
+  @override
+  String get builtinToolForceBadge => 'Erzwingen';
+
+  @override
+  String get builtinToolMoveUp => 'Nach oben';
+
+  @override
+  String get builtinToolMoveDown => 'Nach unten';
+
+  @override
+  String builtinToolEditorTitle(String kind) {
+    return 'Werkzeug bearbeiten — $kind';
+  }
+
+  @override
+  String get builtinToolEnableTitle => 'Werkzeug aktivieren';
+
+  @override
+  String get builtinToolEnableBody =>
+      'Deaktiviert erscheint dieses Werkzeug nicht im Werkzeugkatalog des Modells.';
+
+  @override
+  String get builtinToolDisplayNameLabel => 'Anzeigename (optional)';
+
+  @override
+  String get builtinToolDisplayNameHelper =>
+      'Überschreibt den Standardnamen. Leer lassen für den integrierten Standard.';
+
+  @override
+  String get builtinToolSummaryLabel => 'Kurzbeschreibung (optional)';
+
+  @override
+  String get builtinToolSummaryHelper =>
+      'Wird in der Werkzeugliste zur schnellen Orientierung angezeigt.';
+
+  @override
+  String get builtinToolPromptOverrideLabel => 'Prompt-Ergänzung (optional)';
+
+  @override
+  String get builtinToolPromptOverrideHelper =>
+      'Wird an die Werkzeugbeschreibung angehängt und steuert die Nutzung durch das Modell.';
+
+  @override
+  String get builtinToolSchemaOverrideLabel =>
+      'Schema-Override (JSON, optional)';
+
+  @override
+  String get builtinToolSchemaOverrideHelper =>
+      'Vollständiges JSON-Schema für Eingabeparameter. Leer lassen für Standard.';
+
+  @override
+  String get builtinToolPriorityLabel => 'Priorität (0–9999)';
+
+  @override
+  String get builtinToolPriorityHelper => 'Kleiner = höhere Priorität';
+
+  @override
+  String get builtinToolLoadStrategyLabel => 'Ladestrategie';
+
+  @override
+  String get builtinToolForceLoadTitle => 'Laden erzwingen';
+
+  @override
+  String get builtinToolForceLoadBody =>
+      'Aktiviert wird dieses Schema direkt gesendet, auch wenn Lazy Loading Auto oder Ein ist.';
+
+  @override
+  String get builtinToolMaxOutputLabel => 'Max. Ausgabe (Zeichen)';
+
+  @override
+  String get builtinToolGlobalDefaultHint => 'Globaler Standard';
+
+  @override
+  String get builtinToolTagsLabel => 'Tags (kommagetrennt)';
+
+  @override
+  String get builtinToolTagsHelper => 'z. B. io, file, dangerous';
+
+  @override
+  String get builtinToolRequireConfirmationTitle => 'Bestätigung erforderlich';
+
+  @override
+  String get builtinToolRequireConfirmationBody =>
+      'Fragt vor der Ausführung nach Bestätigung. „Standard“ nutzt das Werkzeugverhalten.';
+
+  @override
+  String get builtinToolConfirmationDefault => 'Standard';
+
+  @override
+  String get builtinToolConfirmationYes => 'Ja';
+
+  @override
+  String get builtinToolConfirmationNo => 'Nein';
 }

@@ -1098,7 +1098,11 @@
   "inputRepairDoneDetail": "入力コンテキストをリセットし、{count} 個の子プロセスを回収しました",
   "@inputRepairDoneDetail": {
     "description": "Snackbar shown after input repair, including count of orphan child processes reclaimed.",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "proxySectionTitle": "システム",
   "proxySectionBody": "OpenHand のすべての内部 HTTP クライアント（WebSearch / WebFetch など）は、ここで選択したプロキシ設定に従ってルーティングされます。保存後すぐに反映され、再起動は不要です。",
@@ -1574,7 +1578,13 @@
   "sessMetaCacheHitFormulaClaude": "Claude 式",
   "sessMetaCacheHitFormulaOpenAi": "OpenAI 式",
   "sessMetaCacheHitPoint": "第 {index} ターン",
-  "@sessMetaCacheHitPoint": { "placeholders": { "index": { "type": "int" } } },
+  "@sessMetaCacheHitPoint": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
   "sessMetaMessages": "メッセージ",
   "sessMetaPromptBuilds": "プロンプト構築回数",
   "sessMetaCompressions": "圧縮回数",
@@ -6094,5 +6104,819 @@
         "type": "String"
       }
     }
+  },
+  "agentsTitle": "エージェント",
+  "@agentsTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsSubtitle": "Hermes Agent のデジタル従業員、権限、タスク、クラスタ、監査、KPI を管理します。",
+  "@agentsSubtitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsOpenFolder": "フォルダを開く",
+  "@agentsOpenFolder": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCreateAgent": "エージェントを作成",
+  "@agentsCreateAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEditAgent": "エージェントを編集",
+  "@agentsEditAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsWorkspaceTitle": "Hermes Agent ワークスペース",
+  "@agentsWorkspaceTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsWorkspaceBody": "有効なエージェントはタスクの発行、追跡、結果取得を提供します。ここで範囲、権限、クラスタ、ガバナンスを設定します。",
+  "@agentsWorkspaceBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsLoadFailed": "エージェントを読み込めませんでした",
+  "@agentsLoadFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsRetry": "再試行",
+  "@agentsRetry": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEmptyTitle": "エージェントはまだありません",
+  "@agentsEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEmptyBody": "作成から、範囲、権限、タスクデスク、ガバナンスを備えた最初のデジタル従業員を設定します。",
+  "@agentsEmptyBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMentorLabel": "メンター",
+  "@agentsMentorLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsStopAgent": "エージェントを停止",
+  "@agentsStopAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsStartAgent": "エージェントを開始",
+  "@agentsStartAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivities": "アクティビティ",
+  "@agentsActivities": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsLogs": "ログ",
+  "@agentsLogs": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCapabilityLogs": "機能ログ",
+  "@agentsCapabilityLogs": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsApprovals": "承認",
+  "@agentsApprovals": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCluster": "クラスタ",
+  "@agentsCluster": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMore": "その他",
+  "@agentsMore": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTaskDesk": "タスクデスク",
+  "@agentsTaskDesk": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsAuditReport": "監査レポート",
+  "@agentsAuditReport": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsKpi": "KPI",
+  "@agentsKpi": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsResources": "リソース",
+  "@agentsResources": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEditConfig": "編集",
+  "@agentsEditConfig": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDeleteAgent": "エージェントを削除",
+  "@agentsDeleteAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTasksCount": "タスク {running}/{total}",
+  "@agentsTasksCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "running": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsApprovalsCount": "承認 {count}",
+  "@agentsApprovalsCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsWorkersCount": "Worker {count}/{max}",
+  "@agentsWorkersCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilitySkillsCount": "スキル {count}",
+  "@agentsCapabilitySkillsCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityKnowledgeCount": "ナレッジ {count}",
+  "@agentsCapabilityKnowledgeCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityMemoryCount": "メモリ {count}",
+  "@agentsCapabilityMemoryCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityToolsCount": "ツール {count}",
+  "@agentsCapabilityToolsCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityCronsCount": "Crons {count}",
+  "@agentsCapabilityCronsCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityHooksCount": "Hooks {count}",
+  "@agentsCapabilityHooksCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsSelfLearningOn": "自己学習オン",
+  "@agentsSelfLearningOn": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoCapabilityResources": "機能リソース未接続",
+  "@agentsNoCapabilityResources": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDialogTitleWithName": "{title} · {name}",
+  "@agentsDialogTitleWithName": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentsActivitiesEmptyTitle": "アクティビティはまだありません。",
+  "@agentsActivitiesEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsLogsEmptyTitle": "Skill、メモリ、MCP、ツールのログはまだありません。",
+  "@agentsLogsEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsApprovalsEmptyTitle": "承認リクエストはありません。",
+  "@agentsApprovalsEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsListEmptyBody": "エージェントが稼働するとここに記録されます。",
+  "@agentsListEmptyBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMinWorkersCount": "最小 {count}",
+  "@agentsMinWorkersCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsMaxWorkersCount": "最大 {count}",
+  "@agentsMaxWorkersCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsNoWorkersTitle": "Worker はありません",
+  "@agentsNoWorkersTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoWorkersBody": "設定した最小数に基づいて Worker が準備されます。",
+  "@agentsNoWorkersBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsWorkerSubtitle": "{status} · 完了 {done} · 優先度 {priority}",
+  "@agentsWorkerSubtitle": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "done": {
+        "type": "int"
+      },
+      "priority": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsPublishTask": "タスクを発行",
+  "@agentsPublishTask": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoTasksTitle": "タスクはありません",
+  "@agentsNoTasksTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoTasksBody": "ここでタスクを発行すると、Worker が実行して結果を返します。",
+  "@agentsNoTasksBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsAuditRequests": "リクエスト",
+  "@agentsAuditRequests": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsAuditCompleted": "完了",
+  "@agentsAuditCompleted": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsAuditUtilization": "利用率",
+  "@agentsAuditUtilization": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsRecentAuditEvents": "最近の監査イベント",
+  "@agentsRecentAuditEvents": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoAuditData": "監査データはまだありません。",
+  "@agentsNoAuditData": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoKpiTitle": "KPI はありません",
+  "@agentsNoKpiTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoKpiBody": "エディタで KPI を追加すると、エージェントがそれに沿って計画します。",
+  "@agentsNoKpiBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetricMemory": "メモリ",
+  "@agentsMetricMemory": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetricDisk": "ディスク",
+  "@agentsMetricDisk": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetricPersisted": "永続化",
+  "@agentsMetricPersisted": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetricHandles": "ハンドル",
+  "@agentsMetricHandles": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsPublish": "発行",
+  "@agentsPublish": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTaskTitleLabel": "タイトル",
+  "@agentsTaskTitleLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDescriptionLabel": "説明",
+  "@agentsDescriptionLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsContentLabel": "内容",
+  "@agentsContentLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoteLabel": "メモ",
+  "@agentsNoteLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDeleteConfirmTitle": "エージェントを削除",
+  "@agentsDeleteConfirmTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDeleteConfirmMessage": "{name} を削除しますか？関連付けたスキル、ナレッジ、MCP サーバーは保持されます。",
+  "@agentsDeleteConfirmMessage": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentsTabProfile": "プロフィール",
+  "@agentsTabProfile": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTabCapabilities": "機能",
+  "@agentsTabCapabilities": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTabRuntime": "ランタイム",
+  "@agentsTabRuntime": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTabGovernance": "ガバナンス",
+  "@agentsTabGovernance": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTabMetadata": "メタデータ",
+  "@agentsTabMetadata": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldAvatar": "アバター",
+  "@agentsFieldAvatar": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldAvatarHint": "テキスト、絵文字、画像マーカー",
+  "@agentsFieldAvatarHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldNameRequired": "名前 *",
+  "@agentsFieldNameRequired": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldPosition": "役割",
+  "@agentsFieldPosition": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldDepartment": "部門",
+  "@agentsFieldDepartment": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldLevel": "レベル",
+  "@agentsFieldLevel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldIntroduction": "紹介",
+  "@agentsFieldIntroduction": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldArchive": "アーカイブ",
+  "@agentsFieldArchive": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldRouteFrontMatter": "ルート情報",
+  "@agentsFieldRouteFrontMatter": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldWelcomeMessage": "ウェルカムメッセージ",
+  "@agentsFieldWelcomeMessage": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldPersona": "ペルソナ",
+  "@agentsFieldPersona": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldResponsibilityBoundary": "責任範囲",
+  "@agentsFieldResponsibilityBoundary": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsKnowledgeBase": "ナレッジベース",
+  "@agentsKnowledgeBase": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsBuiltInTools": "組み込みツール",
+  "@agentsBuiltInTools": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsModelLabel": "モデル",
+  "@agentsModelLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEnableAgentTitle": "エージェントを有効化",
+  "@agentsEnableAgentTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEnableAgentBody": "エージェントループと組み込みツールを有効にします。",
+  "@agentsEnableAgentBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsSelfLearningTitle": "自己学習",
+  "@agentsSelfLearningTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsSelfLearningBody": "Hermes Agent でスキル、メモリ、経験を蓄積します。",
+  "@agentsSelfLearningBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldWorkspacePath": "ワークスペースパス",
+  "@agentsFieldWorkspacePath": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldWorkspaceScope": "ワークスペース範囲",
+  "@agentsFieldWorkspaceScope": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCrons": "Crons",
+  "@agentsCrons": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsClusterScaling": "クラスタスケーリング",
+  "@agentsClusterScaling": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMinWorkersLabel": "最小 Worker",
+  "@agentsMinWorkersLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMaxWorkersLabel": "最大 Worker",
+  "@agentsMaxWorkersLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMaxRetriesLabel": "最大リトライ",
+  "@agentsMaxRetriesLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsSchedulerPolicyLabel": "スケジューラーポリシー",
+  "@agentsSchedulerPolicyLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTaskLabelsLabel": "タスクラベル",
+  "@agentsTaskLabelsLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCommaSeparatedHint": "カンマ区切り",
+  "@agentsCommaSeparatedHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldName": "名前",
+  "@agentsFieldName": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldTarget": "目標",
+  "@agentsFieldTarget": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetadataJsonLabel": "メタデータ JSON",
+  "@agentsMetadataJsonLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetadataInfoTitle": "権限とプロフィールメタデータ",
+  "@agentsMetadataInfoTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetadataInfoBody": "拡張フィールドを保存します。JSON が不正な場合は安全に空オブジェクトへフォールバックします。",
+  "@agentsMetadataInfoBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoOptionsAvailable": "利用可能な項目はありません。",
+  "@agentsNoOptionsAvailable": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentExecutionModeNormal": "デフォルト",
+  "@agentExecutionModeNormal": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentExecutionModeFullAccess": "フルアクセス",
+  "@agentExecutionModeFullAccess": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentLifecycleStopped": "停止中",
+  "@agentLifecycleStopped": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentLifecycleRunning": "実行中",
+  "@agentLifecycleRunning": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentLifecyclePaused": "一時停止",
+  "@agentLifecyclePaused": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentLifecycleDegraded": "低下中",
+  "@agentLifecycleDegraded": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusBacklog": "バックログ",
+  "@agentTaskStatusBacklog": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusReady": "準備完了",
+  "@agentTaskStatusReady": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusRunning": "実行中",
+  "@agentTaskStatusRunning": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusWaitingApproval": "承認待ち",
+  "@agentTaskStatusWaitingApproval": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusPaused": "一時停止",
+  "@agentTaskStatusPaused": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusCompleted": "完了",
+  "@agentTaskStatusCompleted": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusFailed": "失敗",
+  "@agentTaskStatusFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusCanceled": "キャンセル済み",
+  "@agentTaskStatusCanceled": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentApprovalStatusPending": "保留中",
+  "@agentApprovalStatusPending": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentApprovalStatusApproved": "承認済み",
+  "@agentApprovalStatusApproved": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentApprovalStatusRejected": "却下",
+  "@agentApprovalStatusRejected": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentApprovalStatusExpired": "期限切れ",
+  "@agentApprovalStatusExpired": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentWorkerStatusIdle": "アイドル",
+  "@agentWorkerStatusIdle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentWorkerStatusBusy": "ビジー",
+  "@agentWorkerStatusBusy": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentWorkerStatusDraining": "ドレイン中",
+  "@agentWorkerStatusDraining": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentWorkerStatusOffline": "オフライン",
+  "@agentWorkerStatusOffline": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityAgentStarted": "エージェント開始",
+  "@agentsActivityAgentStarted": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityAgentStopped": "エージェント停止",
+  "@agentsActivityAgentStopped": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskPublished": "タスク発行済み",
+  "@agentsActivityTaskPublished": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskUpdated": "タスク更新済み",
+  "@agentsActivityTaskUpdated": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskCanceled": "タスクキャンセル済み",
+  "@agentsActivityTaskCanceled": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskPaused": "タスク一時停止",
+  "@agentsActivityTaskPaused": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskTerminated": "タスク終了",
+  "@agentsActivityTaskTerminated": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskResumed": "タスク再開",
+  "@agentsActivityTaskResumed": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventSessionStart": "セッション開始",
+  "@hookEventSessionStart": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventUserPromptSubmit": "ユーザープロンプト送信",
+  "@hookEventUserPromptSubmit": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventPreToolUse": "ツール使用前",
+  "@hookEventPreToolUse": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventPostToolUse": "ツール使用後",
+  "@hookEventPostToolUse": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventSubagentStart": "サブエージェント開始",
+  "@hookEventSubagentStart": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventSubagentStop": "サブエージェント停止",
+  "@hookEventSubagentStop": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventStop": "停止",
+  "@hookEventStop": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventPreCompact": "圧縮前",
+  "@hookEventPreCompact": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventSessionEnd": "セッション終了",
+  "@hookEventSessionEnd": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventErrorOccurred": "エラー発生",
+  "@hookEventErrorOccurred": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyEagerShort": "即時",
+  "@builtinToolLoadStrategyEagerShort": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyLazy": "遅延",
+  "@builtinToolLoadStrategyLazy": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyDeferred": "後回し",
+  "@builtinToolLoadStrategyDeferred": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyEagerFull": "即時読み込み",
+  "@builtinToolLoadStrategyEagerFull": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolCustomBadge": "カスタム",
+  "@builtinToolCustomBadge": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolForceBadge": "強制",
+  "@builtinToolForceBadge": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolMoveUp": "上へ移動",
+  "@builtinToolMoveUp": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolMoveDown": "下へ移動",
+  "@builtinToolMoveDown": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolEditorTitle": "ツールを編集 — {kind}",
+  "@builtinToolEditorTitle": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
+  "builtinToolEnableTitle": "ツールを有効化",
+  "@builtinToolEnableTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolEnableBody": "無効にすると、このツールはモデルのツールカタログに表示されません。",
+  "@builtinToolEnableBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolDisplayNameLabel": "表示名（任意）",
+  "@builtinToolDisplayNameLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolDisplayNameHelper": "既定のツール名を上書きします。空欄なら組み込み既定値を使います。",
+  "@builtinToolDisplayNameHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolSummaryLabel": "概要（任意）",
+  "@builtinToolSummaryLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolSummaryHelper": "ツール一覧で用途を素早く確認するために表示されます。",
+  "@builtinToolSummaryHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolPromptOverrideLabel": "プロンプト追記（任意）",
+  "@builtinToolPromptOverrideLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolPromptOverrideHelper": "ツール説明の末尾に追加され、モデルの使い方を微調整します。",
+  "@builtinToolPromptOverrideHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolSchemaOverrideLabel": "スキーマ上書き（JSON、任意）",
+  "@builtinToolSchemaOverrideLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolSchemaOverrideHelper": "入力パラメータ定義を上書きする完全な JSON Schema。空欄なら既定値です。",
+  "@builtinToolSchemaOverrideHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolPriorityLabel": "優先度 (0–9999)",
+  "@builtinToolPriorityLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolPriorityHelper": "小さいほど優先",
+  "@builtinToolPriorityHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyLabel": "読み込み戦略",
+  "@builtinToolLoadStrategyLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolForceLoadTitle": "強制読み込み",
+  "@builtinToolForceLoadTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolForceLoadBody": "有効にすると、組み込み遅延読み込みが Auto/On でもこのスキーマを直接送ります。",
+  "@builtinToolForceLoadBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolMaxOutputLabel": "最大出力（文字）",
+  "@builtinToolMaxOutputLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolGlobalDefaultHint": "グローバル既定値",
+  "@builtinToolGlobalDefaultHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolTagsLabel": "タグ（カンマ区切り）",
+  "@builtinToolTagsLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolTagsHelper": "例: io, file, dangerous",
+  "@builtinToolTagsHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolRequireConfirmationTitle": "実行確認",
+  "@builtinToolRequireConfirmationTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolRequireConfirmationBody": "実行前にユーザー確認を求めるかどうか。「既定」はツール本来の動作を使います。",
+  "@builtinToolRequireConfirmationBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolConfirmationDefault": "既定",
+  "@builtinToolConfirmationDefault": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolConfirmationYes": "はい",
+  "@builtinToolConfirmationYes": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolConfirmationNo": "いいえ",
+  "@builtinToolConfirmationNo": {
+    "description": "OpenHand localized UI text."
   }
 }

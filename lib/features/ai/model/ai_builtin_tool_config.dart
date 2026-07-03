@@ -479,6 +479,16 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.askUserChoice:
       case AiBuiltinToolKind.skillManager:
       case AiBuiltinToolKind.memory:
+      case AiBuiltinToolKind.agentList:
+      case AiBuiltinToolKind.agentDetail:
+      case AiBuiltinToolKind.agentTaskPublish:
+      case AiBuiltinToolKind.agentTaskTrack:
+      case AiBuiltinToolKind.agentTaskProgress:
+      case AiBuiltinToolKind.agentTaskCancel:
+      case AiBuiltinToolKind.agentTaskPause:
+      case AiBuiltinToolKind.agentTaskTerminate:
+      case AiBuiltinToolKind.agentTaskResume:
+      case AiBuiltinToolKind.agentTaskResult:
         return AiBuiltinToolLoadStrategy.lazy;
     }
   }

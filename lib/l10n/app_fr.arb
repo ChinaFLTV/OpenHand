@@ -1098,7 +1098,11 @@
   "inputRepairDoneDetail": "Contexte de saisie réinitialisé ; {count} processus enfants récupérés.",
   "@inputRepairDoneDetail": {
     "description": "Snackbar shown after input repair, including count of orphan child processes reclaimed.",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "proxySectionTitle": "Système",
   "proxySectionBody": "Tous les clients HTTP internes (WebSearch / WebFetch, etc.) utilisent le proxy défini ici. Les modifications sont appliquées immédiatement, sans redémarrage.",
@@ -1574,7 +1578,13 @@
   "sessMetaCacheHitFormulaClaude": "Formule Claude",
   "sessMetaCacheHitFormulaOpenAi": "Formule OpenAI",
   "sessMetaCacheHitPoint": "Tour {index}",
-  "@sessMetaCacheHitPoint": { "placeholders": { "index": { "type": "int" } } },
+  "@sessMetaCacheHitPoint": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
   "sessMetaMessages": "Messages",
   "sessMetaPromptBuilds": "Constructions de prompt",
   "sessMetaCompressions": "Compressions",
@@ -6094,5 +6104,819 @@
         "type": "String"
       }
     }
+  },
+  "agentsTitle": "Agents",
+  "@agentsTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsSubtitle": "Gérez les employés numériques Hermes Agent, leurs droits, tâches, clusters, audits et KPI.",
+  "@agentsSubtitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsOpenFolder": "Ouvrir le dossier",
+  "@agentsOpenFolder": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCreateAgent": "Créer un agent",
+  "@agentsCreateAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEditAgent": "Modifier l’agent",
+  "@agentsEditAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsWorkspaceTitle": "Espace Hermes Agent",
+  "@agentsWorkspaceTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsWorkspaceBody": "Les agents activés exposent la publication, le suivi et les résultats des tâches ; configurez ici le périmètre, les droits, le cluster et la gouvernance.",
+  "@agentsWorkspaceBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsLoadFailed": "Échec du chargement des agents",
+  "@agentsLoadFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsRetry": "Réessayer",
+  "@agentsRetry": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEmptyTitle": "Aucun agent",
+  "@agentsEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEmptyBody": "Utilisez Créer pour configurer le premier employé numérique avec périmètre, droits, tâches et gouvernance.",
+  "@agentsEmptyBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMentorLabel": "Mentor",
+  "@agentsMentorLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsStopAgent": "Arrêter l’agent",
+  "@agentsStopAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsStartAgent": "Démarrer l’agent",
+  "@agentsStartAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivities": "Activités",
+  "@agentsActivities": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsLogs": "Journaux",
+  "@agentsLogs": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCapabilityLogs": "Journaux des capacités",
+  "@agentsCapabilityLogs": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsApprovals": "Approbations",
+  "@agentsApprovals": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCluster": "Cluster",
+  "@agentsCluster": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMore": "Plus",
+  "@agentsMore": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTaskDesk": "Table des tâches",
+  "@agentsTaskDesk": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsAuditReport": "Rapport d’audit",
+  "@agentsAuditReport": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsKpi": "KPI",
+  "@agentsKpi": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsResources": "Ressources",
+  "@agentsResources": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEditConfig": "Modifier",
+  "@agentsEditConfig": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDeleteAgent": "Supprimer l’agent",
+  "@agentsDeleteAgent": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTasksCount": "Tâches {running}/{total}",
+  "@agentsTasksCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "running": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsApprovalsCount": "Approbations {count}",
+  "@agentsApprovalsCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsWorkersCount": "Workers {count}/{max}",
+  "@agentsWorkersCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilitySkillsCount": "Compétences {count}",
+  "@agentsCapabilitySkillsCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityKnowledgeCount": "Connaissances {count}",
+  "@agentsCapabilityKnowledgeCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityMemoryCount": "Mémoire {count}",
+  "@agentsCapabilityMemoryCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityToolsCount": "Outils {count}",
+  "@agentsCapabilityToolsCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityCronsCount": "Crons {count}",
+  "@agentsCapabilityCronsCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsCapabilityHooksCount": "Hooks {count}",
+  "@agentsCapabilityHooksCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsSelfLearningOn": "Auto-apprentissage activé",
+  "@agentsSelfLearningOn": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoCapabilityResources": "Aucune ressource liée",
+  "@agentsNoCapabilityResources": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDialogTitleWithName": "{title} · {name}",
+  "@agentsDialogTitleWithName": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentsActivitiesEmptyTitle": "Aucune activité.",
+  "@agentsActivitiesEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsLogsEmptyTitle": "Aucun journal Skill, Mémoire, MCP ou outil.",
+  "@agentsLogsEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsApprovalsEmptyTitle": "Aucune demande d’approbation.",
+  "@agentsApprovalsEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsListEmptyBody": "Les entrées apparaissent ici lorsque l’agent travaille.",
+  "@agentsListEmptyBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMinWorkersCount": "Min {count}",
+  "@agentsMinWorkersCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsMaxWorkersCount": "Max {count}",
+  "@agentsMaxWorkersCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsNoWorkersTitle": "Aucun worker",
+  "@agentsNoWorkersTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoWorkersBody": "Les workers sont préparés selon la taille minimale configurée.",
+  "@agentsNoWorkersBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsWorkerSubtitle": "{status} · Terminé {done} · Priorité {priority}",
+  "@agentsWorkerSubtitle": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "done": {
+        "type": "int"
+      },
+      "priority": {
+        "type": "int"
+      }
+    }
+  },
+  "agentsPublishTask": "Publier une tâche",
+  "@agentsPublishTask": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoTasksTitle": "Aucune tâche",
+  "@agentsNoTasksTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoTasksBody": "Publiez les tâches ici ; les workers les exécutent et renvoient les résultats.",
+  "@agentsNoTasksBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsAuditRequests": "Requêtes",
+  "@agentsAuditRequests": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsAuditCompleted": "Terminées",
+  "@agentsAuditCompleted": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsAuditUtilization": "Utilisation",
+  "@agentsAuditUtilization": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsRecentAuditEvents": "Événements d’audit récents",
+  "@agentsRecentAuditEvents": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoAuditData": "Aucune donnée d’audit.",
+  "@agentsNoAuditData": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoKpiTitle": "Aucun KPI",
+  "@agentsNoKpiTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoKpiBody": "Ajoutez des KPI dans l’éditeur pour guider la planification de l’agent.",
+  "@agentsNoKpiBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetricMemory": "Mémoire",
+  "@agentsMetricMemory": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetricDisk": "Disque",
+  "@agentsMetricDisk": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetricPersisted": "Persisté",
+  "@agentsMetricPersisted": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetricHandles": "Handles",
+  "@agentsMetricHandles": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsPublish": "Publier",
+  "@agentsPublish": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTaskTitleLabel": "Titre",
+  "@agentsTaskTitleLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDescriptionLabel": "Description",
+  "@agentsDescriptionLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsContentLabel": "Contenu",
+  "@agentsContentLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoteLabel": "Note",
+  "@agentsNoteLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDeleteConfirmTitle": "Supprimer l’agent",
+  "@agentsDeleteConfirmTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsDeleteConfirmMessage": "Supprimer {name} ? Les skills, connaissances et serveurs MCP liés sont conservés.",
+  "@agentsDeleteConfirmMessage": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentsTabProfile": "Profil",
+  "@agentsTabProfile": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTabCapabilities": "Capacités",
+  "@agentsTabCapabilities": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTabRuntime": "Exécution",
+  "@agentsTabRuntime": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTabGovernance": "Gouvernance",
+  "@agentsTabGovernance": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTabMetadata": "Métadonnées",
+  "@agentsTabMetadata": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldAvatar": "Avatar",
+  "@agentsFieldAvatar": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldAvatarHint": "Texte, emoji ou image",
+  "@agentsFieldAvatarHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldNameRequired": "Nom *",
+  "@agentsFieldNameRequired": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldPosition": "Poste",
+  "@agentsFieldPosition": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldDepartment": "Département",
+  "@agentsFieldDepartment": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldLevel": "Niveau",
+  "@agentsFieldLevel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldIntroduction": "Introduction",
+  "@agentsFieldIntroduction": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldArchive": "Archive",
+  "@agentsFieldArchive": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldRouteFrontMatter": "En-tête de routage",
+  "@agentsFieldRouteFrontMatter": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldWelcomeMessage": "Message d’accueil",
+  "@agentsFieldWelcomeMessage": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldPersona": "Persona",
+  "@agentsFieldPersona": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldResponsibilityBoundary": "Périmètre de responsabilité",
+  "@agentsFieldResponsibilityBoundary": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsKnowledgeBase": "Base de connaissances",
+  "@agentsKnowledgeBase": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsBuiltInTools": "Outils intégrés",
+  "@agentsBuiltInTools": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsModelLabel": "Modèle",
+  "@agentsModelLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEnableAgentTitle": "Activer l’agent",
+  "@agentsEnableAgentTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsEnableAgentBody": "Active la boucle de l’agent et ses outils intégrés.",
+  "@agentsEnableAgentBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsSelfLearningTitle": "Auto-apprentissage",
+  "@agentsSelfLearningTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsSelfLearningBody": "Utilise Hermes Agent pour capitaliser skills, mémoire et expérience.",
+  "@agentsSelfLearningBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldWorkspacePath": "Chemin de travail",
+  "@agentsFieldWorkspacePath": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldWorkspaceScope": "Périmètre de travail",
+  "@agentsFieldWorkspaceScope": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCrons": "Crons",
+  "@agentsCrons": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsClusterScaling": "Mise à l’échelle du cluster",
+  "@agentsClusterScaling": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMinWorkersLabel": "Workers min.",
+  "@agentsMinWorkersLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMaxWorkersLabel": "Workers max.",
+  "@agentsMaxWorkersLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMaxRetriesLabel": "Réessais max.",
+  "@agentsMaxRetriesLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsSchedulerPolicyLabel": "Politique de planification",
+  "@agentsSchedulerPolicyLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsTaskLabelsLabel": "Étiquettes de tâche",
+  "@agentsTaskLabelsLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsCommaSeparatedHint": "Séparé par des virgules",
+  "@agentsCommaSeparatedHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldName": "Nom",
+  "@agentsFieldName": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsFieldTarget": "Objectif",
+  "@agentsFieldTarget": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetadataJsonLabel": "JSON des métadonnées",
+  "@agentsMetadataJsonLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetadataInfoTitle": "Métadonnées de droits et profil",
+  "@agentsMetadataInfoTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsMetadataInfoBody": "Les champs d’extension sont ici. Un JSON invalide revient à un objet vide sans casser la configuration.",
+  "@agentsMetadataInfoBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsNoOptionsAvailable": "Aucune option disponible.",
+  "@agentsNoOptionsAvailable": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentExecutionModeNormal": "Par défaut",
+  "@agentExecutionModeNormal": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentExecutionModeFullAccess": "Accès complet",
+  "@agentExecutionModeFullAccess": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentLifecycleStopped": "Arrêté",
+  "@agentLifecycleStopped": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentLifecycleRunning": "En cours",
+  "@agentLifecycleRunning": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentLifecyclePaused": "En pause",
+  "@agentLifecyclePaused": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentLifecycleDegraded": "Dégradé",
+  "@agentLifecycleDegraded": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusBacklog": "Backlog",
+  "@agentTaskStatusBacklog": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusReady": "Prêt",
+  "@agentTaskStatusReady": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusRunning": "En cours",
+  "@agentTaskStatusRunning": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusWaitingApproval": "Approbation",
+  "@agentTaskStatusWaitingApproval": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusPaused": "En pause",
+  "@agentTaskStatusPaused": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusCompleted": "Terminée",
+  "@agentTaskStatusCompleted": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusFailed": "Échec",
+  "@agentTaskStatusFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentTaskStatusCanceled": "Annulée",
+  "@agentTaskStatusCanceled": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentApprovalStatusPending": "En attente",
+  "@agentApprovalStatusPending": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentApprovalStatusApproved": "Approuvée",
+  "@agentApprovalStatusApproved": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentApprovalStatusRejected": "Rejetée",
+  "@agentApprovalStatusRejected": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentApprovalStatusExpired": "Expirée",
+  "@agentApprovalStatusExpired": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentWorkerStatusIdle": "Inactif",
+  "@agentWorkerStatusIdle": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentWorkerStatusBusy": "Occupé",
+  "@agentWorkerStatusBusy": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentWorkerStatusDraining": "Drainage",
+  "@agentWorkerStatusDraining": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentWorkerStatusOffline": "Hors ligne",
+  "@agentWorkerStatusOffline": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityAgentStarted": "Agent démarré",
+  "@agentsActivityAgentStarted": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityAgentStopped": "Agent arrêté",
+  "@agentsActivityAgentStopped": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskPublished": "Tâche publiée",
+  "@agentsActivityTaskPublished": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskUpdated": "Tâche mise à jour",
+  "@agentsActivityTaskUpdated": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskCanceled": "Tâche annulée",
+  "@agentsActivityTaskCanceled": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskPaused": "Tâche en pause",
+  "@agentsActivityTaskPaused": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskTerminated": "Tâche terminée",
+  "@agentsActivityTaskTerminated": {
+    "description": "OpenHand localized UI text."
+  },
+  "agentsActivityTaskResumed": "Tâche reprise",
+  "@agentsActivityTaskResumed": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventSessionStart": "Début de session",
+  "@hookEventSessionStart": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventUserPromptSubmit": "Soumission du prompt",
+  "@hookEventUserPromptSubmit": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventPreToolUse": "Avant outil",
+  "@hookEventPreToolUse": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventPostToolUse": "Après outil",
+  "@hookEventPostToolUse": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventSubagentStart": "Démarrage du sous-agent",
+  "@hookEventSubagentStart": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventSubagentStop": "Arrêt du sous-agent",
+  "@hookEventSubagentStop": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventStop": "Arrêt",
+  "@hookEventStop": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventPreCompact": "Avant compactage",
+  "@hookEventPreCompact": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventSessionEnd": "Fin de session",
+  "@hookEventSessionEnd": {
+    "description": "OpenHand localized UI text."
+  },
+  "hookEventErrorOccurred": "Erreur survenue",
+  "@hookEventErrorOccurred": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyEagerShort": "Immédiat",
+  "@builtinToolLoadStrategyEagerShort": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyLazy": "Différé",
+  "@builtinToolLoadStrategyLazy": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyDeferred": "Reporté",
+  "@builtinToolLoadStrategyDeferred": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyEagerFull": "Chargement immédiat",
+  "@builtinToolLoadStrategyEagerFull": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolCustomBadge": "Personnalisé",
+  "@builtinToolCustomBadge": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolForceBadge": "Forcer",
+  "@builtinToolForceBadge": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolMoveUp": "Monter",
+  "@builtinToolMoveUp": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolMoveDown": "Descendre",
+  "@builtinToolMoveDown": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolEditorTitle": "Modifier l’outil — {kind}",
+  "@builtinToolEditorTitle": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
+  "builtinToolEnableTitle": "Activer l’outil",
+  "@builtinToolEnableTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolEnableBody": "Désactivé, cet outil n’apparaît pas dans le catalogue du modèle.",
+  "@builtinToolEnableBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolDisplayNameLabel": "Nom affiché (facultatif)",
+  "@builtinToolDisplayNameLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolDisplayNameHelper": "Remplace le nom par défaut. Laissez vide pour conserver la valeur intégrée.",
+  "@builtinToolDisplayNameHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolSummaryLabel": "Résumé (facultatif)",
+  "@builtinToolSummaryLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolSummaryHelper": "Affiché dans la liste des outils pour référence rapide.",
+  "@builtinToolSummaryHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolPromptOverrideLabel": "Remplacement de prompt (facultatif)",
+  "@builtinToolPromptOverrideLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolPromptOverrideHelper": "Ajouté à la description de l’outil pour ajuster son usage par le modèle.",
+  "@builtinToolPromptOverrideHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolSchemaOverrideLabel": "Remplacement du schéma (JSON, facultatif)",
+  "@builtinToolSchemaOverrideLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolSchemaOverrideHelper": "Objet JSON Schema complet remplaçant les paramètres d’entrée. Laissez vide par défaut.",
+  "@builtinToolSchemaOverrideHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolPriorityLabel": "Priorité (0–9999)",
+  "@builtinToolPriorityLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolPriorityHelper": "Plus petit = plus prioritaire",
+  "@builtinToolPriorityHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolLoadStrategyLabel": "Stratégie de chargement",
+  "@builtinToolLoadStrategyLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolForceLoadTitle": "Forcer le chargement",
+  "@builtinToolForceLoadTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolForceLoadBody": "Activé, ce schéma est envoyé directement même si le lazy loading intégré est Auto ou activé.",
+  "@builtinToolForceLoadBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolMaxOutputLabel": "Sortie max. (caractères)",
+  "@builtinToolMaxOutputLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolGlobalDefaultHint": "Défaut global",
+  "@builtinToolGlobalDefaultHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolTagsLabel": "Tags (séparés par des virgules)",
+  "@builtinToolTagsLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolTagsHelper": "ex. io, file, dangerous",
+  "@builtinToolTagsHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolRequireConfirmationTitle": "Confirmation requise",
+  "@builtinToolRequireConfirmationTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolRequireConfirmationBody": "Demande une confirmation avant exécution. « Par défaut » utilise le comportement intégré.",
+  "@builtinToolRequireConfirmationBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolConfirmationDefault": "Par défaut",
+  "@builtinToolConfirmationDefault": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolConfirmationYes": "Oui",
+  "@builtinToolConfirmationYes": {
+    "description": "OpenHand localized UI text."
+  },
+  "builtinToolConfirmationNo": "Non",
+  "@builtinToolConfirmationNo": {
+    "description": "OpenHand localized UI text."
   }
 }
