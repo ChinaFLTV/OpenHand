@@ -9,6 +9,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/localized_text.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_headless_batch.dart';
 import 'web_reverse_session_controller.dart';
@@ -20,18 +21,16 @@ const double _kHeadlessBatchDialogMaxWidth = 760;
 Future<void> showWebReverseHeadlessBatchDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) async {
   await showWebReverseToolDialog<void>(
     context: context,
-    builder: (ctx) => _HeadlessBatchDialog(controller: controller, isZh: isZh),
+    builder: (ctx) => _HeadlessBatchDialog(controller: controller),
   );
 }
 
 class _HeadlessBatchDialog extends StatefulWidget {
-  const _HeadlessBatchDialog({required this.controller, required this.isZh});
+  const _HeadlessBatchDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
 
   @override
   State<_HeadlessBatchDialog> createState() => _HeadlessBatchDialogState();
@@ -94,9 +93,15 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
       OpenHandSnackBar.showInfoOn(
         context,
         messenger,
-        widget.isZh
-            ? 'Headless 批量采集已按上限取前 $kWebReverseHeadlessBatchMaxUrls 个 URL'
-            : 'Headless batch is capped to the first $kWebReverseHeadlessBatchMaxUrls URLs',
+        openHandLocalizedText(
+          context,
+          zh: 'Headless 批量采集已按上限取前 $kWebReverseHeadlessBatchMaxUrls 个 URL',
+          zhHant: 'Headless 批量採集已依上限取前 $kWebReverseHeadlessBatchMaxUrls 個 URL',
+          en: 'Headless batch is capped to the first $kWebReverseHeadlessBatchMaxUrls URLs',
+          fr: 'Le lot headless est limité aux $kWebReverseHeadlessBatchMaxUrls premières URL',
+          de: 'Headless-Batch ist auf die ersten $kWebReverseHeadlessBatchMaxUrls URLs begrenzt',
+          ja: 'Headless バッチは先頭 $kWebReverseHeadlessBatchMaxUrls 件の URL に制限されます',
+        ),
       );
     }
     final cdp = widget.controller.browserCdpForBatch;
@@ -237,9 +242,15 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                     'URL list (one per line)',
                 hintText:
                     'https://example.com/page1\nhttps://example.com/page2',
-                helperText: widget.isZh
-                    ? '最多采集 $kWebReverseHeadlessBatchMaxUrls 个 URL'
-                    : 'Captures up to $kWebReverseHeadlessBatchMaxUrls URLs',
+                helperText: openHandLocalizedText(
+                  context,
+                  zh: '最多采集 $kWebReverseHeadlessBatchMaxUrls 个 URL',
+                  zhHant: '最多採集 $kWebReverseHeadlessBatchMaxUrls 個 URL',
+                  en: 'Captures up to $kWebReverseHeadlessBatchMaxUrls URLs',
+                  fr: 'Capture jusqu’à $kWebReverseHeadlessBatchMaxUrls URL',
+                  de: 'Erfasst bis zu $kWebReverseHeadlessBatchMaxUrls URLs',
+                  ja: '最大 $kWebReverseHeadlessBatchMaxUrls 件の URL を収集',
+                ),
                 border: const OutlineInputBorder(),
               ),
               style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
@@ -434,9 +445,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
         '${r.networkCount} net · ${r.consoleCount} log · ${r.outDir}';
     final dropped = r.networkDropped + r.consoleDropped;
     if (dropped <= 0) return base;
-    return widget.isZh
-        ? '$base · 已截断 $dropped 条'
-        : '$base · truncated $dropped';
+    return '$base · ${openHandLocalizedText(context, zh: '已截断 $dropped 条', zhHant: '已截斷 $dropped 條', en: 'truncated $dropped', fr: '$dropped tronquées', de: '$dropped gekürzt', ja: '$dropped 件を切り詰め')}';
   }
 
   Widget _phaseIcon(HeadlessBatchPhase phase, ColorScheme cs) {

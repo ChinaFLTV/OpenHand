@@ -13,24 +13,23 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/localized_text.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
 Future<void> showWebReverseThrottleDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showWebReverseToolDialog<void>(
     context: context,
-    builder: (_) => _ThrottleDialog(controller: controller, isZh: isZh),
+    builder: (_) => _ThrottleDialog(controller: controller),
   );
 }
 
 class _ThrottleDialog extends StatefulWidget {
-  const _ThrottleDialog({required this.controller, required this.isZh});
+  const _ThrottleDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
   @override
   State<_ThrottleDialog> createState() => _ThrottleDialogState();
 }
@@ -128,7 +127,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
       _selectedId = current.preset.id;
       _loadConditionsToCustom(current);
       final summary = current.isNoThrottle
-          ? current.preset.displayLabel(widget.isZh)
+          ? _presetLabel(current.preset)
           : current.offline
           ? (loc?.webReverseThrottleOffline ?? 'Offline')
           : 'down=${current.downloadKbps}kbps · up=${current.uploadKbps}kbps · ${current.latencyMs}ms';
@@ -149,6 +148,83 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
     } finally {
       if (mounted) setState(() => _applying = false);
     }
+  }
+
+  String _presetLabel(WebReverseThrottlePreset preset) {
+    return switch (preset) {
+      WebReverseThrottlePreset.none => openHandLocalizedText(
+        context,
+        zh: '不限速',
+        zhHant: '不限速',
+        en: 'No throttling',
+        fr: 'Sans limitation',
+        de: 'Keine Drosselung',
+        ja: '制限なし',
+      ),
+      WebReverseThrottlePreset.offline => openHandLocalizedText(
+        context,
+        zh: '离线',
+        zhHant: '離線',
+        en: 'Offline',
+        fr: 'Hors ligne',
+        de: 'Offline',
+        ja: 'オフライン',
+      ),
+      WebReverseThrottlePreset.gprs => openHandLocalizedText(
+        context,
+        zh: 'GPRS (50/20kbps, 500ms)',
+        zhHant: 'GPRS (50/20kbps, 500ms)',
+        en: 'GPRS (50/20kbps, 500ms)',
+        fr: 'GPRS (50/20kbps, 500ms)',
+        de: 'GPRS (50/20kbps, 500ms)',
+        ja: 'GPRS (50/20kbps, 500ms)',
+      ),
+      WebReverseThrottlePreset.slow3g => openHandLocalizedText(
+        context,
+        zh: '慢速 3G (400/400kbps, 400ms)',
+        zhHant: '慢速 3G (400/400kbps, 400ms)',
+        en: 'Slow 3G',
+        fr: '3G lente',
+        de: 'Langsames 3G',
+        ja: '低速 3G',
+      ),
+      WebReverseThrottlePreset.fast3g => openHandLocalizedText(
+        context,
+        zh: '快速 3G (1.6/750kbps, 150ms)',
+        zhHant: '快速 3G (1.6/750kbps, 150ms)',
+        en: 'Fast 3G',
+        fr: '3G rapide',
+        de: 'Schnelles 3G',
+        ja: '高速 3G',
+      ),
+      WebReverseThrottlePreset.fourG => openHandLocalizedText(
+        context,
+        zh: '4G (4/3 Mbps, 80ms)',
+        zhHant: '4G (4/3 Mbps, 80ms)',
+        en: '4G (4/3 Mbps, 80ms)',
+        fr: '4G (4/3 Mbps, 80ms)',
+        de: '4G (4/3 Mbps, 80ms)',
+        ja: '4G (4/3 Mbps, 80ms)',
+      ),
+      WebReverseThrottlePreset.weakWifi => openHandLocalizedText(
+        context,
+        zh: '弱 Wi-Fi (10/5 Mbps, 40ms)',
+        zhHant: '弱 Wi-Fi (10/5 Mbps, 40ms)',
+        en: 'Weak Wi-Fi (10/5 Mbps, 40ms)',
+        fr: 'Wi-Fi faible (10/5 Mbps, 40ms)',
+        de: 'Schwaches WLAN (10/5 Mbps, 40ms)',
+        ja: '弱い Wi-Fi (10/5 Mbps, 40ms)',
+      ),
+      WebReverseThrottlePreset.custom => openHandLocalizedText(
+        context,
+        zh: '自定义',
+        zhHant: '自訂',
+        en: 'Custom',
+        fr: 'Personnalisé',
+        de: 'Benutzerdefiniert',
+        ja: 'カスタム',
+      ),
+    };
   }
 
   Future<void> _reset() async {
@@ -195,7 +271,6 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    final isZh = widget.isZh;
     return buildOpenHandToolDialogShell(
       context: context,
       maxWidth: 720,
@@ -232,7 +307,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                         .map((p) {
                           final selected = _selectedId == p.id;
                           return ChoiceChip(
-                            label: Text(p.displayLabel(isZh)),
+                            label: Text(_presetLabel(p)),
                             selected: selected,
                             onSelected: _applying
                                 ? null

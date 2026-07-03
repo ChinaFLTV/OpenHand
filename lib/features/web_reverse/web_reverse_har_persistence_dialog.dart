@@ -188,6 +188,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
         if (!mounted) return;
         final message = webReverseHarTooLargeMessage(
           read.tooLargeBytes!,
+          context: context,
           isZh: widget.isZh,
         );
         setState(() => _status = message);

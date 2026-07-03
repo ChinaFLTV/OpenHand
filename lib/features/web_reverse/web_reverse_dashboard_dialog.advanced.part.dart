@@ -369,17 +369,28 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.network_check_rounded,
-        title: isZh ? '网络限速模拟' : 'Network Throttle',
-        subtitle: isZh
-            ? 'Network.emulateNetworkConditions 预设/自定义 kbps + 延迟 + 离线 + 禁用缓存'
-            : 'Network.emulateNetworkConditions presets/custom kbps + latency + offline + cache off',
+        title: _wrText(
+          context,
+          zh: '网络限速模拟',
+          zhHant: '網路限速模擬',
+          en: 'Network Throttle',
+          fr: 'Limitation réseau',
+          de: 'Netzwerkdrosselung',
+          ja: 'ネットワーク制限',
+        ),
+        subtitle: _wrText(
+          context,
+          zh: 'Network.emulateNetworkConditions 预设/自定义 kbps + 延迟 + 离线 + 禁用缓存',
+          zhHant:
+              'Network.emulateNetworkConditions 預設/自訂 kbps + 延遲 + 離線 + 停用快取',
+          en: 'Network.emulateNetworkConditions presets/custom kbps + latency + offline + cache off',
+          fr: 'Network.emulateNetworkConditions presets/personnalisé kbps + latence + hors ligne + cache off',
+          de: 'Network.emulateNetworkConditions Presets/benutzerdefiniert kbps + Latenz + offline + Cache aus',
+          ja: 'Network.emulateNetworkConditions プリセット/カスタム kbps + レイテンシ + オフライン + キャッシュ無効',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseThrottleDialog(
-            context,
-            controller: controller,
-            isZh: isZh,
-          );
+          await showWebReverseThrottleDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(

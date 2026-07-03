@@ -191,12 +191,19 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     ),
                     const SizedBox(width: 8),
                     _ToolbarIconButton(
-                      tooltip: isZh ? 'Headless 批量采集' : 'Headless batch',
+                      tooltip: _wrText(
+                        context,
+                        zh: 'Headless 批量采集',
+                        zhHant: 'Headless 批量採集',
+                        en: 'Headless batch',
+                        fr: 'Lot headless',
+                        de: 'Headless-Batch',
+                        ja: 'Headless バッチ',
+                      ),
                       icon: Icons.dynamic_feed_rounded,
                       onPressed: () => showWebReverseHeadlessBatchDialog(
                         context,
                         controller: ctrl,
-                        isZh: isZh,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -472,7 +479,11 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          webReverseHarTooLargeMessage(read.tooLargeBytes!, isZh: isZh),
+          webReverseHarTooLargeMessage(
+            read.tooLargeBytes!,
+            context: context,
+            isZh: isZh,
+          ),
           duration: const Duration(seconds: 3),
         );
         return;
@@ -606,7 +617,11 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        webReverseHarTooLargeMessage(tooLargeBytes, isZh: isZh),
+        webReverseHarTooLargeMessage(
+          tooLargeBytes,
+          context: context,
+          isZh: isZh,
+        ),
         duration: const Duration(seconds: 3),
       );
       return;
@@ -670,8 +685,8 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
             if (capped) ...[
               const SizedBox(height: 4),
               Text(
-                '${webReverseHarDiffCappedMessage(setA.parsed, setA.total, isZh: isZh)} · '
-                '${webReverseHarDiffCappedMessage(setB.parsed, setB.total, isZh: isZh)}',
+                '${webReverseHarDiffCappedMessage(setA.parsed, setA.total, context: context, isZh: isZh)} · '
+                '${webReverseHarDiffCappedMessage(setB.parsed, setB.total, context: context, isZh: isZh)}',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
