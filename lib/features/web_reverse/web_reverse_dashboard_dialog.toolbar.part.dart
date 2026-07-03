@@ -37,13 +37,13 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     child: _ToolbarTabDropdown(
                       current: _tab,
                       tabs: tabs,
-                      label: _tabLabel(_tab, isZh),
+                      label: _tabLabel(context, _tab),
                       icon: _tabIcon(_tab),
                       count: _tabBadgeCount(_tab),
                       isZh: isZh,
                       reduceMotion: reduceMotion,
                       onChanged: _setTab,
-                      labelFor: (t) => _tabLabel(t, isZh),
+                      labelFor: (t) => _tabLabel(context, t),
                       iconFor: _tabIcon,
                       countFor: _tabBadgeCount,
                     ),
@@ -59,7 +59,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     children: [
                       for (var i = 0; i < tabs.length; i++) ...[
                         _ToolbarTabPill(
-                          label: _tabLabel(tabs[i], isZh),
+                          label: _tabLabel(context, tabs[i]),
                           icon: _tabIcon(tabs[i]),
                           count: _tabBadgeCount(tabs[i]),
                           active: _tab == tabs[i],
@@ -87,8 +87,24 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       _ToolbarSearchField(
                         controller: _filterCtrl,
                         hint: _tab == _Tab.network
-                            ? (isZh ? '搜索 URL / 文本' : 'Search URL / text')
-                            : (isZh ? '搜索控制台' : 'Search console'),
+                            ? _wrText(
+                                context,
+                                zh: '搜索 URL / 文本',
+                                zhHant: '搜尋 URL / 文字',
+                                en: 'Search URL / text',
+                                fr: 'Rechercher URL / texte',
+                                de: 'URL / Text suchen',
+                                ja: 'URL / テキストを検索',
+                              )
+                            : _wrText(
+                                context,
+                                zh: '搜索控制台',
+                                zhHant: '搜尋主控台',
+                                en: 'Search console',
+                                fr: 'Rechercher dans la console',
+                                de: 'Konsole durchsuchen',
+                                ja: 'コンソールを検索',
+                              ),
                         onChanged: (v) => rebuildFromExternal(
                           () => _networkFilter = v.trim(),
                         ),
@@ -97,7 +113,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     ],
                     if (showNetworkControls) ...[
                       _ToolbarTogglePill(
-                        label: isZh ? '禁用缓存' : 'Disable cache',
+                        label: _wrText(
+                          context,
+                          zh: '禁用缓存',
+                          zhHant: '停用快取',
+                          en: 'Disable cache',
+                          fr: 'Désactiver le cache',
+                          de: 'Cache deaktivieren',
+                          ja: 'キャッシュを無効化',
+                        ),
                         icon: Icons.no_drinks_rounded,
                         selected: ctrl.cacheDisabled,
                         onChanged: (v) async {
@@ -107,7 +131,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       ),
                       const SizedBox(width: 8),
                       _ToolbarTogglePill(
-                        label: isZh ? '保留日志' : 'Preserve log',
+                        label: _wrText(
+                          context,
+                          zh: '保留日志',
+                          zhHant: '保留記錄',
+                          en: 'Preserve log',
+                          fr: 'Conserver les journaux',
+                          de: 'Protokoll beibehalten',
+                          ja: 'ログを保持',
+                        ),
                         icon: Icons.history_toggle_off_rounded,
                         selected: ctrl.preserveLog,
                         onChanged: (v) => ctrl.preserveLog = v,
@@ -122,7 +154,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                           if (!ok && mounted) {
                             OpenHandSnackBar.showError(
                               context,
-                              isZh ? '节流设置失败' : 'Failed to set throttling',
+                              _wrText(
+                                context,
+                                zh: '节流设置失败',
+                                zhHant: '節流設定失敗',
+                                en: 'Failed to set throttling',
+                                fr: 'Échec du réglage de limitation',
+                                de: 'Drosselung konnte nicht gesetzt werden',
+                                ja: 'スロットリング設定に失敗しました',
+                              ),
                               duration: const Duration(seconds: 2),
                             );
                           }
@@ -131,7 +171,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       const SizedBox(width: 8),
                     ],
                     _ToolbarIconButton(
-                      tooltip: isZh ? '清空当前缓冲' : 'Clear buffers',
+                      tooltip: _wrText(
+                        context,
+                        zh: '清空当前缓冲',
+                        zhHant: '清空目前緩衝',
+                        en: 'Clear buffers',
+                        fr: 'Vider les tampons',
+                        de: 'Puffer leeren',
+                        ja: 'バッファをクリア',
+                      ),
                       icon: Icons.cleaning_services_rounded,
                       onPressed: () {
                         ctrl.clearBuffers();
@@ -141,33 +189,73 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     ),
                     const SizedBox(width: 8),
                     _ToolbarIconButton(
-                      tooltip: isZh ? '导出 HAR 到本地文件' : 'Save HAR to file',
+                      tooltip: _wrText(
+                        context,
+                        zh: '导出 HAR 到本地文件',
+                        zhHant: '匯出 HAR 到本機檔案',
+                        en: 'Save HAR to file',
+                        fr: 'Enregistrer le HAR',
+                        de: 'HAR in Datei speichern',
+                        ja: 'HAR をファイルに保存',
+                      ),
                       icon: Icons.archive_rounded,
                       onPressed: () => _saveHarToFile(ctrl, isZh),
                     ),
                     const SizedBox(width: 8),
                     _ToolbarIconButton(
-                      tooltip: isZh ? '导入 HAR 反向加载' : 'Load HAR file',
+                      tooltip: _wrText(
+                        context,
+                        zh: '导入 HAR 反向加载',
+                        zhHant: '匯入 HAR 反向載入',
+                        en: 'Load HAR file',
+                        fr: 'Charger un fichier HAR',
+                        de: 'HAR-Datei laden',
+                        ja: 'HAR ファイルを読み込む',
+                      ),
                       icon: Icons.unarchive_rounded,
                       onPressed: () => _loadHarFromFile(ctrl, isZh),
                     ),
                     const SizedBox(width: 8),
                     _ToolbarIconButton(
-                      tooltip: isZh ? '截图（当前可视区）' : 'Screenshot (viewport)',
+                      tooltip: _wrText(
+                        context,
+                        zh: '截图（当前可视区）',
+                        zhHant: '截圖（目前可視區）',
+                        en: 'Screenshot (viewport)',
+                        fr: 'Capture (zone visible)',
+                        de: 'Screenshot (Viewport)',
+                        ja: 'スクリーンショット（表示領域）',
+                      ),
                       icon: Icons.photo_camera_outlined,
                       onPressed: () =>
                           _saveScreenshot(ctrl, isZh, fullPage: false),
                     ),
                     const SizedBox(width: 8),
                     _ToolbarIconButton(
-                      tooltip: isZh ? '截图（整页滚动拼接）' : 'Screenshot (full page)',
+                      tooltip: _wrText(
+                        context,
+                        zh: '截图（整页滚动拼接）',
+                        zhHant: '截圖（整頁捲動拼接）',
+                        en: 'Screenshot (full page)',
+                        fr: 'Capture (page entière)',
+                        de: 'Screenshot (ganze Seite)',
+                        ja: 'スクリーンショット（ページ全体）',
+                      ),
                       icon: Icons.picture_in_picture_rounded,
                       onPressed: () =>
                           _saveScreenshot(ctrl, isZh, fullPage: true),
                     ),
                     const SizedBox(width: 8),
                     _ToolbarTogglePill(
-                      label: isZh ? '请求拦截' : 'Intercept',
+                      label: _wrText(
+                        context,
+                        zh: '请求拦截',
+                        zhHant: '請求攔截',
+                        en: 'Intercept',
+                        fr: 'Intercepter',
+                        de: 'Abfangen',
+                        ja: 'インターセプト',
+                      ),
                       icon: Icons.block_rounded,
                       selected: ctrl.isFetchInterceptEnabled,
                       onChanged: (v) async {
@@ -177,15 +265,29 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     ),
                     const SizedBox(width: 8),
                     _ToolbarIconButton(
-                      tooltip: isZh
-                          ? '批量操作（按当前过滤结果）'
-                          : 'Batch (current filter)',
+                      tooltip: _wrText(
+                        context,
+                        zh: '批量操作（按当前过滤结果）',
+                        zhHant: '批次操作（依目前篩選結果）',
+                        en: 'Batch (current filter)',
+                        fr: 'Lot (filtre actuel)',
+                        de: 'Batch (aktueller Filter)',
+                        ja: '一括操作（現在のフィルタ）',
+                      ),
                       icon: Icons.dynamic_form_rounded,
                       onPressed: () => _showBatchActions(context, ctrl, isZh),
                     ),
                     const SizedBox(width: 8),
                     _ToolbarIconButton(
-                      tooltip: isZh ? 'HAR 对比' : 'HAR diff',
+                      tooltip: _wrText(
+                        context,
+                        zh: 'HAR 对比',
+                        zhHant: 'HAR 對比',
+                        en: 'HAR diff',
+                        fr: 'Diff HAR',
+                        de: 'HAR-Diff',
+                        ja: 'HAR 差分',
+                      ),
                       icon: Icons.difference_rounded,
                       onPressed: () => _showHarDiff(context, isZh),
                     ),
@@ -210,14 +312,30 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     // 高级菜单：把"持久 Header / 体检报告 / 原生 CDP / 反向脚本"
                     // 等低频但威力强的功能合到一颗按钮，避免 Toolbar 二行膨胀。
                     _ToolbarIconButton(
-                      tooltip: isZh ? '高级工具' : 'Advanced',
+                      tooltip: _wrText(
+                        context,
+                        zh: '高级工具',
+                        zhHant: '進階工具',
+                        en: 'Advanced',
+                        fr: 'Avancé',
+                        de: 'Erweitert',
+                        ja: '詳細ツール',
+                      ),
                       icon: Icons.tune_rounded,
                       onPressed: () => _showAdvancedMenu(context, ctrl, isZh),
                     ),
                     const SizedBox(width: 8),
                     _ToolbarPrimaryPill(
                       icon: Icons.open_in_new_rounded,
-                      label: isZh ? '打开官方 DevTools' : 'Open DevTools',
+                      label: _wrText(
+                        context,
+                        zh: '打开官方 DevTools',
+                        zhHant: '開啟官方 DevTools',
+                        en: 'Open DevTools',
+                        fr: 'Ouvrir DevTools',
+                        de: 'DevTools öffnen',
+                        ja: 'DevTools を開く',
+                      ),
                       onPressed: () => _openOfficialDevTools(ctrl),
                     ),
                   ],
@@ -230,24 +348,160 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     );
   }
 
-  String _tabLabel(_Tab t, bool isZh) => switch (t) {
-    _Tab.browser => isZh ? '浏览器' : 'Browser',
-    _Tab.overview => isZh ? '概览' : 'Overview',
-    _Tab.network => isZh ? '网络' : 'Network',
-    _Tab.console => isZh ? '控制台' : 'Console',
-    _Tab.sources => isZh ? '源码' : 'Sources',
-    _Tab.snippets => isZh ? '脚本' : 'Snippets',
-    _Tab.elements => isZh ? '元素' : 'Elements',
-    _Tab.hooks => isZh ? 'Hook' : 'Hooks',
-    _Tab.crons => isZh ? '定时' : 'Crons',
-    _Tab.breakpoints => isZh ? '断点' : 'Breakpoints',
-    _Tab.realtime => isZh ? '实时' : 'Realtime',
-    _Tab.crypto => isZh ? '工具' : 'Crypto',
-    _Tab.performance => isZh ? '性能' : 'Performance',
-    _Tab.memory => isZh ? '内存' : 'Memory',
-    _Tab.application => isZh ? '应用' : 'Application',
-    _Tab.security => isZh ? '安全' : 'Security',
-    _Tab.recorder => isZh ? '记录器' : 'Recorder',
+  String _tabLabel(BuildContext context, _Tab t) => switch (t) {
+    _Tab.browser => _wrText(
+      context,
+      zh: '浏览器',
+      zhHant: '瀏覽器',
+      en: 'Browser',
+      fr: 'Navigateur',
+      de: 'Browser',
+      ja: 'ブラウザ',
+    ),
+    _Tab.overview => _wrText(
+      context,
+      zh: '概览',
+      zhHant: '概覽',
+      en: 'Overview',
+      fr: 'Vue d’ensemble',
+      de: 'Übersicht',
+      ja: '概要',
+    ),
+    _Tab.network => _wrText(
+      context,
+      zh: '网络',
+      zhHant: '網路',
+      en: 'Network',
+      fr: 'Réseau',
+      de: 'Netzwerk',
+      ja: 'ネットワーク',
+    ),
+    _Tab.console => _wrText(
+      context,
+      zh: '控制台',
+      zhHant: '主控台',
+      en: 'Console',
+      fr: 'Console',
+      de: 'Konsole',
+      ja: 'コンソール',
+    ),
+    _Tab.sources => _wrText(
+      context,
+      zh: '源码',
+      zhHant: '原始碼',
+      en: 'Sources',
+      fr: 'Sources',
+      de: 'Quellen',
+      ja: 'ソース',
+    ),
+    _Tab.snippets => _wrText(
+      context,
+      zh: '脚本',
+      zhHant: '腳本',
+      en: 'Snippets',
+      fr: 'Extraits',
+      de: 'Snippets',
+      ja: 'スニペット',
+    ),
+    _Tab.elements => _wrText(
+      context,
+      zh: '元素',
+      zhHant: '元素',
+      en: 'Elements',
+      fr: 'Éléments',
+      de: 'Elemente',
+      ja: '要素',
+    ),
+    _Tab.hooks => _wrText(
+      context,
+      zh: 'Hook',
+      zhHant: 'Hook',
+      en: 'Hooks',
+      fr: 'Hooks',
+      de: 'Hooks',
+      ja: 'Hooks',
+    ),
+    _Tab.crons => _wrText(
+      context,
+      zh: '定时',
+      zhHant: '定時',
+      en: 'Crons',
+      fr: 'Tâches',
+      de: 'Zeitpläne',
+      ja: '定期実行',
+    ),
+    _Tab.breakpoints => _wrText(
+      context,
+      zh: '断点',
+      zhHant: '中斷點',
+      en: 'Breakpoints',
+      fr: 'Points d’arrêt',
+      de: 'Haltepunkte',
+      ja: 'ブレークポイント',
+    ),
+    _Tab.realtime => _wrText(
+      context,
+      zh: '实时',
+      zhHant: '即時',
+      en: 'Realtime',
+      fr: 'Temps réel',
+      de: 'Echtzeit',
+      ja: 'リアルタイム',
+    ),
+    _Tab.crypto => _wrText(
+      context,
+      zh: '工具',
+      zhHant: '工具',
+      en: 'Crypto',
+      fr: 'Crypto',
+      de: 'Krypto',
+      ja: '暗号',
+    ),
+    _Tab.performance => _wrText(
+      context,
+      zh: '性能',
+      zhHant: '效能',
+      en: 'Performance',
+      fr: 'Performance',
+      de: 'Leistung',
+      ja: 'パフォーマンス',
+    ),
+    _Tab.memory => _wrText(
+      context,
+      zh: '内存',
+      zhHant: '記憶體',
+      en: 'Memory',
+      fr: 'Mémoire',
+      de: 'Speicher',
+      ja: 'メモリ',
+    ),
+    _Tab.application => _wrText(
+      context,
+      zh: '应用',
+      zhHant: '應用',
+      en: 'Application',
+      fr: 'Application',
+      de: 'Anwendung',
+      ja: 'アプリケーション',
+    ),
+    _Tab.security => _wrText(
+      context,
+      zh: '安全',
+      zhHant: '安全',
+      en: 'Security',
+      fr: 'Sécurité',
+      de: 'Sicherheit',
+      ja: 'セキュリティ',
+    ),
+    _Tab.recorder => _wrText(
+      context,
+      zh: '记录器',
+      zhHant: '記錄器',
+      en: 'Recorder',
+      fr: 'Enregistreur',
+      de: 'Recorder',
+      ja: 'レコーダー',
+    ),
   };
 
   IconData _tabIcon(_Tab t) => switch (t) {
@@ -311,7 +565,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '打开保存对话框失败' : 'Failed to open save dialog',
+        _wrText(
+          context,
+          zh: '打开保存对话框失败',
+          zhHant: '開啟儲存對話框失敗',
+          en: 'Failed to open save dialog',
+          fr: 'Impossible d’ouvrir la fenêtre d’enregistrement',
+          de: 'Speicherdialog konnte nicht geöffnet werden',
+          ja: '保存ダイアログを開けませんでした',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -335,14 +597,30 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? 'HAR 保存失败或超时' : 'HAR save failed or timed out',
+        _wrText(
+          context,
+          zh: 'HAR 保存失败或超时',
+          zhHant: 'HAR 儲存失敗或逾時',
+          en: 'HAR save failed or timed out',
+          fr: 'Échec ou expiration de l’enregistrement HAR',
+          de: 'HAR-Speichern fehlgeschlagen oder abgelaufen',
+          ja: 'HAR の保存に失敗またはタイムアウトしました',
+        ),
         duration: const Duration(seconds: 3),
       );
     } else {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh ? 'HAR 已保存到 $written' : 'HAR saved to $written',
+        _wrText(
+          context,
+          zh: 'HAR 已保存到 $written',
+          zhHant: 'HAR 已儲存到 $written',
+          en: 'HAR saved to $written',
+          fr: 'HAR enregistré dans $written',
+          de: 'HAR gespeichert unter $written',
+          ja: 'HAR を $written に保存しました',
+        ),
         duration: const Duration(seconds: 3),
       );
     }
@@ -362,7 +640,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '截图失败' : 'Screenshot failed',
+        _wrText(
+          context,
+          zh: '截图失败',
+          zhHant: '截圖失敗',
+          en: 'Screenshot failed',
+          fr: 'Échec de la capture',
+          de: 'Screenshot fehlgeschlagen',
+          ja: 'スクリーンショットに失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -392,7 +678,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '打开保存对话框失败' : 'Failed to open save dialog',
+        _wrText(
+          context,
+          zh: '打开保存对话框失败',
+          zhHant: '開啟儲存對話框失敗',
+          en: 'Failed to open save dialog',
+          fr: 'Impossible d’ouvrir la fenêtre d’enregistrement',
+          de: 'Speicherdialog konnte nicht geöffnet werden',
+          ja: '保存ダイアログを開けませんでした',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -404,7 +698,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh ? '已保存到 ${location.path}' : 'Saved to ${location.path}',
+        _wrText(
+          context,
+          zh: '已保存到 ${location.path}',
+          zhHant: '已儲存到 ${location.path}',
+          en: 'Saved to ${location.path}',
+          fr: 'Enregistré dans ${location.path}',
+          de: 'Gespeichert unter ${location.path}',
+          ja: '${location.path} に保存しました',
+        ),
         duration: const Duration(seconds: 3),
       );
     } catch (error, stack) {
@@ -418,7 +720,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '截图保存失败' : 'Screenshot save failed',
+        _wrText(
+          context,
+          zh: '截图保存失败',
+          zhHant: '截圖儲存失敗',
+          en: 'Screenshot save failed',
+          fr: 'Échec de l’enregistrement de la capture',
+          de: 'Screenshot konnte nicht gespeichert werden',
+          ja: 'スクリーンショットの保存に失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
     }
@@ -447,24 +757,64 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       final mode = await showWebReverseToolDialog<String>(
         context: context,
         builder: (dialogContext) => buildOpenHandAlertDialog(
-          title: Text(isZh ? '加载 HAR' : 'Load HAR'),
+          title: Text(
+            _wrText(
+              context,
+              zh: '加载 HAR',
+              zhHant: '載入 HAR',
+              en: 'Load HAR',
+              fr: 'Charger le HAR',
+              de: 'HAR laden',
+              ja: 'HAR を読み込む',
+            ),
+          ),
           content: Text(
-            isZh
-                ? '当前网络列表已有 ${ctrl.networkRequests.length} 条记录，选择加载方式：'
-                : 'Network list has ${ctrl.networkRequests.length} entries. Choose load mode:',
+            _wrText(
+              context,
+              zh: '当前网络列表已有 ${ctrl.networkRequests.length} 条记录，选择加载方式：',
+              zhHant: '目前網路清單已有 ${ctrl.networkRequests.length} 筆記錄，請選擇載入方式：',
+              en: 'Network list has ${ctrl.networkRequests.length} entries. Choose load mode:',
+              fr: 'La liste réseau contient ${ctrl.networkRequests.length} entrées. Choisissez le mode de chargement :',
+              de: 'Die Netzwerkliste enthält ${ctrl.networkRequests.length} Einträge. Wähle den Lademodus:',
+              ja: 'ネットワークリストには ${ctrl.networkRequests.length} 件あります。読み込み方法を選択してください:',
+            ),
           ),
           actions: [
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop('cancel'),
-              label: isZh ? '取消' : 'Cancel',
+              label: _wrText(
+                context,
+                zh: '取消',
+                zhHant: '取消',
+                en: 'Cancel',
+                fr: 'Annuler',
+                de: 'Abbrechen',
+                ja: 'キャンセル',
+              ),
             ),
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop('merge'),
-              label: isZh ? '合并' : 'Merge',
+              label: _wrText(
+                context,
+                zh: '合并',
+                zhHant: '合併',
+                en: 'Merge',
+                fr: 'Fusionner',
+                de: 'Zusammenführen',
+                ja: 'マージ',
+              ),
             ),
             OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(dialogContext).pop('replace'),
-              label: isZh ? '替换' : 'Replace',
+              label: _wrText(
+                context,
+                zh: '替换',
+                zhHant: '取代',
+                en: 'Replace',
+                fr: 'Remplacer',
+                de: 'Ersetzen',
+                ja: '置換',
+              ),
             ),
           ],
         ),
@@ -494,9 +844,16 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh
-            ? '${merge ? "合并" : "替换"}加载 ${r.loaded} 条；跳过 ${r.skipped} 条无效条目'
-            : '${merge ? "Merged" : "Replaced"}: ${r.loaded}; skipped ${r.skipped}',
+        _wrText(
+          context,
+          zh: '${merge ? "合并" : "替换"}加载 ${r.loaded} 条；跳过 ${r.skipped} 条无效条目',
+          zhHant:
+              '${merge ? "合併" : "取代"}載入 ${r.loaded} 筆；略過 ${r.skipped} 筆無效項目',
+          en: '${merge ? "Merged" : "Replaced"}: ${r.loaded}; skipped ${r.skipped}',
+          fr: '${merge ? "Fusionné" : "Remplacé"} : ${r.loaded} ; ${r.skipped} ignorées',
+          de: '${merge ? "Zusammengeführt" : "Ersetzt"}: ${r.loaded}; ${r.skipped} übersprungen',
+          ja: '${merge ? "マージ" : "置換"}: ${r.loaded} 件、無効な ${r.skipped} 件をスキップ',
+        ),
         duration: const Duration(seconds: 3),
       );
     } catch (error, stack) {
@@ -505,7 +862,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? 'HAR 解析失败' : 'HAR parse failed',
+        _wrText(
+          context,
+          zh: 'HAR 解析失败',
+          zhHant: 'HAR 解析失敗',
+          en: 'HAR parse failed',
+          fr: 'Échec de l’analyse HAR',
+          de: 'HAR konnte nicht geparst werden',
+          ja: 'HAR の解析に失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
     }
@@ -630,7 +995,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? 'HAR 解析失败' : 'HAR parse failed',
+        _wrText(
+          context,
+          zh: 'HAR 解析失败',
+          zhHant: 'HAR 解析失敗',
+          en: 'HAR parse failed',
+          fr: 'Échec de l’analyse HAR',
+          de: 'HAR konnte nicht geparst werden',
+          ja: 'HAR の解析に失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -669,8 +1042,24 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     final capped = setA.parsed < setA.total || setB.parsed < setB.total;
     await showOpenHandInfoDialog(
       context: context,
-      title: isZh ? 'HAR 对比' : 'HAR diff',
-      closeLabel: isZh ? '关闭' : 'Close',
+      title: _wrText(
+        context,
+        zh: 'HAR 对比',
+        zhHant: 'HAR 對比',
+        en: 'HAR diff',
+        fr: 'Diff HAR',
+        de: 'HAR-Diff',
+        ja: 'HAR 差分',
+      ),
+      closeLabel: _wrText(
+        context,
+        zh: '关闭',
+        zhHant: '關閉',
+        en: 'Close',
+        fr: 'Fermer',
+        de: 'Schließen',
+        ja: '閉じる',
+      ),
       content: SizedBox(
         width: 880,
         height: 540,
@@ -678,9 +1067,16 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              isZh
-                  ? '一致 $sameCount 条 · 变化 ${changed.length} · A 独有 ${onlyAKeys.length} · B 独有 ${onlyBKeys.length}'
-                  : '$sameCount same · ${changed.length} changed · ${onlyAKeys.length} only-A · ${onlyBKeys.length} only-B',
+              _wrText(
+                context,
+                zh: '一致 $sameCount 条 · 变化 ${changed.length} · A 独有 ${onlyAKeys.length} · B 独有 ${onlyBKeys.length}',
+                zhHant:
+                    '一致 $sameCount 筆 · 變更 ${changed.length} · A 獨有 ${onlyAKeys.length} · B 獨有 ${onlyBKeys.length}',
+                en: '$sameCount same · ${changed.length} changed · ${onlyAKeys.length} only-A · ${onlyBKeys.length} only-B',
+                fr: '$sameCount identiques · ${changed.length} changées · ${onlyAKeys.length} A seules · ${onlyBKeys.length} B seules',
+                de: '$sameCount gleich · ${changed.length} geändert · ${onlyAKeys.length} nur A · ${onlyBKeys.length} nur B',
+                ja: '$sameCount 件一致 · ${changed.length} 件変更 · A のみ ${onlyAKeys.length} · B のみ ${onlyBKeys.length}',
+              ),
             ),
             if (capped) ...[
               const SizedBox(height: 4),
@@ -700,7 +1096,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                   SizedBox(
                     width: 220,
                     child: _HarDiffColumn(
-                      title: isZh ? 'A 独有' : 'Only A',
+                      title: _wrText(
+                        context,
+                        zh: 'A 独有',
+                        zhHant: 'A 獨有',
+                        en: 'Only A',
+                        fr: 'A seul',
+                        de: 'Nur A',
+                        ja: 'A のみ',
+                      ),
                       items: onlyAKeys,
                       accent: Colors.red,
                     ),
@@ -709,7 +1113,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                   SizedBox(
                     width: 220,
                     child: _HarDiffColumn(
-                      title: isZh ? 'B 独有' : 'Only B',
+                      title: _wrText(
+                        context,
+                        zh: 'B 独有',
+                        zhHant: 'B 獨有',
+                        en: 'Only B',
+                        fr: 'B seul',
+                        de: 'Nur B',
+                        ja: 'B のみ',
+                      ),
                       items: onlyBKeys,
                       accent: Colors.green,
                     ),
@@ -717,7 +1129,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                   const VerticalDivider(width: 1),
                   Expanded(
                     child: _HarChangedColumn(
-                      title: isZh ? '同 URL 已变' : 'Changed',
+                      title: _wrText(
+                        context,
+                        zh: '同 URL 已变',
+                        zhHant: '同 URL 已變更',
+                        en: 'Changed',
+                        fr: 'Modifiées',
+                        de: 'Geändert',
+                        ja: '変更あり',
+                      ),
                       changes: changed,
                       isZh: isZh,
                     ),
@@ -743,17 +1163,40 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
       context: context,
       builder: (dialogContext) => buildOpenHandAlertDialog(
         title: Text(
-          isZh ? '批量操作（${filtered.length} 条）' : 'Batch (${filtered.length})',
+          _wrText(
+            context,
+            zh: '批量操作（${filtered.length} 条）',
+            zhHant: '批次操作（${filtered.length} 筆）',
+            en: 'Batch (${filtered.length})',
+            fr: 'Lot (${filtered.length})',
+            de: 'Batch (${filtered.length})',
+            ja: '一括操作（${filtered.length} 件）',
+          ),
         ),
         content: Text(
-          isZh
-              ? '基于当前网络面板的过滤结果进行批量操作：可批量屏蔽所有 URL（精确匹配）、批量重放（上限 $_kNetworkBatchReplayLimit 条）或复制 curl 列表（上限 $_kNetworkBatchCurlCopyLimit 条）。'
-              : 'Operate on the currently filtered ${filtered.length} requests. Replay is capped at $_kNetworkBatchReplayLimit; curl copy is capped at $_kNetworkBatchCurlCopyLimit.',
+          _wrText(
+            context,
+            zh: '基于当前网络面板的过滤结果进行批量操作：可批量屏蔽所有 URL（精确匹配）、批量重放（上限 $_kNetworkBatchReplayLimit 条）或复制 curl 列表（上限 $_kNetworkBatchCurlCopyLimit 条）。',
+            zhHant:
+                '依目前網路面板的篩選結果進行批次操作：可批次封鎖所有 URL（精確匹配）、批次重放（上限 $_kNetworkBatchReplayLimit 筆）或複製 curl 清單（上限 $_kNetworkBatchCurlCopyLimit 筆）。',
+            en: 'Operate on the currently filtered ${filtered.length} requests. Replay is capped at $_kNetworkBatchReplayLimit; curl copy is capped at $_kNetworkBatchCurlCopyLimit.',
+            fr: 'Agit sur les ${filtered.length} requêtes filtrées. Relecture limitée à $_kNetworkBatchReplayLimit ; copie curl limitée à $_kNetworkBatchCurlCopyLimit.',
+            de: 'Wirkt auf die aktuell gefilterten ${filtered.length} Anfragen. Replay ist auf $_kNetworkBatchReplayLimit begrenzt; curl-Kopie auf $_kNetworkBatchCurlCopyLimit.',
+            ja: '現在フィルタされた ${filtered.length} 件のリクエストを操作します。リプレイ上限は $_kNetworkBatchReplayLimit、curl コピー上限は $_kNetworkBatchCurlCopyLimit です。',
+          ),
         ),
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            label: isZh ? '取消' : 'Cancel',
+            label: _wrText(
+              context,
+              zh: '取消',
+              zhHant: '取消',
+              en: 'Cancel',
+              fr: 'Annuler',
+              de: 'Abbrechen',
+              ja: 'キャンセル',
+            ),
           ),
           OpenHandDialogActionButton.secondary(
             onPressed: filtered.isEmpty
@@ -768,13 +1211,27 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     OpenHandSnackBar.showInfoOn(
                       context,
                       messenger,
-                      isZh
-                          ? '已屏蔽 ${filtered.length} 个 URL'
-                          : 'Blocked ${filtered.length} URLs',
+                      _wrText(
+                        context,
+                        zh: '已屏蔽 ${filtered.length} 个 URL',
+                        zhHant: '已封鎖 ${filtered.length} 個 URL',
+                        en: 'Blocked ${filtered.length} URLs',
+                        fr: '${filtered.length} URL bloquées',
+                        de: '${filtered.length} URLs blockiert',
+                        ja: '${filtered.length} 件の URL をブロックしました',
+                      ),
                     );
                   },
             icon: Icons.block_rounded,
-            label: isZh ? '批量屏蔽' : 'Block all',
+            label: _wrText(
+              context,
+              zh: '批量屏蔽',
+              zhHant: '批次封鎖',
+              en: 'Block all',
+              fr: 'Tout bloquer',
+              de: 'Alle blockieren',
+              ja: 'すべてブロック',
+            ),
           ),
           OpenHandDialogActionButton.secondary(
             onPressed: filtered.isEmpty
@@ -795,15 +1252,28 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     OpenHandSnackBar.showInfoOn(
                       context,
                       messenger,
-                      isZh
-                          ? '批量重放：成功 $ok / 共 $cap（上限 $_kNetworkBatchReplayLimit）'
-                          : 'Replayed $ok of $cap (cap $_kNetworkBatchReplayLimit)',
+                      _wrText(
+                        context,
+                        zh: '批量重放：成功 $ok / 共 $cap（上限 $_kNetworkBatchReplayLimit）',
+                        zhHant:
+                            '批次重放：成功 $ok / 共 $cap（上限 $_kNetworkBatchReplayLimit）',
+                        en: 'Replayed $ok of $cap (cap $_kNetworkBatchReplayLimit)',
+                        fr: '$ok sur $cap rejouées (limite $_kNetworkBatchReplayLimit)',
+                        de: '$ok von $cap erneut gesendet (Limit $_kNetworkBatchReplayLimit)',
+                        ja: '$cap 件中 $ok 件をリプレイしました（上限 $_kNetworkBatchReplayLimit）',
+                      ),
                     );
                   },
             icon: Icons.replay_rounded,
-            label: isZh
-                ? '批量重放（≤$_kNetworkBatchReplayLimit）'
-                : 'Replay (≤$_kNetworkBatchReplayLimit)',
+            label: _wrText(
+              context,
+              zh: '批量重放（≤$_kNetworkBatchReplayLimit）',
+              zhHant: '批次重放（≤$_kNetworkBatchReplayLimit）',
+              en: 'Replay (≤$_kNetworkBatchReplayLimit)',
+              fr: 'Rejouer (≤$_kNetworkBatchReplayLimit)',
+              de: 'Replay (≤$_kNetworkBatchReplayLimit)',
+              ja: 'リプレイ（≤$_kNetworkBatchReplayLimit）',
+            ),
           ),
           OpenHandDialogActionButton.primary(
             onPressed: filtered.isEmpty
@@ -840,9 +1310,16 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       buf.toString(),
                     );
                     if (!context.mounted) return;
-                    final base = isZh
-                        ? '已复制 $copyCount 条 curl 到剪贴板${filtered.length > copyCount ? '（已按条目上限裁剪）' : ''}'
-                        : 'Copied $copyCount curl entries${filtered.length > copyCount ? ' (entry capped)' : ''}';
+                    final base = _wrText(
+                      context,
+                      zh: '已复制 $copyCount 条 curl 到剪贴板${filtered.length > copyCount ? '（已按条目上限裁剪）' : ''}',
+                      zhHant:
+                          '已複製 $copyCount 筆 curl 到剪貼簿${filtered.length > copyCount ? '（已依項目上限裁剪）' : ''}',
+                      en: 'Copied $copyCount curl entries${filtered.length > copyCount ? ' (entry capped)' : ''}',
+                      fr: '$copyCount entrées curl copiées${filtered.length > copyCount ? ' (limite atteinte)' : ''}',
+                      de: '$copyCount curl-Einträge kopiert${filtered.length > copyCount ? ' (begrenzte Einträge)' : ''}',
+                      ja: '$copyCount 件の curl をコピーしました${filtered.length > copyCount ? '（件数上限で切り詰め）' : ''}',
+                    );
                     OpenHandSnackBar.showSuccessOn(
                       context,
                       messenger,
@@ -854,9 +1331,15 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                     );
                   },
             icon: Icons.copy_all_rounded,
-            label: isZh
-                ? '复制 curl（≤$_kNetworkBatchCurlCopyLimit）'
-                : 'Copy curl (≤$_kNetworkBatchCurlCopyLimit)',
+            label: _wrText(
+              context,
+              zh: '复制 curl（≤$_kNetworkBatchCurlCopyLimit）',
+              zhHant: '複製 curl（≤$_kNetworkBatchCurlCopyLimit）',
+              en: 'Copy curl (≤$_kNetworkBatchCurlCopyLimit)',
+              fr: 'Copier curl (≤$_kNetworkBatchCurlCopyLimit)',
+              de: 'curl kopieren (≤$_kNetworkBatchCurlCopyLimit)',
+              ja: 'curl をコピー（≤$_kNetworkBatchCurlCopyLimit）',
+            ),
           ),
         ],
       ),
@@ -1034,7 +1517,15 @@ class _ToolbarTabDropdown extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return AnimatedPopupMenuButton<_Tab>(
-      tooltip: isZh ? '切换面板' : 'Switch panel',
+      tooltip: _wrText(
+        context,
+        zh: '切换面板',
+        zhHant: '切換面板',
+        en: 'Switch panel',
+        fr: 'Changer de panneau',
+        de: 'Panel wechseln',
+        ja: 'パネルを切り替え',
+      ),
       position: PopupMenuPosition.under,
       onSelected: onChanged,
       itemBuilder: (_) => [
@@ -1482,7 +1973,15 @@ class _ToolbarThrottleButton extends StatelessWidget {
     return SizedBox(
       height: _kToolbarHeight,
       child: AnimatedPopupMenuButton<WebReverseThrottlePreset>(
-        tooltip: isZh ? '网络节流' : 'Throttling',
+        tooltip: _wrText(
+          context,
+          zh: '网络节流',
+          zhHant: '網路節流',
+          en: 'Throttling',
+          fr: 'Limitation réseau',
+          de: 'Netzwerkdrosselung',
+          ja: 'ネットワークスロットリング',
+        ),
         initialValue: value,
         onSelected: onChanged,
         itemBuilder: (context) => WebReverseThrottlePreset.values
@@ -1695,7 +2194,15 @@ class _HarChangedColumn extends StatelessWidget {
             child: changes.isEmpty
                 ? Center(
                     child: Text(
-                      isZh ? '同 URL 全部一致' : 'All shared URLs are identical',
+                      _wrText(
+                        context,
+                        zh: '同 URL 全部一致',
+                        zhHant: '同 URL 全部一致',
+                        en: 'All shared URLs are identical',
+                        fr: 'Toutes les URL communes sont identiques',
+                        de: 'Alle gemeinsamen URLs sind identisch',
+                        ja: '共通 URL はすべて一致しています',
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
