@@ -203,7 +203,11 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
                             openHandLocalizedText(
                               context,
                               zh: '正在停止构建并清理已写入的临时向量，请稍候。',
+                              zhHant: '正在停止建構並清理已寫入的臨時向量，請稍候。',
                               en: 'Stopping indexing and cleaning partial vectors. Please wait.',
+                              fr: 'Arrêt de l’indexation et nettoyage des vecteurs partiels. Patientez.',
+                              de: 'Indexierung wird gestoppt und Teilvektoren werden bereinigt. Bitte warten.',
+                              ja: 'インデックス作成を停止し、一時ベクトルをクリーンアップしています。お待ちください。',
                             ),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: colorScheme.onErrorContainer,
@@ -231,7 +235,11 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
                 label: openHandLocalizedText(
                   context,
                   zh: '强制停止',
+                  zhHant: '強制停止',
                   en: 'Force Stop',
+                  fr: 'Forcer l’arrêt',
+                  de: 'Stopp erzwingen',
+                  ja: '強制停止',
                 ),
               );
             },
@@ -356,20 +364,106 @@ class _KnowledgeIndexingPulseIcon extends StatelessWidget {
 }
 
 String _phaseLabel(BuildContext context, KnowledgeIndexingPhase phase) {
-  final isZh = openHandIsChineseLocale(context);
   return switch (phase) {
-    KnowledgeIndexingPhase.preparing => isZh ? '准备构建向量' : 'Preparing index',
-    KnowledgeIndexingPhase.parsing => isZh ? '解析文档中' : 'Parsing document',
-    KnowledgeIndexingPhase.storing => isZh ? '保存来源中' : 'Storing source',
-    KnowledgeIndexingPhase.chunking => isZh ? '切分内容中' : 'Chunking content',
-    KnowledgeIndexingPhase.ensuringCollection =>
-      isZh ? '检查向量集合' : 'Checking vector collection',
-    KnowledgeIndexingPhase.embedding => isZh ? '构建向量中' : 'Building vectors',
-    KnowledgeIndexingPhase.upserting => isZh ? '写入向量中' : 'Writing vectors',
-    KnowledgeIndexingPhase.finalizing => isZh ? '收尾索引中' : 'Finalizing index',
-    KnowledgeIndexingPhase.completed => isZh ? '索引完成' : 'Index completed',
-    KnowledgeIndexingPhase.cancelling => isZh ? '正在停止' : 'Stopping',
-    KnowledgeIndexingPhase.cancelled => isZh ? '已停止' : 'Stopped',
+    KnowledgeIndexingPhase.preparing => openHandLocalizedText(
+      context,
+      zh: '准备构建向量',
+      zhHant: '準備建構向量',
+      en: 'Preparing index',
+      fr: 'Préparation de l’index',
+      de: 'Index wird vorbereitet',
+      ja: 'インデックスを準備中',
+    ),
+    KnowledgeIndexingPhase.parsing => openHandLocalizedText(
+      context,
+      zh: '解析文档中',
+      zhHant: '正在解析文件',
+      en: 'Parsing document',
+      fr: 'Analyse du document',
+      de: 'Dokument wird geparst',
+      ja: 'ドキュメントを解析中',
+    ),
+    KnowledgeIndexingPhase.storing => openHandLocalizedText(
+      context,
+      zh: '保存来源中',
+      zhHant: '正在儲存來源',
+      en: 'Storing source',
+      fr: 'Enregistrement de la source',
+      de: 'Quelle wird gespeichert',
+      ja: 'ソースを保存中',
+    ),
+    KnowledgeIndexingPhase.chunking => openHandLocalizedText(
+      context,
+      zh: '切分内容中',
+      zhHant: '正在切分內容',
+      en: 'Chunking content',
+      fr: 'Découpage du contenu',
+      de: 'Inhalt wird segmentiert',
+      ja: 'コンテンツを分割中',
+    ),
+    KnowledgeIndexingPhase.ensuringCollection => openHandLocalizedText(
+      context,
+      zh: '检查向量集合',
+      zhHant: '檢查向量集合',
+      en: 'Checking vector collection',
+      fr: 'Vérification de la collection vectorielle',
+      de: 'Vektorsammlung wird geprüft',
+      ja: 'ベクトルコレクションを確認中',
+    ),
+    KnowledgeIndexingPhase.embedding => openHandLocalizedText(
+      context,
+      zh: '构建向量中',
+      zhHant: '正在建構向量',
+      en: 'Building vectors',
+      fr: 'Création des vecteurs',
+      de: 'Vektoren werden erstellt',
+      ja: 'ベクトルを構築中',
+    ),
+    KnowledgeIndexingPhase.upserting => openHandLocalizedText(
+      context,
+      zh: '写入向量中',
+      zhHant: '正在寫入向量',
+      en: 'Writing vectors',
+      fr: 'Écriture des vecteurs',
+      de: 'Vektoren werden geschrieben',
+      ja: 'ベクトルを書き込み中',
+    ),
+    KnowledgeIndexingPhase.finalizing => openHandLocalizedText(
+      context,
+      zh: '收尾索引中',
+      zhHant: '正在完成索引',
+      en: 'Finalizing index',
+      fr: 'Finalisation de l’index',
+      de: 'Index wird abgeschlossen',
+      ja: 'インデックスを仕上げ中',
+    ),
+    KnowledgeIndexingPhase.completed => openHandLocalizedText(
+      context,
+      zh: '索引完成',
+      zhHant: '索引完成',
+      en: 'Index completed',
+      fr: 'Index terminé',
+      de: 'Index abgeschlossen',
+      ja: 'インデックス完了',
+    ),
+    KnowledgeIndexingPhase.cancelling => openHandLocalizedText(
+      context,
+      zh: '正在停止',
+      zhHant: '正在停止',
+      en: 'Stopping',
+      fr: 'Arrêt en cours',
+      de: 'Wird gestoppt',
+      ja: '停止中',
+    ),
+    KnowledgeIndexingPhase.cancelled => openHandLocalizedText(
+      context,
+      zh: '已停止',
+      zhHant: '已停止',
+      en: 'Stopped',
+      fr: 'Arrêté',
+      de: 'Gestoppt',
+      ja: '停止済み',
+    ),
   };
 }
 
@@ -377,11 +471,25 @@ String _progressLabel(
   BuildContext context,
   KnowledgeIndexingProgress progress,
 ) {
-  final isZh = openHandIsChineseLocale(context);
   if (progress.hasChunkProgress) {
-    return isZh
-        ? '${progress.processedChunks.clamp(0, progress.totalChunks)} / ${progress.totalChunks} 个分块'
-        : '${progress.processedChunks.clamp(0, progress.totalChunks)} / ${progress.totalChunks} chunks';
+    final processed = progress.processedChunks.clamp(0, progress.totalChunks);
+    return openHandLocalizedText(
+      context,
+      zh: '$processed / ${progress.totalChunks} 个分块',
+      zhHant: '$processed / ${progress.totalChunks} 個分塊',
+      en: '$processed / ${progress.totalChunks} chunks',
+      fr: '$processed / ${progress.totalChunks} fragments',
+      de: '$processed / ${progress.totalChunks} Abschnitte',
+      ja: '$processed / ${progress.totalChunks} チャンク',
+    );
   }
-  return isZh ? '正在等待当前步骤完成…' : 'Waiting for the current step…';
+  return openHandLocalizedText(
+    context,
+    zh: '正在等待当前步骤完成…',
+    zhHant: '正在等待目前步驟完成…',
+    en: 'Waiting for the current step…',
+    fr: 'En attente de l’étape en cours…',
+    de: 'Warten auf den aktuellen Schritt…',
+    ja: '現在のステップの完了を待機中…',
+  );
 }
