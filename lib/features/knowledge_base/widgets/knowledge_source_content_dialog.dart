@@ -16,6 +16,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_search.dart';
 import '../knowledge_base_controller.dart';
@@ -1352,10 +1353,10 @@ enum _KnowledgeSourceContentNotice {
 }
 
 Future<File?> _resolveReadableFile(KnowledgeSource source) async {
-  final candidates = <String>[
+  final candidates = stringListFromValue(<String>[
     source.storedPath,
     source.originalPath,
-  ].map((path) => path.trim()).where((path) => path.isNotEmpty).toSet();
+  ]).toSet();
   for (final path in candidates) {
     final file = File(path);
     if (await file.exists()) return file;

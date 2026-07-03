@@ -683,11 +683,12 @@ class _KnowledgeRetrievalVectorSpaceSectionState
     required KnowledgeVectorDistribution corpus,
     required KnowledgeVectorDistribution retrieval,
   }) {
-    final highlightedIds = retrieval.points
-        .where((point) => point.kind != KnowledgeVectorPointKind.corpus)
-        .map((point) => point.id)
-        .where((id) => id.trim().isNotEmpty)
-        .toSet();
+    final highlightedIds = stringListFromValue(
+      retrieval.points
+          .where((point) => point.kind != KnowledgeVectorPointKind.corpus)
+          .map((point) => point.id)
+          .toList(growable: false),
+    ).toSet();
     final points = <KnowledgeVectorDistributionPoint>[
       for (final point in corpus.points)
         if (!highlightedIds.contains(point.id)) point,
