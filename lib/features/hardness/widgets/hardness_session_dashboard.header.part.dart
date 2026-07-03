@@ -40,30 +40,43 @@ class _HePaneHeader extends StatelessWidget {
   /// 点击 chip 时调用；通常接 [ToolSearchReplayDispatcher.cancel]。
   final VoidCallback? onCancelPendingReplay;
 
-  String get _effectiveTitle => (sessionTitle?.trim().isNotEmpty == true)
+  String _effectiveTitle(BuildContext context) =>
+      (sessionTitle?.trim().isNotEmpty == true)
       ? sessionTitle!
-      : (isZh ? 'Harness Engineering 会话' : 'Harness Engineering Session');
+      : _heHardnessText(
+          context,
+          zh: 'Harness Engineering 会话',
+          zhHant: 'Harness Engineering 會話',
+          en: 'Harness Engineering Session',
+          fr: 'Session Harness Engineering',
+          de: 'Harness Engineering-Sitzung',
+          ja: 'Harness Engineering セッション',
+        );
 
   /// Returns a label like "元数据采集 1/3" describing current execution position.
-  String _phaseProgressLabel() {
+  String _phaseProgressLabel(BuildContext context) {
     final logs = orchestrator.phaseLogs;
     final total = logs.length;
     final awaitingApproval = orchestrator.awaitingApprovalPhase;
     if (awaitingApproval != null) {
       final idx = logs.indexWhere((l) => l.phase == awaitingApproval);
       final pos = idx >= 0 ? idx + 1 : total;
-      final name = isZh
-          ? awaitingApproval.displayNameZh
-          : awaitingApproval.displayNameEn;
-      return isZh
-          ? '$name $pos/$total · 待批准'
-          : '$name $pos/$total · Awaiting Approval';
+      final name = _heHardnessPhaseLabel(context, awaitingApproval);
+      return _heHardnessText(
+        context,
+        zh: '$name $pos/$total · 待批准',
+        zhHant: '$name $pos/$total · 待核准',
+        en: '$name $pos/$total · Awaiting Approval',
+        fr: '$name $pos/$total · En attente d’approbation',
+        de: '$name $pos/$total · Wartet auf Freigabe',
+        ja: '$name $pos/$total · 承認待ち',
+      );
     }
     final current = orchestrator.currentPhase;
     if (isRunning && current != null) {
       final idx = logs.indexWhere((l) => l.phase == current);
       final pos = idx >= 0 ? idx + 1 : total;
-      final name = isZh ? current.displayNameZh : current.displayNameEn;
+      final name = _heHardnessPhaseLabel(context, current);
       return '$name $pos/$total';
     }
     final completed = logs
@@ -72,12 +85,48 @@ class _HePaneHeader extends StatelessWidget {
     final failed = logs
         .where((l) => l.status == HardnessPhaseStatus.failed)
         .length;
-    if (total == 0) return isZh ? '待开始' : 'Not started';
-    if (failed > 0) {
-      return isZh ? '阶段失败 $failed/$total' : '$failed/$total failed';
+    if (total == 0) {
+      return _heHardnessText(
+        context,
+        zh: '待开始',
+        zhHant: '尚未開始',
+        en: 'Not started',
+        fr: 'Non démarré',
+        de: 'Nicht gestartet',
+        ja: '未開始',
+      );
     }
-    if (completed == total) return isZh ? '全部完成 $total' : '$total done';
-    return isZh ? '完成 $completed/$total' : '$completed/$total done';
+    if (failed > 0) {
+      return _heHardnessText(
+        context,
+        zh: '阶段失败 $failed/$total',
+        zhHant: '階段失敗 $failed/$total',
+        en: '$failed/$total failed',
+        fr: '$failed/$total en échec',
+        de: '$failed/$total fehlgeschlagen',
+        ja: '$failed/$total 失敗',
+      );
+    }
+    if (completed == total) {
+      return _heHardnessText(
+        context,
+        zh: '全部完成 $total',
+        zhHant: '全部完成 $total',
+        en: '$total done',
+        fr: '$total terminées',
+        de: '$total erledigt',
+        ja: '$total 件完了',
+      );
+    }
+    return _heHardnessText(
+      context,
+      zh: '完成 $completed/$total',
+      zhHant: '完成 $completed/$total',
+      en: '$completed/$total done',
+      fr: '$completed/$total terminées',
+      de: '$completed/$total erledigt',
+      ja: '$completed/$total 完了',
+    );
   }
 
   IconData _phaseProgressIcon() {
@@ -123,6 +172,7 @@ class _HePaneHeader extends StatelessWidget {
     final logs = orchestrator.phaseLogs;
     final reviewRetries = orchestrator.reviewRetryCount;
     final totalLines = logs.fold<int>(0, (sum, l) => sum + l.lines.length);
+    final effectiveTitle = _effectiveTitle(context);
 
     return Container(
       width: double.infinity,
@@ -180,8 +230,8 @@ class _HePaneHeader extends StatelessWidget {
                       );
                     },
                     child: Text(
-                      _effectiveTitle,
-                      key: ValueKey<String>(_effectiveTitle),
+                      effectiveTitle,
+                      key: ValueKey<String>(effectiveTitle),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -200,7 +250,7 @@ class _HePaneHeader extends StatelessWidget {
                         // ── Phase progress (mirrors runtime mode / template pill) ──
                         OhPill(
                           icon: _phaseProgressIcon(),
-                          label: _phaseProgressLabel(),
+                          label: _phaseProgressLabel(context),
                           foregroundColor: _phaseProgressColor(colorScheme),
                         ),
                         if (replayPendingDeadlineListenable != null) ...[
@@ -217,9 +267,15 @@ class _HePaneHeader extends StatelessWidget {
                           // ── Review retry counter ──
                           OhPill(
                             icon: Icons.replay_rounded,
-                            label: isZh
-                                ? '重试 $reviewRetries/3'
-                                : 'Retry $reviewRetries/3',
+                            label: _heHardnessText(
+                              context,
+                              zh: '重试 $reviewRetries/3',
+                              zhHant: '重試 $reviewRetries/3',
+                              en: 'Retry $reviewRetries/3',
+                              fr: 'Réessai $reviewRetries/3',
+                              de: 'Wiederholung $reviewRetries/3',
+                              ja: '再試行 $reviewRetries/3',
+                            ),
                             foregroundColor: const Color(0xFFF57F17), // amber
                           ),
                         ],
@@ -232,13 +288,29 @@ class _HePaneHeader extends StatelessWidget {
                         const SizedBox(width: 8),
                         OhPill(
                           icon: Icons.data_object_rounded,
-                          label: isZh ? '会话元数据' : 'Session Metadata',
+                          label: _heHardnessText(
+                            context,
+                            zh: '会话元数据',
+                            zhHant: '會話中繼資料',
+                            en: 'Session Metadata',
+                            fr: 'Métadonnées de session',
+                            de: 'Sitzungsmetadaten',
+                            ja: 'セッションメタデータ',
+                          ),
                           onTap: () => _showSessionMetadata(context),
                         ),
                         const SizedBox(width: 8),
                         OhPill(
                           icon: Icons.folder_special_rounded,
-                          label: isZh ? '资产文件' : 'Steering Assets',
+                          label: _heHardnessText(
+                            context,
+                            zh: '资产文件',
+                            zhHant: '資產檔案',
+                            en: 'Steering Assets',
+                            fr: 'Ressources de pilotage',
+                            de: 'Steuerungsdateien',
+                            ja: 'ステアリング資産',
+                          ),
                           onTap: () => _showSteeringAssets(context),
                         ),
                         if (updatedAtLabel?.isNotEmpty == true) ...[
@@ -252,7 +324,15 @@ class _HePaneHeader extends StatelessWidget {
                           const SizedBox(width: 8),
                           OhPill(
                             icon: Icons.stop_circle_outlined,
-                            label: isZh ? '中止' : 'Cancel',
+                            label: _heHardnessText(
+                              context,
+                              zh: '中止',
+                              zhHant: '中止',
+                              en: 'Cancel',
+                              fr: 'Annuler',
+                              de: 'Abbrechen',
+                              ja: '中止',
+                            ),
                             foregroundColor: Theme.of(
                               context,
                             ).colorScheme.error,
@@ -268,8 +348,24 @@ class _HePaneHeader extends StatelessWidget {
                             label:
                                 orchestrator.status ==
                                     HardnessOrchestratorStatus.failed
-                                ? (isZh ? '重试失败阶段' : 'Retry Failed Phase')
-                                : (isZh ? '重新开始' : 'Restart'),
+                                ? _heHardnessText(
+                                    context,
+                                    zh: '重试失败阶段',
+                                    zhHant: '重試失敗階段',
+                                    en: 'Retry Failed Phase',
+                                    fr: 'Réessayer la phase échouée',
+                                    de: 'Fehlgeschlagene Phase wiederholen',
+                                    ja: '失敗したフェーズを再試行',
+                                  )
+                                : _heHardnessText(
+                                    context,
+                                    zh: '重新开始',
+                                    zhHant: '重新開始',
+                                    en: 'Restart',
+                                    fr: 'Redémarrer',
+                                    de: 'Neu starten',
+                                    ja: '再開',
+                                  ),
                             onTap: onRestart,
                           ),
                         ],
@@ -293,8 +389,7 @@ class _HePaneHeader extends StatelessWidget {
       builder: (dialogContext) => _HeSessionMetadataDialog(
         config: config,
         orchestrator: orchestrator,
-        isZh: isZh,
-        sessionTitle: _effectiveTitle,
+        sessionTitle: _effectiveTitle(context),
         sessionId: sessionId,
         createdAtLabel: createdAtLabel,
         updatedAtLabel: updatedAtLabel,
@@ -320,7 +415,6 @@ class _HeSessionMetadataDialog extends StatelessWidget {
   const _HeSessionMetadataDialog({
     required this.config,
     required this.orchestrator,
-    required this.isZh,
     required this.sessionTitle,
     this.sessionId,
     this.createdAtLabel,
@@ -329,29 +423,126 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
   final HardnessSessionConfig config;
   final HardnessOrchestrator orchestrator;
-  final bool isZh;
   final String sessionTitle;
   final String? sessionId;
   final String? createdAtLabel;
   final String? updatedAtLabel;
 
-  String _statusLabel(HardnessOrchestratorStatus s) => switch (s) {
-    HardnessOrchestratorStatus.idle => isZh ? '准备中' : 'Idle',
-    HardnessOrchestratorStatus.running => isZh ? '运行中' : 'Running',
-    HardnessOrchestratorStatus.completed => isZh ? '已完成' : 'Completed',
-    HardnessOrchestratorStatus.failed => isZh ? '失败' : 'Failed',
-    HardnessOrchestratorStatus.cancelled => isZh ? '已中止' : 'Cancelled',
-  };
+  String _statusLabel(BuildContext context, HardnessOrchestratorStatus s) =>
+      switch (s) {
+        HardnessOrchestratorStatus.idle => _heHardnessText(
+          context,
+          zh: '准备中',
+          zhHant: '準備中',
+          en: 'Idle',
+          fr: 'Inactif',
+          de: 'Bereit',
+          ja: '待機中',
+        ),
+        HardnessOrchestratorStatus.running => _heHardnessText(
+          context,
+          zh: '运行中',
+          zhHant: '執行中',
+          en: 'Running',
+          fr: 'En cours',
+          de: 'Wird ausgeführt',
+          ja: '実行中',
+        ),
+        HardnessOrchestratorStatus.completed => _heHardnessText(
+          context,
+          zh: '已完成',
+          zhHant: '已完成',
+          en: 'Completed',
+          fr: 'Terminé',
+          de: 'Abgeschlossen',
+          ja: '完了',
+        ),
+        HardnessOrchestratorStatus.failed => _heHardnessText(
+          context,
+          zh: '失败',
+          zhHant: '失敗',
+          en: 'Failed',
+          fr: 'Échec',
+          de: 'Fehlgeschlagen',
+          ja: '失敗',
+        ),
+        HardnessOrchestratorStatus.cancelled => _heHardnessText(
+          context,
+          zh: '已中止',
+          zhHant: '已中止',
+          en: 'Cancelled',
+          fr: 'Annulé',
+          de: 'Abgebrochen',
+          ja: '中止済み',
+        ),
+      };
 
-  String _phaseStatusLabel(HardnessPhaseStatus s) => switch (s) {
-    HardnessPhaseStatus.pending => isZh ? '等待中' : 'Pending',
-    HardnessPhaseStatus.paused => isZh ? '暂停中' : 'Paused',
-    HardnessPhaseStatus.running => isZh ? '运行中' : 'Running',
-    HardnessPhaseStatus.completed => isZh ? '已完成' : 'Completed',
-    HardnessPhaseStatus.failed => isZh ? '失败' : 'Failed',
-    HardnessPhaseStatus.cancelled => isZh ? '已中止' : 'Cancelled',
-    HardnessPhaseStatus.skipped => isZh ? '已跳过' : 'Skipped',
-  };
+  String _phaseStatusLabel(BuildContext context, HardnessPhaseStatus s) =>
+      switch (s) {
+        HardnessPhaseStatus.pending => _heHardnessText(
+          context,
+          zh: '等待中',
+          zhHant: '等待中',
+          en: 'Pending',
+          fr: 'En attente',
+          de: 'Ausstehend',
+          ja: '待機中',
+        ),
+        HardnessPhaseStatus.paused => _heHardnessText(
+          context,
+          zh: '暂停中',
+          zhHant: '暫停中',
+          en: 'Paused',
+          fr: 'En pause',
+          de: 'Pausiert',
+          ja: '一時停止中',
+        ),
+        HardnessPhaseStatus.running => _heHardnessText(
+          context,
+          zh: '运行中',
+          zhHant: '執行中',
+          en: 'Running',
+          fr: 'En cours',
+          de: 'Wird ausgeführt',
+          ja: '実行中',
+        ),
+        HardnessPhaseStatus.completed => _heHardnessText(
+          context,
+          zh: '已完成',
+          zhHant: '已完成',
+          en: 'Completed',
+          fr: 'Terminé',
+          de: 'Abgeschlossen',
+          ja: '完了',
+        ),
+        HardnessPhaseStatus.failed => _heHardnessText(
+          context,
+          zh: '失败',
+          zhHant: '失敗',
+          en: 'Failed',
+          fr: 'Échec',
+          de: 'Fehlgeschlagen',
+          ja: '失敗',
+        ),
+        HardnessPhaseStatus.cancelled => _heHardnessText(
+          context,
+          zh: '已中止',
+          zhHant: '已中止',
+          en: 'Cancelled',
+          fr: 'Annulé',
+          de: 'Abgebrochen',
+          ja: '中止済み',
+        ),
+        HardnessPhaseStatus.skipped => _heHardnessText(
+          context,
+          zh: '已跳过',
+          zhHant: '已跳過',
+          en: 'Skipped',
+          fr: 'Ignoré',
+          de: 'Übersprungen',
+          ja: 'スキップ済み',
+        ),
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -375,38 +566,142 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
     final summaryBlocks = <Widget>[
       _HeSummaryTile(
-        label: isZh ? '阶段总数' : 'Total Phases',
+        label: _heHardnessText(
+          context,
+          zh: '阶段总数',
+          zhHant: '階段總數',
+          en: 'Total Phases',
+          fr: 'Total des phases',
+          de: 'Phasen gesamt',
+          ja: 'フェーズ総数',
+        ),
         value: '$totalPhases',
       ),
       _HeSummaryTile(
-        label: isZh ? '已完成阶段' : 'Completed',
+        label: _heHardnessText(
+          context,
+          zh: '已完成阶段',
+          zhHant: '已完成階段',
+          en: 'Completed',
+          fr: 'Terminées',
+          de: 'Abgeschlossen',
+          ja: '完了済み',
+        ),
         value: '$completedPhases',
       ),
-      _HeSummaryTile(label: isZh ? '失败阶段' : 'Failed', value: '$failedPhases'),
       _HeSummaryTile(
-        label: isZh ? '日志总行数' : 'Total Log Lines',
+        label: _heHardnessText(
+          context,
+          zh: '失败阶段',
+          zhHant: '失敗階段',
+          en: 'Failed',
+          fr: 'Échecs',
+          de: 'Fehlgeschlagen',
+          ja: '失敗',
+        ),
+        value: '$failedPhases',
+      ),
+      _HeSummaryTile(
+        label: _heHardnessText(
+          context,
+          zh: '日志总行数',
+          zhHant: '日誌總行數',
+          en: 'Total Log Lines',
+          fr: 'Lignes de journal',
+          de: 'Logzeilen gesamt',
+          ja: 'ログ総行数',
+        ),
         value: '$totalLogLines',
       ),
       _HeSummaryTile(
-        label: isZh ? '执行状态' : 'Status',
-        value: _statusLabel(orchestrator.status),
+        label: _heHardnessText(
+          context,
+          zh: '执行状态',
+          zhHant: '執行狀態',
+          en: 'Status',
+          fr: 'État',
+          de: 'Status',
+          ja: '状態',
+        ),
+        value: _statusLabel(context, orchestrator.status),
       ),
       _HeSummaryTile(
-        label: isZh ? '当前阶段' : 'Current Phase',
+        label: _heHardnessText(
+          context,
+          zh: '当前阶段',
+          zhHant: '目前階段',
+          en: 'Current Phase',
+          fr: 'Phase actuelle',
+          de: 'Aktuelle Phase',
+          ja: '現在のフェーズ',
+        ),
         value: orchestrator.currentPhase != null
-            ? (isZh
-                  ? orchestrator.currentPhase!.displayNameZh
-                  : orchestrator.currentPhase!.displayNameEn)
+            ? _heHardnessPhaseLabel(context, orchestrator.currentPhase!)
             : '--',
       ),
     ];
 
     final roleConfigs = <(String, HardnessRoleConfig)>[
-      (isZh ? '探档者 (Profiler)' : 'Profiler', config.profilerConfig),
-      (isZh ? '调查者 (Reader)' : 'Reader', config.readerConfig),
-      (isZh ? '规划者 (Planner)' : 'Planner', config.plannerConfig),
-      (isZh ? '实施者 (Implementer)' : 'Implementer', config.implementerConfig),
-      (isZh ? '验收者 (Reviewer)' : 'Reviewer', config.reviewerConfig),
+      (
+        _heHardnessText(
+          context,
+          zh: '探档者 (Profiler)',
+          zhHant: '探檔者 (Profiler)',
+          en: 'Profiler',
+          fr: 'Profileur',
+          de: 'Profiler',
+          ja: 'プロファイラー',
+        ),
+        config.profilerConfig,
+      ),
+      (
+        _heHardnessText(
+          context,
+          zh: '调查者 (Reader)',
+          zhHant: '調查者 (Reader)',
+          en: 'Reader',
+          fr: 'Lecteur',
+          de: 'Leser',
+          ja: 'リーダー',
+        ),
+        config.readerConfig,
+      ),
+      (
+        _heHardnessText(
+          context,
+          zh: '规划者 (Planner)',
+          zhHant: '規劃者 (Planner)',
+          en: 'Planner',
+          fr: 'Planificateur',
+          de: 'Planer',
+          ja: 'プランナー',
+        ),
+        config.plannerConfig,
+      ),
+      (
+        _heHardnessText(
+          context,
+          zh: '实施者 (Implementer)',
+          zhHant: '實施者 (Implementer)',
+          en: 'Implementer',
+          fr: 'Implémenteur',
+          de: 'Umsetzer',
+          ja: '実装者',
+        ),
+        config.implementerConfig,
+      ),
+      (
+        _heHardnessText(
+          context,
+          zh: '验收者 (Reviewer)',
+          zhHant: '驗收者 (Reviewer)',
+          en: 'Reviewer',
+          fr: 'Relecteur',
+          de: 'Prüfer',
+          ja: 'レビュー担当',
+        ),
+        config.reviewerConfig,
+      ),
     ];
 
     return buildOpenHandResponsiveDialogShell(
@@ -429,7 +724,15 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isZh ? '当前会话元数据' : 'Current Session Metadata',
+                        _heHardnessText(
+                          context,
+                          zh: '当前会话元数据',
+                          zhHant: '目前會話中繼資料',
+                          en: 'Current Session Metadata',
+                          fr: 'Métadonnées de la session',
+                          de: 'Aktuelle Sitzungsmetadaten',
+                          ja: '現在のセッションメタデータ',
+                        ),
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
@@ -464,31 +767,87 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
                     // ── Session overview ──
                     _HeMetadataSection(
-                      title: isZh ? '会话概览' : 'Session Overview',
+                      title: _heHardnessText(
+                        context,
+                        zh: '会话概览',
+                        zhHant: '會話概覽',
+                        en: 'Session Overview',
+                        fr: 'Aperçu de la session',
+                        de: 'Sitzungsübersicht',
+                        ja: 'セッション概要',
+                      ),
                       children: [
                         _HeMetadataEntryRow(
-                          label: isZh ? '会话 ID' : 'Session ID',
+                          label: _heHardnessText(
+                            context,
+                            zh: '会话 ID',
+                            zhHant: '會話 ID',
+                            en: 'Session ID',
+                            fr: 'ID de session',
+                            de: 'Sitzungs-ID',
+                            ja: 'セッション ID',
+                          ),
                           value: sessionId ?? '--',
                         ),
                         _HeMetadataEntryRow(
-                          label: isZh ? '模板' : 'Template',
+                          label: _heHardnessText(
+                            context,
+                            zh: '模板',
+                            zhHant: '範本',
+                            en: 'Template',
+                            fr: 'Modèle',
+                            de: 'Vorlage',
+                            ja: 'テンプレート',
+                          ),
                           value: 'Harness Engineering',
                         ),
                         _HeMetadataEntryRow(
-                          label: isZh ? '创建时间' : 'Created At',
+                          label: _heHardnessText(
+                            context,
+                            zh: '创建时间',
+                            zhHant: '建立時間',
+                            en: 'Created At',
+                            fr: 'Créé le',
+                            de: 'Erstellt am',
+                            ja: '作成日時',
+                          ),
                           value: createdAtLabel ?? '--',
                         ),
                         _HeMetadataEntryRow(
-                          label: isZh ? '更新时间' : 'Updated At',
+                          label: _heHardnessText(
+                            context,
+                            zh: '更新时间',
+                            zhHant: '更新時間',
+                            en: 'Updated At',
+                            fr: 'Mis à jour le',
+                            de: 'Aktualisiert am',
+                            ja: '更新日時',
+                          ),
                           value: updatedAtLabel ?? '--',
                         ),
                         _HeMetadataEntryRow(
-                          label: isZh ? '执行状态' : 'Status',
-                          value: _statusLabel(orchestrator.status),
+                          label: _heHardnessText(
+                            context,
+                            zh: '执行状态',
+                            zhHant: '執行狀態',
+                            en: 'Status',
+                            fr: 'État',
+                            de: 'Status',
+                            ja: '状態',
+                          ),
+                          value: _statusLabel(context, orchestrator.status),
                         ),
                         if (orchestrator.errorMessage?.isNotEmpty == true)
                           _HeMetadataEntryRow(
-                            label: isZh ? '错误信息' : 'Error',
+                            label: _heHardnessText(
+                              context,
+                              zh: '错误信息',
+                              zhHant: '錯誤資訊',
+                              en: 'Error',
+                              fr: 'Erreur',
+                              de: 'Fehler',
+                              ja: 'エラー',
+                            ),
                             value: orchestrator.errorMessage!,
                           ),
                       ],
@@ -497,20 +856,52 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
                     // ── Task config ──
                     _HeMetadataSection(
-                      title: isZh ? '任务配置' : 'Task Config',
+                      title: _heHardnessText(
+                        context,
+                        zh: '任务配置',
+                        zhHant: '任務設定',
+                        en: 'Task Config',
+                        fr: 'Configuration de tâche',
+                        de: 'Aufgabenkonfiguration',
+                        ja: 'タスク設定',
+                      ),
                       children: [
                         _HeMetadataEntryRow(
-                          label: isZh ? '任务描述' : 'Task',
+                          label: _heHardnessText(
+                            context,
+                            zh: '任务描述',
+                            zhHant: '任務描述',
+                            en: 'Task',
+                            fr: 'Tâche',
+                            de: 'Aufgabe',
+                            ja: 'タスク',
+                          ),
                           value: config.task.isEmpty ? '-' : config.task,
                         ),
                         _HeMetadataEntryRow(
-                          label: isZh ? '工作目录' : 'Working Directory',
+                          label: _heHardnessText(
+                            context,
+                            zh: '工作目录',
+                            zhHant: '工作目錄',
+                            en: 'Working Directory',
+                            fr: 'Répertoire de travail',
+                            de: 'Arbeitsverzeichnis',
+                            ja: '作業ディレクトリ',
+                          ),
                           value: config.workingDirectory.isEmpty
                               ? '-'
                               : config.workingDirectory,
                         ),
                         _HeMetadataEntryRow(
-                          label: isZh ? '持久化目录' : 'Persistence Directory',
+                          label: _heHardnessText(
+                            context,
+                            zh: '持久化目录',
+                            zhHant: '持久化目錄',
+                            en: 'Persistence Directory',
+                            fr: 'Répertoire de persistance',
+                            de: 'Persistenzverzeichnis',
+                            ja: '永続化ディレクトリ',
+                          ),
                           value: config.persistenceDirectory.isEmpty
                               ? '-'
                               : config.persistenceDirectory,
@@ -521,7 +912,15 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
                     // ── Role configs ──
                     _HeMetadataSection(
-                      title: isZh ? '角色配置' : 'Role Configs',
+                      title: _heHardnessText(
+                        context,
+                        zh: '角色配置',
+                        zhHant: '角色設定',
+                        en: 'Role Configs',
+                        fr: 'Configurations des rôles',
+                        de: 'Rollenkonfigurationen',
+                        ja: 'ロール設定',
+                      ),
                       children: [
                         for (final entry in roleConfigs)
                           _HeMetadataEntryRow(
@@ -538,28 +937,34 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
                     // ── Phase status ──
                     _HeMetadataSection(
-                      title: isZh ? '阶段状态' : 'Phase Status',
+                      title: _heHardnessText(
+                        context,
+                        zh: '阶段状态',
+                        zhHant: '階段狀態',
+                        en: 'Phase Status',
+                        fr: 'État des phases',
+                        de: 'Phasenstatus',
+                        ja: 'フェーズ状態',
+                      ),
                       children: [
                         for (final log in logs)
                           _HeMetadataEntryRow(
-                            label: isZh
-                                ? log.phase.displayNameZh
-                                : log.phase.displayNameEn,
+                            label: _heHardnessPhaseLabel(context, log.phase),
                             value: () {
                               final parts = <String>[
-                                _phaseStatusLabel(log.status),
+                                _phaseStatusLabel(context, log.status),
                               ];
                               if (log.exitCode != null) {
                                 parts.add(
-                                  '${isZh ? '退出码' : 'Exit code'}: ${log.exitCode}',
+                                  '${_heHardnessText(context, zh: '退出码', zhHant: '結束碼', en: 'Exit code', fr: 'Code de sortie', de: 'Exit-Code', ja: '終了コード')}: ${log.exitCode}',
                                 );
                               }
                               parts.add(
-                                '${isZh ? '日志行数' : 'Log lines'}: ${log.lines.length}',
+                                '${_heHardnessText(context, zh: '日志行数', zhHant: '日誌行數', en: 'Log lines', fr: 'Lignes de journal', de: 'Logzeilen', ja: 'ログ行数')}: ${log.lines.length}',
                               );
                               if (log.savedLogPath?.isNotEmpty == true) {
                                 parts.add(
-                                  '${isZh ? '日志文件' : 'Log file'}: ${log.savedLogPath}',
+                                  '${_heHardnessText(context, zh: '日志文件', zhHant: '日誌檔案', en: 'Log file', fr: 'Fichier journal', de: 'Logdatei', ja: 'ログファイル')}: ${log.savedLogPath}',
                                 );
                               }
                               return parts.join(' · ');
@@ -580,7 +985,15 @@ class _HeSessionMetadataDialog extends StatelessWidget {
               children: [
                 OpenHandDialogActionButton.secondary(
                   onPressed: () => Navigator.of(context).pop(),
-                  label: isZh ? '关闭' : 'Close',
+                  label: _heHardnessText(
+                    context,
+                    zh: '关闭',
+                    zhHant: '關閉',
+                    en: 'Close',
+                    fr: 'Fermer',
+                    de: 'Schließen',
+                    ja: '閉じる',
+                  ),
                 ),
               ],
             ),
