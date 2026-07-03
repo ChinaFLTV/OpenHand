@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'openhand_notice_actions.dart';
+
 enum FeatureStateTone { neutral, primary, secondary, error }
 
 enum FeatureStateCardStyle { centered, inline }
@@ -13,6 +15,8 @@ class FeatureStateCard extends StatelessWidget {
     this.tone = FeatureStateTone.primary,
     this.action,
     this.maxWidth = 560,
+    this.copyText,
+    this.onDismiss,
   }) : style = FeatureStateCardStyle.centered,
        trailing = null;
 
@@ -24,6 +28,8 @@ class FeatureStateCard extends StatelessWidget {
     this.tone = FeatureStateTone.neutral,
     this.trailing,
     this.maxWidth,
+    this.copyText,
+    this.onDismiss,
   }) : style = FeatureStateCardStyle.inline,
        action = null;
 
@@ -35,6 +41,8 @@ class FeatureStateCard extends StatelessWidget {
   final Widget? action;
   final Widget? trailing;
   final double? maxWidth;
+  final String? copyText;
+  final VoidCallback? onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +55,7 @@ class FeatureStateCard extends StatelessWidget {
 
   Widget _buildCentered(BuildContext context, _FeatureStateToneColors colors) {
     final theme = Theme.of(context);
+    final noticeActions = _buildNoticeActions(context, colors);
     return Center(
       child: _constrain(
         Card(
@@ -81,7 +90,19 @@ class FeatureStateCard extends StatelessWidget {
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  if (action != null) ...[const SizedBox(height: 20), action!],
+                  if (action != null || noticeActions != null) ...[
+                    const SizedBox(height: 20),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (noticeActions != null) noticeActions,
+                        if (action != null) action!,
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -93,6 +114,19 @@ class FeatureStateCard extends StatelessWidget {
 
   Widget _buildInline(BuildContext context, _FeatureStateToneColors colors) {
     final theme = Theme.of(context);
+    final noticeActions = _buildNoticeActions(context, colors);
+    final trailingActions = trailing == null && noticeActions == null
+        ? null
+        : Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (noticeActions != null) noticeActions,
+              if (trailing != null) trailing!,
+            ],
+          );
     final textArea = _InlineTextArea(
       title: title,
       body: body,
@@ -117,7 +151,10 @@ class FeatureStateCard extends StatelessWidget {
             Expanded(child: textArea)
           else
             Flexible(child: textArea),
-          if (trailing != null) ...[const SizedBox(width: 12), trailing!],
+          if (trailingActions != null) ...[
+            const SizedBox(width: 12),
+            trailingActions,
+          ],
         ],
       ),
     );
@@ -134,6 +171,24 @@ class FeatureStateCard extends StatelessWidget {
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: width),
       child: child,
+    );
+  }
+
+  Widget? _buildNoticeActions(
+    BuildContext context,
+    _FeatureStateToneColors colors,
+  ) {
+    final effectiveCopyText =
+        copyText ?? (tone == FeatureStateTone.error ? body : null);
+    final hasCopy = effectiveCopyText?.trim().isNotEmpty == true;
+    final hasClose = onDismiss != null;
+    if (!hasCopy && !hasClose) return null;
+    return OpenHandNoticeActionButtons(
+      copyText: effectiveCopyText,
+      onDismiss: onDismiss,
+      foregroundColor: colors.text,
+      showCopy: hasCopy,
+      showClose: hasClose,
     );
   }
 }

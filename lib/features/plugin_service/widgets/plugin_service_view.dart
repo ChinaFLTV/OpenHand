@@ -13,6 +13,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../ai/index.dart' show AiPromptTemplatePolicies;
 import '../../mcp/index.dart';
@@ -172,8 +173,10 @@ class _PluginServiceViewState extends State<PluginServiceView> {
       body: _buildBody(context, controller),
       notices: [
         if (controller.errorMessage != null && controller.plugins.isNotEmpty)
-          _ErrorBanner(
-            message: controller.errorMessage!,
+          OpenHandInlineNoticeFactory.error(
+            context,
+            controller.errorMessage!,
+            copyText: controller.errorMessage,
             onDismiss: controller.clearError,
           ),
       ],
@@ -220,62 +223,6 @@ class _PluginServiceViewState extends State<PluginServiceView> {
           const SizedBox(height: 12),
         ],
       ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 错误横幅
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message, required this.onDismiss});
-
-  final String message;
-  final VoidCallback onDismiss;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.error.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(
-              Icons.warning_amber_rounded,
-              size: 18,
-              color: theme.colorScheme.error,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Text(
-                message,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onErrorContainer,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: onDismiss,
-            icon: const Icon(Icons.close, size: 16),
-            visualDensity: VisualDensity.compact,
-          ),
-        ],
-      ),
     );
   }
 }
@@ -468,53 +415,28 @@ class _PluginCard extends StatelessWidget {
               const SizedBox(height: 10),
               _DependencyRow(plugin: plugin, controller: controller),
             ],
-            AnimatedSize(
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topLeft,
+            OpenHandInlineNoticeSlot(
               child:
                   plugin.status == PluginStatus.error &&
                       plugin.errorMessage != null
                   ? Padding(
                       padding: const EdgeInsets.only(top: 10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.errorContainer.withValues(
-                            alpha: 0.3,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 280),
+                        child: OpenHandInlineNoticeFactory.error(
+                          context,
+                          plugin.errorMessage!,
+                          copyText: plugin.errorMessage,
+                          onDismiss: () =>
+                              controller.clearPluginError(plugin.id),
+                          messageStyle: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onErrorContainer,
+                            fontFamily: 'monospace',
                           ),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: theme.colorScheme.error.withValues(
-                              alpha: 0.2,
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              Icons.error_outline_rounded,
-                              size: 16,
-                              color: theme.colorScheme.error,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                plugin.errorMessage!,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.error,
-                                ),
-                              ),
-                            ),
-                          ],
                         ),
                       ),
                     )
-                  : const SizedBox.shrink(),
+                  : null,
             ),
           ],
         ),

@@ -113,6 +113,7 @@ class PluginInfo {
     bool? supportsUninstall,
     Map<String, Object?>? metadata,
     String? errorMessage,
+    bool clearErrorMessage = false,
   }) {
     return PluginInfo(
       id: id ?? this.id,
@@ -127,7 +128,9 @@ class PluginInfo {
       dependents: dependents ?? this.dependents,
       supportsUninstall: supportsUninstall ?? this.supportsUninstall,
       metadata: metadata ?? this.metadata,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: clearErrorMessage
+          ? null
+          : errorMessage ?? this.errorMessage,
     );
   }
 }

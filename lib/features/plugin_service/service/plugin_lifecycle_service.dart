@@ -19,6 +19,7 @@ const Duration _pluginLifecycleStreamDrainTimeout = Duration(milliseconds: 800);
 const Duration _pluginLifecycleTerminateGrace = Duration(milliseconds: 500);
 const int _pluginLifecycleMaxCapturedLines = 500;
 const int _pluginLifecycleMaxProgressLineChars = 4000;
+const int _pluginLifecycleMaxErrorMessageChars = 20000;
 const String _hermesAgentNpmPackage = 'hermes-agent';
 const String _hermesAgentPrimaryCommand = 'hermes-agent';
 const String _hermesAgentFallbackCommand = 'hermes';
@@ -31,6 +32,51 @@ String? homebrewStableVersionFromDecoded(Object? decoded) {
   final versions = stringKeyedMapFromValue(formulae.first['versions']);
   final stable = '${versions['stable'] ?? ''}'.trim();
   return stable.isEmpty ? null : stable;
+}
+
+@visibleForTesting
+bool pluginLifecycleOutputHasPyPiTlsFailure(String output) {
+  final lower = output.toLowerCase();
+  return lower.contains('certificate_verify_failed') ||
+      (lower.contains('unable to get local issuer certificate') &&
+          (lower.contains('pypi.org') || lower.contains('/simple/')));
+}
+
+@visibleForTesting
+String hermesAgentNpmFailureMessage({
+  required String label,
+  required String output,
+  bool tlsRetryAttempted = false,
+  String? tlsBundle,
+}) {
+  final trimmed = output.trim();
+  final lower = trimmed.toLowerCase();
+  final hasTlsFailure = pluginLifecycleOutputHasPyPiTlsFailure(trimmed);
+  final hasMetadataFailure =
+      lower.contains('could not fetch url') || lower.contains('/simple/');
+  final hasNoMatchingDistribution = lower.contains(
+    'no matching distribution found',
+  );
+  final lines = <String>['npm 安装 $label 失败。'];
+  if (hasTlsFailure) {
+    lines.add('诊断：npm postinstall 调用 pip 访问 PyPI 时证书校验失败，导致 Python 包元数据无法获取。');
+    if (tlsRetryAttempted && tlsBundle != null && tlsBundle.isNotEmpty) {
+      lines.add('已使用 CA bundle 重试：$tlsBundle。');
+    } else {
+      lines.add('未找到可用 CA bundle，无法自动完成证书兜底重试。');
+    }
+    lines.add('请检查系统代理、企业根证书或 Python / Node.js 信任链，然后重试。');
+  } else if (hasMetadataFailure) {
+    lines.add('诊断：pip 无法从 PyPI 获取包元数据，请检查代理、DNS 与网络连通性。');
+  } else if (hasNoMatchingDistribution) {
+    lines.add('诊断：pip 未找到匹配的 Hermes Agent Python 包版本，请检查当前 Python 版本与包发布状态。');
+  }
+  if (trimmed.isNotEmpty) {
+    lines.add(
+      '原始输出：\n${clipTextWithEllipsis(trimmed, _pluginLifecycleMaxErrorMessageChars)}',
+    );
+  }
+  return lines.join('\n');
 }
 
 /// 插件生命周期操作结果。
@@ -72,6 +118,42 @@ class PluginLifecycleService {
   /// 透明代理环境下 install / update 会因 TCP 握手失败而超时。
   static Map<String, String> _proxyEnv() {
     return SystemProxyResolver.instance.resolveSubprocessEnvironment();
+  }
+
+  static Map<String, String> _npmGlobalPackageEnv({String? tlsBundle}) {
+    final proxy = _proxyEnv();
+    final env = <String, String>{
+      ...proxy,
+      'PIP_DISABLE_PIP_VERSION_CHECK': '1',
+      'PIP_RETRIES': '2',
+      'PIP_DEFAULT_TIMEOUT': '60',
+      'npm_config_fetch_retries': '2',
+      'npm_config_fetch_retry_maxtimeout': '30000',
+      'npm_config_fetch_timeout': '120000',
+    };
+
+    final httpProxy = proxy['HTTP_PROXY'] ?? proxy['http_proxy'];
+    final httpsProxy = proxy['HTTPS_PROXY'] ?? proxy['https_proxy'];
+    final noProxy = proxy['NO_PROXY'] ?? proxy['no_proxy'];
+    if (httpProxy != null && httpProxy.isNotEmpty) {
+      env['npm_config_proxy'] = httpProxy;
+    }
+    if (httpsProxy != null && httpsProxy.isNotEmpty) {
+      env['npm_config_https_proxy'] = httpsProxy;
+    }
+    if (noProxy != null && noProxy.isNotEmpty) {
+      env['npm_config_noproxy'] = noProxy;
+    }
+
+    if (tlsBundle != null && tlsBundle.isNotEmpty) {
+      env['PIP_CERT'] = tlsBundle;
+      env['SSL_CERT_FILE'] = tlsBundle;
+      env['REQUESTS_CA_BUNDLE'] = tlsBundle;
+      env['CURL_CA_BUNDLE'] = tlsBundle;
+      env['NODE_EXTRA_CA_CERTS'] = tlsBundle;
+      env['npm_config_cafile'] = tlsBundle;
+    }
+    return env;
   }
 
   Future<bool> _isExecutableAvailable(String executable) async {
@@ -869,11 +951,12 @@ fi
     required List<String> verifyCommands,
     void Function(String line)? onProgress,
   }) async {
+    final environment = _npmGlobalPackageEnv();
     final nodeCheck = await runTrackedProcessOrFailed(
       'node',
       ['--version'],
       timeout: _pluginLifecycleVerifyTimeout,
-      environment: _proxyEnv(),
+      environment: environment,
       tag: 'plugin_lifecycle.node_check.$packageName',
     );
     if (nodeCheck.exitCode != 0) {
@@ -886,7 +969,7 @@ fi
       'npm',
       ['--version'],
       timeout: _pluginLifecycleVerifyTimeout,
-      environment: _proxyEnv(),
+      environment: environment,
       tag: 'plugin_lifecycle.npm_check.$packageName',
     );
     if (npmCheck.exitCode != 0) {
@@ -895,18 +978,55 @@ fi
         message: '$label 依赖 npm，请先确认 npm 已随 Node.js 安装并可执行。',
       );
     }
+    final preexisting = await _verifyAnyCommandVersion(verifyCommands);
     onProgress?.call('通过 npm 安装/更新 $label…');
-    final result = await _runWithProgress(
+    var result = await _runWithProgress(
       'npm',
       ['install', '-g', '$packageName@latest'],
       onProgress: onProgress,
       timeout: const Duration(minutes: 6),
-      environment: _proxyEnv(),
+      environment: environment,
     );
+    String? tlsBundle;
+    var tlsRetryAttempted = false;
+    final firstOutput = _combinedProcessOutput(result);
+    if (result.exitCode != 0 &&
+        pluginLifecycleOutputHasPyPiTlsFailure(firstOutput)) {
+      tlsBundle = await _detectTlsBundleAfterFailure(firstOutput);
+      if (tlsBundle != null) {
+        tlsRetryAttempted = true;
+        onProgress?.call('检测到 PyPI TLS 证书校验失败，使用 CA bundle 重试：$tlsBundle');
+        result = await _runWithProgress(
+          'npm',
+          ['install', '-g', '$packageName@latest'],
+          onProgress: onProgress,
+          timeout: const Duration(minutes: 6),
+          environment: _npmGlobalPackageEnv(tlsBundle: tlsBundle),
+        );
+      }
+    }
     if (result.exitCode != 0) {
+      if (preexisting == null) {
+        await _cleanupFailedNpmGlobalInstall(
+          packageName: packageName,
+          label: label,
+          environment: _npmGlobalPackageEnv(tlsBundle: tlsBundle),
+          onProgress: onProgress,
+        );
+      }
+      final output = tlsRetryAttempted
+          ? '首次输出：\n$firstOutput\n\n重试输出：\n${_combinedProcessOutput(result)}'
+          : _combinedProcessOutput(result);
       return PluginOperationResult(
         success: false,
-        message: 'npm 安装 $label 失败: ${_processErrorMessage(result)}',
+        message: packageName == _hermesAgentNpmPackage
+            ? hermesAgentNpmFailureMessage(
+                label: label,
+                output: output,
+                tlsRetryAttempted: tlsRetryAttempted,
+                tlsBundle: tlsBundle,
+              )
+            : 'npm 安装 $label 失败: ${_processErrorMessage(result)}',
       );
     }
 
@@ -929,16 +1049,25 @@ fi
   Future<PluginOperationResult> _uninstallNpmGlobalPackage({
     required String packageName,
     required String label,
+    List<String> verifyCommands = const <String>[],
     void Function(String line)? onProgress,
   }) async {
+    final environment = _npmGlobalPackageEnv();
     final npmCheck = await runTrackedProcessOrFailed(
       'npm',
       ['--version'],
       timeout: _pluginLifecycleVerifyTimeout,
-      environment: _proxyEnv(),
+      environment: environment,
       tag: 'plugin_lifecycle.npm_check.$packageName',
     );
     if (npmCheck.exitCode != 0) {
+      if (verifyCommands.isNotEmpty &&
+          await _verifyAnyCommandVersion(verifyCommands) == null) {
+        return PluginOperationResult(
+          success: true,
+          message: '$label 未检测到可执行命令，无需卸载。',
+        );
+      }
       return PluginOperationResult(
         success: false,
         message: '未检测到 npm，无法安全卸载 $label。',
@@ -950,10 +1079,15 @@ fi
       ['uninstall', '-g', packageName],
       onProgress: onProgress,
       timeout: const Duration(minutes: 4),
-      environment: _proxyEnv(),
+      environment: environment,
     );
     if (result.exitCode == 0) {
       onProgress?.call('$label 已卸载');
+      return PluginOperationResult(success: true, message: '$label 已卸载');
+    }
+    if (verifyCommands.isNotEmpty &&
+        await _verifyAnyCommandVersion(verifyCommands) == null) {
+      onProgress?.call('$label 可执行命令已不存在，视为已卸载');
       return PluginOperationResult(success: true, message: '$label 已卸载');
     }
     return PluginOperationResult(
@@ -980,6 +1114,72 @@ fi
       );
     }
     return null;
+  }
+
+  Future<String?> _detectTlsBundleAfterFailure(String output) async {
+    if (!pluginLifecycleOutputHasPyPiTlsFailure(output)) return null;
+    final certifi = await _probeCertifiBundle();
+    if (certifi != null && File(certifi).existsSync()) return certifi;
+    for (final candidate in const <String>[
+      '/etc/ssl/cert.pem',
+      '/private/etc/ssl/cert.pem',
+      '/etc/ssl/certs/ca-certificates.crt',
+      '/opt/homebrew/etc/openssl@3/cert.pem',
+      '/usr/local/etc/openssl@3/cert.pem',
+    ]) {
+      if (File(candidate).existsSync()) return candidate;
+    }
+    return null;
+  }
+
+  Future<String?> _probeCertifiBundle() async {
+    for (final executable in const <String>['python3', 'python']) {
+      try {
+        final result = await runTrackedProcessOrFailed(
+          executable,
+          const <String>['-c', 'import certifi; print(certifi.where())'],
+          timeout: const Duration(seconds: 2),
+          environment: _proxyEnv(),
+          tag: 'plugin_lifecycle.probe_certifi.$executable',
+        );
+        if (result.exitCode != 0) continue;
+        final path = result.stdout.toString().trim();
+        if (path.isNotEmpty) return path;
+      } catch (error, stack) {
+        silentLog(
+          'plugin_lifecycle',
+          'probe certifi bundle $executable',
+          error,
+          stack,
+        );
+      }
+    }
+    return null;
+  }
+
+  Future<void> _cleanupFailedNpmGlobalInstall({
+    required String packageName,
+    required String label,
+    required Map<String, String> environment,
+    void Function(String line)? onProgress,
+  }) async {
+    onProgress?.call('清理未完成的 $label npm 安装…');
+    final cleanup = await _runWithProgress(
+      'npm',
+      ['uninstall', '-g', packageName],
+      onProgress: onProgress,
+      timeout: const Duration(minutes: 2),
+      environment: environment,
+    );
+    if (cleanup.exitCode == 0) {
+      onProgress?.call('$label 半安装残留已清理');
+      return;
+    }
+    silentLog(
+      'plugin_lifecycle',
+      'cleanup failed npm install',
+      _processErrorMessage(cleanup),
+    );
   }
 
   String _androidReverseToolRoot() {
@@ -2117,6 +2317,10 @@ exit 4
   }) => _uninstallNpmGlobalPackage(
     packageName: _hermesAgentNpmPackage,
     label: 'Hermes Agent',
+    verifyCommands: const <String>[
+      _hermesAgentPrimaryCommand,
+      _hermesAgentFallbackCommand,
+    ],
     onProgress: onProgress,
   );
 
@@ -2454,6 +2658,12 @@ String _timeoutMessage(Duration timeout) {
 String _processErrorMessage(_SimpleProcessResult result) {
   if (result.stderr.trim().isNotEmpty) return result.stderr.trim();
   if (result.stdout.trim().isNotEmpty) return result.stdout.trim();
+  return '进程退出码 ${result.exitCode}';
+}
+
+String _combinedProcessOutput(_SimpleProcessResult result) {
+  final output = '${result.stderr}\n${result.stdout}'.trim();
+  if (output.isNotEmpty) return output;
   return '进程退出码 ${result.exitCode}';
 }
 

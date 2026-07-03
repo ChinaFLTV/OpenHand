@@ -1,0 +1,54 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/features/plugin_service/model/plugin_info.dart';
+import 'package:openhand/features/plugin_service/service/plugin_lifecycle_service.dart';
+
+void main() {
+  group('Hermes Agent npm failure diagnostics', () {
+    test('prioritizes PyPI TLS failures over missing distribution noise', () {
+      const output = '''
+npm error Could not fetch URL https://pypi.org/simple/hermes-agent/: There was a problem confirming the ssl certificate
+npm error SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate'))
+npm error ERROR: Could not find a version that satisfies the requirement hermes-agent==0.18.0 (from versions: none)
+npm error ERROR: No matching distribution found for hermes-agent==0.18.0
+''';
+
+      expect(pluginLifecycleOutputHasPyPiTlsFailure(output), isTrue);
+
+      final message = hermesAgentNpmFailureMessage(
+        label: 'Hermes Agent',
+        output: output,
+      );
+
+      expect(message, contains('证书校验失败'));
+      expect(message, contains('Python 包元数据无法获取'));
+      expect(message, contains('原始输出'));
+    });
+
+    test('records the CA bundle used for TLS retry', () {
+      final message = hermesAgentNpmFailureMessage(
+        label: 'Hermes Agent',
+        output: 'CERTIFICATE_VERIFY_FAILED while reaching pypi.org/simple/',
+        tlsRetryAttempted: true,
+        tlsBundle: '/etc/ssl/cert.pem',
+      );
+
+      expect(message, contains('/etc/ssl/cert.pem'));
+      expect(message, contains('已使用 CA bundle 重试'));
+    });
+  });
+
+  group('PluginInfo.copyWith', () {
+    test('can explicitly clear an existing error message', () {
+      const plugin = PluginInfo(
+        id: 'hermes_agent',
+        name: 'Hermes Agent',
+        description: 'runtime',
+        status: PluginStatus.error,
+        errorMessage: 'failed',
+      );
+
+      expect(plugin.copyWith().errorMessage, 'failed');
+      expect(plugin.copyWith(clearErrorMessage: true).errorMessage, isNull);
+    });
+  });
+}

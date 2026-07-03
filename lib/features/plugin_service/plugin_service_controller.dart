@@ -413,6 +413,29 @@ class PluginServiceController extends ManagedChangeNotifier {
     notifyListeners();
   }
 
+  void clearPluginError(String pluginId) {
+    final plugin = pluginById(pluginId);
+    if (plugin == null || plugin.errorMessage == null) return;
+    final wasOperationFailure =
+        _errorMessage != null && _errorMessage == plugin.errorMessage;
+    _plugins = [
+      for (final p in _plugins)
+        if (p.id == pluginId)
+          p.copyWith(
+            status: wasOperationFailure
+                ? _restoredStatusAfterFailedOperation(p)
+                : p.status,
+            clearErrorMessage: true,
+          )
+        else
+          p,
+    ];
+    if (wasOperationFailure) {
+      _errorMessage = null;
+    }
+    notifyListeners();
+  }
+
   /// 强制取消当前操作（用户关闭进度弹窗时调用）。
   /// 重置操作状态并触发重新扫描以恢复真实状态。
   void forceCancel() {
@@ -423,6 +446,15 @@ class PluginServiceController extends ManagedChangeNotifier {
     ];
     notifyListeners();
     rescan();
+  }
+
+  PluginStatus _restoredStatusAfterFailedOperation(PluginInfo plugin) {
+    final hasInstalledSignal =
+        plugin.installedVersion?.trim().isNotEmpty == true ||
+        plugin.installPath?.trim().isNotEmpty == true;
+    return hasInstalledSignal
+        ? PluginStatus.installed
+        : PluginStatus.notInstalled;
   }
 
   void _addLog(String line) {
@@ -438,7 +470,11 @@ class PluginServiceController extends ManagedChangeNotifier {
     _plugins = [
       for (final p in _plugins)
         if (p.id == pluginId)
-          p.copyWith(status: status, errorMessage: errorMessage)
+          p.copyWith(
+            status: status,
+            errorMessage: errorMessage,
+            clearErrorMessage: errorMessage == null,
+          )
         else
           p,
     ];
