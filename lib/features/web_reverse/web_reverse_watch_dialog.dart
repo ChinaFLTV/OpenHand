@@ -19,6 +19,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/date_time_format.dart';
+import '../../shared/util/localized_text.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
@@ -169,14 +170,18 @@ class _WatchDialogState extends State<_WatchDialog> {
   }
 
   void _addExpr() {
-    final loc = AppLocalizations.of(context);
     if (_exprs.length >= _kWatchMaxExpressions) {
-      final isZh = loc?.localeName.startsWith('zh') ?? false;
       OpenHandSnackBar.showError(
         context,
-        isZh
-            ? '监视表达式最多 $_kWatchMaxExpressions 条'
-            : 'Watch limit reached ($_kWatchMaxExpressions)',
+        openHandLocalizedText(
+          context,
+          zh: '监视表达式最多 $_kWatchMaxExpressions 条',
+          zhHant: '監視表達式最多 $_kWatchMaxExpressions 條',
+          en: 'Watch limit reached ($_kWatchMaxExpressions)',
+          fr: 'Limite de surveillance atteinte ($_kWatchMaxExpressions)',
+          de: 'Watch-Limit erreicht ($_kWatchMaxExpressions)',
+          ja: '監視式の上限に達しました（$_kWatchMaxExpressions）',
+        ),
       );
       return;
     }
@@ -185,7 +190,15 @@ class _WatchDialogState extends State<_WatchDialog> {
     if (code.length > _kWatchMaxExpressionChars) {
       OpenHandSnackBar.showError(
         context,
-        'Expression too large: ${code.length}/$_kWatchMaxExpressionChars',
+        openHandLocalizedText(
+          context,
+          zh: '表达式过大：${code.length}/$_kWatchMaxExpressionChars',
+          zhHant: '表達式過大：${code.length}/$_kWatchMaxExpressionChars',
+          en: 'Expression too large: ${code.length}/$_kWatchMaxExpressionChars',
+          fr: 'Expression trop volumineuse : ${code.length}/$_kWatchMaxExpressionChars',
+          de: 'Ausdruck zu groß: ${code.length}/$_kWatchMaxExpressionChars',
+          ja: '式が大きすぎます: ${code.length}/$_kWatchMaxExpressionChars',
+        ),
       );
       return;
     }
