@@ -402,7 +402,7 @@ class _HePaneHeader extends StatelessWidget {
     showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) =>
-          _HeSteeringAssetsDialog(steeringRoot: steeringRoot, isZh: isZh),
+          _HeSteeringAssetsDialog(steeringRoot: steeringRoot),
     );
   }
 }

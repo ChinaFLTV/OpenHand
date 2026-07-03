@@ -1,13 +1,9 @@
 part of 'hardness_session_dashboard.dart';
 
 class _HeSteeringAssetsDialog extends StatefulWidget {
-  const _HeSteeringAssetsDialog({
-    required this.steeringRoot,
-    required this.isZh,
-  });
+  const _HeSteeringAssetsDialog({required this.steeringRoot});
 
   final String steeringRoot;
-  final bool isZh;
 
   @override
   State<_HeSteeringAssetsDialog> createState() =>
@@ -23,15 +19,6 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
 
   /// Whether we're still scanning.
   bool _loading = true;
-
-  static const _directoryDescriptions = <String, (String, String)>{
-    'meta': ('元信息 — 架构、约定、配置', 'Meta — architecture, conventions, config'),
-    'plan': ('规划 — 阶段计划文件', 'Plans — phase planning files'),
-    'feedback': ('反馈 — 验收与审查反馈', 'Feedback — review & acceptance feedback'),
-    'handoff': ('交接 — 阶段间交接文件', 'Handoff — inter-phase handoff files'),
-    'lesson': ('记忆 — 经验教训文件', 'Lessons — lessons learned files'),
-    'log': ('日志 — 运行日志', 'Logs — runtime log files'),
-  };
 
   @override
   void initState() {
@@ -110,14 +97,71 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
   void _openFileEditor(_HeSteeringEntry entry) {
     showAnimatedDialog<void>(
       context: context,
-      builder: (_) => _HeSteeringFileEditorDialog(
-        filePath: entry.absolutePath,
-        isZh: widget.isZh,
-      ),
+      builder: (_) => _HeSteeringFileEditorDialog(filePath: entry.absolutePath),
     ).then((_) {
       // Refresh in case file was modified.
       _scanDirectory();
     });
+  }
+
+  String? _directoryDescription(BuildContext context, String name) {
+    return switch (name) {
+      'meta' => _heHardnessText(
+        context,
+        zh: '元信息 - 架构、约定、配置',
+        zhHant: '元資訊 - 架構、慣例、設定',
+        en: 'Meta - architecture, conventions, config',
+        fr: 'Métadonnées - architecture, conventions, configuration',
+        de: 'Meta - Architektur, Konventionen, Konfiguration',
+        ja: 'メタ - アーキテクチャ、規約、設定',
+      ),
+      'plan' => _heHardnessText(
+        context,
+        zh: '规划 - 阶段计划文件',
+        zhHant: '規劃 - 階段計畫檔案',
+        en: 'Plans - phase planning files',
+        fr: 'Plans - fichiers de planification des phases',
+        de: 'Pläne - Phasenplanungsdateien',
+        ja: '計画 - フェーズ計画ファイル',
+      ),
+      'feedback' => _heHardnessText(
+        context,
+        zh: '反馈 - 验收与审查反馈',
+        zhHant: '回饋 - 驗收與審查回饋',
+        en: 'Feedback - review and acceptance feedback',
+        fr: 'Retours - validation et revue',
+        de: 'Feedback - Abnahme und Prüfung',
+        ja: 'フィードバック - 受け入れとレビュー',
+      ),
+      'handoff' => _heHardnessText(
+        context,
+        zh: '交接 - 阶段间交接文件',
+        zhHant: '交接 - 階段間交接檔案',
+        en: 'Handoff - inter-phase handoff files',
+        fr: 'Transfert - fichiers entre phases',
+        de: 'Übergabe - Dateien zwischen Phasen',
+        ja: '引き継ぎ - フェーズ間ファイル',
+      ),
+      'lesson' => _heHardnessText(
+        context,
+        zh: '记忆 - 经验教训文件',
+        zhHant: '記憶 - 經驗教訓檔案',
+        en: 'Lessons - lessons learned files',
+        fr: 'Leçons - retours d’expérience',
+        de: 'Lessons - Erfahrungsdateien',
+        ja: '学び - 教訓ファイル',
+      ),
+      'log' => _heHardnessText(
+        context,
+        zh: '日志 - 运行日志',
+        zhHant: '日誌 - 執行日誌',
+        en: 'Logs - runtime log files',
+        fr: 'Journaux - fichiers d’exécution',
+        de: 'Logs - Laufzeitprotokolle',
+        ja: 'ログ - 実行ログ',
+      ),
+      _ => null,
+    };
   }
 
   @override
@@ -147,7 +191,15 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    widget.isZh ? '资产文件浏览器' : 'Steering Assets Browser',
+                    _heHardnessText(
+                      context,
+                      zh: '资产文件浏览器',
+                      zhHant: '資產檔案瀏覽器',
+                      en: 'Steering Assets Browser',
+                      fr: 'Explorateur des ressources de pilotage',
+                      de: 'Steuerungsdatei-Browser',
+                      ja: 'ステアリング資産ブラウザー',
+                    ),
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -162,11 +214,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
             const SizedBox(height: 12),
 
             // ── Breadcrumb ──
-            _HeBreadcrumb(
-              segments: _pathSegments,
-              isZh: widget.isZh,
-              onNavigate: _navigateTo,
-            ),
+            _HeBreadcrumb(segments: _pathSegments, onNavigate: _navigateTo),
             const SizedBox(height: 8),
             const Divider(height: 1),
 
@@ -187,7 +235,15 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
                     ? Center(
                         key: const ValueKey<String>('empty'),
                         child: Text(
-                          widget.isZh ? '此目录为空' : 'This directory is empty',
+                          _heHardnessText(
+                            context,
+                            zh: '此目录为空',
+                            zhHant: '此目錄為空',
+                            en: 'This directory is empty',
+                            fr: 'Ce dossier est vide',
+                            de: 'Dieser Ordner ist leer',
+                            ja: 'このディレクトリは空です',
+                          ),
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -204,10 +260,9 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
                           final entry = _entries[i];
                           return _HeSteeringEntryTile(
                             entry: entry,
-                            isZh: widget.isZh,
                             description:
                                 entry.isDirectory && _pathSegments.isEmpty
-                                ? _directoryDescriptions[entry.name]
+                                ? _directoryDescription(context, entry.name)
                                 : null,
                             onTap: () => _onEntryTap(entry),
                           );
@@ -243,14 +298,9 @@ class _HeSteeringEntry {
 // ── Breadcrumb ──
 
 class _HeBreadcrumb extends StatelessWidget {
-  const _HeBreadcrumb({
-    required this.segments,
-    required this.isZh,
-    required this.onNavigate,
-  });
+  const _HeBreadcrumb({required this.segments, required this.onNavigate});
 
   final List<String> segments;
-  final bool isZh;
   final void Function(List<String>) onNavigate;
 
   @override
@@ -260,7 +310,7 @@ class _HeBreadcrumb extends StatelessWidget {
     final items = <Widget>[
       _breadcrumbChip(
         context,
-        label: isZh ? 'steering' : 'steering',
+        label: 'steering',
         icon: Icons.home_rounded,
         onTap: () => onNavigate([]),
         isLast: segments.isEmpty,
@@ -347,14 +397,12 @@ class _HeBreadcrumb extends StatelessWidget {
 class _HeSteeringEntryTile extends StatelessWidget {
   const _HeSteeringEntryTile({
     required this.entry,
-    required this.isZh,
     this.description,
     required this.onTap,
   });
 
   final _HeSteeringEntry entry;
-  final bool isZh;
-  final (String, String)? description;
+  final String? description;
   final VoidCallback onTap;
 
   String _formatDate(DateTime dt) {
@@ -389,8 +437,6 @@ class _HeSteeringEntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final desc = description;
-    final descText = desc != null ? (isZh ? desc.$1 : desc.$2) : null;
 
     return Material(
       color: Colors.transparent,
@@ -414,11 +460,11 @@ class _HeSteeringEntryTile extends StatelessWidget {
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (descText != null)
+                    if (description != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
-                          descText,
+                          description!,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -466,13 +512,9 @@ class _HeSteeringEntryTile extends StatelessWidget {
 // =============================================================================
 
 class _HeSteeringFileEditorDialog extends StatefulWidget {
-  const _HeSteeringFileEditorDialog({
-    required this.filePath,
-    required this.isZh,
-  });
+  const _HeSteeringFileEditorDialog({required this.filePath});
 
   final String filePath;
-  final bool isZh;
 
   @override
   State<_HeSteeringFileEditorDialog> createState() =>
@@ -527,13 +569,25 @@ class _HeSteeringFileEditorDialogState
       final isFs = raw.startsWith('FileSystemException');
       String friendly;
       if (isMissing) {
-        friendly = widget.isZh
-            ? '文件已不存在或路径已被移动。\n原始错误：$raw'
-            : 'File no longer exists or has been moved.\nRaw: $raw';
+        friendly = _heHardnessText(
+          context,
+          zh: '文件已不存在或路径已被移动。\n原始错误：$raw',
+          zhHant: '檔案已不存在或路徑已移動。\n原始錯誤：$raw',
+          en: 'File no longer exists or has been moved.\nRaw: $raw',
+          fr: 'Le fichier n’existe plus ou a été déplacé.\nBrut : $raw',
+          de: 'Die Datei existiert nicht mehr oder wurde verschoben.\nRaw: $raw',
+          ja: 'ファイルが存在しないか移動されています。\nRaw: $raw',
+        );
       } else if (isFs) {
-        friendly = widget.isZh
-            ? '读取文件失败 (可能是权限不足 / 编码异常 / 磁盘错误)。\n原始错误：$raw'
-            : 'Failed to read file (permission, encoding, or disk error).\nRaw: $raw';
+        friendly = _heHardnessText(
+          context,
+          zh: '读取文件失败 (可能是权限不足 / 编码异常 / 磁盘错误)。\n原始错误：$raw',
+          zhHant: '讀取檔案失敗 (可能是權限不足 / 編碼異常 / 磁碟錯誤)。\n原始錯誤：$raw',
+          en: 'Failed to read file (permission, encoding, or disk error).\nRaw: $raw',
+          fr: 'Impossible de lire le fichier (permission, encodage ou disque).\nBrut : $raw',
+          de: 'Datei konnte nicht gelesen werden (Berechtigung, Kodierung oder Datenträger).\nRaw: $raw',
+          ja: 'ファイルを読み取れませんでした（権限、文字コード、ディスクエラーの可能性）。\nRaw: $raw',
+        );
       } else {
         friendly = raw;
       }
@@ -563,7 +617,17 @@ class _HeSteeringFileEditorDialogState
       _showHardnessSnackBar(
         context,
         SnackBar(
-          content: Text(widget.isZh ? '文件已保存' : 'File saved'),
+          content: Text(
+            _heHardnessText(
+              context,
+              zh: '文件已保存',
+              zhHant: '檔案已儲存',
+              en: 'File saved',
+              fr: 'Fichier enregistré',
+              de: 'Datei gespeichert',
+              ja: 'ファイルを保存しました',
+            ),
+          ),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -573,7 +637,15 @@ class _HeSteeringFileEditorDialogState
       showFriendlyErrorSnackBar(
         context,
         message: '$e',
-        fallback: widget.isZh ? '保存失败' : 'Save failed',
+        fallback: _heHardnessText(
+          context,
+          zh: '保存失败',
+          zhHant: '儲存失敗',
+          en: 'Save failed',
+          fr: 'Échec de l’enregistrement',
+          de: 'Speichern fehlgeschlagen',
+          ja: '保存に失敗しました',
+        ),
       );
     }
   }
@@ -582,12 +654,42 @@ class _HeSteeringFileEditorDialogState
     if (!_dirty) return Future<bool>.value(true);
     return showOpenHandConfirmDialog(
       context: context,
-      title: widget.isZh ? '放弃更改？' : 'Discard changes?',
-      message: widget.isZh
-          ? '你有未保存的更改，确定要放弃吗？'
-          : 'You have unsaved changes. Discard them?',
-      cancelLabel: widget.isZh ? '取消' : 'Cancel',
-      confirmLabel: widget.isZh ? '放弃' : 'Discard',
+      title: _heHardnessText(
+        context,
+        zh: '放弃更改？',
+        zhHant: '放棄變更？',
+        en: 'Discard changes?',
+        fr: 'Ignorer les modifications ?',
+        de: 'Änderungen verwerfen?',
+        ja: '変更を破棄しますか？',
+      ),
+      message: _heHardnessText(
+        context,
+        zh: '你有未保存的更改，确定要放弃吗？',
+        zhHant: '你有未儲存的變更，確定要放棄嗎？',
+        en: 'You have unsaved changes. Discard them?',
+        fr: 'Vous avez des modifications non enregistrées. Les ignorer ?',
+        de: 'Es gibt ungespeicherte Änderungen. Verwerfen?',
+        ja: '未保存の変更があります。破棄しますか？',
+      ),
+      cancelLabel: _heHardnessText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _heHardnessText(
+        context,
+        zh: '放弃',
+        zhHant: '放棄',
+        en: 'Discard',
+        fr: 'Ignorer',
+        de: 'Verwerfen',
+        ja: '破棄',
+      ),
       destructive: true,
     );
   }
@@ -800,8 +902,24 @@ class _HeSteeringFileEditorDialogState
                   if (isMarkdown)
                     IconButton(
                       tooltip: _showPreview
-                          ? (widget.isZh ? '隐藏预览' : 'Hide preview')
-                          : (widget.isZh ? '显示预览' : 'Show preview'),
+                          ? _heHardnessText(
+                              context,
+                              zh: '隐藏预览',
+                              zhHant: '隱藏預覽',
+                              en: 'Hide preview',
+                              fr: 'Masquer l’aperçu',
+                              de: 'Vorschau ausblenden',
+                              ja: 'プレビューを非表示',
+                            )
+                          : _heHardnessText(
+                              context,
+                              zh: '显示预览',
+                              zhHant: '顯示預覽',
+                              en: 'Show preview',
+                              fr: 'Afficher l’aperçu',
+                              de: 'Vorschau anzeigen',
+                              ja: 'プレビューを表示',
+                            ),
                       onPressed: () =>
                           setState(() => _showPreview = !_showPreview),
                       icon: Icon(
@@ -828,7 +946,7 @@ class _HeSteeringFileEditorDialogState
 
               // ── Markdown toolbar ──
               if (isMarkdown && !_loading && _error == null) ...[
-                _buildToolbar(theme, colorScheme),
+                _buildToolbar(context, theme, colorScheme),
                 const SizedBox(height: 6),
               ],
 
@@ -858,7 +976,11 @@ class _HeSteeringFileEditorDialogState
                           key: const ValueKey<String>('split'),
                           children: [
                             Expanded(
-                              child: _buildEditorPane(theme, colorScheme),
+                              child: _buildEditorPane(
+                                context,
+                                theme,
+                                colorScheme,
+                              ),
                             ),
                             const SizedBox(width: 10),
                             VerticalDivider(
@@ -867,13 +989,17 @@ class _HeSteeringFileEditorDialogState
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: _buildPreviewPane(theme, colorScheme),
+                              child: _buildPreviewPane(
+                                context,
+                                theme,
+                                colorScheme,
+                              ),
                             ),
                           ],
                         )
                       : KeyedSubtree(
                           key: const ValueKey<String>('editor'),
-                          child: _buildEditorPane(theme, colorScheme),
+                          child: _buildEditorPane(context, theme, colorScheme),
                         ),
                 ),
               ),
@@ -897,9 +1023,15 @@ class _HeSteeringFileEditorDialogState
                                   .where((w) => w.isNotEmpty)
                                   .length;
                         return Text(
-                          widget.isZh
-                              ? '${t.length} 字符  $words 词'
-                              : '${t.length} chars  $words words',
+                          _heHardnessText(
+                            context,
+                            zh: '${t.length} 字符  $words 词',
+                            zhHant: '${t.length} 字元  $words 詞',
+                            en: '${t.length} chars  $words words',
+                            fr: '${t.length} car.  $words mots',
+                            de: '${t.length} Zeichen  $words Wörter',
+                            ja: '${t.length} 文字  $words 語',
+                          ),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -911,7 +1043,15 @@ class _HeSteeringFileEditorDialogState
                     Padding(
                       padding: const EdgeInsets.only(right: 12),
                       child: Text(
-                        widget.isZh ? '有未保存的更改' : 'Unsaved changes',
+                        _heHardnessText(
+                          context,
+                          zh: '有未保存的更改',
+                          zhHant: '有未儲存的變更',
+                          en: 'Unsaved changes',
+                          fr: 'Modifications non enregistrées',
+                          de: 'Ungespeicherte Änderungen',
+                          ja: '未保存の変更があります',
+                        ),
                         style: theme.textTheme.labelMedium?.copyWith(
                           color: colorScheme.error,
                           fontWeight: FontWeight.w600,
@@ -924,14 +1064,30 @@ class _HeSteeringFileEditorDialogState
                         if (context.mounted) Navigator.of(context).pop();
                       }
                     },
-                    label: widget.isZh ? '关闭' : 'Close',
+                    label: _heHardnessText(
+                      context,
+                      zh: '关闭',
+                      zhHant: '關閉',
+                      en: 'Close',
+                      fr: 'Fermer',
+                      de: 'Schließen',
+                      ja: '閉じる',
+                    ),
                   ),
                   const SizedBox(width: 8),
                   OpenHandDialogActionButton.primary(
                     onPressed: _dirty && !_saving ? _save : null,
                     icon: Icons.save_rounded,
                     busy: _saving,
-                    label: widget.isZh ? '保存' : 'Save',
+                    label: _heHardnessText(
+                      context,
+                      zh: '保存',
+                      zhHant: '儲存',
+                      en: 'Save',
+                      fr: 'Enregistrer',
+                      de: 'Speichern',
+                      ja: '保存',
+                    ),
                   ),
                 ],
               ),
@@ -942,7 +1098,11 @@ class _HeSteeringFileEditorDialogState
     );
   }
 
-  Widget _buildToolbar(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildToolbar(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     final sep = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: SizedBox(
@@ -950,7 +1110,6 @@ class _HeSteeringFileEditorDialogState
         child: VerticalDivider(width: 1, color: colorScheme.outlineVariant),
       ),
     );
-    final zh = widget.isZh;
     return Container(
       height: 38,
       decoration: BoxDecoration(
@@ -965,75 +1124,179 @@ class _HeSteeringFileEditorDialogState
             // Headings
             _MdToolbarBtn(
               label: 'H₁',
-              tooltip: zh ? '一级标题' : 'Heading 1',
+              tooltip: _heHardnessText(
+                context,
+                zh: '一级标题',
+                zhHant: '一級標題',
+                en: 'Heading 1',
+                fr: 'Titre 1',
+                de: 'Überschrift 1',
+                ja: '見出し 1',
+              ),
               onTap: () => _applyHeading(1),
             ),
             _MdToolbarBtn(
               label: 'H₂',
-              tooltip: zh ? '二级标题' : 'Heading 2',
+              tooltip: _heHardnessText(
+                context,
+                zh: '二级标题',
+                zhHant: '二級標題',
+                en: 'Heading 2',
+                fr: 'Titre 2',
+                de: 'Überschrift 2',
+                ja: '見出し 2',
+              ),
               onTap: () => _applyHeading(2),
             ),
             _MdToolbarBtn(
               label: 'H₃',
-              tooltip: zh ? '三级标题' : 'Heading 3',
+              tooltip: _heHardnessText(
+                context,
+                zh: '三级标题',
+                zhHant: '三級標題',
+                en: 'Heading 3',
+                fr: 'Titre 3',
+                de: 'Überschrift 3',
+                ja: '見出し 3',
+              ),
               onTap: () => _applyHeading(3),
             ),
             sep,
             // Inline styles
             _MdToolbarBtn(
               icon: Icons.format_bold,
-              tooltip: zh ? '粗体 **text**' : 'Bold **text**',
+              tooltip: _heHardnessText(
+                context,
+                zh: '粗体 **text**',
+                zhHant: '粗體 **text**',
+                en: 'Bold **text**',
+                fr: 'Gras **text**',
+                de: 'Fett **text**',
+                ja: '太字 **text**',
+              ),
               onTap: _applyBold,
             ),
             _MdToolbarBtn(
               icon: Icons.format_italic,
-              tooltip: zh ? '斜体 *text*' : 'Italic *text*',
+              tooltip: _heHardnessText(
+                context,
+                zh: '斜体 *text*',
+                zhHant: '斜體 *text*',
+                en: 'Italic *text*',
+                fr: 'Italique *text*',
+                de: 'Kursiv *text*',
+                ja: '斜体 *text*',
+              ),
               onTap: _applyItalic,
             ),
             _MdToolbarBtn(
               icon: Icons.format_strikethrough,
-              tooltip: zh ? '删除线 ~~text~~' : 'Strikethrough ~~text~~',
+              tooltip: _heHardnessText(
+                context,
+                zh: '删除线 ~~text~~',
+                zhHant: '刪除線 ~~text~~',
+                en: 'Strikethrough ~~text~~',
+                fr: 'Barré ~~text~~',
+                de: 'Durchgestrichen ~~text~~',
+                ja: '取り消し線 ~~text~~',
+              ),
               onTap: _applyStrikethrough,
             ),
             _MdToolbarBtn(
               icon: Icons.code,
-              tooltip: zh ? '内联代码 `code`' : 'Inline code `code`',
+              tooltip: _heHardnessText(
+                context,
+                zh: '内联代码 `code`',
+                zhHant: '行內程式碼 `code`',
+                en: 'Inline code `code`',
+                fr: 'Code inline `code`',
+                de: 'Inline-Code `code`',
+                ja: 'インラインコード `code`',
+              ),
               onTap: _applyInlineCode,
             ),
             sep,
             // Block
             _MdToolbarBtn(
               icon: Icons.data_object_rounded,
-              tooltip: zh ? '代码块' : 'Code block',
+              tooltip: _heHardnessText(
+                context,
+                zh: '代码块',
+                zhHant: '程式碼區塊',
+                en: 'Code block',
+                fr: 'Bloc de code',
+                de: 'Codeblock',
+                ja: 'コードブロック',
+              ),
               onTap: _applyCodeBlock,
             ),
             _MdToolbarBtn(
               icon: Icons.format_quote_rounded,
-              tooltip: zh ? '引用块 > text' : 'Blockquote > text',
+              tooltip: _heHardnessText(
+                context,
+                zh: '引用块 > text',
+                zhHant: '引用區塊 > text',
+                en: 'Blockquote > text',
+                fr: 'Citation > text',
+                de: 'Zitatblock > text',
+                ja: '引用ブロック > text',
+              ),
               onTap: _applyBlockquote,
             ),
             sep,
             // Lists
             _MdToolbarBtn(
               icon: Icons.format_list_bulleted,
-              tooltip: zh ? '无序列表 - item' : 'Bullet list - item',
+              tooltip: _heHardnessText(
+                context,
+                zh: '无序列表 - item',
+                zhHant: '無序列表 - item',
+                en: 'Bullet list - item',
+                fr: 'Liste à puces - item',
+                de: 'Aufzählung - item',
+                ja: '箇条書き - item',
+              ),
               onTap: _applyBulletList,
             ),
             _MdToolbarBtn(
               icon: Icons.format_list_numbered,
-              tooltip: zh ? '有序列表 1. item' : 'Ordered list 1. item',
+              tooltip: _heHardnessText(
+                context,
+                zh: '有序列表 1. item',
+                zhHant: '有序列表 1. item',
+                en: 'Ordered list 1. item',
+                fr: 'Liste numérotée 1. item',
+                de: 'Nummerierte Liste 1. item',
+                ja: '番号付きリスト 1. item',
+              ),
               onTap: _applyOrderedList,
             ),
             sep,
             // Misc
             _MdToolbarBtn(
               icon: Icons.link_rounded,
-              tooltip: zh ? '插入链接 [text](url)' : 'Insert link [text](url)',
+              tooltip: _heHardnessText(
+                context,
+                zh: '插入链接 [text](url)',
+                zhHant: '插入連結 [text](url)',
+                en: 'Insert link [text](url)',
+                fr: 'Insérer un lien [text](url)',
+                de: 'Link einfügen [text](url)',
+                ja: 'リンクを挿入 [text](url)',
+              ),
               onTap: _insertLink,
             ),
             _MdToolbarBtn(
               icon: Icons.horizontal_rule_rounded,
-              tooltip: zh ? '分隔线 ---' : 'Horizontal rule ---',
+              tooltip: _heHardnessText(
+                context,
+                zh: '分隔线 ---',
+                zhHant: '分隔線 ---',
+                en: 'Horizontal rule ---',
+                fr: 'Séparateur ---',
+                de: 'Trennlinie ---',
+                ja: '水平線 ---',
+              ),
               onTap: _insertHR,
             ),
           ],
@@ -1042,7 +1305,11 @@ class _HeSteeringFileEditorDialogState
     );
   }
 
-  Widget _buildEditorPane(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildEditorPane(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     // Clip.antiAliasWithSaveLayer composites to a separate layer before
     // blending, fully eliminating the white-corner bleed that Clip.antiAlias
     // produces when a Dialog's white background shows through the rounded
@@ -1075,13 +1342,25 @@ class _HeSteeringFileEditorDialogState
           filled: true,
           fillColor: Colors.transparent,
           contentPadding: const EdgeInsets.all(14),
-          hintText: widget.isZh ? '在此编辑文件内容…' : 'Edit file content here…',
+          hintText: _heHardnessText(
+            context,
+            zh: '在此编辑文件内容…',
+            zhHant: '在此編輯檔案內容…',
+            en: 'Edit file content here…',
+            fr: 'Modifiez le contenu du fichier ici…',
+            de: 'Dateiinhalt hier bearbeiten…',
+            ja: 'ここでファイル内容を編集…',
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildPreviewPane(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildPreviewPane(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     return Container(
       clipBehavior: Clip.antiAliasWithSaveLayer,
       decoration: BoxDecoration(
@@ -1099,7 +1378,15 @@ class _HeSteeringFileEditorDialogState
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             color: colorScheme.surfaceContainerHigh,
             child: Text(
-              widget.isZh ? '预览' : 'Preview',
+              _heHardnessText(
+                context,
+                zh: '预览',
+                zhHant: '預覽',
+                en: 'Preview',
+                fr: 'Aperçu',
+                de: 'Vorschau',
+                ja: 'プレビュー',
+              ),
               style: theme.textTheme.labelMedium?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: colorScheme.onSurfaceVariant,
