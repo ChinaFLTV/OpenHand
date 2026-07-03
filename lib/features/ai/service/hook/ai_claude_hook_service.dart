@@ -329,11 +329,7 @@ class AiClaudeHookService {
     if (pattern.isEmpty) {
       return true;
     }
-    final values = value
-        .split('\n')
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
+    final values = splitTrimmedNonEmpty(value, separator: '\n').toList();
     if (values.isEmpty) {
       values.add('');
     }

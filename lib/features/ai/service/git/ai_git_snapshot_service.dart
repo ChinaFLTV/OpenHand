@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_session_runtime_context.dart';
 
 typedef AiProcessRunner =
@@ -138,11 +139,7 @@ class AiGitSnapshotService {
       currentBranch: currentBranch,
       mainBranch: mainBranch,
       statusSnapshot: await statusSnapshotFuture,
-      recentCommits: recentCommitLines
-          .split('\n')
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
-          .toList(growable: false),
+      recentCommits: splitTrimmedNonEmpty(recentCommitLines, separator: '\n'),
       capturedAtIso8601: capturedAt,
     );
     return _cacheSnapshot(snapshot);
@@ -246,8 +243,7 @@ class AiGitSnapshotService {
       'git',
       arguments,
       workingDirectory: workingDirectory,
-      environment: SystemProxyResolver.instance
-          .resolveSubprocessEnvironment(),
+      environment: SystemProxyResolver.instance.resolveSubprocessEnvironment(),
     );
     final stdoutFuture = process.stdout.transform(utf8.decoder).join();
     final stderrFuture = process.stderr.transform(utf8.decoder).join();

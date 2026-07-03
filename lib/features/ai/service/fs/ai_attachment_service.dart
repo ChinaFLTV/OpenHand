@@ -10,6 +10,7 @@ import 'package:xml/xml.dart' as xml;
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/directory_cleanup.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_attachment.dart';
 
 class AiAttachmentException implements Exception {
@@ -1088,12 +1089,10 @@ class AiAttachmentService {
   }
 
   String _summaryFromPrompt(String promptText) {
-    final lines = promptText
-        .split('\n')
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .take(3)
-        .toList(growable: false);
+    final lines = splitTrimmedNonEmpty(
+      promptText,
+      separator: '\n',
+    ).take(3).toList(growable: false);
     return lines.join(' · ');
   }
 
