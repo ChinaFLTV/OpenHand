@@ -42,6 +42,25 @@ import { AnimatedTitleText } from '../../../components/AnimatedTitleText';
 const DEFAULT_PAGE_SIZE = 10;
 const PULL_REFRESH_MIN_VISIBLE_MS = 180;
 
+function waitForDelayOrAbort(delayMs: number, signal: AbortSignal): Promise<void> {
+  if (delayMs <= 0 || signal.aborted || typeof window === 'undefined') {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    let timer: number | null = null;
+    const finish = () => {
+      if (timer != null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+      signal.removeEventListener('abort', finish);
+      resolve();
+    };
+    timer = window.setTimeout(finish, delayMs);
+    signal.addEventListener('abort', finish, { once: true });
+  });
+}
+
 function formatTimestamp(iso: string): string {
   try {
     const d = new Date(iso);
@@ -111,6 +130,7 @@ export function SessionsPage() {
 
   const pageRootRef = useRef<HTMLElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const pullRefreshDelayAbortRef = useRef<AbortController | null>(null);
 
   const templates: ApiMetaTemplate[] = auth.meta?.templates ?? [];
   const allowedModes: string[] = auth.meta?.conversation_modes ?? ['chat'];
@@ -182,6 +202,13 @@ export function SessionsPage() {
     void refresh(page);
     return () => abortRef.current?.abort();
   }, [auth.loading, page]);
+
+  useEffect(() => {
+    return () => {
+      pullRefreshDelayAbortRef.current?.abort();
+      pullRefreshDelayAbortRef.current = null;
+    };
+  }, []);
 
   function patchRow(id: string, patch: Partial<RowState>): void {
     setRowStates((prev) => ({ ...prev, [id]: { ...emptyRow, ...prev[id], ...patch } }));
@@ -336,12 +363,20 @@ export function SessionsPage() {
   const mainRef = useRef<HTMLElement | null>(null);
   const pull = usePullToRefresh(mainRef, {
     onRefresh: async () => {
-      await new Promise<void>((resolve) => {
-        // refresh() 内部用 abort + Promise，调用即触发；用 setTimeout 给一个最小可见时长。
-        void refresh(page).finally(() =>
-          setTimeout(resolve, PULL_REFRESH_MIN_VISIBLE_MS),
+      pullRefreshDelayAbortRef.current?.abort();
+      const delayCtrl = new AbortController();
+      pullRefreshDelayAbortRef.current = delayCtrl;
+      try {
+        await refresh(page);
+        await waitForDelayOrAbort(
+          PULL_REFRESH_MIN_VISIBLE_MS,
+          delayCtrl.signal,
         );
-      });
+      } finally {
+        if (pullRefreshDelayAbortRef.current === delayCtrl) {
+          pullRefreshDelayAbortRef.current = null;
+        }
+      }
     },
     activationDistance: 80,
     maxDistance: 140,
