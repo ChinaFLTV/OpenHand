@@ -753,10 +753,12 @@ List<String> _xlsxSheetNames(Archive archive) {
     final doc = xml.XmlDocument.parse(
       _decodeText(file.readBytes() ?? const []),
     );
-    return _elements(doc.rootElement, 'sheet')
-        .map((sheet) => sheet.getAttribute('name') ?? '')
-        .where((name) => name.trim().isNotEmpty)
-        .toList(growable: false);
+    return trimmedNonEmptyStrings(
+      _elements(
+        doc.rootElement,
+        'sheet',
+      ).map((sheet) => sheet.getAttribute('name') ?? ''),
+    );
   } catch (_) {
     return const <String>[];
   }
@@ -789,8 +791,8 @@ String _xlsxCellValue(xml.XmlElement cell, List<String> sharedStrings) {
   if (type == 'inlineStr') return _ooxmlText(cell).trim();
   final value = _firstElement(cell, 'v')?.innerText.trim() ?? '';
   if (type == 's') {
-    final index = int.tryParse(value);
-    if (index != null && index >= 0 && index < sharedStrings.length) {
+    final index = optionalNonNegativeIntFromValue(value);
+    if (index != null && index < sharedStrings.length) {
       return sharedStrings[index];
     }
   }
@@ -810,7 +812,7 @@ int _xlsxColumnIndex(String reference) {
 
 int _naturalSheetIndex(String name) {
   final match = RegExp(r'(\d+)').firstMatch(name);
-  return int.tryParse(match?.group(1) ?? '') ?? 0;
+  return optionalNonNegativeIntFromValue(match?.group(1)) ?? 0;
 }
 
 String _wordTableToMarkdown(xml.XmlElement table) {
