@@ -215,6 +215,17 @@ void main() {
     });
   });
 
+  group('optionalPositiveDoubleFromValue', () {
+    test('accepts only finite positive values', () {
+      expect(optionalPositiveDoubleFromValue(1), 1.0);
+      expect(optionalPositiveDoubleFromValue(' 2.5 '), 2.5);
+      expect(optionalPositiveDoubleFromValue(0), isNull);
+      expect(optionalPositiveDoubleFromValue('-0.1'), isNull);
+      expect(optionalPositiveDoubleFromValue(double.nan), isNull);
+      expect(optionalPositiveDoubleFromValue('abc'), isNull);
+    });
+  });
+
   group('dateTimeFromValue', () {
     test('parses DateTime and ISO strings', () {
       final value = DateTime.utc(2026, 7, 3, 9, 30);

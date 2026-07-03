@@ -395,6 +395,11 @@ double? optionalNonNegativeDoubleFromValue(Object? value) {
   return parsed == null || parsed < 0 ? null : parsed;
 }
 
+double? optionalPositiveDoubleFromValue(Object? value) {
+  final parsed = optionalDoubleFromValue(value);
+  return parsed == null || parsed <= 0 ? null : parsed;
+}
+
 int? optionalIntFromValue(Object? value) {
   if (value == null) return null;
   if (value is int) return value;
@@ -516,6 +521,10 @@ double? optionalDoubleFromText(String value) {
 
 double? optionalNonNegativeDoubleFromText(String value) {
   return optionalNonNegativeDoubleFromValue(value);
+}
+
+double? optionalPositiveDoubleFromText(String value) {
+  return optionalPositiveDoubleFromValue(value);
 }
 
 int positiveIntFromText(String value, {required int fallback}) {

@@ -1583,16 +1583,16 @@ class AiTtsPlaybackService {
   static int? _bitRateFromText(String value) {
     final match = _audioBitRatePattern.firstMatch(value);
     if (match == null) return null;
-    final kbps = int.tryParse(match.group(1) ?? '');
-    if (kbps == null || kbps <= 0) return null;
+    final kbps = optionalPositiveIntFromValue(match.group(1));
+    if (kbps == null) return null;
     return kbps * 1000;
   }
 
   static Duration? _parseAfinfoDuration(String output) {
     final match = _afinfoDurationPattern.firstMatch(output);
     if (match == null) return null;
-    final seconds = double.tryParse(match.group(1) ?? '');
-    if (seconds == null || !seconds.isFinite || seconds <= 0) return null;
+    final seconds = optionalPositiveDoubleFromValue(match.group(1));
+    if (seconds == null) return null;
     return _durationFromSeconds(seconds);
   }
 

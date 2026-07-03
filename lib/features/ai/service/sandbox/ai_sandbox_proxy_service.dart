@@ -579,13 +579,13 @@ class _HostPort {
       final host = trimmed.substring(1, closing);
       final rest = trimmed.substring(closing + 1);
       final port = rest.startsWith(':')
-          ? int.tryParse(rest.substring(1))
+          ? optionalPositiveIntFromValue(rest.substring(1))
           : null;
       return _HostPort(host, _normalizePort(port, defaultPort));
     }
     final colon = trimmed.lastIndexOf(':');
     if (colon > 0 && trimmed.indexOf(':') == colon) {
-      final port = int.tryParse(trimmed.substring(colon + 1));
+      final port = optionalPositiveIntFromValue(trimmed.substring(colon + 1));
       return _HostPort(
         trimmed.substring(0, colon),
         _normalizePort(port, defaultPort),
