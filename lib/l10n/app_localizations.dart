@@ -16246,6 +16246,30 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'所有文件'**
   String get hooksFileTypeAllFiles;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'确定'**
+  String get commonConfirm;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自定义输入'**
+  String get choiceInputCustomOptionLabel;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'在此输入你的回答…'**
+  String get choiceInputCustomInputHint;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择此项以手动填写内容'**
+  String get choiceInputCustomOptionDescription;
 }
 
 class _AppLocalizationsDelegate

@@ -8820,6 +8820,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get hooksFileTypeAllFiles => '所有文件';
+
+  @override
+  String get commonConfirm => '确定';
+
+  @override
+  String get choiceInputCustomOptionLabel => '自定义输入';
+
+  @override
+  String get choiceInputCustomInputHint => '在此输入你的回答…';
+
+  @override
+  String get choiceInputCustomOptionDescription => '选择此项以手动填写内容';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -17638,6 +17650,18 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get hooksFileTypeAllFiles => '所有文件';
+
+  @override
+  String get commonConfirm => '确定';
+
+  @override
+  String get choiceInputCustomOptionLabel => '自定义输入';
+
+  @override
+  String get choiceInputCustomInputHint => '在此输入你的回答…';
+
+  @override
+  String get choiceInputCustomOptionDescription => '选择此项以手动填写内容';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -26452,4 +26476,16 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get hooksFileTypeAllFiles => '所有檔案';
+
+  @override
+  String get commonConfirm => '確定';
+
+  @override
+  String get choiceInputCustomOptionLabel => '自訂輸入';
+
+  @override
+  String get choiceInputCustomInputHint => '在此輸入你的回答…';
+
+  @override
+  String get choiceInputCustomOptionDescription => '選擇此項以手動填寫內容';
 }

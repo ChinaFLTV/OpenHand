@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../util/localized_text.dart';
+import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
@@ -191,10 +191,6 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
     return widget.options.any((option) => option.value == _selectedValue);
   }
 
-  String _localized({required String zh, required String en}) {
-    return openHandLocalizedText(context, zh: zh, en: en);
-  }
-
   void _confirm() {
     if (_isCustomSelected) {
       final trimmed = _customController.text.trim();
@@ -218,13 +214,12 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+    final l10n = AppLocalizations.of(context)!;
     final customLabel =
-        widget.customOptionLabel ?? _localized(zh: '自定义输入', en: 'Custom input');
-    final hintText =
-        widget.customInputHint ??
-        _localized(zh: '在此输入你的回答…', en: 'Type your answer here…');
-    final confirm = widget.confirmLabel ?? _localized(zh: '确定', en: 'Confirm');
-    final cancel = widget.cancelLabel ?? _localized(zh: '取消', en: 'Cancel');
+        widget.customOptionLabel ?? l10n.choiceInputCustomOptionLabel;
+    final hintText = widget.customInputHint ?? l10n.choiceInputCustomInputHint;
+    final confirm = widget.confirmLabel ?? l10n.commonConfirm;
+    final cancel = widget.cancelLabel ?? l10n.commonCancel;
     final fieldExpandDuration = openHandMotionDuration(
       context,
       const Duration(milliseconds: 220),
@@ -283,10 +278,7 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
                     if (widget.allowCustomInput) ...[
                       _ChoiceTile(
                         title: customLabel,
-                        subtitle: _localized(
-                          zh: '选择此项以手动填写内容',
-                          en: 'Pick this to type your own answer',
-                        ),
+                        subtitle: l10n.choiceInputCustomOptionDescription,
                         selected: _isCustomSelected,
                         onTap: () {
                           setState(() {

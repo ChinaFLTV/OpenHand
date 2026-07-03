@@ -7442,5 +7442,21 @@
   "hooksFileTypeAllFiles": "所有檔案",
   "@hooksFileTypeAllFiles": {
     "description": "OpenHand localized UI text."
+  },
+  "commonConfirm": "確定",
+  "@commonConfirm": {
+    "description": "OpenHand localized UI text."
+  },
+  "choiceInputCustomOptionLabel": "自訂輸入",
+  "@choiceInputCustomOptionLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "choiceInputCustomInputHint": "在此輸入你的回答…",
+  "@choiceInputCustomInputHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "choiceInputCustomOptionDescription": "選擇此項以手動填寫內容",
+  "@choiceInputCustomOptionDescription": {
+    "description": "OpenHand localized UI text."
   }
 }

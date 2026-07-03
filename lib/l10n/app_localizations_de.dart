@@ -9226,4 +9226,17 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get hooksFileTypeAllFiles => 'Alle Dateien';
+
+  @override
+  String get commonConfirm => 'Bestätigen';
+
+  @override
+  String get choiceInputCustomOptionLabel => 'Benutzerdefinierte Eingabe';
+
+  @override
+  String get choiceInputCustomInputHint => 'Antwort hier eingeben…';
+
+  @override
+  String get choiceInputCustomOptionDescription =>
+      'Diese Option wählen, um eine eigene Antwort einzugeben';
 }

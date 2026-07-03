@@ -9261,4 +9261,17 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get hooksFileTypeAllFiles => 'Tous les fichiers';
+
+  @override
+  String get commonConfirm => 'Confirmer';
+
+  @override
+  String get choiceInputCustomOptionLabel => 'Saisie personnalisée';
+
+  @override
+  String get choiceInputCustomInputHint => 'Saisissez votre réponse ici…';
+
+  @override
+  String get choiceInputCustomOptionDescription =>
+      'Choisissez cette option pour saisir votre propre réponse';
 }

@@ -9136,4 +9136,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get hooksFileTypeAllFiles => 'All Files';
+
+  @override
+  String get commonConfirm => 'Confirm';
+
+  @override
+  String get choiceInputCustomOptionLabel => 'Custom input';
+
+  @override
+  String get choiceInputCustomInputHint => 'Type your answer here…';
+
+  @override
+  String get choiceInputCustomOptionDescription =>
+      'Pick this to type your own answer';
 }

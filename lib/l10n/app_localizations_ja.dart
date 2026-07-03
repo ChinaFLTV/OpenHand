@@ -8919,4 +8919,16 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get hooksFileTypeAllFiles => 'すべてのファイル';
+
+  @override
+  String get commonConfirm => '確定';
+
+  @override
+  String get choiceInputCustomOptionLabel => 'カスタム入力';
+
+  @override
+  String get choiceInputCustomInputHint => 'ここに回答を入力…';
+
+  @override
+  String get choiceInputCustomOptionDescription => '自分の回答を入力するにはこれを選択';
 }

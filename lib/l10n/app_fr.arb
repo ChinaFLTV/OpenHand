@@ -7440,5 +7440,21 @@
   "hooksFileTypeAllFiles": "Tous les fichiers",
   "@hooksFileTypeAllFiles": {
     "description": "OpenHand localized UI text."
+  },
+  "commonConfirm": "Confirmer",
+  "@commonConfirm": {
+    "description": "OpenHand localized UI text."
+  },
+  "choiceInputCustomOptionLabel": "Saisie personnalisée",
+  "@choiceInputCustomOptionLabel": {
+    "description": "OpenHand localized UI text."
+  },
+  "choiceInputCustomInputHint": "Saisissez votre réponse ici…",
+  "@choiceInputCustomInputHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "choiceInputCustomOptionDescription": "Choisissez cette option pour saisir votre propre réponse",
+  "@choiceInputCustomOptionDescription": {
+    "description": "OpenHand localized UI text."
   }
 }
