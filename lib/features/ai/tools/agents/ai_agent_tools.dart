@@ -9,6 +9,21 @@ import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
 const int _agentTaskRecommendedPollMs = 1500;
+const List<String> _agentTaskActiveTools = <String>[
+  'AgentTaskPause',
+  'AgentTaskCancel',
+  'AgentTaskTerminate',
+  'AgentTaskComplete',
+];
+const List<String> _agentTaskPausedTools = <String>[
+  'AgentTaskResume',
+  'AgentTaskCancel',
+  'AgentTaskTerminate',
+];
+const List<String> _agentTaskBlockedTools = <String>[
+  'AgentTaskCancel',
+  'AgentTaskTerminate',
+];
 
 enum _AgentToolOperation {
   list,
@@ -906,7 +921,21 @@ Map<String, Object?> _taskStateJson(AgentTask task) {
     'terminal': terminal,
     'needs_polling': needsPolling,
     'requires_attention': requiresAttention,
+    'allowed_tools': _allowedTaskTools(task.status),
     if (needsPolling) 'recommended_poll_ms': _agentTaskRecommendedPollMs,
+  };
+}
+
+List<String> _allowedTaskTools(AgentTaskStatus status) {
+  return switch (status) {
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running => _agentTaskActiveTools,
+    AgentTaskStatus.waitingApproval => _agentTaskBlockedTools,
+    AgentTaskStatus.paused => _agentTaskPausedTools,
+    AgentTaskStatus.completed ||
+    AgentTaskStatus.failed ||
+    AgentTaskStatus.canceled => const <String>[],
   };
 }
 

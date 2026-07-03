@@ -176,6 +176,15 @@ domains: finance, cloud billing
       expect(publishedWorker['status'], 'busy');
       expect(publishedState['terminal'], isFalse);
       expect(publishedState['needs_polling'], isTrue);
+      expect(
+        publishedState['allowed_tools'],
+        containsAll(<String>[
+          'AgentTaskPause',
+          'AgentTaskCancel',
+          'AgentTaskTerminate',
+          'AgentTaskComplete',
+        ]),
+      );
       expect(publishedState['recommended_poll_ms'], isPositive);
       expect(financeAgent.tasks.single.extra['agent_route_score'], isPositive);
       expect(
@@ -266,6 +275,7 @@ domains: finance, cloud billing
       expect(agent.auditEvents.first.kind, 'task_completed');
       expect(resultState['terminal'], isTrue);
       expect(resultState['needs_polling'], isFalse);
+      expect(resultState['allowed_tools'], isEmpty);
       expect(resultWorker['id'], assignedWorkerId);
       expect(resultWorker['status'], 'idle');
     });
