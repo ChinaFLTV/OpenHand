@@ -11,6 +11,7 @@
 
 import { KNOWLEDGE_BASE_MESSAGE_METADATA_KEY, type SessionMessage, type SessionMessageFeedback } from '../api/sessions';
 import {
+  KNOWLEDGE_VECTOR_DEFAULT_MAX_POINTS,
   fetchKnowledgeHitDetail,
   fetchKnowledgeVectorDistribution,
   type KnowledgeChunkDto,
@@ -532,7 +533,6 @@ function nonEmptyString(value: unknown): string {
   return strictStringFromUnknown(value);
 }
 
-const KB_VECTOR_DEFAULT_MAX_POINTS = 600;
 const KB_VECTOR_BATCH_SIZE = 120;
 const KB_VECTOR_BATCH_INTERVAL_MS = 92;
 const KB_VECTOR_MIN_ZOOM = 0.62;
@@ -3856,7 +3856,7 @@ function KnowledgeVectorDistributionScene({
     corpusAbortRef.current = controller;
     setCorpusLoading(true);
     setCorpusError('');
-    fetchKnowledgeVectorDistribution(KB_VECTOR_DEFAULT_MAX_POINTS, { signal: controller.signal })
+    fetchKnowledgeVectorDistribution(KNOWLEDGE_VECTOR_DEFAULT_MAX_POINTS, { signal: controller.signal })
       .then((payload) => {
         if (controller.signal.aborted) return;
         const parsed = knowledgeDistributionFromDto(payload.distribution);

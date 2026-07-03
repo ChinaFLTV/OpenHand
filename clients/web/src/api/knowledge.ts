@@ -1,4 +1,9 @@
 import { LONG_API_REQUEST_TIMEOUT_MS, apiRequest, type ApiRequestSignalOptions } from './client';
+import { normalizeInteger } from '../shared/util/number';
+
+export const KNOWLEDGE_VECTOR_DEFAULT_MAX_POINTS = 600;
+export const KNOWLEDGE_VECTOR_MIN_POINTS = 1;
+export const KNOWLEDGE_VECTOR_MAX_POINTS = 2000;
 
 export type KnowledgeVectorPointKind = 'corpus' | 'match' | 'query';
 
@@ -74,11 +79,16 @@ export interface KnowledgeHitDetailResponse {
 }
 
 export function fetchKnowledgeVectorDistribution(
-  maxPoints = 600,
+  maxPoints = KNOWLEDGE_VECTOR_DEFAULT_MAX_POINTS,
   options: ApiRequestSignalOptions = {},
 ): Promise<KnowledgeVectorDistributionResponse> {
   const params = new URLSearchParams();
-  params.set('max_points', String(Math.max(1, Math.min(2000, Math.round(maxPoints)))));
+  const safeMaxPoints = normalizeInteger(maxPoints, {
+    fallback: KNOWLEDGE_VECTOR_DEFAULT_MAX_POINTS,
+    min: KNOWLEDGE_VECTOR_MIN_POINTS,
+    max: KNOWLEDGE_VECTOR_MAX_POINTS,
+  });
+  params.set('max_points', String(safeMaxPoints));
   return apiRequest<KnowledgeVectorDistributionResponse>(
     `/api/knowledge/vector-distribution?${params.toString()}`,
     {
