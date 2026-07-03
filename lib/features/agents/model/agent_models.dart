@@ -19,6 +19,30 @@ enum AgentExecutionMode {
   }
 }
 
+Map<String, Object?> agentExecutionApprovalPolicyJson(AgentExecutionMode mode) {
+  final fullAccess = mode == AgentExecutionMode.fullAccess;
+  return <String, Object?>{
+    'mode': mode.storageValue,
+    'routine_actions_auto_allowed': fullAccess,
+    'approval_required_before_privileged_actions': !fullAccess,
+    'audit_required': true,
+    'approval_required_when': fullAccess
+        ? const <String>[
+            'scope_boundary_violation',
+            'credential_or_secret_access',
+            'irreversible_external_side_effect',
+            'production_change_without_evidence',
+          ]
+        : const <String>[
+            'privileged_capability_use',
+            'external_side_effect',
+            'destructive_or_irreversible_action',
+            'sensitive_data_access',
+            'scope_boundary_unclear',
+          ],
+  };
+}
+
 enum AgentLifecycleState {
   stopped('stopped'),
   running('running'),
@@ -885,6 +909,9 @@ class AgentProfile {
     if (paths.isNotEmpty) return paths.join('\n');
     return workspaceScope.trim();
   }
+
+  Map<String, Object?> get approvalPolicy =>
+      agentExecutionApprovalPolicyJson(executionMode);
 
   double get workerUtilization {
     if (workers.isEmpty) return 0;

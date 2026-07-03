@@ -49,7 +49,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.2';
+  static const String promptVersion = '1.2.3';
 
   final Future<String> Function(String path) _loader;
 
@@ -139,6 +139,7 @@ Map<String, Object?> _runtimePolicyJson(AgentProfile agent) {
     'enabled': agent.enabled,
     'lifecycle_state': agent.lifecycleState.storageValue,
     'execution_mode': agent.executionMode.storageValue,
+    'approval_policy': agent.approvalPolicy,
     'model_provider_config_id': agent.modelProviderConfigId,
     'model_id': agent.modelId,
     'self_learning_enabled': agent.selfLearningEnabled,

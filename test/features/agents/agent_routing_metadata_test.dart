@@ -75,6 +75,10 @@ domains: cloud, finops
       '/repo/app',
       '/repo/docs',
     ]);
+    expect(
+      structured.approvalPolicy['approval_required_before_privileged_actions'],
+      isTrue,
+    );
   });
 
   test('prompt metadata exposes structured routing profile', () async {
@@ -190,7 +194,7 @@ domains: cloud, finops
     final recentAudit =
         operationalState['recent_audit_events'] as List<Object?>;
 
-    expect(snapshot.version, '1.2.2');
+    expect(snapshot.version, '1.2.3');
     expect(routing['has_route'], isTrue);
     expect(routing['keywords'], <Object?>['release', 'deploy']);
     expect(profile['metadata'], <String, Object?>{
@@ -214,6 +218,17 @@ domains: cloud, finops
     expect(workerCapacity['busy'], 1);
     final runtimePolicy =
         snapshot.metadataJson()['runtime_policy'] as Map<String, Object?>;
+    final approvalPolicy =
+        runtimePolicy['approval_policy'] as Map<String, Object?>;
+    expect(approvalPolicy['mode'], 'normal');
+    expect(
+      approvalPolicy['approval_required_before_privileged_actions'],
+      isTrue,
+    );
+    expect(
+      approvalPolicy['approval_required_when'],
+      contains('privileged_capability_use'),
+    );
     expect(runtimePolicy['workspace_scope_paths'], <Object?>[
       '/repo/app',
       '/repo/docs',

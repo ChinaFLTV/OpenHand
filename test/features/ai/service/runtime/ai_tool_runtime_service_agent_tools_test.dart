@@ -1349,6 +1349,7 @@ void main() {
     test('detail tool exposes structured workspace scope paths', () async {
       await controller.saveAgent(
         _agent(enabled: true).copyWith(
+          executionMode: AgentExecutionMode.fullAccess,
           workspacePath: '/repo',
           workspaceScope: '/legacy/ignored',
           workspaceScopePaths: const <String>[
@@ -1387,6 +1388,17 @@ void main() {
         '/repo/app',
         '/repo/docs',
       ]);
+      final approvalPolicy = agent['approval_policy'] as Map<String, Object?>;
+      expect(approvalPolicy['mode'], 'full_access');
+      expect(approvalPolicy['routine_actions_auto_allowed'], isTrue);
+      expect(
+        approvalPolicy['approval_required_before_privileged_actions'],
+        isFalse,
+      );
+      expect(
+        approvalPolicy['approval_required_when'],
+        contains('credential_or_secret_access'),
+      );
     });
 
     test('publish tool routes to the best matching enabled agent', () async {

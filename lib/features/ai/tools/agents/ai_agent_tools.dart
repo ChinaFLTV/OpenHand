@@ -1841,6 +1841,7 @@ Map<String, Object?> _agentSummaryJson(AgentProfile agent) {
     'enabled': agent.enabled,
     'lifecycle_state': agent.lifecycleState.storageValue,
     'execution_mode': agent.executionMode.storageValue,
+    'approval_policy': agent.approvalPolicy,
     'model_provider_config_id': agent.modelProviderConfigId,
     'model_id': agent.modelId,
     'task_counts': <String, Object?>{
