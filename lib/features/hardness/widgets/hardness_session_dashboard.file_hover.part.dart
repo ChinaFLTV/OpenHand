@@ -91,7 +91,6 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
                   builder: (ctx, snapshot) {
                     final theme = Theme.of(ctx);
                     final colorScheme = theme.colorScheme;
-                    final isZhLocale = openHandIsChineseLocale(ctx);
 
                     if (!snapshot.hasData) {
                       return const SizedBox(
@@ -116,15 +115,39 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
                         ),
                         const SizedBox(height: 12),
                         _HeStatRow(
-                          isZhLocale ? '类型' : 'Type',
+                          openHandLocalizedText(
+                            ctx,
+                            zh: '类型',
+                            en: 'Type',
+                            zhHant: '類型',
+                            fr: 'Type',
+                            de: 'Typ',
+                            ja: '種類',
+                          ),
                           stat.type.toString(),
                         ),
                         _HeStatRow(
-                          isZhLocale ? '大小' : 'Size',
+                          openHandLocalizedText(
+                            ctx,
+                            zh: '大小',
+                            en: 'Size',
+                            zhHant: '大小',
+                            fr: 'Taille',
+                            de: 'Größe',
+                            ja: 'サイズ',
+                          ),
                           '${stat.size} bytes',
                         ),
                         _HeStatRow(
-                          isZhLocale ? '修改于' : 'Modified',
+                          openHandLocalizedText(
+                            ctx,
+                            zh: '修改于',
+                            en: 'Modified',
+                            zhHant: '修改於',
+                            fr: 'Modifié',
+                            de: 'Geändert',
+                            ja: '更新日時',
+                          ),
                           '${stat.modified}',
                         ),
                       ],
@@ -301,11 +324,18 @@ Future<void> _heOpenPathInFileBrowser(
     throw const FileSystemException('Unable to open file location.');
   } catch (error) {
     if (!context.mounted) return;
-    final isZh = openHandIsChineseLocale(context);
     showFriendlyErrorSnackBar(
       context,
       message: '$error',
-      fallback: isZh ? '打开文件位置失败' : 'Failed to open file location',
+      fallback: openHandLocalizedText(
+        context,
+        zh: '打开文件位置失败',
+        en: 'Failed to open file location',
+        zhHant: '打開檔案位置失敗',
+        fr: 'Impossible d’ouvrir l’emplacement du fichier',
+        de: 'Dateispeicherort konnte nicht geöffnet werden',
+        ja: 'ファイルの場所を開けませんでした',
+      ),
     );
   }
 }

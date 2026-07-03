@@ -192,13 +192,25 @@ class _HeStreamingSubConversationState
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          widget.isZh
-                              ? (_showEarlierSegments
-                                    ? '收起更早的子消息 · $_lastHiddenAbove 行'
-                                    : '展开更早的子消息 · $_lastHiddenAbove 行')
-                              : (_showEarlierSegments
-                                    ? 'Hide earlier sub-messages · $_lastHiddenAbove lines'
-                                    : 'Show earlier sub-messages · $_lastHiddenAbove lines'),
+                          _showEarlierSegments
+                              ? openHandLocalizedText(
+                                  context,
+                                  zh: '收起更早的子消息 · $_lastHiddenAbove 行',
+                                  en: 'Hide earlier sub-messages · $_lastHiddenAbove lines',
+                                  zhHant: '收起更早的子訊息 · $_lastHiddenAbove 行',
+                                  fr: 'Masquer les sous-messages précédents · $_lastHiddenAbove lignes',
+                                  de: 'Frühere Unternachrichten ausblenden · $_lastHiddenAbove Zeilen',
+                                  ja: '以前のサブメッセージを隠す · $_lastHiddenAbove 行',
+                                )
+                              : openHandLocalizedText(
+                                  context,
+                                  zh: '展开更早的子消息 · $_lastHiddenAbove 行',
+                                  en: 'Show earlier sub-messages · $_lastHiddenAbove lines',
+                                  zhHant: '展開更早的子訊息 · $_lastHiddenAbove 行',
+                                  fr: 'Afficher les sous-messages précédents · $_lastHiddenAbove lignes',
+                                  de: 'Frühere Unternachrichten anzeigen · $_lastHiddenAbove Zeilen',
+                                  ja: '以前のサブメッセージを表示 · $_lastHiddenAbove 行',
+                                ),
                           style: TextStyle(
                             fontFamily: 'monospace',
                             fontSize: 11.5,
@@ -229,9 +241,15 @@ class _HeStreamingSubConversationState
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    widget.isZh
-                        ? '正在加载更早的子消息…'
-                        : 'Loading earlier sub-messages…',
+                    openHandLocalizedText(
+                      context,
+                      zh: '正在加载更早的子消息…',
+                      en: 'Loading earlier sub-messages…',
+                      zhHant: '正在載入更早的子訊息…',
+                      fr: 'Chargement des sous-messages précédents…',
+                      de: 'Frühere Unternachrichten werden geladen…',
+                      ja: '以前のサブメッセージを読み込み中…',
+                    ),
                     style: TextStyle(
                       fontSize: 11,
                       color: colorScheme.onSurfaceVariant.withValues(
@@ -265,7 +283,15 @@ class _HeStreamingSubConversationState
               ),
               const SizedBox(width: 8),
               Text(
-                widget.isZh ? '正在输出…' : 'Streaming…',
+                openHandLocalizedText(
+                  context,
+                  zh: '正在输出…',
+                  en: 'Streaming…',
+                  zhHant: '正在輸出…',
+                  fr: 'Diffusion…',
+                  de: 'Ausgabe läuft…',
+                  ja: '出力中…',
+                ),
                 style: TextStyle(
                   fontSize: 11,
                   color: colorScheme.onSurfaceVariant.withValues(alpha: 0.60),
@@ -346,8 +372,16 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
           isPass: verdictInfo.isPass,
           comment: verdictInfo.comment,
           roleLabel:
-              seg.roleLabel ?? (widget.isZh ? '用户人工验收结果' : 'Manual Review'),
-          isZh: widget.isZh,
+              seg.roleLabel ??
+              openHandLocalizedText(
+                context,
+                zh: '用户人工验收结果',
+                en: 'Manual Review',
+                zhHant: '使用者人工驗收結果',
+                fr: 'Revue manuelle',
+                de: 'Manuelle Prüfung',
+                ja: 'ユーザー手動レビュー結果',
+              ),
           theme: widget.theme,
           colorScheme: colorScheme,
         );
@@ -365,7 +399,15 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
     ) = switch (seg.kind) {
       _HeSegmentKind.command => (
         Icons.terminal_rounded,
-        widget.isZh ? '执行命令' : 'Command',
+        openHandLocalizedText(
+          context,
+          zh: '执行命令',
+          en: 'Command',
+          zhHant: '執行命令',
+          fr: 'Commande',
+          de: 'Befehl',
+          ja: 'コマンド実行',
+        ),
         colorScheme.surfaceContainerHighest,
         colorScheme.outlineVariant.withValues(alpha: 0.30),
         colorScheme.onSurface,
@@ -373,7 +415,15 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
       ),
       _HeSegmentKind.thinking => (
         Icons.psychology_alt_outlined,
-        widget.isZh ? '思考' : 'Thinking',
+        openHandLocalizedText(
+          context,
+          zh: '思考',
+          en: 'Thinking',
+          zhHant: '思考',
+          fr: 'Réflexion',
+          de: 'Denken',
+          ja: '思考',
+        ),
         const Color(0xFF18181B),
         Colors.white.withValues(alpha: 0.10),
         Colors.white,
@@ -381,7 +431,15 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
       ),
       _HeSegmentKind.toolCall || _HeSegmentKind.toolResult => (
         Icons.build_circle_outlined,
-        widget.isZh ? '工具调用' : 'Tool Call',
+        openHandLocalizedText(
+          context,
+          zh: '工具调用',
+          en: 'Tool Call',
+          zhHant: '工具呼叫',
+          fr: 'Appel d’outil',
+          de: 'Tool-Aufruf',
+          ja: 'ツール呼び出し',
+        ),
         colorScheme.secondaryContainer,
         colorScheme.secondary.withValues(alpha: 0.35),
         colorScheme.onSecondaryContainer,
@@ -389,7 +447,15 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
       ),
       _HeSegmentKind.assistant => (
         Icons.auto_awesome_rounded,
-        widget.isZh ? 'AI 回复' : 'AI Response',
+        openHandLocalizedText(
+          context,
+          zh: 'AI 回复',
+          en: 'AI Response',
+          zhHant: 'AI 回覆',
+          fr: 'Réponse IA',
+          de: 'KI-Antwort',
+          ja: 'AI 応答',
+        ),
         colorScheme.surfaceContainerHigh,
         colorScheme.outlineVariant.withValues(alpha: isDark ? 0.18 : 0.10),
         colorScheme.onSurface,
@@ -397,7 +463,15 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
       ),
       _HeSegmentKind.output => (
         Icons.info_outline_rounded,
-        widget.isZh ? '输出' : 'Output',
+        openHandLocalizedText(
+          context,
+          zh: '输出',
+          en: 'Output',
+          zhHant: '輸出',
+          fr: 'Sortie',
+          de: 'Ausgabe',
+          ja: '出力',
+        ),
         colorScheme.surfaceContainerLow,
         colorScheme.outlineVariant.withValues(alpha: 0.15),
         colorScheme.onSurface,
@@ -405,7 +479,16 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
       ),
       _HeSegmentKind.userInput => (
         Icons.person_rounded,
-        seg.roleLabel ?? (widget.isZh ? '用户输入' : 'User Input'),
+        seg.roleLabel ??
+            openHandLocalizedText(
+              context,
+              zh: '用户输入',
+              en: 'User Input',
+              zhHant: '使用者輸入',
+              fr: 'Entrée utilisateur',
+              de: 'Benutzereingabe',
+              ja: 'ユーザー入力',
+            ),
         Color.alphaBlend(
           colorScheme.tertiary.withValues(alpha: isDark ? 0.22 : 0.12),
           colorScheme.surface,
@@ -416,7 +499,16 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
       ),
       _HeSegmentKind.handoff => (
         Icons.swap_horiz_rounded,
-        seg.roleLabel ?? (widget.isZh ? '交接文档' : 'Handoff'),
+        seg.roleLabel ??
+            openHandLocalizedText(
+              context,
+              zh: '交接文档',
+              en: 'Handoff',
+              zhHant: '交接文件',
+              fr: 'Transmission',
+              de: 'Übergabe',
+              ja: '引き継ぎ',
+            ),
         Color.alphaBlend(
           colorScheme.primary.withValues(alpha: isDark ? 0.18 : 0.10),
           colorScheme.surface,
@@ -580,7 +672,6 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                 _HeSegmentBody(
                   content: body,
                   expanded: _expanded || !needsCollapse,
-                  isZh: widget.isZh,
                   theme: widget.theme,
                   colorScheme: colorScheme,
                   textColor: cardText,
@@ -590,7 +681,15 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                 ),
             ] else
               Text(
-                widget.isZh ? '（无内容）' : '(empty)',
+                openHandLocalizedText(
+                  context,
+                  zh: '（无内容）',
+                  en: '(empty)',
+                  zhHant: '（無內容）',
+                  fr: '(vide)',
+                  de: '(leer)',
+                  ja: '（空）',
+                ),
                 style: TextStyle(
                   color: cardText.withValues(alpha: 0.45),
                   fontSize: 12,

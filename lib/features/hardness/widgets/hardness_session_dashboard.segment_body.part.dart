@@ -51,7 +51,6 @@ class _HeReviewVerdictCard extends StatelessWidget {
     required this.isPass,
     required this.comment,
     required this.roleLabel,
-    required this.isZh,
     required this.theme,
     required this.colorScheme,
   });
@@ -59,7 +58,6 @@ class _HeReviewVerdictCard extends StatelessWidget {
   final bool isPass;
   final String comment;
   final String roleLabel;
-  final bool isZh;
   final ThemeData theme;
   final ColorScheme colorScheme;
 
@@ -131,8 +129,24 @@ class _HeReviewVerdictCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Text(
                     isPass
-                        ? (isZh ? '验收通过' : 'Review Passed')
-                        : (isZh ? '验收未通过' : 'Review Failed'),
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '验收通过',
+                            en: 'Review Passed',
+                            zhHant: '驗收通過',
+                            fr: 'Revue réussie',
+                            de: 'Prüfung bestanden',
+                            ja: 'レビュー合格',
+                          )
+                        : openHandLocalizedText(
+                            context,
+                            zh: '验收未通过',
+                            en: 'Review Failed',
+                            zhHant: '驗收未通過',
+                            fr: 'Revue échouée',
+                            de: 'Prüfung fehlgeschlagen',
+                            ja: 'レビュー不合格',
+                          ),
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: verdictColor,
                       fontWeight: FontWeight.w800,
@@ -168,7 +182,6 @@ class _HeSegmentBody extends StatelessWidget {
   const _HeSegmentBody({
     required this.content,
     required this.expanded,
-    required this.isZh,
     required this.theme,
     required this.colorScheme,
     required this.textColor,
@@ -179,7 +192,6 @@ class _HeSegmentBody extends StatelessWidget {
 
   final String content;
   final bool expanded;
-  final bool isZh;
   final ThemeData theme;
   final ColorScheme colorScheme;
   final Color textColor;
@@ -250,7 +262,15 @@ class _HeSegmentBody extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        isZh ? '展开全部' : 'Show full content',
+                        openHandLocalizedText(
+                          context,
+                          zh: '展开全部',
+                          en: 'Show full content',
+                          zhHant: '展開全部',
+                          fr: 'Afficher tout le contenu',
+                          de: 'Vollständigen Inhalt anzeigen',
+                          ja: '全文を表示',
+                        ),
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
