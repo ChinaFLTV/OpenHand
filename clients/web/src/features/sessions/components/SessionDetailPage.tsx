@@ -84,7 +84,7 @@ import {
   knowledgeBaseHitTokenEstimateTotal,
   knowledgeBaseResultsUsedByAnswer,
 } from '../../../shared/util/knowledge';
-import { strictPositiveIntegerFromText } from '../../../shared/util/number';
+import { clampNumber, strictPositiveIntegerFromText } from '../../../shared/util/number';
 import { basenameFromPath } from '../../../shared/util/path';
 import {
   clearTranscriptScrollActivity,
@@ -861,7 +861,7 @@ function goalEvaluationSummaryLabel(summary: string | null | undefined): string 
 
 function goalDisplayTurnLimit(goal: SessionGoalRecord): number {
   const configured = typeof goal.max_turns === 'number' ? Math.round(goal.max_turns) : 0;
-  return Math.max(1, Math.min(GOAL_HARD_MAX_AUTO_TURNS, configured || GOAL_DEFAULT_MAX_AUTO_TURNS));
+  return Math.round(clampNumber(configured || GOAL_DEFAULT_MAX_AUTO_TURNS, 1, GOAL_HARD_MAX_AUTO_TURNS));
 }
 
 function goalProgressLabel(goal: SessionGoalRecord): string {
@@ -7641,7 +7641,7 @@ function ContextBreakdownBar({ label, chars, totalChars, color }: { label: strin
         <div
           class="h-full"
           style={{
-            width: `${Math.max(0, Math.min(100, ratio * 100))}%`,
+            width: `${clampNumber(ratio * 100, 0, 100)}%`,
             background: color,
             transition: 'width 220ms ease-out',
           }}
@@ -7745,7 +7745,7 @@ const CACHE_HIT_RATIO_PERCENT_EPSILON = 0.0001;
 
 function cacheHitRatioPercent(value: number): number {
   if (value <= CACHE_HIT_RATIO_PERCENT_EPSILON) return 0;
-  return Math.max(0, Math.min(100, Math.round(value * 100)));
+  return Math.round(clampNumber(value * 100, 0, 100));
 }
 
 function shouldShowSessionCacheHitMetrics({
@@ -8006,7 +8006,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   const contextStatus = metadataString(lastPromptMetadata['context_budget_status']) || 'unknown';
   const contextStatusLabel = contextStatus === 'critical' ? '危险' : contextStatus === 'auto_compact' ? '需压缩' : contextStatus === 'warning' ? '偏高' : contextStatus === 'ok' ? '正常' : '未知';
   const usagePercent = integerFromUnknown(lastPromptMetadata['context_budget_usage_percent']);
-  const usageValue = Math.max(0, Math.min(100, usagePercent));
+  const usageValue = clampNumber(usagePercent, 0, 100);
   const sidecarPath = metadataString(rehydration['session_memory_sidecar_path']);
   const sidecarPresent = rehydration['session_memory_sidecar_present'] === true;
   const compressionRestored = latestCompressionPointMetadata['restored_from_compact_memory_sidecar'] === true;
@@ -9056,7 +9056,7 @@ function ThroughputBars({ samples, cap, limitValue }: { samples: number[]; cap: 
     if (!e.ctrlKey) return;
     e.preventDefault();
     const delta = -e.deltaY / 200;
-    setZoom((z) => Math.max(1, Math.min(4, z * (1 + delta))));
+    setZoom((z) => clampNumber(z * (1 + delta), 1, 4));
   };
 
   return (

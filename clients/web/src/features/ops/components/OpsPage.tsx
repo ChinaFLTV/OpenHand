@@ -20,6 +20,7 @@ import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { TopBar } from '../../../components/TopBar';
 import { describeApiError } from '../../../utils/api_error';
+import { clampNumber } from '../../../shared/util/number';
 
 const REFRESH_INTERVAL_MS = 5_000;
 
@@ -113,7 +114,7 @@ function buildOpsHealth(snapshot: OpsRuntimeSnapshot): OpsHealthSummary {
   if (recommendations.length === 0) {
     recommendations.push(t('ops.health.keepWatch', '当前核心信号平稳，保持自动刷新并关注错误率、P95 延迟和并发水位。'));
   }
-  score = Math.max(0, Math.min(100, Math.round(score)));
+  score = Math.round(clampNumber(score, 0, 100));
   const tone: OpsHealthSummary['tone'] = score >= 85 ? 'ok' : score >= 65 ? 'warn' : 'error';
   const label = tone === 'ok'
     ? t('ops.health.good', '健康')

@@ -1305,7 +1305,7 @@ function goalMessageViewModel(message: SessionMessage): GoalMessageViewModel | n
         ...(confidence != null ? [{
           key: 'confidence',
           icon: 'audit' as const,
-          label: `${Math.round(Math.max(0, Math.min(1, confidence)) * 100)}%`,
+          label: `${Math.round(clampNumber(confidence, 0, 1) * 100)}%`,
         }] : []),
         ...goalCompletionMetricsFromMeta(meta, passed),
       ],

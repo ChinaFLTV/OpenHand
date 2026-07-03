@@ -5,7 +5,7 @@ import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { describeApiError, isAbortError } from '../utils/api_error';
-import { finiteNumberFromText, normalizeInteger } from '../shared/util/number';
+import { clampNumber, finiteNumberFromText, normalizeInteger } from '../shared/util/number';
 import {
   DIALOG_OVERLAY_FOCUSED_Z_INDEX,
   DialogFrame,
@@ -351,7 +351,7 @@ export function TitleSummaryDialog({
                   {tooltipInfo ? (
                     <div
                       class="oh-title-summary-tooltip"
-                      style={{ left: `${Math.min(85, Math.max(5, ((tooltipInfo.x - (sliderContainerRef.current?.getBoundingClientRect().left ?? 0)) / (sliderContainerRef.current?.getBoundingClientRect().width ?? 300)) * 100))}%` }}
+                      style={{ left: `${clampNumber(((tooltipInfo.x - (sliderContainerRef.current?.getBoundingClientRect().left ?? 0)) / (sliderContainerRef.current?.getBoundingClientRect().width ?? 300)) * 100, 5, 85)}%` }}
                     >
                       {tooltipInfo.text}
                     </div>
