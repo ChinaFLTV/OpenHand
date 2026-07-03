@@ -19,6 +19,28 @@ import 'knowledge_chunk_detail_dialog.dart';
 import 'knowledge_dialog_widgets.dart';
 import 'knowledge_vector_distribution_view.dart';
 
+String _kbRetrievalText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
 Future<void> showKnowledgeRetrievalDetailDialog(
   BuildContext context,
   Map<String, Object?> metadata,
@@ -46,7 +68,6 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
     final kb =
         KnowledgeMessageMetadata.fromMessageMetadata(metadata) ??
         const <String, Object?>{};
@@ -54,7 +75,17 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
     final rerank = stringKeyedMapFromValue(kb['rerank']);
     final distribution = KnowledgeMessageMetadata.vectorDistribution(metadata);
     return buildOpenHandAlertDialog(
-      title: Text(isZh ? '引用知识库详情' : 'Knowledge Base References'),
+      title: Text(
+        _kbRetrievalText(
+          context,
+          zh: '引用知识库详情',
+          zhHant: '引用知識庫詳情',
+          en: 'Knowledge Base References',
+          fr: 'Références de la base de connaissances',
+          de: 'Wissensdatenbank-Referenzen',
+          ja: 'ナレッジベース参照',
+        ),
+      ),
       content: buildOpenHandDialogConstrainedContent(
         width: 820,
         maxHeight: MediaQuery.sizeOf(context).height * 0.80,
@@ -63,61 +94,137 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               KnowledgeDialogSection(
-                title: isZh ? '总览' : 'Overview',
+                title: _kbRetrievalText(
+                  context,
+                  zh: '总览',
+                  zhHant: '總覽',
+                  en: 'Overview',
+                  fr: 'Vue d’ensemble',
+                  de: 'Übersicht',
+                  ja: '概要',
+                ),
                 icon: Icons.fact_check_outlined,
                 child: KnowledgeDialogKeyValueList(
                   rows: {
-                    isZh ? '状态' : 'Status': kb['status'],
-                    isZh ? '查询' : 'Query': kb['query'],
-                    isZh ? '错误' : 'Error': kb['error'],
+                    _kbRetrievalText(
+                      context,
+                      zh: '状态',
+                      zhHant: '狀態',
+                      en: 'Status',
+                      fr: 'État',
+                      de: 'Status',
+                      ja: '状態',
+                    ): kb['status'],
+                    _kbRetrievalText(
+                      context,
+                      zh: '查询',
+                      zhHant: '查詢',
+                      en: 'Query',
+                      fr: 'Requête',
+                      de: 'Abfrage',
+                      ja: 'クエリ',
+                    ): kb['query'],
+                    _kbRetrievalText(
+                      context,
+                      zh: '错误',
+                      zhHant: '錯誤',
+                      en: 'Error',
+                      fr: 'Erreur',
+                      de: 'Fehler',
+                      ja: 'エラー',
+                    ): kb['error'],
                   },
                 ),
               ),
               KnowledgeDialogSection(
-                title: isZh ? '嵌入' : 'Embedding',
+                title: _kbRetrievalText(
+                  context,
+                  zh: '嵌入',
+                  zhHant: '嵌入',
+                  en: 'Embedding',
+                  fr: 'Embedding',
+                  de: 'Embedding',
+                  ja: '埋め込み',
+                ),
                 icon: Icons.hub_outlined,
                 child: KnowledgeDialogKeyValueList(
                   rows: _localizedRows(
+                    context,
                     stringKeyedMapFromValue(kb['embedding']),
-                    isZh,
                   ),
                 ),
               ),
               KnowledgeDialogSection(
-                title: isZh ? '检索参数' : 'Retrieval Parameters',
+                title: _kbRetrievalText(
+                  context,
+                  zh: '检索参数',
+                  zhHant: '檢索參數',
+                  en: 'Retrieval Parameters',
+                  fr: 'Paramètres de recherche',
+                  de: 'Abrufparameter',
+                  ja: '検索パラメータ',
+                ),
                 icon: Icons.manage_search_rounded,
                 child: KnowledgeDialogKeyValueList(
                   rows: _localizedRows(
+                    context,
                     stringKeyedMapFromValue(kb['retrieval']),
-                    isZh,
                   ),
                 ),
               ),
               KnowledgeDialogSection(
-                title: isZh ? 'Prompt 追加' : 'Prompt Append',
+                title: _kbRetrievalText(
+                  context,
+                  zh: 'Prompt 追加',
+                  zhHant: 'Prompt 追加',
+                  en: 'Prompt Append',
+                  fr: 'Ajout au prompt',
+                  de: 'Prompt-Anhang',
+                  ja: 'Prompt 追加',
+                ),
                 icon: Icons.post_add_outlined,
                 child: KnowledgeDialogKeyValueList(
                   rows: _localizedRows(
+                    context,
                     stringKeyedMapFromValue(kb['prompt_append']),
-                    isZh,
                   ),
                 ),
               ),
               KnowledgeDialogSection(
-                title: isZh ? '重排序' : 'Rerank',
-                subtitle: isZh
-                    ? '展示召回后如何打分、排序、保留与舍弃分块。'
-                    : 'Shows how recalled chunks were scored, reordered, kept, or discarded.',
+                title: _kbRetrievalText(
+                  context,
+                  zh: '重排序',
+                  zhHant: '重排序',
+                  en: 'Rerank',
+                  fr: 'Reclassement',
+                  de: 'Reranking',
+                  ja: '再ランク',
+                ),
+                subtitle: _kbRetrievalText(
+                  context,
+                  zh: '展示召回后如何打分、排序、保留与舍弃分块。',
+                  zhHant: '展示召回後如何打分、排序、保留與捨棄分塊。',
+                  en: 'Shows how recalled chunks were scored, reordered, kept, or discarded.',
+                  fr: 'Affiche comment les fragments rappelés ont été notés, réordonnés, conservés ou ignorés.',
+                  de: 'Zeigt, wie abgerufene Abschnitte bewertet, neu sortiert, behalten oder verworfen wurden.',
+                  ja: '取得したチャンクのスコア付け、並べ替え、保持、破棄を表示します。',
+                ),
                 icon: Icons.swap_vert_rounded,
                 child: rerank.isEmpty
                     ? KnowledgeDialogNotice(
                         icon: Icons.info_outline_rounded,
-                        message: isZh
-                            ? '本次消息没有记录重排序细节。'
-                            : 'No rerank details were recorded for this message.',
+                        message: _kbRetrievalText(
+                          context,
+                          zh: '本次消息没有记录重排序细节。',
+                          zhHant: '本次訊息沒有記錄重排序細節。',
+                          en: 'No rerank details were recorded for this message.',
+                          fr: 'Aucun détail de reclassement n’a été enregistré pour ce message.',
+                          de: 'Für diese Nachricht wurden keine Reranking-Details aufgezeichnet.',
+                          ja: 'このメッセージには再ランクの詳細が記録されていません。',
+                        ),
                       )
                     : KnowledgeDialogKeyValueList(
-                        rows: _localizedRows(rerank, isZh),
+                        rows: _localizedRows(context, rerank),
                       ),
               ),
               if (distribution != null)
@@ -125,14 +232,28 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                   distribution: distribution,
                 ),
               KnowledgeDialogSection(
-                title: isZh
-                    ? '命中分块 (${results.length})'
-                    : 'Hit chunks (${results.length})',
+                title: _kbRetrievalText(
+                  context,
+                  zh: '命中分块 (${results.length})',
+                  zhHant: '命中分塊 (${results.length})',
+                  en: 'Hit chunks (${results.length})',
+                  fr: 'Fragments trouvés (${results.length})',
+                  de: 'Trefferabschnitte (${results.length})',
+                  ja: 'ヒットチャンク (${results.length})',
+                ),
                 icon: Icons.article_outlined,
                 child: results.isEmpty
                     ? KnowledgeDialogNotice(
                         icon: Icons.info_outline_rounded,
-                        message: isZh ? '没有命中 chunk。' : 'No hit chunks.',
+                        message: _kbRetrievalText(
+                          context,
+                          zh: '没有命中 chunk。',
+                          zhHant: '沒有命中 chunk。',
+                          en: 'No hit chunks.',
+                          fr: 'Aucun fragment trouvé.',
+                          de: 'Keine Trefferabschnitte.',
+                          ja: 'ヒットしたチャンクはありません。',
+                        ),
                       )
                     : Column(
                         children: [
@@ -141,7 +262,15 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
                       ),
               ),
               KnowledgeDialogSection(
-                title: isZh ? '实际追加给模型的上下文' : 'Actual appended context',
+                title: _kbRetrievalText(
+                  context,
+                  zh: '实际追加给模型的上下文',
+                  zhHant: '實際追加給模型的上下文',
+                  en: 'Actual appended context',
+                  fr: 'Contexte réellement ajouté',
+                  de: 'Tatsächlich angehängter Kontext',
+                  ja: '実際にモデルへ追加されたコンテキスト',
+                ),
                 icon: Icons.notes_rounded,
                 margin: EdgeInsets.zero,
                 child: _KnowledgePromptAppendContextBox(metadata: kb),
@@ -161,48 +290,219 @@ class KnowledgeRetrievalDetailDialog extends StatelessWidget {
             if (context.mounted) {
               OpenHandSnackBar.showSuccess(
                 context,
-                isZh ? '已复制知识库元数据。' : 'Knowledge metadata copied.',
+                _kbRetrievalText(
+                  context,
+                  zh: '已复制知识库元数据。',
+                  zhHant: '已複製知識庫元資料。',
+                  en: 'Knowledge metadata copied.',
+                  fr: 'Métadonnées copiées.',
+                  de: 'Wissensdatenbank-Metadaten kopiert.',
+                  ja: 'ナレッジベースのメタデータをコピーしました。',
+                ),
               );
             }
           },
           icon: Icons.copy_rounded,
-          label: isZh ? '复制元数据' : 'Copy metadata',
+          label: _kbRetrievalText(
+            context,
+            zh: '复制元数据',
+            zhHant: '複製元資料',
+            en: 'Copy metadata',
+            fr: 'Copier les métadonnées',
+            de: 'Metadaten kopieren',
+            ja: 'メタデータをコピー',
+          ),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          label: isZh ? '关闭' : 'Close',
+          label: _kbRetrievalText(
+            context,
+            zh: '关闭',
+            zhHant: '關閉',
+            en: 'Close',
+            fr: 'Fermer',
+            de: 'Schließen',
+            ja: '閉じる',
+          ),
         ),
       ],
     );
   }
 
-  Map<String, Object?> _localizedRows(Map<String, Object?> rows, bool isZh) {
-    if (!isZh) return rows;
+  Map<String, Object?> _localizedRows(
+    BuildContext context,
+    Map<String, Object?> rows,
+  ) {
     return <String, Object?>{
-      for (final entry in rows.entries) _metadataLabel(entry.key): entry.value,
+      for (final entry in rows.entries)
+        _metadataLabel(context, entry.key): entry.value,
     };
   }
 
-  String _metadataLabel(String key) {
+  String _metadataLabel(BuildContext context, String key) {
     return switch (key) {
-      'provider_config_id' => 'Provider 配置',
-      'model_id' => '模型 ID',
-      'dimensions' => '向量维度',
-      'duration_ms' => '耗时毫秒',
-      'top_n' => '召回 topN',
-      'top_k' => '最终 topK',
-      'min_similarity' => '最低相似度',
-      'filters' => '过滤条件',
-      'chunk_count' => '追加分块数',
-      'token_estimate' => '预估 token',
-      'content_hash' => '内容哈希',
-      'mode' => '模式',
-      'strategy' => '策略',
-      'candidate_count' => '候选数',
-      'rerank_input_count' => '重排输入数',
-      'rerank_output_count' => '重排输出数',
-      'kept_count' => '保留数',
-      'discarded_count' => '舍弃数',
+      'provider_config_id' => _kbRetrievalText(
+        context,
+        zh: 'Provider 配置',
+        zhHant: 'Provider 配置',
+        en: 'Provider config',
+        fr: 'Configuration fournisseur',
+        de: 'Provider-Konfiguration',
+        ja: 'プロバイダー設定',
+      ),
+      'model_id' => _kbRetrievalText(
+        context,
+        zh: '模型 ID',
+        zhHant: '模型 ID',
+        en: 'Model ID',
+        fr: 'ID du modèle',
+        de: 'Modell-ID',
+        ja: 'モデル ID',
+      ),
+      'dimensions' => _kbRetrievalText(
+        context,
+        zh: '向量维度',
+        zhHant: '向量維度',
+        en: 'Dimensions',
+        fr: 'Dimensions',
+        de: 'Dimensionen',
+        ja: '次元数',
+      ),
+      'duration_ms' => _kbRetrievalText(
+        context,
+        zh: '耗时毫秒',
+        zhHant: '耗時毫秒',
+        en: 'Duration (ms)',
+        fr: 'Durée (ms)',
+        de: 'Dauer (ms)',
+        ja: '所要時間 (ms)',
+      ),
+      'top_n' => _kbRetrievalText(
+        context,
+        zh: '召回 topN',
+        zhHant: '召回 topN',
+        en: 'Recall topN',
+        fr: 'Rappel topN',
+        de: 'Abruf topN',
+        ja: '取得 topN',
+      ),
+      'top_k' => _kbRetrievalText(
+        context,
+        zh: '最终 topK',
+        zhHant: '最終 topK',
+        en: 'Final topK',
+        fr: 'TopK final',
+        de: 'Finales topK',
+        ja: '最終 topK',
+      ),
+      'min_similarity' => _kbRetrievalText(
+        context,
+        zh: '最低相似度',
+        zhHant: '最低相似度',
+        en: 'Minimum similarity',
+        fr: 'Similarité minimale',
+        de: 'Minimale Ähnlichkeit',
+        ja: '最小類似度',
+      ),
+      'filters' => _kbRetrievalText(
+        context,
+        zh: '过滤条件',
+        zhHant: '篩選條件',
+        en: 'Filters',
+        fr: 'Filtres',
+        de: 'Filter',
+        ja: 'フィルター',
+      ),
+      'chunk_count' => _kbRetrievalText(
+        context,
+        zh: '追加分块数',
+        zhHant: '追加分塊數',
+        en: 'Appended chunks',
+        fr: 'Fragments ajoutés',
+        de: 'Angehängte Abschnitte',
+        ja: '追加チャンク数',
+      ),
+      'token_estimate' => _kbRetrievalText(
+        context,
+        zh: '预估 token',
+        zhHant: '預估 token',
+        en: 'Estimated tokens',
+        fr: 'Tokens estimés',
+        de: 'Geschätzte Tokens',
+        ja: '推定トークン',
+      ),
+      'content_hash' => _kbRetrievalText(
+        context,
+        zh: '内容哈希',
+        zhHant: '內容雜湊',
+        en: 'Content hash',
+        fr: 'Hash du contenu',
+        de: 'Inhalts-Hash',
+        ja: 'コンテンツハッシュ',
+      ),
+      'mode' => _kbRetrievalText(
+        context,
+        zh: '模式',
+        zhHant: '模式',
+        en: 'Mode',
+        fr: 'Mode',
+        de: 'Modus',
+        ja: 'モード',
+      ),
+      'strategy' => _kbRetrievalText(
+        context,
+        zh: '策略',
+        zhHant: '策略',
+        en: 'Strategy',
+        fr: 'Stratégie',
+        de: 'Strategie',
+        ja: '戦略',
+      ),
+      'candidate_count' => _kbRetrievalText(
+        context,
+        zh: '候选数',
+        zhHant: '候選數',
+        en: 'Candidates',
+        fr: 'Candidats',
+        de: 'Kandidaten',
+        ja: '候補数',
+      ),
+      'rerank_input_count' => _kbRetrievalText(
+        context,
+        zh: '重排输入数',
+        zhHant: '重排輸入數',
+        en: 'Rerank input',
+        fr: 'Entrées à reclasser',
+        de: 'Reranking-Eingaben',
+        ja: '再ランク入力数',
+      ),
+      'rerank_output_count' => _kbRetrievalText(
+        context,
+        zh: '重排输出数',
+        zhHant: '重排輸出數',
+        en: 'Rerank output',
+        fr: 'Sorties reclassées',
+        de: 'Reranking-Ausgaben',
+        ja: '再ランク出力数',
+      ),
+      'kept_count' => _kbRetrievalText(
+        context,
+        zh: '保留数',
+        zhHant: '保留數',
+        en: 'Kept',
+        fr: 'Conservés',
+        de: 'Behalten',
+        ja: '保持数',
+      ),
+      'discarded_count' => _kbRetrievalText(
+        context,
+        zh: '舍弃数',
+        zhHant: '捨棄數',
+        en: 'Discarded',
+        fr: 'Ignorés',
+        de: 'Verworfen',
+        ja: '破棄数',
+      ),
       _ => key,
     };
   }
@@ -239,7 +539,6 @@ class _KnowledgePromptAppendContextBoxState
 
   @override
   Widget build(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
     return FutureBuilder<String>(
       future: _future,
       builder: (context, snapshot) {
@@ -248,9 +547,15 @@ class _KnowledgePromptAppendContextBoxState
         if (loading && text.isEmpty) {
           return KnowledgeDialogNotice(
             icon: Icons.hourglass_top_rounded,
-            message: isZh
-                ? '正在恢复本次追加给模型的知识库上下文。'
-                : 'Restoring the Knowledge Base context appended to the model.',
+            message: _kbRetrievalText(
+              context,
+              zh: '正在恢复本次追加给模型的知识库上下文。',
+              zhHant: '正在恢復本次追加給模型的知識庫上下文。',
+              en: 'Restoring the Knowledge Base context appended to the model.',
+              fr: 'Restauration du contexte de la base de connaissances ajouté au modèle.',
+              de: 'Der an das Modell angehängte Wissensdatenbank-Kontext wird wiederhergestellt.',
+              ja: 'モデルに追加されたナレッジベースのコンテキストを復元しています。',
+            ),
           );
         }
         return AnimatedSwitcher(
@@ -263,9 +568,15 @@ class _KnowledgePromptAppendContextBoxState
             ),
             text: text,
             maxHeight: 300,
-            emptyText: isZh
-                ? '没有记录实际上下文；可打开命中分块查看详情。'
-                : 'No appended context was recorded. Open a hit chunk for details.',
+            emptyText: _kbRetrievalText(
+              context,
+              zh: '没有记录实际上下文；可打开命中分块查看详情。',
+              zhHant: '沒有記錄實際上下文；可開啟命中分塊查看詳情。',
+              en: 'No appended context was recorded. Open a hit chunk for details.',
+              fr: 'Aucun contexte ajouté n’a été enregistré. Ouvrez un fragment trouvé pour les détails.',
+              de: 'Es wurde kein angehängter Kontext aufgezeichnet. Öffnen Sie einen Trefferabschnitt für Details.',
+              ja: '追加コンテキストは記録されていません。ヒットチャンクを開いて詳細を確認してください。',
+            ),
           ),
         );
       },
@@ -359,7 +670,6 @@ class _HitTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     final title =
         '${hit['title'] ?? hit['source_title'] ?? hit['chunk_id'] ?? ''}';
     final path = '${hit['path'] ?? ''}'.trim();
@@ -386,7 +696,17 @@ class _HitTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title.trim().isEmpty ? (isZh ? '知识库命中' : 'KB hit') : title,
+                  title.trim().isEmpty
+                      ? _kbRetrievalText(
+                          context,
+                          zh: '知识库命中',
+                          zhHant: '知識庫命中',
+                          en: 'KB hit',
+                          fr: 'Résultat KB',
+                          de: 'KB-Treffer',
+                          ja: 'KB ヒット',
+                        )
+                      : title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall?.copyWith(
@@ -413,20 +733,20 @@ class _HitTile extends StatelessWidget {
                   children: [
                     KnowledgeDialogChip(
                       icon: Icons.trending_up_rounded,
-                      label: '${isZh ? '分数' : 'score'} ${hit['score'] ?? '-'}',
+                      label:
+                          '${_kbRetrievalText(context, zh: '分数', zhHant: '分數', en: 'score', fr: 'score', de: 'Score', ja: 'スコア')} ${hit['score'] ?? '-'}',
                     ),
                     if (hit['rerank_score'] != null)
                       KnowledgeDialogChip(
                         icon: Icons.filter_alt_rounded,
                         label:
-                            '${isZh ? '重排' : 'rerank'} ${hit['rerank_score']}',
+                            '${_kbRetrievalText(context, zh: '重排', zhHant: '重排', en: 'rerank', fr: 'rerank', de: 'Rerank', ja: '再ランク')} ${hit['rerank_score']}',
                       ),
                     if (hit['token_estimate'] != null)
                       KnowledgeDialogChip(
                         icon: Icons.data_usage_rounded,
-                        label: isZh
-                            ? '${hit['token_estimate']} token'
-                            : '${hit['token_estimate']} tokens',
+                        label:
+                            '${hit['token_estimate']} ${_kbRetrievalText(context, zh: 'token', zhHant: 'token', en: 'tokens', fr: 'tokens', de: 'Tokens', ja: 'トークン')}',
                       ),
                     if (documentTimeLabel.isNotEmpty)
                       KnowledgeDialogChip(
@@ -469,13 +789,22 @@ class _KnowledgeRetrievalHitDetailDialogState
 
   @override
   Widget build(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
     return FutureBuilder<_ResolvedKnowledgeHit>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return buildOpenHandAlertDialog(
-            title: Text(isZh ? '命中分块详情' : 'Hit Chunk Detail'),
+            title: Text(
+              _kbRetrievalText(
+                context,
+                zh: '命中分块详情',
+                zhHant: '命中分塊詳情',
+                en: 'Hit Chunk Detail',
+                fr: 'Détail du fragment trouvé',
+                de: 'Trefferabschnitt-Details',
+                ja: 'ヒットチャンク詳細',
+              ),
+            ),
             content: buildOpenHandDialogConstrainedContent(
               width: 520,
               maxHeight: MediaQuery.sizeOf(context).height * 0.64,
@@ -487,7 +816,15 @@ class _KnowledgeRetrievalHitDetailDialogState
             actions: [
               OpenHandDialogActionButton.primary(
                 onPressed: () => Navigator.of(context).pop(),
-                label: isZh ? '关闭' : 'Close',
+                label: _kbRetrievalText(
+                  context,
+                  zh: '关闭',
+                  zhHant: '關閉',
+                  en: 'Close',
+                  fr: 'Fermer',
+                  de: 'Schließen',
+                  ja: '閉じる',
+                ),
               ),
             ],
           );
@@ -545,7 +882,6 @@ class _KnowledgeRetrievalVectorSpaceSectionState
 
   @override
   Widget build(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
     final visibleDistribution = _showCorpus && _corpusDistribution != null
         ? _mergeCorpusDistribution(
             corpus: _corpusDistribution!,
@@ -554,14 +890,34 @@ class _KnowledgeRetrievalVectorSpaceSectionState
         : widget.distribution;
     final corpusCount = _corpusDistribution?.points.length ?? 0;
     return KnowledgeDialogSection(
-      title: isZh ? '向量空间' : 'Vector Space',
+      title: _kbRetrievalText(
+        context,
+        zh: '向量空间',
+        zhHant: '向量空間',
+        en: 'Vector Space',
+        fr: 'Espace vectoriel',
+        de: 'Vektorraum',
+        ja: 'ベクトル空間',
+      ),
       subtitle: _showCorpus
-          ? (isZh
-                ? '天蓝色为全量采样，橙色为当前命中结果，红色为查询向量。'
-                : 'Sky blue points are corpus samples; orange points are matched chunks; red is the query vector.')
-          : (isZh
-                ? '红色为查询向量，橙色为当前命中结果。'
-                : 'Red is the query vector; orange points are matched chunks.'),
+          ? _kbRetrievalText(
+              context,
+              zh: '天蓝色为全量采样，橙色为当前命中结果，红色为查询向量。',
+              zhHant: '天藍色為全量採樣，橙色為目前命中結果，紅色為查詢向量。',
+              en: 'Sky blue points are corpus samples; orange points are matched chunks; red is the query vector.',
+              fr: 'Les points bleu ciel sont des échantillons du corpus ; les points orange sont les fragments trouvés ; le rouge est le vecteur de requête.',
+              de: 'Hellblaue Punkte sind Korpus-Stichproben, orange Punkte sind Trefferabschnitte, Rot ist der Abfragevektor.',
+              ja: '水色はコーパスのサンプル、オレンジはヒット結果、赤はクエリベクトルです。',
+            )
+          : _kbRetrievalText(
+              context,
+              zh: '红色为查询向量，橙色为当前命中结果。',
+              zhHant: '紅色為查詢向量，橙色為目前命中結果。',
+              en: 'Red is the query vector; orange points are matched chunks.',
+              fr: 'Le rouge est le vecteur de requête ; les points orange sont les fragments trouvés.',
+              de: 'Rot ist der Abfragevektor, orange Punkte sind Trefferabschnitte.',
+              ja: '赤はクエリベクトル、オレンジは現在のヒット結果です。',
+            ),
       icon: Icons.scatter_plot_rounded,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -577,8 +933,24 @@ class _KnowledgeRetrievalVectorSpaceSectionState
               ),
               label: Text(
                 _showCorpus
-                    ? (isZh ? '隐藏全量' : 'Hide Corpus')
-                    : (isZh ? '叠加全量' : 'Overlay Corpus'),
+                    ? _kbRetrievalText(
+                        context,
+                        zh: '隐藏全量',
+                        zhHant: '隱藏全量',
+                        en: 'Hide Corpus',
+                        fr: 'Masquer le corpus',
+                        de: 'Korpus ausblenden',
+                        ja: 'コーパスを非表示',
+                      )
+                    : _kbRetrievalText(
+                        context,
+                        zh: '叠加全量',
+                        zhHant: '疊加全量',
+                        en: 'Overlay Corpus',
+                        fr: 'Superposer le corpus',
+                        de: 'Korpus überlagern',
+                        ja: 'コーパスを重ねる',
+                      ),
               ),
             ),
           ),
@@ -586,7 +958,7 @@ class _KnowledgeRetrievalVectorSpaceSectionState
             duration: const Duration(milliseconds: 220),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
-            child: _buildCorpusStatus(context, isZh, corpusCount),
+            child: _buildCorpusStatus(context, corpusCount),
           ),
           const SizedBox(height: 10),
           KnowledgeVectorDistributionView(
@@ -599,16 +971,22 @@ class _KnowledgeRetrievalVectorSpaceSectionState
     );
   }
 
-  Widget _buildCorpusStatus(BuildContext context, bool isZh, int corpusCount) {
+  Widget _buildCorpusStatus(BuildContext context, int corpusCount) {
     if (_loadingCorpus && _showCorpus) {
       return Padding(
         key: const ValueKey('corpus-loading'),
         padding: const EdgeInsets.only(top: 10),
         child: KnowledgeDialogNotice(
           icon: Icons.hourglass_top_rounded,
-          message: isZh
-              ? '正在按需采样并叠加全量向量。'
-              : 'Sampling and overlaying corpus vectors on demand.',
+          message: _kbRetrievalText(
+            context,
+            zh: '正在按需采样并叠加全量向量。',
+            zhHant: '正在按需取樣並疊加全量向量。',
+            en: 'Sampling and overlaying corpus vectors on demand.',
+            fr: 'Échantillonnage et superposition des vecteurs du corpus.',
+            de: 'Korpusvektoren werden bei Bedarf abgetastet und überlagert.',
+            ja: '必要に応じてコーパスベクトルをサンプリングして重ねています。',
+          ),
         ),
       );
     }
@@ -619,7 +997,7 @@ class _KnowledgeRetrievalVectorSpaceSectionState
         child: KnowledgeDialogNotice(
           icon: Icons.error_outline_rounded,
           message:
-              '${isZh ? '全量向量加载失败：' : 'Failed to load corpus vectors: '}${_corpusError!}',
+              '${_kbRetrievalText(context, zh: '全量向量加载失败：', zhHant: '全量向量載入失敗：', en: 'Failed to load corpus vectors: ', fr: 'Échec du chargement des vecteurs du corpus : ', de: 'Korpusvektoren konnten nicht geladen werden: ', ja: 'コーパスベクトルの読み込みに失敗しました: ')}${_corpusError!}',
           tone: KnowledgeDialogNoticeTone.error,
         ),
       );
@@ -634,12 +1012,24 @@ class _KnowledgeRetrievalVectorSpaceSectionState
               ? Icons.filter_center_focus_rounded
               : Icons.done_rounded,
           message: sampled
-              ? (isZh
-                    ? '已叠加 $corpusCount 个全量采样点；数据量较大时会采样展示以保持流畅。'
-                    : 'Overlaying $corpusCount sampled corpus points; large collections are sampled to keep the view responsive.')
-              : (isZh
-                    ? '已叠加 $corpusCount 个全量向量点。'
-                    : 'Overlaying $corpusCount corpus points.'),
+              ? _kbRetrievalText(
+                  context,
+                  zh: '已叠加 $corpusCount 个全量采样点；数据量较大时会采样展示以保持流畅。',
+                  zhHant: '已疊加 $corpusCount 個全量取樣點；資料量較大時會取樣展示以保持流暢。',
+                  en: 'Overlaying $corpusCount sampled corpus points; large collections are sampled to keep the view responsive.',
+                  fr: '$corpusCount points échantillonnés du corpus sont superposés ; les grands ensembles sont échantillonnés pour rester fluides.',
+                  de: '$corpusCount Korpus-Stichprobenpunkte werden überlagert; große Sammlungen werden für eine flüssige Ansicht abgetastet.',
+                  ja: '$corpusCount 個のコーパスサンプル点を重ねています。大きなコレクションは表示を滑らかに保つためサンプリングされます。',
+                )
+              : _kbRetrievalText(
+                  context,
+                  zh: '已叠加 $corpusCount 个全量向量点。',
+                  zhHant: '已疊加 $corpusCount 個全量向量點。',
+                  en: 'Overlaying $corpusCount corpus points.',
+                  fr: '$corpusCount points du corpus sont superposés.',
+                  de: '$corpusCount Korpuspunkte werden überlagert.',
+                  ja: '$corpusCount 個のコーパスポイントを重ねています。',
+                ),
         ),
       );
     }
@@ -720,7 +1110,17 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
     final title = _hasValue(hit['title']) ? hit['title'] : hit['source_title'];
     final tags = stringListFromValue(hit['tags']);
     return buildOpenHandAlertDialog(
-      title: Text(isZh ? '命中分块详情' : 'Hit Chunk Detail'),
+      title: Text(
+        _kbRetrievalText(
+          context,
+          zh: '命中分块详情',
+          zhHant: '命中分塊詳情',
+          en: 'Hit Chunk Detail',
+          fr: 'Détail du fragment trouvé',
+          de: 'Trefferabschnitt-Details',
+          ja: 'ヒットチャンク詳細',
+        ),
+      ),
       content: buildOpenHandDialogConstrainedContent(
         width: 820,
         maxHeight: MediaQuery.sizeOf(context).height * 0.80,
@@ -730,62 +1130,185 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
             children: [
               KnowledgeDialogNotice(
                 icon: Icons.info_outline_rounded,
-                message: isZh
-                    ? '未能从本地知识库恢复完整 chunk，下面展示消息元数据中保留的命中信息。'
-                    : 'The full chunk could not be restored locally. Showing hit metadata saved with this message.',
+                message: _kbRetrievalText(
+                  context,
+                  zh: '未能从本地知识库恢复完整 chunk，下面展示消息元数据中保留的命中信息。',
+                  zhHant: '未能從本地知識庫恢復完整 chunk，下面展示訊息元資料中保留的命中資訊。',
+                  en: 'The full chunk could not be restored locally. Showing hit metadata saved with this message.',
+                  fr: 'Le chunk complet n’a pas pu être restauré localement. Les métadonnées conservées avec ce message sont affichées.',
+                  de: 'Der vollständige Chunk konnte lokal nicht wiederhergestellt werden. Angezeigt werden die in dieser Nachricht gespeicherten Treffer-Metadaten.',
+                  ja: 'ローカルのナレッジベースから完全なチャンクを復元できませんでした。このメッセージに保存されたヒット情報を表示します。',
+                ),
                 tone: KnowledgeDialogNoticeTone.warning,
               ),
               const SizedBox(height: 12),
               KnowledgeDialogSection(
-                title: isZh ? '基础信息' : 'Overview',
+                title: _kbRetrievalText(
+                  context,
+                  zh: '基础信息',
+                  zhHant: '基本資訊',
+                  en: 'Overview',
+                  fr: 'Vue d’ensemble',
+                  de: 'Übersicht',
+                  ja: '概要',
+                ),
                 icon: Icons.article_outlined,
                 child: KnowledgeDialogKeyValueList(
                   labelWidth: isZh ? 112 : 132,
                   rows: {
-                    isZh ? '分块 ID' : 'Chunk ID': chunkId,
-                    isZh ? '来源 ID' : 'Source ID': hit['source_id'],
-                    isZh ? '标题' : 'Title': title,
-                    isZh ? '路径' : 'Path': hit['path'],
+                    _kbRetrievalText(
+                      context,
+                      zh: '分块 ID',
+                      zhHant: '分塊 ID',
+                      en: 'Chunk ID',
+                      fr: 'ID du fragment',
+                      de: 'Abschnitts-ID',
+                      ja: 'チャンク ID',
+                    ): chunkId,
+                    _kbRetrievalText(
+                      context,
+                      zh: '来源 ID',
+                      zhHant: '來源 ID',
+                      en: 'Source ID',
+                      fr: 'ID de la source',
+                      de: 'Quellen-ID',
+                      ja: 'ソース ID',
+                    ): hit['source_id'],
+                    _kbRetrievalText(
+                      context,
+                      zh: '标题',
+                      zhHant: '標題',
+                      en: 'Title',
+                      fr: 'Titre',
+                      de: 'Titel',
+                      ja: 'タイトル',
+                    ): title,
+                    _kbRetrievalText(
+                      context,
+                      zh: '路径',
+                      zhHant: '路徑',
+                      en: 'Path',
+                      fr: 'Chemin',
+                      de: 'Pfad',
+                      ja: 'パス',
+                    ): hit['path'],
                   },
                 ),
               ),
               KnowledgeDialogSection(
-                title: isZh ? '检索数据' : 'Retrieval Data',
+                title: _kbRetrievalText(
+                  context,
+                  zh: '检索数据',
+                  zhHant: '檢索資料',
+                  en: 'Retrieval Data',
+                  fr: 'Données de recherche',
+                  de: 'Abrufdaten',
+                  ja: '検索データ',
+                ),
                 icon: Icons.manage_search_rounded,
                 child: KnowledgeDialogKeyValueList(
                   labelWidth: isZh ? 112 : 132,
                   rows: {
                     if (_hasValue(hit['score']))
-                      isZh ? '召回分数' : 'Score': hit['score'],
+                      _kbRetrievalText(
+                        context,
+                        zh: '召回分数',
+                        zhHant: '召回分數',
+                        en: 'Score',
+                        fr: 'Score',
+                        de: 'Score',
+                        ja: 'スコア',
+                      ): hit['score'],
                     if (_hasValue(hit['rerank_score']))
-                      isZh ? '重排分数' : 'Rerank score': hit['rerank_score'],
+                      _kbRetrievalText(
+                        context,
+                        zh: '重排分数',
+                        zhHant: '重排分數',
+                        en: 'Rerank score',
+                        fr: 'Score de reclassement',
+                        de: 'Rerank-Score',
+                        ja: '再ランクスコア',
+                      ): hit['rerank_score'],
                     if (_hasValue(hit['final_score']))
-                      isZh ? '最终分数' : 'Final score': hit['final_score'],
+                      _kbRetrievalText(
+                        context,
+                        zh: '最终分数',
+                        zhHant: '最終分數',
+                        en: 'Final score',
+                        fr: 'Score final',
+                        de: 'Endscore',
+                        ja: '最終スコア',
+                      ): hit['final_score'],
                     if (_hasValue(hit['token_estimate']))
-                      isZh ? '预估 token' : 'Estimated tokens':
-                          hit['token_estimate'],
+                      _kbRetrievalText(
+                        context,
+                        zh: '预估 token',
+                        zhHant: '預估 token',
+                        en: 'Estimated tokens',
+                        fr: 'Tokens estimés',
+                        de: 'Geschätzte Tokens',
+                        ja: '推定トークン',
+                      ): hit['token_estimate'],
                     if (_hasValue(hit['time_field']))
-                      isZh ? '时间字段' : 'Time field': hit['time_field'],
+                      _kbRetrievalText(
+                        context,
+                        zh: '时间字段',
+                        zhHant: '時間欄位',
+                        en: 'Time field',
+                        fr: 'Champ temporel',
+                        de: 'Zeitfeld',
+                        ja: '時間フィールド',
+                      ): hit['time_field'],
                     if (_hasValue(hit['document_time']))
-                      isZh ? '文档时间' : 'Document time': _formatKnowledgeDateTime(
+                      _kbRetrievalText(
+                        context,
+                        zh: '文档时间',
+                        zhHant: '文件時間',
+                        en: 'Document time',
+                        fr: 'Date du document',
+                        de: 'Dokumentzeit',
+                        ja: 'ドキュメント日時',
+                      ): _formatKnowledgeDateTime(
                         hit['document_time'],
                       ),
                     if (_hasValue(hit['updated_at']))
-                      isZh ? '更新时间' : 'Updated at': _formatKnowledgeDateTime(
+                      _kbRetrievalText(
+                        context,
+                        zh: '更新时间',
+                        zhHant: '更新時間',
+                        en: 'Updated at',
+                        fr: 'Mis à jour le',
+                        de: 'Aktualisiert am',
+                        ja: '更新日時',
+                      ): _formatKnowledgeDateTime(
                         hit['updated_at'],
                       ),
                   },
                 ),
               ),
               KnowledgeDialogSection(
-                title: isZh ? '标签' : 'Tags',
+                title: _kbRetrievalText(
+                  context,
+                  zh: '标签',
+                  zhHant: '標籤',
+                  en: 'Tags',
+                  fr: 'Étiquettes',
+                  de: 'Tags',
+                  ja: 'タグ',
+                ),
                 icon: Icons.sell_outlined,
                 child: tags.isEmpty
                     ? KnowledgeDialogNotice(
                         icon: Icons.info_outline_rounded,
-                        message: isZh
-                            ? '消息元数据中没有标签。'
-                            : 'No tags in message metadata.',
+                        message: _kbRetrievalText(
+                          context,
+                          zh: '消息元数据中没有标签。',
+                          zhHant: '訊息元資料中沒有標籤。',
+                          en: 'No tags in message metadata.',
+                          fr: 'Aucune étiquette dans les métadonnées.',
+                          de: 'Keine Tags in den Nachrichten-Metadaten.',
+                          ja: 'メッセージのメタデータにタグはありません。',
+                        ),
                       )
                     : Wrap(
                         spacing: 8,
@@ -800,17 +1323,39 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                       ),
               ),
               KnowledgeDialogSection(
-                title: isZh ? '命中预览' : 'Hit Preview',
+                title: _kbRetrievalText(
+                  context,
+                  zh: '命中预览',
+                  zhHant: '命中預覽',
+                  en: 'Hit Preview',
+                  fr: 'Aperçu du résultat',
+                  de: 'Treffervorschau',
+                  ja: 'ヒットプレビュー',
+                ),
                 icon: Icons.notes_rounded,
                 child: KnowledgeDialogTextBox(
                   text: preview,
-                  emptyText: isZh
-                      ? '消息元数据中没有命中预览。'
-                      : 'No hit preview in message metadata.',
+                  emptyText: _kbRetrievalText(
+                    context,
+                    zh: '消息元数据中没有命中预览。',
+                    zhHant: '訊息元資料中沒有命中預覽。',
+                    en: 'No hit preview in message metadata.',
+                    fr: 'Aucun aperçu du résultat dans les métadonnées.',
+                    de: 'Keine Treffervorschau in den Nachrichten-Metadaten.',
+                    ja: 'メッセージのメタデータにヒットプレビューはありません。',
+                  ),
                 ),
               ),
               KnowledgeDialogSection(
-                title: isZh ? '原始命中元数据' : 'Raw Hit Metadata',
+                title: _kbRetrievalText(
+                  context,
+                  zh: '原始命中元数据',
+                  zhHant: '原始命中元資料',
+                  en: 'Raw Hit Metadata',
+                  fr: 'Métadonnées brutes du résultat',
+                  de: 'Rohe Treffer-Metadaten',
+                  ja: '生ヒットメタデータ',
+                ),
                 icon: Icons.account_tree_outlined,
                 margin: EdgeInsets.zero,
                 child: KnowledgeDialogJsonBox(value: hit, maxHeight: 260),
@@ -825,10 +1370,26 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
             onPressed: () => _copyText(
               context,
               chunkId,
-              isZh ? '已复制分块 ID。' : 'Chunk ID copied.',
+              _kbRetrievalText(
+                context,
+                zh: '已复制分块 ID。',
+                zhHant: '已複製分塊 ID。',
+                en: 'Chunk ID copied.',
+                fr: 'ID du fragment copié.',
+                de: 'Abschnitts-ID kopiert.',
+                ja: 'チャンク ID をコピーしました。',
+              ),
             ),
             icon: Icons.fingerprint_rounded,
-            label: isZh ? '复制 ID' : 'Copy ID',
+            label: _kbRetrievalText(
+              context,
+              zh: '复制 ID',
+              zhHant: '複製 ID',
+              en: 'Copy ID',
+              fr: 'Copier l’ID',
+              de: 'ID kopieren',
+              ja: 'ID をコピー',
+            ),
           ),
         OpenHandDialogActionButton.secondary(
           onPressed: preview.isEmpty
@@ -836,14 +1397,38 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
               : () => _copyText(
                   context,
                   preview,
-                  isZh ? '已复制命中预览。' : 'Hit preview copied.',
+                  _kbRetrievalText(
+                    context,
+                    zh: '已复制命中预览。',
+                    zhHant: '已複製命中預覽。',
+                    en: 'Hit preview copied.',
+                    fr: 'Aperçu du résultat copié.',
+                    de: 'Treffervorschau kopiert.',
+                    ja: 'ヒットプレビューをコピーしました。',
+                  ),
                 ),
           icon: Icons.copy_all_rounded,
-          label: isZh ? '复制预览' : 'Copy Preview',
+          label: _kbRetrievalText(
+            context,
+            zh: '复制预览',
+            zhHant: '複製預覽',
+            en: 'Copy Preview',
+            fr: 'Copier l’aperçu',
+            de: 'Vorschau kopieren',
+            ja: 'プレビューをコピー',
+          ),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          label: isZh ? '关闭' : 'Close',
+          label: _kbRetrievalText(
+            context,
+            zh: '关闭',
+            zhHant: '關閉',
+            en: 'Close',
+            fr: 'Fermer',
+            de: 'Schließen',
+            ja: '閉じる',
+          ),
         ),
       ],
     );
