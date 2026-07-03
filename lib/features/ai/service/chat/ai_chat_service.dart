@@ -206,8 +206,7 @@ class AiChatStreamResult {
   /// token limit.  This is a common cause of "silent stops" where the model
   /// appears to have finished but actually ran out of output budget.
   bool get wasTruncated {
-    if (finishReason == null) return false;
-    final normalized = finishReason!.trim().toLowerCase();
+    final normalized = optionalLowercaseStringFromValue(finishReason);
     return normalized == 'length' || normalized == 'max_tokens';
   }
 }
@@ -307,7 +306,11 @@ class AiChatService implements AiChatClient {
       return true;
     }
     final responsesModelId = model.operationRouting.responsesModelId;
-    return responsesModelId != null && responsesModelId.trim().isNotEmpty;
+    return nullIfBlank(responsesModelId) != null;
+  }
+
+  String _effectiveRequestMethod(AiModelConfig model) {
+    return nullIfBlank(model.requestMethod) ?? 'POST';
   }
 
   bool _shouldFallbackFromResponsesStream(AiChatException error) {
@@ -570,9 +573,7 @@ class AiChatService implements AiChatClient {
         responseModalities: responseModalities,
         inputCacheConfig: inputCacheConfig,
       );
-      final effectiveMethod = model.requestMethod.trim().isNotEmpty
-          ? model.requestMethod.trim()
-          : 'POST';
+      final effectiveMethod = _effectiveRequestMethod(model);
       final startedAt = DateTime.now().toUtc();
       AiChatRequestTelemetry telemetry({
         String? rawResponse,
@@ -679,7 +680,7 @@ class AiChatService implements AiChatClient {
         // the reply so the UI doesn't show the same text in both a thinking
         // card and an assistant card.
         final replyIsReasoning =
-            reasoningText != null && parsedReply.trim() == reasoningText.trim();
+            reasoningText != null && nullIfBlank(parsedReply) == reasoningText;
         return AiChatCompletion(
           reply: replyIsReasoning ? '' : dsmlExtraction.sanitizedText,
           reasoningContent: reasoningText,
@@ -730,9 +731,7 @@ class AiChatService implements AiChatClient {
       final message = (choices.first as Map<String, Object?>?)?['message'];
       if (message is! Map<String, Object?>) return null;
       final reasoning = message['reasoning_content'] ?? message['reasoning'];
-      if (reasoning is String && reasoning.trim().isNotEmpty) {
-        return reasoning.trim();
-      }
+      if (reasoning is String) return nullIfBlank(reasoning);
     } catch (error, stack) {
       silentLog('ai_chat_service', 'extract reasoning_content', error, stack);
     }
@@ -815,9 +814,7 @@ class AiChatService implements AiChatClient {
       stream: true,
       inputCacheConfig: inputCacheConfig,
     );
-    final effectiveMethod = model.requestMethod.trim().isNotEmpty
-        ? model.requestMethod.trim()
-        : 'POST';
+    final effectiveMethod = _effectiveRequestMethod(model);
     late DateTime streamStartedAt;
     late Map<String, String> capturedHeaders;
     late Map<String, Object?> capturedBody;
@@ -1614,7 +1611,8 @@ class AiChatService implements AiChatClient {
     if (model.normalizedBaseUrl.isEmpty) {
       throw const AiChatException('Missing base URL.');
     }
-    if (model.modelId.trim().isEmpty) {
+    final modelId = nullIfBlank(model.modelId);
+    if (modelId == null) {
       throw const AiChatException('Missing model ID.');
     }
     final probeModel = model.copyWith(
@@ -1629,8 +1627,8 @@ class AiChatService implements AiChatClient {
         ],
         timeout: const Duration(seconds: 20),
       );
-      final normalizedReply = reply.reply.trim();
-      if (normalizedReply.isEmpty) {
+      final normalizedReply = nullIfBlank(reply.reply);
+      if (normalizedReply == null) {
         throw AiChatException(
           'Empty assistant reply.',
           telemetry: reply.requestUrl == null && reply.requestMethod == null
@@ -1711,8 +1709,8 @@ void _processOpenAiStreamEvent(
     // Capture finish_reason from the final chunk – this tells us whether the
     // model stopped normally ("stop"), was truncated ("length"), or wants
     // tool execution ("tool_calls").
-    final choiceFinishReason = '${choice['finish_reason'] ?? ''}'.trim();
-    if (choiceFinishReason.isNotEmpty) {
+    final choiceFinishReason = optionalStringFromValue(choice['finish_reason']);
+    if (choiceFinishReason != null) {
       setFinishReason(choiceFinishReason);
     }
     final delta = choice['delta'];
@@ -1745,7 +1743,7 @@ void _processOpenAiStreamEvent(
       // concatenate (`...}{"cmd":...`), producing un-decodable JSON.
       // When the index is missing, fall back to keying by `id`, and only
       // as a last resort assume continuation of the most-recent entry.
-      final id = '${toolCallMap['id'] ?? ''}'.trim();
+      final id = optionalStringFromValue(toolCallMap['id']) ?? '';
       final rawIndex = _readInt(toolCallMap['index']);
       final int index;
       if (rawIndex != null) {
@@ -1771,8 +1769,8 @@ void _processOpenAiStreamEvent(
       final function = toolCallMap['function'];
       if (function is Map) {
         final functionMap = stringKeyedMapFromValue(function);
-        final name = '${functionMap['name'] ?? ''}'.trim();
-        if (name.isNotEmpty) {
+        final name = optionalStringFromValue(functionMap['name']);
+        if (name != null) {
           entry.name = name;
         }
         final argumentsFragment = '${functionMap['arguments'] ?? ''}';
@@ -2113,9 +2111,8 @@ extension on AiChatService {
           );
       if (scanResult.isSuccess) {
         final ids = scanResult.modelIds;
-        final knownModel =
-            model.modelId.trim().isNotEmpty &&
-            ids.contains(model.modelId.trim());
+        final modelId = nullIfBlank(model.modelId);
+        final knownModel = modelId != null && ids.contains(modelId);
         final modelsLabel = ids.isEmpty
             ? StructuredErrorText.pick(
                 zh: '模型列表接口可达，但未返回任何模型。',
@@ -2127,8 +2124,8 @@ extension on AiChatService {
                 en: 'The models endpoint is reachable and already includes the current model ID.',
               )
             : StructuredErrorText.pick(
-                zh: '模型列表接口可达，但未找到当前模型 ID：${model.modelId.trim()}',
-                en: 'The models endpoint is reachable, but it did not include the current model ID: ${model.modelId.trim()}',
+                zh: '模型列表接口可达，但未找到当前模型 ID：${modelId ?? model.modelId}',
+                en: 'The models endpoint is reachable, but it did not include the current model ID: ${modelId ?? model.modelId}',
               );
         final summary = relayAvailabilityReason != null
             ? StructuredErrorText.pick(
@@ -2141,9 +2138,12 @@ extension on AiChatService {
               );
         probeDiagnosis =
             '${StructuredErrorText.pick(zh: '探测补充：', en: 'Probe follow-up:')}\n$modelsLabel\n$summary';
-      } else if ((scanResult.error ?? '').trim().isNotEmpty) {
-        probeDiagnosis =
-            '${StructuredErrorText.pick(zh: '探测补充：', en: 'Probe follow-up:')}\n${StructuredErrorText.pick(zh: '模型列表探测也失败了。该 Base URL 可能整体不可用、鉴权方式不匹配，或中转未按 OpenAI 兼容形式暴露接口。', en: 'The models probe also failed. The Base URL may be entirely unavailable, the authentication scheme may not match, or the relay may not expose the interface in an OpenAI-compatible form.')}\n${scanResult.error!.trim()}';
+      } else {
+        final scanError = nullIfBlank(scanResult.error);
+        if (scanError != null) {
+          probeDiagnosis =
+              '${StructuredErrorText.pick(zh: '探测补充：', en: 'Probe follow-up:')}\n${StructuredErrorText.pick(zh: '模型列表探测也失败了。该 Base URL 可能整体不可用、鉴权方式不匹配，或中转未按 OpenAI 兼容形式暴露接口。', en: 'The models probe also failed. The Base URL may be entirely unavailable, the authentication scheme may not match, or the relay may not expose the interface in an OpenAI-compatible form.')}\n$scanError';
+        }
       }
     } catch (_) {
       // Keep the original provider-test failure as the primary signal.
@@ -2167,20 +2167,20 @@ String _buildProviderProbeDetail(
   AiChatRequestTelemetry? telemetry,
   String? diagnosis,
 }) {
-  final base = message.trim();
+  final base = nullIfBlank(message) ?? 'Unknown provider probe failure.';
   final extraLines = <String>[];
-  final method = (telemetry?.requestMethod ?? '').trim();
-  final url = (telemetry?.requestUrl ?? '').trim();
-  if (method.isNotEmpty) {
+  final method = nullIfBlank(telemetry?.requestMethod);
+  final url = nullIfBlank(telemetry?.requestUrl);
+  if (method != null) {
     extraLines.add(
       StructuredErrorText.pick(zh: '请求方法：$method', en: 'Method: $method'),
     );
   }
-  if (url.isNotEmpty) {
+  if (url != null) {
     extraLines.add(StructuredErrorText.pick(zh: '请求地址：$url', en: 'URL: $url'));
   }
-  final trimmedDiagnosis = (diagnosis ?? '').trim();
-  if (trimmedDiagnosis.isNotEmpty) {
+  final trimmedDiagnosis = nullIfBlank(diagnosis);
+  if (trimmedDiagnosis != null) {
     extraLines.add(trimmedDiagnosis);
   }
   if (extraLines.isEmpty) {
@@ -2472,7 +2472,10 @@ _StreamingGeneratedMedia? _visitStreamingMediaMap(
 String? _firstNonEmptyString(Map<String, Object?> map, List<String> keys) {
   for (final key in keys) {
     final value = map[key];
-    if (value is String && value.trim().isNotEmpty) return value.trim();
+    if (value is String) {
+      final normalized = nullIfBlank(value);
+      if (normalized != null) return normalized;
+    }
   }
   return null;
 }
@@ -2482,8 +2485,8 @@ _StreamingGeneratedMedia? _streamingGeneratedMediaFromUrl(
   String? hintedKind,
   bool allowHintedKindWithoutExtension = false,
 }) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty || trimmed.length > _maxStreamingMediaUrlChars) {
+  final trimmed = nullIfBlank(value);
+  if (trimmed == null || trimmed.length > _maxStreamingMediaUrlChars) {
     return null;
   }
   final uri = Uri.tryParse(trimmed);
@@ -2510,7 +2513,7 @@ _StreamingGeneratedMedia? _streamingGeneratedMediaFromUrl(
 }
 
 String? _streamingMediaKindFromMime(String mimeType) {
-  final normalized = mimeType.trim().toLowerCase();
+  final normalized = lowercaseStringFromValue(mimeType);
   if (normalized.startsWith('image/')) return 'image';
   if (normalized.startsWith('video/')) return 'video';
   if (normalized.startsWith('audio/')) return 'audio';
@@ -2518,7 +2521,7 @@ String? _streamingMediaKindFromMime(String mimeType) {
 }
 
 String? _streamingMediaKindFromType(String value) {
-  final normalized = value.trim().toLowerCase();
+  final normalized = lowercaseStringFromValue(value);
   if (normalized.contains('image')) return 'image';
   if (normalized.contains('video')) return 'video';
   if (normalized.contains('audio')) return 'audio';
