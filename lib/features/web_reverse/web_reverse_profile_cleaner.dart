@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/input_value_parsing.dart';
 
 /// 清理 Chrome 系浏览器的 Profile 锁文件（关闭浏览器后用），
 /// 让被卡住的 user-data-dir 重新可用。
@@ -19,15 +20,13 @@ Future<({int deleted, List<String> messages})> cleanWebReverseProfileLocks(
 ) async {
   final messages = <String>[];
   var deleted = 0;
-  if (userDataDir.trim().isEmpty) {
+  final normalizedUserDataDir = nullIfBlank(userDataDir);
+  if (normalizedUserDataDir == null) {
     return (deleted: 0, messages: <String>['user-data-dir 为空，未执行清理']);
   }
-  final root = Directory(userDataDir);
+  final root = Directory(normalizedUserDataDir);
   if (!await root.exists()) {
-    return (
-      deleted: 0,
-      messages: <String>['目录不存在：$userDataDir'],
-    );
+    return (deleted: 0, messages: <String>['目录不存在：$normalizedUserDataDir']);
   }
   // 仅清理 Chrome 已知的锁文件，避免误删用户数据。
   // 顺序：根目录的 SingletonLock 最常见，先动；Default/ 下的 lockfile
@@ -76,8 +75,9 @@ Future<({int deleted, List<String> messages})> cleanWebReverseProfileLocks(
 /// 检查 user-data-dir 当前是否存在 Chrome 锁。
 /// 用于按钮的 enabled / 文案切换（无锁时按钮置灰提示"已干净"）。
 Future<bool> hasWebReverseProfileLocks(String userDataDir) async {
-  if (userDataDir.trim().isEmpty) return false;
-  final root = Directory(userDataDir);
+  final normalizedUserDataDir = nullIfBlank(userDataDir);
+  if (normalizedUserDataDir == null) return false;
+  final root = Directory(normalizedUserDataDir);
   if (!await root.exists()) return false;
   for (final n in const <String>[
     'SingletonLock',

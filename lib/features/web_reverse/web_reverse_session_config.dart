@@ -110,12 +110,14 @@ class WebReverseSessionConfig {
   /// transcript 中能看到的「请求模板：…」就够了）。模板字段含义保持不变，
   /// 顺序保持不变，下游 prompt 解析逻辑只需读 bullet 即可。
   String toRequestTemplate() {
+    final triggerActionText = nullIfBlank(triggerActions);
+    final proxyText = nullIfBlank(proxy);
     final buf = StringBuffer()
       ..writeln('请求模板：')
       ..writeln('- 目标 URL：【$targetUrl】')
       ..writeln('- 逆向目标：【$objective】');
-    if (triggerActions != null && triggerActions!.trim().isNotEmpty) {
-      buf.writeln('- 触发动作：【${triggerActions!.trim()}】');
+    if (triggerActionText != null) {
+      buf.writeln('- 触发动作：【$triggerActionText】');
     }
     buf.writeln('- 登录态：【${loginMode.label}】');
     buf.writeln('- 浏览器：【${browserKind.displayName}】');
@@ -123,8 +125,8 @@ class WebReverseSessionConfig {
     buf.writeln(
       '- AI 侧 CDP MCP：【${cdpMcpEnabled ? '已启用，会按工具目录使用 chrome-devtools/js-reverse MCP' : '未启用；如需临时 chrome-devtools-mcp，请先在调试面板手动开启'}】',
     );
-    if (proxy != null && proxy!.trim().isNotEmpty) {
-      buf.writeln('- 代理：【${proxy!.trim()}】');
+    if (proxyText != null) {
+      buf.writeln('- 代理：【$proxyText】');
     }
     if (keywords.isNotEmpty) {
       buf.writeln('- 关键字：【${keywords.join(', ')}】');

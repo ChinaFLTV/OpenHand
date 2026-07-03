@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart' as http_io;
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_browser_kind.dart';
 import 'web_reverse_cdp_http.dart';
 import 'web_reverse_pure_helpers.dart';
@@ -113,7 +114,15 @@ class WebReverseBrowserLauncher {
         '9222-9322 区间没有空闲端口可用',
       );
     }
-    await Directory(userDataDir).create(recursive: true);
+    final normalizedUserDataDir = nullIfBlank(userDataDir);
+    if (normalizedUserDataDir == null) {
+      throw const WebReverseLaunchException(
+        WebReverseLaunchFailure.spawnFailed,
+        'user-data-dir 为空，无法启动浏览器',
+      );
+    }
+    final proxyArg = nullIfBlank(proxy);
+    await Directory(normalizedUserDataDir).create(recursive: true);
     final args = <String>[
       // 2026-05-17 — CDP 关键参数务必排在最前，确保 Chrome 解析到这些
       // 参数前不会因为别的初始化阶段卡住（部分 Chrome 版本对参数顺序
@@ -121,7 +130,7 @@ class WebReverseBrowserLauncher {
       '--remote-debugging-port=$port',
       '--remote-debugging-address=127.0.0.1',
       '--remote-allow-origins=*',
-      '--user-data-dir=$userDataDir',
+      '--user-data-dir=$normalizedUserDataDir',
       '--no-first-run',
       '--no-default-browser-check',
       '--no-service-autorun',
@@ -144,8 +153,7 @@ class WebReverseBrowserLauncher {
       '--no-pings',
       // proxy=direct:// 让 CDP 探测请求绕开系统代理；用户配置的 proxy
       // 只作用于浏览器自身的页面流量，不影响本进程对 127.0.0.1 的探测。
-      if (proxy != null && proxy.trim().isNotEmpty)
-        '--proxy-server=${proxy.trim()}',
+      if (proxyArg != null) '--proxy-server=$proxyArg',
       startUrl,
     ];
     Process process;
@@ -229,11 +237,14 @@ class WebReverseBrowserLauncher {
             } else {
               final nextWsUrl = data['webSocketDebuggerUrl'];
               final nextVersion = data['Browser'];
-              wsUrl = nextWsUrl is String ? nextWsUrl.trim() : null;
-              if (nextVersion is String && nextVersion.trim().isNotEmpty) {
-                version = nextVersion.trim();
+              wsUrl = nextWsUrl is String ? nullIfBlank(nextWsUrl) : null;
+              final normalizedVersion = nextVersion is String
+                  ? nullIfBlank(nextVersion)
+                  : null;
+              if (normalizedVersion != null) {
+                version = normalizedVersion;
               }
-              if (wsUrl != null && wsUrl.isNotEmpty) break;
+              if (wsUrl != null) break;
             }
           } else {
             lastHttpError = 'HTTP ${resp.statusCode}';
@@ -251,7 +262,7 @@ class WebReverseBrowserLauncher {
     } finally {
       if (httpClientFactory == null) client.close();
     }
-    if (wsUrl == null || wsUrl.isEmpty) {
+    if (wsUrl == null) {
       try {
         process.kill();
       } catch (error, stack) {
@@ -301,7 +312,7 @@ class WebReverseBrowserLauncher {
     return WebReverseLaunchResult(
       process: process,
       cdpPort: port,
-      userDataDir: userDataDir,
+      userDataDir: normalizedUserDataDir,
       browserVersion: version,
       webSocketDebuggerUrl: wsUrl,
     );

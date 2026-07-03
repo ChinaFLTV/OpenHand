@@ -6,6 +6,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_profile_cleaner.dart';
 
 /// 渐进式解决 profile 冲突的结果，供 UI 决定是否进入冷却期。
@@ -72,7 +73,8 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
     }
   }
 
-  if (userDataDir.trim().isEmpty) {
+  final normalizedUserDataDir = nullIfBlank(userDataDir);
+  if (normalizedUserDataDir == null) {
     toast(
       text:
           loc?.webReverseProfileEmptyPath ?? 'Empty profile path; nothing done',
@@ -83,7 +85,9 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
 
   late final int deletedLockCount;
   try {
-    deletedLockCount = (await cleanWebReverseProfileLocks(userDataDir)).deleted;
+    deletedLockCount = (await cleanWebReverseProfileLocks(
+      normalizedUserDataDir,
+    )).deleted;
   } catch (error, stack) {
     silentLog('web_reverse_profile_actions', 'clean step', error, stack);
     toast(
@@ -95,7 +99,7 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
   }
 
   // Some protected lock files may survive delete attempts.
-  final stillLocked = await hasWebReverseProfileLocks(userDataDir);
+  final stillLocked = await hasWebReverseProfileLocks(normalizedUserDataDir);
 
   if (!stillLocked) {
     if (deletedLockCount > 0) {
@@ -122,8 +126,8 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
         loc?.webReverseProfileResetTitle ??
         'Locks still present — reset profile?',
     message:
-        loc?.webReverseProfileResetBody(userDataDir) ??
-        'Cleaned SingletonLock residues but locks still exist.\n\nProceeding will recursively delete:\n$userDataDir\n\nCookies / Login Data / extensions / history under this profile will be lost; a fresh profile is rebuilt on next launch.',
+        loc?.webReverseProfileResetBody(normalizedUserDataDir) ??
+        'Cleaned SingletonLock residues but locks still exist.\n\nProceeding will recursively delete:\n$normalizedUserDataDir\n\nCookies / Login Data / extensions / history under this profile will be lost; a fresh profile is rebuilt on next launch.',
     cancelLabel: loc?.commonCancel ?? 'Cancel',
     confirmLabel: loc?.webReverseProfileResetConfirm ?? 'Reset now',
     destructive: true,
@@ -139,18 +143,19 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
   }
 
   try {
-    if (!userDataDir.contains('web_reverse') || userDataDir.length < 16) {
+    if (!normalizedUserDataDir.contains('web_reverse') ||
+        normalizedUserDataDir.length < 16) {
       throw const FileSystemException('安全策略拒绝：路径不在 OpenHand web_reverse 子目录中');
     }
-    final d = Directory(userDataDir);
+    final d = Directory(normalizedUserDataDir);
     if (await d.exists()) {
       await d.delete(recursive: true);
     }
     if (!context.mounted) return ProgressiveProfileOutcome.reset;
     toast(
       text:
-          loc?.webReverseProfileResetDone(userDataDir) ??
-          'Profile reset: $userDataDir (60s cool-down)',
+          loc?.webReverseProfileResetDone(normalizedUserDataDir) ??
+          'Profile reset: $normalizedUserDataDir (60s cool-down)',
       tone: _ProfileToastTone.success,
     );
     return ProgressiveProfileOutcome.reset;
