@@ -410,9 +410,9 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                           controller: _titleController,
                           enabled: !_isSaving,
                           maxLength: UserMemoryEntry.maxTitleLength,
-                          decoration: const InputDecoration(
-                            labelText: '标题（可选）',
-                            hintText: '一句话浓缩本条记忆的主旨；留空则使用正文预览',
+                          decoration: InputDecoration(
+                            labelText: l10n.memoryTitleField,
+                            hintText: l10n.memoryTitleHint,
                             counterText: '',
                           ),
                         ),

@@ -8734,4 +8734,62 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get builtinToolConfirmationNo => 'No';
+
+  @override
+  String get memoryTitleField => 'Title (optional)';
+
+  @override
+  String get memoryTitleHint =>
+      'Summarize this memory in one sentence; leave blank to use a content preview';
+
+  @override
+  String get machineExpertDialogTitle => 'Machine Expert Template';
+
+  @override
+  String get machineExpertDialogBody =>
+      'Choose the target terminal window and task. Machine Expert will run commands in that workspace.';
+
+  @override
+  String get machineExpertTerminalProgram => 'Terminal app';
+
+  @override
+  String get machineExpertWindow => 'Window';
+
+  @override
+  String get machineExpertTab => 'Tab';
+
+  @override
+  String get machineExpertSession => 'Session';
+
+  @override
+  String get machineExpertModelOptional => 'Model (optional)';
+
+  @override
+  String get machineExpertModelChoose => 'Tap to choose a model';
+
+  @override
+  String get machineExpertModelNotConfiguredDefault =>
+      'No models configured; current default model will be used';
+
+  @override
+  String get machineExpertModelHelperWithModels =>
+      'Applies only to this new Machine Expert session. If not selected, the current active model is kept.';
+
+  @override
+  String get machineExpertModelHelperNoModels =>
+      'No models are configured in Settings. This session will keep using the current active default model.';
+
+  @override
+  String get machineExpertTaskRequirement => 'Task requirement';
+
+  @override
+  String get machineExpertTaskRequirementHint =>
+      'Describe the task, for example: list files in the current directory, build the project, or deploy to a remote server...';
+
+  @override
+  String get machineExpertTaskRequirementHelper =>
+      'Machine Expert will execute interactively from this request and terminal context.';
+
+  @override
+  String get machineExpertStartExecution => 'Start execution';
 }

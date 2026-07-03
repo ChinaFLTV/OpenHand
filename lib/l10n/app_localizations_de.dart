@@ -8818,4 +8818,62 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get builtinToolConfirmationNo => 'Nein';
+
+  @override
+  String get memoryTitleField => 'Titel (optional)';
+
+  @override
+  String get memoryTitleHint =>
+      'Fassen Sie diese Erinnerung in einem Satz zusammen; leer lassen für eine Inhaltsvorschau';
+
+  @override
+  String get machineExpertDialogTitle => 'Maschinenexperten-Vorlage';
+
+  @override
+  String get machineExpertDialogBody =>
+      'Wählen Sie Terminalfenster und Aufgabe. Der Maschinenexperte führt Befehle in dieser Umgebung aus.';
+
+  @override
+  String get machineExpertTerminalProgram => 'Terminal-App';
+
+  @override
+  String get machineExpertWindow => 'Fenster';
+
+  @override
+  String get machineExpertTab => 'Tab';
+
+  @override
+  String get machineExpertSession => 'Sitzung';
+
+  @override
+  String get machineExpertModelOptional => 'Modell (optional)';
+
+  @override
+  String get machineExpertModelChoose => 'Modell auswählen';
+
+  @override
+  String get machineExpertModelNotConfiguredDefault =>
+      'Keine Modelle konfiguriert; das aktuelle Standardmodell wird verwendet';
+
+  @override
+  String get machineExpertModelHelperWithModels =>
+      'Gilt nur für diese neue Maschinenexperten-Sitzung. Ohne Auswahl bleibt das aktive Modell erhalten.';
+
+  @override
+  String get machineExpertModelHelperNoModels =>
+      'In den Einstellungen sind keine Modelle konfiguriert. Diese Sitzung nutzt das aktuelle aktive Standardmodell.';
+
+  @override
+  String get machineExpertTaskRequirement => 'Aufgabenanforderung';
+
+  @override
+  String get machineExpertTaskRequirementHint =>
+      'Beschreiben Sie die Aufgabe, z. B. Dateien im aktuellen Ordner prüfen, Projekt bauen oder auf einen Server deployen...';
+
+  @override
+  String get machineExpertTaskRequirementHelper =>
+      'Der Maschinenexperte führt interaktiv anhand dieser Anforderung und des Terminalkontexts aus.';
+
+  @override
+  String get machineExpertStartExecution => 'Ausführung starten';
 }

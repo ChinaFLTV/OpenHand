@@ -8426,6 +8426,60 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get builtinToolConfirmationNo => '无需确认';
+
+  @override
+  String get memoryTitleField => '标题（可选）';
+
+  @override
+  String get memoryTitleHint => '一句话浓缩本条记忆的主旨；留空则使用正文预览';
+
+  @override
+  String get machineExpertDialogTitle => '机器专家模板配置';
+
+  @override
+  String get machineExpertDialogBody =>
+      '请指定目标终端窗口与具体任务需求，机器专家将在此工作环境中自动为您执行命令。';
+
+  @override
+  String get machineExpertTerminalProgram => '终端程序';
+
+  @override
+  String get machineExpertWindow => '窗口';
+
+  @override
+  String get machineExpertTab => '标签页';
+
+  @override
+  String get machineExpertSession => '会话';
+
+  @override
+  String get machineExpertModelOptional => '使用模型（可选）';
+
+  @override
+  String get machineExpertModelChoose => '点击选择模型';
+
+  @override
+  String get machineExpertModelNotConfiguredDefault => '未配置可用模型，将沿用当前默认模型';
+
+  @override
+  String get machineExpertModelHelperWithModels =>
+      '仅影响本次新建的机器专家线程；若不选，则沿用当前已激活模型。';
+
+  @override
+  String get machineExpertModelHelperNoModels => '尚未在设置中配置模型；本次将继续使用当前激活的默认模型。';
+
+  @override
+  String get machineExpertTaskRequirement => '任务需求';
+
+  @override
+  String get machineExpertTaskRequirementHint =>
+      '描述你想要执行的任务，例如：检查当前目录的文件列表，编译项目，部署到远程服务器等...';
+
+  @override
+  String get machineExpertTaskRequirementHelper => '机器专家将根据该需求和终端现场进行交互式执行。';
+
+  @override
+  String get machineExpertStartExecution => '开始执行';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -16850,6 +16904,60 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get builtinToolConfirmationNo => '无需确认';
+
+  @override
+  String get memoryTitleField => '标题（可选）';
+
+  @override
+  String get memoryTitleHint => '一句话浓缩本条记忆的主旨；留空则使用正文预览';
+
+  @override
+  String get machineExpertDialogTitle => '机器专家模板配置';
+
+  @override
+  String get machineExpertDialogBody =>
+      '请指定目标终端窗口与具体任务需求，机器专家将在此工作环境中自动为您执行命令。';
+
+  @override
+  String get machineExpertTerminalProgram => '终端程序';
+
+  @override
+  String get machineExpertWindow => '窗口';
+
+  @override
+  String get machineExpertTab => '标签页';
+
+  @override
+  String get machineExpertSession => '会话';
+
+  @override
+  String get machineExpertModelOptional => '使用模型（可选）';
+
+  @override
+  String get machineExpertModelChoose => '点击选择模型';
+
+  @override
+  String get machineExpertModelNotConfiguredDefault => '未配置可用模型，将沿用当前默认模型';
+
+  @override
+  String get machineExpertModelHelperWithModels =>
+      '仅影响本次新建的机器专家线程；若不选，则沿用当前已激活模型。';
+
+  @override
+  String get machineExpertModelHelperNoModels => '尚未在设置中配置模型；本次将继续使用当前激活的默认模型。';
+
+  @override
+  String get machineExpertTaskRequirement => '任务需求';
+
+  @override
+  String get machineExpertTaskRequirementHint =>
+      '描述你想要执行的任务，例如：检查当前目录的文件列表，编译项目，部署到远程服务器等...';
+
+  @override
+  String get machineExpertTaskRequirementHelper => '机器专家将根据该需求和终端现场进行交互式执行。';
+
+  @override
+  String get machineExpertStartExecution => '开始执行';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -25270,4 +25378,58 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get builtinToolConfirmationNo => '無需確認';
+
+  @override
+  String get memoryTitleField => '標題（可選）';
+
+  @override
+  String get memoryTitleHint => '用一句話濃縮此記憶主旨；留空則使用正文預覽';
+
+  @override
+  String get machineExpertDialogTitle => '機器專家範本設定';
+
+  @override
+  String get machineExpertDialogBody =>
+      '請指定目標終端視窗與具體任務需求，機器專家將在此工作環境中自動為您執行命令。';
+
+  @override
+  String get machineExpertTerminalProgram => '終端程式';
+
+  @override
+  String get machineExpertWindow => '視窗';
+
+  @override
+  String get machineExpertTab => '分頁';
+
+  @override
+  String get machineExpertSession => '會話';
+
+  @override
+  String get machineExpertModelOptional => '使用模型（可選）';
+
+  @override
+  String get machineExpertModelChoose => '點擊選擇模型';
+
+  @override
+  String get machineExpertModelNotConfiguredDefault => '未設定可用模型，將沿用目前預設模型';
+
+  @override
+  String get machineExpertModelHelperWithModels =>
+      '僅影響本次新建的機器專家執行緒；若不選，則沿用目前啟用模型。';
+
+  @override
+  String get machineExpertModelHelperNoModels => '尚未在設定中配置模型；本次將繼續使用目前啟用的預設模型。';
+
+  @override
+  String get machineExpertTaskRequirement => '任務需求';
+
+  @override
+  String get machineExpertTaskRequirementHint =>
+      '描述你想要執行的任務，例如：檢查目前目錄的檔案清單、編譯專案、部署到遠端伺服器等...';
+
+  @override
+  String get machineExpertTaskRequirementHelper => '機器專家將根據此需求與終端現場進行互動式執行。';
+
+  @override
+  String get machineExpertStartExecution => '開始執行';
 }

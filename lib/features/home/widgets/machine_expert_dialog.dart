@@ -14,7 +14,6 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
-import '../../../shared/util/localized_text.dart';
 
 import '../../ai/index.dart';
 
@@ -239,7 +238,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
 
   Future<void> _updateWindowsForTerminal(String terminal) async {
     final currentFetchId = ++_fetchSequence;
-    final windowLabel = openHandLocalizedText(context, zh: '窗口', en: 'Window');
+    final windowLabel = AppLocalizations.of(context)!.machineExpertWindow;
 
     setState(() {
       _isLoading = true;
@@ -328,12 +327,9 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
   Future<void> _updateTabsForWindowInternal(String window, int fetchId) async {
     // Capture locale-dependent labels before any async gap to avoid
     // use_build_context_synchronously warnings.
-    final tabLabel = openHandLocalizedText(context, zh: '标签页', en: 'Tab');
-    final sessionLabel = openHandLocalizedText(
-      context,
-      zh: '会话',
-      en: 'Session',
-    );
+    final l10n = AppLocalizations.of(context)!;
+    final tabLabel = l10n.machineExpertTab;
+    final sessionLabel = l10n.machineExpertSession;
 
     var tabs = <String>[];
     var indices = <(int, int)>[];
@@ -558,6 +554,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
   Widget _buildModelSelector(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final hasModels = widget.availableModels.isNotEmpty;
     final displayLabel = _selectedModelDisplayLabel();
 
@@ -568,11 +565,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
           onTap: hasModels ? _showModelMenu : null,
           child: InputDecorator(
             decoration: InputDecoration(
-              labelText: openHandLocalizedText(
-                context,
-                zh: '使用模型（可选）',
-                en: 'Model (Optional)',
-              ),
+              labelText: l10n.machineExpertModelOptional,
               border: const OutlineInputBorder(),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
@@ -592,13 +585,9 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
             ),
             child: Text(
               displayLabel ??
-                  openHandLocalizedText(
-                    context,
-                    zh: hasModels ? '点击选择模型' : '未配置可用模型，将沿用当前默认模型',
-                    en: hasModels
-                        ? 'Tap to choose a model'
-                        : 'No models configured; current default model will be used',
-                  ),
+                  (hasModels
+                      ? l10n.machineExpertModelChoose
+                      : l10n.machineExpertModelNotConfiguredDefault),
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: hasModels
@@ -610,15 +599,9 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
         ),
         const SizedBox(height: 6),
         Text(
-          openHandLocalizedText(
-            context,
-            zh: hasModels
-                ? '仅影响本次新建的机器专家线程；若不选，则沿用当前已激活模型。'
-                : '尚未在设置中配置模型；本次将继续使用当前激活的默认模型。',
-            en: hasModels
-                ? 'Applies only to this new Machine Expert session. If not selected, the current active model is kept.'
-                : 'No models are configured in Settings. This session will keep using the current active default model.',
-          ),
+          hasModels
+              ? l10n.machineExpertModelHelperWithModels
+              : l10n.machineExpertModelHelperNoModels,
           style: theme.textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
@@ -698,9 +681,10 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return buildOpenHandAlertDialog(
-      title: const Text('机器专家模板配置'),
+      title: Text(l10n.machineExpertDialogTitle),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 800),
         child: SizedBox(
@@ -713,7 +697,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '请指定目标终端窗口与具体任务需求，机器专家将在此工作环境中自动为您执行命令。',
+                      l10n.machineExpertDialogBody,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -723,7 +707,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildDropdownItem(
-                          label: '终端程序',
+                          label: l10n.machineExpertTerminalProgram,
                           value: _selectedTerminal,
                           items: _allTerminalsCached,
                           onChanged: (value) {
@@ -737,11 +721,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
                         ),
                         const SizedBox(width: 16),
                         _buildDropdownItem(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '窗口',
-                            en: 'Window',
-                          ),
+                          label: l10n.machineExpertWindow,
                           value: _selectedWindow,
                           items: _windows,
                           displayLabelBuilder: (w) => w,
@@ -756,11 +736,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
                         ),
                         const SizedBox(width: 16),
                         _buildDropdownItem(
-                          label: openHandLocalizedText(
-                            context,
-                            zh: '会话',
-                            en: 'Session',
-                          ),
+                          label: l10n.machineExpertSession,
                           value: _selectedTab,
                           items: _tabs,
                           displayLabelBuilder: (t) => t,
@@ -781,12 +757,12 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
                       controller: _taskController,
                       maxLines: 8,
                       minLines: 4,
-                      decoration: const InputDecoration(
-                        labelText: '任务需求',
-                        hintText: '描述你想要执行的任务，例如：检查当前目录的文件列表，编译项目，部署到远程服务器等...',
+                      decoration: InputDecoration(
+                        labelText: l10n.machineExpertTaskRequirement,
+                        hintText: l10n.machineExpertTaskRequirementHint,
                         alignLabelWithHint: true,
-                        border: OutlineInputBorder(),
-                        helperText: '机器专家将根据该需求和终端现场进行交互式执行。',
+                        border: const OutlineInputBorder(),
+                        helperText: l10n.machineExpertTaskRequirementHelper,
                       ),
                     ),
                     if (_isLoading) ...[
@@ -814,7 +790,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: AppLocalizations.of(context)?.commonCancel ?? '取消',
+          label: l10n.commonCancel,
         ),
         ValueListenableBuilder<TextEditingValue>(
           valueListenable: _taskController,
@@ -826,7 +802,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
                 textValue.text.trim().isNotEmpty;
             return OpenHandDialogActionButton.primary(
               onPressed: (isValid && !_isLoading) ? _submit : null,
-              label: '开始执行',
+              label: l10n.machineExpertStartExecution,
             );
           },
         ),

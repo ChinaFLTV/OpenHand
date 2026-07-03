@@ -6987,5 +6987,73 @@
   "builtinToolConfirmationNo": "无需确认",
   "@builtinToolConfirmationNo": {
     "description": "OpenHand localized UI text."
+  },
+  "memoryTitleField": "标题（可选）",
+  "@memoryTitleField": {
+    "description": "OpenHand localized UI text."
+  },
+  "memoryTitleHint": "一句话浓缩本条记忆的主旨；留空则使用正文预览",
+  "@memoryTitleHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertDialogTitle": "机器专家模板配置",
+  "@machineExpertDialogTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertDialogBody": "请指定目标终端窗口与具体任务需求，机器专家将在此工作环境中自动为您执行命令。",
+  "@machineExpertDialogBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTerminalProgram": "终端程序",
+  "@machineExpertTerminalProgram": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertWindow": "窗口",
+  "@machineExpertWindow": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTab": "标签页",
+  "@machineExpertTab": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertSession": "会话",
+  "@machineExpertSession": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelOptional": "使用模型（可选）",
+  "@machineExpertModelOptional": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelChoose": "点击选择模型",
+  "@machineExpertModelChoose": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelNotConfiguredDefault": "未配置可用模型，将沿用当前默认模型",
+  "@machineExpertModelNotConfiguredDefault": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelHelperWithModels": "仅影响本次新建的机器专家线程；若不选，则沿用当前已激活模型。",
+  "@machineExpertModelHelperWithModels": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelHelperNoModels": "尚未在设置中配置模型；本次将继续使用当前激活的默认模型。",
+  "@machineExpertModelHelperNoModels": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTaskRequirement": "任务需求",
+  "@machineExpertTaskRequirement": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTaskRequirementHint": "描述你想要执行的任务，例如：检查当前目录的文件列表，编译项目，部署到远程服务器等...",
+  "@machineExpertTaskRequirementHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTaskRequirementHelper": "机器专家将根据该需求和终端现场进行交互式执行。",
+  "@machineExpertTaskRequirementHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertStartExecution": "开始执行",
+  "@machineExpertStartExecution": {
+    "description": "OpenHand localized UI text."
   }
 }

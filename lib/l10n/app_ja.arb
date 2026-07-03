@@ -6918,5 +6918,73 @@
   "builtinToolConfirmationNo": "いいえ",
   "@builtinToolConfirmationNo": {
     "description": "OpenHand localized UI text."
+  },
+  "memoryTitleField": "タイトル（任意）",
+  "@memoryTitleField": {
+    "description": "OpenHand localized UI text."
+  },
+  "memoryTitleHint": "このメモリの要点を一文で要約します。空欄なら本文プレビューを使います",
+  "@memoryTitleHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertDialogTitle": "マシンエキスパートテンプレート",
+  "@machineExpertDialogTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertDialogBody": "対象のターミナルウィンドウとタスクを指定してください。マシンエキスパートがその環境でコマンドを実行します。",
+  "@machineExpertDialogBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTerminalProgram": "ターミナルアプリ",
+  "@machineExpertTerminalProgram": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertWindow": "ウィンドウ",
+  "@machineExpertWindow": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTab": "タブ",
+  "@machineExpertTab": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertSession": "セッション",
+  "@machineExpertSession": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelOptional": "使用モデル（任意）",
+  "@machineExpertModelOptional": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelChoose": "モデルを選択",
+  "@machineExpertModelChoose": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelNotConfiguredDefault": "利用可能なモデルが未設定です。現在の既定モデルを使用します",
+  "@machineExpertModelNotConfiguredDefault": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelHelperWithModels": "この新規マシンエキスパートセッションにのみ適用されます。未選択の場合は現在の有効モデルを使います。",
+  "@machineExpertModelHelperWithModels": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelHelperNoModels": "設定にモデルがありません。このセッションでは現在の有効な既定モデルを使います。",
+  "@machineExpertModelHelperNoModels": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTaskRequirement": "タスク要件",
+  "@machineExpertTaskRequirement": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTaskRequirementHint": "実行したいタスクを説明してください。例: 現在のディレクトリのファイル一覧確認、プロジェクトのビルド、リモートサーバーへのデプロイ...",
+  "@machineExpertTaskRequirementHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTaskRequirementHelper": "マシンエキスパートはこの要件とターミナル状況に基づいて対話的に実行します。",
+  "@machineExpertTaskRequirementHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertStartExecution": "実行開始",
+  "@machineExpertStartExecution": {
+    "description": "OpenHand localized UI text."
   }
 }

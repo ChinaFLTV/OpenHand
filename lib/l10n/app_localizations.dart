@@ -15514,6 +15514,108 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'无需确认'**
   String get builtinToolConfirmationNo;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'标题（可选）'**
+  String get memoryTitleField;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'一句话浓缩本条记忆的主旨；留空则使用正文预览'**
+  String get memoryTitleHint;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'机器专家模板配置'**
+  String get machineExpertDialogTitle;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请指定目标终端窗口与具体任务需求，机器专家将在此工作环境中自动为您执行命令。'**
+  String get machineExpertDialogBody;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'终端程序'**
+  String get machineExpertTerminalProgram;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'窗口'**
+  String get machineExpertWindow;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'标签页'**
+  String get machineExpertTab;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话'**
+  String get machineExpertSession;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'使用模型（可选）'**
+  String get machineExpertModelOptional;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击选择模型'**
+  String get machineExpertModelChoose;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未配置可用模型，将沿用当前默认模型'**
+  String get machineExpertModelNotConfiguredDefault;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'仅影响本次新建的机器专家线程；若不选，则沿用当前已激活模型。'**
+  String get machineExpertModelHelperWithModels;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'尚未在设置中配置模型；本次将继续使用当前激活的默认模型。'**
+  String get machineExpertModelHelperNoModels;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'任务需求'**
+  String get machineExpertTaskRequirement;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'描述你想要执行的任务，例如：检查当前目录的文件列表，编译项目，部署到远程服务器等...'**
+  String get machineExpertTaskRequirementHint;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'机器专家将根据该需求和终端现场进行交互式执行。'**
+  String get machineExpertTaskRequirementHelper;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开始执行'**
+  String get machineExpertStartExecution;
 }
 
 class _AppLocalizationsDelegate

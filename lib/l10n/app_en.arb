@@ -6920,5 +6920,73 @@
   "builtinToolConfirmationNo": "No",
   "@builtinToolConfirmationNo": {
     "description": "OpenHand localized UI text."
+  },
+  "memoryTitleField": "Title (optional)",
+  "@memoryTitleField": {
+    "description": "OpenHand localized UI text."
+  },
+  "memoryTitleHint": "Summarize this memory in one sentence; leave blank to use a content preview",
+  "@memoryTitleHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertDialogTitle": "Machine Expert Template",
+  "@machineExpertDialogTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertDialogBody": "Choose the target terminal window and task. Machine Expert will run commands in that workspace.",
+  "@machineExpertDialogBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTerminalProgram": "Terminal app",
+  "@machineExpertTerminalProgram": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertWindow": "Window",
+  "@machineExpertWindow": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTab": "Tab",
+  "@machineExpertTab": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertSession": "Session",
+  "@machineExpertSession": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelOptional": "Model (optional)",
+  "@machineExpertModelOptional": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelChoose": "Tap to choose a model",
+  "@machineExpertModelChoose": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelNotConfiguredDefault": "No models configured; current default model will be used",
+  "@machineExpertModelNotConfiguredDefault": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelHelperWithModels": "Applies only to this new Machine Expert session. If not selected, the current active model is kept.",
+  "@machineExpertModelHelperWithModels": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertModelHelperNoModels": "No models are configured in Settings. This session will keep using the current active default model.",
+  "@machineExpertModelHelperNoModels": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTaskRequirement": "Task requirement",
+  "@machineExpertTaskRequirement": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTaskRequirementHint": "Describe the task, for example: list files in the current directory, build the project, or deploy to a remote server...",
+  "@machineExpertTaskRequirementHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertTaskRequirementHelper": "Machine Expert will execute interactively from this request and terminal context.",
+  "@machineExpertTaskRequirementHelper": {
+    "description": "OpenHand localized UI text."
+  },
+  "machineExpertStartExecution": "Start execution",
+  "@machineExpertStartExecution": {
+    "description": "OpenHand localized UI text."
   }
 }

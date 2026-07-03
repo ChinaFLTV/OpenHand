@@ -8853,4 +8853,62 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get builtinToolConfirmationNo => 'Non';
+
+  @override
+  String get memoryTitleField => 'Titre (facultatif)';
+
+  @override
+  String get memoryTitleHint =>
+      'Résumez ce souvenir en une phrase ; laissez vide pour utiliser l’aperçu du contenu';
+
+  @override
+  String get machineExpertDialogTitle => 'Modèle Expert machine';
+
+  @override
+  String get machineExpertDialogBody =>
+      'Choisissez la fenêtre de terminal cible et la tâche. Expert machine exécutera les commandes dans cet espace.';
+
+  @override
+  String get machineExpertTerminalProgram => 'Terminal';
+
+  @override
+  String get machineExpertWindow => 'Fenêtre';
+
+  @override
+  String get machineExpertTab => 'Onglet';
+
+  @override
+  String get machineExpertSession => 'Session';
+
+  @override
+  String get machineExpertModelOptional => 'Modèle (facultatif)';
+
+  @override
+  String get machineExpertModelChoose => 'Touchez pour choisir un modèle';
+
+  @override
+  String get machineExpertModelNotConfiguredDefault =>
+      'Aucun modèle configuré ; le modèle par défaut actuel sera utilisé';
+
+  @override
+  String get machineExpertModelHelperWithModels =>
+      'S’applique uniquement à cette nouvelle session Expert machine. Sans sélection, le modèle actif est conservé.';
+
+  @override
+  String get machineExpertModelHelperNoModels =>
+      'Aucun modèle n’est configuré dans les réglages. Cette session utilisera le modèle actif par défaut.';
+
+  @override
+  String get machineExpertTaskRequirement => 'Besoin de tâche';
+
+  @override
+  String get machineExpertTaskRequirementHint =>
+      'Décrivez la tâche : lister les fichiers du dossier courant, compiler le projet, déployer sur un serveur distant...';
+
+  @override
+  String get machineExpertTaskRequirementHelper =>
+      'Expert machine exécutera de façon interactive à partir de cette demande et du contexte terminal.';
+
+  @override
+  String get machineExpertStartExecution => 'Démarrer';
 }

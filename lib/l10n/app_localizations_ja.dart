@@ -8522,4 +8522,61 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get builtinToolConfirmationNo => 'いいえ';
+
+  @override
+  String get memoryTitleField => 'タイトル（任意）';
+
+  @override
+  String get memoryTitleHint => 'このメモリの要点を一文で要約します。空欄なら本文プレビューを使います';
+
+  @override
+  String get machineExpertDialogTitle => 'マシンエキスパートテンプレート';
+
+  @override
+  String get machineExpertDialogBody =>
+      '対象のターミナルウィンドウとタスクを指定してください。マシンエキスパートがその環境でコマンドを実行します。';
+
+  @override
+  String get machineExpertTerminalProgram => 'ターミナルアプリ';
+
+  @override
+  String get machineExpertWindow => 'ウィンドウ';
+
+  @override
+  String get machineExpertTab => 'タブ';
+
+  @override
+  String get machineExpertSession => 'セッション';
+
+  @override
+  String get machineExpertModelOptional => '使用モデル（任意）';
+
+  @override
+  String get machineExpertModelChoose => 'モデルを選択';
+
+  @override
+  String get machineExpertModelNotConfiguredDefault =>
+      '利用可能なモデルが未設定です。現在の既定モデルを使用します';
+
+  @override
+  String get machineExpertModelHelperWithModels =>
+      'この新規マシンエキスパートセッションにのみ適用されます。未選択の場合は現在の有効モデルを使います。';
+
+  @override
+  String get machineExpertModelHelperNoModels =>
+      '設定にモデルがありません。このセッションでは現在の有効な既定モデルを使います。';
+
+  @override
+  String get machineExpertTaskRequirement => 'タスク要件';
+
+  @override
+  String get machineExpertTaskRequirementHint =>
+      '実行したいタスクを説明してください。例: 現在のディレクトリのファイル一覧確認、プロジェクトのビルド、リモートサーバーへのデプロイ...';
+
+  @override
+  String get machineExpertTaskRequirementHelper =>
+      'マシンエキスパートはこの要件とターミナル状況に基づいて対話的に実行します。';
+
+  @override
+  String get machineExpertStartExecution => '実行開始';
 }
