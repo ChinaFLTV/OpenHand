@@ -280,6 +280,100 @@ domains: finance, cloud billing
       expect(resultWorker['status'], 'idle');
     });
 
+    test(
+      'result tool exposes operational audit and resource summary',
+      () async {
+        await controller.saveAgent(
+          _agent(enabled: true).copyWith(
+            resourceUsage: const AgentResourceUsage(
+              cpuPercent: 0.42,
+              memoryBytes: 512,
+              diskBytes: 2048,
+              persistedBytes: 1024,
+              tokenBudget: 1000,
+              tokenUsed: 600,
+              openHandles: 3,
+            ),
+          ),
+        );
+        final task = await controller.publishTaskWithResult(
+          'agent-1',
+          title: 'Collect audit evidence',
+        );
+        final assignedWorkerId = '${task!.extra['assigned_worker_id']}';
+        final currentAgent = controller.agentById('agent-1')!;
+        await controller.saveAgent(
+          currentAgent.copyWith(
+            auditEvents: <AgentAuditEvent>[
+              AgentAuditEvent(
+                id: 'audit-token-1',
+                kind: 'skill_call',
+                summary: 'skill_call: collect evidence',
+                toolName: 'SkillRunner',
+                tokenUsage: 123,
+                requestCount: 2,
+                createdAt: DateTime.utc(2026, 7, 4),
+                metadata: <String, Object?>{
+                  'task_id': task.id,
+                  'worker_id': assignedWorkerId,
+                },
+              ),
+              ...currentAgent.auditEvents,
+            ],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        final result = await runtime.execute(
+          sessionId: 'session-1',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-1',
+            name: 'AgentTaskResult',
+            arguments: jsonEncode(<String, Object?>{
+              'agent_id': 'agent-1',
+              'task_id': task.id,
+            }),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
+
+        expect(result.status, BashToolExecutionStatus.success);
+        final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+        final summary = payload['operational_summary'] as Map<String, Object?>;
+        final taskMetrics = summary['task_metrics'] as Map<String, Object?>;
+        final taskStatusCounts =
+            taskMetrics['by_status'] as Map<String, Object?>;
+        final workerCapacity =
+            summary['worker_capacity'] as Map<String, Object?>;
+        final auditSummary = summary['audit_summary'] as Map<String, Object?>;
+        final toolCounts = auditSummary['tool_counts'] as Map<String, Object?>;
+        final resourceUsage = summary['resource_usage'] as Map<String, Object?>;
+
+        expect(taskMetrics['total'], 1);
+        expect(taskMetrics['active'], 1);
+        expect(taskStatusCounts['running'], 1);
+        expect(workerCapacity['busy'], 1);
+        expect(workerCapacity['assigned_worker_id'], assignedWorkerId);
+        expect(workerCapacity['assigned_worker_status'], 'busy');
+        expect(auditSummary['event_count'], 3);
+        expect(auditSummary['request_count'], 4);
+        expect(auditSummary['token_usage'], 123);
+        expect(toolCounts['SkillRunner'], 1);
+        expect(toolCounts['AgentTaskDesk'], 2);
+        expect(resourceUsage['token_remaining'], 400);
+        expect(resourceUsage['token_usage_ratio'], 0.6);
+        expect(resourceUsage['open_handles'], 3);
+      },
+    );
+
     test('complete tool requires a non-empty result', () async {
       await controller.saveAgent(_agent(enabled: true));
       final task = await controller.publishTaskWithResult(

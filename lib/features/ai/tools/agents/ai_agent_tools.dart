@@ -393,6 +393,8 @@ class AiAgentTool extends AiTool {
     final payload = <String, Object?>{
       'agent': _agentSummaryJson(currentAgent ?? resolution.agent!),
       'task': _taskJson(task, agent: currentAgent),
+      if (currentAgent != null)
+        'operational_summary': _taskOperationalSummaryJson(currentAgent, task),
       'agent_prompt': promptSnapshot.metadataJson(),
     };
     return _success(
@@ -417,6 +419,10 @@ class AiAgentTool extends AiTool {
       <String, Object?>{
         'agent': _agentSummaryJson(resolved.agent!),
         'task': _taskJson(resolved.task!, agent: resolved.agent),
+        'operational_summary': _taskOperationalSummaryJson(
+          resolved.agent!,
+          resolved.task!,
+        ),
       },
       stopwatch,
       metadata: <String, Object?>{
@@ -445,6 +451,10 @@ class AiAgentTool extends AiTool {
         'progress': task.progress,
         'state': state,
         if (assignedWorker != null) 'assigned_worker': assignedWorker,
+        'operational_summary': _taskOperationalSummaryJson(
+          resolved.agent!,
+          task,
+        ),
         'updated_at': _iso(task.updatedAt),
       },
       stopwatch,
@@ -508,6 +518,11 @@ class AiAgentTool extends AiTool {
       <String, Object?>{
         'agent': _agentSummaryJson(currentAgent ?? resolved.agent!),
         'task': _taskJson(updated, agent: currentAgent),
+        if (currentAgent != null)
+          'operational_summary': _taskOperationalSummaryJson(
+            currentAgent,
+            updated,
+          ),
       },
       stopwatch,
       metadata: <String, Object?>{
@@ -539,6 +554,10 @@ class AiAgentTool extends AiTool {
         'result': task.result,
         'note': task.note,
         if (assignedWorker != null) 'assigned_worker': assignedWorker,
+        'operational_summary': _taskOperationalSummaryJson(
+          resolved.agent!,
+          task,
+        ),
         'updated_at': _iso(task.updatedAt),
       },
       stopwatch,
@@ -970,6 +989,130 @@ Map<String, Object?>? _assignedWorkerJson(AgentProfile agent, AgentTask task) {
     };
   }
   return <String, Object?>{'id': workerId, 'missing': true};
+}
+
+Map<String, Object?> _taskOperationalSummaryJson(
+  AgentProfile agent,
+  AgentTask task,
+) {
+  final auditEvents = _auditEventsForTask(agent.auditEvents, task.id);
+  return <String, Object?>{
+    'task_metrics': _taskMetricsJson(agent),
+    'worker_capacity': _workerCapacityJson(agent, task),
+    'audit_summary': _auditSummaryJson(auditEvents),
+    'resource_usage': _resourceUsageSummaryJson(agent.resourceUsage),
+  };
+}
+
+Map<String, Object?> _taskMetricsJson(AgentProfile agent) {
+  final byStatus = <String, int>{
+    for (final status in AgentTaskStatus.values) status.storageValue: 0,
+  };
+  for (final task in agent.tasks) {
+    byStatus[task.status.storageValue] =
+        (byStatus[task.status.storageValue] ?? 0) + 1;
+  }
+  final total = agent.tasks.length;
+  final completed = byStatus[AgentTaskStatus.completed.storageValue] ?? 0;
+  final failed = byStatus[AgentTaskStatus.failed.storageValue] ?? 0;
+  final canceled = byStatus[AgentTaskStatus.canceled.storageValue] ?? 0;
+  final terminal = completed + failed + canceled;
+  return <String, Object?>{
+    'total': total,
+    'by_status': byStatus,
+    'active': total - terminal,
+    'terminal': terminal,
+    'completed': completed,
+    'completion_rate': total <= 0 ? 0 : completed / total,
+  };
+}
+
+Map<String, Object?> _workerCapacityJson(AgentProfile agent, AgentTask task) {
+  final byStatus = <String, int>{
+    for (final status in AgentWorkerStatus.values) status.storageValue: 0,
+  };
+  for (final worker in agent.workers) {
+    byStatus[worker.status.storageValue] =
+        (byStatus[worker.status.storageValue] ?? 0) + 1;
+  }
+  final assignedWorkerId = '${task.extra['assigned_worker_id'] ?? ''}'.trim();
+  final assignedWorker = assignedWorkerId.isEmpty
+      ? null
+      : _assignedWorkerJson(agent, task);
+  return <String, Object?>{
+    'total': agent.workers.length,
+    'by_status': byStatus,
+    'idle': byStatus[AgentWorkerStatus.idle.storageValue] ?? 0,
+    'busy': byStatus[AgentWorkerStatus.busy.storageValue] ?? 0,
+    'draining': byStatus[AgentWorkerStatus.draining.storageValue] ?? 0,
+    'offline': byStatus[AgentWorkerStatus.offline.storageValue] ?? 0,
+    'utilization': agent.workerUtilization,
+    'running_tasks': agent.runningTaskCount,
+    'pending_approvals': agent.pendingApprovalCount,
+    if (assignedWorkerId.isNotEmpty) 'assigned_worker_id': assignedWorkerId,
+    if (assignedWorker != null)
+      'assigned_worker_status': assignedWorker['status'],
+  };
+}
+
+List<AgentAuditEvent> _auditEventsForTask(
+  List<AgentAuditEvent> events,
+  String taskId,
+) {
+  return events
+      .where((event) => '${event.metadata['task_id'] ?? ''}'.trim() == taskId)
+      .toList(growable: false);
+}
+
+Map<String, Object?> _auditSummaryJson(List<AgentAuditEvent> events) {
+  final toolCounts = <String, int>{};
+  var requestCount = 0;
+  var tokenUsage = 0;
+  for (final event in events) {
+    requestCount += event.requestCount;
+    tokenUsage += event.tokenUsage;
+    final key = event.toolName.trim().isEmpty
+        ? event.kind.trim()
+        : event.toolName.trim();
+    if (key.isEmpty) continue;
+    toolCounts[key] = (toolCounts[key] ?? 0) + 1;
+  }
+  return <String, Object?>{
+    'event_count': events.length,
+    'request_count': requestCount,
+    'token_usage': tokenUsage,
+    if (toolCounts.isNotEmpty) 'tool_counts': toolCounts,
+    'recent_events': events
+        .take(5)
+        .map(_auditEventSummaryJson)
+        .toList(growable: false),
+  };
+}
+
+Map<String, Object?> _auditEventSummaryJson(AgentAuditEvent event) {
+  return <String, Object?>{
+    'kind': event.kind,
+    'summary': event.summary,
+    'tool_name': event.toolName,
+    'request_count': event.requestCount,
+    'token_usage': event.tokenUsage,
+    'created_at': _iso(event.createdAt),
+  };
+}
+
+Map<String, Object?> _resourceUsageSummaryJson(AgentResourceUsage usage) {
+  final payload = Map<String, Object?>.from(usage.toJson());
+  if (usage.tokenBudget > 0) {
+    final remaining = usage.tokenBudget - usage.tokenUsed;
+    payload['token_remaining'] = remaining < 0 ? 0 : remaining;
+    payload['token_usage_ratio'] = (usage.tokenUsed / usage.tokenBudget)
+        .clamp(0, 1)
+        .toDouble();
+  } else {
+    payload['token_remaining'] = null;
+    payload['token_usage_ratio'] = 0;
+  }
+  return payload;
 }
 
 Map<String, Object?> _taskExtraJson(Map<String, Object?> extra) {
