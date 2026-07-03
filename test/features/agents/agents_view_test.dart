@@ -232,9 +232,13 @@ void main() {
 
       await tester.tap(find.text('调整集群'));
       await tester.pumpAndSettle();
-      expect(find.text('ops'), findsOneWidget);
+      expect(find.text('ops'), findsAtLeastNWidgets(1));
       await tester.enterText(find.byType(TextField).last, 'urgent');
-      await tester.tap(find.byTooltip('添加'));
+      final addButton = find.byKey(
+        const ValueKey<String>('agent-cluster-tag-add'),
+      );
+      await tester.ensureVisible(addButton);
+      await tester.tap(addButton);
       await tester.pump();
       expect(find.text('urgent'), findsOneWidget);
 
