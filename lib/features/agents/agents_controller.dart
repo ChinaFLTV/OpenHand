@@ -125,12 +125,21 @@ class AgentsController extends ManagedChangeNotifier {
   Future<bool> saveAgent(AgentProfile draft) {
     return _commitMutation(() async {
       final now = DateTime.now().toUtc();
+      final runtime = runtimeAvailability;
+      final canSaveEnabled = !draft.enabled || runtime.canRun;
+      if (!canSaveEnabled) _errorMessage = runtime.blockingReason;
       final normalized = _normalizeAgent(
-        draft.copyWith(
-          id: draft.id.trim().isEmpty ? _uuid.v4() : draft.id.trim(),
-          updatedAt: now,
-          createdAt: draft.createdAt ?? now,
-        ),
+        (canSaveEnabled
+                ? draft
+                : draft.copyWith(
+                    enabled: false,
+                    lifecycleState: AgentLifecycleState.stopped,
+                  ))
+            .copyWith(
+              id: draft.id.trim().isEmpty ? _uuid.v4() : draft.id.trim(),
+              updatedAt: now,
+              createdAt: draft.createdAt ?? now,
+            ),
       );
       final index = _agents.indexWhere((agent) => agent.id == normalized.id);
       if (index < 0) {

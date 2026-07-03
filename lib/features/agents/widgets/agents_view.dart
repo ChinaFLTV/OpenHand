@@ -98,6 +98,35 @@ FeatureStateCard _agentRuntimeNotice(
   );
 }
 
+String _agentRuntimeBlockingText(
+  BuildContext context,
+  AgentRuntimeAvailability runtime,
+) {
+  if (runtime.canRun) return '';
+  if (runtime.isLoading) {
+    return openHandLocalizedText(
+      context,
+      zh: 'Hermes Agent 运行时仍在检查中，暂不能启动工作循环。',
+      en: runtime.blockingReason,
+    );
+  }
+  if (!runtime.isInstalled) {
+    return openHandLocalizedText(
+      context,
+      zh: '请先安装 Hermes Agent 插件，再启动智能体工作循环。',
+      en: runtime.blockingReason,
+    );
+  }
+  if (!runtime.isEnabled) {
+    return openHandLocalizedText(
+      context,
+      zh: '请先启用 Hermes Agent 插件，再启动智能体工作循环。',
+      en: runtime.blockingReason,
+    );
+  }
+  return runtime.errorMessage ?? runtime.blockingReason;
+}
+
 class AgentsView extends StatelessWidget {
   const AgentsView({super.key});
 
@@ -2564,6 +2593,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     final mcpServers = context.watch<McpController>().servers;
     final crons = context.watch<CronsController>().entries;
     final hooks = context.watch<HooksController>().entries;
+    final runtime = context.watch<AgentsController>().runtimeAvailability;
     final builtinTools = settings.builtinToolConfigs;
 
     return buildOpenHandDialog(
@@ -2644,6 +2674,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                         _tabScroll(
                           _runtimeTab(
                             l10n: l10n,
+                            runtime: runtime,
                             settings: settings,
                             recentSelections: settings.recentModelSelections,
                           ),
@@ -2798,9 +2829,11 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
 
   Widget _runtimeTab({
     required AppLocalizations l10n,
+    required AgentRuntimeAvailability runtime,
     required SettingsController settings,
     required List<RecentModelSelection> recentSelections,
   }) {
+    final canEnable = runtime.canRun;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2831,10 +2864,16 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
         ),
         const SizedBox(height: 14),
         SwitchListTile(
-          value: _enabled,
-          onChanged: (value) => setState(() => _enabled = value),
+          value: canEnable && _enabled,
+          onChanged: canEnable
+              ? (value) => setState(() => _enabled = value)
+              : null,
           title: Text(l10n.agentsEnableAgentTitle),
-          subtitle: Text(l10n.agentsEnableAgentBody),
+          subtitle: Text(
+            canEnable
+                ? l10n.agentsEnableAgentBody
+                : _agentRuntimeBlockingText(context, runtime),
+          ),
         ),
         SwitchListTile(
           value: _selfLearningEnabled,

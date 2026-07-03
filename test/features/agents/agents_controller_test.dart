@@ -27,6 +27,26 @@ void main() {
       }
     });
 
+    test('saving enabled agent respects runtime availability gate', () async {
+      controller.setRuntimeAvailabilityProvider(
+        () => const AgentRuntimeAvailability(
+          isLoading: false,
+          isInstalled: true,
+          isEnabled: false,
+          pluginName: 'Hermes Agent',
+        ),
+      );
+
+      final saved = await controller.saveAgent(_runningAgent());
+
+      expect(saved, isTrue);
+      final agent = controller.agentById('agent-1')!;
+      expect(agent.enabled, isFalse);
+      expect(agent.lifecycleState, AgentLifecycleState.stopped);
+      expect(controller.enabledAgents, isEmpty);
+      expect(controller.errorMessage, contains('disabled'));
+    });
+
     test('publishing a task assigns an idle worker', () async {
       await controller.saveAgent(_runningAgent());
 
