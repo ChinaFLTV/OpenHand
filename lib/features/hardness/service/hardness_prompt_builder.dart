@@ -40,7 +40,8 @@ class HardnessPromptBuilder {
     final mcpTools = <AiToolDefinition>[];
     final builtinTools = <AiToolDefinition>[];
 
-    for (final tool in tools) {
+    final sortedTools = stableToolDefinitionsForAiRequest(tools);
+    for (final tool in sortedTools) {
       if (tool.name.startsWith('skill__')) {
         skillTools.add(tool);
       } else if (tool.name.startsWith('mcp__')) {
@@ -49,6 +50,9 @@ class HardnessPromptBuilder {
         builtinTools.add(tool);
       }
     }
+    skillTools.sort(_compareToolDefinitions);
+    mcpTools.sort(_compareToolDefinitions);
+    builtinTools.sort(_compareToolDefinitions);
 
     if (skillTools.isNotEmpty) {
       buffer
@@ -136,14 +140,14 @@ class HardnessPromptBuilder {
         .where((name) => name.isNotEmpty)
         .toSet();
 
+    final filteredEntries = <MapEntry<String, AiResolvedTool>>[];
     for (final entry in catalog.toolsByName.entries) {
       final tool = entry.value;
 
       if (tool.source == AiRuntimeToolSource.mcp &&
           (loadedMcpNames.contains(entry.key) ||
               loadedMcpNames.contains(tool.name))) {
-        filteredToolsByName[entry.key] = tool;
-        filteredDefinitions.add(tool.definition);
+        filteredEntries.add(entry);
         continue;
       }
 
@@ -167,8 +171,15 @@ class HardnessPromptBuilder {
         }
       }
 
-      filteredToolsByName[entry.key] = tool;
-      filteredDefinitions.add(tool.definition);
+      filteredEntries.add(entry);
+    }
+
+    filteredEntries.sort(_compareResolvedToolEntries);
+    for (final entry in filteredEntries) {
+      filteredToolsByName[entry.key] = entry.value;
+      filteredDefinitions.add(
+        stableToolDefinitionForAiRequest(entry.value.definition),
+      );
     }
 
     return AiResolvedToolCatalog(
@@ -270,14 +281,39 @@ class HardnessPromptBuilder {
     if (requiredValue is! List) {
       return const <String>[];
     }
-    return requiredValue
+    final names = requiredValue
         .map((item) => '$item'.trim())
         .where((item) => item.isNotEmpty)
         .toList(growable: false);
+    names.sort(compareToolNamesForAiRequest);
+    return names;
   }
 
   bool _isReadOnlyPhase(HardnessPhase phase) {
     return phase != HardnessPhase.implementing;
+  }
+
+  int _compareToolDefinitions(AiToolDefinition left, AiToolDefinition right) {
+    return compareToolNamesForAiRequest(left.name, right.name);
+  }
+
+  int _compareResolvedToolEntries(
+    MapEntry<String, AiResolvedTool> left,
+    MapEntry<String, AiResolvedTool> right,
+  ) {
+    final sourceCompare = _toolSourceRank(
+      left.value.source,
+    ).compareTo(_toolSourceRank(right.value.source));
+    if (sourceCompare != 0) return sourceCompare;
+    return compareToolNamesForAiRequest(left.key, right.key);
+  }
+
+  int _toolSourceRank(AiRuntimeToolSource source) {
+    return switch (source) {
+      AiRuntimeToolSource.skill => 0,
+      AiRuntimeToolSource.mcp => 1,
+      AiRuntimeToolSource.builtin => 2,
+    };
   }
 }
 
