@@ -1040,11 +1040,11 @@ class AiWebReverseRequestCard {
       deliverables,
       acceptanceCriteria,
     ];
-    if (targetUrl.trim().isEmpty ||
-        reverseTarget.trim().isEmpty ||
-        (browser.trim().isEmpty &&
-            cdpPort.trim().isEmpty &&
-            cdpMcp.trim().isEmpty)) {
+    if (nullIfBlank(targetUrl) == null ||
+        nullIfBlank(reverseTarget) == null ||
+        (nullIfBlank(browser) == null &&
+            nullIfBlank(cdpPort) == null &&
+            nullIfBlank(cdpMcp) == null)) {
       return null;
     }
     final card = AiWebReverseRequestCard(
@@ -1264,12 +1264,12 @@ class AiAndroidReverseRequestCard {
       evidenceDiscipline,
       acceptanceCriteria,
     ];
-    if (reverseTarget.trim().isEmpty ||
-        (packageName.trim().isEmpty &&
-            apkPath.trim().isEmpty &&
-            device.trim().isEmpty &&
-            deviceSerial.trim().isEmpty &&
-            analysisMode.trim().isEmpty)) {
+    if (nullIfBlank(reverseTarget) == null ||
+        (nullIfBlank(packageName) == null &&
+            nullIfBlank(apkPath) == null &&
+            nullIfBlank(device) == null &&
+            nullIfBlank(deviceSerial) == null &&
+            nullIfBlank(analysisMode) == null)) {
       return null;
     }
     final card = AiAndroidReverseRequestCard(
@@ -1303,7 +1303,8 @@ class AiAndroidReverseRequestCard {
 }
 
 extension _AiRequestCardString on String {
-  String? ifEmpty(String? fallback) => trim().isEmpty ? fallback : this;
+  String? ifEmpty(String? fallback) =>
+      nullIfBlank(this) == null ? fallback : this;
 }
 
 class AiSessionMessageResponseVariant {
