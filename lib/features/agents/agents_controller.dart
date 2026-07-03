@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../shared/core/managed_change_notifier.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'data/agents_store.dart';
 import 'model/agent_models.dart';
 import 'service/agent_runtime_availability.dart';
@@ -29,6 +32,11 @@ class AgentsController extends ManagedChangeNotifier {
   static const Uuid _uuid = Uuid();
   static const int _maxActivityEvents = 200;
   static const int _maxAuditEvents = 500;
+  static const String _schedulerPriorityFirst = 'priority_first';
+  static const String _schedulerRoundRobin = 'round_robin';
+  static const String _retryPolicyBoundedRetry = 'bounded_retry';
+  static const String _retryableExtraKey = 'retryable';
+  static const String _retryCountExtraKey = 'retry_count';
 
   final AgentsStore _store;
   List<AgentProfile> _agents;
@@ -323,16 +331,34 @@ class AgentsController extends ManagedChangeNotifier {
           })
           .toList(growable: false);
       if (!found || updatedTask == null) return agent;
+      final releasedTask = updatedTask!;
+      final retryScheduled = _shouldRetryTask(
+        agent,
+        updatedTask!,
+        extra: extra,
+        activityKind: activityKind,
+      );
+      if (retryScheduled) {
+        updatedTask = _retryTask(updatedTask!, now);
+      }
+      final eventTask = releasedTask;
+      final nextTasks = retryScheduled
+          ? tasks
+                .map(
+                  (task) => task.id == normalizedTaskId ? updatedTask! : task,
+                )
+                .toList(growable: false)
+          : tasks;
       final nextWorkers = status == null || !_taskStatusReleasesWorker(status)
           ? agent.workers
           : _releaseWorkersForTask(
               agent.workers,
-              updatedTask!,
+              releasedTask,
               now,
               countExecution: _taskStatusCountsExecution(status),
             );
-      final updated = agent.copyWith(
-        tasks: tasks,
+      var updated = agent.copyWith(
+        tasks: nextTasks,
         workers: nextWorkers,
         activities: _prependActivity(
           agent.activities,
@@ -340,11 +366,11 @@ class AgentsController extends ManagedChangeNotifier {
             id: _uuid.v4(),
             kind: activityKind,
             title: activityTitle,
-            content: updatedTask!.title,
+            content: eventTask.title,
             createdAt: now,
             metadata: <String, Object?>{
-              'task_id': updatedTask!.id,
-              'task_status': updatedTask!.status.storageValue,
+              'task_id': eventTask.id,
+              'task_status': eventTask.status.storageValue,
             },
           ),
         ),
@@ -353,21 +379,35 @@ class AgentsController extends ManagedChangeNotifier {
           AgentAuditEvent(
             id: _uuid.v4(),
             kind: activityKind,
-            summary: '$activityTitle: ${updatedTask!.title}',
+            summary: '$activityTitle: ${eventTask.title}',
             toolName: auditToolName,
             requestCount: 1,
             createdAt: now,
             metadata: <String, Object?>{
-              'task_id': updatedTask!.id,
-              'task_status': updatedTask!.status.storageValue,
-              'task_progress': updatedTask!.progress,
+              'task_id': eventTask.id,
+              'task_status': eventTask.status.storageValue,
+              'task_progress': eventTask.progress,
               if (extra != null && extra.containsKey('updated_by_session_id'))
                 'updated_by_session_id': extra['updated_by_session_id'],
             },
           ),
         ),
       );
-      final next = status == AgentTaskStatus.ready
+      if (retryScheduled) {
+        updated = _recordTaskRetryScheduled(
+          updated,
+          updatedTask!,
+          now,
+          auditToolName: auditToolName,
+        );
+      } else if (status != null && _taskStatusReleasesWorker(status)) {
+        updated = _scaleInIdleWorkers(
+          updated,
+          now,
+          auditToolName: auditToolName,
+        );
+      }
+      final next = retryScheduled || status == AgentTaskStatus.ready
           ? _dispatchReadyTasksForAgent(
               updated,
               now,
@@ -437,14 +477,15 @@ class AgentsController extends ManagedChangeNotifier {
       0,
       agent.scaleSettings.maxWorkers,
     );
+    final now = DateTime.now().toUtc();
     final workers = List<AgentWorker>.from(agent.workers);
     while (workers.length < workerTarget) {
-      final index = workers.length + 1;
+      final workerId = _nextWorkerId(agent, workers);
       workers.add(
         AgentWorker(
-          id: '${agent.id}-worker-$index',
-          name: '${agent.name} Worker $index',
-          updatedAt: DateTime.now().toUtc(),
+          id: workerId,
+          name: _defaultWorkerName(agent, workerId),
+          updatedAt: now,
           labels: agent.scaleSettings.tags,
         ),
       );
@@ -502,13 +543,18 @@ class AgentsController extends ManagedChangeNotifier {
     if (!agent.enabled || agent.lifecycleState != AgentLifecycleState.running) {
       return agent;
     }
-    final workers = List<AgentWorker>.from(agent.workers);
+    final scaledAgent = _scaleOutForReadyTasks(
+      agent,
+      now,
+      auditToolName: auditToolName,
+    );
+    final workers = List<AgentWorker>.from(scaledAgent.workers);
     if (workers.isEmpty) return agent;
     final tasks = <AgentTask>[];
-    final activities = List<AgentActivityEvent>.from(agent.activities);
-    final auditEvents = List<AgentAuditEvent>.from(agent.auditEvents);
+    final activities = List<AgentActivityEvent>.from(scaledAgent.activities);
+    final auditEvents = List<AgentAuditEvent>.from(scaledAgent.auditEvents);
     var changed = false;
-    for (final task in agent.tasks) {
+    for (final task in scaledAgent.tasks) {
       if (task.status != AgentTaskStatus.ready) {
         tasks.add(task);
         continue;
@@ -576,7 +622,7 @@ class AgentsController extends ManagedChangeNotifier {
       changed = true;
     }
     if (!changed) return agent;
-    return agent.copyWith(
+    return scaledAgent.copyWith(
       tasks: tasks,
       workers: workers,
       activities: activities.take(_maxActivityEvents).toList(growable: false),
@@ -612,9 +658,37 @@ class AgentsController extends ManagedChangeNotifier {
     String schedulerPolicy,
   ) {
     final normalizedPolicy = schedulerPolicy.trim().toLowerCase();
-    if (normalizedPolicy.contains('priority') &&
-        candidate.priority != current.priority) {
-      return candidate.priority > current.priority;
+    if (normalizedPolicy == _schedulerPriorityFirst ||
+        normalizedPolicy.contains('priority')) {
+      if (candidate.priority != current.priority) {
+        return candidate.priority > current.priority;
+      }
+      if (candidate.busyScore != current.busyScore) {
+        return candidate.busyScore < current.busyScore;
+      }
+      if (candidate.executedTaskCount != current.executedTaskCount) {
+        return candidate.executedTaskCount < current.executedTaskCount;
+      }
+      return candidate.id.compareTo(current.id) < 0;
+    }
+    if (normalizedPolicy == _schedulerRoundRobin ||
+        normalizedPolicy.contains('round')) {
+      final candidateLastAssigned = _workerLastAssignedAt(candidate);
+      final currentLastAssigned = _workerLastAssignedAt(current);
+      if (candidateLastAssigned == null && currentLastAssigned != null) {
+        return true;
+      }
+      if (candidateLastAssigned != null && currentLastAssigned == null) {
+        return false;
+      }
+      if (candidateLastAssigned != null && currentLastAssigned != null) {
+        final compared = candidateLastAssigned.compareTo(currentLastAssigned);
+        if (compared != 0) return compared < 0;
+      }
+      if (candidate.executedTaskCount != current.executedTaskCount) {
+        return candidate.executedTaskCount < current.executedTaskCount;
+      }
+      return candidate.id.compareTo(current.id) < 0;
     }
     if (candidate.busyScore != current.busyScore) {
       return candidate.busyScore < current.busyScore;
@@ -623,6 +697,295 @@ class AgentsController extends ManagedChangeNotifier {
       return candidate.executedTaskCount < current.executedTaskCount;
     }
     return candidate.id.compareTo(current.id) < 0;
+  }
+
+  AgentProfile _scaleOutForReadyTasks(
+    AgentProfile agent,
+    DateTime now, {
+    required String auditToolName,
+  }) {
+    final readyCount = agent.tasks
+        .where((task) => task.status == AgentTaskStatus.ready)
+        .length;
+    if (readyCount == 0) return agent;
+    final workers = List<AgentWorker>.from(agent.workers);
+    final maxWorkers = agent.scaleSettings.maxWorkers;
+    if (workers.length >= maxWorkers) return agent;
+    final idleCount = workers.where(_workerAcceptsTask).length;
+    final missingCapacity = readyCount - idleCount;
+    if (missingCapacity <= 0) return agent;
+    final utilization = _workerUtilization(workers);
+    if (workers.isNotEmpty &&
+        idleCount > 0 &&
+        utilization < agent.scaleSettings.scaleOutThreshold) {
+      return agent;
+    }
+    final addCount = math.min(missingCapacity, maxWorkers - workers.length);
+    if (addCount <= 0) return agent;
+    for (var i = 0; i < addCount; i++) {
+      final workerId = _nextWorkerId(agent, workers);
+      workers.add(
+        AgentWorker(
+          id: workerId,
+          name: _defaultWorkerName(agent, workerId),
+          labels: agent.scaleSettings.tags,
+          updatedAt: now,
+          extra: <String, Object?>{'scaled_out_at': now.toIso8601String()},
+        ),
+      );
+    }
+    return _recordClusterScaleEvent(
+      agent.copyWith(workers: workers),
+      now,
+      kind: 'worker_scaled_out',
+      summary: 'worker_scaled_out: +$addCount',
+      auditToolName: auditToolName,
+      metadata: <String, Object?>{
+        'delta': addCount,
+        'worker_count': workers.length,
+        'ready_task_count': readyCount,
+        'scale_out_threshold': agent.scaleSettings.scaleOutThreshold,
+      },
+    );
+  }
+
+  AgentProfile _scaleInIdleWorkers(
+    AgentProfile agent,
+    DateTime now, {
+    required String auditToolName,
+  }) {
+    final minWorkers = agent.scaleSettings.minWorkers.clamp(
+      0,
+      agent.scaleSettings.maxWorkers,
+    );
+    final workers = List<AgentWorker>.from(agent.workers);
+    if (workers.length <= minWorkers) return agent;
+    final hasQueuedOrRunningTasks = agent.tasks.any(
+      (task) =>
+          task.status == AgentTaskStatus.ready ||
+          task.status == AgentTaskStatus.running,
+    );
+    if (hasQueuedOrRunningTasks) return agent;
+    if (_workerUtilization(workers) > agent.scaleSettings.scaleInThreshold) {
+      return agent;
+    }
+    final removable = workers
+        .where(
+          (worker) =>
+              worker.status == AgentWorkerStatus.idle &&
+              worker.currentTaskId.trim().isEmpty,
+        )
+        .toList(growable: false);
+    if (removable.isEmpty) return agent;
+    final removalBudget = math.min(
+      workers.length - minWorkers,
+      removable.length,
+    );
+    final removeIds = _selectWorkerRemovalIds(
+      removable,
+      agent.scaleSettings.workerRemovalPolicy,
+      removalBudget,
+    );
+    if (removeIds.isEmpty) return agent;
+    final nextWorkers = workers
+        .where((worker) => !removeIds.contains(worker.id))
+        .toList(growable: false);
+    return _recordClusterScaleEvent(
+      agent.copyWith(workers: nextWorkers),
+      now,
+      kind: 'worker_scaled_in',
+      summary: 'worker_scaled_in: -${removeIds.length}',
+      auditToolName: auditToolName,
+      metadata: <String, Object?>{
+        'delta': -removeIds.length,
+        'worker_count': nextWorkers.length,
+        'removed_worker_ids': removeIds.toList(growable: false),
+        'scale_in_threshold': agent.scaleSettings.scaleInThreshold,
+        'worker_removal_policy': agent.scaleSettings.workerRemovalPolicy,
+      },
+    );
+  }
+
+  AgentProfile _recordClusterScaleEvent(
+    AgentProfile agent,
+    DateTime now, {
+    required String kind,
+    required String summary,
+    required String auditToolName,
+    required Map<String, Object?> metadata,
+  }) {
+    return agent.copyWith(
+      activities: _prependActivity(
+        agent.activities,
+        AgentActivityEvent(
+          id: _uuid.v4(),
+          kind: kind,
+          title: kind,
+          createdAt: now,
+          metadata: metadata,
+        ),
+      ),
+      auditEvents: _prependAudit(
+        agent.auditEvents,
+        AgentAuditEvent(
+          id: _uuid.v4(),
+          kind: kind,
+          summary: summary,
+          toolName: auditToolName,
+          requestCount: 1,
+          createdAt: now,
+          metadata: metadata,
+        ),
+      ),
+    );
+  }
+
+  AgentProfile _recordTaskRetryScheduled(
+    AgentProfile agent,
+    AgentTask task,
+    DateTime now, {
+    required String auditToolName,
+  }) {
+    final retryCount = _taskRetryCount(task);
+    return agent.copyWith(
+      activities: _prependActivity(
+        agent.activities,
+        AgentActivityEvent(
+          id: _uuid.v4(),
+          kind: 'task_retry_scheduled',
+          title: 'task_retry_scheduled',
+          content: task.title,
+          createdAt: now,
+          metadata: <String, Object?>{
+            'task_id': task.id,
+            'retry_count': retryCount,
+          },
+        ),
+      ),
+      auditEvents: _prependAudit(
+        agent.auditEvents,
+        AgentAuditEvent(
+          id: _uuid.v4(),
+          kind: 'task_retry_scheduled',
+          summary: 'task_retry_scheduled: ${task.title}',
+          toolName: auditToolName,
+          requestCount: 1,
+          createdAt: now,
+          metadata: <String, Object?>{
+            'task_id': task.id,
+            'retry_count': retryCount,
+            'max_retries': agent.scaleSettings.maxRetries,
+            'retry_policy': agent.scaleSettings.retryPolicy,
+          },
+        ),
+      ),
+    );
+  }
+
+  Set<String> _selectWorkerRemovalIds(
+    List<AgentWorker> workers,
+    String removalPolicy,
+    int count,
+  ) {
+    if (count <= 0) return const <String>{};
+    final sorted = List<AgentWorker>.from(workers);
+    final normalizedPolicy = removalPolicy.trim().toLowerCase();
+    sorted.sort((left, right) {
+      if (normalizedPolicy.contains('newest')) {
+        final leftUpdatedAt = left.updatedAt;
+        final rightUpdatedAt = right.updatedAt;
+        if (leftUpdatedAt != null && rightUpdatedAt != null) {
+          final compared = rightUpdatedAt.compareTo(leftUpdatedAt);
+          if (compared != 0) return compared;
+        } else if (leftUpdatedAt != null) {
+          return -1;
+        } else if (rightUpdatedAt != null) {
+          return 1;
+        }
+      }
+      if (left.busyScore != right.busyScore) {
+        return left.busyScore.compareTo(right.busyScore);
+      }
+      if (left.executedTaskCount != right.executedTaskCount) {
+        return left.executedTaskCount.compareTo(right.executedTaskCount);
+      }
+      return right.id.compareTo(left.id);
+    });
+    return sorted.take(count).map((worker) => worker.id).toSet();
+  }
+
+  bool _shouldRetryTask(
+    AgentProfile agent,
+    AgentTask task, {
+    required Map<String, Object?>? extra,
+    required String activityKind,
+  }) {
+    if (task.status != AgentTaskStatus.failed) return false;
+    if (agent.scaleSettings.maxRetries <= 0) return false;
+    final retryPolicy = agent.scaleSettings.retryPolicy.trim().toLowerCase();
+    if (retryPolicy.isEmpty ||
+        retryPolicy == 'none' ||
+        (retryPolicy != _retryPolicyBoundedRetry &&
+            !retryPolicy.contains('retry'))) {
+      return false;
+    }
+    final retryable = extra != null && extra.containsKey(_retryableExtraKey)
+        ? boolFromValue(extra[_retryableExtraKey])
+        : activityKind == 'task_failed';
+    if (!retryable) return false;
+    return _taskRetryCount(task) < agent.scaleSettings.maxRetries;
+  }
+
+  AgentTask _retryTask(AgentTask task, DateTime now) {
+    final retryCount = _taskRetryCount(task) + 1;
+    return task.copyWith(
+      status: AgentTaskStatus.ready,
+      progress: 0,
+      updatedAt: now,
+      extra: <String, Object?>{
+        ...task.extra,
+        _retryCountExtraKey: retryCount,
+        'last_retry_at': now.toIso8601String(),
+        'last_failure_result': task.result,
+        'last_failure_note': task.note,
+      },
+    );
+  }
+
+  int _taskRetryCount(AgentTask task) {
+    return nonNegativeIntFromValue(
+      task.extra[_retryCountExtraKey],
+      fallback: 0,
+    );
+  }
+
+  double _workerUtilization(List<AgentWorker> workers) {
+    if (workers.isEmpty) return 1;
+    final busyCount = workers
+        .where((worker) => worker.status == AgentWorkerStatus.busy)
+        .length;
+    return busyCount / workers.length;
+  }
+
+  DateTime? _workerLastAssignedAt(AgentWorker worker) {
+    final raw = '${worker.extra['last_assigned_at'] ?? ''}'.trim();
+    if (raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  String _nextWorkerId(AgentProfile agent, List<AgentWorker> workers) {
+    final used = workers.map((worker) => worker.id).toSet();
+    for (var index = 1; index < 10000; index++) {
+      final id = '${agent.id}-worker-$index';
+      if (!used.contains(id)) return id;
+    }
+    return '${agent.id}-worker-${_uuid.v4()}';
+  }
+
+  String _defaultWorkerName(AgentProfile agent, String workerId) {
+    final suffix = workerId.split('-').last;
+    final name = agent.name.trim().isEmpty ? 'Agent' : agent.name.trim();
+    return '$name Worker $suffix';
   }
 
   List<AgentWorker> _releaseWorkersForTask(

@@ -77,15 +77,146 @@ void main() {
         expect(worker.executedTaskCount, 0);
       },
     );
+
+    test(
+      'publishing queued work scales out workers within the max range',
+      () async {
+        await controller.saveAgent(
+          _runningAgent(scaleSettings: const AgentScaleSettings(maxWorkers: 3)),
+        );
+        final first = await controller.publishTaskWithResult(
+          'agent-1',
+          title: 'First report',
+        );
+
+        final second = await controller.publishTaskWithResult(
+          'agent-1',
+          title: 'Second report',
+        );
+
+        expect(first, isNotNull);
+        expect(second, isNotNull);
+        expect(second!.status, AgentTaskStatus.running);
+        expect(second.extra['assigned_worker_id'], isNot('worker-1'));
+        final agent = controller.agentById('agent-1')!;
+        expect(agent.workers.length, 2);
+        expect(
+          agent.activities.map((event) => event.kind),
+          contains('worker_scaled_out'),
+        );
+      },
+    );
+
+    test('completed work scales idle workers back to the minimum', () async {
+      await controller.saveAgent(
+        _runningAgent(scaleSettings: const AgentScaleSettings(maxWorkers: 3)),
+      );
+      final first = await controller.publishTaskWithResult(
+        'agent-1',
+        title: 'First report',
+      );
+      final second = await controller.publishTaskWithResult(
+        'agent-1',
+        title: 'Second report',
+      );
+
+      await controller.updateTaskState(
+        'agent-1',
+        first!.id,
+        status: AgentTaskStatus.completed,
+      );
+      await controller.updateTaskState(
+        'agent-1',
+        second!.id,
+        status: AgentTaskStatus.completed,
+      );
+
+      final agent = controller.agentById('agent-1')!;
+      expect(agent.workers.length, 1);
+      expect(
+        agent.auditEvents.map((event) => event.kind),
+        contains('worker_scaled_in'),
+      );
+    });
+
+    test(
+      'round robin scheduling prefers the least recently assigned worker',
+      () async {
+        final now = DateTime.now().toUtc();
+        await controller.saveAgent(
+          _runningAgent(
+            scaleSettings: const AgentScaleSettings(
+              minWorkers: 2,
+              maxWorkers: 2,
+              schedulerPolicy: 'round_robin',
+            ),
+            workers: <AgentWorker>[
+              AgentWorker(
+                id: 'worker-1',
+                name: 'Worker 1',
+                extra: <String, Object?>{
+                  'last_assigned_at': now.toIso8601String(),
+                },
+              ),
+              const AgentWorker(id: 'worker-2', name: 'Worker 2'),
+            ],
+          ),
+        );
+
+        final task = await controller.publishTaskWithResult(
+          'agent-1',
+          title: 'Round robin task',
+        );
+
+        expect(task, isNotNull);
+        expect(task!.extra['assigned_worker_id'], 'worker-2');
+      },
+    );
+
+    test('bounded retry reschedules retryable failed work', () async {
+      await controller.saveAgent(
+        _runningAgent(scaleSettings: const AgentScaleSettings(maxRetries: 1)),
+      );
+      final task = await controller.publishTaskWithResult(
+        'agent-1',
+        title: 'Retryable task',
+      );
+
+      final retried = await controller.updateTaskState(
+        'agent-1',
+        task!.id,
+        status: AgentTaskStatus.failed,
+        result: 'transient failure',
+        activityKind: 'task_failed',
+        activityTitle: 'task_failed',
+      );
+
+      expect(retried, isNotNull);
+      expect(retried!.status, AgentTaskStatus.running);
+      expect(retried.extra['retry_count'], 1);
+      final agent = controller.agentById('agent-1')!;
+      expect(agent.workers.single.status, AgentWorkerStatus.busy);
+      expect(agent.workers.single.executedTaskCount, 1);
+      expect(
+        agent.activities.map((event) => event.kind),
+        contains('task_retry_scheduled'),
+      );
+    });
   });
 }
 
-AgentProfile _runningAgent() {
-  return const AgentProfile(
+AgentProfile _runningAgent({
+  AgentScaleSettings scaleSettings = const AgentScaleSettings(),
+  List<AgentWorker> workers = const <AgentWorker>[
+    AgentWorker(id: 'worker-1', name: 'Worker 1'),
+  ],
+}) {
+  return AgentProfile(
     id: 'agent-1',
     name: 'Ops Agent',
     enabled: true,
     lifecycleState: AgentLifecycleState.running,
-    workers: <AgentWorker>[AgentWorker(id: 'worker-1', name: 'Worker 1')],
+    scaleSettings: scaleSettings,
+    workers: workers,
   );
 }
