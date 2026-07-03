@@ -1,5 +1,25 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
+String _browserText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return _wrText(
+    context,
+    zh: zh,
+    zhHant: zhHant,
+    en: en,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // 内嵌浏览器面板：CDP screencast 帧渲染 + 输入桥（鼠标 / 滚轮 / 键盘）
 //
@@ -64,10 +84,9 @@ final Map<LogicalKeyboardKey, (String, String?, int?)> _kCdpSpecialKey = {
 };
 
 class _BrowserBody extends StatefulWidget {
-  const _BrowserBody({required this.controller, required this.isZh});
+  const _BrowserBody({required this.controller});
 
   final WebReverseSessionController controller;
-  final bool isZh;
 
   @override
   State<_BrowserBody> createState() => _BrowserBodyState();
@@ -326,9 +345,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   String _restartFailureMessage(Object error) {
     final raw = '$error'.trim();
     final clipped = raw.length > 220 ? '${raw.substring(0, 220)}...' : raw;
-    return widget.isZh
-        ? '浏览器重启失败：$clipped'
-        : 'Browser restart failed: $clipped';
+    return _browserText(
+      context,
+      zh: '浏览器重启失败：$clipped',
+      zhHant: '瀏覽器重啟失敗：$clipped',
+      en: 'Browser restart failed: $clipped',
+      fr: 'Échec du redémarrage du navigateur : $clipped',
+      de: 'Browser-Neustart fehlgeschlagen: $clipped',
+      ja: 'ブラウザの再起動に失敗しました: $clipped',
+    );
   }
 
   Future<void> _restartBrowserFromUi(String source) async {
@@ -339,9 +364,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       await widget.controller.restartBrowser();
       if (!widget.controller.isBrowserAlive) {
         throw StateError(
-          widget.isZh
-              ? '重启完成后 CDP 仍未连接，请检查浏览器是否被系统或安全策略拦截。'
-              : 'CDP is still disconnected after restart. Check whether the browser was blocked by the system or security policy.',
+          _browserText(
+            context,
+            zh: '重启完成后 CDP 仍未连接，请检查浏览器是否被系统或安全策略拦截。',
+            zhHant: '重啟完成後 CDP 仍未連線，請檢查瀏覽器是否被系統或安全策略攔截。',
+            en: 'CDP is still disconnected after restart. Check whether the browser was blocked by the system or security policy.',
+            fr: 'CDP reste déconnecté après le redémarrage. Vérifiez si le navigateur a été bloqué.',
+            de: 'CDP ist nach dem Neustart weiterhin getrennt. Prüfen Sie, ob der Browser blockiert wurde.',
+            ja: '再起動後も CDP が未接続です。システムやセキュリティ設定によるブロックを確認してください。',
+          ),
         );
       }
       if (!mounted) return;
@@ -349,7 +380,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        widget.isZh ? '浏览器已重启' : 'Browser restarted',
+        _browserText(
+          context,
+          zh: '浏览器已重启',
+          zhHant: '瀏覽器已重啟',
+          en: 'Browser restarted',
+          fr: 'Navigateur redémarré',
+          de: 'Browser neu gestartet',
+          ja: 'ブラウザを再起動しました',
+        ),
         duration: const Duration(seconds: 1),
       );
     } catch (error, stack) {
@@ -1240,7 +1279,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   /// 用最近一帧 JPEG 字节直接落盘。
   Future<void> _saveCurrentFrame() async {
     final ctrl = widget.controller;
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     final ts = DateTime.now()
         .toIso8601String()
@@ -1258,7 +1296,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '当前没有可用的画面帧' : 'No frame available',
+        _browserText(
+          context,
+          zh: '当前没有可用的画面帧',
+          zhHant: '目前沒有可用的畫面幀',
+          en: 'No frame available',
+          fr: 'Aucune frame disponible',
+          de: 'Kein Frame verfügbar',
+          ja: '利用できるフレームがありません',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -1288,7 +1334,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh ? '已保存到 ${location.path}' : 'Saved to ${location.path}',
+        _browserText(
+          context,
+          zh: '已保存到 ${location.path}',
+          zhHant: '已儲存到 ${location.path}',
+          en: 'Saved to ${location.path}',
+          fr: 'Enregistré dans ${location.path}',
+          de: 'Gespeichert unter ${location.path}',
+          ja: '${location.path} に保存しました',
+        ),
       );
     } catch (error, stack) {
       silentLog(
@@ -1301,7 +1355,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '保存失败' : 'Save failed',
+        _browserText(
+          context,
+          zh: '保存失败',
+          zhHant: '儲存失敗',
+          en: 'Save failed',
+          fr: 'Échec de l’enregistrement',
+          de: 'Speichern fehlgeschlagen',
+          ja: '保存に失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
     }
@@ -1310,7 +1372,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   /// 框选导出局部帧：full-resolution 截图后用 image 包做裁切，按用户在
   /// surface 上选的矩形百分比映射到浏览器侧 viewport 像素。
   Future<void> _finalizeCrop(Offset start, Offset end, Size renderSize) async {
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     setState(() {
       _cropMode = false;
@@ -1341,7 +1402,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '截图失败' : 'Screenshot failed',
+        _browserText(
+          context,
+          zh: '截图失败',
+          zhHant: '截圖失敗',
+          en: 'Screenshot failed',
+          fr: 'Échec de la capture',
+          de: 'Screenshot fehlgeschlagen',
+          ja: 'スクリーンショットに失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -1351,7 +1420,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '解码失败' : 'Decode failed',
+        _browserText(
+          context,
+          zh: '解码失败',
+          zhHant: '解碼失敗',
+          en: 'Decode failed',
+          fr: 'Échec du décodage',
+          de: 'Dekodierung fehlgeschlagen',
+          ja: 'デコードに失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -1394,7 +1471,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh ? '已保存到 ${location.path}' : 'Saved to ${location.path}',
+        _browserText(
+          context,
+          zh: '已保存到 ${location.path}',
+          zhHant: '已儲存到 ${location.path}',
+          en: 'Saved to ${location.path}',
+          fr: 'Enregistré dans ${location.path}',
+          de: 'Gespeichert unter ${location.path}',
+          ja: '${location.path} に保存しました',
+        ),
       );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'save crop', error, stack);
@@ -1402,7 +1487,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '保存失败' : 'Save failed',
+        _browserText(
+          context,
+          zh: '保存失败',
+          zhHant: '儲存失敗',
+          en: 'Save failed',
+          fr: 'Échec de l’enregistrement',
+          de: 'Speichern fehlgeschlagen',
+          ja: '保存に失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
     }
@@ -1417,7 +1510,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     Size renderSize,
     Offset localPos,
   ) async {
-    final isZh = widget.isZh;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final position = RelativeRect.fromLTRB(
       globalPos.dx,
@@ -1429,30 +1521,119 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       context: context,
       position: position,
       items: [
-        PopupMenuItem(value: 'copy', child: Text(isZh ? '复制' : 'Copy')),
-        PopupMenuItem(value: 'paste', child: Text(isZh ? '粘贴' : 'Paste')),
+        PopupMenuItem(
+          value: 'copy',
+          child: Text(
+            _browserText(
+              context,
+              zh: '复制',
+              zhHant: '複製',
+              en: 'Copy',
+              fr: 'Copier',
+              de: 'Kopieren',
+              ja: 'コピー',
+            ),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'paste',
+          child: Text(
+            _browserText(
+              context,
+              zh: '粘贴',
+              zhHant: '貼上',
+              en: 'Paste',
+              fr: 'Coller',
+              de: 'Einfügen',
+              ja: '貼り付け',
+            ),
+          ),
+        ),
         PopupMenuItem(
           value: 'selectAll',
-          child: Text(isZh ? '全选' : 'Select all'),
+          child: Text(
+            _browserText(
+              context,
+              zh: '全选',
+              zhHant: '全選',
+              en: 'Select all',
+              fr: 'Tout sélectionner',
+              de: 'Alles auswählen',
+              ja: 'すべて選択',
+            ),
+          ),
         ),
         const PopupMenuDivider(),
-        PopupMenuItem(value: 'reload', child: Text(isZh ? '刷新' : 'Reload')),
+        PopupMenuItem(
+          value: 'reload',
+          child: Text(
+            _browserText(
+              context,
+              zh: '刷新',
+              zhHant: '重新整理',
+              en: 'Reload',
+              fr: 'Recharger',
+              de: 'Neu laden',
+              ja: '再読み込み',
+            ),
+          ),
+        ),
         PopupMenuItem(
           value: 'inspect',
-          child: Text(isZh ? '检查元素 (DevTools)' : 'Inspect (DevTools)'),
+          child: Text(
+            _browserText(
+              context,
+              zh: '检查元素 (DevTools)',
+              zhHant: '檢查元素 (DevTools)',
+              en: 'Inspect (DevTools)',
+              fr: 'Inspecter (DevTools)',
+              de: 'Untersuchen (DevTools)',
+              ja: '検証 (DevTools)',
+            ),
+          ),
         ),
         PopupMenuItem(
           value: 'openExternal',
-          child: Text(isZh ? '在外部浏览器中打开' : 'Open in external browser'),
+          child: Text(
+            _browserText(
+              context,
+              zh: '在外部浏览器中打开',
+              zhHant: '在外部瀏覽器中開啟',
+              en: 'Open in external browser',
+              fr: 'Ouvrir dans le navigateur externe',
+              de: 'In externem Browser öffnen',
+              ja: '外部ブラウザで開く',
+            ),
+          ),
         ),
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'saveFrame',
-          child: Text(isZh ? '保存当前帧 (PNG)' : 'Save current frame'),
+          child: Text(
+            _browserText(
+              context,
+              zh: '保存当前帧 (PNG)',
+              zhHant: '儲存目前幀 (PNG)',
+              en: 'Save current frame',
+              fr: 'Enregistrer la frame',
+              de: 'Aktuellen Frame speichern',
+              ja: '現在のフレームを保存',
+            ),
+          ),
         ),
         PopupMenuItem(
           value: 'cropFrame',
-          child: Text(isZh ? '框选导出局部帧' : 'Save selected region'),
+          child: Text(
+            _browserText(
+              context,
+              zh: '框选导出局部帧',
+              zhHant: '框選匯出局部幀',
+              en: 'Save selected region',
+              fr: 'Enregistrer la zone sélectionnée',
+              de: 'Ausgewählten Bereich speichern',
+              ja: '選択範囲を保存',
+            ),
+          ),
         ),
       ],
     );
@@ -1488,7 +1669,11 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         await ctrl.reload();
       case 'inspect':
         if (mounted) {
-          await _openOfficialDevToolsForController(context, ctrl, isZh);
+          await _openOfficialDevToolsForController(
+            context,
+            ctrl,
+            openHandIsChineseLocale(context),
+          );
         }
       case 'openExternal':
         final url = await ctrl.currentUrl();
@@ -1539,7 +1724,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     final ctrl = widget.controller;
     final dpr = MediaQuery.of(context).devicePixelRatio;
     return Column(
@@ -1548,7 +1732,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           targets: ctrl.pageTargets,
           currentId: ctrl.currentPageTargetId,
           enabled: ctrl.isBrowserAlive,
-          isZh: isZh,
           onSwitch: (id) async {
             await ctrl.switchToPageTarget(id);
             _persistTabsAndUrls();
@@ -1567,7 +1750,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             _persistTabsAndUrls();
           },
         ),
-        _buildAddressBar(theme, cs, isZh, ctrl),
+        _buildAddressBar(theme, cs, ctrl),
         const SizedBox(height: 8),
         Expanded(
           // 2026-06-04 — LayoutBuilder 必须包在 Padding 内部，否则 constraints
@@ -1603,7 +1786,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                                 ? BoxFit.contain
                                 : BoxFit.fill,
                             placeholderBuilder: () =>
-                                _buildPlaceholder(theme, cs, isZh, ctrl),
+                                _buildPlaceholder(theme, cs, ctrl),
                           ),
                         ),
                         if (_surfaceInputReady)
@@ -1644,7 +1827,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                               focusNode: _findFocus,
                               controller: _findCtrl,
                               matchCount: _findMatchCount,
-                              isZh: isZh,
                               onChanged: _onFindChanged,
                               onPrev: _findPrev,
                               onNext: _findNext,
@@ -1680,9 +1862,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                                   vertical: 6,
                                 ),
                                 child: Text(
-                                  isZh
-                                      ? '拖动选择导出区域，松手保存'
-                                      : 'Drag to select region',
+                                  _browserText(
+                                    context,
+                                    zh: '拖动选择导出区域，松手保存',
+                                    zhHant: '拖動選擇匯出區域，放開後儲存',
+                                    en: 'Drag to select region',
+                                    fr: 'Faites glisser pour sélectionner',
+                                    de: 'Bereich durch Ziehen auswählen',
+                                    ja: 'ドラッグして保存範囲を選択',
+                                  ),
                                   style: theme.textTheme.labelSmall,
                                 ),
                               ),
@@ -1703,7 +1891,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   Widget _buildAddressBar(
     ThemeData theme,
     ColorScheme cs,
-    bool isZh,
     WebReverseSessionController ctrl,
   ) {
     final alive = ctrl.isBrowserAlive;
@@ -1712,19 +1899,43 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
       child: Row(
         children: [
           _NavIconButton(
-            tooltip: isZh ? '后退' : 'Back',
+            tooltip: _browserText(
+              context,
+              zh: '后退',
+              zhHant: '返回',
+              en: 'Back',
+              fr: 'Retour',
+              de: 'Zurück',
+              ja: '戻る',
+            ),
             icon: Icons.arrow_back_rounded,
             onPressed: alive ? () => ctrl.goBack() : null,
           ),
           const SizedBox(width: 6),
           _NavIconButton(
-            tooltip: isZh ? '前进' : 'Forward',
+            tooltip: _browserText(
+              context,
+              zh: '前进',
+              zhHant: '前進',
+              en: 'Forward',
+              fr: 'Avancer',
+              de: 'Vorwärts',
+              ja: '進む',
+            ),
             icon: Icons.arrow_forward_rounded,
             onPressed: alive ? () => ctrl.goForward() : null,
           ),
           const SizedBox(width: 6),
           _NavIconButton(
-            tooltip: isZh ? '刷新' : 'Reload',
+            tooltip: _browserText(
+              context,
+              zh: '刷新',
+              zhHant: '重新整理',
+              en: 'Reload',
+              fr: 'Recharger',
+              de: 'Neu laden',
+              ja: '再読み込み',
+            ),
             icon: Icons.refresh_rounded,
             onPressed: alive ? () => ctrl.reload() : null,
           ),
@@ -1753,11 +1964,18 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                   isDense: true,
                   filled: true,
                   fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.85),
-                  hintText: isZh ? '输入 URL 后回车' : 'Type URL and press Enter',
+                  hintText: _browserText(
+                    context,
+                    zh: '输入 URL 后回车',
+                    zhHant: '輸入 URL 後按 Enter',
+                    en: 'Type URL and press Enter',
+                    fr: 'Saisissez une URL puis Entrée',
+                    de: 'URL eingeben und Enter drücken',
+                    ja: 'URL を入力して Enter',
+                  ),
                   prefixIcon: _HistoryDropdownIcon(
                     enabled: alive,
                     history: ctrl.navigationHistory,
-                    isZh: isZh,
                     onPick: (url) async {
                       _addressCtrl.text = url;
                       await ctrl.navigate(url);
@@ -1786,9 +2004,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           ),
           const SizedBox(width: 10),
           _NavIconButton(
-            tooltip: isZh
-                ? '把键盘焦点交给页面（Esc/Tab/方向键等会送给浏览器）'
-                : 'Focus surface (route Esc/Tab/Arrow keys to the page)',
+            tooltip: _browserText(
+              context,
+              zh: '把键盘焦点交给页面（Esc/Tab/方向键等会送给浏览器）',
+              zhHant: '將鍵盤焦點交給頁面（Esc/Tab/方向鍵會送給瀏覽器）',
+              en: 'Focus surface (route Esc/Tab/Arrow keys to the page)',
+              fr: 'Focaliser la page (Esc/Tab/flèches vers le navigateur)',
+              de: 'Seite fokussieren (Esc/Tab/Pfeile an den Browser)',
+              ja: 'ページにフォーカス（Esc/Tab/矢印キーをブラウザへ送信）',
+            ),
             icon: Icons.center_focus_strong_rounded,
             onPressed: alive
                 ? () {
@@ -1807,7 +2031,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           _ZoomMenu(
             value: _zoom,
             enabled: alive,
-            isZh: isZh,
             onChanged: (v) async {
               setState(() => _zoom = v);
               await ctrl.setZoomFactor(v);
@@ -1817,7 +2040,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           _ResolutionMenu(
             value: _resolutionOverride,
             enabled: alive,
-            isZh: isZh,
             onChanged: (next) {
               setState(() {
                 _resolutionOverride = next;
@@ -1833,7 +2055,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           _DevicePresetMenu(
             value: _devicePreset,
             enabled: alive,
-            isZh: isZh,
             onChanged: (next) async {
               setState(() {
                 _devicePreset = next;
@@ -1856,12 +2077,24 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           const SizedBox(width: 6),
           _NavIconButton(
             tooltip: _cjkInputEnabled
-                ? (isZh
-                      ? '关闭中文输入（默认按键直发，特殊键全可用）'
-                      : 'Disable CJK input (default raw key passthrough)')
-                : (isZh
-                      ? '开启中文输入（中/日/韩 IME 候选词上屏，部分特殊键可能被 IME 拦截）'
-                      : 'Enable CJK input (IME composition; some special keys may be captured)'),
+                ? _browserText(
+                    context,
+                    zh: '关闭中文输入（默认按键直发，特殊键全可用）',
+                    zhHant: '關閉中文輸入（預設按鍵直送，特殊鍵全可用）',
+                    en: 'Disable CJK input (default raw key passthrough)',
+                    fr: 'Désactiver la saisie CJK',
+                    de: 'CJK-Eingabe deaktivieren',
+                    ja: 'CJK 入力を無効化',
+                  )
+                : _browserText(
+                    context,
+                    zh: '开启中文输入（中/日/韩 IME 候选词上屏，部分特殊键可能被 IME 拦截）',
+                    zhHant: '開啟中文輸入（中/日/韓 IME 候選詞上屏，部分特殊鍵可能被 IME 攔截）',
+                    en: 'Enable CJK input (IME composition; some special keys may be captured)',
+                    fr: 'Activer la saisie CJK via IME',
+                    de: 'CJK-Eingabe über IME aktivieren',
+                    ja: 'CJK 入力を有効化（IME 変換対応）',
+                  ),
             icon: _cjkInputEnabled
                 ? Icons.keyboard_alt_rounded
                 : Icons.keyboard_alt_outlined,
@@ -1870,15 +2103,39 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           ),
           const SizedBox(width: 6),
           _NavIconButton(
-            tooltip: isZh ? '保存当前帧' : 'Save current frame',
+            tooltip: _browserText(
+              context,
+              zh: '保存当前帧',
+              zhHant: '儲存目前幀',
+              en: 'Save current frame',
+              fr: 'Enregistrer la frame',
+              de: 'Aktuellen Frame speichern',
+              ja: '現在のフレームを保存',
+            ),
             icon: Icons.photo_camera_outlined,
             onPressed: alive ? _saveCurrentFrame : null,
           ),
           const SizedBox(width: 6),
           _NavIconButton(
             tooltip: alive
-                ? (isZh ? '重启浏览器' : 'Restart browser')
-                : (isZh ? '启动浏览器' : 'Start browser'),
+                ? _browserText(
+                    context,
+                    zh: '重启浏览器',
+                    zhHant: '重啟瀏覽器',
+                    en: 'Restart browser',
+                    fr: 'Redémarrer le navigateur',
+                    de: 'Browser neu starten',
+                    ja: 'ブラウザを再起動',
+                  )
+                : _browserText(
+                    context,
+                    zh: '启动浏览器',
+                    zhHant: '啟動瀏覽器',
+                    en: 'Start browser',
+                    fr: 'Démarrer le navigateur',
+                    de: 'Browser starten',
+                    ja: 'ブラウザを起動',
+                  ),
             icon: _restartBrowserInFlight
                 ? Icons.hourglass_top_rounded
                 : Icons.restart_alt_rounded,
@@ -1888,7 +2145,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           ),
           const SizedBox(width: 6),
           _NavIconButton(
-            tooltip: isZh ? '停止调试' : 'Stop browser',
+            tooltip: _browserText(
+              context,
+              zh: '停止调试',
+              zhHant: '停止偵錯',
+              en: 'Stop browser',
+              fr: 'Arrêter le navigateur',
+              de: 'Browser stoppen',
+              ja: 'ブラウザを停止',
+            ),
             icon: Icons.power_settings_new_rounded,
             onPressed: alive
                 ? () async {
@@ -1904,7 +2169,6 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   Widget _buildPlaceholder(
     ThemeData theme,
     ColorScheme cs,
-    bool isZh,
     WebReverseSessionController ctrl,
   ) {
     final running = ctrl.isRunning;
@@ -1922,7 +2186,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
               Icon(Icons.power_off_rounded, size: 36, color: cs.error),
               const SizedBox(height: 12),
               Text(
-                isZh ? '浏览器已断开' : 'Browser disconnected',
+                _browserText(
+                  context,
+                  zh: '浏览器已断开',
+                  zhHant: '瀏覽器已斷開',
+                  en: 'Browser disconnected',
+                  fr: 'Navigateur déconnecté',
+                  de: 'Browser getrennt',
+                  ja: 'ブラウザが切断されました',
+                ),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -1930,9 +2202,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
               const SizedBox(height: 6),
               Text(
                 err.isEmpty
-                    ? (isZh
-                          ? '会话仍在，但 CDP 已断。点击下方按钮重新拉起浏览器即可继续逆向。'
-                          : 'Session retained but CDP is down. Click below to relaunch the browser.')
+                    ? _browserText(
+                        context,
+                        zh: '会话仍在，但 CDP 已断。点击下方按钮重新拉起浏览器即可继续逆向。',
+                        zhHant: '會話仍在，但 CDP 已斷開。點擊下方按鈕重新拉起瀏覽器即可繼續逆向。',
+                        en: 'Session retained but CDP is down. Click below to relaunch the browser.',
+                        fr: 'La session est conservée mais CDP est coupé. Relancez le navigateur ci-dessous.',
+                        de: 'Die Sitzung bleibt erhalten, aber CDP ist getrennt. Starten Sie den Browser unten neu.',
+                        ja: 'セッションは残っていますが CDP が切断されています。下のボタンで再起動できます。',
+                      )
                     : err,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -1957,8 +2235,24 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                     : const Icon(Icons.restart_alt_rounded, size: 16),
                 label: Text(
                   _restartBrowserInFlight
-                      ? (isZh ? '重启中...' : 'Restarting...')
-                      : (isZh ? '重启浏览器' : 'Restart browser'),
+                      ? _browserText(
+                          context,
+                          zh: '重启中...',
+                          zhHant: '重啟中...',
+                          en: 'Restarting...',
+                          fr: 'Redémarrage...',
+                          de: 'Neustart...',
+                          ja: '再起動中...',
+                        )
+                      : _browserText(
+                          context,
+                          zh: '重启浏览器',
+                          zhHant: '重啟瀏覽器',
+                          en: 'Restart browser',
+                          fr: 'Redémarrer le navigateur',
+                          de: 'Browser neu starten',
+                          ja: 'ブラウザを再起動',
+                        ),
                 ),
               ),
             ],
@@ -1975,25 +2269,74 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     final slow = screencastActive && waiting >= _kFirstFrameSlowThreshold;
     final target = _currentTargetLabel(ctrl);
     final title = !running
-        ? (isZh ? '会话尚未运行' : 'Session is not running')
+        ? _browserText(
+            context,
+            zh: '会话尚未运行',
+            zhHant: '會話尚未執行',
+            en: 'Session is not running',
+            fr: 'La session n’est pas lancée',
+            de: 'Sitzung läuft nicht',
+            ja: 'セッションは実行されていません',
+          )
         : screencastActive
-        ? (isZh ? '等待 CDP 首帧' : 'Waiting for first CDP frame')
-        : (isZh ? '正在启动 CDP screencast' : 'Starting CDP screencast');
+        ? _browserText(
+            context,
+            zh: '等待 CDP 首帧',
+            zhHant: '等待 CDP 首幀',
+            en: 'Waiting for first CDP frame',
+            fr: 'Attente de la première frame CDP',
+            de: 'Warten auf ersten CDP-Frame',
+            ja: 'CDP の最初のフレームを待機中',
+          )
+        : _browserText(
+            context,
+            zh: '正在启动 CDP screencast',
+            zhHant: '正在啟動 CDP screencast',
+            en: 'Starting CDP screencast',
+            fr: 'Démarrage du screencast CDP',
+            de: 'CDP-Screencast wird gestartet',
+            ja: 'CDP screencast を開始中',
+          );
     final detail = !running
-        ? (isZh
-              ? 'CDP 会话未运行，无法启动浏览器画面。'
-              : 'The CDP session is not running, so the browser surface cannot start.')
+        ? _browserText(
+            context,
+            zh: 'CDP 会话未运行，无法启动浏览器画面。',
+            zhHant: 'CDP 會話未執行，無法啟動瀏覽器畫面。',
+            en: 'The CDP session is not running, so the browser surface cannot start.',
+            fr: 'La session CDP n’est pas lancée, la surface ne peut pas démarrer.',
+            de: 'Die CDP-Sitzung läuft nicht; die Browserfläche kann nicht starten.',
+            ja: 'CDP セッションが実行されていないため、ブラウザ画面を開始できません。',
+          )
         : slow
-        ? (isZh
-              ? 'CDP screencast 已启动 ${waitingSeconds}s，但还没有收到画面帧。Chrome 窗口最小化或 target 切换中都可能暂停首帧。'
-              : 'CDP screencast has been active for ${waitingSeconds}s without a frame. A minimized Chrome window or target switch can delay the first frame.')
+        ? _browserText(
+            context,
+            zh: 'CDP screencast 已启动 ${waitingSeconds}s，但还没有收到画面帧。Chrome 窗口最小化或 target 切换中都可能暂停首帧。',
+            zhHant:
+                'CDP screencast 已啟動 ${waitingSeconds}s，但尚未收到畫面幀。Chrome 視窗最小化或 target 切換中都可能延後首幀。',
+            en: 'CDP screencast has been active for ${waitingSeconds}s without a frame. A minimized Chrome window or target switch can delay the first frame.',
+            fr: 'Le screencast CDP est actif depuis ${waitingSeconds}s sans frame. Une fenêtre minimisée ou un changement de cible peut retarder la première frame.',
+            de: 'CDP-Screencast ist seit ${waitingSeconds}s aktiv, aber ohne Frame. Ein minimiertes Chrome-Fenster oder Zielwechsel kann den ersten Frame verzögern.',
+            ja: 'CDP screencast は ${waitingSeconds}s 動作中ですがフレーム未受信です。Chrome の最小化や target 切替で遅れる場合があります。',
+          )
         : screencastActive
-        ? (isZh
-              ? 'CDP screencast 已启动，正在等待浏览器推送画面帧。'
-              : 'CDP screencast is active and waiting for Chrome to push a frame.')
-        : (isZh
-              ? '正在向当前 page target 发送 Page.startScreencast。'
-              : 'Sending Page.startScreencast to the current page target.');
+        ? _browserText(
+            context,
+            zh: 'CDP screencast 已启动，正在等待浏览器推送画面帧。',
+            zhHant: 'CDP screencast 已啟動，正在等待瀏覽器推送畫面幀。',
+            en: 'CDP screencast is active and waiting for Chrome to push a frame.',
+            fr: 'Le screencast CDP est actif et attend une frame Chrome.',
+            de: 'CDP-Screencast ist aktiv und wartet auf einen Chrome-Frame.',
+            ja: 'CDP screencast は開始済みで、Chrome からのフレームを待っています。',
+          )
+        : _browserText(
+            context,
+            zh: '正在向当前 page target 发送 Page.startScreencast。',
+            zhHant: '正在向目前 page target 傳送 Page.startScreencast。',
+            en: 'Sending Page.startScreencast to the current page target.',
+            fr: 'Envoi de Page.startScreencast à la cible page actuelle.',
+            de: 'Page.startScreencast wird an das aktuelle page target gesendet.',
+            ja: '現在の page target に Page.startScreencast を送信中です。',
+          );
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
@@ -2053,7 +2396,17 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                       OutlinedButton.icon(
                         onPressed: () => ctrl.reload(),
                         icon: const Icon(Icons.refresh_rounded, size: 16),
-                        label: Text(isZh ? '刷新页面' : 'Reload'),
+                        label: Text(
+                          _browserText(
+                            context,
+                            zh: '刷新页面',
+                            zhHant: '重新整理頁面',
+                            en: 'Reload',
+                            fr: 'Recharger',
+                            de: 'Neu laden',
+                            ja: '再読み込み',
+                          ),
+                        ),
                       ),
                     FilledButton.icon(
                       onPressed: _restartBrowserInFlight
@@ -2073,8 +2426,24 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                           : const Icon(Icons.restart_alt_rounded, size: 16),
                       label: Text(
                         _restartBrowserInFlight
-                            ? (isZh ? '重启中...' : 'Restarting...')
-                            : (isZh ? '重启浏览器' : 'Restart'),
+                            ? _browserText(
+                                context,
+                                zh: '重启中...',
+                                zhHant: '重啟中...',
+                                en: 'Restarting...',
+                                fr: 'Redémarrage...',
+                                de: 'Neustart...',
+                                ja: '再起動中...',
+                              )
+                            : _browserText(
+                                context,
+                                zh: '重启浏览器',
+                                zhHant: '重啟瀏覽器',
+                                en: 'Restart',
+                                fr: 'Redémarrer',
+                                de: 'Neu starten',
+                                ja: '再起動',
+                              ),
                       ),
                     ),
                   ],
@@ -2207,13 +2576,11 @@ class _ZoomMenu extends StatelessWidget {
   const _ZoomMenu({
     required this.value,
     required this.enabled,
-    required this.isZh,
     required this.onChanged,
   });
 
   final double value;
   final bool enabled;
-  final bool isZh;
   final ValueChanged<double> onChanged;
 
   static const _presets = <double>[0.5, 0.75, 1.0, 1.25, 1.5];
@@ -2223,7 +2590,15 @@ class _ZoomMenu extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Tooltip(
-      message: isZh ? '页面缩放' : 'Page zoom',
+      message: _browserText(
+        context,
+        zh: '页面缩放',
+        zhHant: '頁面縮放',
+        en: 'Page zoom',
+        fr: 'Zoom de page',
+        de: 'Seitenzoom',
+        ja: 'ページズーム',
+      ),
       child: SizedBox(
         height: _kToolbarHeight,
         child: AnimatedPopupMenuButton<double>(
@@ -2285,7 +2660,6 @@ class _TabStrip extends StatefulWidget {
     required this.targets,
     required this.currentId,
     required this.enabled,
-    required this.isZh,
     required this.onSwitch,
     required this.onClose,
     required this.onNew,
@@ -2295,7 +2669,6 @@ class _TabStrip extends StatefulWidget {
   final List<CdpPageTargetSnapshot> targets;
   final String? currentId;
   final bool enabled;
-  final bool isZh;
   final ValueChanged<String> onSwitch;
   final ValueChanged<String> onClose;
   final VoidCallback onNew;
@@ -2388,7 +2761,6 @@ class _TabStripState extends State<_TabStrip> {
     final targets = _displayed;
     final currentId = widget.currentId;
     final enabled = widget.enabled;
-    final isZh = widget.isZh;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: SizedBox(
@@ -2424,7 +2796,15 @@ class _TabStripState extends State<_TabStrip> {
                   final label = t.title.isNotEmpty
                       ? t.title
                       : (t.url.isEmpty
-                            ? (isZh ? '新标签页' : 'New tab')
+                            ? _browserText(
+                                context,
+                                zh: '新标签页',
+                                zhHant: '新分頁',
+                                en: 'New tab',
+                                fr: 'Nouvel onglet',
+                                de: 'Neuer Tab',
+                                ja: '新しいタブ',
+                              )
                             : Uri.tryParse(t.url)?.host ?? t.url);
                   return Padding(
                     key: ValueKey<String>(t.id),
@@ -2662,7 +3042,15 @@ class _TabStripState extends State<_TabStrip> {
             ),
             const SizedBox(width: 6),
             Tooltip(
-              message: isZh ? '新建标签页' : 'New tab',
+              message: _browserText(
+                context,
+                zh: '新建标签页',
+                zhHant: '新增分頁',
+                en: 'New tab',
+                fr: 'Nouvel onglet',
+                de: 'Neuer Tab',
+                ja: '新しいタブ',
+              ),
               child: SizedBox(
                 width: 26,
                 height: 26,
@@ -2697,7 +3085,6 @@ class _FindBar extends StatelessWidget {
     required this.focusNode,
     required this.controller,
     required this.matchCount,
-    required this.isZh,
     required this.onChanged,
     required this.onPrev,
     required this.onNext,
@@ -2707,7 +3094,6 @@ class _FindBar extends StatelessWidget {
   final FocusNode focusNode;
   final TextEditingController controller;
   final int matchCount;
-  final bool isZh;
   final ValueChanged<String> onChanged;
   final Future<void> Function() onPrev;
   final Future<void> Function() onNext;
@@ -2747,7 +3133,15 @@ class _FindBar extends StatelessWidget {
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
-                  hintText: isZh ? '查找词条' : 'Find',
+                  hintText: _browserText(
+                    context,
+                    zh: '查找词条',
+                    zhHant: '查找詞條',
+                    en: 'Find',
+                    fr: 'Rechercher',
+                    de: 'Suchen',
+                    ja: '検索',
+                  ),
                   hintStyle: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant.withValues(alpha: 0.65),
                   ),
@@ -2768,7 +3162,15 @@ class _FindBar extends StatelessWidget {
               ),
             ),
             IconButton(
-              tooltip: isZh ? '上一个' : 'Previous',
+              tooltip: _browserText(
+                context,
+                zh: '上一个',
+                zhHant: '上一個',
+                en: 'Previous',
+                fr: 'Précédent',
+                de: 'Vorheriges',
+                ja: '前へ',
+              ),
               visualDensity: VisualDensity.compact,
               iconSize: 18,
               padding: const EdgeInsets.all(6),
@@ -2778,7 +3180,15 @@ class _FindBar extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             IconButton(
-              tooltip: isZh ? '下一个' : 'Next',
+              tooltip: _browserText(
+                context,
+                zh: '下一个',
+                zhHant: '下一個',
+                en: 'Next',
+                fr: 'Suivant',
+                de: 'Nächstes',
+                ja: '次へ',
+              ),
               visualDensity: VisualDensity.compact,
               iconSize: 18,
               padding: const EdgeInsets.all(6),
@@ -2788,7 +3198,15 @@ class _FindBar extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             IconButton(
-              tooltip: isZh ? '关闭' : 'Close',
+              tooltip: _browserText(
+                context,
+                zh: '关闭',
+                zhHant: '關閉',
+                en: 'Close',
+                fr: 'Fermer',
+                de: 'Schließen',
+                ja: '閉じる',
+              ),
               visualDensity: VisualDensity.compact,
               iconSize: 16,
               padding: const EdgeInsets.all(6),
@@ -2847,13 +3265,11 @@ class _ResolutionMenu extends StatelessWidget {
   const _ResolutionMenu({
     required this.value,
     required this.enabled,
-    required this.isZh,
     required this.onChanged,
   });
 
   final ({int w, int h})? value;
   final bool enabled;
-  final bool isZh;
   final ValueChanged<({int w, int h})?> onChanged;
 
   static const _presets = <({String label, int? w, int? h})>[
@@ -2869,9 +3285,27 @@ class _ResolutionMenu extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final cur = value;
-    final label = cur == null ? 'Auto' : '${cur.h}p';
+    final label = cur == null
+        ? _browserText(
+            context,
+            zh: '自动',
+            zhHant: '自動',
+            en: 'Auto',
+            fr: 'Auto',
+            de: 'Auto',
+            ja: '自動',
+          )
+        : '${cur.h}p';
     return Tooltip(
-      message: isZh ? '画面分辨率' : 'Frame resolution',
+      message: _browserText(
+        context,
+        zh: '画面分辨率',
+        zhHant: '畫面解析度',
+        en: 'Frame resolution',
+        fr: 'Résolution de la frame',
+        de: 'Frame-Auflösung',
+        ja: 'フレーム解像度',
+      ),
       child: SizedBox(
         height: _kToolbarHeight,
         child: AnimatedPopupMenuButton<({int? w, int? h})>(
@@ -2938,13 +3372,11 @@ class _DevicePresetMenu extends StatelessWidget {
   const _DevicePresetMenu({
     required this.value,
     required this.enabled,
-    required this.isZh,
     required this.onChanged,
   });
 
   final WebReverseDevicePreset? value;
   final bool enabled;
-  final bool isZh;
   final ValueChanged<WebReverseDevicePreset?> onChanged;
 
   static const _presets = <WebReverseDevicePreset?>[
@@ -2961,13 +3393,45 @@ class _DevicePresetMenu extends StatelessWidget {
     String label() {
       switch (value?.id) {
         case 'mobile':
-          return isZh ? '移动' : 'Mobile';
+          return _browserText(
+            context,
+            zh: '移动',
+            zhHant: '行動',
+            en: 'Mobile',
+            fr: 'Mobile',
+            de: 'Mobil',
+            ja: 'モバイル',
+          );
         case 'tablet':
-          return isZh ? '平板' : 'Tablet';
+          return _browserText(
+            context,
+            zh: '平板',
+            zhHant: '平板',
+            en: 'Tablet',
+            fr: 'Tablette',
+            de: 'Tablet',
+            ja: 'タブレット',
+          );
         case 'desktop':
-          return isZh ? '桌面' : 'Desktop';
+          return _browserText(
+            context,
+            zh: '桌面',
+            zhHant: '桌面',
+            en: 'Desktop',
+            fr: 'Bureau',
+            de: 'Desktop',
+            ja: 'デスクトップ',
+          );
         default:
-          return isZh ? '原生' : 'Native';
+          return _browserText(
+            context,
+            zh: '原生',
+            zhHant: '原生',
+            en: 'Native',
+            fr: 'Natif',
+            de: 'Nativ',
+            ja: 'ネイティブ',
+          );
       }
     }
 
@@ -2985,7 +3449,15 @@ class _DevicePresetMenu extends StatelessWidget {
     }
 
     return Tooltip(
-      message: isZh ? '设备模拟' : 'Device emulation',
+      message: _browserText(
+        context,
+        zh: '设备模拟',
+        zhHant: '裝置模擬',
+        en: 'Device emulation',
+        fr: 'Émulation d’appareil',
+        de: 'Geräteemulation',
+        ja: 'デバイスエミュレーション',
+      ),
       child: SizedBox(
         height: _kToolbarHeight,
         child: AnimatedPopupMenuButton<WebReverseDevicePreset?>(
@@ -2998,7 +3470,15 @@ class _DevicePresetMenu extends StatelessWidget {
                   value: p,
                   child: Text(
                     p == null
-                        ? (isZh ? '原生（清除模拟）' : 'Native (clear)')
+                        ? _browserText(
+                            context,
+                            zh: '原生（清除模拟）',
+                            zhHant: '原生（清除模擬）',
+                            en: 'Native (clear)',
+                            fr: 'Natif (effacer)',
+                            de: 'Nativ (zurücksetzen)',
+                            ja: 'ネイティブ（解除）',
+                          )
                         : p.label,
                   ),
                 ),
@@ -3049,13 +3529,11 @@ class _HistoryDropdownIcon extends StatelessWidget {
   const _HistoryDropdownIcon({
     required this.enabled,
     required this.history,
-    required this.isZh,
     required this.onPick,
   });
 
   final bool enabled;
   final List<String> history;
-  final bool isZh;
   final ValueChanged<String> onPick;
 
   @override
@@ -3065,7 +3543,15 @@ class _HistoryDropdownIcon extends StatelessWidget {
     final visible = history.reversed.take(30).toList(growable: false);
     return AnimatedPopupMenuButton<String>(
       enabled: enabled && visible.isNotEmpty,
-      tooltip: isZh ? '导航历史' : 'Navigation history',
+      tooltip: _browserText(
+        context,
+        zh: '导航历史',
+        zhHant: '導覽歷史',
+        en: 'Navigation history',
+        fr: 'Historique de navigation',
+        de: 'Navigationsverlauf',
+        ja: 'ナビゲーション履歴',
+      ),
       onSelected: onPick,
       itemBuilder: (_) => visible
           .map(

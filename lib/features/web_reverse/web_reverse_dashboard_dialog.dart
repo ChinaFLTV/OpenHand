@@ -1209,7 +1209,7 @@ class _WebReverseDashboardDialogState
     bool reduceMotion,
   ) {
     return switch (_tab) {
-      _Tab.browser => _BrowserBody(controller: ctrl, isZh: isZh),
+      _Tab.browser => _BrowserBody(controller: ctrl),
       _Tab.overview => _OverviewBody(controller: ctrl, isZh: isZh),
       _Tab.network => _NetworkBody(
         state: this,
