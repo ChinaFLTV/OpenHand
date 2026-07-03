@@ -1820,10 +1820,11 @@ void _sanitizeMarkdownAst(List<md.Node> nodes) {
     final attributes = node.attributes;
     if (node.tag == 'ol') {
       final start = attributes['start'];
-      if (start == null || int.tryParse(start.trim()) == null) {
+      final startValue = optionalIntFromValue(start);
+      if (startValue == null) {
         attributes.remove('start');
       } else {
-        attributes['start'] = int.parse(start.trim()).toString();
+        attributes['start'] = startValue.toString();
       }
     }
     final children = node.children;
