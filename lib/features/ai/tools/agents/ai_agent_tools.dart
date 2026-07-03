@@ -18,6 +18,7 @@ enum _AgentToolOperation {
   pauseTask,
   terminateTask,
   resumeTask,
+  completeTask,
   resultTask,
 }
 
@@ -104,6 +105,13 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
       ),
       AiAgentTool._(
+        kind: AiBuiltinToolKind.agentTaskComplete,
+        name: 'AgentTaskComplete',
+        operation: _AgentToolOperation.completeTask,
+        agentsControllerProvider: agentsControllerProvider,
+        promptRenderer: renderer,
+      ),
+      AiAgentTool._(
         kind: AiBuiltinToolKind.agentTaskResult,
         name: 'AgentTaskResult',
         operation: _AgentToolOperation.resultTask,
@@ -132,7 +140,8 @@ class AiAgentTool extends AiTool {
       _AgentToolOperation.cancelTask ||
       _AgentToolOperation.pauseTask ||
       _AgentToolOperation.terminateTask ||
-      _AgentToolOperation.resumeTask => true,
+      _AgentToolOperation.resumeTask ||
+      _AgentToolOperation.completeTask => true,
       _ => false,
     };
   }
@@ -208,6 +217,14 @@ class AiAgentTool extends AiTool {
           status: AgentTaskStatus.ready,
           activityKind: 'task_resumed',
           activityTitle: 'task_resumed',
+        ),
+        _AgentToolOperation.completeTask => await _setTaskStatus(
+          controller,
+          context,
+          stopwatch,
+          status: AgentTaskStatus.completed,
+          activityKind: 'task_completed',
+          activityTitle: 'task_completed',
         ),
         _AgentToolOperation.resultTask => _taskResult(
           controller,
@@ -420,9 +437,12 @@ class AiAgentTool extends AiTool {
     final resolved = _resolveTask(controller, args);
     if (resolved.error != null) return resolved.error!;
     final explicitProgress = _optionalRatio(args['progress']);
-    final nextProgress = status == AgentTaskStatus.canceled
-        ? explicitProgress ?? resolved.task!.progress
-        : explicitProgress;
+    final nextProgress = switch (status) {
+      AgentTaskStatus.completed => 1.0,
+      AgentTaskStatus.canceled => explicitProgress ?? resolved.task!.progress,
+      _ => explicitProgress,
+    };
+    final rawExtra = optionalStringKeyedMapFromValueOrJsonText(args['extra']);
     final updated = await controller.updateTaskState(
       resolved.agent!.id,
       resolved.task!.id,
@@ -431,6 +451,7 @@ class AiAgentTool extends AiTool {
       note: _optionalText(args['note']),
       result: _optionalText(args['result']),
       extra: <String, Object?>{
+        if (rawExtra != null) ...rawExtra,
         'updated_by_session_id': context.sessionId,
         'tool_action': activityKind,
       },

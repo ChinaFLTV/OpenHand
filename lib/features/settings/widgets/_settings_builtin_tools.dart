@@ -65,6 +65,7 @@ class _BuiltinToolTile extends StatelessWidget {
       AiBuiltinToolKind.agentTaskPause => Icons.pause_circle_outline_rounded,
       AiBuiltinToolKind.agentTaskTerminate => Icons.gpp_bad_outlined,
       AiBuiltinToolKind.agentTaskResume => Icons.play_circle_outline_rounded,
+      AiBuiltinToolKind.agentTaskComplete => Icons.task_alt_outlined,
       AiBuiltinToolKind.agentTaskResult => Icons.fact_check_outlined,
     };
   }

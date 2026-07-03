@@ -195,6 +195,7 @@ enum AiBuiltinToolKind {
   agentTaskPause,
   agentTaskTerminate,
   agentTaskResume,
+  agentTaskComplete,
   agentTaskResult,
 }
 
@@ -328,6 +329,7 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.agentTaskPause,
         AiBuiltinToolKind.agentTaskTerminate,
         AiBuiltinToolKind.agentTaskResume,
+        AiBuiltinToolKind.agentTaskComplete,
       };
 
   final AiBashToolService _bashToolService;
@@ -424,6 +426,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.agentTaskPause ||
       AiBuiltinToolKind.agentTaskTerminate ||
       AiBuiltinToolKind.agentTaskResume ||
+      AiBuiltinToolKind.agentTaskComplete ||
       AiBuiltinToolKind.agentTaskResult => true,
       _ => false,
     };
@@ -1316,7 +1319,8 @@ class AiToolRuntimeService {
           kind == AiBuiltinToolKind.agentTaskCancel ||
           kind == AiBuiltinToolKind.agentTaskPause ||
           kind == AiBuiltinToolKind.agentTaskTerminate ||
-          kind == AiBuiltinToolKind.agentTaskResume;
+          kind == AiBuiltinToolKind.agentTaskResume ||
+          kind == AiBuiltinToolKind.agentTaskComplete;
     }
     return false;
   }
@@ -1862,6 +1866,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.agentTaskPause => 'AgentTaskPause',
       AiBuiltinToolKind.agentTaskTerminate => 'AgentTaskTerminate',
       AiBuiltinToolKind.agentTaskResume => 'AgentTaskResume',
+      AiBuiltinToolKind.agentTaskComplete => 'AgentTaskComplete',
       AiBuiltinToolKind.agentTaskResult => 'AgentTaskResult',
       null => tool.name,
     };
@@ -3743,6 +3748,44 @@ class AiToolRuntimeService {
           'note': <String, Object?>{'type': 'string'},
         },
         'required': <String>['task_id'],
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['agent_id'],
+          },
+          <String, Object?>{
+            'required': <String>['agent_name'],
+          },
+          <String, Object?>{
+            'required': <String>['agent'],
+          },
+        ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentTaskComplete,
+      name: 'AgentTaskComplete',
+      description:
+          'Mark an agent task as completed and write back the worker result. Use this when the assigned worker has produced a verified deliverable.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{'type': 'string'},
+          'task_id': <String, Object?>{'type': 'string'},
+          'id': <String, Object?>{'type': 'string'},
+          'result': <String, Object?>{
+            'type': 'string',
+            'description': 'Final task result or handoff summary.',
+          },
+          'note': <String, Object?>{'type': 'string'},
+          'extra': <String, Object?>{
+            'type': 'object',
+            'additionalProperties': true,
+          },
+        },
+        'required': <String>['task_id', 'result'],
         'anyOf': <Object?>[
           <String, Object?>{
             'required': <String>['agent_id'],

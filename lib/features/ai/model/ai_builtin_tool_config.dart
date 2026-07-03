@@ -488,6 +488,7 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.agentTaskPause:
       case AiBuiltinToolKind.agentTaskTerminate:
       case AiBuiltinToolKind.agentTaskResume:
+      case AiBuiltinToolKind.agentTaskComplete:
       case AiBuiltinToolKind.agentTaskResult:
         return AiBuiltinToolLoadStrategy.lazy;
     }

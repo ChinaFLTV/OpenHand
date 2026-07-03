@@ -76,6 +76,7 @@ HardnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.agentTaskPause ||
     AiBuiltinToolKind.agentTaskTerminate ||
     AiBuiltinToolKind.agentTaskResume ||
+    AiBuiltinToolKind.agentTaskComplete ||
     AiBuiltinToolKind.agentTaskResult => HardnessToolCategory.agent,
     // Interactive user-facing tool; not tied to any phase category so it stays
     // available across all phases without affinity filtering.

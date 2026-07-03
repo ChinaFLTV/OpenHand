@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/agents/data/agents_store.dart';
 import 'package:openhand/features/agents/index.dart';
 import 'package:openhand/features/ai/model/ai_creation_mode.dart';
+import 'package:openhand/features/ai/model/ai_deny_command_rule.dart';
 import 'package:openhand/features/ai/model/ai_input_cache_runtime_config.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/model/ai_session_runtime_context.dart';
@@ -66,6 +68,10 @@ void main() {
         catalog.find('AgentTaskPublish')?.builtinKind,
         AiBuiltinToolKind.agentTaskPublish,
       );
+      expect(
+        catalog.find('AgentTaskComplete')?.builtinKind,
+        AiBuiltinToolKind.agentTaskComplete,
+      );
 
       await controller.setAgentEnabled('agent-1', enabled: false);
       catalog = runtime.resolveCatalogFromRuntimeSnapshot(
@@ -73,6 +79,54 @@ void main() {
       );
       expect(catalog.find('AgentList'), isNull);
       expect(catalog.find('AgentTaskPublish'), isNull);
+      expect(catalog.find('AgentTaskComplete'), isNull);
+    });
+
+    test('complete tool writes task result and releases worker', () async {
+      await controller.saveAgent(_agent(enabled: true));
+      final task = await controller.publishTaskWithResult(
+        'agent-1',
+        title: 'Collect release evidence',
+      );
+      expect(task, isNotNull);
+      expect(task!.status, AgentTaskStatus.running);
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(),
+      );
+      final result = await runtime.execute(
+        sessionId: 'session-1',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-1',
+          name: 'AgentTaskComplete',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-1',
+            'task_id': task.id,
+            'result': 'Release evidence collected and verified.',
+            'note': 'worker handoff complete',
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      final completed = controller.taskById('agent-1', task.id)!;
+      expect(completed.status, AgentTaskStatus.completed);
+      expect(completed.progress, 1);
+      expect(completed.result, 'Release evidence collected and verified.');
+      expect(completed.note, 'worker handoff complete');
+
+      final agent = controller.agentById('agent-1')!;
+      expect(agent.workers.single.status, AgentWorkerStatus.idle);
+      expect(agent.workers.single.currentTaskId, isEmpty);
+      expect(agent.activities.first.kind, 'task_completed');
+      expect(agent.auditEvents.first.kind, 'task_completed');
     });
   });
 }
@@ -110,6 +164,18 @@ AgentProfile _agent({required bool enabled}) {
     lifecycleState: enabled
         ? AgentLifecycleState.running
         : AgentLifecycleState.stopped,
+  );
+}
+
+AiModelConfig _model() {
+  return const AiModelConfig(
+    id: 'model-1',
+    baseUrl: 'https://example.invalid',
+    authScheme: AiAuthScheme.bearer,
+    token: 'test-token',
+    modelId: 'test-model',
+    protocolType: AiProtocolType.openai,
+    maxTokens: 1024,
   );
 }
 
