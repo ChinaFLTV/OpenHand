@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
 import '../../shared/core/managed_change_notifier.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import '../crons/index.dart';
@@ -171,28 +172,20 @@ class MessageGatewayController extends ManagedChangeNotifier {
   }
 
   List<AiThreadTemplate> get templates => _sessionController.availableTemplates;
-  List<String> get skillNames => _skillsController.skills
-      .map((skill) => skill.name)
-      .where((name) => name.trim().isNotEmpty)
-      .toList(growable: false);
-  List<String> get mcpServerNames => _mcpController.servers
-      .map((server) => server.name)
-      .where((name) => name.trim().isNotEmpty)
-      .toList(growable: false);
-  List<String> get memoryIds => _memoryController.entries
-      .map((entry) => entry.id)
-      .where((id) => id.trim().isNotEmpty)
-      .toList(growable: false);
-  List<String> get builtinToolNames => _settingsController.builtinToolConfigs
-      .map((tool) => tool.effectiveName)
-      .where((name) => name.trim().isNotEmpty)
-      .toList(growable: false);
-  List<String> get knowledgeBaseBuiltinToolNames => _settingsController
-      .builtinToolConfigs
-      .where((tool) => _knowledgeBaseBuiltinToolKinds.contains(tool.kind))
-      .map((tool) => tool.effectiveName)
-      .where((name) => name.trim().isNotEmpty)
-      .toList(growable: false);
+  List<String> get skillNames =>
+      _cleanStringValues(_skillsController.skills.map((skill) => skill.name));
+  List<String> get mcpServerNames =>
+      _cleanStringValues(_mcpController.servers.map((server) => server.name));
+  List<String> get memoryIds =>
+      _cleanStringValues(_memoryController.entries.map((entry) => entry.id));
+  List<String> get builtinToolNames => _cleanStringValues(
+    _settingsController.builtinToolConfigs.map((tool) => tool.effectiveName),
+  );
+  List<String> get knowledgeBaseBuiltinToolNames => _cleanStringValues(
+    _settingsController.builtinToolConfigs
+        .where((tool) => _knowledgeBaseBuiltinToolKinds.contains(tool.kind))
+        .map((tool) => tool.effectiveName),
+  );
   List<WebGatewayModelOption> get modelOptions {
     final options = <WebGatewayModelOption>[];
     for (final provider in _settingsController.aiModels) {
@@ -516,4 +509,8 @@ class MessageGatewayController extends ManagedChangeNotifier {
     final rgb = value & 0x00FFFFFF;
     return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
   }
+}
+
+List<String> _cleanStringValues(Iterable<Object?> values) {
+  return stringListFromValue(values.toList(growable: false));
 }
