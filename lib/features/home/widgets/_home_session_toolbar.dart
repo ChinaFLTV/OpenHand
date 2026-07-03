@@ -1161,10 +1161,7 @@ List<_PlanTimelineStep> _planTimelinePendingSteps(
   required String idPrefix,
   bool markCurrentStepFailed = false,
 }) {
-  final normalizedLabels = stepLabels
-      .map((item) => item.trim())
-      .where((item) => item.isNotEmpty)
-      .toList(growable: false);
+  final normalizedLabels = trimmedNonEmptyStrings(stepLabels);
   if (normalizedLabels.isEmpty) {
     return const <_PlanTimelineStep>[];
   }
@@ -1288,10 +1285,7 @@ List<String> _planTimelineStepsFromPlanRecord(AiSessionPlanRecord planRecord) {
   if (planSteps.isNotEmpty) {
     return planSteps;
   }
-  return planRecord.steps
-      .map((item) => item.content.trim())
-      .where((item) => item.isNotEmpty)
-      .toList(growable: false);
+  return trimmedNonEmptyStrings(planRecord.steps.map((item) => item.content));
 }
 
 bool _shouldReflectCurrentPlanStepFailure(
@@ -2501,9 +2495,9 @@ List<Widget> _buildMcpLazyLoadingPills(
   for (final notice in notices) {
     final match = _mcpLazyLoadingNoticePattern.firstMatch(notice);
     if (match == null) continue;
-    final deferred = int.tryParse(match.group(1) ?? '');
-    final total = int.tryParse(match.group(2) ?? '');
-    if (deferred == null || total == null || total <= 0) continue;
+    final deferred = optionalNonNegativeIntFromValue(match.group(1));
+    final total = optionalPositiveIntFromValue(match.group(2));
+    if (deferred == null || total == null) continue;
     final loaded = (total - deferred).clamp(0, total);
     return <Widget>[
       const SizedBox(width: 8),

@@ -451,9 +451,7 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
       asMap(relatedMetadata['prompt_metadata']);
   int? firstInt(List<Object?> values) {
     for (final value in values) {
-      if (value is int) return value;
-      if (value is num) return value.toInt();
-      final parsed = int.tryParse('${value ?? ''}');
+      final parsed = optionalIntFromValue(value);
       if (parsed != null) return parsed;
     }
     return null;

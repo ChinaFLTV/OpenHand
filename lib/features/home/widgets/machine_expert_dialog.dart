@@ -228,11 +228,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
     if (raw.isEmpty || raw == 'missing value') {
       return const <String>[];
     }
-    return raw
-        .split(', ')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
+    return splitTrimmedNonEmpty(raw);
   }
 
   bool _isActiveFetch(int fetchId) => mounted && _fetchSequence == fetchId;
