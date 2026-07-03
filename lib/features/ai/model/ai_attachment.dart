@@ -179,8 +179,7 @@ class AiMessageAttachment {
   }
 
   static int? _readNullableInt(Object? value) {
-    final parsed = optionalIntFromValue(value);
-    return parsed == null || parsed < 0 ? null : parsed;
+    return optionalNonNegativeIntFromValue(value);
   }
 }
 

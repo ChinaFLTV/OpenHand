@@ -14,6 +14,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../crons/index.dart';
 import '../../hooks/index.dart';
@@ -2168,9 +2169,7 @@ class _AgentResourceEditorDialogState
 }
 
 int _nonNegativeIntFromText(String value) {
-  final parsed = int.tryParse(value.trim());
-  if (parsed == null || parsed < 0) return 0;
-  return parsed;
+  return nonNegativeIntFromValue(value, fallback: 0);
 }
 
 List<String> _commaSeparatedTextValues(String value) {

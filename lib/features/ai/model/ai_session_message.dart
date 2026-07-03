@@ -1453,8 +1453,12 @@ class AiSessionMessageResponseVariant {
 
   static int clampIndex(Object? raw, int length) {
     if (length <= 0) return 0;
-    final parsed = raw is int ? raw : int.tryParse('${raw ?? ''}'.trim()) ?? 0;
-    return parsed.clamp(0, length - 1).toInt();
+    return clampedIntFromValue(
+      raw is int ? raw : stringFromValue(raw),
+      fallback: 0,
+      min: 0,
+      max: length - 1,
+    );
   }
 
   static List<String> _normalizeMessageIds(Object? raw) {

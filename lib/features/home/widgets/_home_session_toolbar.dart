@@ -2156,10 +2156,10 @@ class _GoalKeyValue extends StatelessWidget {
 }
 
 int _metadataInt(Object? rawValue) {
-  if (rawValue is int) {
-    return rawValue;
-  }
-  return int.tryParse('${rawValue ?? ''}'.trim()) ?? 0;
+  return intFromValue(
+    rawValue is int ? rawValue : stringFromValue(rawValue),
+    fallback: 0,
+  );
 }
 
 List<Map<String, Object?>> _metadataObjectList(Object? rawValue) {

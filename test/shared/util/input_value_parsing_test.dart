@@ -65,6 +65,37 @@ void main() {
     });
   });
 
+  group('optionalNonNegativeIntFromValue', () {
+    test('accepts non-negative ints and finite numeric values', () {
+      expect(optionalNonNegativeIntFromValue(2), 2);
+      expect(optionalNonNegativeIntFromValue(2.9), 2);
+      expect(optionalNonNegativeIntFromValue('2'), 2);
+      expect(optionalNonNegativeIntFromValue(0), 0);
+    });
+
+    test('rejects negative, fractional strings, and non-finite values', () {
+      expect(optionalNonNegativeIntFromValue(-1), isNull);
+      expect(optionalNonNegativeIntFromValue('-1'), isNull);
+      expect(optionalNonNegativeIntFromValue('2.5'), isNull);
+      expect(optionalNonNegativeIntFromValue(double.infinity), isNull);
+    });
+  });
+
+  group('optionalPositiveIntFromValue', () {
+    test('accepts positive ints and finite numeric values', () {
+      expect(optionalPositiveIntFromValue(2), 2);
+      expect(optionalPositiveIntFromValue(2.9), 2);
+      expect(optionalPositiveIntFromValue('2'), 2);
+    });
+
+    test('rejects zero, sub-unit numeric values, and invalid strings', () {
+      expect(optionalPositiveIntFromValue(0), isNull);
+      expect(optionalPositiveIntFromValue(0.5), isNull);
+      expect(optionalPositiveIntFromValue('-1'), isNull);
+      expect(optionalPositiveIntFromValue('2.5'), isNull);
+    });
+  });
+
   group('optionalNonNegativeIntegralIntFromValue', () {
     test('accepts only non-negative integral values', () {
       expect(optionalNonNegativeIntegralIntFromValue(2), 2);

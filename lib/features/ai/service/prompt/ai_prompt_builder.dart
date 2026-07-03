@@ -5519,11 +5519,7 @@ $content
   }
 
   int? _metadataPositiveInt(Object? raw) {
-    if (raw is int && raw > 0) return raw;
-    if (raw is num && raw > 0) return raw.toInt();
-    final parsed = int.tryParse('${raw ?? ''}'.trim());
-    if (parsed == null || parsed <= 0) return null;
-    return parsed;
+    return optionalPositiveIntFromValue(raw);
   }
 
   String _metadataTrimmedString(Object? raw) {
