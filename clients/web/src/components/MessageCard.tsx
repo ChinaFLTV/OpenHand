@@ -2023,12 +2023,12 @@ function useMessageSizeMotion(signal: string, enabled: boolean) {
     }
 
     const growing = delta > 0;
-    const overshoot = growing ? Math.min(10, Math.max(2, delta * 0.12)) : 0;
+    const overshoot = growing ? clampNumber(delta * 0.12, 2, 10) : 0;
     // 高度动画节奏跟随全局弹窗设置：展开略长收一点弹性，折叠略短偏精准。
     const baseDuration = getDialogMotionDurationMs() || 280;
     const duration = growing
-      ? Math.max(260, Math.min(420, Math.round(baseDuration * 1.15)))
-      : Math.max(180, Math.min(300, Math.round(baseDuration * 0.8)));
+      ? clampNumber(Math.round(baseDuration * 1.15), 260, 420)
+      : clampNumber(Math.round(baseDuration * 0.8), 180, 300);
     overflowBeforeAnimationRef.current = element.style.overflow;
     element.style.overflow = 'clip';
     const animation = element.animate(
@@ -4177,7 +4177,11 @@ function KnowledgeVectorPointPopover({
   sceneSize: KnowledgeVectorSceneSize;
   onClose: () => void;
 }) {
-  const width = Math.min(KB_VECTOR_POPOVER_WIDTH, Math.max(180, sceneSize.width - KB_VECTOR_POPOVER_PADDING * 2));
+  const width = clampNumber(
+    sceneSize.width - KB_VECTOR_POPOVER_PADDING * 2,
+    180,
+    Math.max(180, KB_VECTOR_POPOVER_WIDTH),
+  );
   const left = clampNumber(projection.x + 14, KB_VECTOR_POPOVER_PADDING, Math.max(KB_VECTOR_POPOVER_PADDING, sceneSize.width - width - KB_VECTOR_POPOVER_PADDING));
   const top = clampNumber(projection.y - 120, KB_VECTOR_POPOVER_PADDING, Math.max(KB_VECTOR_POPOVER_PADDING, sceneSize.height - 228));
   const point = projection.point;

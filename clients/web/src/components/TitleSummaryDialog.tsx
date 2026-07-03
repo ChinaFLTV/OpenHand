@@ -94,7 +94,7 @@ export function TitleSummaryDialog({
       const loadedUserCount = loaded.filter((m) => m.role === 'user' && m.content.trim().length > 0).length;
       setMessages(loaded);
       setStartIdx(0);
-      setEndIdx(Math.min(Math.max(loadedUserCount - 1, 0), 2));
+      setEndIdx(clampNumber(loadedUserCount - 1, 0, 2));
       setPhase('config');
     } catch (err) {
       if (loadIdRef.current !== loadId || controller.signal.aborted || isAbortError(err)) {

@@ -334,12 +334,12 @@ function computeComposerPickerAnchor(node: HTMLElement | null, maxWidth = 480): 
   const rect = node.getBoundingClientRect();
   const viewportW = window.innerWidth;
   const viewportH = window.innerHeight;
-  const width = Math.min(maxWidth, Math.max(220, rect.width));
+  const width = maxWidth >= 220 ? clampNumber(rect.width, 220, maxWidth) : maxWidth;
   return {
     bottomGap: Math.max(8, viewportH - rect.top + 10),
-    left: Math.max(12, Math.min(rect.left, viewportW - width - 12)),
+    left: clampNumber(rect.left, 12, Math.max(12, viewportW - width - 12)),
     width,
-    maxHeight: Math.max(160, Math.min(360, rect.top - 16)),
+    maxHeight: clampNumber(rect.top - 16, 160, 360),
   };
 }
 
@@ -1501,11 +1501,16 @@ function ComposerInstructionPreviewCard({ hover, t }: { hover: { entry: ApiMetaI
   const cardWidth = 360;
   const margin = 12;
   const gap = 10;
-  const left = Math.max(margin, Math.min(rect.left, window.innerWidth - cardWidth - margin));
+  const left = clampNumber(rect.left, margin, Math.max(margin, window.innerWidth - cardWidth - margin));
   const rawAbove = Math.max(0, rect.top - margin - gap);
   const rawBelow = Math.max(0, window.innerHeight - rect.bottom - margin - gap);
   const placeAbove = rawAbove >= 180 || rawAbove >= rawBelow;
-  const availableHeight = Math.max(120, Math.min(480, placeAbove ? rawAbove : rawBelow, window.innerHeight - margin * 2));
+  const maxAvailableHeight = clampNumber(window.innerHeight - margin * 2, 120, 480);
+  const availableHeight = clampNumber(
+    placeAbove ? rawAbove : rawBelow,
+    120,
+    maxAvailableHeight,
+  );
   const cardStyle: Record<string, string> = {
     position: 'fixed',
     left: `${left}px`,
@@ -4506,7 +4511,7 @@ export function SessionDetailPage() {
   }
 
   function computeAtMentionTrigger(text: string, cursor: number): AtMentionTriggerInfo | null {
-    const safeCursor = Math.max(0, Math.min(cursor, text.length));
+    const safeCursor = clampNumber(cursor, 0, text.length);
     let atIndex = -1;
     for (let i = safeCursor - 1; i >= 0; i -= 1) {
       const code = text.charCodeAt(i);
@@ -7175,7 +7180,7 @@ function buildSessionTokenStatsViewModel(session: SessionSummary): SessionTokenS
   const stats = recordFromUnknown(session.statistics);
   const promptTokensTotal = readStatNumber(stats['total_prompt_tokens'], session.total_prompt_tokens);
   const firstPrompt = readStatNumber(stats['first_prompt_tokens'], 0);
-  const promptTokens = Math.max(0, Math.min(promptTokensTotal, promptTokensTotal - firstPrompt));
+  const promptTokens = clampNumber(promptTokensTotal - firstPrompt, 0, promptTokensTotal);
   const completionTokens = readStatNumber(stats['total_completion_tokens'], session.total_completion_tokens);
   const reasoningTokens = readStatNumber(stats['reasoning_tokens'], 0);
   const totalTokens = readStatNumber(stats['total_tokens'], session.total_tokens ?? promptTokensTotal + completionTokens);
@@ -7868,7 +7873,7 @@ function mcpLazyLoadingCapsule(notices: string[]): SessionToolbarCapsule | null 
     const deferred = Number.parseInt(match[1] ?? '', 10);
     const total = Number.parseInt(match[2] ?? '', 10);
     if (!Number.isFinite(deferred) || !Number.isFinite(total) || total <= 0) continue;
-    const loaded = Math.max(0, Math.min(total, total - deferred));
+    const loaded = clampNumber(total - deferred, 0, total);
     return {
       key: 'mcp-lazy-loading',
       icon: 'runtime',

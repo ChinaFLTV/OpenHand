@@ -85,7 +85,7 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
     const below = window.innerHeight - rect.bottom - MENU_OFFSET - VIEWPORT_GAP;
     const above = rect.top - MENU_OFFSET - VIEWPORT_GAP;
     const openUp = below < 128 && above > below;
-    const available = Math.max(96, Math.min(menuMaxHeight, openUp ? above : below));
+    const available = clampNumber(openUp ? above : below, 96, Math.max(96, menuMaxHeight));
     const visibleHeight = Math.min(measuredHeight ?? available, available);
     return {
       top: openUp
