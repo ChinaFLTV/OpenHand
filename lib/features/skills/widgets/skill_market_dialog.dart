@@ -207,7 +207,15 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _t(context, zh: '技能市场', en: 'Skill Market'),
+                _t(
+                  context,
+                  zh: '技能市场',
+                  zhHant: '技能市場',
+                  en: 'Skill Market',
+                  fr: 'Marché des compétences',
+                  de: 'Skill-Markt',
+                  ja: 'スキルマーケット',
+                ),
                 style: theme.textTheme.headlineSmall,
               ),
               const SizedBox(height: 4),
@@ -215,7 +223,11 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                 _t(
                   context,
                   zh: '搜索 SkillHub 技能，查看详情后安装到当前全局技能目录。',
+                  zhHant: '搜尋 SkillHub 技能，查看詳情後安裝到目前全域技能目錄。',
                   en: 'Search SkillHub skills, inspect details, and install into the current global skills directory.',
+                  fr: 'Recherchez des compétences SkillHub, consultez les détails, puis installez-les dans le dossier global actuel.',
+                  de: 'Suche SkillHub-Skills, prüfe Details und installiere sie in das aktuelle globale Skill-Verzeichnis.',
+                  ja: 'SkillHub のスキルを検索し、詳細を確認して現在のグローバルスキルディレクトリへインストールします。',
                 ),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
@@ -242,19 +254,43 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
       children: [
         SearchBar(
           controller: _searchController,
-          hintText: _t(context, zh: '搜索市场技能', en: 'Search market skills'),
+          hintText: _t(
+            context,
+            zh: '搜索市场技能',
+            zhHant: '搜尋市場技能',
+            en: 'Search market skills',
+            fr: 'Rechercher des compétences',
+            de: 'Skills suchen',
+            ja: 'マーケットスキルを検索',
+          ),
           leading: const Icon(Icons.search_rounded),
           trailing: [
             if (_searchInput.trim().isNotEmpty)
               Tooltip(
-                message: _t(context, zh: '清空搜索', en: 'Clear search'),
+                message: _t(
+                  context,
+                  zh: '清空搜索',
+                  zhHant: '清空搜尋',
+                  en: 'Clear search',
+                  fr: 'Effacer la recherche',
+                  de: 'Suche leeren',
+                  ja: '検索をクリア',
+                ),
                 child: IconButton(
                   onPressed: _isSearching ? null : _clearSearch,
                   icon: const Icon(Icons.close_rounded),
                 ),
               ),
             Tooltip(
-              message: _t(context, zh: '刷新搜索', en: 'Refresh search'),
+              message: _t(
+                context,
+                zh: '刷新搜索',
+                zhHant: '重新整理搜尋',
+                en: 'Refresh search',
+                fr: 'Actualiser la recherche',
+                de: 'Suche aktualisieren',
+                ja: '検索を更新',
+              ),
               child: IconButton(
                 onPressed: _isSearching ? null : _refreshCurrentSearch,
                 icon: const Icon(Icons.refresh_rounded),
@@ -277,13 +313,33 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                 ? _MarketStateMessage(
                     key: const ValueKey<String>('market-search-error'),
                     icon: Icons.cloud_off_outlined,
-                    title: _t(context, zh: '加载失败', en: 'Unable to Load'),
+                    title: _t(
+                      context,
+                      zh: '加载失败',
+                      zhHant: '載入失敗',
+                      en: 'Unable to Load',
+                      fr: 'Chargement impossible',
+                      de: 'Laden fehlgeschlagen',
+                      ja: '読み込めません',
+                    ),
                     body: _t(
                       context,
                       zh: '无法连接技能市场，请稍后重试。',
+                      zhHant: '無法連線技能市場，請稍後重試。',
                       en: 'The skill market could not be reached. Try again later.',
+                      fr: 'Impossible de joindre le marché des compétences. Réessayez plus tard.',
+                      de: 'Der Skill-Markt ist nicht erreichbar. Versuche es später erneut.',
+                      ja: 'スキルマーケットに接続できません。後でもう一度お試しください。',
                     ),
-                    actionLabel: _t(context, zh: '重试', en: 'Retry'),
+                    actionLabel: _t(
+                      context,
+                      zh: '重试',
+                      zhHant: '重試',
+                      en: 'Retry',
+                      fr: 'Réessayer',
+                      de: 'Erneut versuchen',
+                      ja: '再試行',
+                    ),
                     onAction: () => _runSearch(keepSelection: false),
                   )
                 : _isSearching && result == null
@@ -295,11 +351,23 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                 ? _MarketStateMessage(
                     key: const ValueKey<String>('market-search-empty'),
                     icon: Icons.search_off_rounded,
-                    title: _t(context, zh: '没有找到结果', en: 'No Results'),
+                    title: _t(
+                      context,
+                      zh: '没有找到结果',
+                      zhHant: '沒有找到結果',
+                      en: 'No Results',
+                      fr: 'Aucun résultat',
+                      de: 'Keine Ergebnisse',
+                      ja: '結果がありません',
+                    ),
                     body: _t(
                       context,
                       zh: '换个关键词再试试，或清空搜索查看热门技能。',
+                      zhHant: '換個關鍵詞再試試，或清空搜尋查看熱門技能。',
                       en: 'Try another keyword, or clear the search to browse popular skills.',
+                      fr: 'Essayez un autre mot-clé ou effacez la recherche pour voir les compétences populaires.',
+                      de: 'Versuche ein anderes Stichwort oder leere die Suche, um beliebte Skills zu sehen.',
+                      ja: '別のキーワードを試すか、検索をクリアして人気スキルを表示してください。',
                     ),
                   )
                 : ListView.separated(
@@ -339,11 +407,24 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               Expanded(
                 child: Text(
                   result == null
-                      ? _t(context, zh: '准备加载', en: 'Ready')
+                      ? _t(
+                          context,
+                          zh: '准备加载',
+                          zhHant: '準備載入',
+                          en: 'Ready',
+                          fr: 'Prêt',
+                          de: 'Bereit',
+                          ja: '準備完了',
+                        )
                       : _t(
                           context,
                           zh: '共 ${_formatCount(result.total)} 个，第 ${result.page}/${result.totalPages} 页',
+                          zhHant:
+                              '共 ${_formatCount(result.total)} 個，第 ${result.page}/${result.totalPages} 頁',
                           en: '${_formatCount(result.total)} total, page ${result.page}/${result.totalPages}',
+                          fr: '${_formatCount(result.total)} au total, page ${result.page}/${result.totalPages}',
+                          de: '${_formatCount(result.total)} gesamt, Seite ${result.page}/${result.totalPages}',
+                          ja: '合計 ${_formatCount(result.total)} 件、${result.page}/${result.totalPages} ページ',
                         ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -353,7 +434,15 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                 ),
               ),
               IconButton.filledTonal(
-                tooltip: _t(context, zh: '第一页', en: 'First page'),
+                tooltip: _t(
+                  context,
+                  zh: '第一页',
+                  zhHant: '第一頁',
+                  en: 'First page',
+                  fr: 'Première page',
+                  de: 'Erste Seite',
+                  ja: '最初のページ',
+                ),
                 onPressed: result == null || _isSearching || _page <= 1
                     ? null
                     : () => _goToPage(1),
@@ -361,7 +450,15 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               ),
               const SizedBox(width: 8),
               IconButton.filledTonal(
-                tooltip: _t(context, zh: '上一页', en: 'Previous page'),
+                tooltip: _t(
+                  context,
+                  zh: '上一页',
+                  zhHant: '上一頁',
+                  en: 'Previous page',
+                  fr: 'Page précédente',
+                  de: 'Vorherige Seite',
+                  ja: '前のページ',
+                ),
                 onPressed: result == null || _isSearching || _page <= 1
                     ? null
                     : () => _goToPage(_page - 1),
@@ -369,7 +466,15 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               ),
               const SizedBox(width: 8),
               IconButton.filledTonal(
-                tooltip: _t(context, zh: '下一页', en: 'Next page'),
+                tooltip: _t(
+                  context,
+                  zh: '下一页',
+                  zhHant: '下一頁',
+                  en: 'Next page',
+                  fr: 'Page suivante',
+                  de: 'Nächste Seite',
+                  ja: '次のページ',
+                ),
                 onPressed:
                     result == null || _isSearching || _page >= result.totalPages
                     ? null
@@ -378,7 +483,15 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               ),
               const SizedBox(width: 8),
               IconButton.filledTonal(
-                tooltip: _t(context, zh: '最后一页', en: 'Last page'),
+                tooltip: _t(
+                  context,
+                  zh: '最后一页',
+                  zhHant: '最後一頁',
+                  en: 'Last page',
+                  fr: 'Dernière page',
+                  de: 'Letzte Seite',
+                  ja: '最後のページ',
+                ),
                 onPressed:
                     result == null || _isSearching || _page >= result.totalPages
                     ? null
@@ -398,11 +511,23 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
     if (selectedSkill == null || bundleFuture == null) {
       return _MarketStateMessage(
         icon: Icons.touch_app_outlined,
-        title: _t(context, zh: '选择一个技能', en: 'Select a Skill'),
+        title: _t(
+          context,
+          zh: '选择一个技能',
+          zhHant: '選擇一個技能',
+          en: 'Select a Skill',
+          fr: 'Sélectionner une compétence',
+          de: 'Skill auswählen',
+          ja: 'スキルを選択',
+        ),
         body: _t(
           context,
           zh: '点击左侧候选项后，这里会展示概述、版本、安全报告和 SKILL.md 详情。',
+          zhHant: '點擊左側候選項後，這裡會展示概述、版本、安全報告和 SKILL.md 詳情。',
           en: 'Choose a result on the left to view the summary, versions, security reports, and SKILL.md details.',
+          fr: 'Choisissez un résultat à gauche pour voir le résumé, les versions, les rapports de sécurité et SKILL.md.',
+          de: 'Wähle links ein Ergebnis, um Übersicht, Versionen, Sicherheitsberichte und SKILL.md zu sehen.',
+          ja: '左側の候補を選ぶと、概要、バージョン、セキュリティレポート、SKILL.md の詳細を表示します。',
         ),
       );
     }
@@ -416,13 +541,33 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
         if (snapshot.hasError || !snapshot.hasData) {
           return _MarketStateMessage(
             icon: Icons.error_outline_rounded,
-            title: _t(context, zh: '详情加载失败', en: 'Details Failed'),
+            title: _t(
+              context,
+              zh: '详情加载失败',
+              zhHant: '詳情載入失敗',
+              en: 'Details Failed',
+              fr: 'Échec des détails',
+              de: 'Details fehlgeschlagen',
+              ja: '詳細の読み込みに失敗',
+            ),
             body: _t(
               context,
               zh: '无法加载该技能详情，请重试。',
+              zhHant: '無法載入該技能詳情，請重試。',
               en: 'Unable to load this skill detail. Try again.',
+              fr: 'Impossible de charger les détails de cette compétence. Réessayez.',
+              de: 'Skill-Details konnten nicht geladen werden. Erneut versuchen.',
+              ja: 'このスキルの詳細を読み込めません。再試行してください。',
             ),
-            actionLabel: _t(context, zh: '重试', en: 'Retry'),
+            actionLabel: _t(
+              context,
+              zh: '重试',
+              zhHant: '重試',
+              en: 'Retry',
+              fr: 'Réessayer',
+              de: 'Erneut versuchen',
+              ja: '再試行',
+            ),
             onAction: () => _selectSkill(selectedSkill, forceReload: true),
           );
         }
@@ -457,7 +602,11 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                 _t(
                   context,
                   zh: '安装目录：${OpenHandPaths.shortenHomePath(storagePath)}',
+                  zhHant: '安裝目錄：${OpenHandPaths.shortenHomePath(storagePath)}',
                   en: 'Install path: ${OpenHandPaths.shortenHomePath(storagePath)}',
+                  fr: 'Chemin d’installation : ${OpenHandPaths.shortenHomePath(storagePath)}',
+                  de: 'Installationspfad: ${OpenHandPaths.shortenHomePath(storagePath)}',
+                  ja: 'インストール先：${OpenHandPaths.shortenHomePath(storagePath)}',
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -495,10 +644,34 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
               : Icons.download_rounded,
           busy: _isInstalling,
           label: _isInstalling
-              ? _t(context, zh: '安装中', en: 'Installing')
+              ? _t(
+                  context,
+                  zh: '安装中',
+                  zhHant: '安裝中',
+                  en: 'Installing',
+                  fr: 'Installation',
+                  de: 'Wird installiert',
+                  ja: 'インストール中',
+                )
               : selectedSkillInstalled
-              ? _t(context, zh: '已安装', en: 'Installed')
-              : _t(context, zh: '安装', en: 'Install'),
+              ? _t(
+                  context,
+                  zh: '已安装',
+                  zhHant: '已安裝',
+                  en: 'Installed',
+                  fr: 'Installé',
+                  de: 'Installiert',
+                  ja: 'インストール済み',
+                )
+              : _t(
+                  context,
+                  zh: '安装',
+                  zhHant: '安裝',
+                  en: 'Install',
+                  fr: 'Installer',
+                  de: 'Installieren',
+                  ja: 'インストール',
+                ),
         ),
       ],
     );
@@ -683,7 +856,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
       });
       _showMarketSnackBar(
         context,
-        '${_t(context, zh: '已安装技能', en: 'Skill installed')}: ${installedSkill.name}',
+        '${_t(context, zh: '已安装技能', zhHant: '已安裝技能', en: 'Skill installed', fr: 'Compétence installée', de: 'Skill installiert', ja: 'スキルをインストールしました')}: ${installedSkill.name}',
         kind: _MarketSnackKind.success,
       );
       _installSuccessSignal.value++;
@@ -702,7 +875,11 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
         _installError = _t(
           context,
           zh: '安装失败，请检查网络、磁盘权限或技能压缩包内容。',
+          zhHant: '安裝失敗，請檢查網路、磁碟權限或技能壓縮包內容。',
           en: 'Install failed. Check the network, disk permission, or archive contents.',
+          fr: 'Installation échouée. Vérifiez le réseau, les permissions disque ou l’archive.',
+          de: 'Installation fehlgeschlagen. Prüfe Netzwerk, Dateirechte oder Archivinhalt.',
+          ja: 'インストールに失敗しました。ネットワーク、ディスク権限、アーカイブ内容を確認してください。',
         );
       });
       _installErrorSignal.value++;
@@ -795,7 +972,15 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _t(context, zh: '确认安装技能', en: 'Confirm Install'),
+                        _t(
+                          context,
+                          zh: '确认安装技能',
+                          zhHant: '確認安裝技能',
+                          en: 'Confirm Install',
+                          fr: 'Confirmer l’installation',
+                          de: 'Installation bestätigen',
+                          ja: 'インストール確認',
+                        ),
                         style: theme.textTheme.headlineSmall,
                       ),
                       const SizedBox(height: 6),
@@ -819,24 +1004,56 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
               children: [
                 _InfoChip(
                   icon: Icons.person_outline_rounded,
-                  label: _t(context, zh: '作者', en: 'Owner'),
+                  label: _t(
+                    context,
+                    zh: '作者',
+                    zhHant: '作者',
+                    en: 'Owner',
+                    fr: 'Auteur',
+                    de: 'Autor',
+                    ja: '作者',
+                  ),
                   value: skill.ownerName.isEmpty ? '-' : skill.ownerName,
                 ),
                 if (skill.source.isNotEmpty)
                   _InfoChip(
                     icon: Icons.hub_outlined,
-                    label: _t(context, zh: '来源', en: 'Source'),
+                    label: _t(
+                      context,
+                      zh: '来源',
+                      zhHant: '來源',
+                      en: 'Source',
+                      fr: 'Source',
+                      de: 'Quelle',
+                      ja: 'ソース',
+                    ),
                     value: skill.source,
                   ),
                 _InfoChip(
                   icon: Icons.folder_open_rounded,
-                  label: _t(context, zh: '目录', en: 'Directory'),
+                  label: _t(
+                    context,
+                    zh: '目录',
+                    zhHant: '目錄',
+                    en: 'Directory',
+                    fr: 'Dossier',
+                    de: 'Verzeichnis',
+                    ja: 'ディレクトリ',
+                  ),
                   value: OpenHandPaths.shortenHomePath(storagePath),
                 ),
                 if (normalizedPreviewVersion.isNotEmpty)
                   _InfoChip(
                     icon: Icons.sell_outlined,
-                    label: _t(context, zh: '预览版本', en: 'Preview'),
+                    label: _t(
+                      context,
+                      zh: '预览版本',
+                      zhHant: '預覽版本',
+                      en: 'Preview',
+                      fr: 'Aperçu',
+                      de: 'Vorschau',
+                      ja: 'プレビュー',
+                    ),
                     value: normalizedPreviewVersion,
                   ),
               ],
@@ -846,7 +1063,11 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
               _t(
                 context,
                 zh: '将从 SkillHub 下载技能压缩包，并解压到当前全局技能目录。',
+                zhHant: '將從 SkillHub 下載技能壓縮包，並解壓到目前全域技能目錄。',
                 en: 'OpenHand will download the skill archive from SkillHub and extract it into the current global skills directory.',
+                fr: 'OpenHand téléchargera l’archive depuis SkillHub et l’extraira dans le dossier global actuel.',
+                de: 'OpenHand lädt das Skill-Archiv von SkillHub und entpackt es in das aktuelle globale Skill-Verzeichnis.',
+                ja: 'OpenHand は SkillHub からスキルアーカイブをダウンロードし、現在のグローバルスキルディレクトリへ展開します。',
               ),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
@@ -864,7 +1085,15 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
                 OpenHandDialogActionButton.primary(
                   onPressed: () => Navigator.of(context).pop(true),
                   icon: Icons.download_rounded,
-                  label: _t(context, zh: '确认安装', en: 'Install'),
+                  label: _t(
+                    context,
+                    zh: '确认安装',
+                    zhHant: '確認安裝',
+                    en: 'Install',
+                    fr: 'Installer',
+                    de: 'Installieren',
+                    ja: 'インストール',
+                  ),
                 ),
               ],
             ),
@@ -973,7 +1202,15 @@ class _SkillMarketResultTile extends StatelessWidget {
                           ),
                           if (installed)
                             _TinyTextChip(
-                              label: _t(context, zh: '已安装', en: 'Installed'),
+                              label: _t(
+                                context,
+                                zh: '已安装',
+                                zhHant: '已安裝',
+                                en: 'Installed',
+                                fr: 'Installé',
+                                de: 'Installiert',
+                                ja: 'インストール済み',
+                              ),
                             ),
                           if (skill.category.isNotEmpty)
                             _TinyTextChip(label: skill.category),
@@ -1075,7 +1312,15 @@ class _SkillMarketDetailView extends StatelessWidget {
             if (overview.isNotEmpty) ...[
               const SizedBox(height: 18),
               _SectionTitle(
-                text: _t(context, zh: '概述', en: 'Overview'),
+                text: _t(
+                  context,
+                  zh: '概述',
+                  zhHant: '概述',
+                  en: 'Overview',
+                  fr: 'Vue d’ensemble',
+                  de: 'Übersicht',
+                  ja: '概要',
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -1092,7 +1337,15 @@ class _SkillMarketDetailView extends StatelessWidget {
               children: [
                 _InfoChip(
                   icon: Icons.download_rounded,
-                  label: _t(context, zh: '下载', en: 'Downloads'),
+                  label: _t(
+                    context,
+                    zh: '下载',
+                    zhHant: '下載',
+                    en: 'Downloads',
+                    fr: 'Téléchargements',
+                    de: 'Downloads',
+                    ja: 'ダウンロード',
+                  ),
                   value: _formatCount(
                     skill.stats.downloads == 0
                         ? summary.downloads
@@ -1101,7 +1354,15 @@ class _SkillMarketDetailView extends StatelessWidget {
                 ),
                 _InfoChip(
                   icon: Icons.install_desktop_rounded,
-                  label: _t(context, zh: '安装', en: 'Installs'),
+                  label: _t(
+                    context,
+                    zh: '安装',
+                    zhHant: '安裝',
+                    en: 'Installs',
+                    fr: 'Installations',
+                    de: 'Installationen',
+                    ja: 'インストール',
+                  ),
                   value: _formatCount(
                     skill.stats.installs == 0
                         ? summary.installs
@@ -1110,7 +1371,15 @@ class _SkillMarketDetailView extends StatelessWidget {
                 ),
                 _InfoChip(
                   icon: Icons.star_rounded,
-                  label: _t(context, zh: '收藏', en: 'Stars'),
+                  label: _t(
+                    context,
+                    zh: '收藏',
+                    zhHant: '收藏',
+                    en: 'Stars',
+                    fr: 'Étoiles',
+                    de: 'Sterne',
+                    ja: 'スター',
+                  ),
                   value: _formatCount(
                     skill.stats.stars == 0 ? summary.stars : skill.stats.stars,
                   ),
@@ -1118,28 +1387,68 @@ class _SkillMarketDetailView extends StatelessWidget {
                 if (skill.category.isNotEmpty)
                   _InfoChip(
                     icon: Icons.category_outlined,
-                    label: _t(context, zh: '分类', en: 'Category'),
+                    label: _t(
+                      context,
+                      zh: '分类',
+                      zhHant: '分類',
+                      en: 'Category',
+                      fr: 'Catégorie',
+                      de: 'Kategorie',
+                      ja: 'カテゴリ',
+                    ),
                     value: skill.category,
                   ),
                 if (skill.source.isNotEmpty)
                   _InfoChip(
                     icon: Icons.hub_outlined,
-                    label: _t(context, zh: '来源', en: 'Source'),
+                    label: _t(
+                      context,
+                      zh: '来源',
+                      zhHant: '來源',
+                      en: 'Source',
+                      fr: 'Source',
+                      de: 'Quelle',
+                      ja: 'ソース',
+                    ),
                     value: skill.source,
                   ),
                 _InfoChip(
                   icon: Icons.key_outlined,
                   label: _t(context, zh: 'API Key', en: 'API Key'),
                   value: skill.requiresApiKey
-                      ? _t(context, zh: '需要', en: 'Required')
-                      : _t(context, zh: '无需', en: 'Not required'),
+                      ? _t(
+                          context,
+                          zh: '需要',
+                          zhHant: '需要',
+                          en: 'Required',
+                          fr: 'Requise',
+                          de: 'Erforderlich',
+                          ja: '必要',
+                        )
+                      : _t(
+                          context,
+                          zh: '无需',
+                          zhHant: '不需要',
+                          en: 'Not required',
+                          fr: 'Non requise',
+                          de: 'Nicht erforderlich',
+                          ja: '不要',
+                        ),
                 ),
               ],
             ),
             if (detail.securityReports.isNotEmpty) ...[
               const SizedBox(height: 20),
               _SectionTitle(
-                text: _t(context, zh: '安全报告', en: 'Security Reports'),
+                text: _t(
+                  context,
+                  zh: '安全报告',
+                  zhHant: '安全報告',
+                  en: 'Security Reports',
+                  fr: 'Rapports de sécurité',
+                  de: 'Sicherheitsberichte',
+                  ja: 'セキュリティレポート',
+                ),
               ),
               const SizedBox(height: 10),
               Wrap(
@@ -1156,7 +1465,15 @@ class _SkillMarketDetailView extends StatelessWidget {
             if (bundle.versions.isNotEmpty) ...[
               const SizedBox(height: 20),
               _SectionTitle(
-                text: _t(context, zh: '预览版本', en: 'Preview Version'),
+                text: _t(
+                  context,
+                  zh: '预览版本',
+                  zhHant: '預覽版本',
+                  en: 'Preview Version',
+                  fr: 'Version d’aperçu',
+                  de: 'Vorschauversion',
+                  ja: 'プレビューバージョン',
+                ),
               ),
               const SizedBox(height: 10),
               Wrap(
@@ -1188,7 +1505,15 @@ class _SkillMarketDetailView extends StatelessWidget {
             if (bundle.files != null && bundle.files!.files.isNotEmpty) ...[
               const SizedBox(height: 20),
               _SectionTitle(
-                text: _t(context, zh: '包含文件', en: 'Files'),
+                text: _t(
+                  context,
+                  zh: '包含文件',
+                  zhHant: '包含檔案',
+                  en: 'Files',
+                  fr: 'Fichiers',
+                  de: 'Dateien',
+                  ja: 'ファイル',
+                ),
               ),
               const SizedBox(height: 10),
               Wrap(
@@ -1206,7 +1531,15 @@ class _SkillMarketDetailView extends StatelessWidget {
             ],
             const SizedBox(height: 20),
             _SectionTitle(
-              text: _t(context, zh: '详情', en: 'Details'),
+              text: _t(
+                context,
+                zh: '详情',
+                zhHant: '詳情',
+                en: 'Details',
+                fr: 'Détails',
+                de: 'Details',
+                ja: '詳細',
+              ),
             ),
             const SizedBox(height: 10),
             Container(
@@ -1222,7 +1555,11 @@ class _SkillMarketDetailView extends StatelessWidget {
                       _t(
                         context,
                         zh: '未找到 SKILL.md 内容。',
+                        zhHant: '未找到 SKILL.md 內容。',
                         en: 'No SKILL.md content was found.',
+                        fr: 'Aucun contenu SKILL.md trouvé.',
+                        de: 'Kein SKILL.md-Inhalt gefunden.',
+                        ja: 'SKILL.md の内容が見つかりません。',
                       ),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
@@ -1487,8 +1824,26 @@ class _TinyTextChip extends StatelessWidget {
   }
 }
 
-String _t(BuildContext context, {required String zh, required String en}) {
-  return openHandLocalizedText(context, zh: zh, en: en);
+String _t(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
 }
 
 String _localizedSummary(
@@ -1546,7 +1901,11 @@ String _truncateMarkdown(String markdown, int maxChars, BuildContext context) {
   final suffix = _t(
     context,
     zh: '\n\n---\n内容较长，已截断预览。安装后可在本地 SKILL.md 查看完整内容。',
+    zhHant: '\n\n---\n內容較長，已截斷預覽。安裝後可在本機 SKILL.md 查看完整內容。',
     en: '\n\n---\nPreview truncated. Install the skill to inspect the full local SKILL.md.',
+    fr: '\n\n---\nAperçu tronqué. Installez la compétence pour consulter le SKILL.md complet.',
+    de: '\n\n---\nVorschau gekürzt. Installiere den Skill, um die vollständige lokale SKILL.md zu lesen.',
+    ja: '\n\n---\nプレビューを切り詰めました。インストール後、ローカルの SKILL.md で全文を確認できます。',
   );
   return '${markdown.substring(0, maxChars)}$suffix';
 }
