@@ -54,6 +54,7 @@ import {
   recordOrNullFromUnknown,
   strictStringFromUnknown,
   stringFromUnknown,
+  stringListFromUnknown,
 } from '../shared/util/value';
 import {
   isTranscriptScrollActive,
@@ -1344,11 +1345,6 @@ function parseJsonObjectFromMarker(content: string, marker: string): Record<stri
   }
 }
 
-function stringListFromUnknown(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((item) => String(item ?? '').trim()).filter(Boolean);
-}
-
 function goalMetricsFromMeta(meta: Record<string, unknown>): MessageContextChip[] {
   const round = nonEmptyString(meta['goal_evaluation_round_index']);
   const goalId = nonEmptyString(meta['goal_id']);
@@ -2540,7 +2536,7 @@ function MessageCardImpl({
   const collapsed = canCollapse && !expanded;
   // 移除已被 MessageMedia 收集为卡片的网络媒体 markdown 引用, 避免重复展示。
   const strippedContent = useMemo(() => stripCollectedNetworkMedia(content), [content]);
-  const translatedText = typeof translatedContent === 'string' ? translatedContent.trim() : '';
+  const translatedText = strictStringFromUnknown(translatedContent);
   const showingTranslation = translationVisible && translatedText.length > 0;
   // 不再在内容层面截断：完整渲染后交由 CollapsibleBody 用 max-height + mask 动画过渡，
   // 避免「全多」↔「袪断+…」间的文字跳变在手动折叠/展开时生硬。

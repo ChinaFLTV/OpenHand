@@ -820,7 +820,7 @@ function goalStatusLabel(status: string | null | undefined): string {
 }
 
 function goalStatusReasonLabel(reason: string | null | undefined): string {
-  const normalized = String(reason ?? '').trim();
+  const normalized = metadataString(reason);
   switch (normalized) {
     case 'Paused by user.':
       return t('goal.reason.pausedByUser', '用户已暂停目标。');
@@ -844,7 +844,7 @@ function goalStatusReasonLabel(reason: string | null | undefined): string {
 }
 
 function goalEvaluationSummaryLabel(summary: string | null | undefined): string {
-  const normalized = String(summary ?? '').trim();
+  const normalized = metadataString(summary);
   switch (normalized) {
     case 'Evaluator failed.':
       return t('goal.evaluation.summary.failed', '评估模型调用失败。');
@@ -7388,7 +7388,7 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
   const effectiveWindow = integerFromUnknown(meta['context_budget_effective_window_tokens']);
   const remainingTokens = integerFromUnknown(meta['context_budget_remaining_tokens']);
   const inferred = meta['context_budget_window_inferred'] === true;
-  const status = String(meta['context_budget_status'] ?? '').trim();
+  const status = metadataString(meta['context_budget_status']);
 
   const breakdown = useMemo(() => computeContextBreakdown(messages), [messages]);
   const totalChars = breakdown.userChars + breakdown.assistantChars + breakdown.toolChars + breakdown.otherChars;
@@ -7856,7 +7856,7 @@ function contextBudgetToolbarLabel(metadata: Record<string, unknown>): string | 
   const estimatedTokens = integerFromUnknown(metadata['context_budget_estimated_prompt_tokens']);
   if (estimatedTokens <= 0) return null;
   const percentLeft = integerFromUnknown(metadata['context_budget_percent_left']);
-  const status = String(metadata['context_budget_status'] ?? '').trim();
+  const status = metadataString(metadata['context_budget_status']);
   const statusLabel = status === 'critical' ? t('topbar.contextBudget.critical', '危险') : status === 'auto_compact' ? t('topbar.contextBudget.compact', '压缩') : status === 'warning' ? t('topbar.contextBudget.warning', '偏高') : status === 'ok' ? t('topbar.contextBudget.ok', '正常') : t('topbar.contextBudget.unknown', '未知');
   return `${t('topbar.contextBudget', '上下文')} ${percentLeft}% · ${statusLabel}`;
 }
@@ -7996,21 +7996,21 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   const planRecoveryRequired = lastPromptMetadata['plan_mode_recovery_inspection_required'] === true || lastPromptMetadata['plan_recovery_required'] === true;
   const planExecutionApproved = lastPromptMetadata['plan_mode_execution_approved_for_send'] === true;
   const hasActivePlanState = Boolean(session.todo_items?.length) || Boolean((session.pending_plan ?? '').trim());
-  let gateReason = String(lastPromptMetadata['runtime_tool_gate_reason'] ?? '').trim();
+  let gateReason = metadataString(lastPromptMetadata['runtime_tool_gate_reason']);
   if (!gateReason) {
     gateReason = awaitingPlanApproval ? 'awaiting_plan_approval' : session.mode !== 'plan' ? (hasPromptMetadata ? 'chat_mode' : 'no_runtime_snapshot') : planRecoveryRequired ? 'plan_mode_recovery_inspection' : planExecutionApproved ? 'plan_mode_execution' : hasActivePlanState ? 'plan_mode_planning_with_exit_allowed' : 'plan_mode_planning_only';
   }
   const runtimeModeLabel = session.mode !== 'plan' ? '聊天模式' : awaitingPlanApproval ? '计划待审' : planRecoveryRequired ? '计划审阅' : planExecutionApproved ? '计划执行' : hasActivePlanState ? '计划草拟' : '计划模式';
   const toolCatalogState = !hasPromptMetadata ? '暂无运行时快照' : runtimeStale ? '工具目录待刷新' : '工具目录已同步';
   const promptBudgetTokens = integerFromUnknown(lastPromptMetadata['context_budget_estimated_prompt_tokens']);
-  const contextStatus = String(lastPromptMetadata['context_budget_status'] ?? 'unknown').trim();
+  const contextStatus = metadataString(lastPromptMetadata['context_budget_status']) || 'unknown';
   const contextStatusLabel = contextStatus === 'critical' ? '危险' : contextStatus === 'auto_compact' ? '需压缩' : contextStatus === 'warning' ? '偏高' : contextStatus === 'ok' ? '正常' : '未知';
   const usagePercent = integerFromUnknown(lastPromptMetadata['context_budget_usage_percent']);
   const usageValue = Math.max(0, Math.min(100, usagePercent));
-  const sidecarPath = String(rehydration['session_memory_sidecar_path'] ?? '').trim();
+  const sidecarPath = metadataString(rehydration['session_memory_sidecar_path']);
   const sidecarPresent = rehydration['session_memory_sidecar_present'] === true;
   const compressionRestored = latestCompressionPointMetadata['restored_from_compact_memory_sidecar'] === true;
-  const hasCompressionPoint = Boolean(String(latestCompressionPoint['id'] ?? '').trim());
+  const hasCompressionPoint = Boolean(metadataString(latestCompressionPoint['id']));
   const sidecarStatus = !hasCompressionPoint ? '未生成' : compressionRestored ? '已恢复' : sidecarPresent ? '已登记' : '等待下次 Prompt 刷新';
   const visibleMetadataEntries = Object.entries(metadata).filter(([key]) => {
     if (session.template_id === 'hardness_engineering' && key === 'hardness_config') return false;
@@ -8146,8 +8146,8 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             <div class="mt-3 mb-2 text-sm font-extrabold">角色配置</div>
             {roleKeys.map((key) => {
               const role = recordFromUnknown(config[key]);
-              const cli = String(role['cli_name'] ?? '').trim();
-              const model = String(role['model_id'] ?? '').trim();
+              const cli = metadataString(role['cli_name']);
+              const model = metadataString(role['model_id']);
               return <EntryRow key={key} label={key} value={cli || model ? `${cli || '-'} · ${model || '-'}` : '未配置'} />;
             })}
           </>
@@ -8159,7 +8159,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   const renderAndroidReverseConfig = () => {
     const config = recordFromUnknown(metadata['android_reverse_config']);
     const keywords = stringListFromUnknown(config['keywords']);
-    const analysisMode = String(config['analysis_mode'] ?? '').trim();
+    const analysisMode = metadataString(config['analysis_mode']);
     const analysisModeLabel = analysisMode === 'static_first'
       ? '静态优先'
       : analysisMode === 'dynamic_first'
@@ -8184,7 +8184,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             <EntryRow label="ADB MCP" value={config['adb_mcp_enabled'] === true ? '启用' : '关闭'} />
             <EntryRow label="Frida MCP" value={config['frida_mcp_enabled'] === true ? '启用' : '关闭'} />
             {keywords.length > 0 ? <EntryRow label="关键字" value={keywords.join(', ')} /> : null}
-            {String(config['notes'] ?? '').trim() ? <EntryRow label="备注" value={metadataValue(config['notes'])} /> : null}
+            {metadataString(config['notes']) ? <EntryRow label="备注" value={metadataValue(config['notes'])} /> : null}
           </>
         )}
       </Section>
@@ -8394,8 +8394,8 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
                   ) : (
                     arrayFromUnknown(lastPromptMetadata['allow_command_rules']).map((raw, index) => {
                       const rule = recordFromUnknown(raw);
-                      const pattern = String(rule['pattern'] ?? '').trim();
-                      const mode = String(rule['match_mode'] ?? '').trim();
+                      const pattern = metadataString(rule['pattern']);
+                      const mode = metadataString(rule['match_mode']);
                       return pattern ? <Chip key={`${pattern}-${index}`} label={`${mode ? `${mode}: ` : ''}${pattern}`} /> : null;
                     })
                   )}
@@ -8445,7 +8445,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             <EntryRow label="当前 Todos" value={`${todos.length}`} />
             <EntryRow label="计划记录" value={`${planHistory.length}`} />
             <EntryRow label="TodoWrite 提醒" value={hasPromptMetadata ? (lastPromptMetadata['todo_write_recommended'] === true ? '已触发' : '未触发') : '不可用'} />
-            {String(lastPromptMetadata['todo_write_reason'] ?? '').trim() ? <EntryRow label="提醒原因" value={String(lastPromptMetadata['todo_write_reason'])} /> : null}
+            {metadataString(lastPromptMetadata['todo_write_reason']) ? <EntryRow label="提醒原因" value={metadataString(lastPromptMetadata['todo_write_reason'])} /> : null}
             {todos.length > 0 ? (
               <div class="flex flex-wrap gap-2">
                 {todos.map((todo) => (
