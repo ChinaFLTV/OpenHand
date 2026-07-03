@@ -7308,5 +7308,139 @@
   "nativeAudioEffectWarm": "暖声",
   "@nativeAudioEffectWarm": {
     "description": "OpenHand localized UI text."
+  },
+  "hooksTitle": "Hooks",
+  "@hooksTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksSubtitle": "为 AI Agent 的生命周期阶段配置要执行的脚本。每个 Hook 在对应事件触发时按顺序执行。",
+  "@hooksSubtitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksNew": "新增 Hook",
+  "@hooksNew": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksDeleteTitle": "删除 Hook",
+  "@hooksDeleteTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksDeleteMessage": "确定删除 \"{label}\" 吗？此操作不可撤销。",
+  "@hooksDeleteMessage": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "label": {}
+    }
+  },
+  "hooksEmptyTitle": "暂无 Hook 配置",
+  "@hooksEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksEmptyBody": "点击右上角「新增 Hook」按钮开始配置。",
+  "@hooksEmptyBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksTimeoutTooltip": "超时时间",
+  "@hooksTimeoutTooltip": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksInlineScriptDescription": "内联脚本: {firstLine}",
+  "@hooksInlineScriptDescription": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "firstLine": {}
+    }
+  },
+  "hooksNoScriptConfigured": "未配置脚本",
+  "@hooksNoScriptConfigured": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksEditTitle": "编辑 Hook",
+  "@hooksEditTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksLabelField": "名称",
+  "@hooksLabelField": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksLabelHint": "例如: 日志记录",
+  "@hooksLabelHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksTriggerEvent": "触发事件",
+  "@hooksTriggerEvent": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptSource": "脚本来源",
+  "@hooksScriptSource": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptSourceFile": "选择文件",
+  "@hooksScriptSourceFile": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptSourceInline": "编写脚本",
+  "@hooksScriptSourceInline": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptFilePath": "脚本文件路径",
+  "@hooksScriptFilePath": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptFileHint": "选择 .sh / .ps1 / .bat 文件",
+  "@hooksScriptFileHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksBrowse": "浏览",
+  "@hooksBrowse": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptContextFileHelp": "上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n① 临时文件: jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\"\n② stdin 原始字节: jq -r .session_id\n包含 session_id、session_file_path、environment 等字段。",
+  "@hooksScriptContextFileHelp": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksInlineWindowsHint": "输入 PowerShell / BAT 脚本",
+  "@hooksInlineWindowsHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksInlineShellHint": "输入 Shell 脚本（无需 #!/bin/bash）",
+  "@hooksInlineShellHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptContextInlineHelp": "上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n① 临时文件: SID=$(jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\")\n② stdin 原始字节: SID=$(jq -r .session_id)\n包含 session_id、session_file_path、environment、statistics 等字段。",
+  "@hooksScriptContextInlineHelp": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksTimeoutSeconds": "超时时间（秒）",
+  "@hooksTimeoutSeconds": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksEnabled": "启用",
+  "@hooksEnabled": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksValidationLabelRequired": "请填写 Hook 名称。",
+  "@hooksValidationLabelRequired": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksValidationScriptFileRequired": "请选择脚本文件。",
+  "@hooksValidationScriptFileRequired": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksValidationInlineScriptRequired": "请填写内联脚本内容。",
+  "@hooksValidationInlineScriptRequired": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksFileTypeScripts": "脚本",
+  "@hooksFileTypeScripts": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksFileTypeShellScripts": "Shell 脚本",
+  "@hooksFileTypeShellScripts": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksFileTypeAllFiles": "所有文件",
+  "@hooksFileTypeAllFiles": {
+    "description": "OpenHand localized UI text."
   }
 }

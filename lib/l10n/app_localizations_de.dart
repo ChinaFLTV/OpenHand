@@ -9118,4 +9118,112 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get nativeAudioEffectWarm => 'Warm';
+
+  @override
+  String get hooksTitle => 'Hooks';
+
+  @override
+  String get hooksSubtitle =>
+      'Konfigurieren Sie Skripte für jede Lebenszyklusphase des KI-Agenten. Hooks werden nacheinander ausgeführt, wenn das passende Ereignis ausgelöst wird.';
+
+  @override
+  String get hooksNew => 'Neuer Hook';
+
+  @override
+  String get hooksDeleteTitle => 'Hook löschen';
+
+  @override
+  String hooksDeleteMessage(Object label) {
+    return '„$label“ löschen? Diese Aktion kann nicht rückgängig gemacht werden.';
+  }
+
+  @override
+  String get hooksEmptyTitle => 'Noch keine Hooks konfiguriert';
+
+  @override
+  String get hooksEmptyBody =>
+      'Klicken Sie oben auf „Neuer Hook“, um zu beginnen.';
+
+  @override
+  String get hooksTimeoutTooltip => 'Timeout';
+
+  @override
+  String hooksInlineScriptDescription(Object firstLine) {
+    return 'Inline: $firstLine';
+  }
+
+  @override
+  String get hooksNoScriptConfigured => 'Kein Skript konfiguriert';
+
+  @override
+  String get hooksEditTitle => 'Hook bearbeiten';
+
+  @override
+  String get hooksLabelField => 'Bezeichnung';
+
+  @override
+  String get hooksLabelHint => 'z. B. Logging';
+
+  @override
+  String get hooksTriggerEvent => 'Auslösendes Ereignis';
+
+  @override
+  String get hooksScriptSource => 'Skriptquelle';
+
+  @override
+  String get hooksScriptSourceFile => 'Datei';
+
+  @override
+  String get hooksScriptSourceInline => 'Inline';
+
+  @override
+  String get hooksScriptFilePath => 'Skriptdateipfad';
+
+  @override
+  String get hooksScriptFileHint => 'Wählen Sie eine .sh / .ps1 / .bat-Datei';
+
+  @override
+  String get hooksBrowse => 'Durchsuchen';
+
+  @override
+  String get hooksScriptContextFileHelp =>
+      'Der Kontext-JSON wird auf zwei sichere Arten übergeben (beide funktionieren mit jq):\n① Temporäre Datei: jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\"\n② Rohes stdin: jq -r .session_id\nFelder: session_id, session_file_path, environment usw.';
+
+  @override
+  String get hooksInlineWindowsHint => 'PowerShell- / BAT-Skript eingeben';
+
+  @override
+  String get hooksInlineShellHint =>
+      'Shell-Skript eingeben (#!/bin/bash nicht erforderlich)';
+
+  @override
+  String get hooksScriptContextInlineHelp =>
+      'Der Kontext-JSON wird auf zwei sichere Arten übergeben (beide funktionieren mit jq):\n① Temporäre Datei: SID=\$(jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\")\n② Rohes stdin: SID=\$(jq -r .session_id)\nFelder: session_id, session_file_path, environment, statistics usw.';
+
+  @override
+  String get hooksTimeoutSeconds => 'Timeout (Sekunden)';
+
+  @override
+  String get hooksEnabled => 'Aktiviert';
+
+  @override
+  String get hooksValidationLabelRequired =>
+      'Geben Sie eine Hook-Bezeichnung ein.';
+
+  @override
+  String get hooksValidationScriptFileRequired =>
+      'Wählen Sie eine Skriptdatei aus.';
+
+  @override
+  String get hooksValidationInlineScriptRequired =>
+      'Geben Sie den Inline-Skriptinhalt ein.';
+
+  @override
+  String get hooksFileTypeScripts => 'Skripte';
+
+  @override
+  String get hooksFileTypeShellScripts => 'Shell-Skripte';
+
+  @override
+  String get hooksFileTypeAllFiles => 'Alle Dateien';
 }

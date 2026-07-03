@@ -7306,5 +7306,139 @@
   "nativeAudioEffectWarm": "ウォーム",
   "@nativeAudioEffectWarm": {
     "description": "OpenHand localized UI text."
+  },
+  "hooksTitle": "Hooks",
+  "@hooksTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksSubtitle": "AI Agent のライフサイクル段階ごとに実行するスクリプトを設定します。対応するイベントが発生すると、Hook は順番に実行されます。",
+  "@hooksSubtitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksNew": "新規 Hook",
+  "@hooksNew": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksDeleteTitle": "Hook を削除",
+  "@hooksDeleteTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksDeleteMessage": "「{label}」を削除しますか？この操作は元に戻せません。",
+  "@hooksDeleteMessage": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "label": {}
+    }
+  },
+  "hooksEmptyTitle": "Hook はまだ設定されていません",
+  "@hooksEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksEmptyBody": "上の「新規 Hook」をクリックして設定を開始します。",
+  "@hooksEmptyBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksTimeoutTooltip": "タイムアウト",
+  "@hooksTimeoutTooltip": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksInlineScriptDescription": "インライン: {firstLine}",
+  "@hooksInlineScriptDescription": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "firstLine": {}
+    }
+  },
+  "hooksNoScriptConfigured": "スクリプト未設定",
+  "@hooksNoScriptConfigured": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksEditTitle": "Hook を編集",
+  "@hooksEditTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksLabelField": "ラベル",
+  "@hooksLabelField": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksLabelHint": "例: ログ記録",
+  "@hooksLabelHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksTriggerEvent": "トリガーイベント",
+  "@hooksTriggerEvent": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptSource": "スクリプトソース",
+  "@hooksScriptSource": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptSourceFile": "ファイル",
+  "@hooksScriptSourceFile": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptSourceInline": "インライン",
+  "@hooksScriptSourceInline": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptFilePath": "スクリプトファイルパス",
+  "@hooksScriptFilePath": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptFileHint": ".sh / .ps1 / .bat ファイルを選択",
+  "@hooksScriptFileHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksBrowse": "参照",
+  "@hooksBrowse": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptContextFileHelp": "コンテキスト JSON は 2 つの安全な方法で渡されます（どちらも jq で使用可能）：\n① 一時ファイル: jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\"\n② stdin の生バイト: jq -r .session_id\nフィールド: session_id、session_file_path、environment など。",
+  "@hooksScriptContextFileHelp": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksInlineWindowsHint": "PowerShell / BAT スクリプトを入力",
+  "@hooksInlineWindowsHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksInlineShellHint": "シェルスクリプトを入力 (#!/bin/bash は不要)",
+  "@hooksInlineShellHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptContextInlineHelp": "コンテキスト JSON は 2 つの安全な方法で渡されます（どちらも jq で使用可能）：\n① 一時ファイル: SID=$(jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\")\n② stdin の生バイト: SID=$(jq -r .session_id)\nフィールド: session_id、session_file_path、environment、statistics など。",
+  "@hooksScriptContextInlineHelp": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksTimeoutSeconds": "タイムアウト（秒）",
+  "@hooksTimeoutSeconds": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksEnabled": "有効",
+  "@hooksEnabled": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksValidationLabelRequired": "Hook ラベルを入力してください。",
+  "@hooksValidationLabelRequired": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksValidationScriptFileRequired": "スクリプトファイルを選択してください。",
+  "@hooksValidationScriptFileRequired": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksValidationInlineScriptRequired": "インラインスクリプトの内容を入力してください。",
+  "@hooksValidationInlineScriptRequired": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksFileTypeScripts": "スクリプト",
+  "@hooksFileTypeScripts": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksFileTypeShellScripts": "シェルスクリプト",
+  "@hooksFileTypeShellScripts": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksFileTypeAllFiles": "すべてのファイル",
+  "@hooksFileTypeAllFiles": {
+    "description": "OpenHand localized UI text."
   }
 }

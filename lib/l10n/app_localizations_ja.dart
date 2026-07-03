@@ -8816,4 +8816,107 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get nativeAudioEffectWarm => 'ウォーム';
+
+  @override
+  String get hooksTitle => 'Hooks';
+
+  @override
+  String get hooksSubtitle =>
+      'AI Agent のライフサイクル段階ごとに実行するスクリプトを設定します。対応するイベントが発生すると、Hook は順番に実行されます。';
+
+  @override
+  String get hooksNew => '新規 Hook';
+
+  @override
+  String get hooksDeleteTitle => 'Hook を削除';
+
+  @override
+  String hooksDeleteMessage(Object label) {
+    return '「$label」を削除しますか？この操作は元に戻せません。';
+  }
+
+  @override
+  String get hooksEmptyTitle => 'Hook はまだ設定されていません';
+
+  @override
+  String get hooksEmptyBody => '上の「新規 Hook」をクリックして設定を開始します。';
+
+  @override
+  String get hooksTimeoutTooltip => 'タイムアウト';
+
+  @override
+  String hooksInlineScriptDescription(Object firstLine) {
+    return 'インライン: $firstLine';
+  }
+
+  @override
+  String get hooksNoScriptConfigured => 'スクリプト未設定';
+
+  @override
+  String get hooksEditTitle => 'Hook を編集';
+
+  @override
+  String get hooksLabelField => 'ラベル';
+
+  @override
+  String get hooksLabelHint => '例: ログ記録';
+
+  @override
+  String get hooksTriggerEvent => 'トリガーイベント';
+
+  @override
+  String get hooksScriptSource => 'スクリプトソース';
+
+  @override
+  String get hooksScriptSourceFile => 'ファイル';
+
+  @override
+  String get hooksScriptSourceInline => 'インライン';
+
+  @override
+  String get hooksScriptFilePath => 'スクリプトファイルパス';
+
+  @override
+  String get hooksScriptFileHint => '.sh / .ps1 / .bat ファイルを選択';
+
+  @override
+  String get hooksBrowse => '参照';
+
+  @override
+  String get hooksScriptContextFileHelp =>
+      'コンテキスト JSON は 2 つの安全な方法で渡されます（どちらも jq で使用可能）：\n① 一時ファイル: jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\"\n② stdin の生バイト: jq -r .session_id\nフィールド: session_id、session_file_path、environment など。';
+
+  @override
+  String get hooksInlineWindowsHint => 'PowerShell / BAT スクリプトを入力';
+
+  @override
+  String get hooksInlineShellHint => 'シェルスクリプトを入力 (#!/bin/bash は不要)';
+
+  @override
+  String get hooksScriptContextInlineHelp =>
+      'コンテキスト JSON は 2 つの安全な方法で渡されます（どちらも jq で使用可能）：\n① 一時ファイル: SID=\$(jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\")\n② stdin の生バイト: SID=\$(jq -r .session_id)\nフィールド: session_id、session_file_path、environment、statistics など。';
+
+  @override
+  String get hooksTimeoutSeconds => 'タイムアウト（秒）';
+
+  @override
+  String get hooksEnabled => '有効';
+
+  @override
+  String get hooksValidationLabelRequired => 'Hook ラベルを入力してください。';
+
+  @override
+  String get hooksValidationScriptFileRequired => 'スクリプトファイルを選択してください。';
+
+  @override
+  String get hooksValidationInlineScriptRequired => 'インラインスクリプトの内容を入力してください。';
+
+  @override
+  String get hooksFileTypeScripts => 'スクリプト';
+
+  @override
+  String get hooksFileTypeShellScripts => 'シェルスクリプト';
+
+  @override
+  String get hooksFileTypeAllFiles => 'すべてのファイル';
 }

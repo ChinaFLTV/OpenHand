@@ -6,13 +6,13 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/model/hook_config.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/input_value_parsing.dart';
-import '../../../shared/util/localized_text.dart';
 import '../hooks_controller.dart';
 
 class HooksView extends StatelessWidget {
@@ -24,19 +24,17 @@ class HooksView extends StatelessWidget {
       (controller) => controller.entries,
     );
     final hooksController = context.read<HooksController>();
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
 
     final actions = FilledButton.icon(
       onPressed: () => _showHookEditorDialog(context, null),
       icon: const Icon(Icons.add_rounded),
-      label: Text(isZh ? '新增 Hook' : 'New Hook'),
+      label: Text(l10n.hooksNew),
     );
 
     return FeaturePageShell(
-      title: 'Hooks',
-      subtitle: isZh
-          ? '为 AI Agent 的生命周期阶段配置要执行的脚本。每个 Hook 在对应事件触发时按顺序执行。'
-          : 'Configure scripts to run at each AI agent lifecycle stage. Hooks execute sequentially when the corresponding event fires.',
+      title: l10n.hooksTitle,
+      subtitle: l10n.hooksSubtitle,
       actions: actions,
       successSignal: hooksController.saveSuccessSignal,
       body: entries.isEmpty
@@ -59,7 +57,6 @@ class HooksView extends StatelessWidget {
                     key: ValueKey<String>('hook-entry-${entry.id}'),
                     child: _HookEntryCard(
                       entry: entry,
-                      isZh: isZh,
                       onEdit: () => _showHookEditorDialog(context, entry),
                       onToggle: (enabled) {
                         hooksController.toggleHookEnabled(
@@ -84,15 +81,13 @@ class HooksView extends StatelessWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, HookEntry entry) async {
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '删除 Hook' : 'Delete Hook',
-      message: isZh
-          ? '确定删除 "${entry.label}" 吗？此操作不可撤销。'
-          : 'Delete "${entry.label}"? This action cannot be undone.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '删除' : 'Delete',
+      title: l10n.hooksDeleteTitle,
+      message: l10n.hooksDeleteMessage(entry.label),
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.commonDelete,
       destructive: true,
     );
     if (!confirmed || !context.mounted) {
@@ -107,14 +102,12 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     return FeatureStateCard.centered(
       icon: Icons.webhook_outlined,
       tone: FeatureStateTone.neutral,
-      title: isZh ? '暂无 Hook 配置' : 'No hooks configured yet',
-      body: isZh
-          ? '点击右上角「新增 Hook」按钮开始配置。'
-          : 'Click "New Hook" above to get started.',
+      title: l10n.hooksEmptyTitle,
+      body: l10n.hooksEmptyBody,
     );
   }
 }
@@ -122,14 +115,12 @@ class _EmptyState extends StatelessWidget {
 class _HookEntryCard extends StatelessWidget {
   const _HookEntryCard({
     required this.entry,
-    required this.isZh,
     required this.onEdit,
     required this.onToggle,
     required this.onDelete,
   });
 
   final HookEntry entry;
-  final bool isZh;
   final VoidCallback onEdit;
   final ValueChanged<bool> onToggle;
   final VoidCallback onDelete;
@@ -138,6 +129,7 @@ class _HookEntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     return Card(
       child: Padding(
@@ -154,7 +146,7 @@ class _HookEntryCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(
-                entry.event.label(isZh),
+                _hookEventLabel(l10n, entry.event),
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: entry.enabled
                       ? colorScheme.onPrimaryContainer
@@ -182,7 +174,7 @@ class _HookEntryCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _scriptDescription,
+                    _scriptDescription(l10n),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -195,7 +187,7 @@ class _HookEntryCard extends StatelessWidget {
             const SizedBox(width: 12),
             // Timeout badge
             Tooltip(
-              message: isZh ? '超时时间' : 'Timeout',
+              message: l10n.hooksTimeoutTooltip,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -217,7 +209,7 @@ class _HookEntryCard extends StatelessWidget {
             // Actions
             IconButton(
               icon: const Icon(Icons.edit_outlined, size: 20),
-              tooltip: isZh ? '编辑' : 'Edit',
+              tooltip: l10n.commonEdit,
               onPressed: onEdit,
             ),
             const SizedBox(width: 4),
@@ -227,7 +219,7 @@ class _HookEntryCard extends StatelessWidget {
                 size: 20,
                 color: colorScheme.error,
               ),
-              tooltip: isZh ? '删除' : 'Delete',
+              tooltip: l10n.commonDelete,
               onPressed: onDelete,
             ),
           ],
@@ -236,15 +228,15 @@ class _HookEntryCard extends StatelessWidget {
     );
   }
 
-  String get _scriptDescription {
+  String _scriptDescription(AppLocalizations l10n) {
     if (entry.scriptPath != null && entry.scriptPath!.isNotEmpty) {
       return entry.scriptPath!;
     }
     if (entry.scriptContent != null && entry.scriptContent!.isNotEmpty) {
       final firstLine = entry.scriptContent!.split('\n').first.trim();
-      return isZh ? '内联脚本: $firstLine' : 'Inline: $firstLine';
+      return l10n.hooksInlineScriptDescription(firstLine);
     }
-    return isZh ? '未配置脚本' : 'No script configured';
+    return l10n.hooksNoScriptConfigured;
   }
 }
 
@@ -307,19 +299,15 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
   }
 
   bool get _isEditing => widget.existing != null;
-  bool get isZh => openHandIsChineseLocale(context);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     return buildOpenHandAlertDialog(
-      title: Text(
-        _isEditing
-            ? (isZh ? '编辑 Hook' : 'Edit Hook')
-            : (isZh ? '新增 Hook' : 'New Hook'),
-      ),
+      title: Text(_isEditing ? l10n.hooksEditTitle : l10n.hooksNew),
       content: SizedBox(
         width: 560,
         child: SingleChildScrollView(
@@ -337,16 +325,13 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
               TextField(
                 controller: _labelController,
                 decoration: InputDecoration(
-                  labelText: isZh ? '名称' : 'Label',
-                  hintText: isZh ? '例如: 日志记录' : 'e.g. Logging',
+                  labelText: l10n.hooksLabelField,
+                  hintText: l10n.hooksLabelHint,
                 ),
               ),
               const SizedBox(height: 18),
               // Event selector
-              Text(
-                isZh ? '触发事件' : 'Trigger Event',
-                style: theme.textTheme.titleSmall,
-              ),
+              Text(l10n.hooksTriggerEvent, style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -354,7 +339,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                 children: HookEvent.values.map((event) {
                   final selected = event == _selectedEvent;
                   return ChoiceChip(
-                    label: Text(event.label(isZh)),
+                    label: Text(_hookEventLabel(l10n, event)),
                     selected: selected,
                     selectedColor: colorScheme.primaryContainer,
                     labelStyle: TextStyle(
@@ -368,22 +353,19 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
               ),
               const SizedBox(height: 18),
               // Script source toggle
-              Text(
-                isZh ? '脚本来源' : 'Script Source',
-                style: theme.textTheme.titleSmall,
-              ),
+              Text(l10n.hooksScriptSource, style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               SegmentedButton<_HookScriptSource>(
                 segments: [
                   ButtonSegment(
                     value: _HookScriptSource.file,
                     icon: const Icon(Icons.file_open_outlined, size: 18),
-                    label: Text(isZh ? '选择文件' : 'File'),
+                    label: Text(l10n.hooksScriptSourceFile),
                   ),
                   ButtonSegment(
                     value: _HookScriptSource.inline,
                     icon: const Icon(Icons.code_rounded, size: 18),
-                    label: Text(isZh ? '编写脚本' : 'Inline'),
+                    label: Text(l10n.hooksScriptSourceInline),
                   ),
                 ],
                 selected: {_scriptSource},
@@ -400,10 +382,8 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                       child: TextField(
                         controller: _scriptPathController,
                         decoration: InputDecoration(
-                          labelText: isZh ? '脚本文件路径' : 'Script File Path',
-                          hintText: isZh
-                              ? '选择 .sh / .ps1 / .bat 文件'
-                              : 'Select a .sh / .ps1 / .bat file',
+                          labelText: l10n.hooksScriptFilePath,
+                          hintText: l10n.hooksScriptFileHint,
                         ),
                         readOnly: true,
                       ),
@@ -411,21 +391,13 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                     const SizedBox(width: 8),
                     FilledButton.tonal(
                       onPressed: _pickScriptFile,
-                      child: Text(isZh ? '浏览' : 'Browse'),
+                      child: Text(l10n.hooksBrowse),
                     ),
                   ],
                 ),
                 const SizedBox(height: 6),
                 SelectableText(
-                  isZh
-                      ? '上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n'
-                            '① 临时文件: jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE"\n'
-                            '② stdin 原始字节: jq -r .session_id\n'
-                            '包含 session_id、session_file_path、environment 等字段。'
-                      : 'Context JSON is passed in two safe ways (both work with jq):\n'
-                            '① Temp file: jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE"\n'
-                            '② Raw stdin: jq -r .session_id\n'
-                            'Fields: session_id, session_file_path, environment, etc.',
+                  l10n.hooksScriptContextFileHelp,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
@@ -442,12 +414,8 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                   decoration: InputDecoration(
                     contentPadding: const EdgeInsets.all(12),
                     hintText: Platform.isWindows
-                        ? (isZh
-                              ? '输入 PowerShell / BAT 脚本'
-                              : 'Enter PowerShell / BAT script')
-                        : (isZh
-                              ? '输入 Shell 脚本（无需 #!/bin/bash）'
-                              : 'Enter shell script (#!/bin/bash not required)'),
+                        ? l10n.hooksInlineWindowsHint
+                        : l10n.hooksInlineShellHint,
                     hintStyle: theme.textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant.withValues(
                         alpha: 0.5,
@@ -459,15 +427,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                 ),
                 const SizedBox(height: 6),
                 SelectableText(
-                  isZh
-                      ? '上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n'
-                            '① 临时文件: SID=\$(jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE")\n'
-                            '② stdin 原始字节: SID=\$(jq -r .session_id)\n'
-                            '包含 session_id、session_file_path、environment、statistics 等字段。'
-                      : 'Context JSON is passed in two safe ways (both work with jq):\n'
-                            '① Temp file: SID=\$(jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE")\n'
-                            '② Raw stdin: SID=\$(jq -r .session_id)\n'
-                            'Fields: session_id, session_file_path, environment, statistics, etc.',
+                  l10n.hooksScriptContextInlineHelp,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
@@ -478,7 +438,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
               Row(
                 children: [
                   Text(
-                    isZh ? '超时时间（秒）' : 'Timeout (seconds)',
+                    l10n.hooksTimeoutSeconds,
                     style: theme.textTheme.titleSmall,
                   ),
                   const SizedBox(width: 12),
@@ -502,10 +462,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
               // Enabled switch
               Row(
                 children: [
-                  Text(
-                    isZh ? '启用' : 'Enabled',
-                    style: theme.textTheme.titleSmall,
-                  ),
+                  Text(l10n.hooksEnabled, style: theme.textTheme.titleSmall),
                   const Spacer(),
                   Switch(
                     value: _enabled,
@@ -519,11 +476,11 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
       ),
       actions: [
         OpenHandDialogActionButton.secondary(
-          label: isZh ? '取消' : 'Cancel',
+          label: l10n.commonCancel,
           onPressed: () => Navigator.of(context).pop(),
         ),
         OpenHandDialogActionButton.primary(
-          label: isZh ? '保存' : 'Save',
+          label: l10n.commonSave,
           onPressed: _save,
         ),
       ],
@@ -531,15 +488,22 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
   }
 
   Future<void> _pickScriptFile() async {
+    final l10n = AppLocalizations.of(context)!;
     final List<XTypeGroup> typeGroups;
     if (Platform.isWindows) {
       typeGroups = [
-        const XTypeGroup(label: 'Scripts', extensions: ['ps1', 'bat', 'cmd']),
+        XTypeGroup(
+          label: l10n.hooksFileTypeScripts,
+          extensions: const ['ps1', 'bat', 'cmd'],
+        ),
       ];
     } else {
       typeGroups = [
-        const XTypeGroup(label: 'Shell Scripts', extensions: ['sh']),
-        const XTypeGroup(label: 'All Files', extensions: ['*']),
+        XTypeGroup(
+          label: l10n.hooksFileTypeShellScripts,
+          extensions: const ['sh'],
+        ),
+        XTypeGroup(label: l10n.hooksFileTypeAllFiles, extensions: const ['*']),
       ];
     }
     final file = await openFile(acceptedTypeGroups: typeGroups);
@@ -552,8 +516,9 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
   }
 
   void _save() {
+    final l10n = AppLocalizations.of(context)!;
     final label = _labelController.text.trim();
-    final validationError = _validateForm(label);
+    final validationError = _validateForm(label, l10n);
     if (validationError != null) {
       setState(() => _formError = validationError);
       return;
@@ -588,18 +553,33 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
     Navigator.of(context).pop();
   }
 
-  String? _validateForm(String label) {
+  String? _validateForm(String label, AppLocalizations l10n) {
     if (label.isEmpty) {
-      return isZh ? '请填写 Hook 名称。' : 'Enter a hook label.';
+      return l10n.hooksValidationLabelRequired;
     }
     if (_scriptSource == _HookScriptSource.file &&
         nullIfBlank(_scriptPathController.text) == null) {
-      return isZh ? '请选择脚本文件。' : 'Select a script file.';
+      return l10n.hooksValidationScriptFileRequired;
     }
     if (_scriptSource == _HookScriptSource.inline &&
         nullIfBlank(_scriptContentController.text) == null) {
-      return isZh ? '请填写内联脚本内容。' : 'Enter inline script content.';
+      return l10n.hooksValidationInlineScriptRequired;
     }
     return null;
   }
+}
+
+String _hookEventLabel(AppLocalizations l10n, HookEvent event) {
+  return switch (event) {
+    HookEvent.sessionStart => l10n.hookEventSessionStart,
+    HookEvent.userPromptSubmit => l10n.hookEventUserPromptSubmit,
+    HookEvent.preToolUse => l10n.hookEventPreToolUse,
+    HookEvent.postToolUse => l10n.hookEventPostToolUse,
+    HookEvent.subagentStart => l10n.hookEventSubagentStart,
+    HookEvent.subagentStop => l10n.hookEventSubagentStop,
+    HookEvent.stop => l10n.hookEventStop,
+    HookEvent.preCompact => l10n.hookEventPreCompact,
+    HookEvent.sessionEnd => l10n.hookEventSessionEnd,
+    HookEvent.errorOccurred => l10n.hookEventErrorOccurred,
+  };
 }

@@ -7306,5 +7306,139 @@
   "nativeAudioEffectWarm": "Chaud",
   "@nativeAudioEffectWarm": {
     "description": "OpenHand localized UI text."
+  },
+  "hooksTitle": "Hooks",
+  "@hooksTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksSubtitle": "Configurez les scripts à exécuter à chaque étape du cycle de vie de l’agent IA. Les Hooks s’exécutent dans l’ordre lorsque l’événement correspondant se déclenche.",
+  "@hooksSubtitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksNew": "Nouveau Hook",
+  "@hooksNew": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksDeleteTitle": "Supprimer le Hook",
+  "@hooksDeleteTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksDeleteMessage": "Supprimer « {label} » ? Cette action est irréversible.",
+  "@hooksDeleteMessage": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "label": {}
+    }
+  },
+  "hooksEmptyTitle": "Aucun Hook configuré",
+  "@hooksEmptyTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksEmptyBody": "Cliquez sur « Nouveau Hook » ci-dessus pour commencer.",
+  "@hooksEmptyBody": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksTimeoutTooltip": "Délai d’attente",
+  "@hooksTimeoutTooltip": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksInlineScriptDescription": "Inline : {firstLine}",
+  "@hooksInlineScriptDescription": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "firstLine": {}
+    }
+  },
+  "hooksNoScriptConfigured": "Aucun script configuré",
+  "@hooksNoScriptConfigured": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksEditTitle": "Modifier le Hook",
+  "@hooksEditTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksLabelField": "Libellé",
+  "@hooksLabelField": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksLabelHint": "ex. Journalisation",
+  "@hooksLabelHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksTriggerEvent": "Événement déclencheur",
+  "@hooksTriggerEvent": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptSource": "Source du script",
+  "@hooksScriptSource": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptSourceFile": "Fichier",
+  "@hooksScriptSourceFile": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptSourceInline": "Inline",
+  "@hooksScriptSourceInline": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptFilePath": "Chemin du script",
+  "@hooksScriptFilePath": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptFileHint": "Sélectionnez un fichier .sh / .ps1 / .bat",
+  "@hooksScriptFileHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksBrowse": "Parcourir",
+  "@hooksBrowse": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptContextFileHelp": "Le JSON de contexte est transmis de deux façons sûres (toutes deux compatibles avec jq) :\n① Fichier temporaire : jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\"\n② Octets bruts stdin : jq -r .session_id\nChamps : session_id, session_file_path, environment, etc.",
+  "@hooksScriptContextFileHelp": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksInlineWindowsHint": "Saisissez un script PowerShell / BAT",
+  "@hooksInlineWindowsHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksInlineShellHint": "Saisissez un script shell (#!/bin/bash non requis)",
+  "@hooksInlineShellHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksScriptContextInlineHelp": "Le JSON de contexte est transmis de deux façons sûres (toutes deux compatibles avec jq) :\n① Fichier temporaire : SID=$(jq -r .session_id \"$OPENHAND_HOOK_CONTEXT_FILE\")\n② Octets bruts stdin : SID=$(jq -r .session_id)\nChamps : session_id, session_file_path, environment, statistics, etc.",
+  "@hooksScriptContextInlineHelp": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksTimeoutSeconds": "Délai d’attente (secondes)",
+  "@hooksTimeoutSeconds": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksEnabled": "Activé",
+  "@hooksEnabled": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksValidationLabelRequired": "Saisissez un libellé de Hook.",
+  "@hooksValidationLabelRequired": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksValidationScriptFileRequired": "Sélectionnez un fichier de script.",
+  "@hooksValidationScriptFileRequired": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksValidationInlineScriptRequired": "Saisissez le contenu du script inline.",
+  "@hooksValidationInlineScriptRequired": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksFileTypeScripts": "Scripts",
+  "@hooksFileTypeScripts": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksFileTypeShellScripts": "Scripts shell",
+  "@hooksFileTypeShellScripts": {
+    "description": "OpenHand localized UI text."
+  },
+  "hooksFileTypeAllFiles": "Tous les fichiers",
+  "@hooksFileTypeAllFiles": {
+    "description": "OpenHand localized UI text."
   }
 }

@@ -16054,6 +16054,198 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'暖声'**
   String get nativeAudioEffectWarm;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Hooks'**
+  String get hooksTitle;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'为 AI Agent 的生命周期阶段配置要执行的脚本。每个 Hook 在对应事件触发时按顺序执行。'**
+  String get hooksSubtitle;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增 Hook'**
+  String get hooksNew;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除 Hook'**
+  String get hooksDeleteTitle;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'确定删除 \"{label}\" 吗？此操作不可撤销。'**
+  String hooksDeleteMessage(Object label);
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无 Hook 配置'**
+  String get hooksEmptyTitle;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击右上角「新增 Hook」按钮开始配置。'**
+  String get hooksEmptyBody;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'超时时间'**
+  String get hooksTimeoutTooltip;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'内联脚本: {firstLine}'**
+  String hooksInlineScriptDescription(Object firstLine);
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未配置脚本'**
+  String get hooksNoScriptConfigured;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑 Hook'**
+  String get hooksEditTitle;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'名称'**
+  String get hooksLabelField;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'例如: 日志记录'**
+  String get hooksLabelHint;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'触发事件'**
+  String get hooksTriggerEvent;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'脚本来源'**
+  String get hooksScriptSource;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择文件'**
+  String get hooksScriptSourceFile;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编写脚本'**
+  String get hooksScriptSourceInline;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'脚本文件路径'**
+  String get hooksScriptFilePath;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择 .sh / .ps1 / .bat 文件'**
+  String get hooksScriptFileHint;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'浏览'**
+  String get hooksBrowse;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n① 临时文件: jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\"\n② stdin 原始字节: jq -r .session_id\n包含 session_id、session_file_path、environment 等字段。'**
+  String get hooksScriptContextFileHelp;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入 PowerShell / BAT 脚本'**
+  String get hooksInlineWindowsHint;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入 Shell 脚本（无需 #!/bin/bash）'**
+  String get hooksInlineShellHint;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n① 临时文件: SID=\$(jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\")\n② stdin 原始字节: SID=\$(jq -r .session_id)\n包含 session_id、session_file_path、environment、statistics 等字段。'**
+  String get hooksScriptContextInlineHelp;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'超时时间（秒）'**
+  String get hooksTimeoutSeconds;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用'**
+  String get hooksEnabled;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请填写 Hook 名称。'**
+  String get hooksValidationLabelRequired;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请选择脚本文件。'**
+  String get hooksValidationScriptFileRequired;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请填写内联脚本内容。'**
+  String get hooksValidationInlineScriptRequired;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'脚本'**
+  String get hooksFileTypeScripts;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Shell 脚本'**
+  String get hooksFileTypeShellScripts;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'所有文件'**
+  String get hooksFileTypeAllFiles;
 }
 
 class _AppLocalizationsDelegate

@@ -8717,6 +8717,109 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get nativeAudioEffectWarm => '暖声';
+
+  @override
+  String get hooksTitle => 'Hooks';
+
+  @override
+  String get hooksSubtitle =>
+      '为 AI Agent 的生命周期阶段配置要执行的脚本。每个 Hook 在对应事件触发时按顺序执行。';
+
+  @override
+  String get hooksNew => '新增 Hook';
+
+  @override
+  String get hooksDeleteTitle => '删除 Hook';
+
+  @override
+  String hooksDeleteMessage(Object label) {
+    return '确定删除 \"$label\" 吗？此操作不可撤销。';
+  }
+
+  @override
+  String get hooksEmptyTitle => '暂无 Hook 配置';
+
+  @override
+  String get hooksEmptyBody => '点击右上角「新增 Hook」按钮开始配置。';
+
+  @override
+  String get hooksTimeoutTooltip => '超时时间';
+
+  @override
+  String hooksInlineScriptDescription(Object firstLine) {
+    return '内联脚本: $firstLine';
+  }
+
+  @override
+  String get hooksNoScriptConfigured => '未配置脚本';
+
+  @override
+  String get hooksEditTitle => '编辑 Hook';
+
+  @override
+  String get hooksLabelField => '名称';
+
+  @override
+  String get hooksLabelHint => '例如: 日志记录';
+
+  @override
+  String get hooksTriggerEvent => '触发事件';
+
+  @override
+  String get hooksScriptSource => '脚本来源';
+
+  @override
+  String get hooksScriptSourceFile => '选择文件';
+
+  @override
+  String get hooksScriptSourceInline => '编写脚本';
+
+  @override
+  String get hooksScriptFilePath => '脚本文件路径';
+
+  @override
+  String get hooksScriptFileHint => '选择 .sh / .ps1 / .bat 文件';
+
+  @override
+  String get hooksBrowse => '浏览';
+
+  @override
+  String get hooksScriptContextFileHelp =>
+      '上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n① 临时文件: jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\"\n② stdin 原始字节: jq -r .session_id\n包含 session_id、session_file_path、environment 等字段。';
+
+  @override
+  String get hooksInlineWindowsHint => '输入 PowerShell / BAT 脚本';
+
+  @override
+  String get hooksInlineShellHint => '输入 Shell 脚本（无需 #!/bin/bash）';
+
+  @override
+  String get hooksScriptContextInlineHelp =>
+      '上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n① 临时文件: SID=\$(jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\")\n② stdin 原始字节: SID=\$(jq -r .session_id)\n包含 session_id、session_file_path、environment、statistics 等字段。';
+
+  @override
+  String get hooksTimeoutSeconds => '超时时间（秒）';
+
+  @override
+  String get hooksEnabled => '启用';
+
+  @override
+  String get hooksValidationLabelRequired => '请填写 Hook 名称。';
+
+  @override
+  String get hooksValidationScriptFileRequired => '请选择脚本文件。';
+
+  @override
+  String get hooksValidationInlineScriptRequired => '请填写内联脚本内容。';
+
+  @override
+  String get hooksFileTypeScripts => '脚本';
+
+  @override
+  String get hooksFileTypeShellScripts => 'Shell 脚本';
+
+  @override
+  String get hooksFileTypeAllFiles => '所有文件';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -17432,6 +17535,109 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get nativeAudioEffectWarm => '暖声';
+
+  @override
+  String get hooksTitle => 'Hooks';
+
+  @override
+  String get hooksSubtitle =>
+      '为 AI Agent 的生命周期阶段配置要执行的脚本。每个 Hook 在对应事件触发时按顺序执行。';
+
+  @override
+  String get hooksNew => '新增 Hook';
+
+  @override
+  String get hooksDeleteTitle => '删除 Hook';
+
+  @override
+  String hooksDeleteMessage(Object label) {
+    return '确定删除 \"$label\" 吗？此操作不可撤销。';
+  }
+
+  @override
+  String get hooksEmptyTitle => '暂无 Hook 配置';
+
+  @override
+  String get hooksEmptyBody => '点击右上角「新增 Hook」按钮开始配置。';
+
+  @override
+  String get hooksTimeoutTooltip => '超时时间';
+
+  @override
+  String hooksInlineScriptDescription(Object firstLine) {
+    return '内联脚本: $firstLine';
+  }
+
+  @override
+  String get hooksNoScriptConfigured => '未配置脚本';
+
+  @override
+  String get hooksEditTitle => '编辑 Hook';
+
+  @override
+  String get hooksLabelField => '名称';
+
+  @override
+  String get hooksLabelHint => '例如: 日志记录';
+
+  @override
+  String get hooksTriggerEvent => '触发事件';
+
+  @override
+  String get hooksScriptSource => '脚本来源';
+
+  @override
+  String get hooksScriptSourceFile => '选择文件';
+
+  @override
+  String get hooksScriptSourceInline => '编写脚本';
+
+  @override
+  String get hooksScriptFilePath => '脚本文件路径';
+
+  @override
+  String get hooksScriptFileHint => '选择 .sh / .ps1 / .bat 文件';
+
+  @override
+  String get hooksBrowse => '浏览';
+
+  @override
+  String get hooksScriptContextFileHelp =>
+      '上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n① 临时文件: jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\"\n② stdin 原始字节: jq -r .session_id\n包含 session_id、session_file_path、environment 等字段。';
+
+  @override
+  String get hooksInlineWindowsHint => '输入 PowerShell / BAT 脚本';
+
+  @override
+  String get hooksInlineShellHint => '输入 Shell 脚本（无需 #!/bin/bash）';
+
+  @override
+  String get hooksScriptContextInlineHelp =>
+      '上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n① 临时文件: SID=\$(jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\")\n② stdin 原始字节: SID=\$(jq -r .session_id)\n包含 session_id、session_file_path、environment、statistics 等字段。';
+
+  @override
+  String get hooksTimeoutSeconds => '超时时间（秒）';
+
+  @override
+  String get hooksEnabled => '启用';
+
+  @override
+  String get hooksValidationLabelRequired => '请填写 Hook 名称。';
+
+  @override
+  String get hooksValidationScriptFileRequired => '请选择脚本文件。';
+
+  @override
+  String get hooksValidationInlineScriptRequired => '请填写内联脚本内容。';
+
+  @override
+  String get hooksFileTypeScripts => '脚本';
+
+  @override
+  String get hooksFileTypeShellScripts => 'Shell 脚本';
+
+  @override
+  String get hooksFileTypeAllFiles => '所有文件';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -26143,4 +26349,107 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get nativeAudioEffectWarm => '暖聲';
+
+  @override
+  String get hooksTitle => 'Hooks';
+
+  @override
+  String get hooksSubtitle =>
+      '為 AI Agent 的生命週期階段配置要執行的腳本。每個 Hook 會在對應事件觸發時依序執行。';
+
+  @override
+  String get hooksNew => '新增 Hook';
+
+  @override
+  String get hooksDeleteTitle => '刪除 Hook';
+
+  @override
+  String hooksDeleteMessage(Object label) {
+    return '確定刪除「$label」嗎？此操作無法復原。';
+  }
+
+  @override
+  String get hooksEmptyTitle => '暫無 Hook 配置';
+
+  @override
+  String get hooksEmptyBody => '點擊右上角「新增 Hook」按鈕開始配置。';
+
+  @override
+  String get hooksTimeoutTooltip => '逾時時間';
+
+  @override
+  String hooksInlineScriptDescription(Object firstLine) {
+    return '內嵌腳本: $firstLine';
+  }
+
+  @override
+  String get hooksNoScriptConfigured => '未配置腳本';
+
+  @override
+  String get hooksEditTitle => '編輯 Hook';
+
+  @override
+  String get hooksLabelField => '名稱';
+
+  @override
+  String get hooksLabelHint => '例如: 日誌記錄';
+
+  @override
+  String get hooksTriggerEvent => '觸發事件';
+
+  @override
+  String get hooksScriptSource => '腳本來源';
+
+  @override
+  String get hooksScriptSourceFile => '選擇檔案';
+
+  @override
+  String get hooksScriptSourceInline => '編寫腳本';
+
+  @override
+  String get hooksScriptFilePath => '腳本檔案路徑';
+
+  @override
+  String get hooksScriptFileHint => '選擇 .sh / .ps1 / .bat 檔案';
+
+  @override
+  String get hooksBrowse => '瀏覽';
+
+  @override
+  String get hooksScriptContextFileHelp =>
+      '上下文 JSON 會透過兩種方式傳入（均可安全用於 jq）：\n① 臨時檔案: jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\"\n② stdin 原始位元組: jq -r .session_id\n包含 session_id、session_file_path、environment 等欄位。';
+
+  @override
+  String get hooksInlineWindowsHint => '輸入 PowerShell / BAT 腳本';
+
+  @override
+  String get hooksInlineShellHint => '輸入 Shell 腳本（無需 #!/bin/bash）';
+
+  @override
+  String get hooksScriptContextInlineHelp =>
+      '上下文 JSON 會透過兩種方式傳入（均可安全用於 jq）：\n① 臨時檔案: SID=\$(jq -r .session_id \"\$OPENHAND_HOOK_CONTEXT_FILE\")\n② stdin 原始位元組: SID=\$(jq -r .session_id)\n包含 session_id、session_file_path、environment、statistics 等欄位。';
+
+  @override
+  String get hooksTimeoutSeconds => '逾時時間（秒）';
+
+  @override
+  String get hooksEnabled => '啟用';
+
+  @override
+  String get hooksValidationLabelRequired => '請填寫 Hook 名稱。';
+
+  @override
+  String get hooksValidationScriptFileRequired => '請選擇腳本檔案。';
+
+  @override
+  String get hooksValidationInlineScriptRequired => '請填寫內嵌腳本內容。';
+
+  @override
+  String get hooksFileTypeScripts => '腳本';
+
+  @override
+  String get hooksFileTypeShellScripts => 'Shell 腳本';
+
+  @override
+  String get hooksFileTypeAllFiles => '所有檔案';
 }
