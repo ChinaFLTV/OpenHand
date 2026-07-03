@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'android_reverse_adb_client.dart';
 import 'android_reverse_session_config.dart';
@@ -746,16 +747,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
             )
             .toList(growable: false),
         'properties': props,
-        'forwards': (forwards ?? '')
-            .split('\n')
-            .map((line) => line.trim())
-            .where((line) => line.isNotEmpty)
-            .toList(growable: false),
-        'reverses': (reverses ?? '')
-            .split('\n')
-            .map((line) => line.trim())
-            .where((line) => line.isNotEmpty)
-            .toList(growable: false),
+        'forwards': splitTrimmedNonEmpty(forwards ?? '', separator: '\n'),
+        'reverses': splitTrimmedNonEmpty(reverses ?? '', separator: '\n'),
         'target_package': packageName,
         'launcher_activity': launcher,
         'snapshot': <String, Object?>{
