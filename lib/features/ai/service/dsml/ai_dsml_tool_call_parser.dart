@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:yaml/yaml.dart';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../chat/ai_protocol_adapter.dart';
 
 class AiDsmlToolCallExtractionResult {
@@ -421,10 +422,8 @@ Object? decodeDsmlParameterValue(
   try {
     return jsonDecode(trimmed);
   } catch (_) {
-    final normalized = trimmed.toLowerCase();
-    if (normalized == 'true' || normalized == 'false') {
-      return normalized == 'true';
-    }
+    final boolValue = optionalBoolFromValue(trimmed);
+    if (boolValue != null) return boolValue;
     final numericValue = num.tryParse(trimmed);
     if (numericValue != null) {
       return numericValue;
