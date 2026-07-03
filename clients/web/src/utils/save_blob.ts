@@ -13,6 +13,7 @@ export interface SaveBlobResult {
 interface FileSystemWritableFileStream {
   write(data: Blob): Promise<void>;
   close(): Promise<void>;
+  abort?(): Promise<void>;
 }
 
 interface FileSystemFileHandle {
@@ -99,13 +100,15 @@ export async function saveBlobWithPicker(
   const suggestedName = pickerSuggestedName?.trim() || normalizedFilename;
   const picker = (window as Window & { showSaveFilePicker?: SaveFilePicker }).showSaveFilePicker;
   if (picker) {
+    let writable: FileSystemWritableFileStream | null = null;
     try {
       const handle = await picker({ suggestedName, types });
-      const writable = await handle.createWritable();
+      writable = await handle.createWritable();
       await writable.write(blob);
       await writable.close();
       return { filename: normalizedFilename, picked: true };
     } catch (error) {
+      await abortWritableQuietly(writable);
       if (error instanceof DOMException && error.name === 'AbortError') {
         throw error;
       }
@@ -113,4 +116,14 @@ export async function saveBlobWithPicker(
   }
   downloadBlobWithAnchor(blob, normalizedFilename);
   return { filename: normalizedFilename, picked: false };
+}
+
+async function abortWritableQuietly(
+  writable: FileSystemWritableFileStream | null,
+): Promise<void> {
+  try {
+    await writable?.abort?.();
+  } catch {
+    // Fallback download should still proceed when stream abort cleanup fails.
+  }
 }
