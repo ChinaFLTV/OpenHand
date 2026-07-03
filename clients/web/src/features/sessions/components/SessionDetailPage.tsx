@@ -201,6 +201,7 @@ const QUEUE_SEND_SETTLE_MS = 600;
 const COMPOSER_COLLAPSED_STORAGE_KEY = 'openhand.web.composer_collapsed';
 const DEFAULT_COMPOSER_MODES = ['normal', 'image', 'video', 'audio', 'deep_research'];
 const THROTTLE_BUCKET_TICK_MS = 1000;
+const AUTO_TITLE_FOLLOW_UP_DELAYS_MS = [1200, 3200, 7000, 14000, 24000] as const;
 const USER_SKILL_SELECTION_METADATA_KEY = 'user_skill_selection';
 const INFERRED_MODEL_CONTEXT_WINDOW_TOKENS = 128_000;
 const COMPOSER_TRIGGER_ROOT_OFFSET = 0;
@@ -3661,8 +3662,7 @@ export function SessionDetailPage() {
 
   function scheduleAutoTitleFollowUp(): void {
     clearAutoTitleRefreshTimers();
-    const delays = [1200, 3200, 7000, 14000, 24000];
-    autoTitleRefreshTimersRef.current = delays.map((delay) =>
+    autoTitleRefreshTimersRef.current = AUTO_TITLE_FOLLOW_UP_DELAYS_MS.map((delay) =>
       window.setTimeout(() => {
         void refreshAutoTitleSummary()
           .then((done) => {
