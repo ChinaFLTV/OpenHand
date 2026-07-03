@@ -45,6 +45,7 @@ enum _AgentToolOperation {
   list,
   detail,
   activityLog,
+  auditReport,
   recordAudit,
   requestApproval,
   upsertKpi,
@@ -99,6 +100,13 @@ class AiAgentTool extends AiTool {
         kind: AiBuiltinToolKind.agentActivityLog,
         name: 'AgentActivityLog',
         operation: _AgentToolOperation.activityLog,
+        agentsControllerProvider: agentsControllerProvider,
+        promptRenderer: renderer,
+      ),
+      AiAgentTool._(
+        kind: AiBuiltinToolKind.agentAuditReport,
+        name: 'AgentAuditReport',
+        operation: _AgentToolOperation.auditReport,
         agentsControllerProvider: agentsControllerProvider,
         promptRenderer: renderer,
       ),
@@ -266,6 +274,11 @@ class AiAgentTool extends AiTool {
           stopwatch,
         ),
         _AgentToolOperation.activityLog => _activityLog(
+          controller,
+          context,
+          stopwatch,
+        ),
+        _AgentToolOperation.auditReport => _auditReport(
           controller,
           context,
           stopwatch,
@@ -629,6 +642,113 @@ class AiAgentTool extends AiTool {
       metadata: <String, Object?>{
         'action': 'cluster_configured',
         'agent_id': agent.id,
+      },
+    );
+  }
+
+  AiToolExecutionResult _auditReport(
+    AgentsController controller,
+    AiToolExecutionContext context,
+    Stopwatch stopwatch,
+  ) {
+    final args = context.decodedArguments;
+    final includeDisabled = boolFromValue(args['include_disabled']);
+    final resolution = _resolveAgent(
+      controller,
+      args,
+      includeDisabled: includeDisabled,
+    );
+    if (resolution.error != null) return resolution.error!;
+    final agent = resolution.agent!;
+    final taskId = _optionalText(args['task_id'] ?? args['id']);
+    final workerId = _optionalText(args['worker_id']);
+    final kind = _optionalText(args['kind'] ?? args['activity_kind']);
+    final toolName = _optionalText(args['tool_name'] ?? args['tool']);
+    final limit = clampedIntFromValue(
+      args['limit'],
+      fallback: 20,
+      min: 1,
+      max: 100,
+    );
+    final tasks = agent.tasks
+        .where(
+          (task) => _taskMatchesReportFilter(
+            task,
+            taskId: taskId,
+            workerId: workerId,
+          ),
+        )
+        .toList(growable: false);
+    final auditEvents = agent.auditEvents
+        .where(
+          (event) => _auditMatches(
+            event,
+            kind: kind,
+            toolName: toolName,
+            taskId: taskId,
+            workerId: workerId,
+          ),
+        )
+        .toList(growable: false);
+    final activities = agent.activities
+        .where(
+          (event) => _activityMatches(
+            event,
+            kind: kind,
+            toolName: toolName,
+            taskId: taskId,
+            workerId: workerId,
+          ),
+        )
+        .toList(growable: false);
+    final payload = <String, Object?>{
+      'agent': _agentSummaryJson(agent),
+      'filters': <String, Object?>{
+        'include_disabled': includeDisabled,
+        'limit': limit,
+        if (taskId != null) 'task_id': taskId,
+        if (workerId != null) 'worker_id': workerId,
+        if (kind != null) 'kind': kind,
+        if (toolName != null) 'tool_name': toolName,
+      },
+      'task_metrics': _taskMetricsForTasksJson(tasks),
+      'worker_capacity': _workerCapacityJsonForAgent(agent),
+      if (workerId != null) 'worker': _workerSummaryById(agent, workerId),
+      'kpi_summary': _kpiSummaryJson(agent.kpis),
+      'kpi_state': agent.kpis
+          .take(limit)
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'approval_summary': _approvalSummaryJson(agent.approvals),
+      'pending_approvals': agent.approvals
+          .where((item) => item.status == AgentApprovalStatus.pending)
+          .take(limit)
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'resource_usage': _resourceUsageSummaryJson(agent.resourceUsage),
+      'audit_summary': _auditSummaryJson(auditEvents),
+      'recent_audit_events': auditEvents
+          .take(limit)
+          .map(_auditEventSummaryJson)
+          .toList(growable: false),
+      'activity_summary': _activitySummaryJson(activities),
+      'recent_activities': activities
+          .take(limit)
+          .map(_activityEventSummaryJson)
+          .toList(growable: false),
+      'tasks': tasks
+          .take(limit)
+          .map((task) => _taskJson(task, agent: agent))
+          .toList(growable: false),
+    };
+    return _success(
+      payload,
+      stopwatch,
+      metadata: <String, Object?>{
+        'action': 'audit_report',
+        'agent_id': agent.id,
+        'task_count': tasks.length,
+        'audit_count': auditEvents.length,
       },
     );
   }
@@ -1788,6 +1908,19 @@ bool _taskMatchesListFilter(
   return true;
 }
 
+bool _taskMatchesReportFilter(
+  AgentTask task, {
+  required String? taskId,
+  required String? workerId,
+}) {
+  if (taskId != null && !_matchesText(task.id, taskId)) return false;
+  if (workerId != null &&
+      !_matchesText('${task.extra['assigned_worker_id'] ?? ''}', workerId)) {
+    return false;
+  }
+  return true;
+}
+
 Map<String, Object?>? _assignedWorkerJson(AgentProfile agent, AgentTask task) {
   final workerId = '${task.extra['assigned_worker_id'] ?? ''}'.trim();
   if (workerId.isEmpty) return null;
@@ -1822,14 +1955,18 @@ Map<String, Object?> _taskOperationalSummaryJson(
 }
 
 Map<String, Object?> _taskMetricsJson(AgentProfile agent) {
+  return _taskMetricsForTasksJson(agent.tasks);
+}
+
+Map<String, Object?> _taskMetricsForTasksJson(List<AgentTask> tasks) {
   final byStatus = <String, int>{
     for (final status in AgentTaskStatus.values) status.storageValue: 0,
   };
-  for (final task in agent.tasks) {
+  for (final task in tasks) {
     byStatus[task.status.storageValue] =
         (byStatus[task.status.storageValue] ?? 0) + 1;
   }
-  final total = agent.tasks.length;
+  final total = tasks.length;
   final completed = byStatus[AgentTaskStatus.completed.storageValue] ?? 0;
   final failed = byStatus[AgentTaskStatus.failed.storageValue] ?? 0;
   final canceled = byStatus[AgentTaskStatus.canceled.storageValue] ?? 0;
@@ -1841,6 +1978,41 @@ Map<String, Object?> _taskMetricsJson(AgentProfile agent) {
     'terminal': terminal,
     'completed': completed,
     'completion_rate': total <= 0 ? 0 : completed / total,
+  };
+}
+
+Map<String, Object?> _kpiSummaryJson(List<AgentKpiItem> items) {
+  final byStatus = <String, int>{};
+  var totalProgress = 0.0;
+  for (final item in items) {
+    final status = item.status.trim().isEmpty ? 'tracking' : item.status.trim();
+    byStatus[status] = (byStatus[status] ?? 0) + 1;
+    totalProgress += item.progress.clamp(0, 1).toDouble();
+  }
+  return <String, Object?>{
+    'total': items.length,
+    'by_status': byStatus,
+    'at_risk': byStatus['at_risk'] ?? 0,
+    'done': byStatus['done'] ?? 0,
+    'average_progress': items.isEmpty ? 0 : totalProgress / items.length,
+  };
+}
+
+Map<String, Object?> _approvalSummaryJson(List<AgentApprovalRequest> items) {
+  final byStatus = <String, int>{
+    for (final status in AgentApprovalStatus.values) status.storageValue: 0,
+  };
+  for (final item in items) {
+    byStatus[item.status.storageValue] =
+        (byStatus[item.status.storageValue] ?? 0) + 1;
+  }
+  return <String, Object?>{
+    'total': items.length,
+    'by_status': byStatus,
+    'pending': byStatus[AgentApprovalStatus.pending.storageValue] ?? 0,
+    'approved': byStatus[AgentApprovalStatus.approved.storageValue] ?? 0,
+    'rejected': byStatus[AgentApprovalStatus.rejected.storageValue] ?? 0,
+    'expired': byStatus[AgentApprovalStatus.expired.storageValue] ?? 0,
   };
 }
 
@@ -1877,6 +2049,24 @@ Map<String, Object?> _workerCapacityJsonForAgent(AgentProfile agent) {
     'running_tasks': agent.runningTaskCount,
     'pending_approvals': agent.pendingApprovalCount,
   };
+}
+
+Map<String, Object?>? _workerSummaryById(AgentProfile agent, String workerId) {
+  for (final worker in agent.workers) {
+    if (!_matchesText(worker.id, workerId)) continue;
+    return <String, Object?>{
+      'id': worker.id,
+      'name': worker.name,
+      'status': worker.status.storageValue,
+      'executed_task_count': worker.executedTaskCount,
+      'busy_score': worker.busyScore,
+      'priority': worker.priority,
+      'current_task_id': worker.currentTaskId,
+      'labels': worker.labels,
+      'updated_at': _iso(worker.updatedAt),
+    };
+  }
+  return null;
 }
 
 List<AgentAuditEvent> _auditEventsForTask(

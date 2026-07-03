@@ -482,6 +482,7 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.agentList:
       case AiBuiltinToolKind.agentDetail:
       case AiBuiltinToolKind.agentActivityLog:
+      case AiBuiltinToolKind.agentAuditReport:
       case AiBuiltinToolKind.agentAuditRecord:
       case AiBuiltinToolKind.agentApprovalRequest:
       case AiBuiltinToolKind.agentKpiUpsert:

@@ -217,6 +217,7 @@ enum AiBuiltinToolKind {
   agentList,
   agentDetail,
   agentActivityLog,
+  agentAuditReport,
   agentAuditRecord,
   agentApprovalRequest,
   agentKpiUpsert,
@@ -514,6 +515,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.agentList ||
       AiBuiltinToolKind.agentDetail ||
       AiBuiltinToolKind.agentActivityLog ||
+      AiBuiltinToolKind.agentAuditReport ||
       AiBuiltinToolKind.agentAuditRecord ||
       AiBuiltinToolKind.agentApprovalRequest ||
       AiBuiltinToolKind.agentKpiUpsert ||
@@ -1960,6 +1962,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.agentList => 'AgentList',
       AiBuiltinToolKind.agentDetail => 'AgentDetail',
       AiBuiltinToolKind.agentActivityLog => 'AgentActivityLog',
+      AiBuiltinToolKind.agentAuditReport => 'AgentAuditReport',
       AiBuiltinToolKind.agentAuditRecord => 'AgentAuditRecord',
       AiBuiltinToolKind.agentApprovalRequest => 'AgentApprovalRequest',
       AiBuiltinToolKind.agentKpiUpsert => 'AgentKpiUpsert',
@@ -3666,6 +3669,61 @@ class AiToolRuntimeService {
             'minimum': 1,
             'maximum': 100,
             'description': 'Maximum records per stream. Defaults to 30.',
+          },
+        },
+        'anyOf': _agentToolAgentSelectorAnyOf,
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentAuditReport,
+      name: 'AgentAuditReport',
+      description:
+          'Generate a compact digital employee audit report with task completion metrics, worker capacity, KPI status, approval counts, resource usage, recent activities, and capability audit summaries. Use when the user asks for operational review, utilization, load, KPI, approval, token/request, or capability-use reporting.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{
+            'type': 'string',
+            'description': 'Agent id or exact display name.',
+          },
+          'include_disabled': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'When true, allow reporting on a stopped/disabled agent.',
+          },
+          'task_id': <String, Object?>{'type': 'string'},
+          'id': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for task_id.',
+          },
+          'worker_id': <String, Object?>{'type': 'string'},
+          'kind': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Optional activity/audit kind filter such as skill_call, mcp_call, task_assigned, or resource_updated.',
+          },
+          'activity_kind': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for kind.',
+          },
+          'tool_name': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Optional audited skill, MCP, builtin tool, or capability name filter.',
+          },
+          'tool': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for tool_name.',
+          },
+          'limit': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1,
+            'maximum': 100,
+            'description':
+                'Maximum recent records per report section. Defaults to 20.',
           },
         },
         'anyOf': _agentToolAgentSelectorAnyOf,

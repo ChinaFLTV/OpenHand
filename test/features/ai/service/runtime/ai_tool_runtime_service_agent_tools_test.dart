@@ -59,6 +59,9 @@ void main() {
       final activity = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentActivityLog,
       )!;
+      final auditReport = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentAuditReport,
+      )!;
       final audit = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentAuditRecord,
       )!;
@@ -100,6 +103,11 @@ void main() {
       expect(track.definition.description, contains('operational summary'));
       expect(activity.definition.description, contains('history stream'));
       expect(activity.definition.description, contains('audit trail'));
+      expect(
+        auditReport.definition.description,
+        contains('digital employee audit report'),
+      );
+      expect(auditReport.definition.description, contains('worker capacity'));
       expect(
         audit.definition.description,
         contains('Record an auditable digital employee capability event'),
@@ -294,6 +302,19 @@ void main() {
       expect(activityProperties['tool_name'], isA<Map<String, Object?>>());
       final limitSchema = activityProperties['limit'] as Map<String, Object?>;
       expect(limitSchema['maximum'], 100);
+
+      final reportParameters = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentAuditReport,
+      )!.definition.parameters;
+      expect(_schemaAnyOfAllowsRequired(reportParameters, 'agent_id'), isTrue);
+      final reportProperties =
+          reportParameters['properties'] as Map<String, Object?>;
+      expect(reportProperties['task_id'], isA<Map<String, Object?>>());
+      expect(reportProperties['worker_id'], isA<Map<String, Object?>>());
+      expect(reportProperties['tool_name'], isA<Map<String, Object?>>());
+      final reportLimitSchema =
+          reportProperties['limit'] as Map<String, Object?>;
+      expect(reportLimitSchema['maximum'], 100);
     });
 
     test('hides agent tools until at least one agent is enabled', () async {
@@ -330,6 +351,10 @@ void main() {
         AiBuiltinToolKind.agentActivityLog,
       );
       expect(
+        catalog.find('AgentAuditReport')?.builtinKind,
+        AiBuiltinToolKind.agentAuditReport,
+      );
+      expect(
         catalog.find('AgentApprovalRequest')?.builtinKind,
         AiBuiltinToolKind.agentApprovalRequest,
       );
@@ -362,6 +387,7 @@ void main() {
       expect(catalog.find('AgentTaskPublish'), isNull);
       expect(catalog.find('AgentAuditRecord'), isNull);
       expect(catalog.find('AgentActivityLog'), isNull);
+      expect(catalog.find('AgentAuditReport'), isNull);
       expect(catalog.find('AgentApprovalRequest'), isNull);
       expect(catalog.find('AgentKpiUpsert'), isNull);
       expect(catalog.find('AgentResourceUpdate'), isNull);
@@ -395,6 +421,7 @@ void main() {
         expect(catalog.find('AgentTaskPublish'), isNull);
         expect(catalog.find('AgentAuditRecord'), isNull);
         expect(catalog.find('AgentActivityLog'), isNull);
+        expect(catalog.find('AgentAuditReport'), isNull);
         expect(catalog.find('AgentApprovalRequest'), isNull);
         expect(catalog.find('AgentKpiUpsert'), isNull);
         expect(catalog.find('AgentResourceUpdate'), isNull);
@@ -419,6 +446,7 @@ void main() {
         expect(catalog.find('AgentTaskPublish'), isNull);
         expect(catalog.find('AgentAuditRecord'), isNull);
         expect(catalog.find('AgentActivityLog'), isNull);
+        expect(catalog.find('AgentAuditReport'), isNull);
         expect(catalog.find('AgentApprovalRequest'), isNull);
         expect(catalog.find('AgentKpiUpsert'), isNull);
         expect(catalog.find('AgentResourceUpdate'), isNull);
@@ -797,6 +825,195 @@ void main() {
       expect(result.metadata['activity_count'], 1);
       expect(result.metadata['audit_count'], 1);
     });
+
+    test(
+      'audit report tool summarizes operations and filtered evidence',
+      () async {
+        await controller.saveAgent(
+          _agent(enabled: true).copyWith(
+            scaleSettings: const AgentScaleSettings(
+              minWorkers: 0,
+              maxWorkers: 2,
+            ),
+            workers: const <AgentWorker>[
+              AgentWorker(
+                id: 'worker-1',
+                name: 'Worker 1',
+                status: AgentWorkerStatus.busy,
+                currentTaskId: 'task-1',
+                busyScore: 0.75,
+                executedTaskCount: 3,
+                priority: 4,
+              ),
+              AgentWorker(id: 'worker-2', name: 'Worker 2'),
+            ],
+            tasks: <AgentTask>[
+              AgentTask(
+                id: 'task-1',
+                title: 'Collect cloud billing evidence',
+                status: AgentTaskStatus.running,
+                progress: 0.5,
+                createdAt: DateTime.utc(2026, 7, 4, 1),
+                extra: const <String, Object?>{
+                  'assigned_worker_id': 'worker-1',
+                  'labels': <String>['finance'],
+                },
+              ),
+              AgentTask(
+                id: 'task-2',
+                title: 'Publish weekly report',
+                status: AgentTaskStatus.completed,
+                progress: 1,
+                createdAt: DateTime.utc(2026, 7, 4),
+                extra: const <String, Object?>{
+                  'assigned_worker_id': 'worker-2',
+                },
+              ),
+            ],
+            kpis: const <AgentKpiItem>[
+              AgentKpiItem(id: 'kpi-1', name: 'Weekly report', progress: 0.5),
+              AgentKpiItem(
+                id: 'kpi-2',
+                name: 'Incident SLA',
+                status: 'at_risk',
+                progress: 0.25,
+              ),
+            ],
+            approvals: <AgentApprovalRequest>[
+              AgentApprovalRequest(
+                id: 'approval-1',
+                title: 'Read billing export',
+                createdAt: DateTime.utc(2026, 7, 4),
+              ),
+              AgentApprovalRequest(
+                id: 'approval-2',
+                title: 'Use cached report',
+                status: AgentApprovalStatus.approved,
+                createdAt: DateTime.utc(2026, 7, 3),
+              ),
+            ],
+            resourceUsage: const AgentResourceUsage(
+              cpuPercent: 0.4,
+              memoryBytes: 1024,
+              diskBytes: 2048,
+              persistedBytes: 512,
+              tokenBudget: 1000,
+              tokenUsed: 250,
+              openHandles: 2,
+            ),
+            auditEvents: <AgentAuditEvent>[
+              AgentAuditEvent(
+                id: 'audit-1',
+                kind: 'skill_call',
+                summary: 'skill_call: collect billing evidence',
+                toolName: 'SkillRunner',
+                tokenUsage: 100,
+                requestCount: 2,
+                createdAt: DateTime.utc(2026, 7, 4, 1),
+                metadata: const <String, Object?>{
+                  'task_id': 'task-1',
+                  'worker_id': 'worker-1',
+                },
+              ),
+              AgentAuditEvent(
+                id: 'audit-2',
+                kind: 'mcp_call',
+                summary: 'mcp_call: unrelated',
+                toolName: 'McpTool',
+                tokenUsage: 50,
+                requestCount: 1,
+                createdAt: DateTime.utc(2026, 7, 4),
+                metadata: const <String, Object?>{
+                  'task_id': 'task-2',
+                  'worker_id': 'worker-2',
+                },
+              ),
+            ],
+            activities: <AgentActivityEvent>[
+              AgentActivityEvent(
+                id: 'act-1',
+                kind: 'task_assigned',
+                title: 'task_assigned',
+                content: 'Collect cloud billing evidence',
+                createdAt: DateTime.utc(2026, 7, 4, 1),
+                metadata: const <String, Object?>{
+                  'task_id': 'task-1',
+                  'worker_id': 'worker-1',
+                  'tool_name': 'SkillRunner',
+                },
+              ),
+            ],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        final result = await runtime.execute(
+          sessionId: 'session-report',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-report',
+            name: 'AgentAuditReport',
+            arguments: jsonEncode(<String, Object?>{
+              'agent_id': 'agent-1',
+              'worker_id': 'worker-1',
+              'tool_name': 'SkillRunner',
+              'limit': 5,
+            }),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
+
+        expect(result.status, BashToolExecutionStatus.success);
+        final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+        final filters = payload['filters'] as Map<String, Object?>;
+        final taskMetrics = payload['task_metrics'] as Map<String, Object?>;
+        final taskStatusCounts =
+            taskMetrics['by_status'] as Map<String, Object?>;
+        final worker = payload['worker'] as Map<String, Object?>;
+        final capacity = payload['worker_capacity'] as Map<String, Object?>;
+        final kpiSummary = payload['kpi_summary'] as Map<String, Object?>;
+        final kpiStatusCounts = kpiSummary['by_status'] as Map<String, Object?>;
+        final approvalSummary =
+            payload['approval_summary'] as Map<String, Object?>;
+        final resourceUsage = payload['resource_usage'] as Map<String, Object?>;
+        final auditSummary = payload['audit_summary'] as Map<String, Object?>;
+        final toolCounts = auditSummary['tool_counts'] as Map<String, Object?>;
+        final recentAuditEvents =
+            payload['recent_audit_events'] as List<Object?>;
+        final pendingApprovals = payload['pending_approvals'] as List<Object?>;
+        final tasks = payload['tasks'] as List<Object?>;
+
+        expect(filters['worker_id'], 'worker-1');
+        expect(filters['tool_name'], 'SkillRunner');
+        expect(taskMetrics['total'], 1);
+        expect(taskStatusCounts['running'], 1);
+        expect(worker['id'], 'worker-1');
+        expect(worker['status'], 'busy');
+        expect(capacity['total'], 2);
+        expect(kpiSummary['total'], 2);
+        expect(kpiStatusCounts['at_risk'], 1);
+        expect(kpiSummary['average_progress'], 0.375);
+        expect(approvalSummary['pending'], 1);
+        expect(pendingApprovals.single, isA<Map<String, Object?>>());
+        expect(resourceUsage['token_remaining'], 750);
+        expect(resourceUsage['token_usage_ratio'], 0.25);
+        expect(auditSummary['event_count'], 1);
+        expect(auditSummary['request_count'], 2);
+        expect(auditSummary['token_usage'], 100);
+        expect(toolCounts['SkillRunner'], 1);
+        expect(recentAuditEvents.single, isA<Map<String, Object?>>());
+        expect((tasks.single as Map<String, Object?>)['id'], 'task-1');
+        expect(result.metadata['action'], 'audit_report');
+        expect(result.metadata['audit_count'], 1);
+      },
+    );
 
     test(
       'task list tool filters the task desk by status worker and label',
