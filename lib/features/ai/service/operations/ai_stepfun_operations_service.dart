@@ -8,6 +8,7 @@ import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
 import '../chat/ai_protocol_adapter.dart';
+import '../chat/ai_sse_data_parser.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../runtime/ai_transport_client.dart';
 import '../session_io/ai_token_usage_parser.dart';
@@ -720,10 +721,7 @@ class AiStepFunOperationsService {
           eventType = line.substring(6).trim();
         }
       }
-      final dataLines = block
-          .split('\n')
-          .where((line) => line.startsWith('data:'))
-          .map((line) => line.substring(5).trim())
+      final dataLines = extractSseDataLines(block)
           .where((line) => line.isNotEmpty && line != '[DONE]')
           .toList(growable: false);
       if (dataLines.isEmpty) continue;

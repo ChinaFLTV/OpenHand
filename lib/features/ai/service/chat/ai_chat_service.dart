@@ -23,6 +23,7 @@ import '../model_registry/ai_model_scanner.dart';
 import '../operations/ai_responses_service.dart';
 import '../session_io/ai_token_usage_parser.dart';
 import 'ai_protocol_adapter.dart';
+import 'ai_sse_data_parser.dart';
 import 'ai_transport_diagnostic_messages.dart';
 
 abstract class AiChatClient {
@@ -1084,7 +1085,7 @@ class AiChatService implements AiChatClient {
       if (resultCompleter.isCompleted) {
         return;
       }
-      final dataLines = _extractSseDataLines(block);
+      final dataLines = extractSseDataLines(block);
       if (dataLines.isEmpty) {
         return;
       }
@@ -1367,7 +1368,7 @@ class AiChatService implements AiChatClient {
 
     void processEventBlock(String block) {
       if (resultCompleter.isCompleted) return;
-      final dataLines = _extractSseDataLines(block);
+      final dataLines = extractSseDataLines(block);
       if (dataLines.isEmpty) return;
       final data = dataLines.join('\n');
       if (data == '[DONE]') {
@@ -2526,16 +2527,6 @@ String? _streamingMediaKindFromType(String value) {
 
 String? _streamingMediaKindFromField(String key) {
   return _streamingMediaKindFromType(key.replaceAll('_', '-'));
-}
-
-List<String> _extractSseDataLines(String block) {
-  final trimmedBlock = block.trim();
-  if (trimmedBlock.isEmpty) return const <String>[];
-  return trimmedBlock
-      .split('\n')
-      .where((line) => line.startsWith('data:'))
-      .map((line) => line.substring(5).trim())
-      .toList(growable: false);
 }
 
 int? _readInt(Object? value) {
