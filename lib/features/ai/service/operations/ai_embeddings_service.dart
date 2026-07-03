@@ -235,7 +235,7 @@ class AiEmbeddingsService {
         return;
       }
       if (value is! Map) return;
-      final map = Map<String, Object?>.from(value);
+      final map = AiOperationHttp.stringKeyedMap(value);
       for (final key in const <String>['embedding', 'values']) {
         final candidate = map[key];
         if (candidate is List) {
@@ -281,7 +281,7 @@ class AiEmbeddingsService {
 
     void addFromMap(Object? raw) {
       if (raw is! Map) return;
-      final map = Map<String, Object?>.from(raw);
+      final map = AiOperationHttp.stringKeyedMap(raw);
       add(map['embedding']);
       add(map['values']);
       add(map['vector']);
@@ -297,7 +297,7 @@ class AiEmbeddingsService {
 
     void addFromEmbeddingTypeMap(Object? raw) {
       if (raw is! Map) return;
-      final map = Map<String, Object?>.from(raw);
+      final map = AiOperationHttp.stringKeyedMap(raw);
       final preferredKey = _preferredEmbeddingTypeKey(encodingFormat);
       if (preferredKey.isNotEmpty && map.containsKey(preferredKey)) {
         final value = map[preferredKey];
@@ -321,7 +321,7 @@ class AiEmbeddingsService {
 
     final output = payload['output'];
     if (output is Map) {
-      final map = Map<String, Object?>.from(output);
+      final map = AiOperationHttp.stringKeyedMap(output);
       addFromMap(map['embedding']);
       addFromList(map['embeddings']);
       addFromEmbeddingTypeMap(map['embeddings']);
@@ -1039,7 +1039,7 @@ Map<String, Object?> _bedrockTitanImagePayload(
 
 Map<String, Object?> _geminiContentPayload(Object content) {
   if (content is Map<String, Object?>) return content;
-  if (content is Map) return Map<String, Object?>.from(content);
+  if (content is Map) return AiOperationHttp.stringKeyedMap(content);
   if (content is List) {
     return <String, Object?>{'parts': content};
   }
@@ -1062,7 +1062,7 @@ List<Map<String, Object?>> _dashScopeMultimodalContents(Object input) {
   }
   if (input is Map<String, Object?>) return <Map<String, Object?>>[input];
   if (input is Map) {
-    return <Map<String, Object?>>[Map<String, Object?>.from(input)];
+    return <Map<String, Object?>>[AiOperationHttp.stringKeyedMap(input)];
   }
   return <Map<String, Object?>>[
     <String, Object?>{'text': '$input'},
@@ -1107,7 +1107,7 @@ List<Map<String, Object?>>? _cohereStructuredInputsOrNull(Object input) {
         : null;
   }
   if (input is Map) {
-    final map = Map<String, Object?>.from(input);
+    final map = AiOperationHttp.stringKeyedMap(input);
     return _isCohereStructuredInput(map) ? <Map<String, Object?>>[map] : null;
   }
   if (input is! List) return null;
@@ -1119,7 +1119,7 @@ List<Map<String, Object?>>? _cohereStructuredInputsOrNull(Object input) {
       continue;
     }
     if (item is Map) {
-      final map = Map<String, Object?>.from(item);
+      final map = AiOperationHttp.stringKeyedMap(item);
       if (!_isCohereStructuredInput(map)) return null;
       inputs.add(map);
       continue;
