@@ -522,6 +522,30 @@ function nonEmptyString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+const STRICT_POSITIVE_INTEGER_RE = /^[1-9]\d*$/;
+const STRICT_POSITIVE_NUMBER_RE = /^(?:[1-9]\d*(?:\.\d+)?|0?\.\d+)$/;
+
+function positiveIntegerFromOption(value: unknown): number | null {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value <= 0) return null;
+    return Math.round(value);
+  }
+  const text = nonEmptyString(value);
+  if (!STRICT_POSITIVE_INTEGER_RE.test(text)) return null;
+  const parsed = Number.parseInt(text, 10);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function positiveNumberFromOption(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+  const text = nonEmptyString(value);
+  if (!STRICT_POSITIVE_NUMBER_RE.test(text)) return null;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 const KB_VECTOR_DEFAULT_MAX_POINTS = 600;
 const KB_VECTOR_BATCH_SIZE = 120;
 const KB_VECTOR_BATCH_INTERVAL_MS = 92;
@@ -1438,50 +1462,34 @@ function creationOptionDetail(options: Record<string, unknown> | null): string {
   const resolution = nonEmptyString(options['resolution']);
   const mode = nonEmptyString(options['mode']);
   const voice = nonEmptyString(options['voice']);
-  const duration = typeof options['duration_seconds'] === 'number'
-    ? Math.round(options['duration_seconds'])
-    : Number.parseInt(nonEmptyString(options['duration_seconds']), 10);
-  const count = typeof options['count'] === 'number'
-    ? Math.round(options['count'])
-    : Number.parseInt(nonEmptyString(options['count']), 10);
-  const frameRate = typeof options['frame_rate'] === 'number'
-    ? Math.round(options['frame_rate'])
-    : Number.parseInt(nonEmptyString(options['frame_rate']), 10);
-  const numFrames = typeof options['num_frames'] === 'number'
-    ? Math.round(options['num_frames'])
-    : Number.parseInt(nonEmptyString(options['num_frames']), 10);
-  const seed = typeof options['seed'] === 'number'
-    ? Math.round(options['seed'])
-    : Number.parseInt(nonEmptyString(options['seed']), 10);
-  const speed = typeof options['speed'] === 'number'
-    ? options['speed']
-    : Number.parseFloat(nonEmptyString(options['speed']));
-  const sampleRate = typeof options['sample_rate'] === 'number'
-    ? Math.round(options['sample_rate'])
-    : Number.parseInt(nonEmptyString(options['sample_rate']), 10);
-  const bitrate = typeof options['bitrate'] === 'number'
-    ? Math.round(options['bitrate'])
-    : Number.parseInt(nonEmptyString(options['bitrate']), 10);
+  const duration = positiveIntegerFromOption(options['duration_seconds']);
+  const count = positiveIntegerFromOption(options['count']);
+  const frameRate = positiveIntegerFromOption(options['frame_rate']);
+  const numFrames = positiveIntegerFromOption(options['num_frames']);
+  const seed = positiveIntegerFromOption(options['seed']);
+  const speed = positiveNumberFromOption(options['speed']);
+  const sampleRate = positiveIntegerFromOption(options['sample_rate']);
+  const bitrate = positiveIntegerFromOption(options['bitrate']);
   if (aspectRatio) parts.push(aspectRatio);
   else if (size) parts.push(size);
-  if (Number.isFinite(duration) && duration > 0) parts.push(`${duration}s`);
+  if (duration != null) parts.push(`${duration}s`);
   if (resolution) parts.push(resolution);
-  if (Number.isFinite(frameRate) && frameRate > 0) parts.push(`${frameRate}fps`);
-  if (Number.isFinite(numFrames) && numFrames > 0) parts.push(`${numFrames}f`);
+  if (frameRate != null) parts.push(`${frameRate}fps`);
+  if (numFrames != null) parts.push(`${numFrames}f`);
   if (quality) parts.push(quality);
   if (style) parts.push(style);
   if (outputFormat) parts.push(outputFormat);
   if (background) parts.push(background);
   if (mode) parts.push(mode);
   if (voice) parts.push(voice);
-  if (Number.isFinite(speed) && speed > 0) parts.push(`${speed}x`);
-  if (Number.isFinite(sampleRate) && sampleRate > 0) parts.push(`${sampleRate}Hz`);
-  if (Number.isFinite(bitrate) && bitrate > 0) parts.push(`${Math.round(bitrate / 1000)}kbps`);
-  if (Number.isFinite(seed) && seed > 0) parts.push(`seed ${seed}`);
+  if (speed != null) parts.push(`${speed}x`);
+  if (sampleRate != null) parts.push(`${sampleRate}Hz`);
+  if (bitrate != null) parts.push(`${Math.round(bitrate / 1000)}kbps`);
+  if (seed != null) parts.push(`seed ${seed}`);
   if (typeof options['prompt_enhance'] === 'boolean') parts.push(options['prompt_enhance'] ? 'prompt+' : 'prompt-');
   if (typeof options['watermark'] === 'boolean') parts.push(options['watermark'] ? 'watermark' : 'no wm');
   if (nonEmptyString(options['negative_prompt'])) parts.push('negative');
-  if (Number.isFinite(count) && count > 1) parts.push(`x${count}`);
+  if (count != null && count > 1) parts.push(`x${count}`);
   return parts.join(' · ');
 }
 
@@ -1510,10 +1518,8 @@ function attachmentChips(meta: Record<string, unknown>): MessageContextChip[] {
     }
   }
   if (counts.size === 0) {
-    const count = typeof meta['attachment_count'] === 'number'
-      ? Math.max(0, Math.round(meta['attachment_count']))
-      : Number.parseInt(nonEmptyString(meta['attachment_count']), 10);
-    if (Number.isFinite(count) && count > 0) counts.set('binary', count);
+    const count = positiveIntegerFromOption(meta['attachment_count']);
+    if (count != null) counts.set('binary', count);
   }
   const order: AttachmentKind[] = ['image', 'text', 'spreadsheet', 'pdf', 'binary'];
   return order.flatMap((kind) => {
