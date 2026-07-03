@@ -264,12 +264,9 @@ class AiResponsesService {
       final content = message['content'];
       if (content is String) return content.trim();
       if (content is List) {
-        return content
-            .whereType<Map>()
-            .map((item) => '${item['text'] ?? ''}'.trim())
-            .where((item) => item.isNotEmpty)
-            .join('\n')
-            .trim();
+        return trimmedNonEmptyStrings(
+          content.whereType<Map>().map((item) => item['text']),
+        ).join('\n').trim();
       }
     }
     return '${choice['text'] ?? ''}'.trim();

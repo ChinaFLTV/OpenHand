@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../model/ai_lsp_backend_catalog.dart';
@@ -1240,14 +1241,12 @@ class AiLspClientService {
     if (parts.isEmpty) {
       return null;
     }
-    final markdownParts = parts
-        .where((part) => part.markdown.trim().isNotEmpty)
-        .map((part) => part.markdown.trim())
-        .toList(growable: false);
-    final plainParts = parts
-        .where((part) => part.plainText.trim().isNotEmpty)
-        .map((part) => part.plainText.trim())
-        .toList(growable: false);
+    final markdownParts = trimmedNonEmptyStrings(
+      parts.map((part) => part.markdown),
+    );
+    final plainParts = trimmedNonEmptyStrings(
+      parts.map((part) => part.plainText),
+    );
     return AiLspHoverResult(
       plainText: plainParts.join('\n\n').trim(),
       markdown: markdownParts.isEmpty
@@ -1699,14 +1698,12 @@ class AiLspClientService {
     if (parts.isEmpty) {
       return (plainText: '', markdown: null);
     }
-    final markdownParts = parts
-        .map((part) => part.markdown.trim())
-        .where((part) => part.isNotEmpty)
-        .toList(growable: false);
-    final plainParts = parts
-        .map((part) => part.plainText.trim())
-        .where((part) => part.isNotEmpty)
-        .toList(growable: false);
+    final markdownParts = trimmedNonEmptyStrings(
+      parts.map((part) => part.markdown),
+    );
+    final plainParts = trimmedNonEmptyStrings(
+      parts.map((part) => part.plainText),
+    );
     return (
       plainText: plainParts.join('\n\n').trim(),
       markdown: markdownParts.isEmpty

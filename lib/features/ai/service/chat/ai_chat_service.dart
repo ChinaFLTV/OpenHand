@@ -423,11 +423,11 @@ class AiChatService implements AiChatClient {
       if (raw.isNotEmpty) {
         return raw.replaceFirst(_structuredPromptHeaderPattern, '').trim();
       }
-      final parts = turn.effectiveParts
-          .where((p) => p.kind == AiChatContentPartKind.text)
-          .map((p) => (p.text ?? '').trim())
-          .where((t) => t.isNotEmpty)
-          .join('\n');
+      final parts = trimmedNonEmptyStrings(
+        turn.effectiveParts
+            .where((p) => p.kind == AiChatContentPartKind.text)
+            .map((p) => p.text),
+      ).join('\n');
       if (parts.isNotEmpty) {
         return parts.replaceFirst(_structuredPromptHeaderPattern, '').trim();
       }
@@ -535,10 +535,9 @@ class AiChatService implements AiChatClient {
       creationRequest: creationRequest,
     );
     if (canUseResponses) {
-      final flattenedInput = messages
-          .map((item) => '${item.roleName}: ${item.content}'.trim())
-          .where((item) => item.isNotEmpty)
-          .join('\n\n');
+      final flattenedInput = trimmedNonEmptyStrings(
+        messages.map((item) => '${item.roleName}: ${item.content}'),
+      ).join('\n\n');
       try {
         _responsesService ??= AiResponsesService();
         final response = await _awaitWithCancelSignal(
@@ -1282,10 +1281,9 @@ class AiChatService implements AiChatClient {
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   }) async {
     _responsesService ??= AiResponsesService();
-    final flattenedInput = messages
-        .map((item) => '${item.roleName}: ${item.content}'.trim())
-        .where((item) => item.isNotEmpty)
-        .join('\n\n');
+    final flattenedInput = trimmedNonEmptyStrings(
+      messages.map((item) => '${item.roleName}: ${item.content}'),
+    ).join('\n\n');
     final request = _responsesService!.buildRequest(
       model: model,
       input: flattenedInput,
