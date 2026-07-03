@@ -23,7 +23,6 @@ class AgentsStore {
   final String _filePath;
 
   String get filePath => _filePath;
-  String get storageDirectoryPath => p.dirname(_filePath);
 
   Future<List<AgentProfile>> load() async {
     final file = File(_filePath);
@@ -65,9 +64,5 @@ class AgentsStore {
       },
     );
     await writeFileAtomically(file, '$content\n');
-  }
-
-  Future<void> openStorageDirectory() {
-    return openDirectoryInFileManager(Directory(storageDirectoryPath));
   }
 }

@@ -55,7 +55,6 @@ class AgentsController extends ManagedChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   ValueListenable<int> get saveSuccessSignal => _saveSuccessPulse.listenable;
-  String get storageDirectoryPath => _store.storageDirectoryPath;
   AgentRuntimeAvailability get runtimeAvailability =>
       _runtimeAvailabilityProvider?.call() ??
       AgentRuntimeAvailability.optimistic;
@@ -927,8 +926,6 @@ class AgentsController extends ManagedChangeNotifier {
       return true;
     });
   }
-
-  Future<void> openStorageDirectory() => _store.openStorageDirectory();
 
   @override
   void dispose() {
