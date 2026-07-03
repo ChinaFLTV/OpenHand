@@ -57,7 +57,7 @@ class McpLazyLoadingApplier {
             .where((entry) => forceVisibleNames.contains(entry.key))
             .map((entry) => entry.key)
             .toList(growable: true)
-          ..sort();
+          ..sort(compareToolNamesForAiRequest);
     final forceVisibleNotice = forceVisibleEntryNames.isEmpty
         ? null
         : 'MCP lazy loading policy kept ${forceVisibleEntryNames.length} MCP tool(s) directly visible: ${forceVisibleEntryNames.join(', ')}.';
@@ -74,9 +74,10 @@ class McpLazyLoadingApplier {
                   !forceVisibleNames.contains(entry.key),
             )
             .toList(growable: true)
-          ..sort((a, b) => a.key.compareTo(b.key));
+          ..sort((a, b) => compareToolNamesForAiRequest(a.key, b.key));
     final deferredDefinitions = <String, AiToolDefinition>{
-      for (final entry in deferredEntries) entry.key: entry.value.definition,
+      for (final entry in deferredEntries)
+        entry.key: stableToolDefinitionForAiRequest(entry.value.definition),
     };
     final deferredTools = <String, AiResolvedTool>{
       for (final entry in deferredEntries) entry.key: entry.value,

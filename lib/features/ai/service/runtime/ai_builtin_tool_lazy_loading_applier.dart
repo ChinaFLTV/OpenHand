@@ -71,14 +71,29 @@ class AiBuiltinToolLazyLoadingApplier {
     }
 
     final deferredNames = deferredEntries.map((entry) => entry.key).toSet();
-    final deferredDefinitions = <String, AiToolDefinition>{
-      ...toolSearchEntry.value.toolSearchDeferredToolDefinitions,
-      for (final entry in deferredEntries) entry.key: entry.value.definition,
+    final mergedDeferredDefinitions = <String, AiToolDefinition>{
+      for (final entry
+          in toolSearchEntry.value.toolSearchDeferredToolDefinitions.entries)
+        entry.key: stableToolDefinitionForAiRequest(entry.value),
+      for (final entry in deferredEntries)
+        entry.key: stableToolDefinitionForAiRequest(entry.value.definition),
     };
-    final deferredTools = <String, AiResolvedTool>{
+    final mergedDeferredTools = <String, AiResolvedTool>{
       ...toolSearchEntry.value.toolSearchDeferredTools,
       for (final entry in deferredEntries) entry.key: entry.value,
     };
+    final deferredDefinitionEntries = mergedDeferredDefinitions.entries.toList(
+      growable: false,
+    )..sort((left, right) => compareToolNamesForAiRequest(left.key, right.key));
+    final deferredToolEntries = mergedDeferredTools.entries.toList(
+      growable: false,
+    )..sort((left, right) => compareToolNamesForAiRequest(left.key, right.key));
+    final deferredDefinitions = Map<String, AiToolDefinition>.fromEntries(
+      deferredDefinitionEntries,
+    );
+    final deferredTools = Map<String, AiResolvedTool>.fromEntries(
+      deferredToolEntries,
+    );
     final toolSearchTool = toolRuntimeService?.toolRegistry.getTool(
       AiBuiltinToolKind.toolSearch,
     );
@@ -215,7 +230,7 @@ class AiBuiltinToolLazyLoadingApplier {
         rightConfig?.priority ?? 100,
       );
       if (priorityCompare != 0) return priorityCompare;
-      return left.key.compareTo(right.key);
+      return compareToolNamesForAiRequest(left.key, right.key);
     });
     return entries;
   }
