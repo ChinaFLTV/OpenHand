@@ -919,7 +919,7 @@ class AiFileMutationLedger {
             final ledgerFile = File(p.join(entity.path, 'ledger.jsonl'));
             if (!await ledgerFile.exists()) continue;
             final lines = await ledgerFile.readAsLines();
-            recordCount += lines.where((l) => l.trim().isNotEmpty).length;
+            recordCount += trimmedNonEmptyStrings(lines).length;
           } on FileSystemException catch (error, stack) {
             if (!_isMissingFileSystemException(error)) {
               silentLog(

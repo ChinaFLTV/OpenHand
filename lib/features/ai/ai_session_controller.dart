@@ -10580,7 +10580,7 @@ $tail''';
         continue;
       }
       final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
-      final toolCallIndex = int.tryParse(
+      final toolCallIndex = optionalNonNegativeIntFromValue(
         '${message.metadata['tool_call_index'] ?? ''}'.trim(),
       );
       final matchesById =

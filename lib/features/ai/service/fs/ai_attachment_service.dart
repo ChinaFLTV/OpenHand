@@ -1031,8 +1031,8 @@ class AiAttachmentService {
       return '';
     }
     if (cellType == 's') {
-      final index = int.tryParse(rawValue);
-      if (index == null || index < 0 || index >= sharedStrings.length) {
+      final index = optionalNonNegativeIntFromValue(rawValue);
+      if (index == null || index >= sharedStrings.length) {
         return '';
       }
       return sharedStrings[index].trim();
