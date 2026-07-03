@@ -9,6 +9,7 @@ import '../../app/model/cron_config.dart';
 import '../../app/support/openhand_notification_service.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/timer_safety.dart';
 import '../mcp/index.dart';
@@ -656,11 +657,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         '/etc/passwd',
       ], tag: 'crons_controller');
       if (result != null && result.exitCode == 0) {
-        final users = (result.stdout as String)
-            .split('\n')
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty && !s.startsWith('#'))
-            .toList();
+        final users = trimmedNonEmptyStrings(
+          (result.stdout as String).split('\n'),
+        ).where((s) => !s.startsWith('#')).toList();
         if (users.isNotEmpty) {
           // Ensure 'root' is at the front.
           users.remove('root');

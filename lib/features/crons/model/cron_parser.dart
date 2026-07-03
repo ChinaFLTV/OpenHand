@@ -1,4 +1,5 @@
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 /// Minimal cron expression parser for 5-field (minute-level) expressions.
 ///
@@ -91,8 +92,10 @@ class CronParser {
       // Handle step: */n or range/n
       final stepParts = part.split('/');
       if (stepParts.length > 2) return null;
-      final step = stepParts.length == 2 ? int.tryParse(stepParts[1]) : null;
-      if (stepParts.length == 2 && (step == null || step <= 0)) return null;
+      final step = stepParts.length == 2
+          ? optionalPositiveIntFromValue(stepParts[1])
+          : null;
+      if (stepParts.length == 2 && step == null) return null;
 
       final rangePart = stepParts[0];
 
@@ -105,14 +108,14 @@ class CronParser {
       } else if (rangePart.contains('-')) {
         final bounds = rangePart.split('-');
         if (bounds.length != 2) return null;
-        final a = int.tryParse(bounds[0]);
-        final b = int.tryParse(bounds[1]);
+        final a = optionalIntFromValue(bounds[0]);
+        final b = optionalIntFromValue(bounds[1]);
         if (a == null || b == null) return null;
         if (a < min || b > max || a > b) return null;
         rangeStart = a;
         rangeEnd = b;
       } else {
-        final val = int.tryParse(rangePart);
+        final val = optionalIntFromValue(rangePart);
         if (val == null || val < min || val > max) return null;
         if (step == null) {
           result.add(val);
