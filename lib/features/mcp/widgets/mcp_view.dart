@@ -48,6 +48,7 @@ const double _mcpToolDebugMenuMaxWidth = 520;
 const double _mcpToolDebugMenuMaxHeight = 360;
 const double _mcpToolDebugMenuItemInset = 8;
 const double _mcpToolDebugMenuItemRadius = 10;
+const Duration _mcpForceProbeResetDelay = Duration(milliseconds: 200);
 
 class McpView extends StatefulWidget {
   const McpView({super.key});
@@ -3954,8 +3955,9 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                                           // 强制触发：先 deactivate 再 activate 以重置状态
                                           controller.setPageActive(false);
                                           Future.delayed(
-                                            const Duration(milliseconds: 200),
+                                            _mcpForceProbeResetDelay,
                                             () {
+                                              if (!context.mounted) return;
                                               controller.setPageActive(true);
                                             },
                                           );
@@ -3982,6 +3984,7 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                                 OutlinedButton.icon(
                                   onPressed: () async {
                                     await controller.refresh();
+                                    if (!context.mounted) return;
                                     // refresh 完成后重新激活探测
                                     controller.setPageActive(true);
                                   },
