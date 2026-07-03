@@ -717,7 +717,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
     final chunkId = _text(hit['chunk_id']);
     final preview = _text(hit['preview']);
     final title = _hasValue(hit['title']) ? hit['title'] : hit['source_title'];
-    final tags = _stringList(hit['tags']);
+    final tags = stringListFromValue(hit['tags']);
     return buildOpenHandAlertDialog(
       title: Text(isZh ? '命中分块详情' : 'Hit Chunk Detail'),
       content: buildOpenHandDialogConstrainedContent(
@@ -871,14 +871,6 @@ String _formatKnowledgeDateTime(Object? value) {
   );
   if (parsed == null) return _hasValue(value) ? _text(value) : '';
   return formatYearMonthDayHms(parsed.toLocal());
-}
-
-List<String> _stringList(Object? value) {
-  if (value is! Iterable) return const <String>[];
-  return value
-      .map((item) => '$item'.trim())
-      .where((item) => item.isNotEmpty)
-      .toList(growable: false);
 }
 
 Future<void> _copyText(

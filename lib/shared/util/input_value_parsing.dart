@@ -31,16 +31,26 @@ List<String> splitLooseDelimitedValues(String value) {
   return splitTrimmedNonEmpty(value, separator: _looseDelimitedValueSeparator);
 }
 
-List<String> stringListFromValue(Object? value, {Pattern separator = ','}) {
+List<String> stringListFromValue(
+  Object? value, {
+  Pattern separator = ',',
+  bool ignoreLiteralNull = false,
+}) {
+  bool keep(String item) =>
+      item.isNotEmpty && (!ignoreLiteralNull || item != 'null');
+
   if (value is List) {
     return value
         .where((item) => item != null)
         .map((item) => '$item'.trim())
-        .where((item) => item.isNotEmpty)
+        .where(keep)
         .toList(growable: false);
   }
   if (value is String) {
-    return splitTrimmedNonEmpty(value, separator: separator);
+    return splitTrimmedNonEmpty(
+      value,
+      separator: separator,
+    ).where(keep).toList(growable: false);
   }
   return const <String>[];
 }

@@ -26,6 +26,29 @@ void main() {
     });
   });
 
+  group('stringListFromValue', () {
+    test('can preserve a string as one list item', () {
+      expect(stringListFromValue('a,b'), <String>['a', 'b']);
+      expect(stringListFromValue('a,b', separator: ''), <String>['a,b']);
+    });
+
+    test('can ignore literal null entries', () {
+      expect(
+        stringListFromValue(<Object?>[
+          'alpha',
+          ' null ',
+          null,
+          'beta',
+        ], ignoreLiteralNull: true),
+        <String>['alpha', 'beta'],
+      );
+      expect(
+        stringListFromValue('null', separator: '', ignoreLiteralNull: true),
+        isEmpty,
+      );
+    });
+  });
+
   group('dateTimeFromValue', () {
     test('parses DateTime and ISO strings', () {
       final value = DateTime.utc(2026, 7, 3, 9, 30);

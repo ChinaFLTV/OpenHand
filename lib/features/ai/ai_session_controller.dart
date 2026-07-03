@@ -11315,17 +11315,11 @@ $tail''';
   }
 
   List<String> _readStringList(Object? rawValue) {
-    if (rawValue is List) {
-      return rawValue
-          .map((item) => '$item'.trim())
-          .where((item) => item.isNotEmpty)
-          .toList(growable: false);
-    }
-    final single = '$rawValue'.trim();
-    if (single.isEmpty || single == 'null') {
-      return const <String>[];
-    }
-    return <String>[single];
+    return stringListFromValue(
+      rawValue,
+      separator: '',
+      ignoreLiteralNull: true,
+    );
   }
 
   bool? _readBool(Object? rawValue) {
