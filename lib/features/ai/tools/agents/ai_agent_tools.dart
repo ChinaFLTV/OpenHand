@@ -477,6 +477,12 @@ class AiAgentTool extends AiTool {
     final args = context.decodedArguments;
     final resolved = _resolveTask(controller, args);
     if (resolved.error != null) return resolved.error!;
+    if (!_allowedTaskTools(resolved.task!.status).contains(_name)) {
+      return AiToolUtils.invalidResult(
+        _name,
+        _taskStatusToolRejectedMessage(_name, resolved.task!),
+      );
+    }
     final explicitProgress = _optionalRatio(args['progress']);
     final nextProgress = switch (status) {
       AgentTaskStatus.completed => 1.0,
@@ -991,6 +997,12 @@ List<String> _allowedTaskTools(AgentTaskStatus status) {
     AgentTaskStatus.failed ||
     AgentTaskStatus.canceled => const <String>[],
   };
+}
+
+String _taskStatusToolRejectedMessage(String toolName, AgentTask task) {
+  final allowedTools = _allowedTaskTools(task.status);
+  final allowedText = allowedTools.isEmpty ? 'none' : allowedTools.join(', ');
+  return '$toolName is not allowed when task status is ${task.status.storageValue}. allowed_tools: $allowedText.';
 }
 
 bool _taskIsTerminal(AgentTaskStatus status) {

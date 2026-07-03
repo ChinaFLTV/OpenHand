@@ -586,6 +586,68 @@ domains: finance, cloud billing
         AgentTaskStatus.running,
       );
     });
+
+    test(
+      'status tools reject terminal tasks without mutating audit state',
+      () async {
+        await controller.saveAgent(_agent(enabled: true));
+        final task = await controller.publishTaskWithResult(
+          'agent-1',
+          title: 'Finalize immutable handoff',
+        );
+        expect(task, isNotNull);
+        final completed = await controller.updateTaskState(
+          'agent-1',
+          task!.id,
+          status: AgentTaskStatus.completed,
+          result: 'done',
+          activityKind: 'task_completed',
+          activityTitle: 'task_completed',
+        );
+        expect(completed, isNotNull);
+
+        final beforeAgent = controller.agentById('agent-1')!;
+        final beforeActivityCount = beforeAgent.activities.length;
+        final beforeAuditCount = beforeAgent.auditEvents.length;
+        final beforeWorker = beforeAgent.workers.single;
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        final result = await runtime.execute(
+          sessionId: 'session-1',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-1',
+            name: 'AgentTaskCancel',
+            arguments: jsonEncode(<String, Object?>{
+              'agent_id': 'agent-1',
+              'task_id': task.id,
+              'note': 'late cancellation should be rejected',
+            }),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
+
+        final afterAgent = controller.agentById('agent-1')!;
+        final afterTask = controller.taskById('agent-1', task.id)!;
+        expect(result.status, BashToolExecutionStatus.invalidArguments);
+        expect(result.resultText, contains('AgentTaskCancel is not allowed'));
+        expect(result.resultText, contains('status is completed'));
+        expect(result.resultText, contains('allowed_tools: none'));
+        expect(afterTask.status, AgentTaskStatus.completed);
+        expect(afterTask.note, isEmpty);
+        expect(afterAgent.activities, hasLength(beforeActivityCount));
+        expect(afterAgent.auditEvents, hasLength(beforeAuditCount));
+        expect(afterAgent.workers.single.status, beforeWorker.status);
+        expect(afterAgent.workers.single.executedTaskCount, 1);
+      },
+    );
   });
 }
 
