@@ -77,13 +77,30 @@ _programmingLanguageOptions = [
 String _programmingLanguageLabel(BuildContext context, String languageId) {
   final option = _programmingLanguageOptionById(languageId);
   if (option != null) {
-    final isZh = openHandIsChineseLocale(context);
-    return isZh ? option.labelZh : option.labelEn;
+    return _programmingLanguageOptionLabel(context, option);
   }
   if (languageId.isEmpty) {
     return 'Plain Text';
   }
   return languageId[0].toUpperCase() + languageId.substring(1);
+}
+
+String _programmingLanguageOptionLabel(
+  BuildContext context,
+  ({String id, String labelZh, String labelEn}) option,
+) {
+  if (option.id != 'mixed') {
+    return option.labelEn;
+  }
+  return _localizedText(
+    context,
+    zh: option.labelZh,
+    zhHant: '混合 (Monorepo)',
+    en: option.labelEn,
+    fr: 'Mixte (Monorepo)',
+    de: 'Gemischt (Monorepo)',
+    ja: '混在 (Monorepo)',
+  );
 }
 
 /// Dialog shown after selecting the "编程专家" template.
@@ -421,36 +438,84 @@ class _ProgrammingExpertProjectDialogState
     return 'mixed';
   }
 
-  String _sdkDefaultSourceLabel(String language, {required bool isZh}) {
+  String _sdkDefaultSourceLabel(BuildContext context, String language) {
     final globalValue = widget.settingsController
         .editorLspSettingsForLanguage(language)
         .sdkPath
         .trim();
     if (globalValue.isNotEmpty) {
-      return isZh ? '全局设置' : 'global settings';
+      return _localizedText(
+        context,
+        zh: '全局设置',
+        zhHant: '全域設定',
+        en: 'global settings',
+        fr: 'paramètres globaux',
+        de: 'globale Einstellungen',
+        ja: 'グローバル設定',
+      );
     }
     if ((widget.recentPathCache.sdkPathsByLanguage[language] ??
             const <String>[])
         .isNotEmpty) {
-      return isZh ? '最近记录' : 'recent history';
+      return _localizedText(
+        context,
+        zh: '最近记录',
+        zhHant: '最近記錄',
+        en: 'recent history',
+        fr: 'historique récent',
+        de: 'letzter Verlauf',
+        ja: '最近の履歴',
+      );
     }
-    return isZh ? '系统默认' : 'system default';
+    return _localizedText(
+      context,
+      zh: '系统默认',
+      zhHant: '系統預設',
+      en: 'system default',
+      fr: 'valeur système par défaut',
+      de: 'Systemstandard',
+      ja: 'システム既定値',
+    );
   }
 
-  String _lspDefaultSourceLabel(String language, {required bool isZh}) {
+  String _lspDefaultSourceLabel(BuildContext context, String language) {
     final globalValue = widget.settingsController
         .editorLspSettingsForLanguage(language)
         .rootPath
         .trim();
     if (globalValue.isNotEmpty) {
-      return isZh ? '全局设置' : 'global settings';
+      return _localizedText(
+        context,
+        zh: '全局设置',
+        zhHant: '全域設定',
+        en: 'global settings',
+        fr: 'paramètres globaux',
+        de: 'globale Einstellungen',
+        ja: 'グローバル設定',
+      );
     }
     if ((widget.recentPathCache.lspPathsByLanguage[language] ??
             const <String>[])
         .isNotEmpty) {
-      return isZh ? '最近记录' : 'recent history';
+      return _localizedText(
+        context,
+        zh: '最近记录',
+        zhHant: '最近記錄',
+        en: 'recent history',
+        fr: 'historique récent',
+        de: 'letzter Verlauf',
+        ja: '最近の履歴',
+      );
     }
-    return isZh ? 'PATH / 自动探测' : 'PATH / auto-detect';
+    return _localizedText(
+      context,
+      zh: 'PATH / 自动探测',
+      zhHant: 'PATH / 自動偵測',
+      en: 'PATH / auto-detect',
+      fr: 'PATH / détection automatique',
+      de: 'PATH / automatische Erkennung',
+      ja: 'PATH / 自動検出',
+    );
   }
 
   void _applyLanguageSelection({
@@ -621,7 +686,25 @@ class _ProgrammingExpertProjectDialogState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
+    String text({
+      required String zh,
+      String? zhHant,
+      required String en,
+      String? fr,
+      String? de,
+      String? ja,
+    }) {
+      return _localizedText(
+        context,
+        zh: zh,
+        zhHant: zhHant,
+        en: en,
+        fr: fr,
+        de: de,
+        ja: ja,
+      );
+    }
+
     final recentProjectRoots = widget.recentPathCache.projectRoots;
     final recentSdkPaths =
         widget.recentPathCache.sdkPathsByLanguage[_selectedLanguage] ??
@@ -675,9 +758,79 @@ class _ProgrammingExpertProjectDialogState
         _selectedLanguage != 'mixed' &&
         (_sdkController.text.trim().isNotEmpty ||
             _lspController.text.trim().isNotEmpty);
+    final recentProjectLanguageLabel = recentProjectConfig == null
+        ? ''
+        : _programmingLanguageLabel(context, recentProjectConfig.language);
+    final detectedProjectLanguageLabel = detectedProjectLanguage == 'mixed'
+        ? ''
+        : _programmingLanguageLabel(context, detectedProjectLanguage);
+    final projectLanguageHint = recentProjectConfig != null
+        ? (isFollowingRecentProjectConfig
+              ? text(
+                  zh: '这个目录最近一次使用的是 $recentProjectLanguageLabel 配置，当前已经即时回填对应语言、SDK 路径和 LSP 路径。后续只要你还没有手动改动，这些默认值会继续跟随目录切换。',
+                  zhHant:
+                      '這個目錄最近一次使用的是 $recentProjectLanguageLabel 設定，目前已即時回填對應語言、SDK 路徑和 LSP 路徑。後續只要你尚未手動修改，這些預設值會繼續跟隨目錄切換。',
+                  en: 'This directory was most recently opened as $recentProjectLanguageLabel, and that language, SDK path, and LSP path have already been refilled. As long as you do not manually override them, the defaults continue following the directory change.',
+                  fr: 'Ce dossier a récemment été ouvert en $recentProjectLanguageLabel ; le langage, le SDK et le LSP ont déjà été renseignés. Sans modification manuelle, ces valeurs suivront les changements de dossier.',
+                  de: 'Dieser Ordner wurde zuletzt als $recentProjectLanguageLabel geöffnet. Sprache, SDK- und LSP-Pfad wurden bereits gefüllt und folgen weiter dem Ordner, solange du sie nicht manuell änderst.',
+                  ja: 'このディレクトリは最近 $recentProjectLanguageLabel として開かれており、言語、SDK パス、LSP パスを即時入力しました。手動変更しない限り、既定値はディレクトリ切り替えに追従します。',
+                )
+              : text(
+                  zh: '这个目录最近一次使用的是 $recentProjectLanguageLabel 配置。可以一键回填当时的语言、SDK 路径和 LSP 路径。',
+                  zhHant:
+                      '這個目錄最近一次使用的是 $recentProjectLanguageLabel 設定。可以一鍵回填當時的語言、SDK 路徑和 LSP 路徑。',
+                  en: 'This directory was recently opened as $recentProjectLanguageLabel. You can refill that language, SDK path, and LSP path in one step.',
+                  fr: 'Ce dossier a récemment été ouvert en $recentProjectLanguageLabel. Vous pouvez rétablir le langage, le SDK et le LSP en une action.',
+                  de: 'Dieser Ordner wurde kürzlich als $recentProjectLanguageLabel geöffnet. Du kannst Sprache, SDK- und LSP-Pfad mit einem Klick übernehmen.',
+                  ja: 'このディレクトリは最近 $recentProjectLanguageLabel として開かれました。当時の言語、SDK パス、LSP パスを一括入力できます。',
+                ))
+        : (isFollowingDetectedRecommendation
+              ? text(
+                  zh: '从当前目录结构看，它更像是 $detectedProjectLanguageLabel 项目，当前已经即时预选该语言，并跟随该语言的默认 SDK / LSP。你仍然可以手动切换。',
+                  zhHant:
+                      '從目前目錄結構看，它更像是 $detectedProjectLanguageLabel 專案，目前已即時預選該語言，並跟隨該語言的預設 SDK / LSP。你仍可隨時手動切換。',
+                  en: 'The current directory looks like a $detectedProjectLanguageLabel project, so that language has already been preselected together with its default SDK / LSP. You can still switch manually at any time.',
+                  fr: 'Le dossier ressemble à un projet $detectedProjectLanguageLabel ; ce langage et ses valeurs SDK / LSP par défaut sont déjà sélectionnés. Vous pouvez encore changer manuellement.',
+                  de: 'Der Ordner wirkt wie ein $detectedProjectLanguageLabel-Projekt. Sprache sowie Standard-SDK/LSP sind vorausgewählt, du kannst aber jederzeit manuell wechseln.',
+                  ja: '現在のディレクトリは $detectedProjectLanguageLabel プロジェクトに見えるため、その言語と既定の SDK / LSP を事前選択しました。いつでも手動で切り替えられます。',
+                )
+              : (!_canAutoBackfillProjectDefaults
+                    ? text(
+                        zh: '从当前目录结构看，它更像是 $detectedProjectLanguageLabel 项目；但你已经手动调整过语言或工具链路径，所以本次不会自动覆盖。需要时可点下面的按钮恢复自动预选。',
+                        zhHant:
+                            '從目前目錄結構看，它更像是 $detectedProjectLanguageLabel 專案；但你已手動調整過語言或工具鏈路徑，因此本次不會自動覆寫。需要時可點下方按鈕恢復自動預選。',
+                        en: 'The current directory looks like a $detectedProjectLanguageLabel project, but you have already adjusted the language or toolchain paths manually, so this dialog will not overwrite them automatically. Use the action below to resume auto-preselection if needed.',
+                        fr: 'Le dossier ressemble à un projet $detectedProjectLanguageLabel, mais vous avez déjà modifié le langage ou les chemins d’outils. Rien ne sera écrasé automatiquement ; utilisez l’action ci-dessous pour reprendre la présélection.',
+                        de: 'Der Ordner wirkt wie ein $detectedProjectLanguageLabel-Projekt, aber du hast Sprache oder Toolchain-Pfade bereits manuell geändert. Es wird nichts automatisch überschrieben; nutze unten die Aktion zum Fortsetzen.',
+                        ja: '現在のディレクトリは $detectedProjectLanguageLabel プロジェクトに見えますが、言語またはツールチェーンパスが手動調整済みのため自動上書きしません。必要なら下の操作で自動事前選択を再開できます。',
+                      )
+                    : text(
+                        zh: '从当前目录结构看，它更像是 $detectedProjectLanguageLabel 项目。会在你尚未手动接管时即时预选推荐语言，并回填该语言的默认 SDK / LSP。',
+                        zhHant:
+                            '從目前目錄結構看，它更像是 $detectedProjectLanguageLabel 專案。當你尚未手動接管時，會即時預選建議語言，並回填該語言的預設 SDK / LSP。',
+                        en: 'The current directory looks like a $detectedProjectLanguageLabel project. While you have not taken over manually, the dialog immediately preselects the recommended language and refills its default SDK / LSP.',
+                        fr: 'Le dossier ressemble à un projet $detectedProjectLanguageLabel. Tant que vous ne reprenez pas la main, le langage recommandé et ses valeurs SDK / LSP sont présélectionnés.',
+                        de: 'Der Ordner wirkt wie ein $detectedProjectLanguageLabel-Projekt. Solange du nicht manuell übernimmst, werden Sprache und Standard-SDK/LSP vorausgewählt.',
+                        ja: '現在のディレクトリは $detectedProjectLanguageLabel プロジェクトに見えます。手動で変更していない間は、推奨言語と既定の SDK / LSP を即時入力します。',
+                      )));
+    final recommendedSdkSourceLabel = _selectedLanguage == 'mixed'
+        ? ''
+        : _sdkDefaultSourceLabel(context, _selectedLanguage);
+    final recommendedLspSourceLabel = _selectedLanguage == 'mixed'
+        ? ''
+        : _lspDefaultSourceLabel(context, _selectedLanguage);
 
     return buildOpenHandAlertDialog(
-      title: Text(isZh ? '编程专家配置' : 'Programming Expert Configuration'),
+      title: Text(
+        text(
+          zh: '编程专家配置',
+          zhHant: '程式專家設定',
+          en: 'Programming Expert Configuration',
+          fr: 'Configuration de l’expert programmation',
+          de: 'Programmierexperte konfigurieren',
+          ja: 'プログラミングエキスパート設定',
+        ),
+      ),
       content: SizedBox(
         width: 620,
         child: SingleChildScrollView(
@@ -686,9 +839,15 @@ class _ProgrammingExpertProjectDialogState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                isZh
-                    ? '请配置项目根目录、项目语言，以及可选的 SDK / LSP 路径覆盖。具体语言的默认值会优先跟随全局设置，并结合你最近使用过的该语言路径。'
-                    : 'Configure the project root, primary language, and optional SDK / LSP path overrides. Language-specific defaults follow global settings first and then fall back to your recent paths for that language.',
+                text(
+                  zh: '请配置项目根目录、项目语言，以及可选的 SDK / LSP 路径覆盖。具体语言的默认值会优先跟随全局设置，并结合你最近使用过的该语言路径。',
+                  zhHant:
+                      '請設定專案根目錄、專案語言，以及可選的 SDK / LSP 路徑覆寫。各語言預設值會優先跟隨全域設定，再使用你最近用過的該語言路徑。',
+                  en: 'Configure the project root, primary language, and optional SDK / LSP path overrides. Language-specific defaults follow global settings first and then fall back to your recent paths for that language.',
+                  fr: 'Configurez la racine du projet, le langage principal et les chemins SDK / LSP optionnels. Les valeurs par défaut suivent d’abord les paramètres globaux, puis vos chemins récents pour ce langage.',
+                  de: 'Konfiguriere Projektwurzel, Hauptsprache und optionale SDK-/LSP-Pfade. Sprachspezifische Standardwerte folgen zuerst den globalen Einstellungen und dann deinen letzten Pfaden.',
+                  ja: 'プロジェクトルート、主言語、任意の SDK / LSP パス上書きを設定します。言語ごとの既定値はグローバル設定を優先し、その後最近使ったパスを使います。',
+                ),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -696,14 +855,38 @@ class _ProgrammingExpertProjectDialogState
               const SizedBox(height: 18),
               _ProgrammingExpertDirectoryField(
                 controller: _pathController,
-                label: isZh ? '项目根目录' : 'Project Root',
-                hintText: isZh
-                    ? '输入或选择项目根目录路径'
-                    : 'Enter or browse project root path',
-                helperText: isZh
-                    ? '该目录会作为编程专家的工作空间。'
-                    : 'This directory becomes the Programming Expert workspace.',
-                browseTooltip: isZh ? '浏览文件夹' : 'Browse folder',
+                label: text(
+                  zh: '项目根目录',
+                  zhHant: '專案根目錄',
+                  en: 'Project Root',
+                  fr: 'Racine du projet',
+                  de: 'Projektwurzel',
+                  ja: 'プロジェクトルート',
+                ),
+                hintText: text(
+                  zh: '输入或选择项目根目录路径',
+                  zhHant: '輸入或選擇專案根目錄路徑',
+                  en: 'Enter or browse project root path',
+                  fr: 'Saisir ou choisir la racine du projet',
+                  de: 'Projektwurzel eingeben oder auswählen',
+                  ja: 'プロジェクトルートのパスを入力または選択',
+                ),
+                helperText: text(
+                  zh: '该目录会作为编程专家的工作空间。',
+                  zhHant: '此目錄會作為程式專家的工作區。',
+                  en: 'This directory becomes the Programming Expert workspace.',
+                  fr: 'Ce dossier devient l’espace de travail de l’expert programmation.',
+                  de: 'Dieser Ordner wird der Arbeitsbereich des Programmierexperten.',
+                  ja: 'このディレクトリがプログラミングエキスパートのワークスペースになります。',
+                ),
+                browseTooltip: text(
+                  zh: '浏览文件夹',
+                  zhHant: '瀏覽資料夾',
+                  en: 'Browse folder',
+                  fr: 'Parcourir les dossiers',
+                  de: 'Ordner durchsuchen',
+                  ja: 'フォルダーを参照',
+                ),
                 onBrowse: _pickProjectDirectory,
               ),
               if (normalizedProjectRoot.isNotEmpty && !projectRootExists) ...[
@@ -719,9 +902,14 @@ class _ProgrammingExpertProjectDialogState
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        isZh
-                            ? '当前路径对应的目录不存在，确认按钮会保持禁用，直到你选择一个有效目录。'
-                            : 'The current path does not exist, so confirm stays disabled until you choose a valid directory.',
+                        text(
+                          zh: '当前路径对应的目录不存在，确认按钮会保持禁用，直到你选择一个有效目录。',
+                          zhHant: '目前路徑對應的目錄不存在，確認按鈕會保持停用，直到你選擇有效目錄。',
+                          en: 'The current path does not exist, so confirm stays disabled until you choose a valid directory.',
+                          fr: 'Le chemin actuel n’existe pas ; la confirmation reste désactivée jusqu’au choix d’un dossier valide.',
+                          de: 'Der aktuelle Pfad existiert nicht. Bestätigen bleibt deaktiviert, bis du einen gültigen Ordner auswählst.',
+                          ja: '現在のパスに対応するディレクトリは存在しません。有効なディレクトリを選ぶまで確認は無効です。',
+                        ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.error,
                           height: 1.45,
@@ -757,7 +945,14 @@ class _ProgrammingExpertProjectDialogState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              isZh ? '当前工作区' : 'Current Workspace',
+                              text(
+                                zh: '当前工作区',
+                                zhHant: '目前工作區',
+                                en: 'Current Workspace',
+                                fr: 'Espace de travail actuel',
+                                de: 'Aktueller Arbeitsbereich',
+                                ja: '現在のワークスペース',
+                              ),
                               style: theme.textTheme.labelLarge?.copyWith(
                                 fontWeight: FontWeight.w700,
                                 color: colorScheme.tertiary,
@@ -776,12 +971,22 @@ class _ProgrammingExpertProjectDialogState
                             const SizedBox(height: 6),
                             Text(
                               currentWorkspaceExists
-                                  ? (isZh
-                                        ? '可一键填充为项目根目录，并立即触发语言识别与默认值预选。'
-                                        : 'Use it as the project root in one click and immediately trigger language detection and default prefilling.')
-                                  : (isZh
-                                        ? '这个工作区路径当前不可访问，请先确认目录是否仍然存在。'
-                                        : 'This workspace path is not accessible right now. Check whether the directory still exists.'),
+                                  ? text(
+                                      zh: '可一键填充为项目根目录，并立即触发语言识别与默认值预选。',
+                                      zhHant: '可一鍵填入為專案根目錄，並立即觸發語言識別與預設值預選。',
+                                      en: 'Use it as the project root in one click and immediately trigger language detection and default prefilling.',
+                                      fr: 'Utilisez-le comme racine du projet en un clic et lancez aussitôt la détection du langage et le préremplissage.',
+                                      de: 'Nutze ihn mit einem Klick als Projektwurzel und starte sofort Spracherkennung und Vorausfüllung.',
+                                      ja: 'ワンクリックでプロジェクトルートにし、言語検出と既定値の事前入力をすぐ実行できます。',
+                                    )
+                                  : text(
+                                      zh: '这个工作区路径当前不可访问，请先确认目录是否仍然存在。',
+                                      zhHant: '這個工作區路徑目前無法存取，請先確認目錄是否仍然存在。',
+                                      en: 'This workspace path is not accessible right now. Check whether the directory still exists.',
+                                      fr: 'Ce chemin d’espace de travail est inaccessible. Vérifiez que le dossier existe toujours.',
+                                      de: 'Dieser Arbeitsbereichspfad ist derzeit nicht erreichbar. Prüfe, ob der Ordner noch existiert.',
+                                      ja: 'このワークスペースパスには現在アクセスできません。ディレクトリがまだ存在するか確認してください。',
+                                    ),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                                 height: 1.45,
@@ -793,7 +998,16 @@ class _ProgrammingExpertProjectDialogState
                       const SizedBox(width: 10),
                       if (currentWorkspaceMatchesProjectRoot)
                         Chip(
-                          label: Text(isZh ? '已使用' : 'In Use'),
+                          label: Text(
+                            text(
+                              zh: '已使用',
+                              zhHant: '使用中',
+                              en: 'In Use',
+                              fr: 'Utilisé',
+                              de: 'In Verwendung',
+                              ja: '使用中',
+                            ),
+                          ),
                           avatar: const Icon(
                             Icons.check_circle_rounded,
                             size: 16,
@@ -811,7 +1025,14 @@ class _ProgrammingExpertProjectDialogState
                               : null,
                           icon: const Icon(Icons.my_location_rounded, size: 18),
                           label: Text(
-                            isZh ? '填充当前工作区' : 'Use Current Workspace',
+                            text(
+                              zh: '填充当前工作区',
+                              zhHant: '填入目前工作區',
+                              en: 'Use Current Workspace',
+                              fr: 'Utiliser l’espace actuel',
+                              de: 'Aktuellen Arbeitsbereich nutzen',
+                              ja: '現在のワークスペースを使用',
+                            ),
                           ),
                         ),
                     ],
@@ -838,19 +1059,39 @@ class _ProgrammingExpertProjectDialogState
                       Text(
                         recentProjectConfig != null
                             ? (isFollowingRecentProjectConfig
-                                  ? (isZh
-                                        ? '已即时应用最近项目配置'
-                                        : 'Recent project config applied immediately')
-                                  : (isZh
-                                        ? '已命中最近项目配置'
-                                        : 'Matched recent project config'))
+                                  ? text(
+                                      zh: '已即时应用最近项目配置',
+                                      zhHant: '已即時套用最近專案設定',
+                                      en: 'Recent project config applied immediately',
+                                      fr: 'Configuration récente appliquée immédiatement',
+                                      de: 'Letzte Projektkonfiguration sofort angewendet',
+                                      ja: '最近のプロジェクト設定を即時適用しました',
+                                    )
+                                  : text(
+                                      zh: '已命中最近项目配置',
+                                      zhHant: '已命中最近專案設定',
+                                      en: 'Matched recent project config',
+                                      fr: 'Configuration récente du projet trouvée',
+                                      de: 'Letzte Projektkonfiguration gefunden',
+                                      ja: '最近のプロジェクト設定に一致',
+                                    ))
                             : (isFollowingDetectedRecommendation
-                                  ? (isZh
-                                        ? '已即时预选项目语言'
-                                        : 'Detected project language preselected')
-                                  : (isZh
-                                        ? '项目语言建议'
-                                        : 'Project language suggestion')),
+                                  ? text(
+                                      zh: '已即时预选项目语言',
+                                      zhHant: '已即時預選專案語言',
+                                      en: 'Detected project language preselected',
+                                      fr: 'Langage du projet détecté et présélectionné',
+                                      de: 'Erkannte Projektsprache vorausgewählt',
+                                      ja: '検出したプロジェクト言語を事前選択しました',
+                                    )
+                                  : text(
+                                      zh: '项目语言建议',
+                                      zhHant: '專案語言建議',
+                                      en: 'Project language suggestion',
+                                      fr: 'Suggestion de langage',
+                                      de: 'Vorschlag für Projektsprache',
+                                      ja: 'プロジェクト言語の候補',
+                                    )),
                         style: theme.textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: colorScheme.primary,
@@ -858,25 +1099,7 @@ class _ProgrammingExpertProjectDialogState
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        recentProjectConfig != null
-                            ? (isFollowingRecentProjectConfig
-                                  ? (isZh
-                                        ? '这个目录最近一次使用的是 ${_programmingLanguageLabel(context, recentProjectConfig.language)} 配置，当前已经即时回填对应语言、SDK 路径和 LSP 路径。后续只要你还没有手动改动，这些默认值会继续跟随目录切换。'
-                                        : 'This directory was most recently opened as ${_programmingLanguageLabel(context, recentProjectConfig.language)}, and that language, SDK path, and LSP path have already been refilled. As long as you do not manually override them, the defaults continue following the directory change.')
-                                  : (isZh
-                                        ? '这个目录最近一次使用的是 ${_programmingLanguageLabel(context, recentProjectConfig.language)} 配置。可以一键回填当时的语言、SDK 路径和 LSP 路径。'
-                                        : 'This directory was recently opened as ${_programmingLanguageLabel(context, recentProjectConfig.language)}. You can refill that language, SDK path, and LSP path in one step.'))
-                            : (isFollowingDetectedRecommendation
-                                  ? (isZh
-                                        ? '从当前目录结构看，它更像是 ${_programmingLanguageLabel(context, detectedProjectLanguage)} 项目，当前已经即时预选该语言，并跟随该语言的默认 SDK / LSP。你仍然可以手动切换。'
-                                        : 'The current directory looks like a ${_programmingLanguageLabel(context, detectedProjectLanguage)} project, so that language has already been preselected together with its default SDK / LSP. You can still switch manually at any time.')
-                                  : (!_canAutoBackfillProjectDefaults
-                                        ? (isZh
-                                              ? '从当前目录结构看，它更像是 ${_programmingLanguageLabel(context, detectedProjectLanguage)} 项目；但你已经手动调整过语言或工具链路径，所以本次不会自动覆盖。需要时可点下面的按钮恢复自动预选。'
-                                              : 'The current directory looks like a ${_programmingLanguageLabel(context, detectedProjectLanguage)} project, but you have already adjusted the language or toolchain paths manually, so this dialog will not overwrite them automatically. Use the action below to resume auto-preselection if needed.')
-                                        : (isZh
-                                              ? '从当前目录结构看，它更像是 ${_programmingLanguageLabel(context, detectedProjectLanguage)} 项目。会在你尚未手动接管时即时预选推荐语言，并回填该语言的默认 SDK / LSP。'
-                                              : 'The current directory looks like a ${_programmingLanguageLabel(context, detectedProjectLanguage)} project. While you have not taken over manually, the dialog immediately preselects the recommended language and refills its default SDK / LSP.'))),
+                        projectLanguageHint,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                           height: 1.45,
@@ -891,12 +1114,22 @@ class _ProgrammingExpertProjectDialogState
                             ActionChip(
                               label: Text(
                                 isFollowingRecentProjectConfig
-                                    ? (isZh
-                                          ? '重新应用最近配置'
-                                          : 'Reapply Recent Config')
-                                    : (isZh
-                                          ? '回填最近配置'
-                                          : 'Refill Recent Config'),
+                                    ? text(
+                                        zh: '重新应用最近配置',
+                                        zhHant: '重新套用最近設定',
+                                        en: 'Reapply Recent Config',
+                                        fr: 'Réappliquer la config récente',
+                                        de: 'Letzte Konfiguration erneut anwenden',
+                                        ja: '最近の設定を再適用',
+                                      )
+                                    : text(
+                                        zh: '回填最近配置',
+                                        zhHant: '回填最近設定',
+                                        en: 'Refill Recent Config',
+                                        fr: 'Renseigner la config récente',
+                                        de: 'Letzte Konfiguration übernehmen',
+                                        ja: '最近の設定を入力',
+                                      ),
                               ),
                               onPressed: () {
                                 _applyProjectConfig(recentProjectConfig);
@@ -908,12 +1141,22 @@ class _ProgrammingExpertProjectDialogState
                             ActionChip(
                               label: Text(
                                 detectedProjectLanguage == _selectedLanguage
-                                    ? (isZh
-                                          ? '恢复自动预选'
-                                          : 'Resume Auto-Preselect')
-                                    : (isZh
-                                          ? '立即预选推荐语言'
-                                          : 'Preselect Suggested Language'),
+                                    ? text(
+                                        zh: '恢复自动预选',
+                                        zhHant: '恢復自動預選',
+                                        en: 'Resume Auto-Preselect',
+                                        fr: 'Reprendre la présélection',
+                                        de: 'Automatische Vorauswahl fortsetzen',
+                                        ja: '自動事前選択を再開',
+                                      )
+                                    : text(
+                                        zh: '立即预选推荐语言',
+                                        zhHant: '立即預選建議語言',
+                                        en: 'Preselect Suggested Language',
+                                        fr: 'Présélectionner le langage suggéré',
+                                        de: 'Vorgeschlagene Sprache auswählen',
+                                        ja: '推奨言語を事前選択',
+                                      ),
                               ),
                               onPressed: () {
                                 _applyDetectedLanguageForProjectRoot(
@@ -929,7 +1172,14 @@ class _ProgrammingExpertProjectDialogState
               ],
               const SizedBox(height: 18),
               Text(
-                isZh ? '项目编程语言' : 'Project Language',
+                text(
+                  zh: '项目编程语言',
+                  zhHant: '專案程式語言',
+                  en: 'Project Language',
+                  fr: 'Langage du projet',
+                  de: 'Projektsprache',
+                  ja: 'プロジェクト言語',
+                ),
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: colorScheme.onSurfaceVariant,
@@ -943,7 +1193,9 @@ class _ProgrammingExpertProjectDialogState
                     .map((opt) {
                       final selected = _selectedLanguage == opt.id;
                       return ChoiceChip(
-                        label: Text(isZh ? opt.labelZh : opt.labelEn),
+                        label: Text(
+                          _programmingLanguageOptionLabel(context, opt),
+                        ),
                         selected: selected,
                         onSelected: (_) => _setSelectedLanguage(opt.id),
                         selectedColor: colorScheme.primaryContainer,
@@ -984,9 +1236,15 @@ class _ProgrammingExpertProjectDialogState
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        isZh
-                            ? '混合模式会按文件后缀自动识别语言，并继续使用全局的按语言 SDK / LSP 映射；因此这里不会设置单一项目级覆盖。'
-                            : 'Mixed mode auto-detects the language per file and continues using the global per-language SDK / LSP mappings, so no single project-level override is applied here.',
+                        text(
+                          zh: '混合模式会按文件后缀自动识别语言，并继续使用全局的按语言 SDK / LSP 映射；因此这里不会设置单一项目级覆盖。',
+                          zhHant:
+                              '混合模式會依檔案副檔名自動識別語言，並繼續使用全域的各語言 SDK / LSP 對應；因此這裡不會設定單一專案級覆寫。',
+                          en: 'Mixed mode auto-detects the language per file and continues using the global per-language SDK / LSP mappings, so no single project-level override is applied here.',
+                          fr: 'Le mode mixte détecte le langage par fichier et utilise les correspondances SDK / LSP globales ; aucun remplacement unique au niveau du projet n’est appliqué ici.',
+                          de: 'Der gemischte Modus erkennt die Sprache pro Datei und nutzt die globalen SDK-/LSP-Zuordnungen. Daher wird hier keine einzelne Projektüberschreibung gesetzt.',
+                          ja: '混在モードではファイル拡張子ごとに言語を自動検出し、グローバルな言語別 SDK / LSP マッピングを使うため、単一のプロジェクト上書きは設定しません。',
+                        ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant.withValues(
                             alpha: 0.8,
@@ -1001,20 +1259,51 @@ class _ProgrammingExpertProjectDialogState
                 const SizedBox(height: 18),
                 _ProgrammingExpertDirectoryField(
                   controller: _sdkController,
-                  label: isZh ? 'SDK 路径' : 'SDK Path',
-                  hintText: isZh
-                      ? '留空则沿用全局配置或系统默认'
-                      : 'Leave empty to use the global setting or system default',
-                  helperText: isZh
-                      ? '默认优先使用全局设置中的该语言 SDK 路径。'
-                      : 'Defaults to the global SDK path configured for this language.',
-                  browseTooltip: isZh ? '浏览文件夹' : 'Browse folder',
+                  label: text(
+                    zh: 'SDK 路径',
+                    zhHant: 'SDK 路徑',
+                    en: 'SDK Path',
+                    fr: 'Chemin SDK',
+                    de: 'SDK-Pfad',
+                    ja: 'SDK パス',
+                  ),
+                  hintText: text(
+                    zh: '留空则沿用全局配置或系统默认',
+                    zhHant: '留空則沿用全域設定或系統預設',
+                    en: 'Leave empty to use the global setting or system default',
+                    fr: 'Laisser vide pour utiliser le paramètre global ou la valeur système',
+                    de: 'Leer lassen, um globale Einstellung oder Systemstandard zu verwenden',
+                    ja: '空のままならグローバル設定またはシステム既定値を使用',
+                  ),
+                  helperText: text(
+                    zh: '默认优先使用全局设置中的该语言 SDK 路径。',
+                    zhHant: '預設優先使用全域設定中的該語言 SDK 路徑。',
+                    en: 'Defaults to the global SDK path configured for this language.',
+                    fr: 'Utilise par défaut le chemin SDK global configuré pour ce langage.',
+                    de: 'Verwendet standardmäßig den globalen SDK-Pfad für diese Sprache.',
+                    ja: '既定ではこの言語のグローバル SDK パスを優先します。',
+                  ),
+                  browseTooltip: text(
+                    zh: '浏览文件夹',
+                    zhHant: '瀏覽資料夾',
+                    en: 'Browse folder',
+                    fr: 'Parcourir les dossiers',
+                    de: 'Ordner durchsuchen',
+                    ja: 'フォルダーを参照',
+                  ),
                   onBrowse: _pickSdkDirectory,
                 ),
                 if (recentSdkPaths.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   _ProgrammingExpertRecentPathChips(
-                    title: isZh ? '最近 SDK 路径' : 'Recent SDK Paths',
+                    title: text(
+                      zh: '最近 SDK 路径',
+                      zhHant: '最近 SDK 路徑',
+                      en: 'Recent SDK Paths',
+                      fr: 'Chemins SDK récents',
+                      de: 'Letzte SDK-Pfade',
+                      ja: '最近の SDK パス',
+                    ),
                     paths: recentSdkPaths,
                     onSelected: (value) {
                       _sdkController.text = value;
@@ -1024,20 +1313,51 @@ class _ProgrammingExpertProjectDialogState
                 const SizedBox(height: 18),
                 _ProgrammingExpertDirectoryField(
                   controller: _lspController,
-                  label: isZh ? 'LSP 路径' : 'LSP Path',
-                  hintText: isZh
-                      ? '留空则沿用全局映射或 PATH 自动探测'
-                      : 'Leave empty to use the global mapping or PATH resolution',
-                  helperText: isZh
-                      ? '默认优先使用全局设置中的该语言 LSP 根路径。'
-                      : 'Defaults to the global LSP root configured for this language.',
-                  browseTooltip: isZh ? '浏览文件夹' : 'Browse folder',
+                  label: text(
+                    zh: 'LSP 路径',
+                    zhHant: 'LSP 路徑',
+                    en: 'LSP Path',
+                    fr: 'Chemin LSP',
+                    de: 'LSP-Pfad',
+                    ja: 'LSP パス',
+                  ),
+                  hintText: text(
+                    zh: '留空则沿用全局映射或 PATH 自动探测',
+                    zhHant: '留空則沿用全域對應或 PATH 自動偵測',
+                    en: 'Leave empty to use the global mapping or PATH resolution',
+                    fr: 'Laisser vide pour utiliser la correspondance globale ou la résolution PATH',
+                    de: 'Leer lassen, um globale Zuordnung oder PATH-Auflösung zu verwenden',
+                    ja: '空のままならグローバルマッピングまたは PATH 解決を使用',
+                  ),
+                  helperText: text(
+                    zh: '默认优先使用全局设置中的该语言 LSP 根路径。',
+                    zhHant: '預設優先使用全域設定中的該語言 LSP 根路徑。',
+                    en: 'Defaults to the global LSP root configured for this language.',
+                    fr: 'Utilise par défaut la racine LSP globale configurée pour ce langage.',
+                    de: 'Verwendet standardmäßig den globalen LSP-Stammpfad für diese Sprache.',
+                    ja: '既定ではこの言語のグローバル LSP ルートを優先します。',
+                  ),
+                  browseTooltip: text(
+                    zh: '浏览文件夹',
+                    zhHant: '瀏覽資料夾',
+                    en: 'Browse folder',
+                    fr: 'Parcourir les dossiers',
+                    de: 'Ordner durchsuchen',
+                    ja: 'フォルダーを参照',
+                  ),
                   onBrowse: _pickLspDirectory,
                 ),
                 if (recentLspPaths.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   _ProgrammingExpertRecentPathChips(
-                    title: isZh ? '最近 LSP 路径' : 'Recent LSP Paths',
+                    title: text(
+                      zh: '最近 LSP 路径',
+                      zhHant: '最近 LSP 路徑',
+                      en: 'Recent LSP Paths',
+                      fr: 'Chemins LSP récents',
+                      de: 'Letzte LSP-Pfade',
+                      ja: '最近の LSP パス',
+                    ),
                     paths: recentLspPaths,
                     onSelected: (value) {
                       _lspController.text = value;
@@ -1056,9 +1376,15 @@ class _ProgrammingExpertProjectDialogState
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        isZh
-                            ? '当前语言的推荐默认值：SDK 来自 ${_sdkDefaultSourceLabel(_selectedLanguage, isZh: true)}，LSP 来自 ${_lspDefaultSourceLabel(_selectedLanguage, isZh: true)}。'
-                            : 'Recommended defaults for this language: SDK comes from ${_sdkDefaultSourceLabel(_selectedLanguage, isZh: false)} and LSP comes from ${_lspDefaultSourceLabel(_selectedLanguage, isZh: false)}.',
+                        text(
+                          zh: '当前语言的推荐默认值：SDK 来自 $recommendedSdkSourceLabel，LSP 来自 $recommendedLspSourceLabel。',
+                          zhHant:
+                              '目前語言的建議預設值：SDK 來自 $recommendedSdkSourceLabel，LSP 來自 $recommendedLspSourceLabel。',
+                          en: 'Recommended defaults for this language: SDK comes from $recommendedSdkSourceLabel and LSP comes from $recommendedLspSourceLabel.',
+                          fr: 'Valeurs recommandées pour ce langage : SDK depuis $recommendedSdkSourceLabel, LSP depuis $recommendedLspSourceLabel.',
+                          de: 'Empfohlene Standardwerte für diese Sprache: SDK aus $recommendedSdkSourceLabel, LSP aus $recommendedLspSourceLabel.',
+                          ja: 'この言語の推奨既定値: SDK は $recommendedSdkSourceLabel、LSP は $recommendedLspSourceLabel から取得します。',
+                        ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                           height: 1.45,
@@ -1075,7 +1401,14 @@ class _ProgrammingExpertProjectDialogState
                     if (canRestoreRecommendedDefaults)
                       ActionChip(
                         label: Text(
-                          isZh ? '回填推荐默认值' : 'Restore Recommended Defaults',
+                          text(
+                            zh: '回填推荐默认值',
+                            zhHant: '回填建議預設值',
+                            en: 'Restore Recommended Defaults',
+                            fr: 'Rétablir les valeurs recommandées',
+                            de: 'Empfohlene Standardwerte wiederherstellen',
+                            ja: '推奨既定値を復元',
+                          ),
                         ),
                         onPressed:
                             _restoreRecommendedDefaultsForSelectedLanguage,
@@ -1083,7 +1416,14 @@ class _ProgrammingExpertProjectDialogState
                     if (canClearProjectOverrides)
                       ActionChip(
                         label: Text(
-                          isZh ? '清空项目级覆盖' : 'Clear Project Overrides',
+                          text(
+                            zh: '清空项目级覆盖',
+                            zhHant: '清空專案級覆寫',
+                            en: 'Clear Project Overrides',
+                            fr: 'Effacer les remplacements du projet',
+                            de: 'Projektüberschreibungen löschen',
+                            ja: 'プロジェクト上書きをクリア',
+                          ),
                         ),
                         onPressed: _clearProjectOverridesForSelectedLanguage,
                       ),
@@ -1093,7 +1433,14 @@ class _ProgrammingExpertProjectDialogState
               if (recentProjectRoots.isNotEmpty) ...[
                 const SizedBox(height: 18),
                 Text(
-                  isZh ? '最近项目' : 'Recent Projects',
+                  text(
+                    zh: '最近项目',
+                    zhHant: '最近專案',
+                    en: 'Recent Projects',
+                    fr: 'Projets récents',
+                    de: 'Letzte Projekte',
+                    ja: '最近のプロジェクト',
+                  ),
                   style: theme.textTheme.labelLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: colorScheme.onSurfaceVariant,
@@ -1178,7 +1525,14 @@ class _ProgrammingExpertProjectDialogState
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: isZh ? '取消' : 'Cancel',
+          label: text(
+            zh: '取消',
+            zhHant: '取消',
+            en: 'Cancel',
+            fr: 'Annuler',
+            de: 'Abbrechen',
+            ja: 'キャンセル',
+          ),
         ),
         ValueListenableBuilder<TextEditingValue>(
           valueListenable: _pathController,
@@ -1191,7 +1545,14 @@ class _ProgrammingExpertProjectDialogState
                 Directory(normalizedPath).existsSync();
             return OpenHandDialogActionButton.primary(
               onPressed: hasValue ? _submit : null,
-              label: isZh ? '确定' : 'Confirm',
+              label: text(
+                zh: '确定',
+                zhHant: '確定',
+                en: 'Confirm',
+                fr: 'Confirmer',
+                de: 'Bestätigen',
+                ja: '確定',
+              ),
             );
           },
         ),

@@ -3411,9 +3411,27 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final isZh = openHandIsChineseLocale(context);
     final disableAnim = MediaQuery.disableAnimationsOf(context);
     final isLocalFileMode = widget.mode == _AtMentionOverlayMode.localFiles;
+    final titleLabel = isLocalFileMode
+        ? _localizedText(
+            context,
+            zh: '选择文件',
+            zhHant: '選擇檔案',
+            en: 'Select Files',
+            fr: 'Sélectionner des fichiers',
+            de: 'Dateien auswählen',
+            ja: 'ファイルを選択',
+          )
+        : _localizedText(
+            context,
+            zh: '选择项目文件',
+            zhHant: '選擇專案檔案',
+            en: 'Select Project Files',
+            fr: 'Sélectionner des fichiers du projet',
+            de: 'Projektdateien auswählen',
+            ja: 'プロジェクトファイルを選択',
+          );
 
     final content = Stack(
       children: [
@@ -3456,9 +3474,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            isLocalFileMode
-                                ? (isZh ? '选择文件' : 'Select Files')
-                                : (isZh ? '选择项目文件' : 'Select Project Files'),
+                            titleLabel,
                             style: theme.textTheme.labelLarge?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w700,
@@ -3477,7 +3493,15 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               _AtMentionBreadcrumbChip(
-                                label: isZh ? '项目根目录' : 'Project Root',
+                                label: _localizedText(
+                                  context,
+                                  zh: '项目根目录',
+                                  zhHant: '專案根目錄',
+                                  en: 'Project Root',
+                                  fr: 'Racine du projet',
+                                  de: 'Projektwurzel',
+                                  ja: 'プロジェクトルート',
+                                ),
                                 icon: Icons.home_rounded,
                                 onTap: () => widget.onBreadcrumbTap(-1),
                               ),
@@ -3526,12 +3550,24 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                         child: Center(
                           child: Text(
                             isLocalFileMode && !widget.attachmentsEnabled
-                                ? (isZh
-                                      ? '当前模型不支持附件'
-                                      : 'The selected model does not support attachments')
-                                : (isZh
-                                      ? '未找到匹配文件或目录'
-                                      : 'No matching files or directories'),
+                                ? _localizedText(
+                                    context,
+                                    zh: '当前模型不支持附件',
+                                    zhHant: '目前模型不支援附件',
+                                    en: 'The selected model does not support attachments',
+                                    fr: 'Le modèle sélectionné ne prend pas en charge les pièces jointes',
+                                    de: 'Das ausgewählte Modell unterstützt keine Anhänge',
+                                    ja: '選択中のモデルは添付ファイルに対応していません',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '未找到匹配文件或目录',
+                                    zhHant: '找不到相符的檔案或目錄',
+                                    en: 'No matching files or directories',
+                                    fr: 'Aucun fichier ou dossier correspondant',
+                                    de: 'Keine passenden Dateien oder Ordner gefunden',
+                                    ja: '一致するファイルまたはディレクトリがありません',
+                                  ),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurfaceVariant.withValues(
                                 alpha: 0.6,
@@ -3581,9 +3617,15 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                                           children: [
                                             Text(
                                               item.isLocalFileAction
-                                                  ? (isZh
-                                                        ? '选择本地文件'
-                                                        : 'Choose Local Files')
+                                                  ? _localizedText(
+                                                      context,
+                                                      zh: '选择本地文件',
+                                                      zhHant: '選擇本機檔案',
+                                                      en: 'Choose Local Files',
+                                                      fr: 'Choisir des fichiers locaux',
+                                                      de: 'Lokale Dateien auswählen',
+                                                      ja: 'ローカルファイルを選択',
+                                                    )
                                                   : item.name,
                                               style: theme.textTheme.bodySmall
                                                   ?.copyWith(
@@ -3594,9 +3636,16 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                                             ),
                                             Text(
                                               item.isLocalFileAction
-                                                  ? (isZh
-                                                        ? '添加图片、文本、代码、表格或 PDF 附件'
-                                                        : 'Add images, text, code, spreadsheets, or PDFs')
+                                                  ? _localizedText(
+                                                      context,
+                                                      zh: '添加图片、文本、代码、表格或 PDF 附件',
+                                                      zhHant:
+                                                          '新增圖片、文字、程式碼、試算表或 PDF 附件',
+                                                      en: 'Add images, text, code, spreadsheets, or PDFs',
+                                                      fr: 'Ajouter des images, du texte, du code, des feuilles de calcul ou des PDF',
+                                                      de: 'Bilder, Text, Code, Tabellen oder PDFs anhängen',
+                                                      ja: '画像、テキスト、コード、表計算、PDF を添付',
+                                                    )
                                                   : item.relativePath,
                                               style: theme.textTheme.labelSmall
                                                   ?.copyWith(
@@ -3617,9 +3666,15 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
                                         const SizedBox(width: 4),
                                         Semantics(
                                           button: true,
-                                          label: isZh
-                                              ? '进入目录'
-                                              : 'Open directory',
+                                          label: _localizedText(
+                                            context,
+                                            zh: '进入目录',
+                                            zhHant: '進入目錄',
+                                            en: 'Open directory',
+                                            fr: 'Ouvrir le dossier',
+                                            de: 'Ordner öffnen',
+                                            ja: 'ディレクトリを開く',
+                                          ),
                                           child: SizedBox(
                                             width: 28,
                                             height: 28,
@@ -3886,7 +3941,6 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final isZh = openHandIsChineseLocale(context);
 
     final panel = Material(
       elevation: 8,
@@ -3909,7 +3963,15 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  isZh ? '选择一个技能' : 'Select a skill',
+                  _localizedText(
+                    context,
+                    zh: '选择一个技能',
+                    zhHant: '選擇一個技能',
+                    en: 'Select a skill',
+                    fr: 'Sélectionner une compétence',
+                    de: 'Skill auswählen',
+                    ja: 'スキルを選択',
+                  ),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -3935,7 +3997,15 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
               padding: const EdgeInsets.all(16),
               child: Center(
                 child: Text(
-                  isZh ? '未找到匹配技能' : 'No matching skills',
+                  _localizedText(
+                    context,
+                    zh: '未找到匹配技能',
+                    zhHant: '找不到相符技能',
+                    en: 'No matching skills',
+                    fr: 'Aucune compétence correspondante',
+                    de: 'Keine passenden Skills',
+                    ja: '一致するスキルがありません',
+                  ),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
@@ -4115,7 +4185,6 @@ class _SelectedSkillChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -4153,7 +4222,15 @@ class _SelectedSkillChip extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Tooltip(
-              message: isZh ? '移除此技能' : 'Remove skill',
+              message: _localizedText(
+                context,
+                zh: '移除此技能',
+                zhHant: '移除此技能',
+                en: 'Remove skill',
+                fr: 'Retirer cette compétence',
+                de: 'Skill entfernen',
+                ja: 'このスキルを削除',
+              ),
               child: InkWell(
                 onTap: onRemoved,
                 borderRadius: BorderRadius.circular(999),

@@ -478,11 +478,19 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
     final colorScheme = theme.colorScheme;
     final total = widget.userMessages.length;
     final selectedCount = _endIdx - _startIdx + 1;
-    final isZh = openHandIsChineseLocale(context);
     final sectionStyle = theme.textTheme.labelMedium?.copyWith(
       color: colorScheme.onSurfaceVariant,
       fontWeight: FontWeight.w700,
       letterSpacing: 0,
+    );
+    final selectedCountLabel = _localizedText(
+      context,
+      zh: '已选择 $selectedCount 条用户消息',
+      zhHant: '已選擇 $selectedCount 則使用者訊息',
+      en: 'Selected $selectedCount user messages',
+      fr: '$selectedCount messages utilisateur sélectionnés',
+      de: '$selectedCount Nutzernachrichten ausgewählt',
+      ja: '$selectedCount 件のユーザーメッセージを選択済み',
     );
 
     String previewLabel(int idx, {int maxLength = 26}) {
@@ -498,7 +506,15 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
 
     return buildOpenHandAlertDialog(
       title: Text(
-        isZh ? '获取 AI 摘要标题' : 'Generate AI Title',
+        _localizedText(
+          context,
+          zh: '获取 AI 摘要标题',
+          zhHant: '取得 AI 摘要標題',
+          en: 'Generate AI Title',
+          fr: 'Générer le titre IA',
+          de: 'KI-Titel erstellen',
+          ja: 'AI 要約タイトルを生成',
+        ),
         style: theme.textTheme.titleLarge?.copyWith(
           fontWeight: FontWeight.w800,
           letterSpacing: 0,
@@ -510,7 +526,18 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(isZh ? '模型' : 'Model', style: sectionStyle),
+            Text(
+              _localizedText(
+                context,
+                zh: '模型',
+                zhHant: '模型',
+                en: 'Model',
+                fr: 'Modèle',
+                de: 'Modell',
+                ja: 'モデル',
+              ),
+              style: sectionStyle,
+            ),
             const SizedBox(height: 8),
             OpenHandModelSelectorField(
               models: widget.availableModels,
@@ -532,13 +559,32 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
             const SizedBox(height: 18),
             Divider(height: 1, color: colorScheme.outlineVariant),
             const SizedBox(height: 16),
-            Text(isZh ? '消息范围' : 'Message Range', style: sectionStyle),
+            Text(
+              _localizedText(
+                context,
+                zh: '消息范围',
+                zhHant: '訊息範圍',
+                en: 'Message Range',
+                fr: 'Plage de messages',
+                de: 'Nachrichtenbereich',
+                ja: 'メッセージ範囲',
+              ),
+              style: sectionStyle,
+            ),
             const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
                   child: _TitleSummaryRangeEndpoint(
-                    label: isZh ? '起始' : 'From',
+                    label: _localizedText(
+                      context,
+                      zh: '起始',
+                      zhHant: '起始',
+                      en: 'From',
+                      fr: 'Début',
+                      de: 'Von',
+                      ja: '開始',
+                    ),
                     index: _startIdx,
                     preview: previewLabel(_startIdx),
                   ),
@@ -546,7 +592,15 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _TitleSummaryRangeEndpoint(
-                    label: isZh ? '结束' : 'To',
+                    label: _localizedText(
+                      context,
+                      zh: '结束',
+                      zhHant: '結束',
+                      en: 'To',
+                      fr: 'Fin',
+                      de: 'Bis',
+                      ja: '終了',
+                    ),
                     index: _endIdx,
                     preview: previewLabel(_endIdx),
                   ),
@@ -564,7 +618,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '${isZh ? '已选择' : 'Selected'} $selectedCount ${isZh ? '条用户消息' : 'user messages'}',
+                    selectedCountLabel,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
@@ -606,7 +660,15 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
               model: _selectedModel,
             ),
           ),
-          label: isZh ? '生成标题' : 'Generate',
+          label: _localizedText(
+            context,
+            zh: '生成标题',
+            zhHant: '產生標題',
+            en: 'Generate',
+            fr: 'Générer',
+            de: 'Erstellen',
+            ja: '生成',
+          ),
         ),
       ],
     );
@@ -670,12 +732,19 @@ class _TitleGenerationProgressDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     return PopScope(
       canPop: false,
       child: buildOpenHandAlertDialog(
         title: Text(
-          isZh ? '获取 AI 摘要标题' : 'Generate AI Title',
+          _localizedText(
+            context,
+            zh: '获取 AI 摘要标题',
+            zhHant: '取得 AI 摘要標題',
+            en: 'Generate AI Title',
+            fr: 'Générer le titre IA',
+            de: 'KI-Titel erstellen',
+            ja: 'AI 要約タイトルを生成',
+          ),
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w800,
             letterSpacing: 0,
@@ -700,7 +769,15 @@ class _TitleGenerationProgressDialog extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isZh ? '正在生成摘要标题...' : 'Generating title...',
+                      _localizedText(
+                        context,
+                        zh: '正在生成摘要标题...',
+                        zhHant: '正在產生摘要標題...',
+                        en: 'Generating title...',
+                        fr: 'Génération du titre...',
+                        de: 'Titel wird erstellt...',
+                        ja: 'タイトルを生成中...',
+                      ),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
@@ -708,9 +785,15 @@ class _TitleGenerationProgressDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      isZh
-                          ? '完成后会自动更新线程标题。'
-                          : 'The thread title updates automatically.',
+                      _localizedText(
+                        context,
+                        zh: '完成后会自动更新线程标题。',
+                        zhHant: '完成後會自動更新執行緒標題。',
+                        en: 'The thread title updates automatically.',
+                        fr: 'Le titre du fil sera mis à jour automatiquement.',
+                        de: 'Der Thread-Titel wird automatisch aktualisiert.',
+                        ja: '完了後、スレッドのタイトルは自動更新されます。',
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -880,10 +963,26 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
     final normalized = value.trim();
     for (final option in _audioFormatOptions) {
       if (option.value == normalized) {
-        return option.labelForLocale(chinese: openHandIsChineseLocale(context));
+        return _audioCatalogOptionLabel(option);
       }
     }
     return normalized;
+  }
+
+  String _audioCatalogOptionLabel(AiTtsCatalogOption option) {
+    final english = option.enLabel?.trim();
+    final fallback = english == null || english.isEmpty
+        ? option.label
+        : english;
+    return _localizedText(
+      context,
+      zh: option.label,
+      zhHant: option.label,
+      en: fallback,
+      fr: fallback,
+      de: fallback,
+      ja: fallback,
+    );
   }
 
   String? _initialOutputFormat() {
@@ -1402,9 +1501,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                   label: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 220),
                     child: Text(
-                      option.labelForLocale(
-                        chinese: openHandIsChineseLocale(context),
-                      ),
+                      _audioCatalogOptionLabel(option),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
