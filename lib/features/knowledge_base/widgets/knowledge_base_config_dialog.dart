@@ -2133,8 +2133,9 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     required bool dependencyRefreshing,
     required bool embeddingModelAvailable,
   }) {
-    final isZh = openHandIsChineseLocale(context);
-    final dependencyMessage = dependencies.localizedMessage(isZh);
+    final dependencyMessage = dependencies.localizedMessage(
+      Localizations.localeOf(context),
+    );
     return <Widget>[
       if (!dependencies.ready)
         Padding(
