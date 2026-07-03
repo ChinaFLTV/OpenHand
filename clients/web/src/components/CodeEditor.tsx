@@ -49,8 +49,21 @@ function loadMonaco(): Promise<MonacoStub> {
     const loaderScript = document.createElement('script');
     loaderScript.src = `${MONACO_BASE}/loader.js`;
     loaderScript.async = true;
-    loaderScript.onerror = () => reject(new Error('failed to load Monaco loader'));
+    const cleanupLoaderScript = () => {
+      loaderScript.onerror = null;
+      loaderScript.onload = null;
+    };
+    const rejectLoader = (error: Error) => {
+      cleanupLoaderScript();
+      monacoLoadPromise = null;
+      reject(error);
+    };
+    loaderScript.onerror = () => {
+      loaderScript.remove();
+      rejectLoader(new Error('failed to load Monaco loader'));
+    };
     loaderScript.onload = () => {
+      cleanupLoaderScript();
       const w = window as unknown as {
         require?: {
           config(opts: { paths: Record<string, string> }): void;
@@ -60,18 +73,18 @@ function loadMonaco(): Promise<MonacoStub> {
       };
       const requireFn = w.require;
       if (!requireFn) {
-        reject(new Error('AMD require not present after loader.js'));
+        rejectLoader(new Error('AMD require not present after loader.js'));
         return;
       }
       requireFn.config({ paths: { vs: MONACO_BASE } });
       requireFn(['vs/editor/editor.main'], () => {
         const m = w.monaco;
         if (!m) {
-          reject(new Error('window.monaco missing after editor.main load'));
+          rejectLoader(new Error('window.monaco missing after editor.main load'));
           return;
         }
         resolve(m);
-      }, (e) => reject(e));
+      }, (e) => rejectLoader(e));
     };
     document.head.appendChild(loaderScript);
   });
