@@ -25,9 +25,9 @@ class AiGitTool extends AiTool {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
 
-    final operation = '${args['operation'] ?? ''}'.trim();
+    final operation = AiToolUtils.readString(args['operation']);
     final workingDirectory = AiToolUtils.resolvePath(
-      '${args['working_directory'] ?? ''}'.trim(),
+      AiToolUtils.readString(args['working_directory']),
     );
     if (operation.isEmpty) {
       return _invalidArgumentsResult(
@@ -89,8 +89,8 @@ class AiGitTool extends AiTool {
         ], toolCallId: toolCallId);
 
       case 'diff':
-        final target = '${args['target'] ?? ''}'.trim();
-        final filePath = '${args['file_path'] ?? ''}'.trim();
+        final target = AiToolUtils.readString(args['target']);
+        final filePath = AiToolUtils.readString(args['file_path']);
         final staged = AiToolUtils.readBool(args['staged']) == true;
         if (target.isNotEmpty && target.startsWith('-')) {
           throw ArgumentError('Git diff target must not start with "-".');
@@ -107,9 +107,9 @@ class AiGitTool extends AiTool {
       case 'log':
         final count = AiToolUtils.readInt(args['count']) ?? 10;
         final safeCnt = count.clamp(1, 100);
-        final filePath = '${args['file_path'] ?? ''}'.trim();
-        final author = '${args['author'] ?? ''}'.trim();
-        final since = '${args['since'] ?? ''}'.trim();
+        final filePath = AiToolUtils.readString(args['file_path']);
+        final author = AiToolUtils.readString(args['author']);
+        final since = AiToolUtils.readString(args['since']);
         final gitArgs = <String>[
           '--no-pager',
           'log',
@@ -130,7 +130,7 @@ class AiGitTool extends AiTool {
         return _run(workingDirectory, gitArgs, toolCallId: toolCallId);
 
       case 'blame':
-        final filePath = '${args['file_path'] ?? ''}'.trim();
+        final filePath = AiToolUtils.readString(args['file_path']);
         if (filePath.isEmpty) {
           throw ArgumentError('Git blame requires file_path.');
         }
@@ -157,7 +157,10 @@ class AiGitTool extends AiTool {
         return _run(workingDirectory, gitArgs, toolCallId: toolCallId);
 
       case 'show':
-        final ref = '${args['target'] ?? args['ref'] ?? 'HEAD'}'.trim();
+        final ref = AiToolUtils.readFirstString(args, const <String>[
+          'target',
+          'ref',
+        ], fallback: 'HEAD');
         if (ref.startsWith('-')) {
           throw ArgumentError('Git show ref must not start with "-".');
         }

@@ -64,7 +64,7 @@ class AiToolSearchTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final stopwatch = Stopwatch()..start();
     final args = context.decodedArguments;
-    final query = '${args['query'] ?? ''}'.trim();
+    final query = AiToolUtils.readString(args['query']);
     final maxResults = AiToolUtils.readClampedInt(
       args['max_results'],
       fallback: _defaultMaxResults,

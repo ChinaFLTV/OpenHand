@@ -50,6 +50,23 @@ class AiToolUtils {
     return p.normalize(p.join(defaultWorkingDirectory(), normalizedInput));
   }
 
+  static String readString(Object? value, {String fallback = ''}) {
+    return optionalStringFromValue(value) ??
+        (optionalStringFromValue(fallback) ?? '');
+  }
+
+  static String readFirstString(
+    Map<String, Object?> values,
+    Iterable<String> keys, {
+    String fallback = '',
+  }) {
+    for (final key in keys) {
+      final value = optionalStringFromValue(values[key]);
+      if (value != null) return value;
+    }
+    return readString(fallback);
+  }
+
   static Future<String> missingPathMessage({
     required String subject,
     required String path,

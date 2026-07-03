@@ -16,7 +16,7 @@ class AiLsTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
-    final rawPath = '${args['path'] ?? ''}'.trim();
+    final rawPath = AiToolUtils.readString(args['path']);
     final path = AiToolUtils.resolvePath(rawPath);
     final pathType = FileSystemEntity.typeSync(path);
     if (pathType == FileSystemEntityType.notFound) {

@@ -30,13 +30,13 @@ class AiGrepTool extends AiTool {
     final startedAt = Stopwatch()..start();
 
     // 参数解析
-    final pattern = '${args['pattern'] ?? ''}'.trim();
+    final pattern = AiToolUtils.readString(args['pattern']);
     if (pattern.isEmpty) {
       return AiToolUtils.invalidResult('Grep', 'Grep requires pattern.');
     }
 
     // 路径解析和验证
-    final rawPath = '${args['path'] ?? ''}'.trim();
+    final rawPath = AiToolUtils.readString(args['path']);
     final path = rawPath.isEmpty
         ? AiToolUtils.defaultWorkingDirectory()
         : (p.isAbsolute(rawPath)
@@ -51,8 +51,11 @@ class AiGrepTool extends AiTool {
       return AiToolUtils.invalidResult('Grep', 'Path does not exist: $path');
     }
 
-    final glob = '${args['glob'] ?? ''}'.trim();
-    final outputMode = '${args['output_mode'] ?? 'files_with_matches'}'.trim();
+    final glob = AiToolUtils.readString(args['glob']);
+    final outputMode = AiToolUtils.readString(
+      args['output_mode'],
+      fallback: 'files_with_matches',
+    );
     if (!_supportedOutputModes.contains(outputMode)) {
       return AiToolUtils.invalidResult(
         'Grep',
@@ -71,7 +74,7 @@ class AiGrepTool extends AiTool {
     }
     final showLineNumbers = AiToolUtils.readBool(args['-n']) ?? true;
     final caseInsensitive = AiToolUtils.readBool(args['-i']) == true;
-    final type = '${args['type'] ?? ''}'.trim();
+    final type = AiToolUtils.readString(args['type']);
     final headLimit = AiToolUtils.readInt(args['head_limit']);
     if (headLimit != null && headLimit < 0) {
       return AiToolUtils.invalidResult(

@@ -21,4 +21,30 @@ void main() {
       expect(decoded['label'], 'on');
     });
   });
+
+  group('AiToolUtils string arguments', () {
+    test('readString trims values and normalizes blank fallback', () {
+      expect(AiToolUtils.readString('  query  '), 'query');
+      expect(AiToolUtils.readString(null, fallback: '  default  '), 'default');
+      expect(AiToolUtils.readString('  ', fallback: '  default  '), 'default');
+    });
+
+    test('readFirstString returns the first non-blank key', () {
+      expect(
+        AiToolUtils.readFirstString(
+          const <String, Object?>{'target': '  ', 'ref': '  HEAD~1  '},
+          const <String>['target', 'ref'],
+          fallback: 'HEAD',
+        ),
+        'HEAD~1',
+      );
+      expect(
+        AiToolUtils.readFirstString(const <String, Object?>{}, const <String>[
+          'target',
+          'ref',
+        ], fallback: '  HEAD  '),
+        'HEAD',
+      );
+    });
+  });
 }

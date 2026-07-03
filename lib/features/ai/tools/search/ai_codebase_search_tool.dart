@@ -36,14 +36,14 @@ class AiCodebaseSearchTool extends AiTool {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
 
-    final query = '${args['query'] ?? ''}'.trim();
+    final query = AiToolUtils.readString(args['query']);
     if (query.isEmpty) {
       return AiToolUtils.invalidResult('CodebaseSearch', 'query is required.');
     }
 
     final searchRoot = _resolveSearchRoot(args);
-    final filePattern = _optionalString(args['file_pattern']);
-    final explanation = '${args['explanation'] ?? ''}'.trim();
+    final filePattern = AiToolUtils.readString(args['file_pattern']);
+    final explanation = AiToolUtils.readString(args['explanation']);
     final rootType = FileSystemEntity.typeSync(searchRoot);
     if (rootType == FileSystemEntityType.notFound) {
       return AiToolUtils.invalidResult(
@@ -115,17 +115,12 @@ class AiCodebaseSearchTool extends AiTool {
   }
 
   String _resolveSearchRoot(Map<String, Object?> args) {
-    final path = _optionalString(args['path']);
+    final path = AiToolUtils.readString(args['path']);
     if (path.isNotEmpty) return AiToolUtils.resolvePath(path);
     final targetDirs = _parseTargetDirectories(args['target_directories']);
     return targetDirs.isNotEmpty
         ? AiToolUtils.resolvePath(targetDirs.first)
         : AiToolUtils.defaultWorkingDirectory();
-  }
-
-  String _optionalString(Object? value) {
-    if (value is! String) return '';
-    return value.trim();
   }
 
   List<String> _parseTargetDirectories(Object? value) {

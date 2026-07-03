@@ -17,11 +17,13 @@ class AiGlobTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
-    final pattern = '${args['pattern'] ?? ''}'.trim();
+    final pattern = AiToolUtils.readString(args['pattern']);
     if (pattern.isEmpty) {
       return AiToolUtils.invalidResult('Glob', 'Glob requires pattern.');
     }
-    final rootPath = AiToolUtils.resolvePath('${args['path'] ?? ''}'.trim());
+    final rootPath = AiToolUtils.resolvePath(
+      AiToolUtils.readString(args['path']),
+    );
     final rootEntity = FileSystemEntity.typeSync(rootPath);
     if (rootEntity == FileSystemEntityType.notFound) {
       return AiToolUtils.invalidResult(
