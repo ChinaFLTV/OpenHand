@@ -104,16 +104,31 @@ class _OpenHandModelSelectorFieldState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final usesDefaultLabel =
+        widget.labelZh == '使用模型' && widget.labelEn == 'Model';
+    final labelFr = usesDefaultLabel ? 'Modèle' : widget.labelEn;
+    final labelDe = usesDefaultLabel ? 'Modell' : widget.labelEn;
+    final labelJa = usesDefaultLabel ? 'モデル' : widget.labelEn;
     final label = openHandLocalizedText(
       context,
       zh: widget.required ? '${widget.labelZh} *' : widget.labelZh,
       en: widget.required ? '${widget.labelEn} *' : widget.labelEn,
+      zhHant: widget.required ? '${widget.labelZh} *' : widget.labelZh,
+      fr: widget.required ? '$labelFr *' : labelFr,
+      de: widget.required ? '$labelDe *' : labelDe,
+      ja: widget.required ? '$labelJa *' : labelJa,
     );
     final displayLabel = _selectedDisplayLabel();
     final placeholder = openHandLocalizedText(
       context,
       zh: _hasModels ? '点击选择模型' : '未配置可用模型',
       en: _hasModels ? 'Tap to choose a model' : 'No models configured',
+      zhHant: _hasModels ? '點擊選擇模型' : '未設定可用模型',
+      fr: _hasModels
+          ? 'Touchez pour choisir un modèle'
+          : 'Aucun modèle configuré',
+      de: _hasModels ? 'Modell auswählen' : 'Keine Modelle konfiguriert',
+      ja: _hasModels ? 'モデルを選択' : '利用可能なモデルが未設定です',
     );
     final helper = openHandLocalizedText(
       context,
@@ -127,6 +142,26 @@ class _OpenHandModelSelectorFieldState
           (widget.required
               ? 'This template sends the first message automatically, so choose the model before creating it.'
               : 'Applies only to this new session; otherwise the active model is kept.'),
+      zhHant:
+          widget.helperZh ??
+          (widget.required
+              ? '此範本建立後會自動傳送第一則訊息，請先指定本次會話使用的模型。'
+              : '僅影響本次新建會話；未選擇時沿用目前啟用模型。'),
+      fr:
+          widget.helperEn ??
+          (widget.required
+              ? 'Ce modèle envoie automatiquement le premier message ; choisissez le modèle avant de le créer.'
+              : 'S’applique uniquement à cette nouvelle session ; sinon le modèle actif est conservé.'),
+      de:
+          widget.helperEn ??
+          (widget.required
+              ? 'Diese Vorlage sendet die erste Nachricht automatisch. Wählen Sie vorher das Modell.'
+              : 'Gilt nur für diese neue Sitzung; sonst bleibt das aktive Modell erhalten.'),
+      ja:
+          widget.helperEn ??
+          (widget.required
+              ? 'このテンプレートは最初のメッセージを自動送信します。作成前にモデルを選択してください。'
+              : 'この新規セッションにのみ適用されます。未選択の場合は現在の有効モデルを使います。'),
     );
 
     return Column(

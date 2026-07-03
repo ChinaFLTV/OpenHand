@@ -17,11 +17,34 @@ bool openHandIsChineseLocale(BuildContext context) {
   return languageCode.toLowerCase().startsWith('zh');
 }
 
-/// Returns [zh] for Chinese locales and [en] otherwise.
+/// Returns text for the active OpenHand locale with conservative fallback.
+///
+/// Prefer generated [AppLocalizations] for user-facing app copy. This helper is
+/// for compact shared widgets and legacy surfaces that still accept inline copy.
 String openHandLocalizedText(
   BuildContext context, {
   required String zh,
   required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
 }) {
-  return openHandIsChineseLocale(context) ? zh : en;
+  final locale = Localizations.localeOf(context);
+  final languageCode = locale.languageCode.toLowerCase();
+  final scriptCode = locale.scriptCode?.toLowerCase();
+  switch (languageCode) {
+    case 'zh':
+      if (scriptCode == 'hant') return zhHant ?? zh;
+      return zhHans ?? zh;
+    case 'fr':
+      return fr ?? en;
+    case 'de':
+      return de ?? en;
+    case 'ja':
+      return ja ?? en;
+    default:
+      return en;
+  }
 }
