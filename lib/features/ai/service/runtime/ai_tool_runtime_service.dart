@@ -3682,7 +3682,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.agentAuditReport,
       name: 'AgentAuditReport',
       description:
-          'Generate a compact digital employee audit report with task completion metrics, worker capacity, KPI status, approval counts, resource usage, recent activities, and capability audit summaries. Use when the user asks for operational review, utilization, load, KPI, approval, token/request, or capability-use reporting.',
+          'Generate a compact digital employee audit report with task completion metrics, worker execution, worker capacity, KPI status, approval counts, resource/load pressure, recent activities, and capability usage summaries. Use when the user asks for operational review, utilization, load, KPI, approval, token/request, worker, or capability-use reporting.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{

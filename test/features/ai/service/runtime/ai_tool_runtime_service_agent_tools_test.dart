@@ -111,6 +111,8 @@ void main() {
         contains('digital employee audit report'),
       );
       expect(auditReport.definition.description, contains('worker capacity'));
+      expect(auditReport.definition.description, contains('worker execution'));
+      expect(auditReport.definition.description, contains('capability usage'));
       expect(
         audit.definition.description,
         contains('Record an auditable digital employee capability event'),
@@ -1029,6 +1031,18 @@ void main() {
         final resourceUsage = payload['resource_usage'] as Map<String, Object?>;
         final auditSummary = payload['audit_summary'] as Map<String, Object?>;
         final toolCounts = auditSummary['tool_counts'] as Map<String, Object?>;
+        final capabilityUsage =
+            payload['capability_usage'] as Map<String, Object?>;
+        final capabilityByType =
+            capabilityUsage['by_type'] as Map<String, Object?>;
+        final topCapabilities =
+            capabilityUsage['top_capabilities'] as List<Object?>;
+        final workerExecution =
+            payload['worker_execution'] as Map<String, Object?>;
+        final workerExecutionRows = workerExecution['workers'] as List<Object?>;
+        final loadSummary = payload['load_summary'] as Map<String, Object?>;
+        final resourcePressure =
+            loadSummary['resource_pressure'] as Map<String, Object?>;
         final recentAuditEvents =
             payload['recent_audit_events'] as List<Object?>;
         final pendingApprovals = payload['pending_approvals'] as List<Object?>;
@@ -1052,6 +1066,27 @@ void main() {
         expect(auditSummary['request_count'], 2);
         expect(auditSummary['token_usage'], 100);
         expect(toolCounts['SkillRunner'], 1);
+        expect(capabilityUsage['event_count'], 1);
+        expect(capabilityUsage['request_count'], 2);
+        expect(capabilityUsage['token_usage'], 100);
+        expect(capabilityByType['skill'], 1);
+        expect(topCapabilities.single, containsPair('name', 'SkillRunner'));
+        expect(topCapabilities.single, containsPair('type', 'skill'));
+        expect(workerExecution['total_workers'], 2);
+        expect(workerExecution['observed_workers'], 2);
+        expect(workerExecution['task_assignment_count'], 1);
+        expect(workerExecution['unassigned_task_count'], 0);
+        final workerExecutionRow =
+            workerExecutionRows.first as Map<String, Object?>;
+        expect(workerExecutionRow['id'], 'worker-1');
+        expect(workerExecutionRow['status'], 'busy');
+        final workerTaskMetrics =
+            workerExecutionRow['task_metrics'] as Map<String, Object?>;
+        expect(workerTaskMetrics['total'], 1);
+        final workerAuditSummary =
+            workerExecutionRow['audit_summary'] as Map<String, Object?>;
+        expect(workerAuditSummary['token_usage'], 100);
+        expect(resourcePressure['has_pressure'], isFalse);
         expect(recentAuditEvents.single, isA<Map<String, Object?>>());
         expect((tasks.single as Map<String, Object?>)['id'], 'task-1');
         expect(result.metadata['action'], 'audit_report');

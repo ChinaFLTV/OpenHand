@@ -843,6 +843,14 @@ class AiAgentTool extends AiTool {
           .toList(growable: false),
       'resource_usage': _resourceUsageSummaryJson(agent.resourceUsage),
       'audit_summary': _auditSummaryJson(auditEvents),
+      'capability_usage': _capabilityUsageJson(auditEvents, limit: limit),
+      'worker_execution': _workerExecutionReportJson(
+        agent,
+        tasks,
+        auditEvents,
+        limit: limit,
+      ),
+      'load_summary': _loadSummaryJson(agent),
       'recent_audit_events': auditEvents
           .take(limit)
           .map(_auditEventSummaryJson)
@@ -2352,6 +2360,275 @@ Map<String, Object?> _auditSummaryJson(List<AgentAuditEvent> events) {
         .map(_auditEventSummaryJson)
         .toList(growable: false),
   };
+}
+
+Map<String, Object?> _capabilityUsageJson(
+  List<AgentAuditEvent> events, {
+  int limit = 10,
+}) {
+  final byType = <String, int>{};
+  final groups = <String, Map<String, Object?>>{};
+  var requestCount = 0;
+  var tokenUsage = 0;
+  for (final event in events) {
+    requestCount += event.requestCount;
+    tokenUsage += event.tokenUsage;
+    final type = _auditCapabilityType(event);
+    byType[type] = (byType[type] ?? 0) + 1;
+    final name = _auditCapabilityName(event);
+    final key = '$type::$name';
+    final group = groups.putIfAbsent(
+      key,
+      () => <String, Object?>{
+        'type': type,
+        'name': name,
+        'event_count': 0,
+        'request_count': 0,
+        'token_usage': 0,
+        'kinds': <String>{},
+        'last_used_at': null,
+      },
+    );
+    group['event_count'] = (group['event_count'] as int) + 1;
+    group['request_count'] =
+        (group['request_count'] as int) + event.requestCount;
+    group['token_usage'] = (group['token_usage'] as int) + event.tokenUsage;
+    (group['kinds'] as Set<String>).add(event.kind);
+    group['last_used_at'] = _latestDateTime(
+      group['last_used_at'] as DateTime?,
+      event.createdAt,
+    );
+  }
+  final topCapabilities =
+      groups.values
+          .map(
+            (group) => <String, Object?>{
+              'type': group['type'],
+              'name': group['name'],
+              'event_count': group['event_count'],
+              'request_count': group['request_count'],
+              'token_usage': group['token_usage'],
+              'kinds': (group['kinds'] as Set<String>).toList(growable: false),
+              'last_used_at': _iso(group['last_used_at'] as DateTime?),
+            },
+          )
+          .toList(growable: false)
+        ..sort(_capabilityUsageCompare);
+  return <String, Object?>{
+    'event_count': events.length,
+    'request_count': requestCount,
+    'token_usage': tokenUsage,
+    'by_type': byType,
+    'top_capabilities': topCapabilities.take(limit).toList(growable: false),
+  };
+}
+
+Map<String, Object?> _workerExecutionReportJson(
+  AgentProfile agent,
+  List<AgentTask> tasks,
+  List<AgentAuditEvent> auditEvents, {
+  int limit = 10,
+}) {
+  final workerIds = <String>{};
+  for (final worker in agent.workers) {
+    workerIds.add(worker.id);
+  }
+  for (final task in tasks) {
+    final workerId = '${task.extra['assigned_worker_id'] ?? ''}'.trim();
+    if (workerId.isNotEmpty) workerIds.add(workerId);
+  }
+  for (final event in auditEvents) {
+    final workerId = '${event.metadata['worker_id'] ?? ''}'.trim();
+    if (workerId.isNotEmpty) workerIds.add(workerId);
+  }
+
+  var assignedTaskCount = 0;
+  final workers =
+      workerIds
+          .map((workerId) {
+            final worker = _workerById(agent, workerId);
+            final workerTasks = tasks
+                .where((task) => _taskAssignedToWorker(task, workerId))
+                .toList(growable: false);
+            final workerAuditEvents = auditEvents
+                .where(
+                  (event) =>
+                      _matchesMetadata(event.metadata, 'worker_id', workerId),
+                )
+                .toList(growable: false);
+            assignedTaskCount += workerTasks.length;
+            final latestTaskAt = workerTasks.fold<DateTime?>(
+              null,
+              (latest, task) =>
+                  _latestDateTime(latest, task.updatedAt ?? task.createdAt),
+            );
+            final latestAuditAt = workerAuditEvents.fold<DateTime?>(
+              null,
+              (latest, event) => _latestDateTime(latest, event.createdAt),
+            );
+            final auditSummary = _auditSummaryJson(workerAuditEvents);
+            return <String, Object?>{
+              'id': workerId,
+              'name': worker?.name ?? '',
+              'missing': worker == null,
+              'status': worker?.status.storageValue ?? 'unknown',
+              'idle': worker?.status == AgentWorkerStatus.idle,
+              'executed_task_count': worker?.executedTaskCount ?? 0,
+              'busy_score': worker?.busyScore ?? 0,
+              'priority': worker?.priority ?? 0,
+              'current_task_id': worker?.currentTaskId ?? '',
+              'labels': worker?.labels ?? const <String>[],
+              'task_metrics': _taskMetricsForTasksJson(workerTasks),
+              'audit_summary': auditSummary,
+              'last_activity_at': _iso(
+                _latestDateTime(latestTaskAt, latestAuditAt),
+              ),
+            };
+          })
+          .toList(growable: false)
+        ..sort(_workerExecutionCompare);
+
+  return <String, Object?>{
+    'total_workers': agent.workers.length,
+    'observed_workers': workers.length,
+    'busy_workers': agent.workers
+        .where((worker) => worker.status == AgentWorkerStatus.busy)
+        .length,
+    'idle_workers': agent.workers
+        .where((worker) => worker.status == AgentWorkerStatus.idle)
+        .length,
+    'executed_task_count': agent.workers.fold<int>(
+      0,
+      (sum, worker) => sum + worker.executedTaskCount,
+    ),
+    'task_assignment_count': assignedTaskCount,
+    'unassigned_task_count': tasks.length - assignedTaskCount,
+    'workers': workers.take(limit).toList(growable: false),
+  };
+}
+
+Map<String, Object?> _loadSummaryJson(AgentProfile agent) {
+  return <String, Object?>{
+    'worker_capacity': _workerCapacityJsonForAgent(agent),
+    'queue_pressure': _queuePressureJson(agent),
+    'resource_pressure': _resourcePressureJson(agent.resourceUsage),
+  };
+}
+
+String _auditCapabilityType(AgentAuditEvent event) {
+  final values = <String>[
+    event.kind,
+    event.toolName,
+    '${event.metadata['capability_type'] ?? ''}',
+    '${event.metadata['type'] ?? ''}',
+  ].join(' ').toLowerCase();
+  if (values.contains('skill')) return 'skill';
+  if (values.contains('mcp')) return 'mcp';
+  if (values.contains('memory')) return 'memory';
+  if (values.contains('knowledge')) return 'knowledge';
+  if (values.contains('builtin')) return 'builtin_tool';
+  if (values.contains('model')) return 'model_request';
+  if (values.contains('resource')) return 'resource';
+  if (values.contains('approval')) return 'approval';
+  if (values.contains('kpi')) return 'kpi';
+  if (values.contains('worker') || values.contains('task')) {
+    return 'worker_execution';
+  }
+  return 'other';
+}
+
+String _auditCapabilityName(AgentAuditEvent event) {
+  for (final raw in <Object?>[
+    event.toolName,
+    event.metadata['tool_name'],
+    event.metadata['tool'],
+    event.metadata['capability_name'],
+    event.kind,
+  ]) {
+    final text = '$raw'.trim();
+    if (text.isNotEmpty) return text;
+  }
+  return 'unknown';
+}
+
+int _capabilityUsageCompare(
+  Map<String, Object?> left,
+  Map<String, Object?> right,
+) {
+  final tokenCompare = _intValue(
+    right['token_usage'],
+  ).compareTo(_intValue(left['token_usage']));
+  if (tokenCompare != 0) return tokenCompare;
+  final requestCompare = _intValue(
+    right['request_count'],
+  ).compareTo(_intValue(left['request_count']));
+  if (requestCompare != 0) return requestCompare;
+  final eventCompare = _intValue(
+    right['event_count'],
+  ).compareTo(_intValue(left['event_count']));
+  if (eventCompare != 0) return eventCompare;
+  return '${left['name'] ?? ''}'.compareTo('${right['name'] ?? ''}');
+}
+
+int _workerExecutionCompare(
+  Map<String, Object?> left,
+  Map<String, Object?> right,
+) {
+  final leftAudit = stringKeyedMapFromValue(left['audit_summary']);
+  final rightAudit = stringKeyedMapFromValue(right['audit_summary']);
+  final tokenCompare = _intValue(
+    rightAudit['token_usage'],
+  ).compareTo(_intValue(leftAudit['token_usage']));
+  if (tokenCompare != 0) return tokenCompare;
+  final requestCompare = _intValue(
+    rightAudit['request_count'],
+  ).compareTo(_intValue(leftAudit['request_count']));
+  if (requestCompare != 0) return requestCompare;
+  final taskCompare =
+      _intValue(
+        stringKeyedMapFromValue(right['task_metrics'])['total'],
+      ).compareTo(
+        _intValue(stringKeyedMapFromValue(left['task_metrics'])['total']),
+      );
+  if (taskCompare != 0) return taskCompare;
+  return '${left['id'] ?? ''}'.compareTo('${right['id'] ?? ''}');
+}
+
+AgentWorker? _workerById(AgentProfile agent, String workerId) {
+  for (final worker in agent.workers) {
+    if (worker.id == workerId) return worker;
+  }
+  return null;
+}
+
+DateTime? _latestDateTime(DateTime? left, DateTime? right) {
+  if (left == null) return right;
+  if (right == null) return left;
+  return right.isAfter(left) ? right : left;
+}
+
+Map<String, Object?> _resourcePressureJson(AgentResourceUsage usage) {
+  final tokenRatio = usage.tokenBudget > 0
+      ? (usage.tokenUsed / usage.tokenBudget).clamp(0, 1).toDouble()
+      : 0.0;
+  final diskPressure = usage.diskBytes > 0
+      ? (usage.persistedBytes / usage.diskBytes).clamp(0, 1).toDouble()
+      : 0.0;
+  return <String, Object?>{
+    'cpu_percent': usage.cpuPercent,
+    'token_usage_ratio': tokenRatio,
+    'persisted_disk_ratio': diskPressure,
+    'open_handles': usage.openHandles,
+    'has_pressure':
+        usage.cpuPercent >= 0.85 ||
+        tokenRatio >= 0.85 ||
+        diskPressure >= 0.85 ||
+        usage.openHandles >= 100,
+  };
+}
+
+int _intValue(Object? raw) {
+  return optionalIntFromValue(raw) ?? 0;
 }
 
 Map<String, Object?> _activitySummaryJson(List<AgentActivityEvent> events) {
