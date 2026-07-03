@@ -84,7 +84,7 @@ import {
   knowledgeBaseHitTokenEstimateTotal,
   knowledgeBaseResultsUsedByAnswer,
 } from '../../../shared/util/knowledge';
-import { clampNumber, strictPositiveIntegerFromText } from '../../../shared/util/number';
+import { clampNumber, normalizeInteger, strictPositiveIntegerFromText } from '../../../shared/util/number';
 import { basenameFromPath } from '../../../shared/util/path';
 import {
   clearTranscriptScrollActivity,
@@ -488,13 +488,11 @@ function messageFeedbackValue(message: SessionMessage): SessionMessageFeedback |
   if (legacy) return legacy;
   const variants = meta['response_variants'];
   if (!Array.isArray(variants) || variants.length === 0) return null;
-  const index = Math.max(
-    0,
-    Math.min(
-      variants.length - 1,
-      finiteNumberOrNullFromUnknown(meta['response_variant_index']) ?? 0,
-    ),
-  );
+  const index = normalizeInteger(finiteNumberOrNullFromUnknown(meta['response_variant_index']), {
+    fallback: 0,
+    min: 0,
+    max: variants.length - 1,
+  });
   return normalizedMessageFeedback(recordOrNullFromUnknown(variants[index])?.['message_feedback']);
 }
 
