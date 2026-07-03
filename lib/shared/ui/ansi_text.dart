@@ -124,6 +124,8 @@ int _findOscEnd(String input, int start) {
   return -1;
 }
 
+int? _parseAnsiInt(String value) => int.tryParse(value);
+
 class _AnsiState {
   bool bold = false;
   bool dim = false;
@@ -173,7 +175,7 @@ class _AnsiState {
     }
     final parts = params.split(';');
     for (var i = 0; i < parts.length; i++) {
-      final n = int.tryParse(parts[i]);
+      final n = _parseAnsiInt(parts[i]);
       if (n == null) continue;
       switch (n) {
         case 0:
@@ -225,11 +227,11 @@ class _AnsiState {
   /// 38/48 token. Returns 0 if the format was unrecognised.
   int _parseExtendedColor(List<String> parts, int start, {required bool isFg}) {
     if (start >= parts.length) return 0;
-    final mode = int.tryParse(parts[start]);
+    final mode = _parseAnsiInt(parts[start]);
     if (mode == 5) {
       // 256-color
       if (start + 1 >= parts.length) return 0;
-      final idx = int.tryParse(parts[start + 1]);
+      final idx = _parseAnsiInt(parts[start + 1]);
       if (idx == null) return 0;
       final color = _ansi256Color(idx);
       if (isFg) {
@@ -242,9 +244,9 @@ class _AnsiState {
     if (mode == 2) {
       // truecolor
       if (start + 3 >= parts.length) return 0;
-      final r = int.tryParse(parts[start + 1]);
-      final g = int.tryParse(parts[start + 2]);
-      final b = int.tryParse(parts[start + 3]);
+      final r = _parseAnsiInt(parts[start + 1]);
+      final g = _parseAnsiInt(parts[start + 2]);
+      final b = _parseAnsiInt(parts[start + 3]);
       if (r == null || g == null || b == null) return 0;
       final color = Color.fromARGB(255, r & 0xff, g & 0xff, b & 0xff);
       if (isFg) {
