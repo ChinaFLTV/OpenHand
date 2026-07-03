@@ -390,9 +390,13 @@ class AiToolRuntimeService {
   }
 
   int _toolNameCompare(String left, String right) {
-    return AiResolvedToolCatalog._normalizeToolLookupKey(
+    final normalizedCompare = AiResolvedToolCatalog._normalizeToolLookupKey(
       left,
     ).compareTo(AiResolvedToolCatalog._normalizeToolLookupKey(right));
+    if (normalizedCompare != 0) {
+      return normalizedCompare;
+    }
+    return left.compareTo(right);
   }
 
   List<LocalSkill> _sortedSkills(List<LocalSkill> skills) {

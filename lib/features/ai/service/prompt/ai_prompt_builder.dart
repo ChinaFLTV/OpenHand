@@ -1856,13 +1856,17 @@ class AiPromptBuilder {
     AiToolDefinition a,
     AiToolDefinition b,
   ) {
+    return _comparePromptCatalogNames(a.name, b.name);
+  }
+
+  int _comparePromptCatalogNames(String a, String b) {
     final normalizedCompare = _normalizeToolNameForPromptCatalog(
-      a.name,
-    ).compareTo(_normalizeToolNameForPromptCatalog(b.name));
+      a,
+    ).compareTo(_normalizeToolNameForPromptCatalog(b));
     if (normalizedCompare != 0) {
       return normalizedCompare;
     }
-    return a.name.compareTo(b.name);
+    return a.compareTo(b);
   }
 
   List<String> _promptCatalogToolNames(List<AiToolDefinition> tools) {
@@ -1871,15 +1875,7 @@ class AiPromptBuilder {
         .where((name) => name.isNotEmpty)
         .toSet()
         .toList(growable: false);
-    names.sort((a, b) {
-      final normalizedA = _normalizeToolNameForPromptCatalog(a);
-      final normalizedB = _normalizeToolNameForPromptCatalog(b);
-      final normalizedCompare = normalizedA.compareTo(normalizedB);
-      if (normalizedCompare != 0) {
-        return normalizedCompare;
-      }
-      return a.compareTo(b);
-    });
+    names.sort(_comparePromptCatalogNames);
     return names;
   }
 
@@ -1918,7 +1914,7 @@ class AiPromptBuilder {
     final properties = stringKeyedMapFromValue(parameters['properties']);
     if (properties.isEmpty) return const <String>[];
     final requiredNames = stringListFromValue(parameters['required']).toSet();
-    return properties.keys
+    final names = properties.keys
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)
         .where(
@@ -1927,6 +1923,8 @@ class AiPromptBuilder {
               : !requiredNames.contains(item),
         )
         .toList(growable: false);
+    names.sort(_comparePromptCatalogNames);
+    return names;
   }
 
   List<AiChatTurn> _mapMessageContent({
@@ -4704,12 +4702,18 @@ $content
     if (latestCompressionPoint == null) {
       return '';
     }
-    final mcpTools = availableTools
-        .where((tool) => tool.name.trim().startsWith('mcp__'))
-        .toList(growable: false);
-    final servers = runtimeContext.availableMcpServers
-        .where((server) => server.name.trim().isNotEmpty)
-        .toList(growable: false);
+    final mcpTools =
+        availableTools
+            .where((tool) => tool.name.trim().startsWith('mcp__'))
+            .toList(growable: false)
+          ..sort(_compareToolDefinitionsForPromptCatalog);
+    final servers =
+        runtimeContext.availableMcpServers
+            .where((server) => server.name.trim().isNotEmpty)
+            .toList(growable: false)
+          ..sort(
+            (left, right) => _comparePromptCatalogNames(left.name, right.name),
+          );
     final serverInstructionsByName = <String, String>{
       for (final entry in mcpServerInstructionsByName.entries)
         if (entry.key.trim().isNotEmpty && entry.value.trim().isNotEmpty)
@@ -4875,10 +4879,16 @@ $content
     String toolName,
     Iterable<String> knownServerTokens,
   ) {
+    var bestMatch = '';
     for (final serverToken in knownServerTokens) {
       if (toolName.startsWith('${serverToken}__')) {
-        return serverToken;
+        if (serverToken.length > bestMatch.length) {
+          bestMatch = serverToken;
+        }
       }
+    }
+    if (bestMatch.isNotEmpty) {
+      return bestMatch;
     }
     final parts = toolName.trim().split('__');
     if (parts.length < 3 || parts.first != 'mcp') {
