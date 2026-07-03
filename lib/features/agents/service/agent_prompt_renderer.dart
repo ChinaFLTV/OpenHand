@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../../app/support/silent_log.dart';
 import '../model/agent_models.dart';
+import 'agent_routing_metadata.dart';
 
 class AgentPromptSnapshot {
   const AgentPromptSnapshot({
@@ -94,6 +95,7 @@ class AgentPromptRenderer {
 }
 
 Map<String, Object?> _profileJson(AgentProfile agent) {
+  final routing = AgentRoutingMetadata.fromAgent(agent);
   return <String, Object?>{
     'id': agent.id,
     'name': agent.name,
@@ -108,6 +110,7 @@ Map<String, Object?> _profileJson(AgentProfile agent) {
     'welcome_message': agent.welcomeMessage,
     'archive': agent.archive,
     'route_front_matter': agent.routeFrontMatter,
+    'routing': routing.toJson(),
   };
 }
 

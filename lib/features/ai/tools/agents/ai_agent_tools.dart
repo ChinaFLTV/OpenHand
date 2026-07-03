@@ -604,6 +604,7 @@ class _TaskResolution {
 }
 
 Map<String, Object?> _agentSummaryJson(AgentProfile agent) {
+  final routing = AgentRoutingMetadata.fromAgent(agent);
   return <String, Object?>{
     'id': agent.id,
     'name': agent.name,
@@ -630,6 +631,7 @@ Map<String, Object?> _agentSummaryJson(AgentProfile agent) {
       'mcp_servers': agent.mcpServerNames,
       'builtin_tools': agent.builtinToolNames,
     },
+    'routing': routing.toJson(includeRawPreview: false),
     'updated_at': _iso(agent.updatedAt),
   };
 }
@@ -649,6 +651,7 @@ Map<String, Object?> _agentDetailJson(
     'workspace_path': agent.workspacePath,
     'workspace_scope': agent.workspaceScope,
     'self_learning_enabled': agent.selfLearningEnabled,
+    'routing': AgentRoutingMetadata.fromAgent(agent).toJson(),
     'task_labels': agent.taskLabels,
     'cron_ids': agent.cronIds,
     'hook_ids': agent.hookIds,
