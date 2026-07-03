@@ -47,6 +47,33 @@ const String _toolOutputRecoveryHintReadPersisted = 'read_persisted_output';
 const String _toolOutputPersistenceFormatText = 'text';
 const String _filePathResolvedAgainstCwdDescription =
     'The absolute or relative file path. Relative paths are resolved against the working directory.';
+const List<Object?> _agentToolAgentSelectorAnyOf = <Object?>[
+  <String, Object?>{
+    'required': <String>['agent_id'],
+  },
+  <String, Object?>{
+    'required': <String>['agent_name'],
+  },
+  <String, Object?>{
+    'required': <String>['agent'],
+  },
+];
+const List<Object?> _agentToolTaskSelectorAnyOf = <Object?>[
+  <String, Object?>{
+    'required': <String>['task_id'],
+  },
+  <String, Object?>{
+    'required': <String>['id'],
+  },
+];
+const List<Object?> _agentToolAgentTaskAllOf = <Object?>[
+  <String, Object?>{'anyOf': _agentToolAgentSelectorAnyOf},
+  <String, Object?>{'anyOf': _agentToolTaskSelectorAnyOf},
+];
+const Map<String, Object?> _agentToolExtraSchema = <String, Object?>{
+  'type': 'object',
+  'additionalProperties': true,
+};
 
 class AiResolvedToolCatalog {
   const AiResolvedToolCatalog({
@@ -3543,17 +3570,7 @@ class AiToolRuntimeService {
                 'When true, include the full rendered digital employee system prompt. Use sparingly.',
           },
         },
-        'anyOf': <Object?>[
-          <String, Object?>{
-            'required': <String>['agent_id'],
-          },
-          <String, Object?>{
-            'required': <String>['agent_name'],
-          },
-          <String, Object?>{
-            'required': <String>['agent'],
-          },
-        ],
+        'anyOf': _agentToolAgentSelectorAnyOf,
         'additionalProperties': false,
       },
     ),
@@ -3595,10 +3612,7 @@ class AiToolRuntimeService {
             'items': <String, Object?>{'type': 'string'},
             'description': 'Alias for labels.',
           },
-          'extra': <String, Object?>{
-            'type': 'object',
-            'additionalProperties': true,
-          },
+          'extra': _agentToolExtraSchema,
         },
         'required': <String>['title'],
         'additionalProperties': false,
@@ -3621,18 +3635,7 @@ class AiToolRuntimeService {
             'description': 'Alias for task_id.',
           },
         },
-        'required': <String>['task_id'],
-        'anyOf': <Object?>[
-          <String, Object?>{
-            'required': <String>['agent_id'],
-          },
-          <String, Object?>{
-            'required': <String>['agent_name'],
-          },
-          <String, Object?>{
-            'required': <String>['agent'],
-          },
-        ],
+        'allOf': _agentToolAgentTaskAllOf,
         'additionalProperties': false,
       },
     ),
@@ -3650,18 +3653,7 @@ class AiToolRuntimeService {
           'task_id': <String, Object?>{'type': 'string'},
           'id': <String, Object?>{'type': 'string'},
         },
-        'required': <String>['task_id'],
-        'anyOf': <Object?>[
-          <String, Object?>{
-            'required': <String>['agent_id'],
-          },
-          <String, Object?>{
-            'required': <String>['agent_name'],
-          },
-          <String, Object?>{
-            'required': <String>['agent'],
-          },
-        ],
+        'allOf': _agentToolAgentTaskAllOf,
         'additionalProperties': false,
       },
     ),
@@ -3680,19 +3672,9 @@ class AiToolRuntimeService {
           'id': <String, Object?>{'type': 'string'},
           'note': <String, Object?>{'type': 'string'},
           'result': <String, Object?>{'type': 'string'},
+          'extra': _agentToolExtraSchema,
         },
-        'required': <String>['task_id'],
-        'anyOf': <Object?>[
-          <String, Object?>{
-            'required': <String>['agent_id'],
-          },
-          <String, Object?>{
-            'required': <String>['agent_name'],
-          },
-          <String, Object?>{
-            'required': <String>['agent'],
-          },
-        ],
+        'allOf': _agentToolAgentTaskAllOf,
         'additionalProperties': false,
       },
     ),
@@ -3715,19 +3697,9 @@ class AiToolRuntimeService {
             'minimum': 0,
             'maximum': 1,
           },
+          'extra': _agentToolExtraSchema,
         },
-        'required': <String>['task_id'],
-        'anyOf': <Object?>[
-          <String, Object?>{
-            'required': <String>['agent_id'],
-          },
-          <String, Object?>{
-            'required': <String>['agent_name'],
-          },
-          <String, Object?>{
-            'required': <String>['agent'],
-          },
-        ],
+        'allOf': _agentToolAgentTaskAllOf,
         'additionalProperties': false,
       },
     ),
@@ -3751,19 +3723,9 @@ class AiToolRuntimeService {
             'minimum': 0,
             'maximum': 1,
           },
+          'extra': _agentToolExtraSchema,
         },
-        'required': <String>['task_id'],
-        'anyOf': <Object?>[
-          <String, Object?>{
-            'required': <String>['agent_id'],
-          },
-          <String, Object?>{
-            'required': <String>['agent_name'],
-          },
-          <String, Object?>{
-            'required': <String>['agent'],
-          },
-        ],
+        'allOf': _agentToolAgentTaskAllOf,
         'additionalProperties': false,
       },
     ),
@@ -3780,19 +3742,9 @@ class AiToolRuntimeService {
           'task_id': <String, Object?>{'type': 'string'},
           'id': <String, Object?>{'type': 'string'},
           'note': <String, Object?>{'type': 'string'},
+          'extra': _agentToolExtraSchema,
         },
-        'required': <String>['task_id'],
-        'anyOf': <Object?>[
-          <String, Object?>{
-            'required': <String>['agent_id'],
-          },
-          <String, Object?>{
-            'required': <String>['agent_name'],
-          },
-          <String, Object?>{
-            'required': <String>['agent'],
-          },
-        ],
+        'allOf': _agentToolAgentTaskAllOf,
         'additionalProperties': false,
       },
     ),
@@ -3814,23 +3766,10 @@ class AiToolRuntimeService {
             'description': 'Final task result or handoff summary.',
           },
           'note': <String, Object?>{'type': 'string'},
-          'extra': <String, Object?>{
-            'type': 'object',
-            'additionalProperties': true,
-          },
+          'extra': _agentToolExtraSchema,
         },
-        'required': <String>['task_id', 'result'],
-        'anyOf': <Object?>[
-          <String, Object?>{
-            'required': <String>['agent_id'],
-          },
-          <String, Object?>{
-            'required': <String>['agent_name'],
-          },
-          <String, Object?>{
-            'required': <String>['agent'],
-          },
-        ],
+        'required': <String>['result'],
+        'allOf': _agentToolAgentTaskAllOf,
         'additionalProperties': false,
       },
     ),
@@ -3848,18 +3787,7 @@ class AiToolRuntimeService {
           'task_id': <String, Object?>{'type': 'string'},
           'id': <String, Object?>{'type': 'string'},
         },
-        'required': <String>['task_id'],
-        'anyOf': <Object?>[
-          <String, Object?>{
-            'required': <String>['agent_id'],
-          },
-          <String, Object?>{
-            'required': <String>['agent_name'],
-          },
-          <String, Object?>{
-            'required': <String>['agent'],
-          },
-        ],
+        'allOf': _agentToolAgentTaskAllOf,
         'additionalProperties': false,
       },
     ),

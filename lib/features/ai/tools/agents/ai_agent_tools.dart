@@ -553,6 +553,7 @@ class AiAgentTool extends AiTool {
         'state': state,
         'result': task.result,
         'note': task.note,
+        'extra': _taskExtraJson(task.extra),
         if (assignedWorker != null) 'assigned_worker': assignedWorker,
         'operational_summary': _taskOperationalSummaryJson(
           resolved.agent!,

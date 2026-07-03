@@ -19,6 +19,8 @@ import 'package:openhand/features/memory/index.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('Agent builtin tool catalog gate', () {
     late Directory tempDir;
     late AgentsController controller;
@@ -78,6 +80,56 @@ void main() {
         result.definition.description,
         contains('terminal, requires attention'),
       );
+    });
+
+    test('agent task schemas allow task id aliases and update extra', () {
+      for (final kind in const <AiBuiltinToolKind>[
+        AiBuiltinToolKind.agentTaskTrack,
+        AiBuiltinToolKind.agentTaskProgress,
+        AiBuiltinToolKind.agentTaskCancel,
+        AiBuiltinToolKind.agentTaskPause,
+        AiBuiltinToolKind.agentTaskTerminate,
+        AiBuiltinToolKind.agentTaskResume,
+        AiBuiltinToolKind.agentTaskComplete,
+        AiBuiltinToolKind.agentTaskResult,
+      ]) {
+        final parameters = AiToolRuntimeService.builtinToolDefault(
+          kind,
+        )!.definition.parameters;
+        expect(_schemaAllowsRequired(parameters, 'agent_id'), isTrue);
+        expect(_schemaAllowsRequired(parameters, 'agent_name'), isTrue);
+        expect(_schemaAllowsRequired(parameters, 'agent'), isTrue);
+        expect(_schemaAllowsRequired(parameters, 'task_id'), isTrue);
+        expect(_schemaAllowsRequired(parameters, 'id'), isTrue);
+        expect(
+          _directRequiredFields(parameters),
+          isNot(contains('task_id')),
+          reason: '$kind should allow id as a task_id alias',
+        );
+      }
+
+      for (final kind in const <AiBuiltinToolKind>[
+        AiBuiltinToolKind.agentTaskPublish,
+        AiBuiltinToolKind.agentTaskCancel,
+        AiBuiltinToolKind.agentTaskPause,
+        AiBuiltinToolKind.agentTaskTerminate,
+        AiBuiltinToolKind.agentTaskResume,
+        AiBuiltinToolKind.agentTaskComplete,
+      ]) {
+        final parameters = AiToolRuntimeService.builtinToolDefault(
+          kind,
+        )!.definition.parameters;
+        final properties = parameters['properties'] as Map<String, Object?>;
+        expect(properties['extra'], isA<Map<String, Object?>>());
+      }
+
+      final completeRequired = _directRequiredFields(
+        AiToolRuntimeService.builtinToolDefault(
+          AiBuiltinToolKind.agentTaskComplete,
+        )!.definition.parameters,
+      );
+      expect(completeRequired, contains('result'));
+      expect(completeRequired, isNot(contains('task_id')));
     });
 
     test('hides agent tools until at least one agent is enabled', () async {
@@ -336,6 +388,7 @@ domains: finance, cloud billing
         final task = await controller.publishTaskWithResult(
           'agent-1',
           title: 'Collect audit evidence',
+          extra: const <String, Object?>{'handoff': 'metadata'},
         );
         final assignedWorkerId = '${task!.extra['assigned_worker_id']}';
         final currentAgent = controller.agentById('agent-1')!;
@@ -384,6 +437,7 @@ domains: finance, cloud billing
 
         expect(result.status, BashToolExecutionStatus.success);
         final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+        final resultExtra = payload['extra'] as Map<String, Object?>;
         final summary = payload['operational_summary'] as Map<String, Object?>;
         final taskMetrics = summary['task_metrics'] as Map<String, Object?>;
         final taskStatusCounts =
@@ -408,6 +462,8 @@ domains: finance, cloud billing
         expect(resourceUsage['token_remaining'], 400);
         expect(resourceUsage['token_usage_ratio'], 0.6);
         expect(resourceUsage['open_handles'], 3);
+        expect(resultExtra['handoff'], 'metadata');
+        expect(resultExtra['assigned_worker_id'], assignedWorkerId);
       },
     );
 
@@ -449,6 +505,28 @@ domains: finance, cloud billing
       );
     });
   });
+}
+
+List<String> _directRequiredFields(Map<String, Object?> parameters) {
+  final required = parameters['required'];
+  if (required is! List) return const <String>[];
+  return required.map((item) => '$item').toList(growable: false);
+}
+
+bool _schemaAllowsRequired(Map<String, Object?> parameters, String field) {
+  final allOf = parameters['allOf'];
+  if (allOf is! List) return false;
+  for (final block in allOf) {
+    if (block is! Map) continue;
+    final anyOf = block['anyOf'];
+    if (anyOf is! List) continue;
+    for (final candidate in anyOf) {
+      if (candidate is! Map) continue;
+      final required = candidate['required'];
+      if (required is List && required.contains(field)) return true;
+    }
+  }
+  return false;
 }
 
 AiToolRuntimeService _runtimeService(AgentsControllerProvider provider) {
