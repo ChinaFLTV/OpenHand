@@ -495,7 +495,7 @@ class AiTaskTool extends AiTool {
       if (!args.containsKey(key)) continue;
       final rawValue = args[key];
       if (rawValue == null) continue;
-      if (rawValue is String && rawValue.trim().isEmpty) continue;
+      if (rawValue is String && nullIfBlank(rawValue) == null) continue;
       result.add(key);
     }
     return result;

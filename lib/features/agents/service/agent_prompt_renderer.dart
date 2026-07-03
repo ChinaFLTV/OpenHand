@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/agent_models.dart';
 import 'agent_routing_metadata.dart';
 
@@ -266,9 +267,9 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
           .map((event) => event.kind)
           .toList(growable: false),
       'recent_tools': agent.auditEvents
-          .where((event) => event.toolName.trim().isNotEmpty)
+          .map((event) => nullIfBlank(event.toolName))
+          .nonNulls
           .take(10)
-          .map((event) => event.toolName)
           .toList(growable: false),
     },
   };

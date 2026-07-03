@@ -360,7 +360,7 @@ class AiCodebaseSearchTool extends AiTool {
     int? matchLine;
 
     for (final line in lines) {
-      if (line.trim().isEmpty) continue;
+      if (nullIfBlank(line) == null) continue;
       try {
         final decoded = _safeJsonDecode(line);
         if (decoded is! Map) continue;

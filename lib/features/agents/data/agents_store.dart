@@ -48,7 +48,7 @@ class AgentsStore {
     }
     final agents = rawAgents
         .map(AgentProfile.fromJson)
-        .where((agent) => agent.id.trim().isNotEmpty)
+        .where((agent) => nullIfBlank(agent.id) != null)
         .toList(growable: false);
     return agents;
   }
