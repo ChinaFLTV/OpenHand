@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../hardness/index.dart';
 import '../../model/ai_attachment.dart';
 import '../../model/ai_session.dart';
@@ -818,13 +819,12 @@ String _metadataString(Object? value) {
 }
 
 int _metadataInt(Object? value) {
-  if (value is int) return value < 0 ? 0 : value;
-  if (value is num && value.isFinite) {
-    final parsed = value.round();
+  if (value is num) {
+    final parsed = optionalRoundedIntFromValue(value);
+    if (parsed == null) return 0;
     return parsed < 0 ? 0 : parsed;
   }
-  final parsed = int.tryParse(_metadataString(value));
-  return parsed == null || parsed < 0 ? 0 : parsed;
+  return optionalNonNegativeIntFromValue(_metadataString(value)) ?? 0;
 }
 
 int _metadataListLength(Object? value) {
