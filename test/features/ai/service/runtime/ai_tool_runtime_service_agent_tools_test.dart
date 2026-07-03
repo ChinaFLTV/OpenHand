@@ -284,6 +284,7 @@ domains: finance, cloud billing
       expect(publishedWorker['status'], 'busy');
       expect(publishedState['terminal'], isFalse);
       expect(publishedState['needs_polling'], isTrue);
+      expect(publishedState['next_action'], 'poll');
       expect(
         publishedState['allowed_tools'],
         containsAll(<String>[
@@ -327,6 +328,7 @@ domains: finance, cloud billing
       expect(progressWorker['id'], assignedWorkerId);
       expect(progressWorker['current_task_id'], financeAgent.tasks.single.id);
       expect(progressState['needs_polling'], isTrue);
+      expect(progressState['next_action'], 'poll');
     });
 
     test('complete tool writes task result and releases worker', () async {
@@ -383,10 +385,71 @@ domains: finance, cloud billing
       expect(agent.auditEvents.first.kind, 'task_completed');
       expect(resultState['terminal'], isTrue);
       expect(resultState['needs_polling'], isFalse);
+      expect(resultState['next_action'], 'read_result');
+      expect(resultState['terminal_reason'], 'completed');
       expect(resultState['allowed_tools'], isEmpty);
       expect(resultWorker['id'], assignedWorkerId);
       expect(resultWorker['status'], 'idle');
     });
+
+    test(
+      'terminate tool marks task terminal and tells the model to stop',
+      () async {
+        await controller.saveAgent(_agent(enabled: true));
+        final task = await controller.publishTaskWithResult(
+          'agent-1',
+          title: 'Stop unsafe execution',
+        );
+        expect(task, isNotNull);
+        final assignedWorkerId = '${task!.extra['assigned_worker_id']}';
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        final result = await runtime.execute(
+          sessionId: 'session-1',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-1',
+            name: 'AgentTaskTerminate',
+            arguments: jsonEncode(<String, Object?>{
+              'agent_id': 'agent-1',
+              'task_id': task.id,
+              'note': 'operator requested termination',
+            }),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
+
+        expect(result.status, BashToolExecutionStatus.success);
+        final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+        final resultTask = payload['task'] as Map<String, Object?>;
+        final resultState = resultTask['state'] as Map<String, Object?>;
+        final resultWorker =
+            resultTask['assigned_worker'] as Map<String, Object?>;
+        final terminated = controller.taskById('agent-1', task.id)!;
+        final agent = controller.agentById('agent-1')!;
+
+        expect(terminated.status, AgentTaskStatus.failed);
+        expect(terminated.note, 'operator requested termination');
+        expect(terminated.extra['tool_action'], 'task_terminated');
+        expect(resultState['terminal'], isTrue);
+        expect(resultState['needs_polling'], isFalse);
+        expect(resultState['next_action'], 'stop');
+        expect(resultState['terminal_reason'], 'terminated');
+        expect(resultState['allowed_tools'], isEmpty);
+        expect(resultWorker['id'], assignedWorkerId);
+        expect(resultWorker['status'], 'idle');
+        expect(agent.workers.single.currentTaskId, isEmpty);
+        expect(agent.activities.first.kind, 'task_terminated');
+        expect(agent.auditEvents.first.kind, 'task_terminated');
+      },
+    );
 
     test(
       'result tool exposes operational audit and resource summary',

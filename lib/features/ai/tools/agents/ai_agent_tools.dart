@@ -937,12 +937,46 @@ Map<String, Object?> _taskStateJson(AgentTask task) {
       task.status == AgentTaskStatus.paused ||
       task.status == AgentTaskStatus.failed;
   final needsPolling = !terminal && !requiresAttention;
+  final terminalReason = _taskTerminalReason(task);
   return <String, Object?>{
     'terminal': terminal,
     'needs_polling': needsPolling,
     'requires_attention': requiresAttention,
+    'next_action': _taskNextAction(task, needsPolling: needsPolling),
     'allowed_tools': _allowedTaskTools(task.status),
+    if (terminalReason != null) 'terminal_reason': terminalReason,
     if (needsPolling) 'recommended_poll_ms': _agentTaskRecommendedPollMs,
+  };
+}
+
+String _taskNextAction(AgentTask task, {required bool needsPolling}) {
+  if (needsPolling) return 'poll';
+  return switch (task.status) {
+    AgentTaskStatus.waitingApproval => 'review_approval',
+    AgentTaskStatus.paused => 'resume_or_cancel',
+    AgentTaskStatus.completed => 'read_result',
+    AgentTaskStatus.failed =>
+      _taskTerminalReason(task) == 'terminated' ? 'stop' : 'inspect_failure',
+    AgentTaskStatus.canceled => 'stop',
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running => 'poll',
+  };
+}
+
+String? _taskTerminalReason(AgentTask task) {
+  return switch (task.status) {
+    AgentTaskStatus.completed => 'completed',
+    AgentTaskStatus.failed =>
+      '${task.extra['tool_action'] ?? ''}'.trim() == 'task_terminated'
+          ? 'terminated'
+          : 'failed',
+    AgentTaskStatus.canceled => 'canceled',
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running ||
+    AgentTaskStatus.waitingApproval ||
+    AgentTaskStatus.paused => null,
   };
 }
 
