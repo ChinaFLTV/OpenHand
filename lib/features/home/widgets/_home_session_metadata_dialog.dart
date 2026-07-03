@@ -1624,7 +1624,7 @@ int? _extractConfiguredToolLoopLimit(String detail) {
   if (match == null) {
     return null;
   }
-  return int.tryParse(match.group(1) ?? '');
+  return optionalIntFromValue(match.group(1));
 }
 
 /// 判断 `error.message` 是否来自 AiChatService / AiImageGenerationService /

@@ -2405,8 +2405,8 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
   }
 
   void _onZoomMessage(JavaScriptMessage message) {
-    final value = double.tryParse(message.message);
-    if (value == null || !value.isFinite) return;
+    final value = optionalDoubleFromValue(message.message);
+    if (value == null) return;
     _currentZoom = value;
     widget.onZoomChanged?.call(value);
   }
@@ -3032,7 +3032,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
             return;
           }
           if (raw.startsWith('zoom:')) {
-            final value = double.tryParse(raw.substring(5));
+            final value = optionalDoubleFromValue(raw.substring(5));
             if (value != null && mounted) {
               setState(() => _zoomPercent = value);
             }
