@@ -10090,7 +10090,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get agentsMetadataInfoBody =>
-      '拡張フィールドを保存します。JSON が不正な場合は安全に空オブジェクトへフォールバックします。';
+      '拡張フィールドを保存します。JSON が不正な場合はエラーを表示し、編集内容を保持します。';
 
   @override
   String get agentsNoOptionsAvailable => '利用可能な項目はありません。';

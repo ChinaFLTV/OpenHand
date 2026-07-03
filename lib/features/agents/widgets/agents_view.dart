@@ -3075,11 +3075,9 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                       OpenHandDialogActionButton.primary(
                         onPressed: _name.text.trim().isEmpty
                             ? null
-                            : () => Navigator.of(dialogContext).pop(
-                                _buildAgent(
-                                  builtinToolConfigs:
-                                      settings.builtinToolConfigs,
-                                ),
+                            : () => _submitAgent(
+                                dialogContext: dialogContext,
+                                builtinToolConfigs: settings.builtinToolConfigs,
                               ),
                         label: l10n.commonSave,
                       ),
@@ -3570,6 +3568,27 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     });
   }
 
+  void _submitAgent({
+    required BuildContext dialogContext,
+    required List<AiBuiltinToolConfig> builtinToolConfigs,
+  }) {
+    final metadata = _parseMetadataJson();
+    if (metadata == null) {
+      OpenHandSnackBar.showError(
+        dialogContext,
+        openHandLocalizedText(
+          dialogContext,
+          zh: '元数据 JSON 必须是有效对象，请修正后再保存。',
+          en: 'Metadata JSON must be a valid object. Fix it before saving.',
+        ),
+      );
+      return;
+    }
+    Navigator.of(dialogContext).pop(
+      _buildAgent(builtinToolConfigs: builtinToolConfigs, metadata: metadata),
+    );
+  }
+
   AgentRoutingMetadata _routePreview() {
     return AgentRoutingMetadata.fromAgent(
       AgentProfile(
@@ -3584,6 +3603,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
 
   AgentProfile _buildAgent({
     required List<AiBuiltinToolConfig> builtinToolConfigs,
+    required Map<String, Object?> metadata,
   }) {
     final now = DateTime.now().toUtc();
     final previous = widget.initialAgent;
@@ -3644,7 +3664,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       kpis: _kpis,
       workers: previous?.workers ?? const <AgentWorker>[],
       resourceUsage: previous?.resourceUsage ?? const AgentResourceUsage(),
-      metadata: _metadataJson(),
+      metadata: metadata,
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
     );
@@ -3701,17 +3721,10 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     return normalized;
   }
 
-  Map<String, Object?> _metadataJson() {
-    try {
-      final decoded = jsonDecode(
-        _metadata.text.trim().isEmpty ? '{}' : _metadata.text,
-      );
-      return decoded is Map<String, Object?>
-          ? decoded
-          : const <String, Object?>{};
-    } catch (_) {
-      return const <String, Object?>{};
-    }
+  Map<String, Object?>? _parseMetadataJson() {
+    final raw = _metadata.text.trim();
+    if (raw.isEmpty) return const <String, Object?>{};
+    return optionalStringKeyedMapFromJsonText(raw);
   }
 }
 

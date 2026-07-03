@@ -7750,7 +7750,7 @@
   "@agentsMetadataInfoTitle": {
     "description": "OpenHand localized UI text."
   },
-  "agentsMetadataInfoBody": "Extension fields live here. Invalid JSON safely falls back to an empty object.",
+  "agentsMetadataInfoBody": "Extension fields live here. Invalid JSON shows an error and keeps your edits.",
   "@agentsMetadataInfoBody": {
     "description": "OpenHand localized UI text."
   },

@@ -10416,7 +10416,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get agentsMetadataInfoBody =>
-      'Erweiterungsfelder liegen hier. Ungültiges JSON fällt sicher auf ein leeres Objekt zurück.';
+      'Erweiterungsfelder liegen hier. Ungültiges JSON wird gemeldet und die Bearbeitung bleibt erhalten.';
 
   @override
   String get agentsNoOptionsAvailable => 'Keine Optionen verfügbar.';

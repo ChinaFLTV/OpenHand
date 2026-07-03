@@ -10453,7 +10453,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get agentsMetadataInfoBody =>
-      'Les champs d’extension sont ici. Un JSON invalide revient à un objet vide sans casser la configuration.';
+      'Les champs d’extension sont ici. Un JSON invalide affiche une erreur et conserve vos modifications.';
 
   @override
   String get agentsNoOptionsAvailable => 'Aucune option disponible.';

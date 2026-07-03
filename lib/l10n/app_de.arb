@@ -7748,7 +7748,7 @@
   "@agentsMetadataInfoTitle": {
     "description": "OpenHand localized UI text."
   },
-  "agentsMetadataInfoBody": "Erweiterungsfelder liegen hier. Ungültiges JSON fällt sicher auf ein leeres Objekt zurück.",
+  "agentsMetadataInfoBody": "Erweiterungsfelder liegen hier. Ungültiges JSON wird gemeldet und die Bearbeitung bleibt erhalten.",
   "@agentsMetadataInfoBody": {
     "description": "OpenHand localized UI text."
   },

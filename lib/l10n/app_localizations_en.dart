@@ -10318,7 +10318,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentsMetadataInfoBody =>
-      'Extension fields live here. Invalid JSON safely falls back to an empty object.';
+      'Extension fields live here. Invalid JSON shows an error and keeps your edits.';
 
   @override
   String get agentsNoOptionsAvailable => 'No options available.';

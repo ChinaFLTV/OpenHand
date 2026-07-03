@@ -7748,7 +7748,7 @@
   "@agentsMetadataInfoTitle": {
     "description": "OpenHand localized UI text."
   },
-  "agentsMetadataInfoBody": "Les champs d’extension sont ici. Un JSON invalide revient à un objet vide sans casser la configuration.",
+  "agentsMetadataInfoBody": "Les champs d’extension sont ici. Un JSON invalide affiche une erreur et conserve vos modifications.",
   "@agentsMetadataInfoBody": {
     "description": "OpenHand localized UI text."
   },

@@ -9965,7 +9965,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agentsMetadataInfoTitle => '权限与轮廓元数据';
 
   @override
-  String get agentsMetadataInfoBody => '这里保存扩展字段。格式错误时会安全降级为空对象，不影响智能体基础配置。';
+  String get agentsMetadataInfoBody => '这里保存扩展字段。格式错误时会提示并保留当前编辑内容。';
 
   @override
   String get agentsNoOptionsAvailable => '暂无可选项。';
@@ -21051,7 +21051,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get agentsMetadataInfoTitle => '权限与轮廓元数据';
 
   @override
-  String get agentsMetadataInfoBody => '这里保存扩展字段。格式错误时会安全降级为空对象，不影响智能体基础配置。';
+  String get agentsMetadataInfoBody => '这里保存扩展字段。格式错误时会提示并保留当前编辑内容。';
 
   @override
   String get agentsNoOptionsAvailable => '暂无可选项。';
@@ -32135,7 +32135,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get agentsMetadataInfoTitle => '權限與輪廓中繼資料';
 
   @override
-  String get agentsMetadataInfoBody => '這裡儲存擴充欄位。格式錯誤時會安全降級為空物件，不影響智慧體基礎設定。';
+  String get agentsMetadataInfoBody => '這裡儲存擴充欄位。格式錯誤時會提示並保留目前編輯內容。';
 
   @override
   String get agentsNoOptionsAvailable => '暫無可選項。';

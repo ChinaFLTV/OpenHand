@@ -18151,7 +18151,7 @@ abstract class AppLocalizations {
   /// OpenHand localized UI text.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'这里保存扩展字段。格式错误时会安全降级为空对象，不影响智能体基础配置。'**
+  /// **'这里保存扩展字段。格式错误时会提示并保留当前编辑内容。'**
   String get agentsMetadataInfoBody;
 
   /// OpenHand localized UI text.

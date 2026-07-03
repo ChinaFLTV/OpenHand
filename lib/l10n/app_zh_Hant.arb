@@ -7750,7 +7750,7 @@
   "@agentsMetadataInfoTitle": {
     "description": "OpenHand localized UI text."
   },
-  "agentsMetadataInfoBody": "這裡儲存擴充欄位。格式錯誤時會安全降級為空物件，不影響智慧體基礎設定。",
+  "agentsMetadataInfoBody": "這裡儲存擴充欄位。格式錯誤時會提示並保留目前編輯內容。",
   "@agentsMetadataInfoBody": {
     "description": "OpenHand localized UI text."
   },

@@ -7817,7 +7817,7 @@
   "@agentsMetadataInfoTitle": {
     "description": "OpenHand localized UI text."
   },
-  "agentsMetadataInfoBody": "这里保存扩展字段。格式错误时会安全降级为空对象，不影响智能体基础配置。",
+  "agentsMetadataInfoBody": "这里保存扩展字段。格式错误时会提示并保留当前编辑内容。",
   "@agentsMetadataInfoBody": {
     "description": "OpenHand localized UI text."
   },

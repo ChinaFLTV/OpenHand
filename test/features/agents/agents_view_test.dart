@@ -2,13 +2,22 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/app/state/settings_controller.dart';
 import 'package:openhand/features/agents/data/agents_store.dart';
 import 'package:openhand/features/agents/index.dart';
+import 'package:openhand/features/crons/index.dart';
+import 'package:openhand/features/hooks/index.dart';
+import 'package:openhand/features/knowledge_base/index.dart';
+import 'package:openhand/features/mcp/index.dart';
+import 'package:openhand/features/memory/index.dart';
+import 'package:openhand/features/skills/index.dart';
 import 'package:openhand/l10n/app_localizations.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('AgentsView empty board', () {
     late Directory tempDir;
     late AgentsController controller;
@@ -69,6 +78,47 @@ void main() {
 
       expect(find.textContaining('Hermes Agent 未就绪'), findsOneWidget);
       expect(find.byType(SnackBar), findsOneWidget);
+    });
+
+    testWidgets('keeps the editor open when metadata JSON is invalid', (
+      tester,
+    ) async {
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.setRuntimeAvailabilityProvider(
+        () => const AgentRuntimeAvailability(
+          isLoading: false,
+          isInstalled: true,
+          isEnabled: true,
+          pluginName: 'Hermes Agent',
+        ),
+      );
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.text('创建智能体'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.enterText(
+        find.widgetWithText(TextField, '名称 *'),
+        'Ops Agent',
+      );
+      DefaultTabController.of(
+        tester.element(find.byType(TabBar)),
+      ).animateTo(4, duration: Duration.zero);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, '元数据 JSON'),
+        '{bad json',
+      );
+      await tester.tap(find.text('保存'));
+      await tester.pump();
+
+      expect(find.textContaining('元数据 JSON 必须是有效对象'), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.widgetWithText(TextField, '元数据 JSON'), findsOneWidget);
+      expect(controller.agents, isEmpty);
     });
 
     testWidgets('opens a complete task detail dialog from task desk', (
@@ -148,14 +198,41 @@ void main() {
 }
 
 class _AgentsViewHarness extends StatelessWidget {
-  const _AgentsViewHarness({required this.controller});
+  const _AgentsViewHarness({required this.controller, this.dependencies});
 
   final AgentsController controller;
+  final _AgentEditorDependencies? dependencies;
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<AgentsController>.value(
-      value: controller,
+    final editorDependencies = dependencies;
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AgentsController>.value(value: controller),
+        if (editorDependencies != null) ...[
+          ChangeNotifierProvider<SettingsController>.value(
+            value: editorDependencies.settings,
+          ),
+          ChangeNotifierProvider<SkillsController>.value(
+            value: editorDependencies.skills,
+          ),
+          ChangeNotifierProvider<KnowledgeBaseController>.value(
+            value: editorDependencies.knowledgeBase,
+          ),
+          ChangeNotifierProvider<MemoryController>.value(
+            value: editorDependencies.memory,
+          ),
+          ChangeNotifierProvider<McpController>.value(
+            value: editorDependencies.mcp,
+          ),
+          ChangeNotifierProvider<CronsController>.value(
+            value: editorDependencies.crons,
+          ),
+          ChangeNotifierProvider<HooksController>.value(
+            value: editorDependencies.hooks,
+          ),
+        ],
+      ],
       child: const MaterialApp(
         locale: Locale('zh'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -167,5 +244,117 @@ class _AgentsViewHarness extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _AgentEditorDependencies {
+  const _AgentEditorDependencies({
+    required this.settings,
+    required this.skills,
+    required this.knowledgeBase,
+    required this.memory,
+    required this.mcp,
+    required this.crons,
+    required this.hooks,
+  });
+
+  factory _AgentEditorDependencies.empty() {
+    return _AgentEditorDependencies(
+      settings: _FakeSettingsController(),
+      skills: _FakeSkillsController(),
+      knowledgeBase: _FakeKnowledgeBaseController(),
+      memory: _FakeMemoryController(),
+      mcp: _FakeMcpController(),
+      crons: _FakeCronsController(),
+      hooks: _FakeHooksController(),
+    );
+  }
+
+  final SettingsController settings;
+  final SkillsController skills;
+  final KnowledgeBaseController knowledgeBase;
+  final MemoryController memory;
+  final McpController mcp;
+  final CronsController crons;
+  final HooksController hooks;
+
+  void dispose() {
+    settings.dispose();
+    skills.dispose();
+    knowledgeBase.dispose();
+    memory.dispose();
+    mcp.dispose();
+    crons.dispose();
+    hooks.dispose();
+  }
+}
+
+class _FakeSettingsController extends ChangeNotifier
+    implements SettingsController {
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.isGetter) return const <Never>[];
+    return super.noSuchMethod(invocation);
+  }
+}
+
+class _FakeSkillsController extends ChangeNotifier implements SkillsController {
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #skills && invocation.isGetter) {
+      return const <Never>[];
+    }
+    return super.noSuchMethod(invocation);
+  }
+}
+
+class _FakeKnowledgeBaseController extends ChangeNotifier
+    implements KnowledgeBaseController {
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #sources && invocation.isGetter) {
+      return const <Never>[];
+    }
+    return super.noSuchMethod(invocation);
+  }
+}
+
+class _FakeMemoryController extends ChangeNotifier implements MemoryController {
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #entries && invocation.isGetter) {
+      return const <Never>[];
+    }
+    return super.noSuchMethod(invocation);
+  }
+}
+
+class _FakeMcpController extends ChangeNotifier implements McpController {
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #servers && invocation.isGetter) {
+      return const <Never>[];
+    }
+    return super.noSuchMethod(invocation);
+  }
+}
+
+class _FakeCronsController extends ChangeNotifier implements CronsController {
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #entries && invocation.isGetter) {
+      return const <Never>[];
+    }
+    return super.noSuchMethod(invocation);
+  }
+}
+
+class _FakeHooksController extends ChangeNotifier implements HooksController {
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (invocation.memberName == #entries && invocation.isGetter) {
+      return const <Never>[];
+    }
+    return super.noSuchMethod(invocation);
   }
 }
