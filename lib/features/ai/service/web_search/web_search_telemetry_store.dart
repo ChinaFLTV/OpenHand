@@ -60,12 +60,9 @@ class WebSearchTelemetryStore
   }
 
   Future<List<WebSearchCallLog>> recentCalls({int limit = 50}) async {
-    final list = await rawCalls();
-    final reversed = list.reversed
-        .map((m) => WebSearchCallLog.fromJson(m))
-        .toList(growable: false);
-    if (reversed.length <= limit) return reversed;
-    return reversed.sublist(0, limit);
+    return (await recentRawCalls(
+      limit: limit,
+    )).map((m) => WebSearchCallLog.fromJson(m)).toList(growable: false);
   }
 
   Future<Map<AiWebSearchEngineKind, WebSearchEngineStat>> engineStats() async {

@@ -112,6 +112,14 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     }
   }
 
+  /// 读取最近调用，按新 → 旧排序，并统一处理非正 limit。
+  Future<List<Map<String, Object?>>> recentRawCalls({int limit = 50}) async {
+    if (limit <= 0) return const <Map<String, Object?>>[];
+    final reversed = (await rawCalls()).reversed.toList(growable: false);
+    if (reversed.length <= limit) return reversed;
+    return reversed.sublist(0, limit);
+  }
+
   /// 读取 `engines.json`，返回 `kind.name → entry`。
   Future<Map<String, Map<String, Object?>>> rawEngineStats() async {
     final f = File(p.join(defaultDirectoryPath(), 'engines.json'));
