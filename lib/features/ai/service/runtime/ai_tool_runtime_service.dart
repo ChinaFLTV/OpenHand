@@ -10,6 +10,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/tool_name_normalization.dart';
 import '../../../agents/agents_controller.dart';
@@ -449,10 +450,9 @@ class AiToolRuntimeService {
     final controller = _agentsControllerProvider?.call();
     if (controller == null) return false;
     for (final agent in controller.enabledAgents) {
-      final configuredToolNames = agent.builtinToolNames
-          .map((name) => name.trim())
-          .where((name) => name.isNotEmpty)
-          .toList(growable: false);
+      final configuredToolNames = trimmedNonEmptyStrings(
+        agent.builtinToolNames,
+      );
       if (configuredToolNames.isEmpty) return true;
       final configuredAgentToolNames = configuredToolNames
           .where((name) => _looksLikeAgentBuiltinToolName(name))
@@ -822,10 +822,9 @@ class AiToolRuntimeService {
       //      被刻意清空，应提示先调用 ExitPlanMode 或等待用户批准；
       //   2) 模型把 Claude Code 风格名字（如 TodoWrite）当成了别名 —— 给出
       //      当前轮次真实可用的工具名清单，便于自我纠正。
-      final availableNames = catalog.definitions
-          .map((tool) => tool.name.trim())
-          .where((name) => name.isNotEmpty)
-          .toList(growable: false);
+      final availableNames = trimmedNonEmptyStrings(
+        catalog.definitions.map((tool) => tool.name),
+      );
       final guidance = StringBuffer('Unsupported tool name: ${toolCall.name}.');
       if (availableNames.isEmpty) {
         guidance.write(AiPlanModeGuidance.unsupportedEmptyCatalog);
@@ -1815,12 +1814,7 @@ class AiToolRuntimeService {
       mcpTool?.execution,
       mcpTool?.rawMetadata,
     ];
-    return parts
-        .where((part) => part != null)
-        .map((part) => '$part'.trim())
-        .where((part) => part.isNotEmpty)
-        .join('\n')
-        .toLowerCase();
+    return trimmedNonEmptyStrings(parts).join('\n').toLowerCase();
   }
 
   bool _containsAny(String value, Iterable<String> needles) {

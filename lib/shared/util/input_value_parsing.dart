@@ -35,12 +35,11 @@ bool _keepStringListItem(String item, {required bool ignoreLiteralNull}) {
   return item.isNotEmpty && (!ignoreLiteralNull || item != 'null');
 }
 
-List<String> stringListFromListValue(
-  Object? value, {
+List<String> trimmedNonEmptyStrings(
+  Iterable<Object?> values, {
   bool ignoreLiteralNull = false,
 }) {
-  if (value is! List) return const <String>[];
-  return value
+  return values
       .where((item) => item != null)
       .map((item) => '$item'.trim())
       .where(
@@ -48,6 +47,14 @@ List<String> stringListFromListValue(
             _keepStringListItem(item, ignoreLiteralNull: ignoreLiteralNull),
       )
       .toList(growable: false);
+}
+
+List<String> stringListFromListValue(
+  Object? value, {
+  bool ignoreLiteralNull = false,
+}) {
+  if (value is! List) return const <String>[];
+  return trimmedNonEmptyStrings(value, ignoreLiteralNull: ignoreLiteralNull);
 }
 
 List<String> stringListFromValue(

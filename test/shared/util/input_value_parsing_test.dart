@@ -73,6 +73,25 @@ void main() {
     });
   });
 
+  group('trimmedNonEmptyStrings', () {
+    test('normalizes any iterable values to trimmed non-empty strings', () {
+      expect(
+        trimmedNonEmptyStrings(<Object?>[' alpha ', 42, '', null, ' beta ']),
+        <String>['alpha', '42', 'beta'],
+      );
+    });
+
+    test('can ignore literal null after trimming', () {
+      expect(
+        trimmedNonEmptyStrings(<Object?>[
+          ' null ',
+          'value',
+        ], ignoreLiteralNull: true),
+        <String>['value'],
+      );
+    });
+  });
+
   group('splitTrimmedNonEmpty', () {
     test('trims entries and drops empty delimiter gaps', () {
       expect(splitTrimmedNonEmpty(' alpha, , beta ,'), <String>[

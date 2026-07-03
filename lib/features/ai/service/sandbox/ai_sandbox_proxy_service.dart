@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../../model/ai_sandbox_settings.dart';
 
@@ -456,10 +457,7 @@ class _SandboxProxyInstance {
   }
 
   String _rulePatterns(List<AiSandboxPatternRule> rules) {
-    return rules
-        .map((item) => item.pattern.trim())
-        .where((item) => item.isNotEmpty)
-        .join(',');
+    return trimmedNonEmptyStrings(rules.map((item) => item.pattern)).join(',');
   }
 }
 

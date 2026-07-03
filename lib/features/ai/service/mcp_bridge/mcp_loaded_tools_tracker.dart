@@ -2,6 +2,8 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../../shared/util/input_value_parsing.dart';
+
 /// 描述一次成功的 `ToolSearch` 加载，用于触发 transcript 顶部的 SnackBar 提示。
 @immutable
 class AiToolSearchLoadedEvent {
@@ -162,11 +164,9 @@ class McpLoadedToolsTracker {
   }
 
   static List<String> _sortedToolNames(Iterable<String> names) {
-    final sorted = names
-        .map((name) => name.trim())
-        .where((name) => name.isNotEmpty)
-        .toSet()
-        .toList(growable: false);
+    final sorted = trimmedNonEmptyStrings(
+      names,
+    ).toSet().toList(growable: false);
     sorted.sort();
     return sorted;
   }

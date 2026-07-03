@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../runtime/ai_tool_runtime_service.dart';
 
 class WebReverseMcpToolPolicy {
@@ -177,11 +178,6 @@ class WebReverseMcpToolPolicy {
   }
 
   static String _joinParts(Iterable<Object?> parts) {
-    return parts
-        .where((part) => part != null)
-        .map((part) => '$part'.trim())
-        .where((part) => part.isNotEmpty)
-        .join('\n')
-        .toLowerCase();
+    return trimmedNonEmptyStrings(parts).join('\n').toLowerCase();
   }
 }
