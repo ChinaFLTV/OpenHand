@@ -1114,25 +1114,27 @@ class AiModelConfig {
       json['available_model_ids'],
     );
     final protocolType = AiProtocolType.fromStorage(
-      '${json['protocol_type'] ?? ''}',
+      stringFromValue(json['protocol_type']),
     );
-    final rawApiDialect = '${json['api_dialect'] ?? ''}'.trim();
-    final rawProviderKind = '${json['provider_kind'] ?? ''}'.trim();
-    final apiDialect = rawApiDialect.isEmpty
+    final rawApiDialect = nullIfBlank(stringFromValue(json['api_dialect']));
+    final rawProviderKind = nullIfBlank(stringFromValue(json['provider_kind']));
+    final apiDialect = rawApiDialect == null
         ? inferAiApiDialect(protocolType)
         : AiApiDialect.fromStorage(rawApiDialect);
-    final providerKind = rawProviderKind.isEmpty
+    final providerKind = rawProviderKind == null
         ? inferAiProviderKind(protocolType)
         : AiProviderKind.fromStorage(rawProviderKind);
     return AiModelConfig(
-      id: '${json['id'] ?? ''}'.trim(),
-      name: '${json['name'] ?? ''}'.trim(),
+      id: stringFromValue(json['id']),
+      name: stringFromValue(json['name']),
       officialWebsiteUrl: _readOfficialWebsiteUrl(json),
-      baseUrl: _normalizeBaseUrl('${json['base_url'] ?? ''}'),
+      baseUrl: _normalizeBaseUrl(stringFromValue(json['base_url'])),
       autoCompleteBaseUrl: _readBool(json[_autoCompleteBaseUrlJsonKey]) ?? true,
-      authScheme: AiAuthScheme.fromStorage('${json['auth_scheme'] ?? ''}'),
+      authScheme: AiAuthScheme.fromStorage(
+        stringFromValue(json['auth_scheme']),
+      ),
       token: '${json['token'] ?? ''}',
-      modelId: '${json['model_id'] ?? ''}'.trim(),
+      modelId: stringFromValue(json['model_id']),
       protocolType: protocolType,
       apiDialect: apiDialect,
       providerKind: providerKind,
@@ -1142,7 +1144,7 @@ class AiModelConfig {
       ),
       maxContextTokens: _readNullablePositiveInt(json['max_context_tokens']),
       availableModelIds: availableModelIds,
-      defaultTitleModelId: '${json['default_title_model_id'] ?? ''}'.trim(),
+      defaultTitleModelId: stringFromValue(json['default_title_model_id']),
       isGlobalDefaultTitleModel:
           _readBool(json['is_global_default_title_model']) ?? false,
       customHeaders: _parseCustomHeaders(json['custom_headers']),
@@ -1294,7 +1296,7 @@ class AiModelConfig {
   /// When both (1) and (2) exist, the user profile wins field-by-field while
   /// leaving catalog defaults in place for any fields the user did not set.
   AiModelProfile profileFor(String id) {
-    final trimmedId = id.trim();
+    final trimmedId = nullIfBlank(id) ?? '';
     final override = modelProfiles[trimmedId];
     final catalog = AiModelCatalog.lookup(trimmedId, protocolType);
     if (override == null) {
@@ -1481,7 +1483,7 @@ class AiModelConfig {
       supportsExplicitPromptCacheControl && explicitPromptCacheEnabled;
 
   bool get requiresReasoningEcho {
-    final trimmedModelId = modelId.trim();
+    final trimmedModelId = nullIfBlank(modelId) ?? '';
     final userOverride = modelProfiles[trimmedModelId]?.requiresReasoningEcho;
     if (userOverride != null) {
       return userOverride;
@@ -1518,13 +1520,11 @@ class AiModelConfig {
       _containsDeepSeekMarker(name);
 
   static bool _containsDeepSeekMarker(String value) {
-    return value.toLowerCase().contains('deepseek');
+    return lowercaseStringFromValue(value).contains('deepseek');
   }
 
   static String _normalizeReasoningModelId(String value) {
-    return value
-        .trim()
-        .toLowerCase()
+    return lowercaseStringFromValue(value)
         .replaceAll(_reasoningModelIdSeparatorPattern, '-')
         .replaceAll(_reasoningModelIdRepeatedDashPattern, '-')
         .replaceAll(_reasoningModelIdEdgeDashPattern, '');
@@ -1568,7 +1568,8 @@ class AiModelConfig {
       officialWebsiteUri?.toString() ?? '';
 
   String resolveOperationModelId(AiApiFamily family) {
-    return operationRouting.resolveModelId(family, modelId) ?? modelId.trim();
+    return operationRouting.resolveModelId(family, modelId) ??
+        (nullIfBlank(modelId) ?? '');
   }
 
   String? capabilityStatusFor(AiApiFamily family) {
@@ -1709,7 +1710,7 @@ class AiModelConfig {
       _autoCompleteBaseUrlJsonKey: autoCompleteBaseUrl,
       'auth_scheme': authScheme.storageValue,
       'token': token,
-      'model_id': modelId.trim(),
+      'model_id': nullIfBlank(modelId) ?? '',
       'protocol_type': protocolType.storageValue,
       'api_dialect': apiDialect.storageValue,
       'provider_kind': providerKind.storageValue,
@@ -1837,11 +1838,9 @@ class AiModelConfig {
     if (value is Map) {
       final result = <String, String>{};
       for (final entry in value.entries) {
-        final key = '${entry.key}'.trim();
-        final val = '${entry.value}'.trim();
-        if (key.isNotEmpty) {
-          result[key] = val;
-        }
+        final key = optionalStringFromValue(entry.key);
+        if (key == null) continue;
+        result[key] = stringFromValue(entry.value);
       }
       return result;
     }
@@ -1890,8 +1889,8 @@ class AiModelConfig {
     if (map == null) return const <String, AiModelProfile>{};
     final result = <String, AiModelProfile>{};
     for (final entry in map.entries) {
-      final key = entry.key.trim();
-      if (key.isEmpty) continue;
+      final key = nullIfBlank(entry.key);
+      if (key == null) continue;
       if (entry.value is Map) {
         result[key] = AiModelProfile.fromJson(
           stringKeyedMapFromValue(entry.value),
@@ -1905,9 +1904,9 @@ class AiModelConfig {
     if (value is! Map) return const <AiApiFamily, String>{};
     final result = <AiApiFamily, String>{};
     for (final entry in value.entries) {
-      final family = AiApiFamily.fromStorage('${entry.key}'.trim());
-      final status = '${entry.value ?? ''}'.trim();
-      if (family == null || status.isEmpty) continue;
+      final family = AiApiFamily.fromStorage(stringFromValue(entry.key));
+      final status = optionalStringFromValue(entry.value);
+      if (family == null || status == null) continue;
       result[family] = status;
     }
     return result;
