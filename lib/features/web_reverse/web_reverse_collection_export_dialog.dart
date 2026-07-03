@@ -14,6 +14,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/localized_text.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -304,9 +305,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           .take(_kCollectionExportMaxEntries)
           .toList(growable: false);
       final out = _buildOutput(exportEntries);
-      final isZh = Localizations.localeOf(
-        context,
-      ).languageCode.startsWith('zh');
+      final isZh = openHandIsChineseLocale(context);
       final copyResult = await setWebReverseClipboardText(out);
       if (!mounted) return;
       final m = ScaffoldMessenger.maybeOf(context);
@@ -315,12 +314,21 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
         final copiedLabel =
             loc?.webReverseCollectionExportCopied(exportEntries.length) ??
             'Copied ${exportEntries.length} requests to clipboard';
-        final cappedSuffix = isZh ? ' · 已按条目上限裁剪' : ' · entry capped';
+        final cappedSuffix = openHandLocalizedText(
+          context,
+          zh: ' · 已按条目上限裁剪',
+          zhHant: ' · 已依條目上限裁剪',
+          en: ' · entry capped',
+          fr: ' · limite d’entrées atteinte',
+          de: ' · Eintragslimit erreicht',
+          ja: ' · 件数上限で切り詰め',
+        );
         final message = capped ? '$copiedLabel$cappedSuffix' : copiedLabel;
         OpenHandSnackBar.showSuccessOn(
           context,
           m,
           webReverseClipboardSnackMessage(
+            context: context,
             isZh: isZh,
             base: message,
             result: copyResult,
@@ -337,7 +345,6 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     final entries = _selected();
     final preview = entries.isEmpty
         ? (loc?.webReverseCollectionExportNoMatch ??
@@ -441,7 +448,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    '${loc?.webReverseCollectionExportPreview2 ?? 'Preview: first 2 entries'} · ${isZh ? '导出上限' : 'export cap'} $_kCollectionExportMaxEntries',
+                    '${loc?.webReverseCollectionExportPreview2 ?? 'Preview: first 2 entries'} · ${openHandLocalizedText(context, zh: '导出上限', zhHant: '匯出上限', en: 'export cap', fr: 'limite d’export', de: 'Exportlimit', ja: 'エクスポート上限')} $_kCollectionExportMaxEntries',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.end,

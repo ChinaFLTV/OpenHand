@@ -54,13 +54,27 @@ Future<WebReverseSetupResult?> showWebReverseSetupDialog(
       // openedDownloadPage / rechecked 都重新探测一次。
     }
     if (context.mounted) {
-      final isZh = openHandIsChineseLocale(context);
       await showOpenHandInfoDialog(
         context: context,
-        title: isZh ? '未检测到浏览器' : 'Browser not detected',
-        message: isZh
-            ? '已连续重检 $_kWebReverseBrowserDetectionMaxAttempts 次。请确认 Chrome / Edge / Brave / Chromium 已安装并可启动后再重试。'
-            : 'Checked $_kWebReverseBrowserDetectionMaxAttempts times. Make sure Chrome, Edge, Brave, or Chromium is installed and can launch, then retry.',
+        title: openHandLocalizedText(
+          context,
+          zh: '未检测到浏览器',
+          zhHant: '未偵測到瀏覽器',
+          en: 'Browser not detected',
+          fr: 'Navigateur non détecté',
+          de: 'Browser nicht erkannt',
+          ja: 'ブラウザが検出されません',
+        ),
+        message: openHandLocalizedText(
+          context,
+          zh: '已连续重检 $_kWebReverseBrowserDetectionMaxAttempts 次。请确认 Chrome / Edge / Brave / Chromium 已安装并可启动后再重试。',
+          zhHant:
+              '已連續重檢 $_kWebReverseBrowserDetectionMaxAttempts 次。請確認 Chrome / Edge / Brave / Chromium 已安裝且可啟動後再重試。',
+          en: 'Checked $_kWebReverseBrowserDetectionMaxAttempts times. Make sure Chrome, Edge, Brave, or Chromium is installed and can launch, then retry.',
+          fr: 'Vérifié $_kWebReverseBrowserDetectionMaxAttempts fois. Assurez-vous que Chrome, Edge, Brave ou Chromium est installé et peut démarrer, puis réessayez.',
+          de: '$_kWebReverseBrowserDetectionMaxAttempts Prüfungen durchgeführt. Stellen Sie sicher, dass Chrome, Edge, Brave oder Chromium installiert und startbar ist, und versuchen Sie es erneut.',
+          ja: '$_kWebReverseBrowserDetectionMaxAttempts 回確認しました。Chrome / Edge / Brave / Chromium がインストールされ起動できることを確認してから再試行してください。',
+        ),
       );
     }
     return null;
@@ -163,8 +177,6 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
     super.dispose();
   }
 
-  bool _isZh() => openHandIsChineseLocale(context);
-
   /// 预览的 user-data-dir：与 [_submit] 中拼装一致，仅用于 UI 展示与
   /// "清理冲突 profile"按钮。注意真实启动时 home page 还会再追加 sessionId
   /// 后缀（防多会话锁占用），所以这里仅清理浏览器粒度的"模板锁"。
@@ -230,7 +242,6 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    final isZh = _isZh();
     return buildOpenHandToolDialogShell(
       context: context,
       maxWidth: 620,
@@ -319,7 +330,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                         .map(
                           (m) => ButtonSegment(
                             value: m,
-                            label: Text(_loginModeLabel(m, isZh)),
+                            label: Text(_loginModeLabel(context, m)),
                           ),
                         )
                         .toList(growable: false),
@@ -364,7 +375,6 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                   const SizedBox(height: 14),
                   _CdpMcpOptInTile(
                     enabled: _cdpMcpEnabled,
-                    isZh: isZh,
                     onChanged: (value) =>
                         setState(() => _cdpMcpEnabled = value),
                   ),
@@ -394,7 +404,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _ProfileDirRow(userDataDir: _previewUserDataDir, isZh: isZh),
+                  _ProfileDirRow(userDataDir: _previewUserDataDir),
                 ],
               ),
             ),
@@ -418,27 +428,43 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
     );
   }
 
-  String _loginModeLabel(WebReverseLoginMode m, bool isZh) {
-    if (!isZh) {
-      return switch (m) {
-        WebReverseLoginMode.none => 'None',
-        WebReverseLoginMode.manual => 'Manual',
-        WebReverseLoginMode.storageState => 'Storage state',
-      };
-    }
-    return m.label;
+  String _loginModeLabel(BuildContext context, WebReverseLoginMode m) {
+    return switch (m) {
+      WebReverseLoginMode.none => openHandLocalizedText(
+        context,
+        zh: '无需登录',
+        zhHant: '無需登入',
+        en: 'None',
+        fr: 'Aucune',
+        de: 'Keine',
+        ja: '不要',
+      ),
+      WebReverseLoginMode.manual => openHandLocalizedText(
+        context,
+        zh: '手动登录',
+        zhHant: '手動登入',
+        en: 'Manual',
+        fr: 'Manuelle',
+        de: 'Manuell',
+        ja: '手動',
+      ),
+      WebReverseLoginMode.storageState => openHandLocalizedText(
+        context,
+        zh: '已有状态',
+        zhHant: '既有狀態',
+        en: 'Storage state',
+        fr: 'État stocké',
+        de: 'Gespeicherter Status',
+        ja: '保存済み状態',
+      ),
+    };
   }
 }
 
 class _CdpMcpOptInTile extends StatelessWidget {
-  const _CdpMcpOptInTile({
-    required this.enabled,
-    required this.isZh,
-    required this.onChanged,
-  });
+  const _CdpMcpOptInTile({required this.enabled, required this.onChanged});
 
   final bool enabled;
-  final bool isZh;
   final ValueChanged<bool> onChanged;
 
   @override
@@ -476,7 +502,15 @@ class _CdpMcpOptInTile extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isZh ? 'AI 侧 CDP MCP（可选）' : 'AI-side CDP MCP (optional)',
+                  openHandLocalizedText(
+                    context,
+                    zh: 'AI 侧 CDP MCP（可选）',
+                    zhHant: 'AI 側 CDP MCP（可選）',
+                    en: 'AI-side CDP MCP (optional)',
+                    fr: 'CDP MCP côté IA (facultatif)',
+                    de: 'AI-seitiges CDP MCP (optional)',
+                    ja: 'AI側 CDP MCP（任意）',
+                  ),
                   style: theme.textTheme.labelMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: cs.onSurface,
@@ -484,9 +518,16 @@ class _CdpMcpOptInTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  isZh
-                      ? '默认关闭。开启后仅本会话会通过 npx 准备 chrome-devtools-mcp，用于 AI 直接调用 CDP 工具。'
-                      : 'Off by default. When enabled, only this session prepares chrome-devtools-mcp through npx for AI CDP tools.',
+                  openHandLocalizedText(
+                    context,
+                    zh: '默认关闭。开启后仅本会话会通过 npx 准备 chrome-devtools-mcp，用于 AI 直接调用 CDP 工具。',
+                    zhHant:
+                        '預設關閉。開啟後僅本會話會透過 npx 準備 chrome-devtools-mcp，用於 AI 直接呼叫 CDP 工具。',
+                    en: 'Off by default. When enabled, only this session prepares chrome-devtools-mcp through npx for AI CDP tools.',
+                    fr: 'Désactivé par défaut. Une fois activé, seule cette session prépare chrome-devtools-mcp via npx pour les outils CDP de l’IA.',
+                    de: 'Standardmäßig deaktiviert. Wenn aktiviert, bereitet nur diese Sitzung chrome-devtools-mcp über npx für AI-CDP-Tools vor.',
+                    ja: '既定ではオフです。有効にすると、このセッションだけが npx 経由で chrome-devtools-mcp を準備し、AI が CDP ツールを直接呼び出せます。',
+                  ),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
@@ -522,10 +563,9 @@ class _LabelText extends StatelessWidget {
 /// 点击按钮 → 探测目录是否存在 SingletonLock 等锁文件 → 询问确认 →
 /// 调用 [cleanWebReverseProfileLocks] 删除 → 用 SnackBar 反馈 (deleted, messages)。
 class _ProfileDirRow extends StatefulWidget {
-  const _ProfileDirRow({required this.userDataDir, required this.isZh});
+  const _ProfileDirRow({required this.userDataDir});
 
   final String userDataDir;
-  final bool isZh;
 
   @override
   State<_ProfileDirRow> createState() => _ProfileDirRowState();
