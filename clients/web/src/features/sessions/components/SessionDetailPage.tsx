@@ -2321,6 +2321,7 @@ export function SessionDetailPage() {
   const followSettleRemainingRef = useRef(0);
   const followSettleStableFramesRef = useRef(0);
   const resizeFollowFrameRef = useRef<number | null>(null);
+  const postRenderFrameRefs = useRef<number[]>([]);
   const lastTailIdRef = useRef<string | null>(null);
   const lastTailSignatureRef = useRef<string>('');
   const lastFollowSignatureRef = useRef<string>('');
@@ -2362,6 +2363,23 @@ export function SessionDetailPage() {
     setTtsPlayback((current) => (sameTtsPlaybackState(current, next) ? current : next));
   }, []);
 
+  function cancelPostRenderFrames(): void {
+    for (const frame of postRenderFrameRefs.current) {
+      window.cancelAnimationFrame(frame);
+    }
+    postRenderFrameRefs.current = [];
+  }
+
+  function schedulePostRenderFrame(action: () => void): void {
+    if (typeof window === 'undefined') return;
+    const frame = window.requestAnimationFrame(() => {
+      postRenderFrameRefs.current = postRenderFrameRefs.current.filter((item) => item !== frame);
+      if (!mountedRef.current) return;
+      action();
+    });
+    postRenderFrameRefs.current.push(frame);
+  }
+
   useEffect(() => {
     detailRef.current = detail;
   }, [detail]);
@@ -2374,6 +2392,7 @@ export function SessionDetailPage() {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      cancelPostRenderFrames();
     };
   }, []);
 
@@ -2503,6 +2522,7 @@ export function SessionDetailPage() {
         window.cancelAnimationFrame(resizeFollowFrameRef.current);
         resizeFollowFrameRef.current = null;
       }
+      cancelPostRenderFrames();
     },
     [],
   );
@@ -3811,7 +3831,7 @@ export function SessionDetailPage() {
       updateLastErrorValue(m.last_error);
       updatePendingWriteApprovalValue(m.pending_write_approval);
       if (m.session) mergeSessionSummaryFromPolling(m.session);
-      requestAnimationFrame(() => {
+      schedulePostRenderFrame(() => {
         if (!ownsSessionAsyncResult(requestSessionId)) return;
         const el = mainRef.current;
         if (!el) return;
@@ -3845,6 +3865,7 @@ export function SessionDetailPage() {
       sseCloseRef.current?.();
       sseCloseRef.current = null;
       clearAutoTitleRefreshTimers();
+      cancelPostRenderFrames();
     };
   }, [auth.loading, sessionId]);
 
@@ -4003,7 +4024,7 @@ export function SessionDetailPage() {
     resetSlashTriggerState();
     resetAtMentionTriggerState();
     if (!composerCollapsed) {
-      requestAnimationFrame(() => composerTextareaRef.current?.focus());
+      schedulePostRenderFrame(() => composerTextareaRef.current?.focus());
     }
   }
 
@@ -4616,7 +4637,7 @@ export function SessionDetailPage() {
     const nextText = text.slice(0, trigger.triggerOffset) + text.slice(removeEnd);
     const caret = Math.min(trigger.triggerOffset, nextText.length);
     setComposerText(nextText);
-    requestAnimationFrame(() => {
+    schedulePostRenderFrame(() => {
       const node = composerTextareaRef.current;
       node?.focus();
       node?.setSelectionRange(caret, caret);
@@ -4717,7 +4738,7 @@ export function SessionDetailPage() {
     setSelectedSkill(skill);
     setSkillPickerOpen(false);
     resetSlashTriggerState();
-    requestAnimationFrame(() => {
+    schedulePostRenderFrame(() => {
       const node = composerTextareaRef.current;
       node?.focus();
       node?.setSelectionRange(0, 0);
