@@ -2290,7 +2290,7 @@ String _extractStreamText(Object? rawContent) {
       if (item is! Map) {
         continue;
       }
-      final itemMap = Map<String, Object?>.from(item);
+      final itemMap = stringKeyedMapFromValue(item);
       final text = '${itemMap['text'] ?? itemMap['content'] ?? ''}';
       if (text.isNotEmpty) {
         buffer.write(text);
@@ -2317,7 +2317,7 @@ String _extractReasoningText(Map<String, Object?> delta) {
     if (item is! Map) {
       continue;
     }
-    final itemMap = Map<String, Object?>.from(item);
+    final itemMap = stringKeyedMapFromValue(item);
     final text = '${itemMap['text'] ?? itemMap['content'] ?? ''}';
     if (text.isNotEmpty) {
       buffer.write(text);

@@ -4494,7 +4494,7 @@ class _SettingsViewState extends State<SettingsView> {
       if (decoded is! Map) {
         throw const FormatException('Root must be a JSON object');
       }
-      nextDoc = Map<String, Object?>.from(decoded);
+      nextDoc = stringKeyedMapFromValue(decoded);
     } catch (error, stack) {
       silentLog(
         'settings_view',

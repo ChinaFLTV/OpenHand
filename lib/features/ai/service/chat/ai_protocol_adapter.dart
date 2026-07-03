@@ -1436,12 +1436,12 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
           if (item is! Map) {
             return null;
           }
-          final toolCallMap = Map<String, Object?>.from(item);
+          final toolCallMap = stringKeyedMapFromValue(item);
           final function = toolCallMap['function'];
           if (function is! Map) {
             return null;
           }
-          final functionMap = Map<String, Object?>.from(function);
+          final functionMap = stringKeyedMapFromValue(function);
           final id = '${toolCallMap['id'] ?? ''}'.trim();
           final name = '${functionMap['name'] ?? ''}'.trim();
           if (id.isEmpty || name.isEmpty) {
@@ -1856,10 +1856,8 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       }
       if (value is List) {
         for (final item in value) {
-          if (item is Map<String, Object?>) {
-            blocks.add(item);
-          } else if (item is Map) {
-            blocks.add(Map<String, Object?>.from(item));
+          if (item is Map) {
+            blocks.add(stringKeyedMapFromValue(item));
           }
         }
       }

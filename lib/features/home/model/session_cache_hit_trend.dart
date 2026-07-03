@@ -442,7 +442,7 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
 }) {
   Map<String, Object?>? asMap(Object? value) => switch (value) {
     Map<String, Object?> map => map,
-    Map map => Map<String, Object?>.from(map),
+    Map map => stringKeyedMapFromValue(map),
     _ => null,
   };
 

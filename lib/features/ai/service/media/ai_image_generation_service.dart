@@ -1627,7 +1627,7 @@ class AiImageGenerationService {
         return;
       }
       if (value is! Map) return;
-      final map = Map<String, Object?>.from(value);
+      final map = stringKeyedMapFromValue(value);
       final nestedLabel = _firstTextValue(map, const <String>[
         'revised_prompt',
         'prompt',
@@ -2226,7 +2226,7 @@ class AiImageGenerationService {
     }
     for (final value in map.values) {
       if (value is Map) {
-        final nested = _findFirstString(Map<String, Object?>.from(value), keys);
+        final nested = _findFirstString(stringKeyedMapFromValue(value), keys);
         if (nested != null) return nested;
       }
     }
