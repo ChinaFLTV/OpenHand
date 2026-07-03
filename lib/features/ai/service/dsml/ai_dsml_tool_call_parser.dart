@@ -60,11 +60,9 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
       if (parameterName.isEmpty) {
         continue;
       }
-      final treatAsString =
-          (parameterAttributes['string'] ?? '').trim().toLowerCase() != 'false';
       arguments[parameterName] = decodeDsmlParameterValue(
         parameterMatch.group(2) ?? '',
-        treatAsString: treatAsString,
+        treatAsString: dsmlParameterTreatsValueAsString(parameterAttributes),
       );
     }
     // 2026-04-26: Fallback — when the model produced `<DSML:invoke ...>`
@@ -397,6 +395,10 @@ Map<String, String> _parseDsmlAttributes(String rawAttributes) {
   return attributes;
 }
 
+bool dsmlParameterTreatsValueAsString(Map<String, String> attributes) {
+  return boolFromValue(attributes['string'], defaultValue: true);
+}
+
 Object? decodeDsmlParameterValue(
   String rawValue, {
   required bool treatAsString,
@@ -416,6 +418,7 @@ Object? decodeDsmlParameterValue(
     }
     return trimmed;
   }
+
   if (trimmed.isEmpty) {
     return null;
   }

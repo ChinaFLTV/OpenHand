@@ -1,7 +1,10 @@
 import 'dart:convert';
 
 import 'ai_dsml_tool_call_parser.dart'
-    show canonicalizeDsmlMarkup, decodeDsmlParameterValue;
+    show
+        canonicalizeDsmlMarkup,
+        decodeDsmlParameterValue,
+        dsmlParameterTreatsValueAsString;
 
 /// Partial DSML invoke parsed from a still-streaming text buffer.
 class PartialDsmlInvoke {
@@ -114,11 +117,9 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
       final pAttrs = _parseAttributes(pm.group(1) ?? '');
       final key = (pAttrs['name'] ?? '').trim();
       if (key.isEmpty) continue;
-      final treatAsString =
-          (pAttrs['string'] ?? '').trim().toLowerCase() != 'false';
       args[key] = decodeDsmlParameterValue(
         pm.group(2) ?? '',
-        treatAsString: treatAsString,
+        treatAsString: dsmlParameterTreatsValueAsString(pAttrs),
       );
     }
     if (name.isNotEmpty) {
