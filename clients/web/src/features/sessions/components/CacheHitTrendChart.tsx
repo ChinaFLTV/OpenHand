@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'preact/hooks';
+import { clampNumber } from '../../../shared/util/number';
 
 interface TrendPoint {
   turnIndex: number;
@@ -29,6 +30,9 @@ const EXTREME_IDLE_GAP_SECONDS = 1800; // 30 min
 const EXTREME_HIT_RATIO_THRESHOLD = 0.01; // 1%
 const MIN_VISIBLE_POINTS = 6;
 const CACHE_LINE_COLOR = '#2E7D32';
+const CACHE_TREND_ENTRANCE_DURATION_MS = 560;
+const CACHE_TREND_HOVER_IN_DURATION_MS = 240;
+const CACHE_TREND_HOVER_OUT_DURATION_MS = 200;
 
 function isExtremeIdleExpiryMiss(p: TrendPoint): boolean {
   const gap = p.idleGapSeconds ?? 0;
@@ -70,7 +74,7 @@ function viewportZoomAround(
   const span = vpSpan(v);
   const nextSpan = Math.max(minSpan, Math.min(maxSpan, span / safeScale));
   const normalizedAnchor =
-    span <= 0 ? 0 : Math.max(0, Math.min(1, (anchor - v.start) / span));
+    span <= 0 ? 0 : clampNumber((anchor - v.start) / span, 0, 1);
   let nextStart = anchor - normalizedAnchor * nextSpan;
   let nextEnd = nextStart + nextSpan;
   if (nextStart < 0) {
@@ -156,12 +160,11 @@ export default function CacheHitTrendChart({
   const [animProgress, setAnimProgress] = useState(0);
   useEffect(() => {
     const start = performance.now();
-    const dur = 560;
     let raf = 0;
     const tick = () => {
       const now = performance.now();
-      const t = (now - start) / dur;
-      const v = Math.max(0, Math.min(1, t));
+      const t = (now - start) / CACHE_TREND_ENTRANCE_DURATION_MS;
+      const v = clampNumber(t, 0, 1);
       setAnimProgress(v);
       if (t < 1) raf = requestAnimationFrame(tick);
     };
@@ -174,13 +177,13 @@ export default function CacheHitTrendChart({
   const [hoverAnim, setHoverAnim] = useState(0);
   useEffect(() => {
     const target = hoverIdx >= 0 ? 1 : 0;
-    const dur = target === 1 ? 240 : 200;
+    const dur = target === 1 ? CACHE_TREND_HOVER_IN_DURATION_MS : CACHE_TREND_HOVER_OUT_DURATION_MS;
     const start = performance.now();
     const from = hoverAnim;
     let raf = 0;
     const tick = () => {
       const now = performance.now();
-      const t = Math.max(0, Math.min(1, (now - start) / dur));
+      const t = clampNumber((now - start) / dur, 0, 1);
       const eased = target === 1 ? easeOutCubic(t) : easeInCubic(t);
       setHoverAnim(from + (target - from) * eased);
       if (t < 1) raf = requestAnimationFrame(tick);
@@ -221,15 +224,13 @@ export default function CacheHitTrendChart({
       visiblePoints.length <= 1 ? chartW : chartW / (visiblePoints.length - 1);
     return visiblePoints.map((p, i) => ({
       x: PAD_LEFT + (visiblePoints.length <= 1 ? chartW / 2 : stepX * i),
-      y: PAD_TOP + chartH - chartH * Math.min(1, Math.max(0, p.hitRatio)),
+      y: PAD_TOP + chartH - chartH * clampNumber(p.hitRatio, 0, 1),
       hitRatio: p.hitRatio,
       turnIndex: p.turnIndex,
     }));
   }, [visiblePoints, chartW, chartH]);
 
-  const easedProgress = easeOutCubic(
-    Math.max(0, Math.min(1, animProgress)),
-  );
+  const easedProgress = easeOutCubic(clampNumber(animProgress, 0, 1));
   const visibleCount =
     layoutPoints.length <= 1
       ? easedProgress
@@ -258,7 +259,7 @@ export default function CacheHitTrendChart({
   const fillPath = buildSmoothFillPath(animatedLayoutPoints, PAD_TOP + chartH);
 
   const avgY =
-    PAD_TOP + chartH - chartH * Math.max(0, Math.min(1, averageRatio));
+    PAD_TOP + chartH - chartH * clampNumber(averageRatio, 0, 1);
 
   const showMiddleLabel =
     visiblePoints.length > 2
@@ -288,7 +289,7 @@ export default function CacheHitTrendChart({
       const stepX =
         visiblePoints.length <= 1 ? 0 : chartW / (visiblePoints.length - 1);
       const raw = stepX <= 0 ? 0 : Math.round(x / stepX);
-      const idx = Math.max(0, Math.min(visiblePoints.length - 1, raw));
+      const idx = Math.round(clampNumber(raw, 0, visiblePoints.length - 1));
       if (idx !== hoverIdx) setHoverIdx(idx);
     },
     [visiblePoints, chartW, hoverIdx, totalW],
@@ -305,10 +306,7 @@ export default function CacheHitTrendChart({
       if (!svg) return;
       const r = svg.getBoundingClientRect();
       const scaleX = r.width / totalW;
-      const localDx = Math.max(
-        0,
-        Math.min(chartW, (e.clientX - r.left) / scaleX - PAD_LEFT),
-      );
+      const localDx = clampNumber((e.clientX - r.left) / scaleX - PAD_LEFT, 0, chartW);
       const span = vpSpan(viewport);
       const anchor =
         viewport.start + (chartW <= 0 ? 0 : (localDx / chartW) * span);
