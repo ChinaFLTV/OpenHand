@@ -24,6 +24,110 @@ import 'hardness_cli_login_dialog.dart';
 
 const double _kHardnessModeDropdownWidth = 132;
 
+String _heEngineeringText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
+String _heEngineeringRoleLabel(BuildContext context, HardnessAgentRole role) {
+  return switch (role) {
+    HardnessAgentRole.profiler => _heEngineeringText(
+      context,
+      zh: '探档者',
+      zhHant: '探檔者',
+      en: 'Profiler',
+      fr: 'Profileur',
+      de: 'Profiler',
+      ja: 'プロファイラー',
+    ),
+    HardnessAgentRole.reader => _heEngineeringText(
+      context,
+      zh: '调查者',
+      zhHant: '調查者',
+      en: 'Reader',
+      fr: 'Lecteur',
+      de: 'Leser',
+      ja: 'リーダー',
+    ),
+    HardnessAgentRole.planner => _heEngineeringText(
+      context,
+      zh: '规划者',
+      zhHant: '規劃者',
+      en: 'Planner',
+      fr: 'Planificateur',
+      de: 'Planer',
+      ja: 'プランナー',
+    ),
+    HardnessAgentRole.implementer => _heEngineeringText(
+      context,
+      zh: '实施者',
+      zhHant: '實施者',
+      en: 'Implementer',
+      fr: 'Implémenteur',
+      de: 'Umsetzer',
+      ja: '実装者',
+    ),
+    HardnessAgentRole.reviewer => _heEngineeringText(
+      context,
+      zh: '验收者',
+      zhHant: '驗收者',
+      en: 'Reviewer',
+      fr: 'Relecteur',
+      de: 'Prüfer',
+      ja: 'レビュー担当',
+    ),
+  };
+}
+
+String _heEngineeringCliModelLabel(
+  BuildContext context,
+  HardnessCli? cli,
+  String modelId,
+) {
+  final normalizedModel = modelId.trim();
+  if (normalizedModel == kHardnessGeminiDefaultModelId ||
+      (cli != null && isHardnessCliDefaultModel(cli, normalizedModel))) {
+    return _heEngineeringText(
+      context,
+      zh: 'Gemini CLI 默认（自动）',
+      zhHant: 'Gemini CLI 預設（自動）',
+      en: 'Gemini CLI default (auto)',
+      fr: 'Gemini CLI par défaut (auto)',
+      de: 'Gemini CLI-Standard (automatisch)',
+      ja: 'Gemini CLI デフォルト（自動）',
+    );
+  }
+  if (normalizedModel.isEmpty) {
+    return _heEngineeringText(
+      context,
+      zh: '默认',
+      zhHant: '預設',
+      en: 'Default',
+      fr: 'Par défaut',
+      de: 'Standard',
+      ja: 'デフォルト',
+    );
+  }
+  return normalizedModel;
+}
+
 class HardnessEngineeringDialog extends StatefulWidget {
   const HardnessEngineeringDialog({super.key, this.settingsController});
 
@@ -217,20 +321,26 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
     );
   }
 
-  List<String> _configurationIssues(bool isZh) {
+  List<String> _configurationIssues(BuildContext context) {
     final issues = <String>[];
     final settingsModels = widget.settingsController?.aiModels ?? const [];
     for (final role in HardnessAgentRole.values) {
-      final roleLabel = isZh ? role.displayNameZh : role.displayNameEn;
+      final roleLabel = _heEngineeringRoleLabel(context, role);
       final roleConfig = _roleConfig(role);
 
       if (roleConfig.isUrlMode) {
         final configId = roleConfig.aiModelConfigId;
         if (configId == null || configId.trim().isEmpty) {
           issues.add(
-            isZh
-                ? '$roleLabel：请选择 API 模型提供商。'
-                : '$roleLabel: choose an API model provider.',
+            _heEngineeringText(
+              context,
+              zh: '$roleLabel：请选择 API 模型提供商。',
+              zhHant: '$roleLabel：請選擇 API 模型提供者。',
+              en: '$roleLabel: choose an API model provider.',
+              fr: '$roleLabel : choisissez un fournisseur de modèle API.',
+              de: '$roleLabel: API-Modellanbieter auswählen.',
+              ja: '$roleLabel: API モデルプロバイダーを選択してください。',
+            ),
           );
           continue;
         }
@@ -239,9 +349,15 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
             .firstOrNull;
         if (provider == null) {
           issues.add(
-            isZh
-                ? '$roleLabel：所选 API 模型提供商不存在，请重新选择。'
-                : '$roleLabel: the selected API model provider no longer exists.',
+            _heEngineeringText(
+              context,
+              zh: '$roleLabel：所选 API 模型提供商不存在，请重新选择。',
+              zhHant: '$roleLabel：所選 API 模型提供者不存在，請重新選擇。',
+              en: '$roleLabel: the selected API model provider no longer exists.',
+              fr: '$roleLabel : le fournisseur de modèle API sélectionné n’existe plus.',
+              de: '$roleLabel: Der ausgewählte API-Modellanbieter existiert nicht mehr.',
+              ja: '$roleLabel: 選択した API モデルプロバイダーは存在しません。',
+            ),
           );
           continue;
         }
@@ -250,9 +366,15 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
             urlModelId.isNotEmpty &&
             !provider.allModelIds.contains(urlModelId)) {
           issues.add(
-            isZh
-                ? '$roleLabel：所选模型 "$urlModelId" 在该提供商中不存在。'
-                : '$roleLabel: model "$urlModelId" not found in this provider.',
+            _heEngineeringText(
+              context,
+              zh: '$roleLabel：所选模型 "$urlModelId" 在该提供商中不存在。',
+              zhHant: '$roleLabel：所選模型 "$urlModelId" 在該提供者中不存在。',
+              en: '$roleLabel: model "$urlModelId" not found in this provider.',
+              fr: '$roleLabel : modèle "$urlModelId" introuvable chez ce fournisseur.',
+              de: '$roleLabel: Modell "$urlModelId" wurde bei diesem Anbieter nicht gefunden.',
+              ja: '$roleLabel: モデル "$urlModelId" はこのプロバイダーにありません。',
+            ),
           );
         }
         continue;
@@ -262,45 +384,77 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
       final modelId = roleConfig.modelId.trim();
 
       if (cliName.isEmpty) {
-        issues.add(isZh ? '$roleLabel：请选择 CLI。' : '$roleLabel: choose a CLI.');
+        issues.add(
+          _heEngineeringText(
+            context,
+            zh: '$roleLabel：请选择 CLI。',
+            zhHant: '$roleLabel：請選擇 CLI。',
+            en: '$roleLabel: choose a CLI.',
+            fr: '$roleLabel : choisissez un CLI.',
+            de: '$roleLabel: CLI auswählen.',
+            ja: '$roleLabel: CLI を選択してください。',
+          ),
+        );
         continue;
       }
 
       final entry = _entryForCli(cliName);
       if (entry == null) {
         issues.add(
-          isZh
-              ? '$roleLabel：无法识别所选 CLI，请重新选择。'
-              : '$roleLabel: the selected CLI is no longer available. Re-select it.',
+          _heEngineeringText(
+            context,
+            zh: '$roleLabel：无法识别所选 CLI，请重新选择。',
+            zhHant: '$roleLabel：無法識別所選 CLI，請重新選擇。',
+            en: '$roleLabel: the selected CLI is no longer available. Re-select it.',
+            fr: '$roleLabel : le CLI sélectionné n’est plus disponible. Sélectionnez-le à nouveau.',
+            de: '$roleLabel: Die ausgewählte CLI ist nicht mehr verfügbar. Bitte erneut auswählen.',
+            ja: '$roleLabel: 選択した CLI は利用できません。再選択してください。',
+          ),
         );
         continue;
       }
 
       if (!entry.installed) {
         issues.add(
-          isZh
-              ? '$roleLabel：所选 CLI 尚未安装。'
-              : '$roleLabel: the selected CLI is not installed.',
+          _heEngineeringText(
+            context,
+            zh: '$roleLabel：所选 CLI 尚未安装。',
+            zhHant: '$roleLabel：所選 CLI 尚未安裝。',
+            en: '$roleLabel: the selected CLI is not installed.',
+            fr: '$roleLabel : le CLI sélectionné n’est pas installé.',
+            de: '$roleLabel: Die ausgewählte CLI ist nicht installiert.',
+            ja: '$roleLabel: 選択した CLI はインストールされていません。',
+          ),
         );
         continue;
       }
 
       if (modelId.isEmpty) {
-        issues.add(isZh ? '$roleLabel：请选择模型。' : '$roleLabel: choose a model.');
+        issues.add(
+          _heEngineeringText(
+            context,
+            zh: '$roleLabel：请选择模型。',
+            zhHant: '$roleLabel：請選擇模型。',
+            en: '$roleLabel: choose a model.',
+            fr: '$roleLabel : choisissez un modèle.',
+            de: '$roleLabel: Modell auswählen.',
+            ja: '$roleLabel: モデルを選択してください。',
+          ),
+        );
         continue;
       }
     }
     return issues;
   }
 
-  List<String> _geminiAccessAdvisories(bool isZh) {
+  List<String> _geminiAccessAdvisories(BuildContext context) {
     final geminiRoleLabels = <String>[];
     var hasLoggedInGemini = false;
     var hasPinnedGeminiModel = false;
     final geminiCli = findHardnessCliByName('Gemini CLI');
 
     for (final role in HardnessAgentRole.values) {
-      final roleLabel = isZh ? role.displayNameZh : role.displayNameEn;
+      final roleLabel = _heEngineeringRoleLabel(context, role);
       final roleConfig = _roleConfig(role);
 
       // URL-mode roles don't invoke Gemini CLI — skip.
@@ -331,36 +485,71 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
       return const [];
     }
 
-    final roleSummary = geminiRoleLabels.join(isZh ? '、' : ', ');
-    final defaultModelLabel = describeHardnessCliModel(
+    final roleSummary = geminiRoleLabels.join(
+      openHandIsChineseLocale(context) ? '、' : ', ',
+    );
+    final defaultModelLabel = _heEngineeringCliModelLabel(
+      context,
       geminiCli,
       kHardnessGeminiDefaultModelId,
-      isZh: isZh,
     );
-    final flashModelLabel = describeHardnessCliModel(
+    final flashModelLabel = _heEngineeringCliModelLabel(
+      context,
       geminiCli,
       'gemini-2.5-flash',
-      isZh: isZh,
     );
 
     return [
-      isZh
-          ? '当前使用 Gemini 的角色：$roleSummary。OpenHand 不会在 setup 阶段根据本地模型列表预先判定你填写的 Gemini 模型是否“受支持”，真正可用性要以 CLI 实际运行结果为准。'
-          : 'Roles currently using Gemini: $roleSummary. OpenHand does not pre-judge whether a Gemini model is “supported” from the local catalog during setup; actual availability is determined by the real CLI/runtime result.',
+      _heEngineeringText(
+        context,
+        zh: '当前使用 Gemini 的角色：$roleSummary。OpenHand 不会在 setup 阶段预判 Gemini 模型是否受支持，实际可用性以 CLI 运行结果为准。',
+        zhHant:
+            '目前使用 Gemini 的角色：$roleSummary。OpenHand 不會在 setup 階段預判 Gemini 模型是否受支援，實際可用性以 CLI 執行結果為準。',
+        en: 'Roles using Gemini: $roleSummary. OpenHand does not pre-judge Gemini model support during setup; real CLI/runtime results decide availability.',
+        fr: 'Rôles utilisant Gemini : $roleSummary. OpenHand ne préjuge pas la prise en charge du modèle pendant la configuration ; le résultat CLI réel fait foi.',
+        de: 'Rollen mit Gemini: $roleSummary. OpenHand bewertet Modellunterstützung im Setup nicht vorab; entscheidend ist das echte CLI-Ergebnis.',
+        ja: 'Gemini を使うロール：$roleSummary。OpenHand は setup 時に Gemini モデル対応を事前判定しません。実際の CLI 実行結果が基準です。',
+      ),
       hasLoggedInGemini
-          ? (isZh
-                ? '即使状态显示“已登录”，免费版或受限账号在运行时仍可能对部分 Pro / Preview 模型返回无权限或 model not found 类错误。'
-                : 'Even when the CLI shows as logged in, free-tier or restricted accounts can still return permission or model-not-found style errors for some Pro / Preview models at runtime.')
-          : (isZh
-                ? 'OpenHand 在 setup 阶段只能校验模型 ID 和登录状态，无法预先确认你随后使用的 Google 账号是否具备该模型权限。'
-                : 'During setup, OpenHand can only validate the model ID and login state; it cannot pre-verify whether the Google account you use will actually be entitled to that model.'),
+          ? _heEngineeringText(
+              context,
+              zh: '即使显示已登录，免费版或受限账号运行部分 Pro / Preview 模型时仍可能无权限或找不到模型。',
+              zhHant: '即使顯示已登入，免費版或受限帳號執行部分 Pro / Preview 模型時仍可能無權限或找不到模型。',
+              en: 'Even when logged in, free-tier or restricted accounts may still hit permission or model-not-found errors for some Pro / Preview models.',
+              fr: 'Même connecté, un compte gratuit ou restreint peut rencontrer des erreurs de permission ou modèle introuvable sur certains modèles Pro / Preview.',
+              de: 'Auch angemeldet können kostenlose oder eingeschränkte Konten bei einigen Pro-/Preview-Modellen Berechtigungs- oder Model-not-found-Fehler erhalten.',
+              ja: 'ログイン済みでも、無料または制限付きアカウントでは一部 Pro / Preview モデルで権限不足や model not found が起きる場合があります。',
+            )
+          : _heEngineeringText(
+              context,
+              zh: 'Setup 阶段只能校验模型 ID 和登录状态，无法预先确认后续 Google 账号是否具备模型权限。',
+              zhHant: 'Setup 階段只能校驗模型 ID 和登入狀態，無法預先確認後續 Google 帳號是否具備模型權限。',
+              en: 'During setup, OpenHand can only validate model ID and login state; it cannot pre-verify Google account entitlement.',
+              fr: 'Pendant la configuration, OpenHand vérifie seulement l’ID du modèle et l’état de connexion ; il ne peut pas confirmer les droits du compte Google.',
+              de: 'Im Setup prüft OpenHand nur Modell-ID und Loginstatus; Google-Kontoberechtigungen kann es nicht vorab bestätigen.',
+              ja: 'Setup 時に確認できるのはモデル ID とログイン状態だけで、Google アカウントの権限は事前確認できません。',
+            ),
       hasPinnedGeminiModel
-          ? (isZh
-                ? '如果你不确定账号额度或权限，优先改用 $defaultModelLabel 或 $flashModelLabel；若运行后仍失败，可在 dashboard 中修改模型后从失败阶段手动重试。'
-                : 'If you are unsure about quota or account entitlements, prefer $defaultModelLabel or $flashModelLabel. If runtime still fails, change the model in the dashboard and manually retry from the failed phase.')
-          : (isZh
-                ? '即使使用 $defaultModelLabel，也仍会受当前账号权限影响；若运行后失败，可在 dashboard 中改模型后从失败阶段手动重试。'
-                : 'Even with $defaultModelLabel, runtime access still depends on the current account. If execution fails, change the model in the dashboard and manually retry from the failed phase.'),
+          ? _heEngineeringText(
+              context,
+              zh: '如果不确定额度或权限，优先改用 $defaultModelLabel 或 $flashModelLabel；运行后失败可在 dashboard 改模型并从失败阶段重试。',
+              zhHant:
+                  '如果不確定額度或權限，優先改用 $defaultModelLabel 或 $flashModelLabel；執行後失敗可在 dashboard 改模型並從失敗階段重試。',
+              en: 'If quota or entitlement is uncertain, prefer $defaultModelLabel or $flashModelLabel. If runtime fails, change the model in the dashboard and retry the failed phase.',
+              fr: 'Si les quotas ou droits sont incertains, préférez $defaultModelLabel ou $flashModelLabel. En cas d’échec, changez le modèle dans le dashboard et réessayez la phase.',
+              de: 'Bei unklaren Quoten oder Rechten nutze bevorzugt $defaultModelLabel oder $flashModelLabel. Bei Laufzeitfehlern Modell im Dashboard ändern und Phase erneut versuchen.',
+              ja: '割り当てや権限が不明な場合は $defaultModelLabel または $flashModelLabel を優先してください。失敗時は dashboard でモデルを変えて失敗フェーズを再試行できます。',
+            )
+          : _heEngineeringText(
+              context,
+              zh: '即使使用 $defaultModelLabel，也仍受当前账号权限影响；运行后失败可在 dashboard 改模型并从失败阶段重试。',
+              zhHant:
+                  '即使使用 $defaultModelLabel，也仍受目前帳號權限影響；執行後失敗可在 dashboard 改模型並從失敗階段重試。',
+              en: 'Even with $defaultModelLabel, access depends on the current account. If execution fails, change the model in the dashboard and retry the failed phase.',
+              fr: 'Même avec $defaultModelLabel, l’accès dépend du compte actuel. En cas d’échec, changez le modèle dans le dashboard et réessayez la phase.',
+              de: 'Auch mit $defaultModelLabel hängt der Zugriff vom aktuellen Konto ab. Bei Fehlern Modell im Dashboard ändern und Phase erneut versuchen.',
+              ja: '$defaultModelLabel でもアクセス権は現在のアカウント次第です。失敗時は dashboard でモデルを変えて失敗フェーズを再試行できます。',
+            ),
     ];
   }
 
@@ -434,16 +623,44 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
     final cli = entry.cli;
     if (!cli.hasLogoutTrigger) return;
 
-    final isZh = openHandIsChineseLocale(context);
-
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '确认登出' : 'Confirm Logout',
-      message: isZh
-          ? '确定要登出 ${cli.name} 吗？登出后需要重新登录才能使用该 CLI。'
-          : 'Are you sure you want to log out of ${cli.name}? You will need to log in again to use this CLI.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '登出' : 'Logout',
+      title: _heEngineeringText(
+        context,
+        zh: '确认登出',
+        zhHant: '確認登出',
+        en: 'Confirm Logout',
+        fr: 'Confirmer la déconnexion',
+        de: 'Logout bestätigen',
+        ja: 'ログアウトを確認',
+      ),
+      message: _heEngineeringText(
+        context,
+        zh: '确定要登出 ${cli.name} 吗？登出后需要重新登录才能使用该 CLI。',
+        zhHant: '確定要登出 ${cli.name} 嗎？登出後需要重新登入才能使用該 CLI。',
+        en: 'Are you sure you want to log out of ${cli.name}? You will need to log in again to use this CLI.',
+        fr: 'Voulez-vous vous déconnecter de ${cli.name} ? Une reconnexion sera nécessaire pour utiliser ce CLI.',
+        de: 'Von ${cli.name} abmelden? Danach musst du dich erneut anmelden, um diese CLI zu nutzen.',
+        ja: '${cli.name} からログアウトしますか？この CLI を使うには再ログインが必要です。',
+      ),
+      cancelLabel: _heEngineeringText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _heEngineeringText(
+        context,
+        zh: '登出',
+        zhHant: '登出',
+        en: 'Logout',
+        fr: 'Se déconnecter',
+        de: 'Abmelden',
+        ja: 'ログアウト',
+      ),
     );
 
     if (confirmed != true || !mounted) return;
@@ -459,12 +676,24 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
     if (scaffoldMessenger != null) {
       final strippedMessage = stripHardnessCliTerminalSequences(result.message);
       final snackMessage = result.success
-          ? (isZh
-                ? '${cli.name} 已登出。$strippedMessage'
-                : '${cli.name} logged out. $strippedMessage')
-          : (isZh
-                ? '${cli.name} 登出失败：$strippedMessage'
-                : '${cli.name} logout failed: $strippedMessage');
+          ? _heEngineeringText(
+              context,
+              zh: '${cli.name} 已登出。$strippedMessage',
+              zhHant: '${cli.name} 已登出。$strippedMessage',
+              en: '${cli.name} logged out. $strippedMessage',
+              fr: '${cli.name} déconnecté. $strippedMessage',
+              de: '${cli.name} abgemeldet. $strippedMessage',
+              ja: '${cli.name} からログアウトしました。$strippedMessage',
+            )
+          : _heEngineeringText(
+              context,
+              zh: '${cli.name} 登出失败：$strippedMessage',
+              zhHant: '${cli.name} 登出失敗：$strippedMessage',
+              en: '${cli.name} logout failed: $strippedMessage',
+              fr: 'Échec de la déconnexion de ${cli.name} : $strippedMessage',
+              de: '${cli.name} Abmeldung fehlgeschlagen: $strippedMessage',
+              ja: '${cli.name} のログアウトに失敗しました：$strippedMessage',
+            );
       OpenHandSnackBar.show(
         context,
         scaffoldMessenger,
@@ -526,9 +755,8 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
-    final configurationIssues = _configurationIssues(isZh);
-    final geminiAccessAdvisories = _geminiAccessAdvisories(isZh);
+    final configurationIssues = _configurationIssues(context);
+    final geminiAccessAdvisories = _geminiAccessAdvisories(context);
     final canSubmit = _isValid && !_isScanning && configurationIssues.isEmpty;
     final maxDialogHeight = MediaQuery.sizeOf(context).height * 0.9;
 
@@ -544,7 +772,15 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isZh ? 'Harness Engineering 配置' : 'Harness Engineering Setup',
+                  _heEngineeringText(
+                    context,
+                    zh: 'Harness Engineering 配置',
+                    zhHant: 'Harness Engineering 設定',
+                    en: 'Harness Engineering Setup',
+                    fr: 'Configuration Harness Engineering',
+                    de: 'Harness Engineering einrichten',
+                    ja: 'Harness Engineering 設定',
+                  ),
                   style: theme.textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 20),
@@ -555,9 +791,16 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh
-                              ? 'OpenHand 将作为编排协调层。每个角色可使用 CLI 模式（委托给外部 CLI 工具）或 URL 模式（使用设置中配置的 API 模型，由 OpenHand 直接调度含工具调用的多轮对话）。'
-                              : 'OpenHand acts as orchestrator. Each role can use CLI mode (delegate to external CLI tools) or URL mode (use configured API models with full tool integration).',
+                          _heEngineeringText(
+                            context,
+                            zh: 'OpenHand 将作为编排协调层。每个角色可使用 CLI 模式（委托给外部 CLI 工具）或 URL 模式（使用设置中的 API 模型）。',
+                            zhHant:
+                                'OpenHand 將作為編排協調層。每個角色可使用 CLI 模式（委託外部 CLI 工具）或 URL 模式（使用設定中的 API 模型）。',
+                            en: 'OpenHand acts as orchestrator. Each role can use CLI mode for external CLI tools or URL mode for configured API models.',
+                            fr: 'OpenHand orchestre le flux. Chaque rôle peut utiliser le mode CLI ou le mode URL avec les modèles API configurés.',
+                            de: 'OpenHand orchestriert den Ablauf. Jede Rolle kann CLI-Modus oder URL-Modus mit konfigurierten API-Modellen nutzen.',
+                            ja: 'OpenHand がオーケストレーターとして動作します。各ロールは外部 CLI の CLI モード、または設定済み API モデルの URL モードを使用できます。',
+                          ),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -571,10 +814,24 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                           maxLines: 5,
                           minLines: 3,
                           decoration: InputDecoration(
-                            labelText: isZh ? '任务 / 需求' : 'Task / Requirement',
-                            hintText: isZh
-                                ? '描述你的开发任务或需求...'
-                                : 'Describe your development task or requirement...',
+                            labelText: _heEngineeringText(
+                              context,
+                              zh: '任务 / 需求',
+                              zhHant: '任務 / 需求',
+                              en: 'Task / Requirement',
+                              fr: 'Tâche / besoin',
+                              de: 'Aufgabe / Anforderung',
+                              ja: 'タスク / 要件',
+                            ),
+                            hintText: _heEngineeringText(
+                              context,
+                              zh: '描述你的开发任务或需求...',
+                              zhHant: '描述你的開發任務或需求...',
+                              en: 'Describe your development task or requirement...',
+                              fr: 'Décrivez votre tâche ou besoin de développement...',
+                              de: 'Beschreibe deine Entwicklungsaufgabe oder Anforderung...',
+                              ja: '開発タスクまたは要件を説明してください...',
+                            ),
                             alignLabelWithHint: true,
                             border: const OutlineInputBorder(),
                           ),
@@ -584,11 +841,33 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                         // ── Working directory ──────────────────────────────────
                         _DirectoryField(
                           controller: _workingDirController,
-                          label: isZh ? '工作目录（项目根目录）' : 'Working Directory',
-                          hint: isZh
-                              ? '输入或选择项目根目录路径'
-                              : 'Enter or browse project root path',
-                          browseTooltip: isZh ? '浏览文件夹' : 'Browse folder',
+                          label: _heEngineeringText(
+                            context,
+                            zh: '工作目录（项目根目录）',
+                            zhHant: '工作目錄（專案根目錄）',
+                            en: 'Working Directory',
+                            fr: 'Répertoire de travail',
+                            de: 'Arbeitsverzeichnis',
+                            ja: '作業ディレクトリ',
+                          ),
+                          hint: _heEngineeringText(
+                            context,
+                            zh: '输入或选择项目根目录路径',
+                            zhHant: '輸入或選擇專案根目錄路徑',
+                            en: 'Enter or browse project root path',
+                            fr: 'Saisir ou choisir le chemin racine du projet',
+                            de: 'Projektwurzel eingeben oder auswählen',
+                            ja: 'プロジェクトルートのパスを入力または選択',
+                          ),
+                          browseTooltip: _heEngineeringText(
+                            context,
+                            zh: '浏览文件夹',
+                            zhHant: '瀏覽資料夾',
+                            en: 'Browse folder',
+                            fr: 'Parcourir le dossier',
+                            de: 'Ordner durchsuchen',
+                            ja: 'フォルダーを参照',
+                          ),
                           onBrowse: () => _pickDirectory(_workingDirController),
                         ),
                         const SizedBox(height: 14),
@@ -596,13 +875,33 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                         // ── Persistence directory ──────────────────────────────
                         _DirectoryField(
                           controller: _persistenceDirController,
-                          label: isZh
-                              ? '持久化根目录（steering 数据目录）'
-                              : 'Persistence Root (steering dir)',
-                          hint: isZh
-                              ? '输入或选择持久化根目录路径'
-                              : 'Enter or browse persistence root path',
-                          browseTooltip: isZh ? '浏览文件夹' : 'Browse folder',
+                          label: _heEngineeringText(
+                            context,
+                            zh: '持久化根目录（steering 数据目录）',
+                            zhHant: '持久化根目錄（steering 資料目錄）',
+                            en: 'Persistence Root (steering dir)',
+                            fr: 'Racine persistante (dossier steering)',
+                            de: 'Persistenzwurzel (steering-Verzeichnis)',
+                            ja: '永続化ルート（steering データディレクトリ）',
+                          ),
+                          hint: _heEngineeringText(
+                            context,
+                            zh: '输入或选择持久化根目录路径',
+                            zhHant: '輸入或選擇持久化根目錄路徑',
+                            en: 'Enter or browse persistence root path',
+                            fr: 'Saisir ou choisir le chemin de persistance',
+                            de: 'Persistenzpfad eingeben oder auswählen',
+                            ja: '永続化ルートのパスを入力または選択',
+                          ),
+                          browseTooltip: _heEngineeringText(
+                            context,
+                            zh: '浏览文件夹',
+                            zhHant: '瀏覽資料夾',
+                            en: 'Browse folder',
+                            fr: 'Parcourir le dossier',
+                            de: 'Ordner durchsuchen',
+                            ja: 'フォルダーを参照',
+                          ),
                           onBrowse: () =>
                               _pickDirectory(_persistenceDirController),
                         ),
@@ -612,7 +911,15 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                         Row(
                           children: [
                             Text(
-                              isZh ? '角色配置' : 'Role Configuration',
+                              _heEngineeringText(
+                                context,
+                                zh: '角色配置',
+                                zhHant: '角色設定',
+                                en: 'Role Configuration',
+                                fr: 'Configuration des rôles',
+                                de: 'Rollenkonfiguration',
+                                ja: 'ロール設定',
+                              ),
                               style: theme.textTheme.titleSmall?.copyWith(
                                 color: colorScheme.onSurface,
                               ),
@@ -636,7 +943,15 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                                   Icons.refresh_rounded,
                                   size: 18,
                                 ),
-                                tooltip: isZh ? '重新扫描 CLI' : 'Re-scan CLIs',
+                                tooltip: _heEngineeringText(
+                                  context,
+                                  zh: '重新扫描 CLI',
+                                  zhHant: '重新掃描 CLI',
+                                  en: 'Re-scan CLIs',
+                                  fr: 'Relancer le scan des CLI',
+                                  de: 'CLIs erneut scannen',
+                                  ja: 'CLI を再スキャン',
+                                ),
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
                               ),
@@ -644,9 +959,16 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          isZh
-                              ? '为每个角色选择执行模式（CLI 或 URL）并指定模型。● 已安装，○ 未安装，✓ 已登录，✗ 未登录。'
-                              : 'Choose execution mode (CLI or URL) and model for each role. ● installed, ○ not installed, ✓ logged in, ✗ not logged in.',
+                          _heEngineeringText(
+                            context,
+                            zh: '为每个角色选择执行模式（CLI 或 URL）并指定模型。● 已安装，○ 未安装，✓ 已登录，✗ 未登录。',
+                            zhHant:
+                                '為每個角色選擇執行模式（CLI 或 URL）並指定模型。● 已安裝，○ 未安裝，✓ 已登入，✗ 未登入。',
+                            en: 'Choose execution mode (CLI or URL) and model for each role. ● installed, ○ not installed, ✓ logged in, ✗ not logged in.',
+                            fr: 'Choisissez le mode (CLI ou URL) et le modèle pour chaque rôle. ● installé, ○ non installé, ✓ connecté, ✗ déconnecté.',
+                            de: 'Wähle Modus (CLI oder URL) und Modell je Rolle. ● installiert, ○ nicht installiert, ✓ angemeldet, ✗ nicht angemeldet.',
+                            ja: '各ロールの実行モード（CLI または URL）とモデルを選択してください。● インストール済み、○ 未インストール、✓ ログイン済み、✗ 未ログイン。',
+                          ),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -658,14 +980,12 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                           _CliScanSummary(
                             scanResults: _scanResults,
                             isCheckingAuth: _isCheckingAuth,
-                            isZh: isZh,
                           ),
                           const SizedBox(height: 12),
                         ],
 
                         // ── Quick-apply bar ────────────────────────────────────
                         _QuickApplyBar(
-                          isZh: isZh,
                           scanResults: _scanResults,
                           isScanning: _isScanning,
                           isCheckingAuth: _isCheckingAuth,
@@ -711,9 +1031,15 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
-                                    isZh
-                                        ? '扫描已安装的 CLI...'
-                                        : 'Scanning installed CLIs...',
+                                    _heEngineeringText(
+                                      context,
+                                      zh: '扫描已安装的 CLI...',
+                                      zhHant: '掃描已安裝的 CLI...',
+                                      en: 'Scanning installed CLIs...',
+                                      fr: 'Analyse des CLI installés...',
+                                      de: 'Installierte CLIs werden gescannt...',
+                                      ja: 'インストール済み CLI をスキャン中...',
+                                    ),
                                     style: const TextStyle(fontSize: 13),
                                   ),
                                 ],
@@ -751,7 +1077,6 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                             return _RoleConfigRow(
                               key: ValueKey(role),
                               role: role,
-                              isZh: isZh,
                               scanResults: _scanResults,
                               executionMode: executionMode,
                               selectedCli: selectedCliName,
@@ -843,9 +1168,15 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          isZh
-                                              ? '开始前请先修正以下配置问题'
-                                              : 'Resolve these configuration issues before starting',
+                                          _heEngineeringText(
+                                            context,
+                                            zh: '开始前请先修正以下配置问题',
+                                            zhHant: '開始前請先修正以下設定問題',
+                                            en: 'Resolve these configuration issues before starting',
+                                            fr: 'Corrigez ces problèmes avant de démarrer',
+                                            de: 'Behebe diese Konfigurationsprobleme vor dem Start',
+                                            ja: '開始前に以下の設定問題を修正してください',
+                                          ),
                                           style: theme.textTheme.labelMedium
                                               ?.copyWith(
                                                 color: colorScheme.error,
@@ -872,9 +1203,16 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                                     ),
                                   if (configurationIssues.length > 4)
                                     Text(
-                                      isZh
-                                          ? '还有 ${configurationIssues.length - 4} 项待处理。'
-                                          : '${configurationIssues.length - 4} more issue(s) need attention.',
+                                      _heEngineeringText(
+                                        context,
+                                        zh: '还有 ${configurationIssues.length - 4} 项待处理。',
+                                        zhHant:
+                                            '還有 ${configurationIssues.length - 4} 項待處理。',
+                                        en: '${configurationIssues.length - 4} more issue(s) need attention.',
+                                        fr: '${configurationIssues.length - 4} autre(s) problème(s) à traiter.',
+                                        de: '${configurationIssues.length - 4} weitere Punkte benötigen Aufmerksamkeit.',
+                                        ja: 'あと ${configurationIssues.length - 4} 件の対応が必要です。',
+                                      ),
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
                                             color: colorScheme.onSurfaceVariant,
@@ -923,9 +1261,15 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          isZh
-                                              ? 'Gemini 模型访问说明'
-                                              : 'Gemini model access note',
+                                          _heEngineeringText(
+                                            context,
+                                            zh: 'Gemini 模型访问说明',
+                                            zhHant: 'Gemini 模型存取說明',
+                                            en: 'Gemini model access note',
+                                            fr: 'Note d’accès aux modèles Gemini',
+                                            de: 'Hinweis zum Gemini-Modellzugriff',
+                                            ja: 'Gemini モデルアクセスの注意',
+                                          ),
                                           style: theme.textTheme.labelMedium
                                               ?.copyWith(
                                                 color: colorScheme.secondary,
@@ -958,9 +1302,15 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                                       size: 15,
                                     ),
                                     label: Text(
-                                      isZh
-                                          ? '查看 Gemini 官方模型文档'
-                                          : 'View Gemini model docs',
+                                      _heEngineeringText(
+                                        context,
+                                        zh: '查看 Gemini 官方模型文档',
+                                        zhHant: '查看 Gemini 官方模型文件',
+                                        en: 'View Gemini model docs',
+                                        fr: 'Voir la documentation des modèles Gemini',
+                                        de: 'Gemini-Modelldokumentation öffnen',
+                                        ja: 'Gemini モデル公式ドキュメントを表示',
+                                      ),
                                     ),
                                     style: TextButton.styleFrom(
                                       padding: EdgeInsets.zero,
@@ -988,9 +1338,16 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                               const SizedBox(width: 5),
                               Expanded(
                                 child: Text(
-                                  isZh
-                                      ? '若 CLI 未被检测到但实际已安装，可能因 App 启动方式导致环境变量未完全加载，可点击刷新图标重新扫描，或从终端启动 OpenHand。'
-                                      : 'If a CLI is not detected but is installed, the launch environment may not include your shell PATH. Try refreshing, or launch OpenHand from a terminal.',
+                                  _heEngineeringText(
+                                    context,
+                                    zh: '若 CLI 未被检测到但实际已安装，可能是启动环境未加载完整 PATH。可刷新重扫，或从终端启动 OpenHand。',
+                                    zhHant:
+                                        '若 CLI 未被偵測到但實際已安裝，可能是啟動環境未載入完整 PATH。可刷新重掃，或從終端啟動 OpenHand。',
+                                    en: 'If an installed CLI is not detected, the launch environment may not include your shell PATH. Refresh or launch OpenHand from a terminal.',
+                                    fr: 'Si un CLI installé n’est pas détecté, l’environnement de lancement peut manquer le PATH du shell. Actualisez ou lancez OpenHand depuis un terminal.',
+                                    de: 'Wenn eine installierte CLI nicht erkannt wird, fehlt im Startumfeld evtl. dein Shell-PATH. Aktualisiere oder starte OpenHand aus dem Terminal.',
+                                    ja: 'インストール済み CLI が検出されない場合、起動環境に shell PATH が含まれていない可能性があります。再スキャンするか、端末から OpenHand を起動してください。',
+                                  ),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: colorScheme.outline,
                                     height: 1.4,
@@ -1012,11 +1369,27 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                   children: [
                     OpenHandDialogActionButton.secondary(
                       onPressed: () => Navigator.of(context).pop(),
-                      label: isZh ? '取消' : 'Cancel',
+                      label: _heEngineeringText(
+                        context,
+                        zh: '取消',
+                        zhHant: '取消',
+                        en: 'Cancel',
+                        fr: 'Annuler',
+                        de: 'Abbrechen',
+                        ja: 'キャンセル',
+                      ),
                     ),
                     OpenHandDialogActionButton.primary(
                       onPressed: canSubmit ? _submit : null,
-                      label: isZh ? '开始会话' : 'Start Session',
+                      label: _heEngineeringText(
+                        context,
+                        zh: '开始会话',
+                        zhHant: '開始會話',
+                        en: 'Start Session',
+                        fr: 'Démarrer la session',
+                        de: 'Sitzung starten',
+                        ja: 'セッションを開始',
+                      ),
                     ),
                   ],
                 ),
@@ -1052,18 +1425,18 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
 }
 
 String _hardnessConfiguredModelLabel(
+  BuildContext context,
   HardnessCli? cli,
-  String modelId, {
-  required bool isZh,
-}) {
-  return describeHardnessCliModel(cli, modelId, isZh: isZh);
+  String modelId,
+) {
+  return _heEngineeringCliModelLabel(context, cli, modelId);
 }
 
 List<DropdownMenuItem<String>> _hardnessModelDropdownItems({
+  required BuildContext context,
   required HardnessCli? cli,
   required List<String> availableModels,
   required String? configuredModel,
-  required bool isZh,
 }) {
   final items = <DropdownMenuItem<String>>[];
   final trimmedConfiguredModel = configuredModel?.trim();
@@ -1074,11 +1447,7 @@ List<DropdownMenuItem<String>> _hardnessModelDropdownItems({
       DropdownMenuItem<String>(
         value: trimmedConfiguredModel,
         child: Text(
-          _hardnessConfiguredModelLabel(
-            cli,
-            trimmedConfiguredModel,
-            isZh: isZh,
-          ),
+          _hardnessConfiguredModelLabel(context, cli, trimmedConfiguredModel),
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 13),
         ),
@@ -1090,7 +1459,7 @@ List<DropdownMenuItem<String>> _hardnessModelDropdownItems({
       (modelId) => DropdownMenuItem<String>(
         value: modelId,
         child: Text(
-          describeHardnessCliModel(cli, modelId, isZh: isZh),
+          _heEngineeringCliModelLabel(context, cli, modelId),
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 13),
         ),
@@ -1182,7 +1551,6 @@ class _RoleConfigRow extends StatelessWidget {
   const _RoleConfigRow({
     super.key,
     required this.role,
-    required this.isZh,
     required this.scanResults,
     required this.executionMode,
     required this.selectedCli,
@@ -1207,7 +1575,6 @@ class _RoleConfigRow extends StatelessWidget {
   });
 
   final HardnessAgentRole role;
-  final bool isZh;
   final List<CliScanEntry> scanResults;
   final HardnessExecutionMode executionMode;
   final String? selectedCli;
@@ -1297,14 +1664,14 @@ class _RoleConfigRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final roleName = isZh ? role.displayNameZh : role.displayNameEn;
+    final roleName = _heEngineeringRoleLabel(context, role);
     final isUrlMode = executionMode == HardnessExecutionMode.url;
     final selectedCliEntry = _selectedEntry;
     final modelItems = _hardnessModelDropdownItems(
+      context: context,
       cli: selectedCliEntry?.cli,
       availableModels: availableModels,
       configuredModel: selectedModel,
-      isZh: isZh,
     );
     final effectiveModel = _hardnessResolvedDropdownModelValue(
       modelItems,
@@ -1339,7 +1706,15 @@ class _RoleConfigRow extends StatelessWidget {
               SizedBox(
                 width: _kHardnessModeDropdownWidth,
                 child: _CompactDropdown<HardnessExecutionMode>(
-                  label: isZh ? '模式' : 'Mode',
+                  label: _heEngineeringText(
+                    context,
+                    zh: '模式',
+                    zhHant: '模式',
+                    en: 'Mode',
+                    fr: 'Mode',
+                    de: 'Modus',
+                    ja: 'モード',
+                  ),
                   value: executionMode,
                   items: const [
                     DropdownMenuItem(
@@ -1360,7 +1735,15 @@ class _RoleConfigRow extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: _MenuAnchorModelSelector(
-                    label: isZh ? 'API 模型' : 'API Model',
+                    label: _heEngineeringText(
+                      context,
+                      zh: 'API 模型',
+                      zhHant: 'API 模型',
+                      en: 'API Model',
+                      fr: 'Modèle API',
+                      de: 'API-Modell',
+                      ja: 'API モデル',
+                    ),
                     settingsModels: settingsModels,
                     selectedAiModelConfigId: selectedAiModelConfigId,
                     selectedUrlModeModelId: selectedUrlModeModelId,
@@ -1373,9 +1756,15 @@ class _RoleConfigRow extends StatelessWidget {
                 if (settingsModels.isEmpty) ...[
                   const SizedBox(width: 8),
                   Tooltip(
-                    message: isZh
-                        ? '请先在设置中配置 API 模型提供商'
-                        : 'Configure API model providers in Settings first',
+                    message: _heEngineeringText(
+                      context,
+                      zh: '请先在设置中配置 API 模型提供商',
+                      zhHant: '請先在設定中設定 API 模型提供者',
+                      en: 'Configure API model providers in Settings first',
+                      fr: 'Configurez d’abord les fournisseurs de modèles API dans les paramètres',
+                      de: 'Konfiguriere zuerst API-Modellanbieter in den Einstellungen',
+                      ja: '先に設定で API モデルプロバイダーを設定してください',
+                    ),
                     child: Icon(
                       Icons.warning_amber_rounded,
                       size: 16,
@@ -1387,7 +1776,15 @@ class _RoleConfigRow extends StatelessWidget {
                 // CLI mode: show CLI + Model dropdowns and action buttons.
                 Expanded(
                   child: _CompactDropdown<String>(
-                    label: isZh ? 'CLI 客户端' : 'CLI Client',
+                    label: _heEngineeringText(
+                      context,
+                      zh: 'CLI 客户端',
+                      zhHant: 'CLI 用戶端',
+                      en: 'CLI Client',
+                      fr: 'Client CLI',
+                      de: 'CLI-Client',
+                      ja: 'CLI クライアント',
+                    ),
                     value: selectedCli,
                     items: _buildCliItems(context),
                     onChanged: onCliChanged,
@@ -1396,7 +1793,15 @@ class _RoleConfigRow extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: _CompactDropdown<String>(
-                    label: isZh ? '模型' : 'Model',
+                    label: _heEngineeringText(
+                      context,
+                      zh: '模型',
+                      zhHant: '模型',
+                      en: 'Model',
+                      fr: 'Modèle',
+                      de: 'Modell',
+                      ja: 'モデル',
+                    ),
                     value: effectiveModel,
                     items: modelItems,
                     onChanged: modelItems.isNotEmpty ? onModelChanged : null,
@@ -1406,12 +1811,28 @@ class _RoleConfigRow extends StatelessWidget {
                 if (showInstallButton) ...[
                   const SizedBox(width: 8),
                   Tooltip(
-                    message: isZh ? '安装此 CLI' : 'Install this CLI',
+                    message: _heEngineeringText(
+                      context,
+                      zh: '安装此 CLI',
+                      zhHant: '安裝此 CLI',
+                      en: 'Install this CLI',
+                      fr: 'Installer ce CLI',
+                      de: 'Diese CLI installieren',
+                      ja: 'この CLI をインストール',
+                    ),
                     child: OutlinedButton.icon(
                       onPressed: onInstall,
                       icon: const Icon(Icons.download_rounded, size: 15),
                       label: Text(
-                        isZh ? '安装' : 'Install',
+                        _heEngineeringText(
+                          context,
+                          zh: '安装',
+                          zhHant: '安裝',
+                          en: 'Install',
+                          fr: 'Installer',
+                          de: 'Installieren',
+                          ja: 'インストール',
+                        ),
                         style: const TextStyle(fontSize: 12),
                       ),
                       style: OutlinedButton.styleFrom(
@@ -1431,12 +1852,28 @@ class _RoleConfigRow extends StatelessWidget {
                 if (showViewDocsButton && onViewDocs != null) ...[
                   const SizedBox(width: 8),
                   Tooltip(
-                    message: isZh ? '打开安装文档' : 'Open install docs',
+                    message: _heEngineeringText(
+                      context,
+                      zh: '打开安装文档',
+                      zhHant: '開啟安裝文件',
+                      en: 'Open install docs',
+                      fr: 'Ouvrir la documentation d’installation',
+                      de: 'Installationsdokumentation öffnen',
+                      ja: 'インストールドキュメントを開く',
+                    ),
                     child: OutlinedButton.icon(
                       onPressed: onViewDocs,
                       icon: const Icon(Icons.open_in_new_rounded, size: 15),
                       label: Text(
-                        isZh ? '安装文档' : 'Docs',
+                        _heEngineeringText(
+                          context,
+                          zh: '安装文档',
+                          zhHant: '安裝文件',
+                          en: 'Docs',
+                          fr: 'Docs',
+                          de: 'Doku',
+                          ja: 'ドキュメント',
+                        ),
                         style: const TextStyle(fontSize: 12),
                       ),
                       style: OutlinedButton.styleFrom(
@@ -1462,7 +1899,15 @@ class _RoleConfigRow extends StatelessWidget {
                   (_selectedEntry?.cli.hasLoginCheck ?? false)) ...[
                 const SizedBox(width: 8),
                 Tooltip(
-                  message: isZh ? '正在检测登录状态...' : 'Checking login state...',
+                  message: _heEngineeringText(
+                    context,
+                    zh: '正在检测登录状态...',
+                    zhHant: '正在檢查登入狀態...',
+                    en: 'Checking login state...',
+                    fr: 'Vérification de la connexion...',
+                    de: 'Loginstatus wird geprüft...',
+                    ja: 'ログイン状態を確認中...',
+                  ),
                   child: SizedBox(
                     width: 14,
                     height: 14,
@@ -1481,7 +1926,15 @@ class _RoleConfigRow extends StatelessWidget {
                   (_selectedEntry?.cli.hasLoginCheck ?? false)) ...[
                 const SizedBox(width: 6),
                 Tooltip(
-                  message: isZh ? '已登录' : 'Logged in',
+                  message: _heEngineeringText(
+                    context,
+                    zh: '已登录',
+                    zhHant: '已登入',
+                    en: 'Logged in',
+                    fr: 'Connecté',
+                    de: 'Angemeldet',
+                    ja: 'ログイン済み',
+                  ),
                   child: Icon(
                     Icons.verified_user_rounded,
                     size: 16,
@@ -1493,14 +1946,28 @@ class _RoleConfigRow extends StatelessWidget {
               if (!isUrlMode && showLoginButton) ...[
                 const SizedBox(width: 8),
                 Tooltip(
-                  message: isZh
-                      ? '此 CLI 尚未登录，点击引导登录'
-                      : 'This CLI is not logged in — click to start login',
+                  message: _heEngineeringText(
+                    context,
+                    zh: '此 CLI 尚未登录，点击引导登录',
+                    zhHant: '此 CLI 尚未登入，點擊以引導登入',
+                    en: 'This CLI is not logged in. Click to start login.',
+                    fr: 'Ce CLI n’est pas connecté. Cliquez pour lancer la connexion.',
+                    de: 'Diese CLI ist nicht angemeldet. Klicken zum Anmelden.',
+                    ja: 'この CLI は未ログインです。クリックしてログインを開始します。',
+                  ),
                   child: OutlinedButton.icon(
                     onPressed: onLogin,
                     icon: const Icon(Icons.login_rounded, size: 15),
                     label: Text(
-                      isZh ? '登录' : 'Login',
+                      _heEngineeringText(
+                        context,
+                        zh: '登录',
+                        zhHant: '登入',
+                        en: 'Login',
+                        fr: 'Connexion',
+                        de: 'Anmelden',
+                        ja: 'ログイン',
+                      ),
                       style: const TextStyle(fontSize: 12),
                     ),
                     style: OutlinedButton.styleFrom(
@@ -1521,14 +1988,28 @@ class _RoleConfigRow extends StatelessWidget {
               if (!isUrlMode && showLogoutButton) ...[
                 const SizedBox(width: 6),
                 Tooltip(
-                  message: isZh
-                      ? '此 CLI 已登录，点击可登出以切换账号'
-                      : 'This CLI is logged in — click to log out and switch accounts',
+                  message: _heEngineeringText(
+                    context,
+                    zh: '此 CLI 已登录，点击可登出以切换账号',
+                    zhHant: '此 CLI 已登入，點擊可登出以切換帳號',
+                    en: 'This CLI is logged in. Click to log out and switch accounts.',
+                    fr: 'Ce CLI est connecté. Cliquez pour vous déconnecter et changer de compte.',
+                    de: 'Diese CLI ist angemeldet. Klicken zum Abmelden und Konto wechseln.',
+                    ja: 'この CLI はログイン済みです。クリックしてログアウトし、アカウントを切り替えます。',
+                  ),
                   child: OutlinedButton.icon(
                     onPressed: onLogout,
                     icon: const Icon(Icons.logout_rounded, size: 15),
                     label: Text(
-                      isZh ? '登出' : 'Logout',
+                      _heEngineeringText(
+                        context,
+                        zh: '登出',
+                        zhHant: '登出',
+                        en: 'Logout',
+                        fr: 'Déconnexion',
+                        de: 'Abmelden',
+                        ja: 'ログアウト',
+                      ),
                       style: const TextStyle(fontSize: 12),
                     ),
                     style: OutlinedButton.styleFrom(
@@ -1551,9 +2032,15 @@ class _RoleConfigRow extends StatelessWidget {
                   _selectedEntry?.cli.supportsHeadless == false) ...[
                 const SizedBox(width: 6),
                 Tooltip(
-                  message: isZh
-                      ? '此工具为 GUI 应用，不支持无交互调用，Harness Engineering 将跳过此角色阶段'
-                      : 'GUI-only app: non-interactive invocation is not supported. This role phase will be skipped.',
+                  message: _heEngineeringText(
+                    context,
+                    zh: '此工具为 GUI 应用，不支持无交互调用，Harness Engineering 将跳过此角色阶段',
+                    zhHant: '此工具為 GUI 應用，不支援無互動呼叫，Harness Engineering 將跳過此角色階段',
+                    en: 'GUI-only app: non-interactive invocation is not supported. This role phase will be skipped.',
+                    fr: 'Application GUI uniquement : l’exécution non interactive n’est pas prise en charge. Cette phase sera ignorée.',
+                    de: 'Nur GUI-App: Nichtinteraktive Ausführung wird nicht unterstützt. Diese Rollenphase wird übersprungen.',
+                    ja: 'GUI 専用アプリのため非対話実行に対応していません。このロールフェーズはスキップされます。',
+                  ),
                   child: Icon(
                     Icons.monitor_rounded,
                     size: 18,
@@ -1620,7 +2107,6 @@ class _CompactDropdown<T> extends StatelessWidget {
 
 class _QuickApplyBar extends StatelessWidget {
   const _QuickApplyBar({
-    required this.isZh,
     required this.scanResults,
     required this.isScanning,
     required this.isCheckingAuth,
@@ -1638,7 +2124,6 @@ class _QuickApplyBar extends StatelessWidget {
     required this.modelsForCli,
   });
 
-  final bool isZh;
   final List<CliScanEntry> scanResults;
   final bool isScanning;
   final bool isCheckingAuth;
@@ -1747,10 +2232,10 @@ class _QuickApplyBar extends StatelessWidget {
     final cliModelItems = isUrlMode
         ? const <DropdownMenuItem<String>>[]
         : _hardnessModelDropdownItems(
+            context: context,
             cli: cliSelectedEntry?.cli,
             availableModels: cliModels,
             configuredModel: selectedModel,
-            isZh: isZh,
           );
     final cliEffectiveModel = isUrlMode
         ? null
@@ -1769,7 +2254,15 @@ class _QuickApplyBar extends StatelessWidget {
             Icon(Icons.bolt_rounded, size: 16, color: colorScheme.primary),
             const SizedBox(width: 6),
             Text(
-              isZh ? '一键配置' : 'Batch',
+              _heEngineeringText(
+                context,
+                zh: '一键配置',
+                zhHant: '一鍵設定',
+                en: 'Batch',
+                fr: 'Lot',
+                de: 'Stapel',
+                ja: '一括設定',
+              ),
               style: theme.textTheme.labelMedium?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -1780,7 +2273,15 @@ class _QuickApplyBar extends StatelessWidget {
             SizedBox(
               width: _kHardnessModeDropdownWidth,
               child: _CompactDropdown<HardnessExecutionMode>(
-                label: isZh ? '模式' : 'Mode',
+                label: _heEngineeringText(
+                  context,
+                  zh: '模式',
+                  zhHant: '模式',
+                  en: 'Mode',
+                  fr: 'Mode',
+                  de: 'Modus',
+                  ja: 'モード',
+                ),
                 value: executionMode,
                 items: const [
                   DropdownMenuItem(
@@ -1801,7 +2302,15 @@ class _QuickApplyBar extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: _MenuAnchorModelSelector(
-                  label: isZh ? 'API 模型' : 'API Model',
+                  label: _heEngineeringText(
+                    context,
+                    zh: 'API 模型',
+                    zhHant: 'API 模型',
+                    en: 'API Model',
+                    fr: 'Modèle API',
+                    de: 'API-Modell',
+                    ja: 'API モデル',
+                  ),
                   settingsModels: settingsModels,
                   selectedAiModelConfigId: selectedAiModelConfigId,
                   selectedUrlModeModelId: selectedUrlModeModelId,
@@ -1813,7 +2322,15 @@ class _QuickApplyBar extends StatelessWidget {
               // CLI mode: CLI + model dropdowns
               Expanded(
                 child: _CompactDropdown<String>(
-                  label: isZh ? 'CLI 客户端' : 'CLI Client',
+                  label: _heEngineeringText(
+                    context,
+                    zh: 'CLI 客户端',
+                    zhHant: 'CLI 用戶端',
+                    en: 'CLI Client',
+                    fr: 'Client CLI',
+                    de: 'CLI-Client',
+                    ja: 'CLI クライアント',
+                  ),
                   value: selectedCli,
                   items: cliItems,
                   onChanged: isScanning ? null : onCliChanged,
@@ -1823,7 +2340,15 @@ class _QuickApplyBar extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: _CompactDropdown<String>(
-                  label: isZh ? '模型' : 'Model',
+                  label: _heEngineeringText(
+                    context,
+                    zh: '模型',
+                    zhHant: '模型',
+                    en: 'Model',
+                    fr: 'Modèle',
+                    de: 'Modell',
+                    ja: 'モデル',
+                  ),
                   value: cliEffectiveModel,
                   items: cliModelItems,
                   onChanged: cliModelItems.isNotEmpty ? onModelChanged : null,
@@ -1842,7 +2367,17 @@ class _QuickApplyBar extends StatelessWidget {
                 ),
                 textStyle: const TextStyle(fontSize: 12),
               ),
-              child: Text(isZh ? '应用至所有角色' : 'Apply to all roles'),
+              child: Text(
+                _heEngineeringText(
+                  context,
+                  zh: '应用至所有角色',
+                  zhHant: '套用至所有角色',
+                  en: 'Apply to all roles',
+                  fr: 'Appliquer à tous les rôles',
+                  de: 'Auf alle Rollen anwenden',
+                  ja: 'すべてのロールに適用',
+                ),
+              ),
             ),
           ],
         ),
@@ -1859,12 +2394,10 @@ class _CliScanSummary extends StatelessWidget {
   const _CliScanSummary({
     required this.scanResults,
     required this.isCheckingAuth,
-    required this.isZh,
   });
 
   final List<CliScanEntry> scanResults;
   final bool isCheckingAuth;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -1919,7 +2452,15 @@ class _CliScanSummary extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
-          isZh ? 'CLI 状态：' : 'CLIs:',
+          _heEngineeringText(
+            context,
+            zh: 'CLI 状态：',
+            zhHant: 'CLI 狀態：',
+            en: 'CLIs:',
+            fr: 'CLI :',
+            de: 'CLIs:',
+            ja: 'CLI:',
+          ),
           style: theme.textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w600,
