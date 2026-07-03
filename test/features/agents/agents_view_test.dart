@@ -137,6 +137,12 @@ void main() {
       expect(find.text('Needs mentor review.'), findsOneWidget);
       expect(find.textContaining('"omitted": true'), findsOneWidget);
       expect(find.textContaining('secret prompt body'), findsNothing);
+
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      navigator.pop();
+      await tester.pump(const Duration(milliseconds: 300));
+      navigator.pop();
+      await tester.pump(const Duration(milliseconds: 300));
     });
   });
 }

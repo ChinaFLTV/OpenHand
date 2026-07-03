@@ -61,6 +61,7 @@ const List<String> _agentKpiStatusOptions = <String>[
   'paused',
 ];
 const int _agentRoutePreviewKeywordLimit = 10;
+const String _agentTaskExtraJsonHint = '{"priority":"high","retryable":true}';
 
 String _agentRuntimeBlockingText(
   BuildContext context,
@@ -2596,6 +2597,7 @@ Future<void> _showPublishTaskDialog(
   final description = TextEditingController();
   final content = TextEditingController();
   final note = TextEditingController();
+  final extra = TextEditingController();
   try {
     final submitted = await showAnimatedDialog<bool>(
       context: context,
@@ -2646,18 +2648,48 @@ Future<void> _showPublishTaskDialog(
                 controller: note,
                 decoration: InputDecoration(labelText: l10n.agentsNoteLabel),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: extra,
+                minLines: 3,
+                maxLines: 8,
+                decoration: InputDecoration(
+                  labelText: openHandLocalizedText(
+                    context,
+                    zh: '扩展元数据 JSON',
+                    en: 'extra JSON',
+                  ),
+                  hintText: _agentTaskExtraJsonHint,
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
     if (submitted == true && context.mounted) {
+      final rawExtra = extra.text.trim();
+      final parsedExtra = rawExtra.isEmpty
+          ? const <String, Object?>{}
+          : optionalStringKeyedMapFromJsonText(rawExtra);
+      if (parsedExtra == null) {
+        OpenHandSnackBar.showError(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '扩展元数据必须是合法的 JSON 对象。',
+            en: 'extra must be a valid JSON object.',
+          ),
+        );
+        return;
+      }
       await context.read<AgentsController>().publishTask(
         agent.id,
         title: title.text,
         description: description.text,
         content: content.text,
         note: note.text,
+        extra: parsedExtra,
       );
     }
   } finally {
@@ -2665,6 +2697,7 @@ Future<void> _showPublishTaskDialog(
     description.dispose();
     content.dispose();
     note.dispose();
+    extra.dispose();
   }
 }
 

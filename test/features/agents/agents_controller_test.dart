@@ -73,6 +73,29 @@ void main() {
       );
     });
 
+    test('publishing a task preserves caller extra metadata', () async {
+      await controller.saveAgent(_runningAgent());
+
+      final task = await controller.publishTaskWithResult(
+        'agent-1',
+        title: 'Prepare task with metadata',
+        extra: const <String, Object?>{
+          'priority': 'high',
+          'retryable': true,
+          'labels': <String>['report', 'urgent'],
+        },
+      );
+
+      expect(task, isNotNull);
+      expect(task!.extra['priority'], 'high');
+      expect(task.extra['retryable'], isTrue);
+      expect(task.extra['labels'], <Object?>['report', 'urgent']);
+      expect(task.extra['assigned_worker_id'], 'worker-1');
+      final agentTask = controller.taskById('agent-1', task.id)!;
+      expect(agentTask.extra['priority'], 'high');
+      expect(agentTask.extra['assigned_worker_name'], 'Worker 1');
+    });
+
     test(
       'pausing a task releases the assigned worker without counting it',
       () async {
