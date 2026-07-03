@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../shared/util/input_value_parsing.dart';
 import 'safe_subprocess.dart';
 import 'silent_log.dart';
 
@@ -488,10 +489,8 @@ class InputRepairService {
 
   String? _focusLabel(FocusNode? node) {
     if (node == null) return null;
-    final label = node.debugLabel;
-    if (label != null && label.trim().isNotEmpty) {
-      return label.trim();
-    }
+    final label = nullIfBlank(node.debugLabel);
+    if (label != null) return label;
     return node.runtimeType.toString();
   }
 }
