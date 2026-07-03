@@ -200,6 +200,19 @@ void main() {
     });
   });
 
+  group('optionalIntFromText', () {
+    test('trims text and parses decimal integers', () {
+      expect(optionalIntFromText(' 42 '), 42);
+      expect(optionalIntFromText(''), isNull);
+      expect(optionalIntFromText(null), isNull);
+    });
+
+    test('supports radix parsing', () {
+      expect(optionalIntFromText(' ff ', radix: 16), 255);
+      expect(optionalIntFromText('xyz', radix: 16), isNull);
+    });
+  });
+
   group('optionalPositiveIntFromValue', () {
     test('accepts positive ints and finite numeric values', () {
       expect(optionalPositiveIntFromValue(2), 2);

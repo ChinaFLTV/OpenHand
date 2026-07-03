@@ -229,7 +229,7 @@ String _readSinglePartialJsonStringField(String source, String key) {
         case 0x75:
           if (cursor + 4 < source.length) {
             final hex = source.substring(cursor + 1, cursor + 5);
-            final parsed = int.tryParse(hex, radix: 16);
+            final parsed = optionalIntFromText(hex, radix: 16);
             if (parsed != null) {
               buffer.write(String.fromCharCode(parsed));
               cursor += 4;

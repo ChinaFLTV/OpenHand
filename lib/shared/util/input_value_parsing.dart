@@ -410,13 +410,18 @@ double? optionalPositiveDoubleFromValue(Object? value) {
   return parsed == null || parsed <= 0 ? null : parsed;
 }
 
+int? optionalIntFromText(String? value, {int? radix}) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  return int.tryParse(trimmed, radix: radix);
+}
+
 int? optionalIntFromValue(Object? value) {
   if (value == null) return null;
   if (value is int) return value;
   if (value is num && value.isFinite) return value.toInt();
   if (value is String) {
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? null : int.tryParse(trimmed);
+    return optionalIntFromText(value);
   }
   return null;
 }
@@ -515,10 +520,6 @@ double clampedDoubleFromText(
   required double max,
 }) {
   return clampedDoubleFromValue(value, fallback: fallback, min: min, max: max);
-}
-
-int? optionalIntFromText(String value) {
-  return optionalIntFromValue(value);
 }
 
 int? optionalPositiveIntFromText(String value) {

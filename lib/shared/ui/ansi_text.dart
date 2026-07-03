@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../util/input_value_parsing.dart';
+
 /// Lightweight ANSI SGR (Select Graphic Rendition) parser that turns terminal
 /// output containing escape sequences into a list of `TextSpan`s suitable for
 /// rendering inside a `RichText` / `SelectableText.rich`.
@@ -124,7 +126,7 @@ int _findOscEnd(String input, int start) {
   return -1;
 }
 
-int? _parseAnsiInt(String value) => int.tryParse(value);
+int? _parseAnsiInt(String value) => optionalIntFromText(value);
 
 class _AnsiState {
   bool bold = false;

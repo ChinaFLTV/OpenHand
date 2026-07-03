@@ -980,11 +980,11 @@ String _htmlEntitiesToText(String value) {
       .replaceAll('&quot;', '"')
       .replaceAll('&apos;', "'")
       .replaceAllMapped(RegExp(r'&#(\d+);'), (match) {
-        final code = int.tryParse(match.group(1) ?? '');
+        final code = optionalIntFromText(match.group(1));
         return code == null ? match.group(0)! : String.fromCharCode(code);
       })
       .replaceAllMapped(RegExp(r'&#x([0-9a-fA-F]+);'), (match) {
-        final code = int.tryParse(match.group(1) ?? '', radix: 16);
+        final code = optionalIntFromText(match.group(1), radix: 16);
         return code == null ? match.group(0)! : String.fromCharCode(code);
       });
 }
@@ -1314,7 +1314,7 @@ String _decodePdfHex(String hex) {
     final chunk = index + 1 < clean.length
         ? clean.substring(index, index + 2)
         : '${clean[index]}0';
-    final byte = int.tryParse(chunk, radix: 16);
+    final byte = optionalIntFromText(chunk, radix: 16);
     if (byte != null) bytes.add(byte);
   }
   return _decodePdfStringBytes(bytes);
