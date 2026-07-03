@@ -155,7 +155,6 @@ class _HardnessStatusCapsule extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
 
     if (awaitingApproval) {
       const foregroundColor = Color(0xFFE6A817);
@@ -172,7 +171,15 @@ class _HardnessStatusCapsule extends StatelessWidget {
             const _PulsingDot(color: foregroundColor, size: 8),
             const SizedBox(width: 8),
             Text(
-              isZh ? '等待批准' : 'Awaiting Approval',
+              openHandLocalizedText(
+                context,
+                zh: '等待批准',
+                zhHant: '等待批准',
+                en: 'Awaiting Approval',
+                fr: 'En attente',
+                de: 'Wartet auf Freigabe',
+                ja: '承認待ち',
+              ),
               style: theme.textTheme.labelMedium?.copyWith(
                 color: foregroundColor,
                 fontWeight: FontWeight.w700,
@@ -186,19 +193,51 @@ class _HardnessStatusCapsule extends StatelessWidget {
     final (Color fg, String label) = switch (status) {
       HardnessOrchestratorStatus.running => (
         isSelected ? colorScheme.onPrimaryContainer : colorScheme.primary,
-        isZh ? '运行中' : 'Running',
+        openHandLocalizedText(
+          context,
+          zh: '运行中',
+          zhHant: '執行中',
+          en: 'Running',
+          fr: 'En cours',
+          de: 'Läuft',
+          ja: '実行中',
+        ),
       ),
       HardnessOrchestratorStatus.completed => (
         const Color(0xFF5F7C53),
-        isZh ? '已完成' : 'Done',
+        openHandLocalizedText(
+          context,
+          zh: '已完成',
+          zhHant: '已完成',
+          en: 'Done',
+          fr: 'Terminé',
+          de: 'Fertig',
+          ja: '完了',
+        ),
       ),
       HardnessOrchestratorStatus.failed => (
         const Color(0xFFC84B4B),
-        isZh ? '失败' : 'Failed',
+        openHandLocalizedText(
+          context,
+          zh: '失败',
+          zhHant: '失敗',
+          en: 'Failed',
+          fr: 'Échec',
+          de: 'Fehlgeschlagen',
+          ja: '失敗',
+        ),
       ),
       HardnessOrchestratorStatus.cancelled => (
         const Color(0xFFD97A33),
-        isZh ? '已中止' : 'Cancelled',
+        openHandLocalizedText(
+          context,
+          zh: '已中止',
+          zhHant: '已中止',
+          en: 'Cancelled',
+          fr: 'Annulé',
+          de: 'Abgebrochen',
+          ja: 'キャンセル済み',
+        ),
       ),
       HardnessOrchestratorStatus.idle => (colorScheme.outline, ''),
     };

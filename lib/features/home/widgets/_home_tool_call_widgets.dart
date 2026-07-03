@@ -1023,7 +1023,6 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
@@ -1083,9 +1082,25 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
                       size: 16,
                     ),
                     label: Text(
-                      isZh
-                          ? (_wrapLines ? '取消换行' : '自动换行')
-                          : (_wrapLines ? 'Unwrap' : 'Wrap'),
+                      _wrapLines
+                          ? openHandLocalizedText(
+                              context,
+                              zh: '取消换行',
+                              zhHant: '取消換行',
+                              en: 'Unwrap',
+                              fr: 'Sans retour',
+                              de: 'Umbruch aus',
+                              ja: '折り返し解除',
+                            )
+                          : openHandLocalizedText(
+                              context,
+                              zh: '自动换行',
+                              zhHant: '自動換行',
+                              en: 'Wrap',
+                              fr: 'Retour auto',
+                              de: 'Umbrechen',
+                              ja: '折り返し',
+                            ),
                     ),
                     style: TextButton.styleFrom(
                       foregroundColor: colorScheme.primary,
@@ -1098,7 +1113,15 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
-                    tooltip: isZh ? '关闭' : 'Close',
+                    tooltip: openHandLocalizedText(
+                      context,
+                      zh: '关闭',
+                      zhHant: '關閉',
+                      en: 'Close',
+                      fr: 'Fermer',
+                      de: 'Schließen',
+                      ja: '閉じる',
+                    ),
                   ),
                 ],
               ),

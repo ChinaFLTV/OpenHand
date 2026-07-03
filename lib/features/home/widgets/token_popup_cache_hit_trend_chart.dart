@@ -196,7 +196,6 @@ class _TokenPopupCacheHitTrendChartState
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final isZh = openHandIsChineseLocale(context);
     final displayData = widget.trend.displayData(widget.displayMode);
     final effectiveViewport =
         _viewport.totalPoints == displayData.trend.points.length
@@ -300,7 +299,15 @@ class _TokenPopupCacheHitTrendChartState
                 runSpacing: 6,
                 children: [
                   _CacheHitModeChip(
-                    label: isZh ? '排除极端值' : 'Exclude extremes',
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '排除极端值',
+                      zhHant: '排除極端值',
+                      en: 'Exclude extremes',
+                      fr: 'Exclure les extrêmes',
+                      de: 'Ausreißer ausschließen',
+                      ja: '極端値を除外',
+                    ),
                     selected:
                         widget.displayMode ==
                         SessionCacheHitDisplayMode.excludeExtremeMisses,
@@ -314,7 +321,15 @@ class _TokenPopupCacheHitTrendChartState
                     },
                   ),
                   _CacheHitModeChip(
-                    label: isZh ? '包括全部' : 'Include all',
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '包括全部',
+                      zhHant: '包含全部',
+                      en: 'Include all',
+                      fr: 'Tout inclure',
+                      de: 'Alle einschließen',
+                      ja: 'すべて含める',
+                    ),
                     selected:
                         widget.displayMode ==
                         SessionCacheHitDisplayMode.includeAll,
