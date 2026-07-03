@@ -71,16 +71,17 @@ class AiLspManagedInstallManifest {
       if (decoded is! Map<String, Object?>) {
         return null;
       }
-      if ('${decoded['managed_by'] ?? ''}' != 'openhand') {
+      if (optionalStringFromValue(decoded['managed_by']) != 'openhand') {
         return null;
       }
       return AiLspManagedInstallManifest(
-        backendId: '${decoded['backend_id'] ?? ''}'.trim(),
-        language: '${decoded['language'] ?? ''}'.trim(),
-        version: '${decoded['version'] ?? ''}'.trim(),
-        installKind: '${decoded['install_kind'] ?? ''}'.trim(),
-        installRootPath: '${decoded['install_root_path'] ?? normalizedRoot}'
-            .trim(),
+        backendId: stringFromValue(decoded['backend_id']),
+        language: stringFromValue(decoded['language']),
+        version: stringFromValue(decoded['version']),
+        installKind: stringFromValue(decoded['install_kind']),
+        installRootPath:
+            optionalStringFromValue(decoded['install_root_path']) ??
+            normalizedRoot,
         installedAt:
             utcDateTimeFromValue(decoded['installed_at']) ??
             DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
@@ -172,7 +173,7 @@ abstract final class AiLspManagedInstallService {
     final manifest = AiLspManagedInstallManifest(
       backendId: backend.id,
       language: normalizeAiLspLanguage(language),
-      version: version.trim().isEmpty ? 'latest' : version.trim(),
+      version: nullIfBlank(version) ?? 'latest',
       installKind: backend.install.kind.name,
       installRootPath: normalizedRoot,
       installedAt: DateTime.now().toUtc(),
@@ -275,7 +276,7 @@ abstract final class AiLspManagedInstallService {
         p.equals(normalizedRoot, home) ||
         p.equals(normalizedRoot, openhandRoot) ||
         p.equals(normalizedRoot, sharedLspRoot) ||
-        normalizedRoot.trim().isEmpty ||
+        nullIfBlank(normalizedRoot) == null ||
         p.equals(normalizedRoot, languageRoot) == false &&
             p.equals(normalizedRoot, p.dirname(languageRoot)) &&
             p.basename(normalizedRoot) == p.basename(sharedLspRoot);
@@ -1114,8 +1115,8 @@ abstract final class AiLspManagedInstallService {
       Platform.resolvedExecutable,
     ];
     for (final raw in candidates) {
-      final value = raw.trim().toLowerCase();
-      if (value.isEmpty) continue;
+      final value = optionalLowercaseStringFromValue(raw);
+      if (value == null) continue;
       if (value.contains('arm64') || value.contains('aarch64')) {
         return 'arm64';
       }
