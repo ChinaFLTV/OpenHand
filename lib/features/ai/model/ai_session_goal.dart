@@ -121,25 +121,24 @@ class AiSessionGoalEvaluationRecord {
   }
 
   Map<String, Object?> toJson() {
-    return <String, Object?>{
+    final json = <String, Object?>{
       'id': id,
       'created_at': createdAt.toUtc().toIso8601String(),
       'round_index': roundIndex,
       'passed': passed,
       'summary': summary,
       if (confidence != null) 'confidence': confidence,
-      if ((followUpPrompt ?? '').trim().isNotEmpty)
-        'follow_up_prompt': followUpPrompt,
-      if (evidence.isNotEmpty) 'evidence': evidence,
-      if (missing.isNotEmpty) 'missing': missing,
-      if ((rawResponse ?? '').trim().isNotEmpty) 'raw_response': rawResponse,
-      if ((providerConfigId ?? '').trim().isNotEmpty)
-        'provider_config_id': providerConfigId,
-      if ((modelId ?? '').trim().isNotEmpty) 'model_id': modelId,
-      if ((modelLabel ?? '').trim().isNotEmpty) 'model_label': modelLabel,
-      if (usage != null) 'usage': usage!.toJson(),
-      if ((error ?? '').trim().isNotEmpty) 'error': error,
     };
+    putIfNotBlank(json, 'follow_up_prompt', followUpPrompt);
+    if (evidence.isNotEmpty) json['evidence'] = evidence;
+    if (missing.isNotEmpty) json['missing'] = missing;
+    putIfNotBlank(json, 'raw_response', rawResponse);
+    putIfNotBlank(json, 'provider_config_id', providerConfigId);
+    putIfNotBlank(json, 'model_id', modelId);
+    putIfNotBlank(json, 'model_label', modelLabel);
+    if (usage != null) json['usage'] = usage!.toJson();
+    putIfNotBlank(json, 'error', error);
+    return json;
   }
 
   static AiSessionGoalEvaluationRecord? fromJson(Object? raw) {
@@ -292,7 +291,7 @@ class AiSessionGoalRecord {
   }
 
   Map<String, Object?> toJson() {
-    return <String, Object?>{
+    final json = <String, Object?>{
       'id': id,
       'objective': objective,
       'status': status.storageValue,
@@ -310,13 +309,12 @@ class AiSessionGoalRecord {
       if (pausedAt != null) 'paused_at': pausedAt!.toUtc().toIso8601String(),
       if (terminatedAt != null)
         'terminated_at': terminatedAt!.toUtc().toIso8601String(),
-      if ((statusReason ?? '').trim().isNotEmpty) 'status_reason': statusReason,
-      if ((lastAssistantMessageId ?? '').trim().isNotEmpty)
-        'last_assistant_message_id': lastAssistantMessageId,
-      if ((lastAutoUserMessageId ?? '').trim().isNotEmpty)
-        'last_auto_user_message_id': lastAutoUserMessageId,
-      'evaluations': evaluations.map((item) => item.toJson()).toList(),
     };
+    putIfNotBlank(json, 'status_reason', statusReason);
+    putIfNotBlank(json, 'last_assistant_message_id', lastAssistantMessageId);
+    putIfNotBlank(json, 'last_auto_user_message_id', lastAutoUserMessageId);
+    json['evaluations'] = evaluations.map((item) => item.toJson()).toList();
+    return json;
   }
 
   static AiSessionGoalRecord? fromJson(Object? raw) {

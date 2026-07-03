@@ -5,6 +5,11 @@ String? nullIfBlank(String? value) {
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
 }
 
+void putIfNotBlank(Map<String, Object?> target, String key, String? value) {
+  final normalized = nullIfBlank(value);
+  if (normalized != null) target[key] = normalized;
+}
+
 final RegExp _looseDelimitedValueSeparator = RegExp(r'[\s,，;；]+');
 
 ({bool ok, Object? value}) _tryDecodeJsonText(String value) {

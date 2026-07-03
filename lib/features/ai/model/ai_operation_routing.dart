@@ -158,20 +158,20 @@ class AiOperationRouting {
 
   Map<String, Object?> toJson() {
     final json = <String, Object?>{};
-    _putIfNotBlank(json, 'chat_model_id', chatModelId);
-    _putIfNotBlank(json, 'responses_model_id', responsesModelId);
-    _putIfNotBlank(json, 'completion_model_id', completionModelId);
-    _putIfNotBlank(json, 'embedding_model_id', embeddingModelId);
-    _putIfNotBlank(json, 'moderation_model_id', moderationModelId);
-    _putIfNotBlank(json, 'rerank_model_id', rerankModelId);
-    _putIfNotBlank(json, 'image_model_id', imageModelId);
-    _putIfNotBlank(json, 'image_edit_model_id', imageEditModelId);
-    _putIfNotBlank(json, 'video_model_id', videoModelId);
-    _putIfNotBlank(json, 'speech_model_id', speechModelId);
-    _putIfNotBlank(json, 'transcription_model_id', transcriptionModelId);
-    _putIfNotBlank(json, 'translation_model_id', translationModelId);
-    _putIfNotBlank(json, 'realtime_model_id', realtimeModelId);
-    _putIfNotBlank(json, 'default_voice', defaultVoice);
+    putIfNotBlank(json, 'chat_model_id', chatModelId);
+    putIfNotBlank(json, 'responses_model_id', responsesModelId);
+    putIfNotBlank(json, 'completion_model_id', completionModelId);
+    putIfNotBlank(json, 'embedding_model_id', embeddingModelId);
+    putIfNotBlank(json, 'moderation_model_id', moderationModelId);
+    putIfNotBlank(json, 'rerank_model_id', rerankModelId);
+    putIfNotBlank(json, 'image_model_id', imageModelId);
+    putIfNotBlank(json, 'image_edit_model_id', imageEditModelId);
+    putIfNotBlank(json, 'video_model_id', videoModelId);
+    putIfNotBlank(json, 'speech_model_id', speechModelId);
+    putIfNotBlank(json, 'transcription_model_id', transcriptionModelId);
+    putIfNotBlank(json, 'translation_model_id', translationModelId);
+    putIfNotBlank(json, 'realtime_model_id', realtimeModelId);
+    putIfNotBlank(json, 'default_voice', defaultVoice);
     return json;
   }
 
@@ -199,13 +199,4 @@ class AiOperationRouting {
   }
 
   static bool _isBlank(String? value) => nullIfBlank(value) == null;
-
-  static void _putIfNotBlank(
-    Map<String, Object?> json,
-    String key,
-    String? value,
-  ) {
-    final normalized = nullIfBlank(value);
-    if (normalized != null) json[key] = normalized;
-  }
 }

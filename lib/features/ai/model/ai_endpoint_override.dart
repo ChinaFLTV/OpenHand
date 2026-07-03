@@ -50,10 +50,10 @@ class AiEndpointOverride {
 
   Map<String, Object?> toJson() {
     final json = <String, Object?>{};
-    _putIfNotBlank(json, 'path', path);
-    _putIfNotBlank(json, 'url', url);
-    _putIfNotBlank(json, 'method', method);
-    _putIfNotBlank(json, 'transport', transport);
+    putIfNotBlank(json, 'path', path);
+    putIfNotBlank(json, 'url', url);
+    putIfNotBlank(json, 'method', method);
+    putIfNotBlank(json, 'transport', transport);
     if (headers.isNotEmpty) json['headers'] = headers;
     if (queryDefaults.isNotEmpty) json['query_defaults'] = queryDefaults;
     return json;
@@ -82,15 +82,6 @@ class AiEndpointOverride {
       result[key] = value;
     }
     return result;
-  }
-
-  static void _putIfNotBlank(
-    Map<String, Object?> json,
-    String key,
-    String? value,
-  ) {
-    final normalized = nullIfBlank(value);
-    if (normalized != null) json[key] = normalized;
   }
 }
 

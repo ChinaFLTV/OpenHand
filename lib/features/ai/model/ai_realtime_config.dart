@@ -61,12 +61,12 @@ class AiRealtimeConfig {
 
   Map<String, Object?> toJson() {
     final json = <String, Object?>{};
-    _putIfNotBlank(json, 'transport', transport);
-    _putIfNotBlank(json, 'url_override', urlOverride);
-    _putIfNotBlank(json, 'voice', voice);
+    putIfNotBlank(json, 'transport', transport);
+    putIfNotBlank(json, 'url_override', urlOverride);
+    putIfNotBlank(json, 'voice', voice);
     if (sampleRate != null) json['sample_rate'] = sampleRate;
-    _putIfNotBlank(json, 'input_format', inputFormat);
-    _putIfNotBlank(json, 'output_format', outputFormat);
+    putIfNotBlank(json, 'input_format', inputFormat);
+    putIfNotBlank(json, 'output_format', outputFormat);
     if (sessionDefaults.isNotEmpty) {
       json['session_defaults'] = sessionDefaults;
     }
@@ -90,14 +90,5 @@ class AiRealtimeConfig {
   static int? _parseNullableInt(Object? raw) {
     final parsed = optionalIntFromValue(raw);
     return parsed != null && parsed > 0 ? parsed : null;
-  }
-
-  static void _putIfNotBlank(
-    Map<String, Object?> json,
-    String key,
-    String? value,
-  ) {
-    final normalized = nullIfBlank(value);
-    if (normalized != null) json[key] = normalized;
   }
 }
