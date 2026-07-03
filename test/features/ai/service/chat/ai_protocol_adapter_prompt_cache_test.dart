@@ -15,6 +15,73 @@ void main() {
     breakpointCount: 4,
   );
 
+  test('OpenAI compat normalizes post-user runtime system turns', () async {
+    final body = await const OpenAiProtocolAdapter(AiProtocolType.openai)
+        .buildBody(_model(AiProtocolType.openai), const <AiChatTurn>[
+          AiChatTurn(role: AiChatRole.system, content: stableSystem),
+          AiChatTurn(role: AiChatRole.user, content: '第一轮之后的用户输入'),
+          AiChatTurn(role: AiChatRole.system, content: dynamicTail),
+        ], inputCacheConfig: cacheConfig);
+
+    final messages = (body['messages'] as List<Object?>)
+        .cast<Map<String, Object?>>();
+    expect(messages.map((item) => item['role']).toList(), <String>[
+      'system',
+      'user',
+      'user',
+    ]);
+    expect(jsonEncode(messages.first), contains('cacheable template prefix'));
+    expect(
+      jsonEncode(messages.first).contains('Dynamic Session State'),
+      isFalse,
+    );
+    final encodedMessages = jsonEncode(messages.skip(1).toList());
+    expect(encodedMessages, contains('第一轮之后的用户输入'));
+    expect(encodedMessages, contains('Dynamic Session State'));
+    expect(encodedMessages, contains('<openhand_runtime_context>'));
+  });
+
+  test('OpenAI compat preserves tool-exchange system reminders', () async {
+    final body = await const OpenAiProtocolAdapter(AiProtocolType.openai)
+        .buildBody(_model(AiProtocolType.openai), const <AiChatTurn>[
+          AiChatTurn(role: AiChatRole.system, content: stableSystem),
+          AiChatTurn(role: AiChatRole.user, content: '先读状态'),
+          AiChatTurn(
+            role: AiChatRole.assistant,
+            content: '调用工具',
+            toolCalls: <AiToolCall>[
+              AiToolCall(id: 'call_1', name: 'Read', arguments: '{"path":"a"}'),
+            ],
+          ),
+          AiChatTurn(
+            role: AiChatRole.system,
+            content: '# System Reminder\n\n工具结果前的运行态提示',
+          ),
+          AiChatTurn(
+            role: AiChatRole.tool,
+            toolCallId: 'call_1',
+            content: '工具结果',
+          ),
+        ], inputCacheConfig: cacheConfig);
+
+    final messages = (body['messages'] as List<Object?>)
+        .cast<Map<String, Object?>>();
+    expect(messages.map((item) => item['role']).toList(), <String>[
+      'system',
+      'user',
+      'assistant',
+      'tool',
+    ]);
+    expect(
+      jsonEncode(messages.skip(1).toList()).contains('"role":"system"'),
+      isFalse,
+    );
+    final toolMessage = messages.last;
+    expect(toolMessage['content'], contains('工具结果'));
+    expect(toolMessage['content'], contains('[system_reminder]'));
+    expect(toolMessage['content'], contains('工具结果前的运行态提示'));
+  });
+
   test(
     'Claude keeps post-user runtime context out of top-level system',
     () async {

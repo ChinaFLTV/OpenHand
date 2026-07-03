@@ -648,12 +648,14 @@ abstract class AiProtocolAdapter {
   }
 
   _ProtocolSystemPartition _partitionLeadingSystemTurns(
-    List<AiChatTurn> messages,
-  ) {
+    List<AiChatTurn> messages, {
+    bool preserveToolExchangeSystemReminders = false,
+  }) {
     final leadingSystemContent = <String>[];
     final conversationTurns = <AiChatTurn>[];
     var sawConversationTurn = false;
-    for (final turn in messages) {
+    for (var index = 0; index < messages.length; index += 1) {
+      final turn = messages[index];
       if (!sawConversationTurn && turn.role == AiChatRole.system) {
         final content = turn.content.trim();
         if (content.isNotEmpty) {
@@ -664,7 +666,16 @@ abstract class AiProtocolAdapter {
       if (turn.role == AiChatRole.system) {
         final content = turn.content.trim();
         if (content.isNotEmpty) {
-          conversationTurns.add(_runtimeSystemTurnAsUserContext(content));
+          if (preserveToolExchangeSystemReminders &&
+              _isToolExchangeSystemReminder(
+                messages,
+                conversationTurns,
+                index,
+              )) {
+            conversationTurns.add(turn);
+          } else {
+            conversationTurns.add(_runtimeSystemTurnAsUserContext(content));
+          }
         }
         continue;
       }
@@ -675,6 +686,30 @@ abstract class AiProtocolAdapter {
       leadingSystemContent: leadingSystemContent.join('\n\n'),
       conversationTurns: conversationTurns,
     );
+  }
+
+  bool _isToolExchangeSystemReminder(
+    List<AiChatTurn> messages,
+    List<AiChatTurn> emittedTurns,
+    int systemTurnIndex,
+  ) {
+    if (emittedTurns.isEmpty) return false;
+    final previous = emittedTurns.last;
+    if (previous.role != AiChatRole.assistant || previous.toolCalls.isEmpty) {
+      return false;
+    }
+    final content = messages[systemTurnIndex].content.trim();
+    if (!content.startsWith('# System Reminder')) {
+      return false;
+    }
+    for (var index = systemTurnIndex + 1; index < messages.length; index += 1) {
+      final next = messages[index];
+      if (next.role == AiChatRole.system && next.content.trim().isEmpty) {
+        continue;
+      }
+      return next.role == AiChatRole.tool;
+    }
+    return false;
   }
 
   AiChatTurn _runtimeSystemTurnAsUserContext(String content) {
@@ -815,12 +850,26 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
     final stableTools = _stableToolDefinitions(tools);
-    final requestMessages = await Future.wait<Map<String, Object?>>(
-      messages.map((item) => _mapOpenAiMessage(item)),
+    final systemPartition = _partitionLeadingSystemTurns(
+      messages,
+      preserveToolExchangeSystemReminders: true,
     );
-    // Many OpenAI-compatible providers reject requests with multiple system
-    // messages.  Merge consecutive leading system messages into one to
-    // maximise compatibility while keeping the prompt structure intact.
+    final normalizedTurns = <AiChatTurn>[
+      if (systemPartition.leadingSystemContent.isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content: systemPartition.leadingSystemContent,
+        ),
+      ...systemPartition.conversationTurns,
+    ];
+    final requestMessages = await Future.wait<Map<String, Object?>>(
+      normalizedTurns.map((item) => _mapOpenAiMessage(item)),
+    );
+    // Many OpenAI-compatible providers reject multiple or mid-conversation
+    // system messages. Leading stable system turns are merged once; post-user
+    // runtime state is normalized into user-side context by
+    // [_partitionLeadingSystemTurns]. Tool-exchange reminders are preserved so
+    // the repair pass can attach them to the matching tool result.
     final mergedMessages = _repairOpenAiToolMessageSequence(
       _mergeConsecutiveSystemMessages(requestMessages),
     );
