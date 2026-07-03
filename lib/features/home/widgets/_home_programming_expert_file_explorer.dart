@@ -4785,10 +4785,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         );
         return;
       }
-      final command = <String>[
+      final command = trimmedNonEmptyStrings(<String>[
         resolution.executablePath ?? resolution.executable ?? '',
         ...resolution.arguments,
-      ].where((item) => item.trim().isNotEmpty).join(' ');
+      ]).join(' ');
       final projectLanguage = normalizeAiLspLanguage(widget.projectLanguage);
       final hasProjectOverride = _hasProjectToolchainOverride();
       final lspSourceLine = widget.projectLspPath.trim().isNotEmpty
@@ -12518,11 +12518,9 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     if (diagnostics.isEmpty) {
       return '';
     }
-    final messages = diagnostics
-        .map((diagnostic) => diagnostic.message.trim())
-        .where((message) => message.isNotEmpty)
-        .take(2)
-        .toList(growable: false);
+    final messages = trimmedNonEmptyStrings(
+      diagnostics.map((diagnostic) => diagnostic.message),
+    ).take(2).toList(growable: false);
     if (messages.isEmpty) {
       return '';
     }
