@@ -1088,13 +1088,12 @@ class AiPromptBuilder {
         .where((name) => name.isNotEmpty)
         .toList(growable: false);
     mcpServerNames.sort(_comparePromptCatalogNames);
-    final mcpServerInstructionNames = mcpServerInstructionsByName.entries
-        .where(
-          (entry) =>
-              entry.key.trim().isNotEmpty && entry.value.trim().isNotEmpty,
-        )
-        .map((entry) => entry.key.trim())
-        .toList(growable: false);
+    final promptMcpServerInstructions = _mcpServerInstructionsForPrompt(
+      mcpServerInstructionsByName,
+    );
+    final mcpServerInstructionNames = promptMcpServerInstructions.keys.toList(
+      growable: false,
+    );
     mcpServerInstructionNames.sort(_comparePromptCatalogNames);
     final sidecarMarkdownPath = _sessionCompactMemoryMarkdownPath(
       session,
@@ -3750,6 +3749,25 @@ $tail''';
     return _comparePromptText(a.id, b.id);
   }
 
+  Map<String, String> _mcpServerInstructionsForPrompt(
+    Map<String, String> instructionsByName,
+  ) {
+    final entries = instructionsByName.entries
+        .map((entry) => MapEntry(entry.key.trim(), entry.value.trim()))
+        .where((entry) => entry.key.isNotEmpty && entry.value.isNotEmpty)
+        .toList(growable: false);
+    entries.sort((left, right) {
+      final keyCompare = _comparePromptCatalogNames(left.key, right.key);
+      if (keyCompare != 0) return keyCompare;
+      return _comparePromptText(left.value, right.value);
+    });
+    final result = <String, String>{};
+    for (final entry in entries) {
+      result.putIfAbsent(entry.key, () => entry.value);
+    }
+    return result;
+  }
+
   /// 渲染用户画像独立子段。当 user_profile 为空 / memory 被关闭时返回空字符串
   /// （连同后续 `_renderUserMemory` 一起就只剩通用记忆段，不破坏原有结构）。
   ///
@@ -4865,11 +4883,9 @@ $content
           ..sort(
             (left, right) => _comparePromptCatalogNames(left.name, right.name),
           );
-    final serverInstructionsByName = <String, String>{
-      for (final entry in mcpServerInstructionsByName.entries)
-        if (entry.key.trim().isNotEmpty && entry.value.trim().isNotEmpty)
-          entry.key.trim(): entry.value.trim(),
-    };
+    final serverInstructionsByName = _mcpServerInstructionsForPrompt(
+      mcpServerInstructionsByName,
+    );
     if (mcpTools.isEmpty &&
         servers.isEmpty &&
         serverInstructionsByName.isEmpty) {

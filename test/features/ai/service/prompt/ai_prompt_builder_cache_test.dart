@@ -126,6 +126,64 @@ void main() {
     );
   });
 
+  test(
+    'post-compact MCP instructions are stable across duplicate trimmed keys',
+    () {
+      final first = _buildPrompt(
+        const <AiToolDefinition>[],
+        session: _compressedSession(),
+        runtimeContext: _runtimeContext(
+          availableMcpServers: const <McpServer>[
+            McpServer(
+              name: 'alpha',
+              type: McpServerType.stdio,
+              enabled: true,
+              command: 'alpha',
+            ),
+          ],
+        ),
+        mcpServerInstructionsByName: const <String, String>{
+          ' alpha ': 'Zeta instruction',
+          'alpha': 'Alpha instruction',
+        },
+      );
+      final second = _buildPrompt(
+        const <AiToolDefinition>[],
+        session: _compressedSession(),
+        runtimeContext: _runtimeContext(
+          availableMcpServers: const <McpServer>[
+            McpServer(
+              name: 'alpha',
+              type: McpServerType.stdio,
+              enabled: true,
+              command: 'alpha',
+            ),
+          ],
+        ),
+        mcpServerInstructionsByName: const <String, String>{
+          'alpha': 'Alpha instruction',
+          ' alpha ': 'Zeta instruction',
+        },
+      );
+      final firstRestoredMcp = _sectionText(
+        first,
+        AiPromptSectionHeaders.restoredMcpContext,
+      );
+      final secondRestoredMcp = _sectionText(
+        second,
+        AiPromptSectionHeaders.restoredMcpContext,
+      );
+
+      expect(firstRestoredMcp, secondRestoredMcp);
+      expect(
+        first.metadata['stable_prefix_hash'],
+        second.metadata['stable_prefix_hash'],
+      );
+      expect(firstRestoredMcp, contains('Alpha instruction'));
+      expect(firstRestoredMcp, isNot(contains('Zeta instruction')));
+    },
+  );
+
   test('post-compact dynamic MCP rehydration has stable ordering', () {
     final first = _buildPrompt(
       const <AiToolDefinition>[],
