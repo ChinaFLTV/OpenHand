@@ -88,10 +88,18 @@ export function ModelPickerDialog({
   const [inputFocused, setInputFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const scrollFrameRef = useRef<number | null>(null);
   const { closing, requestClose } = useDialogExitMotion(onClose);
 
   useEffect(() => {
     inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => () => {
+    if (scrollFrameRef.current != null) {
+      window.cancelAnimationFrame(scrollFrameRef.current);
+      scrollFrameRef.current = null;
+    }
   }, []);
 
   const filtered = useMemo(() => {
@@ -197,7 +205,11 @@ export function ModelPickerDialog({
         : (cur + delta + orderedKeys.length) % orderedKeys.length;
     const nextKey = orderedKeys[next]!;
     setHighlightKey(nextKey);
-    requestAnimationFrame(() => {
+    if (scrollFrameRef.current != null) {
+      window.cancelAnimationFrame(scrollFrameRef.current);
+    }
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
       const el = listRef.current?.querySelector<HTMLButtonElement>(
         `[data-model-key="${CSS.escape(nextKey)}"]`,
       );
