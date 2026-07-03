@@ -11,8 +11,19 @@ import '../../../app/support/silent_log.dart';
 /// stream", so close paths should drain this queue with a bounded timeout first.
 class McpStdioWriteQueue {
   Future<void> _tail = Future<void>.value();
+  Object? _closedError;
+
+  bool get isClosed => _closedError != null;
+
+  void rejectNewWrites(Object error) {
+    _closedError ??= error;
+  }
 
   Future<void> run(Future<void> Function() operation) {
+    final closedError = _closedError;
+    if (closedError != null) {
+      return Future<void>.error(closedError);
+    }
     final queued = _tail.then((_) => operation());
     _tail = queued.then<void>(
       (_) {},

@@ -2353,6 +2353,11 @@ class _StdioSession {
     );
   }
 
+  static const McpToolDiscoveryException _closingWriteException =
+      McpToolDiscoveryException(
+        'Tool scan stopped because the stdio MCP session is closing.',
+      );
+
   final Process _process;
   Process get process => _process;
   final Duration _requestTimeout;
@@ -2379,8 +2384,11 @@ class _StdioSession {
     _pendingResponses[requestIdText] = completer;
     try {
       await _write(payload);
-    } catch (_) {
+    } catch (error, stack) {
       _pendingResponses.remove(requestIdText);
+      if (!completer.isCompleted) {
+        completer.completeError(error, stack);
+      }
       rethrow;
     }
     try {
@@ -2629,17 +2637,10 @@ class _StdioSession {
   }
 
   Future<void> _write(Map<String, Object?> payload) async {
-    if (_closeFuture != null) {
-      throw const McpToolDiscoveryException(
-        'Cannot write to a closing stdio session.',
-      );
+    if (_closeFuture != null || _stdinWriteQueue.isClosed) {
+      throw _closingWriteException;
     }
     await _stdinWriteQueue.run(() async {
-      if (_closeFuture != null) {
-        throw const McpToolDiscoveryException(
-          'Cannot write to a closing stdio session.',
-        );
-      }
       _appendTrace(
         'stdin:write:${payload['method'] ?? 'unknown'}:${payload['id'] ?? ''}',
       );
@@ -2660,7 +2661,12 @@ class _StdioSession {
   }
 
   Future<void> close() {
-    return _closeFuture ??= _closeOnce();
+    final closeFuture = _closeFuture;
+    if (closeFuture != null) {
+      return closeFuture;
+    }
+    _stdinWriteQueue.rejectNewWrites(_closingWriteException);
+    return _closeFuture = _closeOnce();
   }
 
   Future<void> _closeOnce() async {
@@ -2668,9 +2674,7 @@ class _StdioSession {
       DefaultMcpToolDiscoveryService._stdioShutdownTimeout,
     );
     // 关闭前释放 pending responses，避免上层仍在等待已经不可达的响应。
-    _failPendingResponses(
-      McpToolDiscoveryException(_closedUnexpectedlyMessage()),
-    );
+    _failPendingResponses(_closingWriteException);
     await closeMcpStdioSinkQuietly(
       stdin: _process.stdin,
       timeout: DefaultMcpToolDiscoveryService._stdioShutdownTimeout,

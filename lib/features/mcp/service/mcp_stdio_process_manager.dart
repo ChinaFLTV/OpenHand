@@ -100,6 +100,8 @@ class McpStdioProcessManager extends ChangeNotifier {
   static const Duration _forceStopTimeout = Duration(seconds: 2);
   static const Duration _initializeStartupDelay = Duration(seconds: 2);
   static const Duration _initializeResponseTimeout = Duration(seconds: 90);
+  static const Duration _borrowReleaseTimeout = Duration(seconds: 2);
+  static const Duration _borrowPollInterval = Duration(milliseconds: 80);
 
   final Map<String, _ManagedProcess> _processes = {};
 
@@ -256,6 +258,8 @@ class McpStdioProcessManager extends ChangeNotifier {
     _appendLog(serverName, '\n[${_timestamp()}] 正在停止进程…', isStderr: false);
 
     try {
+      managed.responseRouter?.rejectNewWrites(_stoppingException(serverName));
+      await _waitForBorrowedSessions(serverName);
       await managed.responseRouter?.drainWrites(_stdinCloseTimeout);
       await closeMcpStdioSinkQuietly(
         stdin: managed.process!.stdin,
@@ -334,6 +338,9 @@ class McpStdioProcessManager extends ChangeNotifier {
     if (managed == null) {
       return null;
     }
+    if (managed.info.state == StdioProcessState.stopping) {
+      return null;
+    }
     // 已停止（非启动中）— 没有可复用的进程
     if (managed.info.isStopped && managed.process == null) {
       return null;
@@ -352,12 +359,17 @@ class McpStdioProcessManager extends ChangeNotifier {
       if (managed == null) {
         return null;
       }
+      if (managed.info.state == StdioProcessState.stopping) {
+        return null;
+      }
       if (managed.info.isStopped && managed.process == null) {
         return null;
       }
     }
 
-    if (managed.responseRouter == null) {
+    if (managed.info.state != StdioProcessState.running ||
+        managed.responseRouter == null ||
+        managed.responseRouter!.isClosed) {
       return null;
     }
     _sessionBorrowCount[serverName] =
@@ -372,6 +384,21 @@ class McpStdioProcessManager extends ChangeNotifier {
       _sessionBorrowCount.remove(serverName);
     } else {
       _sessionBorrowCount[serverName] = count - 1;
+    }
+  }
+
+  Future<void> _waitForBorrowedSessions(String serverName) async {
+    final deadline = DateTime.now().add(_borrowReleaseTimeout);
+    while ((_sessionBorrowCount[serverName] ?? 0) > 0) {
+      if (DateTime.now().isAfter(deadline)) {
+        _appendLog(
+          serverName,
+          '[${_timestamp()}] 停止等待会话归还超时，继续关闭进程',
+          isStderr: true,
+        );
+        return;
+      }
+      await Future<void>.delayed(_borrowPollInterval);
     }
   }
 
@@ -526,9 +553,15 @@ class McpStdioProcessManager extends ChangeNotifier {
       // 等待 npx 解析并启动实际的 MCP 服务进程（首次可能需要下载包）
       await Future.delayed(_initializeStartupDelay);
       final managed = _processes[serverName];
-      if (managed == null || !managed.info.isRunning) return;
+      final responseRouter = managed?.responseRouter;
+      if (managed == null ||
+          !managed.info.isRunning ||
+          responseRouter == null ||
+          responseRouter.isClosed) {
+        return;
+      }
 
-      await writeMcpJsonLineToStdin(process.stdin, {
+      await responseRouter.writeMessage(process.stdin, {
         'jsonrpc': '2.0',
         'id': 1,
         'method': 'initialize',
@@ -548,7 +581,15 @@ class McpStdioProcessManager extends ChangeNotifier {
       if (gotResponse) {
         _appendLog(serverName, '[${_timestamp()}] ✓ MCP 握手成功', isStderr: false);
 
-        await writeMcpJsonLineToStdin(process.stdin, {
+        final currentBeforeNotify = _processes[serverName];
+        if (currentBeforeNotify == null ||
+            !currentBeforeNotify.info.isRunning ||
+            currentBeforeNotify.responseRouter != responseRouter ||
+            responseRouter.isClosed) {
+          return;
+        }
+
+        await responseRouter.writeMessage(process.stdin, {
           'jsonrpc': '2.0',
           'method': 'notifications/initialized',
         });
@@ -560,7 +601,10 @@ class McpStdioProcessManager extends ChangeNotifier {
 
         // 标记握手完成，允许 discovery service 复用此进程
         final current = _processes[serverName];
-        if (current != null) {
+        if (current != null &&
+            current.info.isRunning &&
+            current.responseRouter == responseRouter &&
+            !responseRouter.isClosed) {
           _processes[serverName] = _ManagedProcess(
             info: current.info,
             process: current.process,
@@ -688,6 +732,12 @@ class McpStdioProcessManager extends ChangeNotifier {
     return formatHourMinuteSecond(DateTime.now());
   }
 
+  static McpToolDiscoveryException _stoppingException(String serverName) {
+    return McpToolDiscoveryException(
+      'Stdio MCP server "$serverName" is stopping. Try again after it finishes stopping.',
+    );
+  }
+
   static String _formatDuration(Duration d) {
     if (d.inDays > 0) {
       return '${d.inDays}天 ${d.inHours % 24}时 ${d.inMinutes % 60}分';
@@ -725,16 +775,29 @@ class ManagedStdioSession {
     final requestIdText = '${payload['id']}';
     final completer = Completer<Map<String, Object?>?>();
     observeMcpStdioPendingFuture(completer.future);
-    _responseRouter.register(requestIdText, completer);
     try {
-      await _responseRouter.writeRequest(_process.stdin, payload);
-    } on StateError catch (e) {
+      _responseRouter.register(requestIdText, completer);
+    } catch (error, stack) {
+      if (!completer.isCompleted) {
+        completer.completeError(error, stack);
+      }
+      rethrow;
+    }
+    try {
+      await _responseRouter.writeMessage(_process.stdin, payload);
+    } on StateError catch (e, stack) {
       _responseRouter.unregister(requestIdText);
+      if (!completer.isCompleted) {
+        completer.completeError(e, stack);
+      }
       throw McpToolDiscoveryException(
         'Cannot write to managed stdio process: $e',
       );
-    } catch (e) {
+    } catch (e, stack) {
       _responseRouter.unregister(requestIdText);
+      if (!completer.isCompleted) {
+        completer.completeError(e, stack);
+      }
       rethrow;
     }
     try {
@@ -760,8 +823,15 @@ class _ManagedResponseRouter {
   final Map<String, Completer<Map<String, Object?>?>> _pending = {};
   final StringBuffer _lineBuffer = StringBuffer();
   final McpStdioWriteQueue _writeQueue = McpStdioWriteQueue();
+  Object? _closedError;
+
+  bool get isClosed => _closedError != null;
 
   void register(String id, Completer<Map<String, Object?>?> completer) {
+    final closedError = _closedError;
+    if (closedError != null) {
+      throw closedError;
+    }
     _pending[id] = completer;
   }
 
@@ -772,12 +842,28 @@ class _ManagedResponseRouter {
     }
   }
 
-  Future<void> writeRequest(IOSink stdin, Map<String, Object?> payload) {
-    return _writeQueue.run(() => writeMcpJsonLineToStdin(stdin, payload));
+  Future<void> writeMessage(IOSink stdin, Map<String, Object?> payload) {
+    final closedError = _closedError;
+    if (closedError != null) {
+      return Future<void>.error(closedError);
+    }
+    return _writeQueue.run(() async {
+      final closedError = _closedError;
+      if (closedError != null) {
+        throw closedError;
+      }
+      await writeMcpJsonLineToStdin(stdin, payload);
+    });
   }
 
   Future<void> drainWrites(Duration timeout) {
     return _writeQueue.drain(timeout);
+  }
+
+  void rejectNewWrites(Object error, [StackTrace? stackTrace]) {
+    _closedError ??= error;
+    _writeQueue.rejectNewWrites(error);
+    failAll(error, stackTrace);
   }
 
   /// 将 stdout 数据喂入路由器。数据可能跨多个 chunk 到达，
@@ -817,9 +903,9 @@ class _ManagedResponseRouter {
     return routed;
   }
 
-  void failAll(Object error) {
+  void failAll(Object error, [StackTrace? stackTrace]) {
     for (final c in _pending.values) {
-      if (!c.isCompleted) c.completeError(error);
+      if (!c.isCompleted) c.completeError(error, stackTrace);
     }
     _pending.clear();
     _lineBuffer.clear();
