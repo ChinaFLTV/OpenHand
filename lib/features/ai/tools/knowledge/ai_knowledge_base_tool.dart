@@ -685,12 +685,10 @@ String _normalizeForMatch(String value) {
   return value.toLowerCase().replaceAll(RegExp(r'\s+'), '');
 }
 
-String _stringValue(Object? value) => '${value ?? ''}'.trim();
+String _stringValue(Object? value) => stringFromValue(value);
 
 int _intValue(Object? value) {
-  if (value is int) return math.max(0, value);
-  if (value is num && value.isFinite) return math.max(0, value.round());
-  return math.max(0, int.tryParse('${value ?? ''}') ?? 0);
+  return nonNegativeIntFromValue(value, fallback: 0);
 }
 
 List<String> _stringList(Object? value) {
