@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
+import '../util/input_value_parsing.dart';
 import '../util/timer_safety.dart';
 
 const Duration kNativeAudioLoadTimeout = Duration(seconds: 18);
@@ -1989,11 +1990,7 @@ String normalizeNativeAudioText(String value, {required String fallback}) {
 
 String deriveNativeAudioArtist(String detail) {
   final leaf = _prettyNativeAudioLeaf(detail);
-  final segments = leaf
-      .split(RegExp(r'[-_]+'))
-      .map((part) => part.trim())
-      .where((part) => part.isNotEmpty)
-      .toList(growable: false);
+  final segments = splitTrimmedNonEmpty(leaf, separator: RegExp(r'[-_]+'));
   if (segments.length >= 2 && segments.first.length <= 28) {
     return segments.first;
   }

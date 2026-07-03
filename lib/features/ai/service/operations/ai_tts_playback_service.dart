@@ -1893,12 +1893,12 @@ class AiTtsPlaybackService {
       'style_prompt',
       fallback: '自然清晰，语速适中，语气友好。',
     );
-    final parts = <String>[
+    final parts = trimmedNonEmptyStrings(<String>[
       if (language.isNotEmpty) '语言：$language',
       style,
       _mimoSpeedDirective(settings.speed),
       _mimoPitchDirective(settings.pitch),
-    ].where((part) => part.trim().isNotEmpty).toList(growable: false);
+    ]);
     return parts.join('；');
   }
 
