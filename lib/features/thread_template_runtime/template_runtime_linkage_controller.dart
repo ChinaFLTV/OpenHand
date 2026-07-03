@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../../shared/util/input_value_parsing.dart';
+
 class TemplateRuntimeCapabilityState {
   const TemplateRuntimeCapabilityState({
     required this.capabilityId,
@@ -19,15 +21,18 @@ class TemplateRuntimeCapabilityState {
   final int? toolCount;
   final String? message;
 
-  Map<String, Object?> toJson() => <String, Object?>{
-    'capability_id': capabilityId,
-    'enabled': enabled,
-    'status': status,
-    if (serverName != null) 'server_name': serverName,
-    if (toolCount != null) 'tool_count': toolCount,
-    if (message != null && message!.trim().isNotEmpty)
-      'message': message!.trim(),
-  };
+  Map<String, Object?> toJson() {
+    final normalizedServerName = nullIfBlank(serverName);
+    final normalizedMessage = nullIfBlank(message);
+    return <String, Object?>{
+      'capability_id': capabilityId,
+      'enabled': enabled,
+      'status': status,
+      if (normalizedServerName != null) 'server_name': normalizedServerName,
+      if (toolCount != null) 'tool_count': toolCount,
+      if (normalizedMessage != null) 'message': normalizedMessage,
+    };
+  }
 }
 
 class TemplateRuntimeSessionLinkage {
@@ -44,7 +49,9 @@ class TemplateRuntimeSessionLinkage {
   final Map<String, TemplateRuntimeCapabilityState> capabilities;
 
   TemplateRuntimeCapabilityState? capability(String capabilityId) {
-    return capabilities[capabilityId];
+    final normalizedCapabilityId = nullIfBlank(capabilityId);
+    if (normalizedCapabilityId == null) return null;
+    return capabilities[normalizedCapabilityId];
   }
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -66,8 +73,12 @@ class TemplateRuntimeLinkageController extends ChangeNotifier {
       List<TemplateRuntimeSessionLinkage>.unmodifiable(_sessions.values);
 
   List<TemplateRuntimeSessionLinkage> sessionsForTemplate(String templateId) {
+    final normalizedTemplateId = nullIfBlank(templateId);
+    if (normalizedTemplateId == null) {
+      return const <TemplateRuntimeSessionLinkage>[];
+    }
     return _sessions.values
-        .where((session) => session.templateId == templateId)
+        .where((session) => session.templateId == normalizedTemplateId)
         .toList(growable: false);
   }
 
@@ -75,10 +86,15 @@ class TemplateRuntimeLinkageController extends ChangeNotifier {
     String templateId,
     String capabilityId,
   ) {
+    final normalizedTemplateId = nullIfBlank(templateId);
+    final normalizedCapabilityId = nullIfBlank(capabilityId);
+    if (normalizedTemplateId == null || normalizedCapabilityId == null) {
+      return null;
+    }
     TemplateRuntimeSessionLinkage? latest;
     for (final session in _sessions.values) {
-      if (session.templateId != templateId ||
-          !session.capabilities.containsKey(capabilityId)) {
+      if (session.templateId != normalizedTemplateId ||
+          !session.capabilities.containsKey(normalizedCapabilityId)) {
         continue;
       }
       if (latest == null || session.updatedAt.isAfter(latest.updatedAt)) {
@@ -89,10 +105,17 @@ class TemplateRuntimeLinkageController extends ChangeNotifier {
   }
 
   int enabledSessionCount(String templateId, String capabilityId) {
+    final normalizedTemplateId = nullIfBlank(templateId);
+    final normalizedCapabilityId = nullIfBlank(capabilityId);
+    if (normalizedTemplateId == null || normalizedCapabilityId == null) {
+      return 0;
+    }
     var count = 0;
     for (final session in _sessions.values) {
-      if (session.templateId != templateId) continue;
-      if (session.capability(capabilityId)?.enabled == true) count++;
+      if (session.templateId != normalizedTemplateId) continue;
+      if (session.capability(normalizedCapabilityId)?.enabled == true) {
+        count++;
+      }
     }
     return count;
   }
@@ -102,13 +125,22 @@ class TemplateRuntimeLinkageController extends ChangeNotifier {
     required String templateId,
     required Iterable<TemplateRuntimeCapabilityState> capabilities,
   }) {
-    final normalizedSessionId = sessionId.trim();
-    final normalizedTemplateId = templateId.trim();
-    if (normalizedSessionId.isEmpty || normalizedTemplateId.isEmpty) return;
-    final capabilityMap = <String, TemplateRuntimeCapabilityState>{
-      for (final item in capabilities)
-        if (item.capabilityId.trim().isNotEmpty) item.capabilityId: item,
-    };
+    final normalizedSessionId = nullIfBlank(sessionId);
+    final normalizedTemplateId = nullIfBlank(templateId);
+    if (normalizedSessionId == null || normalizedTemplateId == null) return;
+    final capabilityMap = <String, TemplateRuntimeCapabilityState>{};
+    for (final item in capabilities) {
+      final normalizedCapabilityId = nullIfBlank(item.capabilityId);
+      if (normalizedCapabilityId == null) continue;
+      capabilityMap[normalizedCapabilityId] = TemplateRuntimeCapabilityState(
+        capabilityId: normalizedCapabilityId,
+        enabled: item.enabled,
+        status: item.status,
+        serverName: nullIfBlank(item.serverName),
+        toolCount: item.toolCount,
+        message: nullIfBlank(item.message),
+      );
+    }
     _sessions[normalizedSessionId] = TemplateRuntimeSessionLinkage(
       sessionId: normalizedSessionId,
       templateId: normalizedTemplateId,
@@ -121,7 +153,9 @@ class TemplateRuntimeLinkageController extends ChangeNotifier {
   }
 
   void removeSession(String sessionId) {
-    if (_sessions.remove(sessionId.trim()) != null) {
+    final normalizedSessionId = nullIfBlank(sessionId);
+    if (normalizedSessionId != null &&
+        _sessions.remove(normalizedSessionId) != null) {
       _notifyIfChanged();
     }
   }

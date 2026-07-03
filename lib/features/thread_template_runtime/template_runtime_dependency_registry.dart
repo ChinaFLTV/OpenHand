@@ -1,3 +1,4 @@
+import '../../shared/util/input_value_parsing.dart';
 import '../ai/index.dart';
 
 class TemplateRuntimeMcpCapabilitySpec {
@@ -48,9 +49,9 @@ class TemplateRuntimeMcpCapabilitySpec {
   final bool optional;
 
   bool get hasSuggestedServer =>
-      (suggestedServerName?.trim().isNotEmpty ?? false) &&
-      ((suggestedCommand?.trim().isNotEmpty ?? false) ||
-          (suggestedUrl?.trim().isNotEmpty ?? false));
+      nullIfBlank(suggestedServerName) != null &&
+      (nullIfBlank(suggestedCommand) != null ||
+          nullIfBlank(suggestedUrl) != null);
 
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
@@ -106,8 +107,9 @@ class TemplateRuntimeDependencySpec {
   final String toolSearchFallbackQuery;
 
   bool matchesPlugin(String pluginId) {
-    final normalized = pluginId.trim().toLowerCase();
-    return pluginIds.any((id) => id.toLowerCase() == normalized);
+    final normalized = nullIfBlank(pluginId)?.toLowerCase();
+    if (normalized == null) return false;
+    return pluginIds.any((id) => nullIfBlank(id)?.toLowerCase() == normalized);
   }
 
   bool matchesMcpText(String raw) {
@@ -447,8 +449,8 @@ class TemplateRuntimeDependencyRegistry {
       <TemplateRuntimeDependencySpec>[webReverse, androidReverse];
 
   static TemplateRuntimeDependencySpec? byTemplateId(String? templateId) {
-    final normalized = (templateId ?? '').trim();
-    if (normalized.isEmpty) return null;
+    final normalized = nullIfBlank(templateId);
+    if (normalized == null) return null;
     for (final spec in reverseEngineeringSpecs) {
       if (spec.templateId == normalized) return spec;
     }
@@ -468,11 +470,11 @@ class TemplateRuntimeDependencyRegistry {
   }
 
   static bool containsAnyKeyword(String raw, Iterable<String> keywords) {
-    final text = raw.trim().toLowerCase();
-    if (text.isEmpty) return false;
+    final text = nullIfBlank(raw)?.toLowerCase();
+    if (text == null) return false;
     for (final keyword in keywords) {
-      final normalized = keyword.trim().toLowerCase();
-      if (normalized.isNotEmpty && text.contains(normalized)) return true;
+      final normalized = nullIfBlank(keyword)?.toLowerCase();
+      if (normalized != null && text.contains(normalized)) return true;
     }
     return false;
   }
