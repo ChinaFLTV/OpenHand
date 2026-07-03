@@ -31,7 +31,32 @@ String openHandLocalizedText(
   String? de,
   String? ja,
 }) {
-  final locale = Localizations.localeOf(context);
+  return openHandLocalizedTextForLocale(
+    Localizations.localeOf(context),
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
+/// Returns text for an explicit locale.
+///
+/// Use this from services/controllers that must produce user-visible copy
+/// without a [BuildContext], such as desktop notifications.
+String openHandLocalizedTextForLocale(
+  Locale locale, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
   final languageCode = locale.languageCode.toLowerCase();
   final scriptCode = locale.scriptCode?.toLowerCase();
   switch (languageCode) {
@@ -47,4 +72,53 @@ String openHandLocalizedText(
     default:
       return en;
   }
+}
+
+/// Returns text for a platform locale name such as `zh_CN`, `zh-Hant`, or `fr`.
+String openHandLocalizedTextForLocaleName(
+  String localeName, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedTextForLocale(
+    _openHandLocaleFromName(localeName),
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
+Locale _openHandLocaleFromName(String localeName) {
+  final normalized = localeName.trim().replaceAll('_', '-');
+  if (normalized.isEmpty) {
+    return const Locale('en');
+  }
+  final parts = normalized.split('-').where((part) => part.isNotEmpty).toList();
+  if (parts.isEmpty) {
+    return const Locale('en');
+  }
+  final languageCode = parts.first.toLowerCase();
+  String? scriptCode;
+  String? countryCode;
+  for (final part in parts.skip(1)) {
+    if (part.length == 4 && scriptCode == null) {
+      scriptCode = part[0].toUpperCase() + part.substring(1).toLowerCase();
+    } else {
+      countryCode ??= part.toUpperCase();
+    }
+  }
+  return Locale.fromSubtags(
+    languageCode: languageCode,
+    scriptCode: scriptCode,
+    countryCode: countryCode,
+  );
 }
