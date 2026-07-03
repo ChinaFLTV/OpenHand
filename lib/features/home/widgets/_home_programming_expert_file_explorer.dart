@@ -2748,7 +2748,25 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
         final colorScheme = theme.colorScheme;
-        final isZh = openHandIsChineseLocale(dialogContext);
+        String text({
+          required String zh,
+          String? zhHant,
+          required String en,
+          String? fr,
+          String? de,
+          String? ja,
+        }) {
+          return _localizedText(
+            dialogContext,
+            zh: zh,
+            zhHant: zhHant,
+            en: en,
+            fr: fr,
+            de: de,
+            ja: ja,
+          );
+        }
+
         final canApply = preparedEdit.files.isNotEmpty;
         final fileCount = preparedEdit.files.length;
         final editCount = preparedEdit.edit.editCount;
@@ -2778,7 +2796,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       ),
                     ),
                     IconButton(
-                      tooltip: isZh ? '关闭' : 'Close',
+                      tooltip: text(
+                        zh: '关闭',
+                        zhHant: '關閉',
+                        en: 'Close',
+                        fr: 'Fermer',
+                        de: 'Schließen',
+                        ja: '閉じる',
+                      ),
                       onPressed: () => Navigator.of(dialogContext).pop(false),
                       icon: const Icon(Icons.close_rounded),
                     ),
@@ -2790,18 +2815,38 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   runSpacing: 8,
                   children: [
                     _WorkspaceEditStatChip(
-                      label: isZh ? '$fileCount 个文件' : '$fileCount files',
+                      label: text(
+                        zh: '$fileCount 个文件',
+                        zhHant: '$fileCount 個檔案',
+                        en: '$fileCount files',
+                        fr: '$fileCount fichiers',
+                        de: '$fileCount Dateien',
+                        ja: '$fileCount ファイル',
+                      ),
                       color: colorScheme.primary,
                     ),
                     _WorkspaceEditStatChip(
-                      label: isZh ? '$editCount 处修改' : '$editCount edits',
+                      label: text(
+                        zh: '$editCount 处修改',
+                        zhHant: '$editCount 處修改',
+                        en: '$editCount edits',
+                        fr: '$editCount modifications',
+                        de: '$editCount Änderungen',
+                        ja: '$editCount 件の編集',
+                      ),
                       color: colorScheme.tertiary,
                     ),
                     if (preparedEdit.edit.hasUnsupportedOperations)
                       _WorkspaceEditStatChip(
-                        label: isZh
-                            ? '${preparedEdit.edit.unsupportedOperationsCount} 个未支持操作'
-                            : '${preparedEdit.edit.unsupportedOperationsCount} unsupported ops',
+                        label: text(
+                          zh: '${preparedEdit.edit.unsupportedOperationsCount} 个未支持操作',
+                          zhHant:
+                              '${preparedEdit.edit.unsupportedOperationsCount} 個未支援操作',
+                          en: '${preparedEdit.edit.unsupportedOperationsCount} unsupported ops',
+                          fr: '${preparedEdit.edit.unsupportedOperationsCount} opérations non prises en charge',
+                          de: '${preparedEdit.edit.unsupportedOperationsCount} nicht unterstützte Vorgänge',
+                          ja: '${preparedEdit.edit.unsupportedOperationsCount} 件の未対応操作',
+                        ),
                         color: colorScheme.error,
                       ),
                   ],
@@ -2820,9 +2865,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   const SizedBox(height: 10),
                   _buildDiagnosticsHint(
                     colorScheme,
-                    isZh
-                        ? '文件重命名、创建、删除等文件级操作还没有自动预览或应用能力，仅展示可计算的文本修改。'
-                        : 'File-level operations such as rename, create, or delete are not previewed or applied automatically yet. Only text edits are shown here.',
+                    text(
+                      zh: '文件重命名、创建、删除等文件级操作还没有自动预览或应用能力，仅展示可计算的文本修改。',
+                      zhHant: '檔案重新命名、建立、刪除等檔案級操作尚未支援自動預覽或套用，這裡只顯示可計算的文字修改。',
+                      en: 'File-level operations such as rename, create, or delete are not previewed or applied automatically yet. Only text edits are shown here.',
+                      fr: 'Les opérations de fichier comme renommer, créer ou supprimer ne sont pas encore prévisualisées ni appliquées automatiquement. Seules les modifications de texte sont affichées.',
+                      de: 'Dateivorgänge wie Umbenennen, Erstellen oder Löschen werden noch nicht automatisch angezeigt oder angewendet. Hier erscheinen nur berechenbare Textänderungen.',
+                      ja: 'リネーム、作成、削除などのファイル単位操作はまだ自動プレビュー/適用されません。ここでは計算可能なテキスト編集のみ表示します。',
+                    ),
                   ),
                 ],
                 const SizedBox(height: 14),
@@ -2830,9 +2880,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   child: preparedEdit.files.isEmpty
                       ? Center(
                           child: Text(
-                            isZh
-                                ? '当前没有可预览的文本修改。'
-                                : 'There are no previewable text edits for this operation.',
+                            text(
+                              zh: '当前没有可预览的文本修改。',
+                              zhHant: '目前沒有可預覽的文字修改。',
+                              en: 'There are no previewable text edits for this operation.',
+                              fr: 'Aucune modification de texte prévisualisable pour cette opération.',
+                              de: 'Für diesen Vorgang gibt es keine anzeigbaren Textänderungen.',
+                              ja: 'この操作でプレビュー可能なテキスト編集はありません。',
+                            ),
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -2899,23 +2954,40 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                         runSpacing: 6,
                                         children: [
                                           _WorkspaceEditStatChip(
-                                            label: isZh
-                                                ? '${file.editCount} 处修改'
-                                                : '${file.editCount} edits',
+                                            label: text(
+                                              zh: '${file.editCount} 处修改',
+                                              zhHant: '${file.editCount} 處修改',
+                                              en: '${file.editCount} edits',
+                                              fr: '${file.editCount} modifications',
+                                              de: '${file.editCount} Änderungen',
+                                              ja: '${file.editCount} 件の編集',
+                                            ),
                                             color: colorScheme.primary,
                                           ),
                                           if (file.additionCount > 0)
                                             _WorkspaceEditStatChip(
-                                              label: isZh
-                                                  ? '+${file.additionCount} 新增'
-                                                  : '+${file.additionCount}',
+                                              label: text(
+                                                zh: '+${file.additionCount} 新增',
+                                                zhHant:
+                                                    '+${file.additionCount} 新增',
+                                                en: '+${file.additionCount}',
+                                                fr: '+${file.additionCount}',
+                                                de: '+${file.additionCount}',
+                                                ja: '+${file.additionCount}',
+                                              ),
                                               color: const Color(0xFF2E7D32),
                                             ),
                                           if (file.deletionCount > 0)
                                             _WorkspaceEditStatChip(
-                                              label: isZh
-                                                  ? '-${file.deletionCount} 删除'
-                                                  : '-${file.deletionCount}',
+                                              label: text(
+                                                zh: '-${file.deletionCount} 删除',
+                                                zhHant:
+                                                    '-${file.deletionCount} 刪除',
+                                                en: '-${file.deletionCount}',
+                                                fr: '-${file.deletionCount}',
+                                                de: '-${file.deletionCount}',
+                                                ja: '-${file.deletionCount}',
+                                              ),
                                               color: colorScheme.error,
                                             ),
                                         ],
@@ -2925,9 +2997,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                   const SizedBox(height: 10),
                                   if (file.diffLines.isEmpty)
                                     Text(
-                                      isZh
-                                          ? '该文件没有可显示的文本差异。'
-                                          : 'This file does not have a displayable text diff.',
+                                      text(
+                                        zh: '该文件没有可显示的文本差异。',
+                                        zhHant: '此檔案沒有可顯示的文字差異。',
+                                        en: 'This file does not have a displayable text diff.',
+                                        fr: 'Ce fichier n’a pas de diff texte affichable.',
+                                        de: 'Diese Datei hat keinen anzeigbaren Text-Diff.',
+                                        ja: 'このファイルには表示可能なテキスト差分がありません。',
+                                      ),
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
                                             color: colorScheme.onSurfaceVariant,
@@ -2963,9 +3040,15 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                                     vertical: 8,
                                                   ),
                                               child: Text(
-                                                isZh
-                                                    ? '差异内容过长，已截断显示前 240 行。'
-                                                    : 'The diff is long, so only the first 240 lines are shown.',
+                                                text(
+                                                  zh: '差异内容过长，已截断显示前 240 行。',
+                                                  zhHant:
+                                                      '差異內容過長，已截斷顯示前 240 行。',
+                                                  en: 'The diff is long, so only the first 240 lines are shown.',
+                                                  fr: 'Le diff est long ; seules les 240 premières lignes sont affichées.',
+                                                  de: 'Der Diff ist lang; es werden nur die ersten 240 Zeilen angezeigt.',
+                                                  ja: '差分が長いため、先頭 240 行のみ表示しています。',
+                                                ),
                                                 style: theme.textTheme.bodySmall
                                                     ?.copyWith(
                                                       color: colorScheme
@@ -2993,7 +3076,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   children: [
                     OpenHandDialogActionButton.secondary(
                       onPressed: () => Navigator.of(dialogContext).pop(false),
-                      label: isZh ? '取消' : 'Cancel',
+                      label: text(
+                        zh: '取消',
+                        zhHant: '取消',
+                        en: 'Cancel',
+                        fr: 'Annuler',
+                        de: 'Abbrechen',
+                        ja: 'キャンセル',
+                      ),
                     ),
                     const SizedBox(width: 8),
                     OpenHandDialogActionButton.primary(
@@ -3001,8 +3091,22 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                           ? () => Navigator.of(dialogContext).pop(true)
                           : null,
                       label: canApply
-                          ? (isZh ? '应用修改' : 'Apply Changes')
-                          : (isZh ? '无可应用修改' : 'No Applicable Changes'),
+                          ? text(
+                              zh: '应用修改',
+                              zhHant: '套用修改',
+                              en: 'Apply Changes',
+                              fr: 'Appliquer les modifications',
+                              de: 'Änderungen anwenden',
+                              ja: '変更を適用',
+                            )
+                          : text(
+                              zh: '无可应用修改',
+                              zhHant: '沒有可套用修改',
+                              en: 'No Applicable Changes',
+                              fr: 'Aucune modification applicable',
+                              de: 'Keine anwendbaren Änderungen',
+                              ja: '適用可能な変更はありません',
+                            ),
                     ),
                   ],
                 ),
@@ -3042,29 +3146,79 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _workspaceEditSummary(AiLspWorkspaceEdit edit) {
-    final isZh = openHandIsChineseLocale(context);
-    final base = isZh
-        ? '已应用 ${edit.editCount} 处修改，涉及 ${edit.fileCount} 个文件。'
-        : 'Applied ${edit.editCount} edits across ${edit.fileCount} files.';
+    final base = _localizedText(
+      context,
+      zh: '已应用 ${edit.editCount} 处修改，涉及 ${edit.fileCount} 个文件。',
+      zhHant: '已套用 ${edit.editCount} 處修改，涉及 ${edit.fileCount} 個檔案。',
+      en: 'Applied ${edit.editCount} edits across ${edit.fileCount} files.',
+      fr: '${edit.editCount} modifications appliquées dans ${edit.fileCount} fichiers.',
+      de: '${edit.editCount} Änderungen in ${edit.fileCount} Dateien angewendet.',
+      ja: '${edit.fileCount} ファイルに ${edit.editCount} 件の編集を適用しました。',
+    );
     if (!edit.hasUnsupportedOperations) {
       return base;
     }
-    return isZh
-        ? '$base 其中有 ${edit.unsupportedOperationsCount} 个文件级操作未自动处理。'
-        : '$base ${edit.unsupportedOperationsCount} file-level operations were not applied automatically.';
+    return _localizedText(
+      context,
+      zh: '$base 其中有 ${edit.unsupportedOperationsCount} 个文件级操作未自动处理。',
+      zhHant: '$base 其中有 ${edit.unsupportedOperationsCount} 個檔案級操作未自動處理。',
+      en: '$base ${edit.unsupportedOperationsCount} file-level operations were not applied automatically.',
+      fr: '$base ${edit.unsupportedOperationsCount} opérations de fichier n’ont pas été appliquées automatiquement.',
+      de: '$base ${edit.unsupportedOperationsCount} Dateivorgänge wurden nicht automatisch angewendet.',
+      ja: '$base ${edit.unsupportedOperationsCount} 件のファイル単位操作は自動適用されませんでした。',
+    );
   }
 
   Future<String?> _promptRenameSymbol(String initialValue) async {
-    final isZh = openHandIsChineseLocale(context);
     return showOpenHandTextInputDialog(
       context: context,
-      title: isZh ? '重命名符号' : 'Rename Symbol',
+      title: _localizedText(
+        context,
+        zh: '重命名符号',
+        zhHant: '重新命名符號',
+        en: 'Rename Symbol',
+        fr: 'Renommer le symbole',
+        de: 'Symbol umbenennen',
+        ja: 'シンボル名を変更',
+      ),
       initialValue: initialValue,
-      hintText: isZh ? '新名称' : 'New name',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '应用' : 'Apply',
+      hintText: _localizedText(
+        context,
+        zh: '新名称',
+        zhHant: '新名稱',
+        en: 'New name',
+        fr: 'Nouveau nom',
+        de: 'Neuer Name',
+        ja: '新しい名前',
+      ),
+      cancelLabel: _localizedText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _localizedText(
+        context,
+        zh: '应用',
+        zhHant: '套用',
+        en: 'Apply',
+        fr: 'Appliquer',
+        de: 'Anwenden',
+        ja: '適用',
+      ),
       decoration: InputDecoration(
-        labelText: isZh ? '新名称' : 'New name',
+        labelText: _localizedText(
+          context,
+          zh: '新名称',
+          zhHant: '新名稱',
+          en: 'New name',
+          fr: 'Nouveau nom',
+          de: 'Neuer Name',
+          ja: '新しい名前',
+        ),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -3641,12 +3795,43 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
 
     String groupLabel(String key) {
-      final isZh = openHandIsChineseLocale(context);
       return switch (key) {
-        'quickfix' => isZh ? '快速修复' : 'Quick Fix',
-        'refactor' => isZh ? '重构' : 'Refactor',
-        'source' => isZh ? '源码操作' : 'Source',
-        _ => isZh ? '其他操作' : 'Other Actions',
+        'quickfix' => _localizedText(
+          context,
+          zh: '快速修复',
+          zhHant: '快速修復',
+          en: 'Quick Fix',
+          fr: 'Correction rapide',
+          de: 'Schnellkorrektur',
+          ja: 'クイック修正',
+        ),
+        'refactor' => _localizedText(
+          context,
+          zh: '重构',
+          zhHant: '重構',
+          en: 'Refactor',
+          fr: 'Refactoriser',
+          de: 'Refaktorieren',
+          ja: 'リファクタリング',
+        ),
+        'source' => _localizedText(
+          context,
+          zh: '源码操作',
+          zhHant: '原始碼操作',
+          en: 'Source',
+          fr: 'Source',
+          de: 'Quelle',
+          ja: 'ソース操作',
+        ),
+        _ => _localizedText(
+          context,
+          zh: '其他操作',
+          zhHant: '其他操作',
+          en: 'Other Actions',
+          fr: 'Autres actions',
+          de: 'Weitere Aktionen',
+          ja: 'その他の操作',
+        ),
       };
     }
 
@@ -3692,13 +3877,44 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
 
     String subgroupLabel(String groupKey, String subgroupKey) {
-      final isZh = openHandIsChineseLocale(context);
       if (subgroupKey == defaultSubgroupKey) {
         return switch (groupKey) {
-          'quickfix' => isZh ? '默认修复' : 'Default',
-          'refactor' => isZh ? '通用重构' : 'General',
-          'source' => isZh ? '通用源码操作' : 'General',
-          _ => isZh ? '通用操作' : 'General',
+          'quickfix' => _localizedText(
+            context,
+            zh: '默认修复',
+            zhHant: '預設修復',
+            en: 'Default',
+            fr: 'Par défaut',
+            de: 'Standard',
+            ja: '既定',
+          ),
+          'refactor' => _localizedText(
+            context,
+            zh: '通用重构',
+            zhHant: '通用重構',
+            en: 'General',
+            fr: 'Général',
+            de: 'Allgemein',
+            ja: '一般',
+          ),
+          'source' => _localizedText(
+            context,
+            zh: '通用源码操作',
+            zhHant: '通用原始碼操作',
+            en: 'General',
+            fr: 'Général',
+            de: 'Allgemein',
+            ja: '一般',
+          ),
+          _ => _localizedText(
+            context,
+            zh: '通用操作',
+            zhHant: '通用操作',
+            en: 'General',
+            fr: 'Général',
+            de: 'Allgemein',
+            ja: '一般',
+          ),
         };
       }
       final humanized = humanizeKindSegment(subgroupKey);
