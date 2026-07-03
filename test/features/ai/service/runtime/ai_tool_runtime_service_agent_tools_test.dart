@@ -82,6 +82,33 @@ void main() {
       expect(catalog.find('AgentTaskComplete'), isNull);
     });
 
+    test(
+      'filters agent tools by enabled agent builtin tool bindings',
+      () async {
+        await controller.saveAgent(
+          _agent(
+            enabled: true,
+            builtinToolNames: const <String>['AgentList', 'agent_task_track'],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+
+        expect(
+          catalog.find('AgentList')?.builtinKind,
+          AiBuiltinToolKind.agentList,
+        );
+        expect(
+          catalog.find('AgentTaskTrack')?.builtinKind,
+          AiBuiltinToolKind.agentTaskTrack,
+        );
+        expect(catalog.find('AgentTaskPublish'), isNull);
+        expect(catalog.find('AgentTaskComplete'), isNull);
+      },
+    );
+
     test('complete tool writes task result and releases worker', () async {
       await controller.saveAgent(_agent(enabled: true));
       final task = await controller.publishTaskWithResult(
@@ -194,11 +221,15 @@ AiSessionRuntimeContext _runtimeContext() {
   );
 }
 
-AgentProfile _agent({required bool enabled}) {
+AgentProfile _agent({
+  required bool enabled,
+  List<String> builtinToolNames = const <String>[],
+}) {
   return AgentProfile(
     id: 'agent-1',
     name: 'Ops Agent',
     enabled: enabled,
+    builtinToolNames: builtinToolNames,
     lifecycleState: enabled
         ? AgentLifecycleState.running
         : AgentLifecycleState.stopped,

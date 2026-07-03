@@ -409,10 +409,54 @@ class AiToolRuntimeService {
       return templateId == _skillManagerTemplateId;
     }
     if (_isAgentBuiltinKind(tool.builtinKind)) {
-      final controller = _agentsControllerProvider?.call();
-      return controller != null && controller.enabledAgents.isNotEmpty;
+      final kind = tool.builtinKind;
+      return kind != null && _enabledAgentsExposeBuiltinTool(kind, tool.name);
     }
     return true;
+  }
+
+  bool _enabledAgentsExposeBuiltinTool(
+    AiBuiltinToolKind kind,
+    String toolName,
+  ) {
+    final controller = _agentsControllerProvider?.call();
+    if (controller == null) return false;
+    for (final agent in controller.enabledAgents) {
+      final configuredAgentToolNames = agent.builtinToolNames
+          .where((name) => _looksLikeAgentBuiltinToolName(name))
+          .toList(growable: false);
+      if (configuredAgentToolNames.isEmpty) return true;
+      if (configuredAgentToolNames.any(
+        (name) => _agentBuiltinToolNameMatches(kind, toolName, name),
+      )) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _looksLikeAgentBuiltinToolName(String name) {
+    final normalized = AiResolvedToolCatalog._normalizeToolLookupKey(name);
+    if (normalized.isEmpty) return false;
+    return normalized == 'agentlist' ||
+        normalized == 'agentdetail' ||
+        normalized.startsWith('agenttask');
+  }
+
+  bool _agentBuiltinToolNameMatches(
+    AiBuiltinToolKind kind,
+    String toolName,
+    String configuredName,
+  ) {
+    final normalized = AiResolvedToolCatalog._normalizeToolLookupKey(
+      configuredName,
+    );
+    if (normalized.isEmpty) return false;
+    return normalized ==
+            AiResolvedToolCatalog._normalizeToolLookupKey(toolName) ||
+        normalized ==
+            AiResolvedToolCatalog._normalizeToolLookupKey(kind.name) ||
+        AiResolvedToolCatalog._builtinAliasKind(normalized) == kind;
   }
 
   bool _isAgentBuiltinKind(AiBuiltinToolKind? kind) {
