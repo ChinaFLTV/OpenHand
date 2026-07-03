@@ -458,37 +458,40 @@ class AiPromptCacheAffinity {
     String name,
     String value,
   ) {
-    final lowerName = name.toLowerCase();
+    final lowerName = lowercaseStringFromValue(name);
     final hasExisting = headers.keys.any(
-      (key) => key.toLowerCase() == lowerName,
+      (key) => lowercaseStringFromValue(key) == lowerName,
     );
     if (!hasExisting) {
       headers[name] = value;
     }
   }
 
+  static String _endpointHost(String baseUrl) {
+    final normalizedBaseUrl = nullIfBlank(baseUrl);
+    if (normalizedBaseUrl == null) return '';
+    return lowercaseStringFromValue(Uri.tryParse(normalizedBaseUrl)?.host);
+  }
+
   static bool _isOpenRouterEndpoint(String baseUrl) {
-    final uri = Uri.tryParse(baseUrl.trim());
-    final host = uri?.host.toLowerCase() ?? '';
+    final host = _endpointHost(baseUrl);
     return host == 'openrouter.ai' || host.endsWith('.openrouter.ai');
   }
 
   static bool _isXaiEndpoint(String baseUrl) {
-    final uri = Uri.tryParse(baseUrl.trim());
-    final host = uri?.host.toLowerCase() ?? '';
+    final host = _endpointHost(baseUrl);
     return host == 'api.x.ai' || host.endsWith('.x.ai');
   }
 
   static bool _isOpenAiEndpoint(String baseUrl) {
-    final uri = Uri.tryParse(baseUrl.trim());
-    final host = uri?.host.toLowerCase() ?? '';
+    final host = _endpointHost(baseUrl);
     return host == 'api.openai.com' ||
         host.endsWith('.openai.com') ||
         host.endsWith('.openai.azure.com');
   }
 
   static bool _modelIdLooksLikeGrok(String modelId) {
-    final normalized = modelId.trim().toLowerCase();
+    final normalized = lowercaseStringFromValue(modelId);
     return normalized == 'grok' ||
         normalized.startsWith('grok-') ||
         normalized.startsWith('x-ai/grok-') ||
@@ -657,15 +660,15 @@ abstract class AiProtocolAdapter {
     for (var index = 0; index < messages.length; index += 1) {
       final turn = messages[index];
       if (!sawConversationTurn && turn.role == AiChatRole.system) {
-        final content = turn.content.trim();
-        if (content.isNotEmpty) {
+        final content = nullIfBlank(turn.content);
+        if (content != null) {
           leadingSystemContent.add(content);
         }
         continue;
       }
       if (turn.role == AiChatRole.system) {
-        final content = turn.content.trim();
-        if (content.isNotEmpty) {
+        final content = nullIfBlank(turn.content);
+        if (content != null) {
           if (preserveToolExchangeSystemReminders &&
               _isToolExchangeSystemReminder(
                 messages,
@@ -698,13 +701,13 @@ abstract class AiProtocolAdapter {
     if (previous.role != AiChatRole.assistant || previous.toolCalls.isEmpty) {
       return false;
     }
-    final content = messages[systemTurnIndex].content.trim();
+    final content = nullIfBlank(messages[systemTurnIndex].content) ?? '';
     if (!content.startsWith('# System Reminder')) {
       return false;
     }
     for (var index = systemTurnIndex + 1; index < messages.length; index += 1) {
       final next = messages[index];
-      if (next.role == AiChatRole.system && next.content.trim().isEmpty) {
+      if (next.role == AiChatRole.system && nullIfBlank(next.content) == null) {
         continue;
       }
       return next.role == AiChatRole.tool;
@@ -2042,9 +2045,9 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
     final headers = super.buildHeaders(model, endpointHeaders: endpointHeaders);
     headers.remove('authorization');
     headers.remove('x-api-key');
-    if (model.token.trim().isNotEmpty &&
-        model.authScheme == AiAuthScheme.apiKey) {
-      headers['x-goog-api-key'] = model.token.trim();
+    final token = nullIfBlank(model.token);
+    if (token != null && model.authScheme == AiAuthScheme.apiKey) {
+      headers['x-goog-api-key'] = token;
     }
     return headers;
   }
@@ -2485,14 +2488,15 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
       final decoded = jsonDecode(rawResponse);
       if (decoded is Map<String, Object?>) {
         final error = decoded['error'];
-        if (error is String && error.trim().isNotEmpty) {
-          return error.trim();
+        if (error is String) {
+          final errorText = nullIfBlank(error);
+          if (errorText != null) return errorText;
         }
       }
     } catch (_) {
       // Fall through – treat the whole body as a message.
     }
-    return rawResponse.trim();
+    return nullIfBlank(rawResponse) ?? '';
   }
 }
 
