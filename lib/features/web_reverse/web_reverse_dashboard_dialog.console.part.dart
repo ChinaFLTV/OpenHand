@@ -197,10 +197,17 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
   Future<void> _copyConsoleText(String text) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
-    final isZh = openHandIsChineseLocale(context);
     OpenHandSnackBar.showInfo(
       context,
-      isZh ? '控制台全文已复制' : 'Console text copied',
+      _wrText(
+        context,
+        zh: '控制台全文已复制',
+        zhHant: '主控台全文已複製',
+        en: 'Console text copied',
+        fr: 'Texte de console copié',
+        de: 'Konsolentext kopiert',
+        ja: 'コンソール全文をコピーしました',
+      ),
       duration: const Duration(seconds: 2),
     );
   }
@@ -291,7 +298,6 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
   }) async {
     final overlay = Overlay.of(context).context.findRenderObject();
     if (overlay is! RenderBox || !overlay.hasSize) return;
-    final isZh = openHandIsChineseLocale(context);
     final selected = await showAnimatedMenu<_ConsoleEntryAction>(
       context: context,
       position: RelativeRect.fromRect(
@@ -313,8 +319,24 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                 const SizedBox(width: 10),
                 Text(
                   expanded
-                      ? (isZh ? '收起' : 'Collapse')
-                      : (isZh ? '展开全文' : 'Expand'),
+                      ? _wrText(
+                          context,
+                          zh: '收起',
+                          zhHant: '收合',
+                          en: 'Collapse',
+                          fr: 'Réduire',
+                          de: 'Einklappen',
+                          ja: '折りたたむ',
+                        )
+                      : _wrText(
+                          context,
+                          zh: '展开全文',
+                          zhHant: '展開全文',
+                          en: 'Expand',
+                          fr: 'Développer',
+                          de: 'Erweitern',
+                          ja: '全文を展開',
+                        ),
                 ),
               ],
             ),
@@ -325,7 +347,17 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
             children: [
               const Icon(Icons.copy_rounded, size: 18),
               const SizedBox(width: 10),
-              Text(isZh ? '复制全文' : 'Copy full'),
+              Text(
+                _wrText(
+                  context,
+                  zh: '复制全文',
+                  zhHant: '複製全文',
+                  en: 'Copy full',
+                  fr: 'Copier tout',
+                  de: 'Alles kopieren',
+                  ja: '全文をコピー',
+                ),
+              ),
             ],
           ),
         ),
@@ -631,12 +663,24 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
               const SizedBox(width: 8),
               Tooltip(
                 message: _autoFollowConsole
-                    ? (openHandIsChineseLocale(context)
-                          ? '自动跟随已开启'
-                          : 'Auto-follow on')
-                    : (openHandIsChineseLocale(context)
-                          ? '自动跟随已关闭'
-                          : 'Auto-follow off'),
+                    ? _wrText(
+                        context,
+                        zh: '自动跟随已开启',
+                        zhHant: '自動跟隨已開啟',
+                        en: 'Auto-follow on',
+                        fr: 'Suivi auto activé',
+                        de: 'Automatisches Folgen ein',
+                        ja: '自動追従オン',
+                      )
+                    : _wrText(
+                        context,
+                        zh: '自动跟随已关闭',
+                        zhHant: '自動跟隨已關閉',
+                        en: 'Auto-follow off',
+                        fr: 'Suivi auto désactivé',
+                        de: 'Automatisches Folgen aus',
+                        ja: '自動追従オフ',
+                      ),
                 child: SizedBox(
                   width: _kConsoleReplControlHeight,
                   height: _kConsoleReplControlHeight,
