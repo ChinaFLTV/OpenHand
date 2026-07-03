@@ -23,18 +23,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseCorsPreflightDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showWebReverseToolDialog<void>(
     context: context,
-    builder: (_) => _CorsDialog(controller: controller, isZh: isZh),
+    builder: (_) => _CorsDialog(controller: controller),
   );
 }
 
 class _CorsDialog extends StatefulWidget {
-  const _CorsDialog({required this.controller, required this.isZh});
+  const _CorsDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
   @override
   State<_CorsDialog> createState() => _CorsDialogState();
 }
@@ -252,7 +250,7 @@ class _CorsDialogState extends State<_CorsDialog> {
         context,
         m,
         webReverseClipboardSnackMessage(
-          isZh: widget.isZh,
+          context: context,
           base: loc?.webReverseCorsResultCopied ?? 'Result copied',
           result: copied,
         ),

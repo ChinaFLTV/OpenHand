@@ -31,7 +31,6 @@ const Duration _issueEnableTimeout = Duration(seconds: 5);
 Future<void> showWebReverseIssuesDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) async {
   await _bindIssueStream(controller);
   if (controller.isBrowserAlive) {
@@ -51,7 +50,7 @@ Future<void> showWebReverseIssuesDialog(
   if (!context.mounted) return;
   return showWebReverseToolDialog<void>(
     context: context,
-    builder: (_) => _IssuesDialog(controller: controller, isZh: isZh),
+    builder: (_) => _IssuesDialog(controller: controller),
   );
 }
 
@@ -114,9 +113,8 @@ class _IssueEntry {
 }
 
 class _IssuesDialog extends StatefulWidget {
-  const _IssuesDialog({required this.controller, required this.isZh});
+  const _IssuesDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
   @override
   State<_IssuesDialog> createState() => _IssuesDialogState();
 }
@@ -211,7 +209,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
             context,
             m,
             webReverseClipboardSnackMessage(
-              isZh: widget.isZh,
+              context: context,
               base:
                   AppLocalizations.of(context)?.webReverseIssuesCopied ??
                   'Issue JSON copied',

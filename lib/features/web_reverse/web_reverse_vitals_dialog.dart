@@ -30,18 +30,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseVitalsDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showWebReverseToolDialog<void>(
     context: context,
-    builder: (_) => _VitalsDialog(controller: controller, isZh: isZh),
+    builder: (_) => _VitalsDialog(controller: controller),
   );
 }
 
 class _VitalsDialog extends StatefulWidget {
-  const _VitalsDialog({required this.controller, required this.isZh});
+  const _VitalsDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
   @override
   State<_VitalsDialog> createState() => _VitalsDialogState();
 }
@@ -233,7 +231,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
             context,
             m,
             webReverseClipboardSnackMessage(
-              isZh: widget.isZh,
+              context: context,
               base:
                   AppLocalizations.of(context)?.webReverseVitalsReportCopied ??
                   'Report JSON copied',

@@ -244,11 +244,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'URL match → return canned status/headers/body',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseMockRulesDialog(
-            context,
-            controller: controller,
-            isZh: isZh,
-          );
+          await showWebReverseMockRulesDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -360,11 +356,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'Heuristic regex parsing of frame scripts; build caller→callees graph',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseCallgraphDialog(
-            context,
-            controller: controller,
-            isZh: isZh,
-          );
+          await showWebReverseCallgraphDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -419,7 +411,6 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseCookieEditorDialog(
             context,
             controller: controller,
-            isZh: isZh,
           );
         },
       ),
@@ -537,11 +528,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'Audits.issueAdded · security / cookie / deprecation',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseIssuesDialog(
-            context,
-            controller: controller,
-            isZh: isZh,
-          );
+          await showWebReverseIssuesDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -552,11 +539,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'PerformanceObserver · LCP / CLS / INP / FCP / TTFB',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseVitalsDialog(
-            context,
-            controller: controller,
-            isZh: isZh,
-          );
+          await showWebReverseVitalsDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(
@@ -671,7 +654,6 @@ class _AdvancedMenuDialog extends StatelessWidget {
           await showWebReverseCorsPreflightDialog(
             context,
             controller: controller,
-            isZh: isZh,
           );
         },
       ),
@@ -683,11 +665,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             : 'browse / edit Cookies / Local / Session / IndexedDB',
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseStorageDialog(
-            context,
-            controller: controller,
-            isZh: isZh,
-          );
+          await showWebReverseStorageDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(

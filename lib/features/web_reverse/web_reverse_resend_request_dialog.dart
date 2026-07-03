@@ -610,7 +610,6 @@ print(resp.text[:2000])''';
       context,
       webReverseClipboardSnackMessage(
         context: context,
-        isZh: openHandIsChineseLocale(context),
         base: loc?.webReverseResendRequestCopiedAs(kind) ?? 'Copied as $kind',
         result: copied,
       ),
@@ -1142,7 +1141,6 @@ print(resp.text[:2000])''';
                     messenger,
                     webReverseClipboardSnackMessage(
                       context: dialogContext,
-                      isZh: openHandIsChineseLocale(dialogContext),
                       base: base,
                       result: copied,
                     ),

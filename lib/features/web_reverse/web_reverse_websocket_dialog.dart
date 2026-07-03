@@ -108,7 +108,6 @@ class _WsDialogState extends State<_WsDialog> {
           m,
           webReverseClipboardSnackMessage(
             context: context,
-            isZh: openHandIsChineseLocale(context),
             base: _wsText(
               context,
               zh: '帧 JSON 已复制',

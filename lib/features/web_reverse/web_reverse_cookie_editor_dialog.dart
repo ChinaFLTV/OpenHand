@@ -22,11 +22,10 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseCookieEditorDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showWebReverseToolDialog<void>(
     context: context,
-    builder: (_) => _CookieEditorDialog(controller: controller, isZh: isZh),
+    builder: (_) => _CookieEditorDialog(controller: controller),
   );
 }
 
@@ -45,9 +44,8 @@ class _CookieRow {
 }
 
 class _CookieEditorDialog extends StatefulWidget {
-  const _CookieEditorDialog({required this.controller, required this.isZh});
+  const _CookieEditorDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
   @override
   State<_CookieEditorDialog> createState() => _CookieEditorDialogState();
 }
@@ -194,7 +192,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
         context,
         messenger,
         webReverseClipboardSnackMessage(
-          isZh: widget.isZh,
+          context: context,
           base: loc?.webReverseCookieEditorCopiedJson ?? 'JSON copied',
           result: copied,
         ),

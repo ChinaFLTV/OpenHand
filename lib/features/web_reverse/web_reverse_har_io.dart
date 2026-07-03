@@ -56,7 +56,7 @@ Future<WebReverseHarReadResult> readWebReverseHarPath(String path) async {
 String webReverseHarTooLargeMessage(
   int bytes, {
   BuildContext? context,
-  required bool isZh,
+  bool isZh = false,
 }) {
   final size = formatByteSize(bytes);
   final max = formatByteSize(kWebReverseHarFileMaxBytes);
@@ -80,7 +80,7 @@ String webReverseHarDiffCappedMessage(
   int shown,
   int total, {
   BuildContext? context,
-  required bool isZh,
+  bool isZh = false,
 }) {
   if (context != null) {
     return openHandLocalizedText(

@@ -19,18 +19,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseStorageDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showWebReverseToolDialog<void>(
     context: context,
-    builder: (_) => _StorageDialog(controller: controller, isZh: isZh),
+    builder: (_) => _StorageDialog(controller: controller),
   );
 }
 
 class _StorageDialog extends StatefulWidget {
-  const _StorageDialog({required this.controller, required this.isZh});
+  const _StorageDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
   @override
   State<_StorageDialog> createState() => _StorageDialogState();
 }
@@ -211,7 +209,7 @@ class _StorageDialogState extends State<_StorageDialog>
         context,
         m,
         webReverseClipboardSnackMessage(
-          isZh: widget.isZh,
+          context: context,
           base: loc?.webReverseStorageCopied ?? 'Copied',
           result: copied,
         ),

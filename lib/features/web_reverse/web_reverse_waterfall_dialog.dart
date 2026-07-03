@@ -800,11 +800,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          webReverseHarTooLargeMessage(
-            read.tooLargeBytes!,
-            context: context,
-            isZh: widget.isZh,
-          ),
+          webReverseHarTooLargeMessage(read.tooLargeBytes!, context: context),
           duration: const Duration(seconds: 3),
         );
         return;

@@ -34,7 +34,7 @@ Future<WebReverseClipboardCopyResult> setWebReverseClipboardText(
 
 String webReverseClipboardSnackMessage({
   BuildContext? context,
-  required bool isZh,
+  bool isZh = false,
   required String base,
   required WebReverseClipboardCopyResult result,
 }) {

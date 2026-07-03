@@ -27,18 +27,16 @@ const double _kMockRulesDialogMaxHeight = 760;
 Future<void> showWebReverseMockRulesDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showWebReverseToolDialog<void>(
     context: context,
-    builder: (_) => _MockRulesDialog(controller: controller, isZh: isZh),
+    builder: (_) => _MockRulesDialog(controller: controller),
   );
 }
 
 class _MockRulesDialog extends StatefulWidget {
-  const _MockRulesDialog({required this.controller, required this.isZh});
+  const _MockRulesDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
   @override
   State<_MockRulesDialog> createState() => _MockRulesDialogState();
 }
@@ -113,7 +111,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
         context,
         m,
         webReverseClipboardSnackMessage(
-          isZh: widget.isZh,
+          context: context,
           base: loc?.webReverseMockRulesJsonCopied ?? 'JSON copied',
           result: copied,
         ),

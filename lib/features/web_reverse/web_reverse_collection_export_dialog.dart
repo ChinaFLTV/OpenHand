@@ -305,7 +305,6 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           .take(_kCollectionExportMaxEntries)
           .toList(growable: false);
       final out = _buildOutput(exportEntries);
-      final isZh = openHandIsChineseLocale(context);
       final copyResult = await setWebReverseClipboardText(out);
       if (!mounted) return;
       final m = ScaffoldMessenger.maybeOf(context);
@@ -329,7 +328,6 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           m,
           webReverseClipboardSnackMessage(
             context: context,
-            isZh: isZh,
             base: message,
             result: copyResult,
           ),

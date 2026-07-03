@@ -189,7 +189,6 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
         final message = webReverseHarTooLargeMessage(
           read.tooLargeBytes!,
           context: context,
-          isZh: widget.isZh,
         );
         setState(() => _status = message);
         OpenHandSnackBar.showErrorOn(context, messenger, message);

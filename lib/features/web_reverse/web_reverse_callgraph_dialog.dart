@@ -30,18 +30,16 @@ import 'web_reverse_session_controller.dart';
 Future<void> showWebReverseCallgraphDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showWebReverseToolDialog<void>(
     context: context,
-    builder: (_) => _CallgraphDialog(controller: controller, isZh: isZh),
+    builder: (_) => _CallgraphDialog(controller: controller),
   );
 }
 
 class _CallgraphDialog extends StatefulWidget {
-  const _CallgraphDialog({required this.controller, required this.isZh});
+  const _CallgraphDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
   @override
   State<_CallgraphDialog> createState() => _CallgraphDialogState();
 }
@@ -644,7 +642,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                       context,
                       messenger,
                       webReverseClipboardSnackMessage(
-                        isZh: widget.isZh,
+                        context: context,
                         base:
                             loc?.webReverseCallgraphGraphCopied ??
                             'Graph copied',
