@@ -1,3 +1,5 @@
+import 'input_value_parsing.dart';
+
 final RegExp _looseVersionTokenPattern = RegExp(r'\d+(?:\.\d+)*');
 final RegExp _strictSemanticVersionPattern = RegExp(r'^\d+\.\d+\.\d+$');
 
@@ -13,7 +15,7 @@ List<int> versionPartsFromText(String value) {
   if (raw == null) return const <int>[];
   return raw
       .split('.')
-      .map((part) => int.tryParse(part) ?? 0)
+      .map((part) => optionalNonNegativeIntFromValue(part) ?? 0)
       .toList(growable: false);
 }
 
