@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_headless_batch.dart';
 import 'web_reverse_session_controller.dart';
@@ -64,15 +65,10 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
   }
 
   List<String> _parsedUrls({bool capped = true}) {
-    final urls = _urlsCtrl.text
-        .split(RegExp(r'[\r\n]+'))
-        .map((e) => e.trim())
-        .where(
-          (e) =>
-              e.isNotEmpty &&
-              (e.startsWith('http://') || e.startsWith('https://')),
-        )
-        .toList();
+    final urls =
+        splitTrimmedNonEmpty(_urlsCtrl.text, separator: RegExp(r'[\r\n]+'))
+            .where((e) => e.startsWith('http://') || e.startsWith('https://'))
+            .toList();
     return capped
         ? urls.take(kWebReverseHeadlessBatchMaxUrls).toList(growable: false)
         : urls;

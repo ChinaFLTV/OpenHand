@@ -152,11 +152,10 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
   }
 
   Future<void> _saveExceptions() async {
-    final lines = _exceptionsCtrl.text
-        .split(RegExp(r'[\r\n,]+'))
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList(growable: false);
+    final lines = splitTrimmedNonEmpty(
+      _exceptionsCtrl.text,
+      separator: RegExp(r'[\r\n,]+'),
+    );
     await widget.controller.updateProxySettings(exceptions: lines);
   }
 

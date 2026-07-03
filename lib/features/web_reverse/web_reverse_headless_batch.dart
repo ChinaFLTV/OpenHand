@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_cdp_client.dart';
 
 const int kWebReverseHeadlessBatchMaxUrls = 50;
@@ -54,11 +55,9 @@ class WebReverseHeadlessBatch {
 
   Future<List<HeadlessBatchUrlResult>> run() async {
     final results = <HeadlessBatchUrlResult>[];
-    final cappedUrls = urls
-        .map((url) => url.trim())
-        .where(_isHttpUrl)
-        .take(kWebReverseHeadlessBatchMaxUrls)
-        .toList();
+    final cappedUrls = stringListFromValue(
+      urls,
+    ).where(_isHttpUrl).take(kWebReverseHeadlessBatchMaxUrls).toList();
     await Directory(outputDir).create(recursive: true);
     for (var i = 0; i < cappedUrls.length; i++) {
       if (_cancelled) {
