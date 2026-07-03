@@ -2496,17 +2496,13 @@ class WebMessagePlatformService {
     shelf.Request request,
     _WebGatewayAuthSession auth,
   ) async {
-    final page = math.max(
-      1,
-      int.tryParse(request.requestedUri.queryParameters['page'] ?? '') ?? 1,
-    );
-    final pageSize = math.min(
-      50,
-      math.max(
-        1,
-        int.tryParse(request.requestedUri.queryParameters['page_size'] ?? '') ??
-            10,
-      ),
+    final page = _queryInt(request, 'page', fallback: 1, min: 1);
+    final pageSize = _queryInt(
+      request,
+      'page_size',
+      fallback: 10,
+      min: 1,
+      max: 50,
     );
     final canAccessAll = _authCanAccessAllSessions(auth);
     final sourceQuery =
@@ -2559,6 +2555,21 @@ class WebMessagePlatformService {
       'sort': 'updated_at_desc,id_desc',
       'scope': useAllScope ? 'authenticated_all' : 'current_device',
     });
+  }
+
+  int _queryInt(
+    shelf.Request request,
+    String name, {
+    required int fallback,
+    int? min,
+    int? max,
+  }) {
+    var value =
+        optionalIntFromValue(request.requestedUri.queryParameters[name]) ??
+        fallback;
+    if (min != null && value < min) value = min;
+    if (max != null && value > max) value = max;
+    return value;
   }
 
   Future<shelf.Response> _createSession(
@@ -2840,17 +2851,8 @@ class WebMessagePlatformService {
         'error': 'session_deleted_or_not_found',
       });
     }
-    final limit = math.min(
-      200,
-      math.max(
-        1,
-        int.tryParse(request.requestedUri.queryParameters['limit'] ?? '') ?? 80,
-      ),
-    );
-    final rawOffset = math.max(
-      0,
-      int.tryParse(request.requestedUri.queryParameters['offset'] ?? '') ?? 0,
-    );
+    final limit = _queryInt(request, 'limit', fallback: 80, min: 1, max: 200);
+    final rawOffset = _queryInt(request, 'offset', fallback: 0, min: 0);
     final tail =
         _truthy(request.requestedUri.queryParameters['tail']) ||
         request.requestedUri.queryParameters['window'] == 'tail';
@@ -4836,17 +4838,13 @@ class WebMessagePlatformService {
   }
 
   Future<shelf.Response> _listLogs(shelf.Request request) async {
-    final offset = math.max(
-      0,
-      int.tryParse(request.requestedUri.queryParameters['offset'] ?? '') ?? 0,
-    );
-    final limit = math.min(
-      2000,
-      math.max(
-        1,
-        int.tryParse(request.requestedUri.queryParameters['limit'] ?? '') ??
-            _config.logConfig.lazyReadPageSize,
-      ),
+    final offset = _queryInt(request, 'offset', fallback: 0, min: 0);
+    final limit = _queryInt(
+      request,
+      'limit',
+      fallback: _config.logConfig.lazyReadPageSize,
+      min: 1,
+      max: 2000,
     );
     final slice = _memoryLogs.skip(offset).take(limit).toList(growable: false);
     return _json(HttpStatus.ok, <String, Object?>{
