@@ -8579,4 +8579,241 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get machineExpertStartExecution => '実行開始';
+
+  @override
+  String get commonRetry => '再試行';
+
+  @override
+  String get commonOk => 'OK';
+
+  @override
+  String get commonDone => '完了';
+
+  @override
+  String get commonExport => 'エクスポート';
+
+  @override
+  String get appUpdateDialogTitle => '更新を確認';
+
+  @override
+  String get appUpdateChecking => '更新を確認しています...';
+
+  @override
+  String appUpdateCurrentVersion(Object version) {
+    return '現在のバージョン: $version';
+  }
+
+  @override
+  String appUpdateNewVersion(Object version) {
+    return '新しいバージョン: v$version';
+  }
+
+  @override
+  String appUpdatePublished(Object date) {
+    return '公開日: $date';
+  }
+
+  @override
+  String appUpdateFileSize(Object size) {
+    return 'サイズ: $size';
+  }
+
+  @override
+  String get appUpdateAlreadyLatestTitle => '最新版です';
+
+  @override
+  String appUpdateAlreadyLatestBody(Object version) {
+    return 'OpenHand $version は最新バージョンです。';
+  }
+
+  @override
+  String get appUpdateDownloadComplete => 'ダウンロード完了';
+
+  @override
+  String get appUpdateDownloading => 'ダウンロード中...';
+
+  @override
+  String get appUpdateCheckFailed => '更新確認に失敗';
+
+  @override
+  String get appUpdateLater => '後で';
+
+  @override
+  String get appUpdateDownload => 'ダウンロード';
+
+  @override
+  String get appUpdateBackground => 'バックグラウンド';
+
+  @override
+  String get exportRangeInvalid => '有効な範囲を入力してください (1 ≤ 開始 ≤ 終了)';
+
+  @override
+  String get exportRangeStart => '開始';
+
+  @override
+  String get exportRangeEnd => '終了';
+
+  @override
+  String get exportSessionSettingsTitle => 'セッション設定をエクスポート';
+
+  @override
+  String exportTotalMessages(Object count) {
+    return 'エクスポート可能なメッセージ: $count';
+  }
+
+  @override
+  String get exportRolesSection => 'ロール';
+
+  @override
+  String get exportAllRoles => 'すべてのロール';
+
+  @override
+  String get exportMessageKindsSection => 'メッセージ種別';
+
+  @override
+  String get exportAllKinds => 'すべての種別';
+
+  @override
+  String get exportMessageRangeSection => 'メッセージ範囲';
+
+  @override
+  String get exportOnlyRange => '指定範囲のみエクスポート (1 始まり、両端含む)';
+
+  @override
+  String get exportOtherOptions => 'その他のオプション';
+
+  @override
+  String get exportIncludeDeleted => '削除済みメッセージを含める';
+
+  @override
+  String get exportPickOneRole => 'ロールを少なくとも 1 つ選択してください。';
+
+  @override
+  String get exportPickOneMessageKind => 'メッセージ種別を少なくとも 1 つ選択してください。';
+
+  @override
+  String get exportRoleSystem => 'システム';
+
+  @override
+  String get exportRoleUser => 'ユーザー';
+
+  @override
+  String get exportRoleAssistant => 'アシスタント';
+
+  @override
+  String get exportRoleTool => 'ツール';
+
+  @override
+  String get exportKindUser => 'ユーザーメッセージ';
+
+  @override
+  String get exportKindAssistant => 'アシスタント応答';
+
+  @override
+  String get exportKindReasoning => '推論';
+
+  @override
+  String get exportKindToolCall => 'ツール呼び出し';
+
+  @override
+  String get exportKindTool => 'ツール結果';
+
+  @override
+  String get exportKindCompressionPoint => '圧縮ポイント';
+
+  @override
+  String get exportKindMcp => 'MCP イベント';
+
+  @override
+  String get exportKindSkill => 'スキルイベント';
+
+  @override
+  String get exportKindHook => 'Hook イベント';
+
+  @override
+  String get exportKindSelfLearning => '自己学習';
+
+  @override
+  String get exportKindFileMutationSummary => 'ファイル変更サマリー';
+
+  @override
+  String get exportKindStatus => 'ステータスメッセージ';
+
+  @override
+  String get exportPhaseLogRangeSection => 'フェーズログ範囲';
+
+  @override
+  String exportTotalPhaseLogs(Object count) {
+    return 'エクスポート可能なフェーズログ: $count';
+  }
+
+  @override
+  String get modelSearchHint => 'モデルを検索…';
+
+  @override
+  String modelSearchResultCount(Object filtered, Object total) {
+    return '$filtered / $total モデル';
+  }
+
+  @override
+  String get modelSearchNoAvailableModels => '利用可能なモデルがありません';
+
+  @override
+  String get modelSearchNoMatchingModels => '一致するモデルがありません';
+
+  @override
+  String get modelSearchRecent => '最近使用';
+
+  @override
+  String get nativeAudioLoadFailed => '音声を読み込めません。システムプレーヤーで開いてください。';
+
+  @override
+  String get nativeAudioPlaybackFailed => '再生に失敗しました。再試行するか、システムプレーヤーで開いてください。';
+
+  @override
+  String get nativeAudioBack15Seconds => '15 秒戻る';
+
+  @override
+  String get nativeAudioPause => '一時停止';
+
+  @override
+  String get nativeAudioPlay => '再生';
+
+  @override
+  String get nativeAudioForward15Seconds => '15 秒進む';
+
+  @override
+  String get nativeAudioMute => 'ミュート';
+
+  @override
+  String get nativeAudioUnmute => 'ミュート解除';
+
+  @override
+  String get nativeAudioSystemPlayer => 'システムプレーヤー';
+
+  @override
+  String get nativeAudioSequencePlayback => '順番に再生';
+
+  @override
+  String get nativeAudioRepeatOne => '1 曲リピート';
+
+  @override
+  String get nativeAudioShufflePlayback => 'シャッフル再生';
+
+  @override
+  String nativeAudioEffectTooltip(Object effect) {
+    return 'エフェクト: $effect';
+  }
+
+  @override
+  String get nativeAudioEffectStandard => '標準';
+
+  @override
+  String get nativeAudioEffectSpatial => '3D';
+
+  @override
+  String get nativeAudioEffectVocal => 'ボーカル';
+
+  @override
+  String get nativeAudioEffectWarm => 'ウォーム';
 }

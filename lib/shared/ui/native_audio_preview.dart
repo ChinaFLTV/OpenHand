@@ -8,7 +8,7 @@ import 'package:media_kit/media_kit.dart' as mk;
 import 'package:path/path.dart' as p;
 
 import '../../app/support/silent_log.dart';
-import '../util/localized_text.dart';
+import '../../l10n/app_localizations.dart';
 import '../util/timer_safety.dart';
 
 const Duration kNativeAudioLoadTimeout = Duration(seconds: 18);
@@ -162,22 +162,27 @@ class NativeAudioPreview extends StatefulWidget {
 enum _NativeAudioPlayMode { sequence, repeatOne, shuffle }
 
 enum _NativeAudioEffect {
-  standard('标准', 'Standard', Icons.tune_rounded, 1.0),
-  spatial('3D', '3D', Icons.view_in_ar_rounded, 1.0),
-  vocal('人声', 'Vocal', Icons.record_voice_over_rounded, 1.0),
-  warm('暖声', 'Warm', Icons.graphic_eq_rounded, 0.96);
+  standard(Icons.tune_rounded, 1.0),
+  spatial(Icons.view_in_ar_rounded, 1.0),
+  vocal(Icons.record_voice_over_rounded, 1.0),
+  warm(Icons.graphic_eq_rounded, 0.96);
 
-  const _NativeAudioEffect(
-    this.zhLabel,
-    this.enLabel,
-    this.icon,
-    this.volumeScale,
-  );
+  const _NativeAudioEffect(this.icon, this.volumeScale);
 
-  final String zhLabel;
-  final String enLabel;
   final IconData icon;
   final double volumeScale;
+}
+
+String _nativeAudioEffectLabel(
+  AppLocalizations l10n,
+  _NativeAudioEffect effect,
+) {
+  return switch (effect) {
+    _NativeAudioEffect.standard => l10n.nativeAudioEffectStandard,
+    _NativeAudioEffect.spatial => l10n.nativeAudioEffectSpatial,
+    _NativeAudioEffect.vocal => l10n.nativeAudioEffectVocal,
+    _NativeAudioEffect.warm => l10n.nativeAudioEffectWarm,
+  };
 }
 
 @visibleForTesting
@@ -764,11 +769,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     setState(() {
       _loading = false;
       _sourceReady = false;
-      _loadError = openHandLocalizedText(
-        context,
-        zh: '音频载入失败，可使用系统播放器打开。',
-        en: 'Unable to load audio. Open with the system player instead.',
-      );
+      _loadError = AppLocalizations.of(context)!.nativeAudioLoadFailed;
     });
   }
 
@@ -815,11 +816,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       silentLog('native_audio_preview', 'toggle playback failed', error, stack);
       if (mounted) {
         setState(() {
-          _loadError = openHandLocalizedText(
-            context,
-            zh: '播放失败，请重试或使用系统播放器。',
-            en: 'Playback failed. Try again or open with the system player.',
-          );
+          _loadError = AppLocalizations.of(context)!.nativeAudioPlaybackFailed;
         });
       }
     } finally {
@@ -1282,16 +1279,13 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Widget _buildTransportRow(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
         _NativeAudioIconButton(
-          tooltip: openHandLocalizedText(
-            context,
-            zh: '后退 15 秒',
-            en: 'Back 15 s',
-          ),
+          tooltip: l10n.nativeAudioBack15Seconds,
           icon: Icons.replay_10_rounded,
           onPressed: _sourceReady
               ? () => unawaited(_seekBy(-kNativeAudioSeekStep))
@@ -1299,22 +1293,14 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         ),
         const SizedBox(width: 12),
         _NativeAudioIconButton(
-          tooltip: openHandLocalizedText(
-            context,
-            zh: _isPlaying ? '暂停' : '播放',
-            en: _isPlaying ? 'Pause' : 'Play',
-          ),
+          tooltip: _isPlaying ? l10n.nativeAudioPause : l10n.nativeAudioPlay,
           icon: _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
           prominent: true,
           onPressed: _sourceReady ? () => unawaited(_togglePlayPause()) : null,
         ),
         const SizedBox(width: 12),
         _NativeAudioIconButton(
-          tooltip: openHandLocalizedText(
-            context,
-            zh: '快进 15 秒',
-            en: 'Forward 15 s',
-          ),
+          tooltip: l10n.nativeAudioForward15Seconds,
           icon: Icons.forward_10_rounded,
           onPressed: _sourceReady
               ? () => unawaited(_seekBy(kNativeAudioSeekStep))
@@ -1327,6 +1313,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   // 底部控制栏：播放模式 | 音量 | 音效
   Widget _buildControlsBar(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     return LayoutBuilder(
       builder: (context, constraints) {
         final narrow = constraints.maxWidth < 360;
@@ -1344,11 +1331,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
               onPressed: _cyclePlayMode,
             ),
             _NativeAudioIconButton(
-              tooltip: openHandLocalizedText(
-                context,
-                zh: _muted ? '取消静音' : '静音',
-                en: _muted ? 'Unmute' : 'Mute',
-              ),
+              tooltip: _muted ? l10n.nativeAudioUnmute : l10n.nativeAudioMute,
               icon: _muted || _volume <= 0
                   ? Icons.volume_off_rounded
                   : (_volume < 0.5
@@ -1382,7 +1365,6 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
             _NativeAudioEffectMenuButton(
               effect: _effect,
               onSelect: (effect) => unawaited(_setEffect(effect)),
-              context: context,
             ),
           ],
         );
@@ -1392,6 +1374,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   Widget _buildError(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     return ColoredBox(
       color: cs.surface.withValues(alpha: 0.76),
       child: Center(
@@ -1426,21 +1409,13 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
                       OutlinedButton.icon(
                         onPressed: () => unawaited(_bootstrap()),
                         icon: const Icon(Icons.refresh_rounded, size: 18),
-                        label: Text(
-                          openHandLocalizedText(context, zh: '重试', en: 'Retry'),
-                        ),
+                        label: Text(l10n.commonRetry),
                       ),
                       if (widget.onOpenExternal != null)
                         FilledButton.icon(
                           onPressed: widget.onOpenExternal,
                           icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                          label: Text(
-                            openHandLocalizedText(
-                              context,
-                              zh: '系统播放器',
-                              en: 'System Player',
-                            ),
-                          ),
+                          label: Text(l10n.nativeAudioSystemPlayer),
                         ),
                     ],
                   ),
@@ -1454,22 +1429,11 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   String _playModeTooltip(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return switch (_playMode) {
-      _NativeAudioPlayMode.sequence => openHandLocalizedText(
-        context,
-        zh: '顺序播放',
-        en: 'Sequence playback',
-      ),
-      _NativeAudioPlayMode.repeatOne => openHandLocalizedText(
-        context,
-        zh: '单曲循环',
-        en: 'Repeat one',
-      ),
-      _NativeAudioPlayMode.shuffle => openHandLocalizedText(
-        context,
-        zh: '随机播放',
-        en: 'Shuffle playback',
-      ),
+      _NativeAudioPlayMode.sequence => l10n.nativeAudioSequencePlayback,
+      _NativeAudioPlayMode.repeatOne => l10n.nativeAudioRepeatOne,
+      _NativeAudioPlayMode.shuffle => l10n.nativeAudioShufflePlayback,
     };
   }
 
@@ -1870,23 +1834,21 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
   const _NativeAudioEffectMenuButton({
     required this.effect,
     required this.onSelect,
-    required this.context,
   });
 
   final _NativeAudioEffect effect;
   final ValueChanged<_NativeAudioEffect> onSelect;
-  final BuildContext context;
 
   @override
   Widget build(BuildContext ctx) {
     final cs = Theme.of(ctx).colorScheme;
-    final isZh = openHandIsChineseLocale(ctx);
-    final label = isZh ? effect.zhLabel : effect.enLabel;
+    final l10n = AppLocalizations.of(ctx)!;
+    final label = _nativeAudioEffectLabel(l10n, effect);
     return Tooltip(
-      message: isZh ? '音效：$label' : 'Effect: $label',
+      message: l10n.nativeAudioEffectTooltip(label),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () => _showMenu(ctx, isZh, cs),
+        onTap: () => _showMenu(ctx, l10n, cs),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           curve: kNativeAudioMotionCurve,
@@ -1939,7 +1901,7 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
     );
   }
 
-  void _showMenu(BuildContext ctx, bool isZh, ColorScheme cs) {
+  void _showMenu(BuildContext ctx, AppLocalizations l10n, ColorScheme cs) {
     final box = ctx.findRenderObject() as RenderBox?;
     if (box == null) return;
     final offset = box.localToGlobal(Offset.zero);
@@ -1953,7 +1915,7 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
         offset.dy,
       ),
       items: _NativeAudioEffect.values.map((e) {
-        final eLabel = isZh ? e.zhLabel : e.enLabel;
+        final eLabel = _nativeAudioEffectLabel(l10n, e);
         return PopupMenuItem<_NativeAudioEffect>(
           value: e,
           child: Row(

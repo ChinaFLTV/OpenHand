@@ -15616,6 +15616,444 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'开始执行'**
   String get machineExpertStartExecution;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重试'**
+  String get commonRetry;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'好的'**
+  String get commonOk;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'完成'**
+  String get commonDone;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出'**
+  String get commonExport;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'检查更新'**
+  String get appUpdateDialogTitle;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在检查更新...'**
+  String get appUpdateChecking;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前版本: {version}'**
+  String appUpdateCurrentVersion(Object version);
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发现新版本: v{version}'**
+  String appUpdateNewVersion(Object version);
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发布时间: {date}'**
+  String appUpdatePublished(Object date);
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文件大小: {size}'**
+  String appUpdateFileSize(Object size);
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已是最新版本'**
+  String get appUpdateAlreadyLatestTitle;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'OpenHand {version} 已是最新版本。'**
+  String appUpdateAlreadyLatestBody(Object version);
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'下载完成'**
+  String get appUpdateDownloadComplete;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在下载...'**
+  String get appUpdateDownloading;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'检查更新失败'**
+  String get appUpdateCheckFailed;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'稍后'**
+  String get appUpdateLater;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'下载更新'**
+  String get appUpdateDownload;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'后台下载'**
+  String get appUpdateBackground;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效区间 (1 ≤ 起始 ≤ 结束)'**
+  String get exportRangeInvalid;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'起始'**
+  String get exportRangeStart;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'结束'**
+  String get exportRangeEnd;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出会话配置'**
+  String get exportSessionSettingsTitle;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'共 {count} 条消息可导出'**
+  String exportTotalMessages(Object count);
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出 Role'**
+  String get exportRolesSection;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部 role'**
+  String get exportAllRoles;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息类型 (kind)'**
+  String get exportMessageKindsSection;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部类型'**
+  String get exportAllKinds;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息区间'**
+  String get exportMessageRangeSection;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'仅导出指定区间 (1-based, 包含两端)'**
+  String get exportOnlyRange;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'其他选项'**
+  String get exportOtherOptions;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'包含已删除消息'**
+  String get exportIncludeDeleted;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请至少选择一个 role。'**
+  String get exportPickOneRole;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请至少选择一个消息类型。'**
+  String get exportPickOneMessageKind;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'系统 (system)'**
+  String get exportRoleSystem;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户 (user)'**
+  String get exportRoleUser;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'助手 (assistant)'**
+  String get exportRoleAssistant;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具 (tool)'**
+  String get exportRoleTool;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户消息'**
+  String get exportKindUser;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'助手回复'**
+  String get exportKindAssistant;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'思考过程'**
+  String get exportKindReasoning;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具调用'**
+  String get exportKindToolCall;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具结果'**
+  String get exportKindTool;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'压缩节点'**
+  String get exportKindCompressionPoint;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 事件'**
+  String get exportKindMcp;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能事件'**
+  String get exportKindSkill;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Hook 事件'**
+  String get exportKindHook;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自学习'**
+  String get exportKindSelfLearning;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文件变动总结'**
+  String get exportKindFileMutationSummary;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'状态消息'**
+  String get exportKindStatus;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'阶段日志区间'**
+  String get exportPhaseLogRangeSection;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'共 {count} 条阶段日志可导出'**
+  String exportTotalPhaseLogs(Object count);
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'搜索模型…'**
+  String get modelSearchHint;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{filtered} / {total} 个模型'**
+  String modelSearchResultCount(Object filtered, Object total);
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无可用模型'**
+  String get modelSearchNoAvailableModels;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无匹配模型'**
+  String get modelSearchNoMatchingModels;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最近使用'**
+  String get modelSearchRecent;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'音频载入失败，可使用系统播放器打开。'**
+  String get nativeAudioLoadFailed;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'播放失败，请重试或使用系统播放器。'**
+  String get nativeAudioPlaybackFailed;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'后退 15 秒'**
+  String get nativeAudioBack15Seconds;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂停'**
+  String get nativeAudioPause;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'播放'**
+  String get nativeAudioPlay;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'快进 15 秒'**
+  String get nativeAudioForward15Seconds;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'静音'**
+  String get nativeAudioMute;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消静音'**
+  String get nativeAudioUnmute;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'系统播放器'**
+  String get nativeAudioSystemPlayer;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'顺序播放'**
+  String get nativeAudioSequencePlayback;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'单曲循环'**
+  String get nativeAudioRepeatOne;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'随机播放'**
+  String get nativeAudioShufflePlayback;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'音效：{effect}'**
+  String nativeAudioEffectTooltip(Object effect);
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'标准'**
+  String get nativeAudioEffectStandard;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'3D'**
+  String get nativeAudioEffectSpatial;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'人声'**
+  String get nativeAudioEffectVocal;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暖声'**
+  String get nativeAudioEffectWarm;
 }
 
 class _AppLocalizationsDelegate

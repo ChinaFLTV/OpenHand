@@ -8792,4 +8792,243 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get machineExpertStartExecution => 'Start execution';
+
+  @override
+  String get commonRetry => 'Retry';
+
+  @override
+  String get commonOk => 'OK';
+
+  @override
+  String get commonDone => 'Done';
+
+  @override
+  String get commonExport => 'Export';
+
+  @override
+  String get appUpdateDialogTitle => 'Check for Updates';
+
+  @override
+  String get appUpdateChecking => 'Checking for updates...';
+
+  @override
+  String appUpdateCurrentVersion(Object version) {
+    return 'Current: $version';
+  }
+
+  @override
+  String appUpdateNewVersion(Object version) {
+    return 'New version: v$version';
+  }
+
+  @override
+  String appUpdatePublished(Object date) {
+    return 'Published: $date';
+  }
+
+  @override
+  String appUpdateFileSize(Object size) {
+    return 'Size: $size';
+  }
+
+  @override
+  String get appUpdateAlreadyLatestTitle => 'You\'re up to date';
+
+  @override
+  String appUpdateAlreadyLatestBody(Object version) {
+    return 'OpenHand $version is the latest version.';
+  }
+
+  @override
+  String get appUpdateDownloadComplete => 'Download Complete';
+
+  @override
+  String get appUpdateDownloading => 'Downloading...';
+
+  @override
+  String get appUpdateCheckFailed => 'Update Check Failed';
+
+  @override
+  String get appUpdateLater => 'Later';
+
+  @override
+  String get appUpdateDownload => 'Download';
+
+  @override
+  String get appUpdateBackground => 'Background';
+
+  @override
+  String get exportRangeInvalid => 'Enter a valid range (1 ≤ start ≤ end)';
+
+  @override
+  String get exportRangeStart => 'Start';
+
+  @override
+  String get exportRangeEnd => 'End';
+
+  @override
+  String get exportSessionSettingsTitle => 'Export Session Settings';
+
+  @override
+  String exportTotalMessages(Object count) {
+    return 'Total messages available: $count';
+  }
+
+  @override
+  String get exportRolesSection => 'Roles';
+
+  @override
+  String get exportAllRoles => 'All roles';
+
+  @override
+  String get exportMessageKindsSection => 'Message Kinds';
+
+  @override
+  String get exportAllKinds => 'All kinds';
+
+  @override
+  String get exportMessageRangeSection => 'Message Range';
+
+  @override
+  String get exportOnlyRange => 'Export only a range (1-based, inclusive)';
+
+  @override
+  String get exportOtherOptions => 'Other Options';
+
+  @override
+  String get exportIncludeDeleted => 'Include deleted messages';
+
+  @override
+  String get exportPickOneRole => 'Pick at least one role.';
+
+  @override
+  String get exportPickOneMessageKind => 'Pick at least one message kind.';
+
+  @override
+  String get exportRoleSystem => 'System';
+
+  @override
+  String get exportRoleUser => 'User';
+
+  @override
+  String get exportRoleAssistant => 'Assistant';
+
+  @override
+  String get exportRoleTool => 'Tool';
+
+  @override
+  String get exportKindUser => 'User message';
+
+  @override
+  String get exportKindAssistant => 'Assistant reply';
+
+  @override
+  String get exportKindReasoning => 'Reasoning';
+
+  @override
+  String get exportKindToolCall => 'Tool call';
+
+  @override
+  String get exportKindTool => 'Tool result';
+
+  @override
+  String get exportKindCompressionPoint => 'Compression point';
+
+  @override
+  String get exportKindMcp => 'MCP event';
+
+  @override
+  String get exportKindSkill => 'Skill event';
+
+  @override
+  String get exportKindHook => 'Hook event';
+
+  @override
+  String get exportKindSelfLearning => 'Self-learning';
+
+  @override
+  String get exportKindFileMutationSummary => 'File change summary';
+
+  @override
+  String get exportKindStatus => 'Status message';
+
+  @override
+  String get exportPhaseLogRangeSection => 'Phase Log Range';
+
+  @override
+  String exportTotalPhaseLogs(Object count) {
+    return 'Total phase logs available: $count';
+  }
+
+  @override
+  String get modelSearchHint => 'Search models…';
+
+  @override
+  String modelSearchResultCount(Object filtered, Object total) {
+    return '$filtered / $total models';
+  }
+
+  @override
+  String get modelSearchNoAvailableModels => 'No available models';
+
+  @override
+  String get modelSearchNoMatchingModels => 'No matching models';
+
+  @override
+  String get modelSearchRecent => 'Recent';
+
+  @override
+  String get nativeAudioLoadFailed =>
+      'Unable to load audio. Open with the system player instead.';
+
+  @override
+  String get nativeAudioPlaybackFailed =>
+      'Playback failed. Try again or open with the system player.';
+
+  @override
+  String get nativeAudioBack15Seconds => 'Back 15 s';
+
+  @override
+  String get nativeAudioPause => 'Pause';
+
+  @override
+  String get nativeAudioPlay => 'Play';
+
+  @override
+  String get nativeAudioForward15Seconds => 'Forward 15 s';
+
+  @override
+  String get nativeAudioMute => 'Mute';
+
+  @override
+  String get nativeAudioUnmute => 'Unmute';
+
+  @override
+  String get nativeAudioSystemPlayer => 'System Player';
+
+  @override
+  String get nativeAudioSequencePlayback => 'Sequence playback';
+
+  @override
+  String get nativeAudioRepeatOne => 'Repeat one';
+
+  @override
+  String get nativeAudioShufflePlayback => 'Shuffle playback';
+
+  @override
+  String nativeAudioEffectTooltip(Object effect) {
+    return 'Effect: $effect';
+  }
+
+  @override
+  String get nativeAudioEffectStandard => 'Standard';
+
+  @override
+  String get nativeAudioEffectSpatial => '3D';
+
+  @override
+  String get nativeAudioEffectVocal => 'Vocal';
+
+  @override
+  String get nativeAudioEffectWarm => 'Warm';
 }

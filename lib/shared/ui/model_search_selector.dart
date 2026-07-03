@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/model/app_settings_snapshot.dart';
 import '../../features/ai/model/ai_model_config.dart';
-import '../util/localized_text.dart';
+import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
 import 'openhand_safe_scrollbar.dart';
 
@@ -164,7 +164,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
 
     // Group filtered entries by provider.
     final grouped = <String, List<ModelEntry>>{};
@@ -203,7 +203,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
               focusNode: _searchFocusNode,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                hintText: isZh ? '搜索模型…' : 'Search models…',
+                hintText: l10n.modelSearchHint,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -241,9 +241,10 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  isZh
-                      ? '${_filtered.length} / ${widget.entries.length} 个模型'
-                      : '${_filtered.length} / ${widget.entries.length} models',
+                  l10n.modelSearchResultCount(
+                    _filtered.length,
+                    widget.entries.length,
+                  ),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -258,7 +259,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
-                        isZh ? '暂无可用模型' : 'No available models',
+                        l10n.modelSearchNoAvailableModels,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -270,7 +271,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
-                        isZh ? '无匹配模型' : 'No matching models',
+                        l10n.modelSearchNoMatchingModels,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -295,9 +296,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                         padding: const EdgeInsets.only(bottom: 8),
                         children: [
                           if (recentFiltered.isNotEmpty) ...[
-                            _ModelSectionHeader(
-                              label: isZh ? '最近使用' : 'Recent',
-                            ),
+                            _ModelSectionHeader(label: l10n.modelSearchRecent),
                             for (final entry in recentFiltered)
                               _ModelTile(
                                 entry: entry,

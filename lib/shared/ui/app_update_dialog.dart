@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/model/app_info.dart';
 import '../../app/support/app_update_checker.dart';
+import '../../l10n/app_localizations.dart';
 import '../util/byte_size_format.dart';
-import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
 
@@ -141,13 +141,13 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     return buildOpenHandAlertDialog(
       title: Row(
         children: [
           Icon(Icons.system_update_outlined, color: colorScheme.primary),
           const SizedBox(width: 12),
-          Text(isZh ? '检查更新' : 'Check for Updates'),
+          Text(l10n.appUpdateDialogTitle),
         ],
       ),
       content: AnimatedSwitcher(
@@ -166,14 +166,14 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
             ),
           );
         },
-        child: _buildPhaseContent(isZh, theme, colorScheme),
+        child: _buildPhaseContent(l10n, theme, colorScheme),
       ),
-      actions: _buildActions(isZh),
+      actions: _buildActions(l10n),
     );
   }
 
   Widget _buildPhaseContent(
-    bool isZh,
+    AppLocalizations l10n,
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
@@ -194,15 +194,10 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
               ),
             ),
             const SizedBox(height: 20),
-            Text(
-              isZh ? '正在检查更新...' : 'Checking for updates...',
-              style: theme.textTheme.bodyLarge,
-            ),
+            Text(l10n.appUpdateChecking, style: theme.textTheme.bodyLarge),
             const SizedBox(height: 8),
             Text(
-              isZh
-                  ? '当前版本: ${widget.appInfo.displayVersion}'
-                  : 'Current: ${widget.appInfo.displayVersion}',
+              l10n.appUpdateCurrentVersion(widget.appInfo.displayVersion),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -234,9 +229,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      isZh
-                          ? '发现新版本: v${_release!.version}'
-                          : 'New version: v${_release!.version}',
+                      l10n.appUpdateNewVersion(_release!.version),
                       style: theme.textTheme.titleSmall?.copyWith(
                         color: colorScheme.onPrimaryContainer,
                         fontWeight: FontWeight.w700,
@@ -269,9 +262,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
             ],
             const SizedBox(height: 12),
             Text(
-              isZh
-                  ? '发布时间: ${_formatDate(_release!.publishedAt)}'
-                  : 'Published: ${_formatDate(_release!.publishedAt)}',
+              l10n.appUpdatePublished(_formatDate(_release!.publishedAt)),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.outline,
               ),
@@ -279,9 +270,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
             if (_release!.downloadSize > 0) ...[
               const SizedBox(height: 4),
               Text(
-                isZh
-                    ? '文件大小: ${formatByteSize(_release!.downloadSize)}'
-                    : 'Size: ${formatByteSize(_release!.downloadSize)}',
+                l10n.appUpdateFileSize(formatByteSize(_release!.downloadSize)),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.outline,
                 ),
@@ -304,16 +293,14 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
             ),
             const SizedBox(height: 20),
             Text(
-              isZh ? '已是最新版本' : 'You\'re up to date',
+              l10n.appUpdateAlreadyLatestTitle,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              isZh
-                  ? 'OpenHand ${widget.appInfo.displayVersion} 已是最新版本。'
-                  : 'OpenHand ${widget.appInfo.displayVersion} is the latest version.',
+              l10n.appUpdateAlreadyLatestBody(widget.appInfo.displayVersion),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -332,8 +319,8 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
             const SizedBox(height: 16),
             Text(
               _downloadedFilePath != null
-                  ? (isZh ? '下载完成' : 'Download Complete')
-                  : (isZh ? '正在下载...' : 'Downloading...'),
+                  ? l10n.appUpdateDownloadComplete
+                  : l10n.appUpdateDownloading,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -393,7 +380,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
             ),
             const SizedBox(height: 16),
             Text(
-              isZh ? '检查更新失败' : 'Update Check Failed',
+              l10n.appUpdateCheckFailed,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -415,55 +402,55 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
     };
   }
 
-  List<Widget> _buildActions(bool isZh) {
+  List<Widget> _buildActions(AppLocalizations l10n) {
     return switch (_phase) {
       _UpdatePhase.checking => [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: isZh ? '取消' : 'Cancel',
+          label: l10n.commonCancel,
         ),
       ],
       _UpdatePhase.available => [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: isZh ? '稍后' : 'Later',
+          label: l10n.appUpdateLater,
         ),
         if (_release!.downloadUrl.isNotEmpty)
           OpenHandDialogActionButton.primary(
             onPressed: _startDownload,
             icon: Icons.download_rounded,
-            label: isZh ? '下载更新' : 'Download',
+            label: l10n.appUpdateDownload,
           ),
       ],
       _UpdatePhase.notAvailable => [
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          label: isZh ? '好的' : 'OK',
+          label: l10n.commonOk,
         ),
       ],
       _UpdatePhase.downloading => [
         if (_downloadedFilePath != null)
           OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(),
-            label: isZh ? '完成' : 'Done',
+            label: l10n.commonDone,
           )
         else
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(context).pop(),
-            label: isZh ? '后台下载' : 'Background',
+            label: l10n.appUpdateBackground,
           ),
       ],
       _UpdatePhase.error => [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: isZh ? '关闭' : 'Close',
+          label: l10n.commonClose,
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () {
             setState(() => _phase = _UpdatePhase.checking);
             _checkForUpdate();
           },
-          label: isZh ? '重试' : 'Retry',
+          label: l10n.commonRetry,
         ),
       ],
     };

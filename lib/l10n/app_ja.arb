@@ -6986,5 +6986,325 @@
   "machineExpertStartExecution": "実行開始",
   "@machineExpertStartExecution": {
     "description": "OpenHand localized UI text."
+  },
+  "commonRetry": "再試行",
+  "@commonRetry": {
+    "description": "OpenHand localized UI text."
+  },
+  "commonOk": "OK",
+  "@commonOk": {
+    "description": "OpenHand localized UI text."
+  },
+  "commonDone": "完了",
+  "@commonDone": {
+    "description": "OpenHand localized UI text."
+  },
+  "commonExport": "エクスポート",
+  "@commonExport": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateDialogTitle": "更新を確認",
+  "@appUpdateDialogTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateChecking": "更新を確認しています...",
+  "@appUpdateChecking": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateCurrentVersion": "現在のバージョン: {version}",
+  "@appUpdateCurrentVersion": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "appUpdateNewVersion": "新しいバージョン: v{version}",
+  "@appUpdateNewVersion": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "appUpdatePublished": "公開日: {date}",
+  "@appUpdatePublished": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "appUpdateFileSize": "サイズ: {size}",
+  "@appUpdateFileSize": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "appUpdateAlreadyLatestTitle": "最新版です",
+  "@appUpdateAlreadyLatestTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateAlreadyLatestBody": "OpenHand {version} は最新バージョンです。",
+  "@appUpdateAlreadyLatestBody": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "appUpdateDownloadComplete": "ダウンロード完了",
+  "@appUpdateDownloadComplete": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateDownloading": "ダウンロード中...",
+  "@appUpdateDownloading": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateCheckFailed": "更新確認に失敗",
+  "@appUpdateCheckFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateLater": "後で",
+  "@appUpdateLater": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateDownload": "ダウンロード",
+  "@appUpdateDownload": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateBackground": "バックグラウンド",
+  "@appUpdateBackground": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRangeInvalid": "有効な範囲を入力してください (1 ≤ 開始 ≤ 終了)",
+  "@exportRangeInvalid": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRangeStart": "開始",
+  "@exportRangeStart": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRangeEnd": "終了",
+  "@exportRangeEnd": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportSessionSettingsTitle": "セッション設定をエクスポート",
+  "@exportSessionSettingsTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportTotalMessages": "エクスポート可能なメッセージ: {count}",
+  "@exportTotalMessages": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "exportRolesSection": "ロール",
+  "@exportRolesSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportAllRoles": "すべてのロール",
+  "@exportAllRoles": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportMessageKindsSection": "メッセージ種別",
+  "@exportMessageKindsSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportAllKinds": "すべての種別",
+  "@exportAllKinds": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportMessageRangeSection": "メッセージ範囲",
+  "@exportMessageRangeSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportOnlyRange": "指定範囲のみエクスポート (1 始まり、両端含む)",
+  "@exportOnlyRange": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportOtherOptions": "その他のオプション",
+  "@exportOtherOptions": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportIncludeDeleted": "削除済みメッセージを含める",
+  "@exportIncludeDeleted": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportPickOneRole": "ロールを少なくとも 1 つ選択してください。",
+  "@exportPickOneRole": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportPickOneMessageKind": "メッセージ種別を少なくとも 1 つ選択してください。",
+  "@exportPickOneMessageKind": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRoleSystem": "システム",
+  "@exportRoleSystem": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRoleUser": "ユーザー",
+  "@exportRoleUser": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRoleAssistant": "アシスタント",
+  "@exportRoleAssistant": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRoleTool": "ツール",
+  "@exportRoleTool": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindUser": "ユーザーメッセージ",
+  "@exportKindUser": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindAssistant": "アシスタント応答",
+  "@exportKindAssistant": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindReasoning": "推論",
+  "@exportKindReasoning": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindToolCall": "ツール呼び出し",
+  "@exportKindToolCall": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindTool": "ツール結果",
+  "@exportKindTool": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindCompressionPoint": "圧縮ポイント",
+  "@exportKindCompressionPoint": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindMcp": "MCP イベント",
+  "@exportKindMcp": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindSkill": "スキルイベント",
+  "@exportKindSkill": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindHook": "Hook イベント",
+  "@exportKindHook": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindSelfLearning": "自己学習",
+  "@exportKindSelfLearning": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindFileMutationSummary": "ファイル変更サマリー",
+  "@exportKindFileMutationSummary": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindStatus": "ステータスメッセージ",
+  "@exportKindStatus": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportPhaseLogRangeSection": "フェーズログ範囲",
+  "@exportPhaseLogRangeSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportTotalPhaseLogs": "エクスポート可能なフェーズログ: {count}",
+  "@exportTotalPhaseLogs": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "modelSearchHint": "モデルを検索…",
+  "@modelSearchHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "modelSearchResultCount": "{filtered} / {total} モデル",
+  "@modelSearchResultCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "filtered": {},
+      "total": {}
+    }
+  },
+  "modelSearchNoAvailableModels": "利用可能なモデルがありません",
+  "@modelSearchNoAvailableModels": {
+    "description": "OpenHand localized UI text."
+  },
+  "modelSearchNoMatchingModels": "一致するモデルがありません",
+  "@modelSearchNoMatchingModels": {
+    "description": "OpenHand localized UI text."
+  },
+  "modelSearchRecent": "最近使用",
+  "@modelSearchRecent": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioLoadFailed": "音声を読み込めません。システムプレーヤーで開いてください。",
+  "@nativeAudioLoadFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioPlaybackFailed": "再生に失敗しました。再試行するか、システムプレーヤーで開いてください。",
+  "@nativeAudioPlaybackFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioBack15Seconds": "15 秒戻る",
+  "@nativeAudioBack15Seconds": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioPause": "一時停止",
+  "@nativeAudioPause": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioPlay": "再生",
+  "@nativeAudioPlay": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioForward15Seconds": "15 秒進む",
+  "@nativeAudioForward15Seconds": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioMute": "ミュート",
+  "@nativeAudioMute": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioUnmute": "ミュート解除",
+  "@nativeAudioUnmute": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioSystemPlayer": "システムプレーヤー",
+  "@nativeAudioSystemPlayer": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioSequencePlayback": "順番に再生",
+  "@nativeAudioSequencePlayback": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioRepeatOne": "1 曲リピート",
+  "@nativeAudioRepeatOne": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioShufflePlayback": "シャッフル再生",
+  "@nativeAudioShufflePlayback": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioEffectTooltip": "エフェクト: {effect}",
+  "@nativeAudioEffectTooltip": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "effect": {}
+    }
+  },
+  "nativeAudioEffectStandard": "標準",
+  "@nativeAudioEffectStandard": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioEffectSpatial": "3D",
+  "@nativeAudioEffectSpatial": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioEffectVocal": "ボーカル",
+  "@nativeAudioEffectVocal": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioEffectWarm": "ウォーム",
+  "@nativeAudioEffectWarm": {
+    "description": "OpenHand localized UI text."
   }
 }

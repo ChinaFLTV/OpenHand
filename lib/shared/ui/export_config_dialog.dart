@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../../features/ai/model/ai_session_message.dart';
 import '../../features/ai/service/session_io/ai_session_jsonl_exporter.dart';
+import '../../l10n/app_localizations.dart';
 import '../util/input_value_parsing.dart';
-import '../util/localized_text.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
 
@@ -75,14 +75,10 @@ _ExportIndexRange? _tryParseExportIndexRange({
   );
 }
 
-String _exportRangeErrorText(bool isZh) {
-  return isZh
-      ? '请输入有效区间 (1 ≤ 起始 ≤ 结束)'
-      : 'Enter a valid range (1 ≤ start ≤ end)';
-}
+String _exportRangeErrorText(AppLocalizations l10n) => l10n.exportRangeInvalid;
 
 Widget _buildExportIndexRangeFields({
-  required bool isZh,
+  required AppLocalizations l10n,
   required TextEditingController startController,
   required TextEditingController endController,
 }) {
@@ -90,12 +86,12 @@ Widget _buildExportIndexRangeFields({
     children: [
       _ExportIndexTextField(
         controller: startController,
-        label: isZh ? '起始' : 'Start',
+        label: l10n.exportRangeStart,
       ),
       const SizedBox(width: _kExportRangeFieldSpacing),
       _ExportIndexTextField(
         controller: endController,
-        label: isZh ? '结束' : 'End',
+        label: l10n.exportRangeEnd,
       ),
     ],
   );
@@ -103,17 +99,17 @@ Widget _buildExportIndexRangeFields({
 
 List<Widget> _buildExportDialogActions({
   required BuildContext context,
-  required bool isZh,
+  required AppLocalizations l10n,
   required VoidCallback onConfirm,
 }) {
   return [
     OpenHandDialogActionButton.secondary(
       onPressed: () => Navigator.of(context).pop(),
-      label: isZh ? '取消' : 'Cancel',
+      label: l10n.commonCancel,
     ),
     OpenHandDialogActionButton.primary(
       onPressed: onConfirm,
-      label: isZh ? '确认导出' : 'Export',
+      label: l10n.commonExport,
     ),
   ];
 }
@@ -197,51 +193,46 @@ class _AiSessionExportConfigDialogState
     super.dispose();
   }
 
-  bool get _isZh => openHandIsChineseLocale(context);
-
-  String _roleLabel(AiSessionMessageRole role) {
+  String _roleLabel(AiSessionMessageRole role, AppLocalizations l10n) {
     switch (role) {
       case AiSessionMessageRole.system:
-        return _isZh ? '系统 (system)' : 'System';
+        return l10n.exportRoleSystem;
       case AiSessionMessageRole.user:
-        return _isZh ? '用户 (user)' : 'User';
+        return l10n.exportRoleUser;
       case AiSessionMessageRole.assistant:
-        return _isZh ? '助手 (assistant)' : 'Assistant';
+        return l10n.exportRoleAssistant;
       case AiSessionMessageRole.tool:
-        return _isZh ? '工具 (tool)' : 'Tool';
+        return l10n.exportRoleTool;
     }
   }
 
-  String _kindLabel(AiSessionMessageKind kind) {
-    if (_isZh) {
-      switch (kind) {
-        case AiSessionMessageKind.user:
-          return '用户消息';
-        case AiSessionMessageKind.assistant:
-          return '助手回复';
-        case AiSessionMessageKind.reasoning:
-          return '思考过程';
-        case AiSessionMessageKind.toolCall:
-          return '工具调用';
-        case AiSessionMessageKind.tool:
-          return '工具结果';
-        case AiSessionMessageKind.compressionPoint:
-          return '压缩节点';
-        case AiSessionMessageKind.mcp:
-          return 'MCP 事件';
-        case AiSessionMessageKind.skill:
-          return '技能事件';
-        case AiSessionMessageKind.hook:
-          return 'Hook 事件';
-        case AiSessionMessageKind.selfLearning:
-          return '自学习';
-        case AiSessionMessageKind.fileMutationSummary:
-          return '文件变动总结';
-        case AiSessionMessageKind.status:
-          return '状态消息';
-      }
+  String _kindLabel(AiSessionMessageKind kind, AppLocalizations l10n) {
+    switch (kind) {
+      case AiSessionMessageKind.user:
+        return l10n.exportKindUser;
+      case AiSessionMessageKind.assistant:
+        return l10n.exportKindAssistant;
+      case AiSessionMessageKind.reasoning:
+        return l10n.exportKindReasoning;
+      case AiSessionMessageKind.toolCall:
+        return l10n.exportKindToolCall;
+      case AiSessionMessageKind.tool:
+        return l10n.exportKindTool;
+      case AiSessionMessageKind.compressionPoint:
+        return l10n.exportKindCompressionPoint;
+      case AiSessionMessageKind.mcp:
+        return l10n.exportKindMcp;
+      case AiSessionMessageKind.skill:
+        return l10n.exportKindSkill;
+      case AiSessionMessageKind.hook:
+        return l10n.exportKindHook;
+      case AiSessionMessageKind.selfLearning:
+        return l10n.exportKindSelfLearning;
+      case AiSessionMessageKind.fileMutationSummary:
+        return l10n.exportKindFileMutationSummary;
+      case AiSessionMessageKind.status:
+        return l10n.exportKindStatus;
     }
-    return kind.storageValue;
   }
 
   void _selectAllRoles(bool? value) {
@@ -265,6 +256,7 @@ class _AiSessionExportConfigDialogState
   }
 
   AiSessionExportConfig? _buildConfig() {
+    final l10n = AppLocalizations.of(context)!;
     int? start;
     int? end;
     if (widget.allowRange && _useRange) {
@@ -275,7 +267,7 @@ class _AiSessionExportConfigDialogState
       );
       if (range == null) {
         setState(() {
-          _rangeError = _exportRangeErrorText(_isZh);
+          _rangeError = _exportRangeErrorText(l10n);
         });
         return null;
       }
@@ -284,15 +276,13 @@ class _AiSessionExportConfigDialogState
     }
     if (_roles.isEmpty) {
       setState(() {
-        _rangeError = _isZh ? '请至少选择一个 role。' : 'Pick at least one role.';
+        _rangeError = l10n.exportPickOneRole;
       });
       return null;
     }
     if (_kinds.isEmpty) {
       setState(() {
-        _rangeError = _isZh
-            ? '请至少选择一个消息类型。'
-            : 'Pick at least one message kind.';
+        _rangeError = l10n.exportPickOneMessageKind;
       });
       return null;
     }
@@ -313,12 +303,13 @@ class _AiSessionExportConfigDialogState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final allRolesSelected =
         _roles.length == AiSessionMessageRole.values.length;
     final allKindsSelected =
         _kinds.length == AiSessionMessageKind.values.length;
     return buildOpenHandAlertDialog(
-      title: Text(_isZh ? '导出会话配置' : 'Export Session Settings'),
+      title: Text(l10n.exportSessionSettingsTitle),
       content: buildOpenHandDialogConstrainedContent(
         width: _kAiSessionExportDialogWidth,
         child: SingleChildScrollView(
@@ -327,20 +318,18 @@ class _AiSessionExportConfigDialogState
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                _isZh
-                    ? '共 ${widget.totalMessages} 条消息可导出'
-                    : 'Total messages available: ${widget.totalMessages}',
+                l10n.exportTotalMessages(widget.totalMessages),
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
-              _SectionHeader(text: _isZh ? '导出 Role' : 'Roles'),
+              _SectionHeader(text: l10n.exportRolesSection),
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 value: allRolesSelected,
                 tristate: !allRolesSelected && _roles.isNotEmpty,
                 onChanged: _selectAllRoles,
-                title: Text(_isZh ? '全部 role' : 'All roles'),
+                title: Text(l10n.exportAllRoles),
               ),
               ...AiSessionMessageRole.values.map(
                 (role) => CheckboxListTile(
@@ -356,18 +345,18 @@ class _AiSessionExportConfigDialogState
                       }
                     });
                   },
-                  title: Text(_roleLabel(role)),
+                  title: Text(_roleLabel(role, l10n)),
                 ),
               ),
               const SizedBox(height: 8),
-              _SectionHeader(text: _isZh ? '消息类型 (kind)' : 'Message Kinds'),
+              _SectionHeader(text: l10n.exportMessageKindsSection),
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 value: allKindsSelected,
                 tristate: !allKindsSelected && _kinds.isNotEmpty,
                 onChanged: _selectAllKinds,
-                title: Text(_isZh ? '全部类型' : 'All kinds'),
+                title: Text(l10n.exportAllKinds),
               ),
               Wrap(
                 spacing: 8,
@@ -376,7 +365,7 @@ class _AiSessionExportConfigDialogState
                     .map((kind) {
                       final selected = _kinds.contains(kind);
                       return FilterChip(
-                        label: Text(_kindLabel(kind)),
+                        label: Text(_kindLabel(kind, l10n)),
                         selected: selected,
                         onSelected: (value) {
                           setState(() {
@@ -393,34 +382,30 @@ class _AiSessionExportConfigDialogState
               ),
               if (widget.allowRange) ...[
                 const SizedBox(height: _kExportSectionGap),
-                _SectionHeader(text: _isZh ? '消息区间' : 'Message Range'),
+                _SectionHeader(text: l10n.exportMessageRangeSection),
                 SwitchListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    _isZh
-                        ? '仅导出指定区间 (1-based, 包含两端)'
-                        : 'Export only a range (1-based, inclusive)',
-                  ),
+                  title: Text(l10n.exportOnlyRange),
                   value: _useRange,
                   onChanged: (value) => setState(() => _useRange = value),
                 ),
                 if (_useRange)
                   _buildExportIndexRangeFields(
-                    isZh: _isZh,
+                    l10n: l10n,
                     startController: _startController,
                     endController: _endController,
                   ),
               ],
               const SizedBox(height: _kExportSectionGap),
-              _SectionHeader(text: _isZh ? '其他选项' : 'Other Options'),
+              _SectionHeader(text: l10n.exportOtherOptions),
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 value: _includeDeleted,
                 onChanged: (value) =>
                     setState(() => _includeDeleted = value ?? false),
-                title: Text(_isZh ? '包含已删除消息' : 'Include deleted messages'),
+                title: Text(l10n.exportIncludeDeleted),
               ),
               const SizedBox(height: _kExportSectionGap),
               buildOpenHandDialogValidationMessage(
@@ -433,7 +418,7 @@ class _AiSessionExportConfigDialogState
       ),
       actions: _buildExportDialogActions(
         context: context,
-        isZh: _isZh,
+        l10n: l10n,
         onConfirm: () {
           final config = _buildConfig();
           if (config != null) {
@@ -488,9 +473,8 @@ class _HardnessSessionExportConfigDialogState
     super.dispose();
   }
 
-  bool get _isZh => openHandIsChineseLocale(context);
-
   HardnessSessionExportConfig? _buildConfig() {
+    final l10n = AppLocalizations.of(context)!;
     int? start;
     int? end;
     if (_useRange) {
@@ -501,7 +485,7 @@ class _HardnessSessionExportConfigDialogState
       );
       if (range == null) {
         setState(() {
-          _rangeError = _exportRangeErrorText(_isZh);
+          _rangeError = _exportRangeErrorText(l10n);
         });
         return null;
       }
@@ -515,8 +499,9 @@ class _HardnessSessionExportConfigDialogState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return buildOpenHandAlertDialog(
-      title: Text(_isZh ? '导出会话配置' : 'Export Session Settings'),
+      title: Text(l10n.exportSessionSettingsTitle),
       content: buildOpenHandDialogConstrainedContent(
         width: _kHardnessExportDialogWidth,
         child: SingleChildScrollView(
@@ -525,32 +510,26 @@ class _HardnessSessionExportConfigDialogState
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                _isZh
-                    ? '共 ${widget.totalPhaseLogs} 条阶段日志可导出'
-                    : 'Total phase logs available: ${widget.totalPhaseLogs}',
+                l10n.exportTotalPhaseLogs(widget.totalPhaseLogs),
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
-              _SectionHeader(text: _isZh ? '阶段日志区间' : 'Phase Log Range'),
+              _SectionHeader(text: l10n.exportPhaseLogRangeSection),
               SwitchListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: Text(
-                  _isZh
-                      ? '仅导出指定区间 (1-based, 包含两端)'
-                      : 'Export only a range (1-based, inclusive)',
-                ),
+                title: Text(l10n.exportOnlyRange),
                 value: _useRange,
                 onChanged: (value) => setState(() => _useRange = value),
               ),
               if (_useRange)
                 _buildExportIndexRangeFields(
-                  isZh: _isZh,
+                  l10n: l10n,
                   startController: _startController,
                   endController: _endController,
                 ),
               const SizedBox(height: 12),
-              _SectionHeader(text: _isZh ? '其他选项' : 'Other Options'),
+              _SectionHeader(text: l10n.exportOtherOptions),
               buildOpenHandDialogValidationMessage(
                 context,
                 message: _rangeError,
@@ -561,7 +540,7 @@ class _HardnessSessionExportConfigDialogState
       ),
       actions: _buildExportDialogActions(
         context: context,
-        isZh: _isZh,
+        l10n: l10n,
         onConfirm: () {
           final config = _buildConfig();
           if (config != null) {

@@ -8911,4 +8911,247 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get machineExpertStartExecution => 'Démarrer';
+
+  @override
+  String get commonRetry => 'Réessayer';
+
+  @override
+  String get commonOk => 'OK';
+
+  @override
+  String get commonDone => 'Terminé';
+
+  @override
+  String get commonExport => 'Exporter';
+
+  @override
+  String get appUpdateDialogTitle => 'Rechercher des mises à jour';
+
+  @override
+  String get appUpdateChecking => 'Recherche des mises à jour...';
+
+  @override
+  String appUpdateCurrentVersion(Object version) {
+    return 'Version actuelle : $version';
+  }
+
+  @override
+  String appUpdateNewVersion(Object version) {
+    return 'Nouvelle version : v$version';
+  }
+
+  @override
+  String appUpdatePublished(Object date) {
+    return 'Publié : $date';
+  }
+
+  @override
+  String appUpdateFileSize(Object size) {
+    return 'Taille : $size';
+  }
+
+  @override
+  String get appUpdateAlreadyLatestTitle => 'Vous êtes à jour';
+
+  @override
+  String appUpdateAlreadyLatestBody(Object version) {
+    return 'OpenHand $version est la dernière version.';
+  }
+
+  @override
+  String get appUpdateDownloadComplete => 'Téléchargement terminé';
+
+  @override
+  String get appUpdateDownloading => 'Téléchargement...';
+
+  @override
+  String get appUpdateCheckFailed => 'Échec de la recherche de mise à jour';
+
+  @override
+  String get appUpdateLater => 'Plus tard';
+
+  @override
+  String get appUpdateDownload => 'Télécharger';
+
+  @override
+  String get appUpdateBackground => 'En arrière-plan';
+
+  @override
+  String get exportRangeInvalid =>
+      'Saisissez une plage valide (1 ≤ début ≤ fin)';
+
+  @override
+  String get exportRangeStart => 'Début';
+
+  @override
+  String get exportRangeEnd => 'Fin';
+
+  @override
+  String get exportSessionSettingsTitle => 'Exporter les paramètres de session';
+
+  @override
+  String exportTotalMessages(Object count) {
+    return 'Messages disponibles : $count';
+  }
+
+  @override
+  String get exportRolesSection => 'Rôles';
+
+  @override
+  String get exportAllRoles => 'Tous les rôles';
+
+  @override
+  String get exportMessageKindsSection => 'Types de message';
+
+  @override
+  String get exportAllKinds => 'Tous les types';
+
+  @override
+  String get exportMessageRangeSection => 'Plage de messages';
+
+  @override
+  String get exportOnlyRange =>
+      'Exporter uniquement une plage (base 1, incluse)';
+
+  @override
+  String get exportOtherOptions => 'Autres options';
+
+  @override
+  String get exportIncludeDeleted => 'Inclure les messages supprimés';
+
+  @override
+  String get exportPickOneRole => 'Sélectionnez au moins un rôle.';
+
+  @override
+  String get exportPickOneMessageKind =>
+      'Sélectionnez au moins un type de message.';
+
+  @override
+  String get exportRoleSystem => 'Système';
+
+  @override
+  String get exportRoleUser => 'Utilisateur';
+
+  @override
+  String get exportRoleAssistant => 'Assistant';
+
+  @override
+  String get exportRoleTool => 'Outil';
+
+  @override
+  String get exportKindUser => 'Message utilisateur';
+
+  @override
+  String get exportKindAssistant => 'Réponse assistant';
+
+  @override
+  String get exportKindReasoning => 'Raisonnement';
+
+  @override
+  String get exportKindToolCall => 'Appel d’outil';
+
+  @override
+  String get exportKindTool => 'Résultat d’outil';
+
+  @override
+  String get exportKindCompressionPoint => 'Point de compression';
+
+  @override
+  String get exportKindMcp => 'Événement MCP';
+
+  @override
+  String get exportKindSkill => 'Événement de compétence';
+
+  @override
+  String get exportKindHook => 'Événement Hook';
+
+  @override
+  String get exportKindSelfLearning => 'Auto-apprentissage';
+
+  @override
+  String get exportKindFileMutationSummary =>
+      'Résumé des changements de fichiers';
+
+  @override
+  String get exportKindStatus => 'Message d’état';
+
+  @override
+  String get exportPhaseLogRangeSection => 'Plage de logs de phase';
+
+  @override
+  String exportTotalPhaseLogs(Object count) {
+    return 'Logs de phase disponibles : $count';
+  }
+
+  @override
+  String get modelSearchHint => 'Rechercher des modèles…';
+
+  @override
+  String modelSearchResultCount(Object filtered, Object total) {
+    return '$filtered / $total modèles';
+  }
+
+  @override
+  String get modelSearchNoAvailableModels => 'Aucun modèle disponible';
+
+  @override
+  String get modelSearchNoMatchingModels => 'Aucun modèle correspondant';
+
+  @override
+  String get modelSearchRecent => 'Récents';
+
+  @override
+  String get nativeAudioLoadFailed =>
+      'Impossible de charger l’audio. Ouvrez-le avec le lecteur système.';
+
+  @override
+  String get nativeAudioPlaybackFailed =>
+      'Échec de la lecture. Réessayez ou ouvrez avec le lecteur système.';
+
+  @override
+  String get nativeAudioBack15Seconds => 'Reculer de 15 s';
+
+  @override
+  String get nativeAudioPause => 'Pause';
+
+  @override
+  String get nativeAudioPlay => 'Lire';
+
+  @override
+  String get nativeAudioForward15Seconds => 'Avancer de 15 s';
+
+  @override
+  String get nativeAudioMute => 'Muet';
+
+  @override
+  String get nativeAudioUnmute => 'Réactiver le son';
+
+  @override
+  String get nativeAudioSystemPlayer => 'Lecteur système';
+
+  @override
+  String get nativeAudioSequencePlayback => 'Lecture séquentielle';
+
+  @override
+  String get nativeAudioRepeatOne => 'Répéter un titre';
+
+  @override
+  String get nativeAudioShufflePlayback => 'Lecture aléatoire';
+
+  @override
+  String nativeAudioEffectTooltip(Object effect) {
+    return 'Effet : $effect';
+  }
+
+  @override
+  String get nativeAudioEffectStandard => 'Standard';
+
+  @override
+  String get nativeAudioEffectSpatial => '3D';
+
+  @override
+  String get nativeAudioEffectVocal => 'Voix';
+
+  @override
+  String get nativeAudioEffectWarm => 'Chaud';
 }

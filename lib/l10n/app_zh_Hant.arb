@@ -6988,5 +6988,325 @@
   "machineExpertStartExecution": "開始執行",
   "@machineExpertStartExecution": {
     "description": "OpenHand localized UI text."
+  },
+  "commonRetry": "重試",
+  "@commonRetry": {
+    "description": "OpenHand localized UI text."
+  },
+  "commonOk": "好的",
+  "@commonOk": {
+    "description": "OpenHand localized UI text."
+  },
+  "commonDone": "完成",
+  "@commonDone": {
+    "description": "OpenHand localized UI text."
+  },
+  "commonExport": "匯出",
+  "@commonExport": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateDialogTitle": "檢查更新",
+  "@appUpdateDialogTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateChecking": "正在檢查更新...",
+  "@appUpdateChecking": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateCurrentVersion": "目前版本: {version}",
+  "@appUpdateCurrentVersion": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "appUpdateNewVersion": "發現新版本: v{version}",
+  "@appUpdateNewVersion": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "appUpdatePublished": "發布時間: {date}",
+  "@appUpdatePublished": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "appUpdateFileSize": "檔案大小: {size}",
+  "@appUpdateFileSize": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "appUpdateAlreadyLatestTitle": "已是最新版本",
+  "@appUpdateAlreadyLatestTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateAlreadyLatestBody": "OpenHand {version} 已是最新版本。",
+  "@appUpdateAlreadyLatestBody": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "appUpdateDownloadComplete": "下載完成",
+  "@appUpdateDownloadComplete": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateDownloading": "正在下載...",
+  "@appUpdateDownloading": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateCheckFailed": "檢查更新失敗",
+  "@appUpdateCheckFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateLater": "稍後",
+  "@appUpdateLater": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateDownload": "下載更新",
+  "@appUpdateDownload": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateBackground": "背景下載",
+  "@appUpdateBackground": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRangeInvalid": "請輸入有效區間 (1 ≤ 起始 ≤ 結束)",
+  "@exportRangeInvalid": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRangeStart": "起始",
+  "@exportRangeStart": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRangeEnd": "結束",
+  "@exportRangeEnd": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportSessionSettingsTitle": "匯出會話設定",
+  "@exportSessionSettingsTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportTotalMessages": "共 {count} 則訊息可匯出",
+  "@exportTotalMessages": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "exportRolesSection": "匯出 Role",
+  "@exportRolesSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportAllRoles": "全部 role",
+  "@exportAllRoles": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportMessageKindsSection": "訊息類型 (kind)",
+  "@exportMessageKindsSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportAllKinds": "全部類型",
+  "@exportAllKinds": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportMessageRangeSection": "訊息區間",
+  "@exportMessageRangeSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportOnlyRange": "僅匯出指定區間 (1-based, 包含兩端)",
+  "@exportOnlyRange": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportOtherOptions": "其他選項",
+  "@exportOtherOptions": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportIncludeDeleted": "包含已刪除訊息",
+  "@exportIncludeDeleted": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportPickOneRole": "請至少選擇一個 role。",
+  "@exportPickOneRole": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportPickOneMessageKind": "請至少選擇一個訊息類型。",
+  "@exportPickOneMessageKind": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRoleSystem": "系統 (system)",
+  "@exportRoleSystem": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRoleUser": "使用者 (user)",
+  "@exportRoleUser": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRoleAssistant": "助手 (assistant)",
+  "@exportRoleAssistant": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRoleTool": "工具 (tool)",
+  "@exportRoleTool": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindUser": "使用者訊息",
+  "@exportKindUser": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindAssistant": "助手回覆",
+  "@exportKindAssistant": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindReasoning": "思考過程",
+  "@exportKindReasoning": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindToolCall": "工具呼叫",
+  "@exportKindToolCall": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindTool": "工具結果",
+  "@exportKindTool": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindCompressionPoint": "壓縮節點",
+  "@exportKindCompressionPoint": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindMcp": "MCP 事件",
+  "@exportKindMcp": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindSkill": "技能事件",
+  "@exportKindSkill": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindHook": "Hook 事件",
+  "@exportKindHook": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindSelfLearning": "自學習",
+  "@exportKindSelfLearning": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindFileMutationSummary": "檔案變動摘要",
+  "@exportKindFileMutationSummary": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindStatus": "狀態訊息",
+  "@exportKindStatus": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportPhaseLogRangeSection": "階段日誌區間",
+  "@exportPhaseLogRangeSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportTotalPhaseLogs": "共 {count} 則階段日誌可匯出",
+  "@exportTotalPhaseLogs": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "modelSearchHint": "搜尋模型…",
+  "@modelSearchHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "modelSearchResultCount": "{filtered} / {total} 個模型",
+  "@modelSearchResultCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "filtered": {},
+      "total": {}
+    }
+  },
+  "modelSearchNoAvailableModels": "暫無可用模型",
+  "@modelSearchNoAvailableModels": {
+    "description": "OpenHand localized UI text."
+  },
+  "modelSearchNoMatchingModels": "沒有相符模型",
+  "@modelSearchNoMatchingModels": {
+    "description": "OpenHand localized UI text."
+  },
+  "modelSearchRecent": "最近使用",
+  "@modelSearchRecent": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioLoadFailed": "音訊載入失敗，可使用系統播放器開啟。",
+  "@nativeAudioLoadFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioPlaybackFailed": "播放失敗，請重試或使用系統播放器。",
+  "@nativeAudioPlaybackFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioBack15Seconds": "倒退 15 秒",
+  "@nativeAudioBack15Seconds": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioPause": "暫停",
+  "@nativeAudioPause": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioPlay": "播放",
+  "@nativeAudioPlay": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioForward15Seconds": "快轉 15 秒",
+  "@nativeAudioForward15Seconds": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioMute": "靜音",
+  "@nativeAudioMute": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioUnmute": "取消靜音",
+  "@nativeAudioUnmute": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioSystemPlayer": "系統播放器",
+  "@nativeAudioSystemPlayer": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioSequencePlayback": "順序播放",
+  "@nativeAudioSequencePlayback": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioRepeatOne": "單曲循環",
+  "@nativeAudioRepeatOne": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioShufflePlayback": "隨機播放",
+  "@nativeAudioShufflePlayback": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioEffectTooltip": "音效：{effect}",
+  "@nativeAudioEffectTooltip": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "effect": {}
+    }
+  },
+  "nativeAudioEffectStandard": "標準",
+  "@nativeAudioEffectStandard": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioEffectSpatial": "3D",
+  "@nativeAudioEffectSpatial": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioEffectVocal": "人聲",
+  "@nativeAudioEffectVocal": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioEffectWarm": "暖聲",
+  "@nativeAudioEffectWarm": {
+    "description": "OpenHand localized UI text."
   }
 }

@@ -8876,4 +8876,246 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get machineExpertStartExecution => 'Ausführung starten';
+
+  @override
+  String get commonRetry => 'Erneut versuchen';
+
+  @override
+  String get commonOk => 'OK';
+
+  @override
+  String get commonDone => 'Fertig';
+
+  @override
+  String get commonExport => 'Exportieren';
+
+  @override
+  String get appUpdateDialogTitle => 'Nach Updates suchen';
+
+  @override
+  String get appUpdateChecking => 'Suche nach Updates...';
+
+  @override
+  String appUpdateCurrentVersion(Object version) {
+    return 'Aktuell: $version';
+  }
+
+  @override
+  String appUpdateNewVersion(Object version) {
+    return 'Neue Version: v$version';
+  }
+
+  @override
+  String appUpdatePublished(Object date) {
+    return 'Veröffentlicht: $date';
+  }
+
+  @override
+  String appUpdateFileSize(Object size) {
+    return 'Größe: $size';
+  }
+
+  @override
+  String get appUpdateAlreadyLatestTitle => 'Sie sind auf dem neuesten Stand';
+
+  @override
+  String appUpdateAlreadyLatestBody(Object version) {
+    return 'OpenHand $version ist die neueste Version.';
+  }
+
+  @override
+  String get appUpdateDownloadComplete => 'Download abgeschlossen';
+
+  @override
+  String get appUpdateDownloading => 'Wird heruntergeladen...';
+
+  @override
+  String get appUpdateCheckFailed => 'Updateprüfung fehlgeschlagen';
+
+  @override
+  String get appUpdateLater => 'Später';
+
+  @override
+  String get appUpdateDownload => 'Herunterladen';
+
+  @override
+  String get appUpdateBackground => 'Im Hintergrund';
+
+  @override
+  String get exportRangeInvalid =>
+      'Gültigen Bereich eingeben (1 ≤ Start ≤ Ende)';
+
+  @override
+  String get exportRangeStart => 'Start';
+
+  @override
+  String get exportRangeEnd => 'Ende';
+
+  @override
+  String get exportSessionSettingsTitle => 'Sitzungseinstellungen exportieren';
+
+  @override
+  String exportTotalMessages(Object count) {
+    return 'Verfügbare Nachrichten: $count';
+  }
+
+  @override
+  String get exportRolesSection => 'Rollen';
+
+  @override
+  String get exportAllRoles => 'Alle Rollen';
+
+  @override
+  String get exportMessageKindsSection => 'Nachrichtentypen';
+
+  @override
+  String get exportAllKinds => 'Alle Typen';
+
+  @override
+  String get exportMessageRangeSection => 'Nachrichtenbereich';
+
+  @override
+  String get exportOnlyRange =>
+      'Nur einen Bereich exportieren (1-basiert, inklusiv)';
+
+  @override
+  String get exportOtherOptions => 'Weitere Optionen';
+
+  @override
+  String get exportIncludeDeleted => 'Gelöschte Nachrichten einschließen';
+
+  @override
+  String get exportPickOneRole => 'Mindestens eine Rolle auswählen.';
+
+  @override
+  String get exportPickOneMessageKind =>
+      'Mindestens einen Nachrichtentyp auswählen.';
+
+  @override
+  String get exportRoleSystem => 'System';
+
+  @override
+  String get exportRoleUser => 'Benutzer';
+
+  @override
+  String get exportRoleAssistant => 'Assistent';
+
+  @override
+  String get exportRoleTool => 'Werkzeug';
+
+  @override
+  String get exportKindUser => 'Benutzernachricht';
+
+  @override
+  String get exportKindAssistant => 'Assistentenantwort';
+
+  @override
+  String get exportKindReasoning => 'Denkprozess';
+
+  @override
+  String get exportKindToolCall => 'Werkzeugaufruf';
+
+  @override
+  String get exportKindTool => 'Werkzeugergebnis';
+
+  @override
+  String get exportKindCompressionPoint => 'Komprimierungspunkt';
+
+  @override
+  String get exportKindMcp => 'MCP-Ereignis';
+
+  @override
+  String get exportKindSkill => 'Skill-Ereignis';
+
+  @override
+  String get exportKindHook => 'Hook-Ereignis';
+
+  @override
+  String get exportKindSelfLearning => 'Selbstlernen';
+
+  @override
+  String get exportKindFileMutationSummary => 'Dateiänderungsübersicht';
+
+  @override
+  String get exportKindStatus => 'Statusmeldung';
+
+  @override
+  String get exportPhaseLogRangeSection => 'Phasenprotokollbereich';
+
+  @override
+  String exportTotalPhaseLogs(Object count) {
+    return 'Verfügbare Phasenprotokolle: $count';
+  }
+
+  @override
+  String get modelSearchHint => 'Modelle suchen…';
+
+  @override
+  String modelSearchResultCount(Object filtered, Object total) {
+    return '$filtered / $total Modelle';
+  }
+
+  @override
+  String get modelSearchNoAvailableModels => 'Keine Modelle verfügbar';
+
+  @override
+  String get modelSearchNoMatchingModels => 'Keine passenden Modelle';
+
+  @override
+  String get modelSearchRecent => 'Zuletzt verwendet';
+
+  @override
+  String get nativeAudioLoadFailed =>
+      'Audio konnte nicht geladen werden. Öffnen Sie es mit dem Systemplayer.';
+
+  @override
+  String get nativeAudioPlaybackFailed =>
+      'Wiedergabe fehlgeschlagen. Versuchen Sie es erneut oder öffnen Sie den Systemplayer.';
+
+  @override
+  String get nativeAudioBack15Seconds => '15 s zurück';
+
+  @override
+  String get nativeAudioPause => 'Pause';
+
+  @override
+  String get nativeAudioPlay => 'Wiedergabe';
+
+  @override
+  String get nativeAudioForward15Seconds => '15 s vor';
+
+  @override
+  String get nativeAudioMute => 'Stummschalten';
+
+  @override
+  String get nativeAudioUnmute => 'Stummschaltung aufheben';
+
+  @override
+  String get nativeAudioSystemPlayer => 'Systemplayer';
+
+  @override
+  String get nativeAudioSequencePlayback => 'Sequenzwiedergabe';
+
+  @override
+  String get nativeAudioRepeatOne => 'Einzeltitel wiederholen';
+
+  @override
+  String get nativeAudioShufflePlayback => 'Zufallswiedergabe';
+
+  @override
+  String nativeAudioEffectTooltip(Object effect) {
+    return 'Effekt: $effect';
+  }
+
+  @override
+  String get nativeAudioEffectStandard => 'Standard';
+
+  @override
+  String get nativeAudioEffectSpatial => '3D';
+
+  @override
+  String get nativeAudioEffectVocal => 'Stimme';
+
+  @override
+  String get nativeAudioEffectWarm => 'Warm';
 }

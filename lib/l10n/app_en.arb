@@ -6988,5 +6988,325 @@
   "machineExpertStartExecution": "Start execution",
   "@machineExpertStartExecution": {
     "description": "OpenHand localized UI text."
+  },
+  "commonRetry": "Retry",
+  "@commonRetry": {
+    "description": "OpenHand localized UI text."
+  },
+  "commonOk": "OK",
+  "@commonOk": {
+    "description": "OpenHand localized UI text."
+  },
+  "commonDone": "Done",
+  "@commonDone": {
+    "description": "OpenHand localized UI text."
+  },
+  "commonExport": "Export",
+  "@commonExport": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateDialogTitle": "Check for Updates",
+  "@appUpdateDialogTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateChecking": "Checking for updates...",
+  "@appUpdateChecking": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateCurrentVersion": "Current: {version}",
+  "@appUpdateCurrentVersion": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "appUpdateNewVersion": "New version: v{version}",
+  "@appUpdateNewVersion": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "appUpdatePublished": "Published: {date}",
+  "@appUpdatePublished": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "appUpdateFileSize": "Size: {size}",
+  "@appUpdateFileSize": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "appUpdateAlreadyLatestTitle": "You're up to date",
+  "@appUpdateAlreadyLatestTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateAlreadyLatestBody": "OpenHand {version} is the latest version.",
+  "@appUpdateAlreadyLatestBody": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "appUpdateDownloadComplete": "Download Complete",
+  "@appUpdateDownloadComplete": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateDownloading": "Downloading...",
+  "@appUpdateDownloading": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateCheckFailed": "Update Check Failed",
+  "@appUpdateCheckFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateLater": "Later",
+  "@appUpdateLater": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateDownload": "Download",
+  "@appUpdateDownload": {
+    "description": "OpenHand localized UI text."
+  },
+  "appUpdateBackground": "Background",
+  "@appUpdateBackground": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRangeInvalid": "Enter a valid range (1 ≤ start ≤ end)",
+  "@exportRangeInvalid": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRangeStart": "Start",
+  "@exportRangeStart": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRangeEnd": "End",
+  "@exportRangeEnd": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportSessionSettingsTitle": "Export Session Settings",
+  "@exportSessionSettingsTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportTotalMessages": "Total messages available: {count}",
+  "@exportTotalMessages": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "exportRolesSection": "Roles",
+  "@exportRolesSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportAllRoles": "All roles",
+  "@exportAllRoles": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportMessageKindsSection": "Message Kinds",
+  "@exportMessageKindsSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportAllKinds": "All kinds",
+  "@exportAllKinds": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportMessageRangeSection": "Message Range",
+  "@exportMessageRangeSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportOnlyRange": "Export only a range (1-based, inclusive)",
+  "@exportOnlyRange": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportOtherOptions": "Other Options",
+  "@exportOtherOptions": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportIncludeDeleted": "Include deleted messages",
+  "@exportIncludeDeleted": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportPickOneRole": "Pick at least one role.",
+  "@exportPickOneRole": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportPickOneMessageKind": "Pick at least one message kind.",
+  "@exportPickOneMessageKind": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRoleSystem": "System",
+  "@exportRoleSystem": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRoleUser": "User",
+  "@exportRoleUser": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRoleAssistant": "Assistant",
+  "@exportRoleAssistant": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportRoleTool": "Tool",
+  "@exportRoleTool": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindUser": "User message",
+  "@exportKindUser": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindAssistant": "Assistant reply",
+  "@exportKindAssistant": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindReasoning": "Reasoning",
+  "@exportKindReasoning": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindToolCall": "Tool call",
+  "@exportKindToolCall": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindTool": "Tool result",
+  "@exportKindTool": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindCompressionPoint": "Compression point",
+  "@exportKindCompressionPoint": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindMcp": "MCP event",
+  "@exportKindMcp": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindSkill": "Skill event",
+  "@exportKindSkill": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindHook": "Hook event",
+  "@exportKindHook": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindSelfLearning": "Self-learning",
+  "@exportKindSelfLearning": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindFileMutationSummary": "File change summary",
+  "@exportKindFileMutationSummary": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportKindStatus": "Status message",
+  "@exportKindStatus": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportPhaseLogRangeSection": "Phase Log Range",
+  "@exportPhaseLogRangeSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "exportTotalPhaseLogs": "Total phase logs available: {count}",
+  "@exportTotalPhaseLogs": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "modelSearchHint": "Search models…",
+  "@modelSearchHint": {
+    "description": "OpenHand localized UI text."
+  },
+  "modelSearchResultCount": "{filtered} / {total} models",
+  "@modelSearchResultCount": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "filtered": {},
+      "total": {}
+    }
+  },
+  "modelSearchNoAvailableModels": "No available models",
+  "@modelSearchNoAvailableModels": {
+    "description": "OpenHand localized UI text."
+  },
+  "modelSearchNoMatchingModels": "No matching models",
+  "@modelSearchNoMatchingModels": {
+    "description": "OpenHand localized UI text."
+  },
+  "modelSearchRecent": "Recent",
+  "@modelSearchRecent": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioLoadFailed": "Unable to load audio. Open with the system player instead.",
+  "@nativeAudioLoadFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioPlaybackFailed": "Playback failed. Try again or open with the system player.",
+  "@nativeAudioPlaybackFailed": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioBack15Seconds": "Back 15 s",
+  "@nativeAudioBack15Seconds": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioPause": "Pause",
+  "@nativeAudioPause": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioPlay": "Play",
+  "@nativeAudioPlay": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioForward15Seconds": "Forward 15 s",
+  "@nativeAudioForward15Seconds": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioMute": "Mute",
+  "@nativeAudioMute": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioUnmute": "Unmute",
+  "@nativeAudioUnmute": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioSystemPlayer": "System Player",
+  "@nativeAudioSystemPlayer": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioSequencePlayback": "Sequence playback",
+  "@nativeAudioSequencePlayback": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioRepeatOne": "Repeat one",
+  "@nativeAudioRepeatOne": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioShufflePlayback": "Shuffle playback",
+  "@nativeAudioShufflePlayback": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioEffectTooltip": "Effect: {effect}",
+  "@nativeAudioEffectTooltip": {
+    "description": "OpenHand localized UI text.",
+    "placeholders": {
+      "effect": {}
+    }
+  },
+  "nativeAudioEffectStandard": "Standard",
+  "@nativeAudioEffectStandard": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioEffectSpatial": "3D",
+  "@nativeAudioEffectSpatial": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioEffectVocal": "Vocal",
+  "@nativeAudioEffectVocal": {
+    "description": "OpenHand localized UI text."
+  },
+  "nativeAudioEffectWarm": "Warm",
+  "@nativeAudioEffectWarm": {
+    "description": "OpenHand localized UI text."
   }
 }

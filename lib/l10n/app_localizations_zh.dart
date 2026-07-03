@@ -8480,6 +8480,243 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get machineExpertStartExecution => '开始执行';
+
+  @override
+  String get commonRetry => '重试';
+
+  @override
+  String get commonOk => '好的';
+
+  @override
+  String get commonDone => '完成';
+
+  @override
+  String get commonExport => '导出';
+
+  @override
+  String get appUpdateDialogTitle => '检查更新';
+
+  @override
+  String get appUpdateChecking => '正在检查更新...';
+
+  @override
+  String appUpdateCurrentVersion(Object version) {
+    return '当前版本: $version';
+  }
+
+  @override
+  String appUpdateNewVersion(Object version) {
+    return '发现新版本: v$version';
+  }
+
+  @override
+  String appUpdatePublished(Object date) {
+    return '发布时间: $date';
+  }
+
+  @override
+  String appUpdateFileSize(Object size) {
+    return '文件大小: $size';
+  }
+
+  @override
+  String get appUpdateAlreadyLatestTitle => '已是最新版本';
+
+  @override
+  String appUpdateAlreadyLatestBody(Object version) {
+    return 'OpenHand $version 已是最新版本。';
+  }
+
+  @override
+  String get appUpdateDownloadComplete => '下载完成';
+
+  @override
+  String get appUpdateDownloading => '正在下载...';
+
+  @override
+  String get appUpdateCheckFailed => '检查更新失败';
+
+  @override
+  String get appUpdateLater => '稍后';
+
+  @override
+  String get appUpdateDownload => '下载更新';
+
+  @override
+  String get appUpdateBackground => '后台下载';
+
+  @override
+  String get exportRangeInvalid => '请输入有效区间 (1 ≤ 起始 ≤ 结束)';
+
+  @override
+  String get exportRangeStart => '起始';
+
+  @override
+  String get exportRangeEnd => '结束';
+
+  @override
+  String get exportSessionSettingsTitle => '导出会话配置';
+
+  @override
+  String exportTotalMessages(Object count) {
+    return '共 $count 条消息可导出';
+  }
+
+  @override
+  String get exportRolesSection => '导出 Role';
+
+  @override
+  String get exportAllRoles => '全部 role';
+
+  @override
+  String get exportMessageKindsSection => '消息类型 (kind)';
+
+  @override
+  String get exportAllKinds => '全部类型';
+
+  @override
+  String get exportMessageRangeSection => '消息区间';
+
+  @override
+  String get exportOnlyRange => '仅导出指定区间 (1-based, 包含两端)';
+
+  @override
+  String get exportOtherOptions => '其他选项';
+
+  @override
+  String get exportIncludeDeleted => '包含已删除消息';
+
+  @override
+  String get exportPickOneRole => '请至少选择一个 role。';
+
+  @override
+  String get exportPickOneMessageKind => '请至少选择一个消息类型。';
+
+  @override
+  String get exportRoleSystem => '系统 (system)';
+
+  @override
+  String get exportRoleUser => '用户 (user)';
+
+  @override
+  String get exportRoleAssistant => '助手 (assistant)';
+
+  @override
+  String get exportRoleTool => '工具 (tool)';
+
+  @override
+  String get exportKindUser => '用户消息';
+
+  @override
+  String get exportKindAssistant => '助手回复';
+
+  @override
+  String get exportKindReasoning => '思考过程';
+
+  @override
+  String get exportKindToolCall => '工具调用';
+
+  @override
+  String get exportKindTool => '工具结果';
+
+  @override
+  String get exportKindCompressionPoint => '压缩节点';
+
+  @override
+  String get exportKindMcp => 'MCP 事件';
+
+  @override
+  String get exportKindSkill => '技能事件';
+
+  @override
+  String get exportKindHook => 'Hook 事件';
+
+  @override
+  String get exportKindSelfLearning => '自学习';
+
+  @override
+  String get exportKindFileMutationSummary => '文件变动总结';
+
+  @override
+  String get exportKindStatus => '状态消息';
+
+  @override
+  String get exportPhaseLogRangeSection => '阶段日志区间';
+
+  @override
+  String exportTotalPhaseLogs(Object count) {
+    return '共 $count 条阶段日志可导出';
+  }
+
+  @override
+  String get modelSearchHint => '搜索模型…';
+
+  @override
+  String modelSearchResultCount(Object filtered, Object total) {
+    return '$filtered / $total 个模型';
+  }
+
+  @override
+  String get modelSearchNoAvailableModels => '暂无可用模型';
+
+  @override
+  String get modelSearchNoMatchingModels => '无匹配模型';
+
+  @override
+  String get modelSearchRecent => '最近使用';
+
+  @override
+  String get nativeAudioLoadFailed => '音频载入失败，可使用系统播放器打开。';
+
+  @override
+  String get nativeAudioPlaybackFailed => '播放失败，请重试或使用系统播放器。';
+
+  @override
+  String get nativeAudioBack15Seconds => '后退 15 秒';
+
+  @override
+  String get nativeAudioPause => '暂停';
+
+  @override
+  String get nativeAudioPlay => '播放';
+
+  @override
+  String get nativeAudioForward15Seconds => '快进 15 秒';
+
+  @override
+  String get nativeAudioMute => '静音';
+
+  @override
+  String get nativeAudioUnmute => '取消静音';
+
+  @override
+  String get nativeAudioSystemPlayer => '系统播放器';
+
+  @override
+  String get nativeAudioSequencePlayback => '顺序播放';
+
+  @override
+  String get nativeAudioRepeatOne => '单曲循环';
+
+  @override
+  String get nativeAudioShufflePlayback => '随机播放';
+
+  @override
+  String nativeAudioEffectTooltip(Object effect) {
+    return '音效：$effect';
+  }
+
+  @override
+  String get nativeAudioEffectStandard => '标准';
+
+  @override
+  String get nativeAudioEffectSpatial => '3D';
+
+  @override
+  String get nativeAudioEffectVocal => '人声';
+
+  @override
+  String get nativeAudioEffectWarm => '暖声';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -16958,6 +17195,243 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get machineExpertStartExecution => '开始执行';
+
+  @override
+  String get commonRetry => '重试';
+
+  @override
+  String get commonOk => '好的';
+
+  @override
+  String get commonDone => '完成';
+
+  @override
+  String get commonExport => '导出';
+
+  @override
+  String get appUpdateDialogTitle => '检查更新';
+
+  @override
+  String get appUpdateChecking => '正在检查更新...';
+
+  @override
+  String appUpdateCurrentVersion(Object version) {
+    return '当前版本: $version';
+  }
+
+  @override
+  String appUpdateNewVersion(Object version) {
+    return '发现新版本: v$version';
+  }
+
+  @override
+  String appUpdatePublished(Object date) {
+    return '发布时间: $date';
+  }
+
+  @override
+  String appUpdateFileSize(Object size) {
+    return '文件大小: $size';
+  }
+
+  @override
+  String get appUpdateAlreadyLatestTitle => '已是最新版本';
+
+  @override
+  String appUpdateAlreadyLatestBody(Object version) {
+    return 'OpenHand $version 已是最新版本。';
+  }
+
+  @override
+  String get appUpdateDownloadComplete => '下载完成';
+
+  @override
+  String get appUpdateDownloading => '正在下载...';
+
+  @override
+  String get appUpdateCheckFailed => '检查更新失败';
+
+  @override
+  String get appUpdateLater => '稍后';
+
+  @override
+  String get appUpdateDownload => '下载更新';
+
+  @override
+  String get appUpdateBackground => '后台下载';
+
+  @override
+  String get exportRangeInvalid => '请输入有效区间 (1 ≤ 起始 ≤ 结束)';
+
+  @override
+  String get exportRangeStart => '起始';
+
+  @override
+  String get exportRangeEnd => '结束';
+
+  @override
+  String get exportSessionSettingsTitle => '导出会话配置';
+
+  @override
+  String exportTotalMessages(Object count) {
+    return '共 $count 条消息可导出';
+  }
+
+  @override
+  String get exportRolesSection => '导出 Role';
+
+  @override
+  String get exportAllRoles => '全部 role';
+
+  @override
+  String get exportMessageKindsSection => '消息类型 (kind)';
+
+  @override
+  String get exportAllKinds => '全部类型';
+
+  @override
+  String get exportMessageRangeSection => '消息区间';
+
+  @override
+  String get exportOnlyRange => '仅导出指定区间 (1-based, 包含两端)';
+
+  @override
+  String get exportOtherOptions => '其他选项';
+
+  @override
+  String get exportIncludeDeleted => '包含已删除消息';
+
+  @override
+  String get exportPickOneRole => '请至少选择一个 role。';
+
+  @override
+  String get exportPickOneMessageKind => '请至少选择一个消息类型。';
+
+  @override
+  String get exportRoleSystem => '系统 (system)';
+
+  @override
+  String get exportRoleUser => '用户 (user)';
+
+  @override
+  String get exportRoleAssistant => '助手 (assistant)';
+
+  @override
+  String get exportRoleTool => '工具 (tool)';
+
+  @override
+  String get exportKindUser => '用户消息';
+
+  @override
+  String get exportKindAssistant => '助手回复';
+
+  @override
+  String get exportKindReasoning => '思考过程';
+
+  @override
+  String get exportKindToolCall => '工具调用';
+
+  @override
+  String get exportKindTool => '工具结果';
+
+  @override
+  String get exportKindCompressionPoint => '压缩节点';
+
+  @override
+  String get exportKindMcp => 'MCP 事件';
+
+  @override
+  String get exportKindSkill => '技能事件';
+
+  @override
+  String get exportKindHook => 'Hook 事件';
+
+  @override
+  String get exportKindSelfLearning => '自学习';
+
+  @override
+  String get exportKindFileMutationSummary => '文件变动总结';
+
+  @override
+  String get exportKindStatus => '状态消息';
+
+  @override
+  String get exportPhaseLogRangeSection => '阶段日志区间';
+
+  @override
+  String exportTotalPhaseLogs(Object count) {
+    return '共 $count 条阶段日志可导出';
+  }
+
+  @override
+  String get modelSearchHint => '搜索模型…';
+
+  @override
+  String modelSearchResultCount(Object filtered, Object total) {
+    return '$filtered / $total 个模型';
+  }
+
+  @override
+  String get modelSearchNoAvailableModels => '暂无可用模型';
+
+  @override
+  String get modelSearchNoMatchingModels => '无匹配模型';
+
+  @override
+  String get modelSearchRecent => '最近使用';
+
+  @override
+  String get nativeAudioLoadFailed => '音频载入失败，可使用系统播放器打开。';
+
+  @override
+  String get nativeAudioPlaybackFailed => '播放失败，请重试或使用系统播放器。';
+
+  @override
+  String get nativeAudioBack15Seconds => '后退 15 秒';
+
+  @override
+  String get nativeAudioPause => '暂停';
+
+  @override
+  String get nativeAudioPlay => '播放';
+
+  @override
+  String get nativeAudioForward15Seconds => '快进 15 秒';
+
+  @override
+  String get nativeAudioMute => '静音';
+
+  @override
+  String get nativeAudioUnmute => '取消静音';
+
+  @override
+  String get nativeAudioSystemPlayer => '系统播放器';
+
+  @override
+  String get nativeAudioSequencePlayback => '顺序播放';
+
+  @override
+  String get nativeAudioRepeatOne => '单曲循环';
+
+  @override
+  String get nativeAudioShufflePlayback => '随机播放';
+
+  @override
+  String nativeAudioEffectTooltip(Object effect) {
+    return '音效：$effect';
+  }
+
+  @override
+  String get nativeAudioEffectStandard => '标准';
+
+  @override
+  String get nativeAudioEffectSpatial => '3D';
+
+  @override
+  String get nativeAudioEffectVocal => '人声';
+
+  @override
+  String get nativeAudioEffectWarm => '暖声';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -25432,4 +25906,241 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get machineExpertStartExecution => '開始執行';
+
+  @override
+  String get commonRetry => '重試';
+
+  @override
+  String get commonOk => '好的';
+
+  @override
+  String get commonDone => '完成';
+
+  @override
+  String get commonExport => '匯出';
+
+  @override
+  String get appUpdateDialogTitle => '檢查更新';
+
+  @override
+  String get appUpdateChecking => '正在檢查更新...';
+
+  @override
+  String appUpdateCurrentVersion(Object version) {
+    return '目前版本: $version';
+  }
+
+  @override
+  String appUpdateNewVersion(Object version) {
+    return '發現新版本: v$version';
+  }
+
+  @override
+  String appUpdatePublished(Object date) {
+    return '發布時間: $date';
+  }
+
+  @override
+  String appUpdateFileSize(Object size) {
+    return '檔案大小: $size';
+  }
+
+  @override
+  String get appUpdateAlreadyLatestTitle => '已是最新版本';
+
+  @override
+  String appUpdateAlreadyLatestBody(Object version) {
+    return 'OpenHand $version 已是最新版本。';
+  }
+
+  @override
+  String get appUpdateDownloadComplete => '下載完成';
+
+  @override
+  String get appUpdateDownloading => '正在下載...';
+
+  @override
+  String get appUpdateCheckFailed => '檢查更新失敗';
+
+  @override
+  String get appUpdateLater => '稍後';
+
+  @override
+  String get appUpdateDownload => '下載更新';
+
+  @override
+  String get appUpdateBackground => '背景下載';
+
+  @override
+  String get exportRangeInvalid => '請輸入有效區間 (1 ≤ 起始 ≤ 結束)';
+
+  @override
+  String get exportRangeStart => '起始';
+
+  @override
+  String get exportRangeEnd => '結束';
+
+  @override
+  String get exportSessionSettingsTitle => '匯出會話設定';
+
+  @override
+  String exportTotalMessages(Object count) {
+    return '共 $count 則訊息可匯出';
+  }
+
+  @override
+  String get exportRolesSection => '匯出 Role';
+
+  @override
+  String get exportAllRoles => '全部 role';
+
+  @override
+  String get exportMessageKindsSection => '訊息類型 (kind)';
+
+  @override
+  String get exportAllKinds => '全部類型';
+
+  @override
+  String get exportMessageRangeSection => '訊息區間';
+
+  @override
+  String get exportOnlyRange => '僅匯出指定區間 (1-based, 包含兩端)';
+
+  @override
+  String get exportOtherOptions => '其他選項';
+
+  @override
+  String get exportIncludeDeleted => '包含已刪除訊息';
+
+  @override
+  String get exportPickOneRole => '請至少選擇一個 role。';
+
+  @override
+  String get exportPickOneMessageKind => '請至少選擇一個訊息類型。';
+
+  @override
+  String get exportRoleSystem => '系統 (system)';
+
+  @override
+  String get exportRoleUser => '使用者 (user)';
+
+  @override
+  String get exportRoleAssistant => '助手 (assistant)';
+
+  @override
+  String get exportRoleTool => '工具 (tool)';
+
+  @override
+  String get exportKindUser => '使用者訊息';
+
+  @override
+  String get exportKindAssistant => '助手回覆';
+
+  @override
+  String get exportKindReasoning => '思考過程';
+
+  @override
+  String get exportKindToolCall => '工具呼叫';
+
+  @override
+  String get exportKindTool => '工具結果';
+
+  @override
+  String get exportKindCompressionPoint => '壓縮節點';
+
+  @override
+  String get exportKindMcp => 'MCP 事件';
+
+  @override
+  String get exportKindSkill => '技能事件';
+
+  @override
+  String get exportKindHook => 'Hook 事件';
+
+  @override
+  String get exportKindSelfLearning => '自學習';
+
+  @override
+  String get exportKindFileMutationSummary => '檔案變動摘要';
+
+  @override
+  String get exportKindStatus => '狀態訊息';
+
+  @override
+  String get exportPhaseLogRangeSection => '階段日誌區間';
+
+  @override
+  String exportTotalPhaseLogs(Object count) {
+    return '共 $count 則階段日誌可匯出';
+  }
+
+  @override
+  String get modelSearchHint => '搜尋模型…';
+
+  @override
+  String modelSearchResultCount(Object filtered, Object total) {
+    return '$filtered / $total 個模型';
+  }
+
+  @override
+  String get modelSearchNoAvailableModels => '暫無可用模型';
+
+  @override
+  String get modelSearchNoMatchingModels => '沒有相符模型';
+
+  @override
+  String get modelSearchRecent => '最近使用';
+
+  @override
+  String get nativeAudioLoadFailed => '音訊載入失敗，可使用系統播放器開啟。';
+
+  @override
+  String get nativeAudioPlaybackFailed => '播放失敗，請重試或使用系統播放器。';
+
+  @override
+  String get nativeAudioBack15Seconds => '倒退 15 秒';
+
+  @override
+  String get nativeAudioPause => '暫停';
+
+  @override
+  String get nativeAudioPlay => '播放';
+
+  @override
+  String get nativeAudioForward15Seconds => '快轉 15 秒';
+
+  @override
+  String get nativeAudioMute => '靜音';
+
+  @override
+  String get nativeAudioUnmute => '取消靜音';
+
+  @override
+  String get nativeAudioSystemPlayer => '系統播放器';
+
+  @override
+  String get nativeAudioSequencePlayback => '順序播放';
+
+  @override
+  String get nativeAudioRepeatOne => '單曲循環';
+
+  @override
+  String get nativeAudioShufflePlayback => '隨機播放';
+
+  @override
+  String nativeAudioEffectTooltip(Object effect) {
+    return '音效：$effect';
+  }
+
+  @override
+  String get nativeAudioEffectStandard => '標準';
+
+  @override
+  String get nativeAudioEffectSpatial => '3D';
+
+  @override
+  String get nativeAudioEffectVocal => '人聲';
+
+  @override
+  String get nativeAudioEffectWarm => '暖聲';
 }
