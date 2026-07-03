@@ -46,7 +46,7 @@ class HooksStore {
             label: '${row['label'] ?? ''}'.trim(),
             scriptPath: nullIfBlank('${row['script_path'] ?? ''}'),
             scriptContent: nullIfBlank('${row['script_content'] ?? ''}'),
-            enabled: (row['enabled'] as int?) == 1,
+            enabled: boolFromValue(row['enabled']),
             timeoutSeconds: clampedIntFromValue(
               row['timeout_seconds'],
               fallback: HookEntry.defaultTimeoutSeconds,

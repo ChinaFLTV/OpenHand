@@ -184,7 +184,7 @@ class CronsStore {
             timeoutSeconds: (row['timeout_seconds'] as int?) ?? 60,
             runAsUser: nullIfBlank('${row['run_as_user'] ?? ''}'),
             tags: _parseTags('${row['tags'] ?? ''}'),
-            enabled: (row['enabled'] as int?) == 1,
+            enabled: boolFromValue(row['enabled']),
             status: CronJobStatus.fromStorage('${row['status'] ?? ''}'),
             onSuccessNotify: CronNotifyType.fromStorage(
               '${row['on_success_notify'] ?? ''}',
@@ -207,19 +207,38 @@ class CronsStore {
               '${row['on_timeout_severity'] ?? ''}',
               fallback: CronNotifySeverity.warning,
             ),
-            onSuccessPlaySound: (row['on_success_play_sound'] as int?) == 1,
-            onFailurePlaySound: (row['on_failure_play_sound'] as int?) != 0,
-            onTimeoutPlaySound: (row['on_timeout_play_sound'] as int?) != 0,
-            onSuccessVibrate: (row['on_success_vibrate'] as int?) == 1,
-            onFailureVibrate: (row['on_failure_vibrate'] as int?) != 0,
-            onTimeoutVibrate: (row['on_timeout_vibrate'] as int?) != 0,
+            onSuccessPlaySound: boolFromValue(row['on_success_play_sound']),
+            onFailurePlaySound: boolFromValue(
+              row['on_failure_play_sound'],
+              defaultValue: true,
+            ),
+            onTimeoutPlaySound: boolFromValue(
+              row['on_timeout_play_sound'],
+              defaultValue: true,
+            ),
+            onSuccessVibrate: boolFromValue(row['on_success_vibrate']),
+            onFailureVibrate: boolFromValue(
+              row['on_failure_vibrate'],
+              defaultValue: true,
+            ),
+            onTimeoutVibrate: boolFromValue(
+              row['on_timeout_vibrate'],
+              defaultValue: true,
+            ),
             onSuccessMessage: nullIfBlank('${row['on_success_message'] ?? ''}'),
             onFailureMessage: nullIfBlank('${row['on_failure_message'] ?? ''}'),
             onTimeoutMessage: nullIfBlank('${row['on_timeout_message'] ?? ''}'),
-            collectAppMetadata: (row['collect_app_metadata'] as int?) != 0,
-            collectHostMetadata: (row['collect_host_metadata'] as int?) != 0,
-            collectEnvironmentSnapshot:
-                (row['collect_environment_snapshot'] as int?) == 1,
+            collectAppMetadata: boolFromValue(
+              row['collect_app_metadata'],
+              defaultValue: true,
+            ),
+            collectHostMetadata: boolFromValue(
+              row['collect_host_metadata'],
+              defaultValue: true,
+            ),
+            collectEnvironmentSnapshot: boolFromValue(
+              row['collect_environment_snapshot'],
+            ),
             workingDirectory: nullIfBlank('${row['working_directory'] ?? ''}'),
             environment: _parseEnv('${row['environment'] ?? ''}'),
             maxRetryDelaySeconds:
