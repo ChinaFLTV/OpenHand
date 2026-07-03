@@ -7732,7 +7732,8 @@ function readDouble(value: unknown, fallback: number): number {
 }
 
 function readStatNumber(value: unknown, fallback: unknown): number {
-  return nonNegativeIntegerFromUnknown(value ?? fallback);
+  const safeFallback = nonNegativeIntegerFromUnknown(fallback);
+  return nonNegativeIntegerFromUnknown(value, safeFallback);
 }
 
 function usesClaudeStyleCacheMath(protocol: unknown): boolean {
