@@ -1,5 +1,5 @@
 import { basenameFromPath } from './path';
-import { stringFromUnknown } from './value';
+import { finiteNumberOrNullFromUnknown, stringFromUnknown } from './value';
 
 export interface KnowledgeBaseUsageMatchOptions {
   hitKey?: (hit: Record<string, unknown>) => string;
@@ -49,6 +49,23 @@ export function knowledgeBaseResultsUsedByAnswer(
     used.push(result);
   }
   return used;
+}
+
+export function knowledgeBaseHitTokenEstimate(hit: Record<string, unknown>): number {
+  return Math.max(
+    0,
+    Math.round(finiteNumberOrNullFromUnknown(hit['token_estimate']) ?? 0),
+  );
+}
+
+export function knowledgeBaseHitTokenEstimateTotal(
+  hits: Iterable<Record<string, unknown>>,
+): number {
+  let total = 0;
+  for (const hit of hits) {
+    total += knowledgeBaseHitTokenEstimate(hit);
+  }
+  return total;
 }
 
 function knowledgeBaseHitUsedByAnswer(

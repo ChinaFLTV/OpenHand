@@ -80,7 +80,10 @@ import { PlanTimeline } from '../../../components/PlanTimeline';
 import CacheHitTrendChart, { type CacheHitDisplayMode } from './CacheHitTrendChart';
 import { notifyIfHidden } from '../../../services/pwa';
 import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from '../../../shared/util/browser_storage';
-import { knowledgeBaseResultsUsedByAnswer } from '../../../shared/util/knowledge';
+import {
+  knowledgeBaseHitTokenEstimateTotal,
+  knowledgeBaseResultsUsedByAnswer,
+} from '../../../shared/util/knowledge';
 import { strictPositiveIntegerFromText } from '../../../shared/util/number';
 import { basenameFromPath } from '../../../shared/util/path';
 import {
@@ -924,9 +927,7 @@ function knowledgeBaseMetadataUsedByAnswer(
   );
   if (usedResults.length === 0) return null;
   const promptAppend = recordOrNullFromUnknown(metadata?.['prompt_append']) ?? {};
-  const tokenEstimate = usedResults.reduce((total, hit) => (
-    total + Math.max(0, Math.round(finiteNumberOrNullFromUnknown(hit['token_estimate']) ?? 0))
-  ), 0);
+  const tokenEstimate = knowledgeBaseHitTokenEstimateTotal(usedResults);
   return {
     ...(metadata ?? {}),
     results: usedResults,
@@ -975,9 +976,7 @@ function knowledgeBaseMetadataFromRoundToolMessages(
     results,
     prompt_append: {
       chunk_count: results.length,
-      token_estimate: results.reduce((total, hit) => (
-        total + Math.max(0, Math.round(finiteNumberOrNullFromUnknown(hit['token_estimate']) ?? 0))
-      ), 0),
+      token_estimate: knowledgeBaseHitTokenEstimateTotal(results),
     },
     source: 'knowledge_tools',
   }, answerText);
@@ -1006,9 +1005,7 @@ function knowledgeBaseMetadataFromToolMessage(message: SessionMessage): Record<s
     results,
     prompt_append: {
       chunk_count: results.length,
-      token_estimate: results.reduce((total, hit) => (
-        total + Math.max(0, Math.round(finiteNumberOrNullFromUnknown(hit['token_estimate']) ?? 0))
-      ), 0),
+      token_estimate: knowledgeBaseHitTokenEstimateTotal(results),
     },
   };
 }

@@ -43,7 +43,10 @@ import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
 import { useDelayedFalse } from '../hooks/useDelayedFalse';
 import { useTimeoutController } from '../hooks/useTimeoutController';
 import { boundedFnv1aHashBase36 } from '../shared/util/hash';
-import { knowledgeBaseResultsUsedByAnswer } from '../shared/util/knowledge';
+import {
+  knowledgeBaseHitTokenEstimateTotal,
+  knowledgeBaseResultsUsedByAnswer,
+} from '../shared/util/knowledge';
 import { strictPositiveIntegerFromUnknown } from '../shared/util/number';
 import {
   booleanFromUnknown,
@@ -746,9 +749,7 @@ function knowledgeBaseMetadataUsedByAnswer(
   );
   if (usedResults.length === 0) return null;
   const promptAppend = recordOrNullFromUnknown(kb?.['prompt_append']) ?? {};
-  const tokenEstimate = usedResults.reduce((total, hit) => (
-    total + Math.max(0, Math.round(finiteNumberOrNullFromUnknown(hit['token_estimate']) ?? 0))
-  ), 0);
+  const tokenEstimate = knowledgeBaseHitTokenEstimateTotal(usedResults);
   return {
     ...(kb ?? {}),
     results: usedResults,
