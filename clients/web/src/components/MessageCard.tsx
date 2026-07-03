@@ -47,7 +47,11 @@ import {
   knowledgeBaseHitTokenEstimateTotal,
   knowledgeBaseResultsUsedByAnswer,
 } from '../shared/util/knowledge';
-import { clampNumber, strictPositiveIntegerFromUnknown } from '../shared/util/number';
+import {
+  clampNumber,
+  strictPositiveIntegerFromUnknown,
+  strictPositiveNumberFromUnknown,
+} from '../shared/util/number';
 import {
   booleanFromUnknown,
   finiteNumberOrNullFromUnknown,
@@ -526,18 +530,6 @@ const ANDROID_REVERSE_PROMPT_FIELD_LABELS = [
 
 function nonEmptyString(value: unknown): string {
   return strictStringFromUnknown(value);
-}
-
-const STRICT_POSITIVE_NUMBER_RE = /^(?:[1-9]\d*(?:\.\d+)?|0?\.\d+)$/;
-
-function positiveNumberFromOption(value: unknown): number | null {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) && value > 0 ? value : null;
-  }
-  const text = nonEmptyString(value);
-  if (!STRICT_POSITIVE_NUMBER_RE.test(text)) return null;
-  const parsed = Number(text);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 const KB_VECTOR_DEFAULT_MAX_POINTS = 600;
@@ -1454,7 +1446,7 @@ function creationOptionDetail(options: Record<string, unknown> | null): string {
   const frameRate = strictPositiveIntegerFromUnknown(options['frame_rate']);
   const numFrames = strictPositiveIntegerFromUnknown(options['num_frames']);
   const seed = strictPositiveIntegerFromUnknown(options['seed']);
-  const speed = positiveNumberFromOption(options['speed']);
+  const speed = strictPositiveNumberFromUnknown(options['speed']);
   const sampleRate = strictPositiveIntegerFromUnknown(options['sample_rate']);
   const bitrate = strictPositiveIntegerFromUnknown(options['bitrate']);
   if (aspectRatio) parts.push(aspectRatio);

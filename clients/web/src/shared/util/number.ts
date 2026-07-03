@@ -13,6 +13,7 @@ export interface NormalizeIntegerOptions {
 }
 
 const STRICT_POSITIVE_INTEGER_RE = /^[1-9]\d*$/;
+const STRICT_POSITIVE_NUMBER_RE = /^(?:[1-9]\d*(?:\.\d+)?|0?\.\d+)$/;
 
 export const MAX_BROWSER_TIMEOUT_MS = 2_147_483_647;
 
@@ -72,10 +73,25 @@ export function strictPositiveIntegerFromText(value: string): number | null {
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
+export function strictPositiveNumberFromText(value: string): number | null {
+  const trimmed = value.trim();
+  if (!STRICT_POSITIVE_NUMBER_RE.test(trimmed)) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 export function strictPositiveIntegerFromUnknown(value: unknown): number | null {
   if (typeof value === 'number') {
     return Number.isSafeInteger(value) && value > 0 ? value : null;
   }
   if (typeof value !== 'string') return null;
   return strictPositiveIntegerFromText(value);
+}
+
+export function strictPositiveNumberFromUnknown(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+  if (typeof value !== 'string') return null;
+  return strictPositiveNumberFromText(value);
 }

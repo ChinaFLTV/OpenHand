@@ -495,12 +495,11 @@ function isCacheableMediaResponse(item: MediaItem, response: Response): boolean 
     if (item.kind === 'audio' && !contentType.startsWith('audio/')) return false;
   }
   const rawLength = response.headers.get('content-length');
-  if (rawLength) {
-    const length = Number(rawLength);
-    if (Number.isFinite(length) && length > REMOTE_MEDIA_CACHE_MAX_BYTES[item.kind]) {
-      return false;
-    }
-  } else if (item.kind === 'video') {
+  const length = rawLength == null ? null : finiteNumberFromText(rawLength);
+  if (length != null && length > REMOTE_MEDIA_CACHE_MAX_BYTES[item.kind]) {
+    return false;
+  }
+  if (item.kind === 'video' && length == null) {
     return false;
   }
   return true;

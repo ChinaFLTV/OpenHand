@@ -5,7 +5,7 @@ import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { describeApiError, isAbortError } from '../utils/api_error';
-import { normalizeInteger } from '../shared/util/number';
+import { finiteNumberFromText, normalizeInteger } from '../shared/util/number';
 import {
   DIALOG_OVERLAY_FOCUSED_Z_INDEX,
   DialogFrame,
@@ -190,7 +190,7 @@ export function TitleSummaryDialog({
   const handleSliderInput = (e: Event, which: 'start' | 'end') => {
     const target = e.currentTarget as HTMLInputElement;
     const maxIndex = Math.max(0, totalMessages - 1);
-    const value = normalizeInteger(Number(target.value), {
+    const value = normalizeInteger(finiteNumberFromText(target.value), {
       fallback: which === 'start' ? startIdx : endIdx,
       min: 0,
       max: maxIndex,
