@@ -249,8 +249,8 @@ class AiSessionPlanRecord {
     final now = DateTime.now().toUtc();
     return AiSessionPlanRecord(
       id: '${json['id'] ?? ''}',
-      createdAt: DateTime.tryParse('${json['created_at']}')?.toUtc() ?? now,
-      updatedAt: DateTime.tryParse('${json['updated_at']}')?.toUtc() ?? now,
+      createdAt: utcDateTimeFromValue(json['created_at']) ?? now,
+      updatedAt: utcDateTimeFromValue(json['updated_at']) ?? now,
       status: AiSessionPlanStatus.fromStorage('${json['status'] ?? ''}'),
       plan: '${json['plan'] ?? ''}'.trim(),
       steps: stringKeyedMapListFromValueOrJsonText(
@@ -808,21 +808,11 @@ class AiSession {
     Object? value, {
     required DateTime Function() fallback,
   }) {
-    if (value == null) {
-      return fallback();
-    }
-    return DateTime.tryParse('$value')?.toUtc() ?? fallback();
+    return utcDateTimeFromValue(value) ?? fallback();
   }
 
   static DateTime? _parseNullableDateTime(Object? value) {
-    if (value == null) {
-      return null;
-    }
-    final text = '$value'.trim();
-    if (text.isEmpty || text == 'null') {
-      return null;
-    }
-    return DateTime.tryParse(text)?.toUtc();
+    return utcDateTimeFromValue(value);
   }
 }
 
@@ -1368,14 +1358,11 @@ class AiSessionErrorRecord {
     return AiSessionErrorRecord(
       id: stringFromValue(json['id']),
       createdAt:
-          DateTime.tryParse('${json['created_at']}')?.toUtc() ??
-          DateTime.now().toUtc(),
+          utcDateTimeFromValue(json['created_at']) ?? DateTime.now().toUtc(),
       stage: stringFromValue(json['stage']),
       message: stringFromValue(json['message']),
       detail: optionalStringFromValue(json['detail']),
-      presentedAt: json['presented_at'] == null
-          ? null
-          : DateTime.tryParse('${json['presented_at']}')?.toUtc(),
+      presentedAt: utcDateTimeFromValue(json['presented_at']),
     );
   }
   const AiSessionErrorRecord({

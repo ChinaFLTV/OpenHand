@@ -264,6 +264,19 @@ DateTime? dateTimeFromValue(
   return null;
 }
 
+DateTime? utcDateTimeFromValue(
+  Object? value, {
+  DateTimeNumericTimestampMode numericTimestampMode =
+      DateTimeNumericTimestampMode.milliseconds,
+  bool requirePositiveTimestamp = false,
+}) {
+  return dateTimeFromValue(
+    value,
+    numericTimestampMode: numericTimestampMode,
+    requirePositiveTimestamp: requirePositiveTimestamp,
+  )?.toUtc();
+}
+
 DateTime? _dateTimeFromNumericTimestamp(
   num value, {
   required DateTimeNumericTimestampMode mode,

@@ -119,8 +119,7 @@ class AiSessionMessage {
   factory AiSessionMessage.fromJson(Object? raw) {
     final json = stringKeyedMapFromValueOrJsonText(raw);
     final createdAt =
-        DateTime.tryParse('${json['created_at']}')?.toUtc() ??
-        DateTime.now().toUtc();
+        utcDateTimeFromValue(json['created_at']) ?? DateTime.now().toUtc();
     final content = '${json['content'] ?? ''}';
     return AiSessionMessage(
       id: '${json['id'] ?? ''}',
@@ -1337,8 +1336,7 @@ class AiSessionMessageResponseVariant {
       id: AiSessionMessage._readNullableString(json['id']),
       content: '${json['content'] ?? ''}',
       createdAt:
-          DateTime.tryParse('${json['created_at'] ?? ''}')?.toUtc() ??
-          DateTime.now().toUtc(),
+          utcDateTimeFromValue(json['created_at']) ?? DateTime.now().toUtc(),
       modelId: AiSessionMessage._readNullableString(json['model_id']),
       modelLabel: AiSessionMessage._readNullableString(json['model_label']),
       usage: AiSessionMessage._readUsage(json['usage']),

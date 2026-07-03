@@ -66,7 +66,7 @@ class AiSessionCompactMemorySidecar {
       '${metadata['checkpoint_message_id'] ?? ''}'.trim();
 
   DateTime? get checkpointCreatedAt =>
-      DateTime.tryParse('${metadata['checkpoint_created_at'] ?? ''}')?.toUtc();
+      utcDateTimeFromValue(metadata['checkpoint_created_at']);
 
   Map<String, Object?> get checkpointMetadata {
     final raw = metadata['checkpoint_metadata'];
@@ -1198,12 +1198,8 @@ class AiSessionStore {
       templateIconName: (row['template_icon_name'] as String?) ?? '',
       templateInternalVersion:
           (row['template_internal_version'] as String?) ?? '',
-      createdAt:
-          DateTime.tryParse((row['created_at'] as String?) ?? '')?.toUtc() ??
-          now,
-      updatedAt:
-          DateTime.tryParse((row['updated_at'] as String?) ?? '')?.toUtc() ??
-          now,
+      createdAt: utcDateTimeFromValue(row['created_at']) ?? now,
+      updatedAt: utcDateTimeFromValue(row['updated_at']) ?? now,
       messages: messages,
       environment: AiSessionEnvironment.fromJson(
         _decodeJsonMap(row['environment_json']),
@@ -1223,14 +1219,12 @@ class AiSessionStore {
       autoTitleFirstUserContent:
           row['auto_title_first_user_content'] as String?,
       autoTitleGeneratedAt: _parseNullableDateTime(
-        row['auto_title_generated_at'] as String?,
+        row['auto_title_generated_at'],
       ),
       autoTitleSourceMessageId: row['auto_title_source_message_id'] as String?,
       latestCompressionCheckpointMessageId:
           row['latest_compression_checkpoint_message_id'] as String?,
-      latestCompressionAt: _parseNullableDateTime(
-        row['latest_compression_at'] as String?,
-      ),
+      latestCompressionAt: _parseNullableDateTime(row['latest_compression_at']),
       mode: AiSessionMode.fromStorage((row['mode'] as String?) ?? 'chat'),
       awaitingPlanApproval: boolFromValue(row['awaiting_plan_approval']),
       pendingPlan: row['pending_plan'] as String?,
@@ -1333,8 +1327,7 @@ class AiSessionStore {
       role: AiSessionMessageRole.fromStorage((row['role'] as String?) ?? ''),
       content: (row['content'] as String?) ?? '',
       createdAt:
-          DateTime.tryParse((row['created_at'] as String?) ?? '')?.toUtc() ??
-          DateTime.now().toUtc(),
+          utcDateTimeFromValue(row['created_at']) ?? DateTime.now().toUtc(),
       characterCount: nonNegativeIntFromValue(
         row['character_count'],
         fallback: 0,
@@ -1399,9 +1392,8 @@ class AiSessionStore {
     return const <Object?>[];
   }
 
-  static DateTime? _parseNullableDateTime(String? value) {
-    if (value == null || value.isEmpty || value == 'null') return null;
-    return DateTime.tryParse(value)?.toUtc();
+  static DateTime? _parseNullableDateTime(Object? value) {
+    return utcDateTimeFromValue(value);
   }
 
   Future<int> _countMessages(String sessionId) async {

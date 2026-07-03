@@ -151,8 +151,7 @@ class AiSessionGoalEvaluationRecord {
     final usageJson = _goalMap(json['usage']);
     return AiSessionGoalEvaluationRecord(
       id: id,
-      createdAt:
-          DateTime.tryParse(_goalString(json['created_at']))?.toUtc() ?? now,
+      createdAt: utcDateTimeFromValue(json['created_at']) ?? now,
       roundIndex: _goalInt(json['round_index']) ?? 0,
       passed: json['passed'] == true,
       summary: _goalString(json['summary']),
@@ -331,10 +330,8 @@ class AiSessionGoalRecord {
       id: id,
       objective: objective,
       status: AiSessionGoalStatus.fromStorage(json['status']),
-      createdAt:
-          DateTime.tryParse(_goalString(json['created_at']))?.toUtc() ?? now,
-      updatedAt:
-          DateTime.tryParse(_goalString(json['updated_at']))?.toUtc() ?? now,
+      createdAt: utcDateTimeFromValue(json['created_at']) ?? now,
+      updatedAt: utcDateTimeFromValue(json['updated_at']) ?? now,
       evaluatorProviderConfigId: _goalString(
         json['evaluator_provider_config_id'],
       ),
@@ -344,13 +341,9 @@ class AiSessionGoalRecord {
       tokenBudget: _positiveGoalInt(json['token_budget']),
       turnCount: _goalInt(json['turn_count']) ?? 0,
       tokensUsed: _goalInt(json['tokens_used']) ?? 0,
-      completedAt: DateTime.tryParse(
-        _goalString(json['completed_at']),
-      )?.toUtc(),
-      pausedAt: DateTime.tryParse(_goalString(json['paused_at']))?.toUtc(),
-      terminatedAt: DateTime.tryParse(
-        _goalString(json['terminated_at']),
-      )?.toUtc(),
+      completedAt: utcDateTimeFromValue(json['completed_at']),
+      pausedAt: utcDateTimeFromValue(json['paused_at']),
+      terminatedAt: utcDateTimeFromValue(json['terminated_at']),
       statusReason: _goalNullableString(json['status_reason']),
       lastAssistantMessageId: _goalNullableString(
         json['last_assistant_message_id'],

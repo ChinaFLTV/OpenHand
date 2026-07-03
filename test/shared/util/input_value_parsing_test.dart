@@ -83,5 +83,13 @@ void main() {
       expect(dateTimeFromValue(0, requirePositiveTimestamp: true), isNull);
       expect(dateTimeFromValue(double.nan), isNull);
     });
+
+    test('normalizes parsed values to UTC', () {
+      expect(
+        utcDateTimeFromValue('2026-07-03T17:30:00+08:00'),
+        DateTime.utc(2026, 7, 3, 9, 30),
+      );
+      expect(utcDateTimeFromValue(DateTime.utc(2026))?.isUtc, isTrue);
+    });
   });
 }
