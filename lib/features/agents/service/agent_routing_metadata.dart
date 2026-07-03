@@ -147,10 +147,7 @@ List<String> _routingKeywords(
 List<String> _stringsFromValue(Object? raw) {
   if (raw == null) return const <String>[];
   if (raw is Iterable) {
-    return raw
-        .expand(_stringsFromValue)
-        .where((value) => value.trim().isNotEmpty)
-        .toList(growable: false);
+    return raw.expand(_stringsFromValue).toList(growable: false);
   }
   return splitTrimmedNonEmpty('$raw');
 }
