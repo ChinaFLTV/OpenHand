@@ -797,79 +797,395 @@ Future<void> _showAgentApprovalsDialog(
 
 Future<void> _showAgentClusterDialog(BuildContext context, AgentProfile agent) {
   final l10n = AppLocalizations.of(context)!;
-  final settings = agent.scaleSettings;
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => buildOpenHandDialog(
-      maxWidth: 840,
-      maxHeight: 680,
-      child: _AgentDialogScaffold(
-        icon: Icons.account_tree_rounded,
-        title: l10n.agentsDialogTitleWithName(l10n.agentsCluster, agent.name),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _AgentPill(
-                  icon: Icons.compress_rounded,
-                  label: l10n.agentsMinWorkersCount(settings.minWorkers),
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                _AgentPill(
-                  icon: Icons.unfold_more_rounded,
-                  label: l10n.agentsMaxWorkersCount(settings.maxWorkers),
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
-                _AgentPill(
-                  icon: Icons.route_rounded,
-                  label: settings.schedulerPolicy,
-                  color: Theme.of(context).colorScheme.tertiary,
-                ),
-                _AgentPill(
-                  icon: Icons.repeat_rounded,
-                  label: '${settings.retryPolicy} · ${settings.maxRetries}',
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ],
+    builder: (_) => Consumer<AgentsController>(
+      builder: (context, controller, _) {
+        final currentAgent = controller.agentById(agent.id) ?? agent;
+        final settings = currentAgent.scaleSettings;
+        return buildOpenHandDialog(
+          maxWidth: 880,
+          maxHeight: 700,
+          child: _AgentDialogScaffold(
+            icon: Icons.account_tree_rounded,
+            title: l10n.agentsDialogTitleWithName(
+              l10n.agentsCluster,
+              currentAgent.name,
             ),
-            const SizedBox(height: 18),
-            if (agent.workers.isEmpty)
-              FeatureStateCard.inline(
-                icon: Icons.memory_rounded,
-                title: l10n.agentsNoWorkersTitle,
-                body: l10n.agentsNoWorkersBody,
-              )
-            else
-              ...agent.workers.map(
-                (worker) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    worker.status == AgentWorkerStatus.busy
-                        ? Icons.sync_rounded
-                        : Icons.check_circle_outline_rounded,
+            actions: [
+              FilledButton.icon(
+                onPressed: () async {
+                  final updated = await _showAgentClusterSettingsDialog(
+                    context,
+                    settings,
+                  );
+                  if (updated == null || !context.mounted) return;
+                  await context.read<AgentsController>().saveScaleSettings(
+                    currentAgent.id,
+                    updated,
+                  );
+                },
+                icon: const Icon(Icons.tune_rounded),
+                label: Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '调整集群',
+                    en: 'Tune cluster',
                   ),
-                  title: Text(worker.name.isEmpty ? worker.id : worker.name),
-                  subtitle: Text(
-                    [
-                      l10n.agentsWorkerSubtitle(
-                        _agentWorkerStatusLabel(l10n, worker.status),
-                        worker.executedTaskCount,
-                        worker.priority,
-                      ),
-                      _agentWorkerCurrentTaskLabel(l10n, agent, worker),
-                    ].where((item) => item.trim().isNotEmpty).join(' · '),
-                  ),
-                  trailing: Text('${(worker.busyScore * 100).round()}%'),
                 ),
               ),
+            ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _AgentPill(
+                      icon: Icons.compress_rounded,
+                      label: l10n.agentsMinWorkersCount(settings.minWorkers),
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    _AgentPill(
+                      icon: Icons.unfold_more_rounded,
+                      label: l10n.agentsMaxWorkersCount(settings.maxWorkers),
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    _AgentPill(
+                      icon: Icons.route_rounded,
+                      label: settings.schedulerPolicy,
+                      color: Theme.of(context).colorScheme.tertiary,
+                    ),
+                    _AgentPill(
+                      icon: Icons.repeat_rounded,
+                      label: '${settings.retryPolicy} · ${settings.maxRetries}',
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    _AgentPill(
+                      icon: Icons.compare_arrows_rounded,
+                      label:
+                          '${(settings.scaleOutThreshold * 100).round()}% / ${(settings.scaleInThreshold * 100).round()}%',
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    _AgentPill(
+                      icon: Icons.low_priority_rounded,
+                      label: settings.workerRemovalPolicy,
+                      color: Theme.of(context).colorScheme.tertiary,
+                    ),
+                    if (settings.tags.isNotEmpty)
+                      _AgentPill(
+                        icon: Icons.label_outline_rounded,
+                        label: settings.tags.join(', '),
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                if (currentAgent.workers.isEmpty)
+                  FeatureStateCard.inline(
+                    icon: Icons.memory_rounded,
+                    title: l10n.agentsNoWorkersTitle,
+                    body: l10n.agentsNoWorkersBody,
+                  )
+                else
+                  ...currentAgent.workers.map(
+                    (worker) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        worker.status == AgentWorkerStatus.busy
+                            ? Icons.sync_rounded
+                            : Icons.check_circle_outline_rounded,
+                      ),
+                      title: Text(
+                        worker.name.isEmpty ? worker.id : worker.name,
+                      ),
+                      subtitle: Text(
+                        [
+                          l10n.agentsWorkerSubtitle(
+                            _agentWorkerStatusLabel(l10n, worker.status),
+                            worker.executedTaskCount,
+                            worker.priority,
+                          ),
+                          _agentWorkerCurrentTaskLabel(
+                            l10n,
+                            currentAgent,
+                            worker,
+                          ),
+                          if (worker.labels.isNotEmpty)
+                            worker.labels.join(', '),
+                        ].where((item) => item.trim().isNotEmpty).join(' · '),
+                      ),
+                      trailing: Text('${(worker.busyScore * 100).round()}%'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+Future<AgentScaleSettings?> _showAgentClusterSettingsDialog(
+  BuildContext context,
+  AgentScaleSettings initial,
+) {
+  return showAnimatedDialog<AgentScaleSettings>(
+    context: context,
+    builder: (_) => _AgentClusterSettingsDialog(initial: initial),
+  );
+}
+
+class _AgentClusterSettingsDialog extends StatefulWidget {
+  const _AgentClusterSettingsDialog({required this.initial});
+
+  final AgentScaleSettings initial;
+
+  @override
+  State<_AgentClusterSettingsDialog> createState() =>
+      _AgentClusterSettingsDialogState();
+}
+
+class _AgentClusterSettingsDialogState
+    extends State<_AgentClusterSettingsDialog> {
+  late final TextEditingController _tags;
+  late int _minWorkers;
+  late int _maxWorkers;
+  late int _maxRetries;
+  late double _scaleOutThreshold;
+  late double _scaleInThreshold;
+  late String _schedulerPolicy;
+  late String _workerRemovalPolicy;
+  late String _retryPolicy;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _minWorkers = initial.minWorkers;
+    _maxWorkers = initial.maxWorkers;
+    _maxRetries = initial.maxRetries;
+    _scaleOutThreshold = initial.scaleOutThreshold.clamp(0, 1).toDouble();
+    _scaleInThreshold = initial.scaleInThreshold.clamp(0, 1).toDouble();
+    _schedulerPolicy =
+        _agentSchedulerPolicyOptions.contains(initial.schedulerPolicy)
+        ? initial.schedulerPolicy
+        : _agentSchedulerPolicyOptions.first;
+    _workerRemovalPolicy =
+        _agentWorkerRemovalPolicyOptions.contains(initial.workerRemovalPolicy)
+        ? initial.workerRemovalPolicy
+        : _agentWorkerRemovalPolicyOptions.first;
+    _retryPolicy = _agentRetryPolicyOptions.contains(initial.retryPolicy)
+        ? initial.retryPolicy
+        : _agentRetryPolicyOptions.first;
+    _tags = TextEditingController(text: initial.tags.join(', '));
+  }
+
+  @override
+  void dispose() {
+    _tags.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return buildOpenHandDialog(
+      maxWidth: 820,
+      child: _AgentDialogScaffold(
+        icon: Icons.account_tree_rounded,
+        title: openHandLocalizedText(context, zh: '调整集群', en: 'Tune cluster'),
+        footer: buildOpenHandDialogActionsBar(
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(context).pop(),
+              label: l10n.commonCancel,
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: () => Navigator.of(context).pop(_buildSettings()),
+              label: l10n.commonSave,
+            ),
+          ],
+        ),
+        child: _FormGrid(
+          children: [
+            _clusterNumberStepper(
+              l10n.agentsMinWorkersLabel,
+              _minWorkers,
+              (value) =>
+                  setState(() => _minWorkers = value.clamp(0, _maxWorkers)),
+            ),
+            _clusterNumberStepper(
+              l10n.agentsMaxWorkersLabel,
+              _maxWorkers,
+              (value) => setState(() {
+                _maxWorkers = value.clamp(1, 999);
+                if (_minWorkers > _maxWorkers) _minWorkers = _maxWorkers;
+              }),
+            ),
+            _clusterNumberStepper(
+              l10n.agentsMaxRetriesLabel,
+              _maxRetries,
+              (value) => setState(() => _maxRetries = value.clamp(0, 20)),
+            ),
+            _clusterRatioSlider(
+              openHandLocalizedText(
+                context,
+                zh: '扩容阈值',
+                en: 'Scale-out threshold',
+              ),
+              _scaleOutThreshold,
+              (value) => setState(() => _scaleOutThreshold = value),
+            ),
+            _clusterRatioSlider(
+              openHandLocalizedText(
+                context,
+                zh: '缩容阈值',
+                en: 'Scale-in threshold',
+              ),
+              _scaleInThreshold,
+              (value) => setState(() => _scaleInThreshold = value),
+            ),
+            _clusterPolicyDropdown(
+              label: l10n.agentsSchedulerPolicyLabel,
+              value: _schedulerPolicy,
+              values: _agentSchedulerPolicyOptions,
+              onChanged: (value) => setState(() => _schedulerPolicy = value),
+            ),
+            _clusterPolicyDropdown(
+              label: openHandLocalizedText(
+                context,
+                zh: 'Worker 移出策略',
+                en: 'Worker removal policy',
+              ),
+              value: _workerRemovalPolicy,
+              values: _agentWorkerRemovalPolicyOptions,
+              onChanged: (value) =>
+                  setState(() => _workerRemovalPolicy = value),
+            ),
+            _clusterPolicyDropdown(
+              label: openHandLocalizedText(
+                context,
+                zh: '重试策略',
+                en: 'Retry policy',
+              ),
+              value: _retryPolicy,
+              values: _agentRetryPolicyOptions,
+              onChanged: (value) => setState(() => _retryPolicy = value),
+            ),
+            _FormGridItem(
+              fullWidth: true,
+              child: TextField(
+                controller: _tags,
+                decoration: InputDecoration(
+                  labelText: openHandLocalizedText(
+                    context,
+                    zh: 'Worker 标签',
+                    en: 'Worker tags',
+                  ),
+                  hintText: l10n.agentsCommaSeparatedHint,
+                ),
+              ),
+            ),
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
+
+  Widget _clusterNumberStepper(
+    String label,
+    int value,
+    ValueChanged<int> onChanged,
+  ) {
+    return _FormGridItem(
+      child: InputDecorator(
+        decoration: InputDecoration(labelText: label),
+        child: Row(
+          children: [
+            IconButton(
+              onPressed: () => onChanged(value - 1),
+              icon: const Icon(Icons.remove_rounded),
+            ),
+            Expanded(child: Text('$value', textAlign: TextAlign.center)),
+            IconButton(
+              onPressed: () => onChanged(value + 1),
+              icon: const Icon(Icons.add_rounded),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _clusterRatioSlider(
+    String label,
+    double value,
+    ValueChanged<double> onChanged,
+  ) {
+    final normalized = value.clamp(0, 1).toDouble();
+    return _FormGridItem(
+      child: InputDecorator(
+        decoration: InputDecoration(labelText: label),
+        child: Row(
+          children: [
+            Expanded(
+              child: Slider(
+                value: normalized,
+                divisions: 20,
+                label: '${(normalized * 100).round()}%',
+                onChanged: onChanged,
+              ),
+            ),
+            SizedBox(
+              width: 44,
+              child: Text(
+                '${(normalized * 100).round()}%',
+                textAlign: TextAlign.end,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _clusterPolicyDropdown({
+    required String label,
+    required String value,
+    required List<String> values,
+    required ValueChanged<String> onChanged,
+  }) {
+    final effectiveValue = values.contains(value) ? value : values.first;
+    return _FormGridItem(
+      child: DropdownButtonFormField<String>(
+        initialValue: effectiveValue,
+        decoration: InputDecoration(labelText: label),
+        items: values
+            .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+            .toList(),
+        onChanged: (next) {
+          if (next != null) onChanged(next);
+        },
+      ),
+    );
+  }
+
+  AgentScaleSettings _buildSettings() {
+    return AgentScaleSettings(
+      minWorkers: _minWorkers,
+      maxWorkers: _maxWorkers,
+      scaleOutThreshold: _scaleOutThreshold,
+      scaleInThreshold: _scaleInThreshold,
+      workerRemovalPolicy: _workerRemovalPolicy,
+      retryPolicy: _retryPolicy,
+      maxRetries: _maxRetries,
+      schedulerPolicy: _schedulerPolicy,
+      tags: _commaSeparatedTextValues(_tags.text),
+    );
+  }
 }
 
 Future<void> _showAgentTasksDialog(BuildContext context, AgentProfile agent) {
@@ -1826,6 +2142,14 @@ int _nonNegativeIntFromText(String value) {
   final parsed = int.tryParse(value.trim());
   if (parsed == null || parsed < 0) return 0;
   return parsed;
+}
+
+List<String> _commaSeparatedTextValues(String value) {
+  return value
+      .split(',')
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
 }
 
 class _MetricTile extends StatelessWidget {

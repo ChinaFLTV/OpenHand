@@ -329,6 +329,43 @@ void main() {
       expect(agent.auditEvents.first.toolName, 'AgentResourcesTest');
       expect(agent.auditEvents.first.metadata['token_used'], 250);
     });
+
+    test('saving scale settings resizes workers and records audit', () async {
+      await controller.saveAgent(_runningAgent());
+
+      final saved = await controller.saveScaleSettings(
+        'agent-1',
+        const AgentScaleSettings(
+          minWorkers: 2,
+          maxWorkers: 3,
+          scaleOutThreshold: 0.6,
+          scaleInThreshold: 0.2,
+          workerRemovalPolicy: 'newest_first',
+          maxRetries: 4,
+          schedulerPolicy: 'round_robin',
+          tags: <String>['ops', 'ops', 'urgent'],
+        ),
+        auditToolName: 'AgentClusterTest',
+      );
+
+      expect(saved, isTrue);
+      final agent = controller.agentById('agent-1')!;
+      expect(agent.scaleSettings.minWorkers, 2);
+      expect(agent.scaleSettings.maxWorkers, 3);
+      expect(agent.scaleSettings.tags, <String>['ops', 'urgent']);
+      expect(agent.workers.length, 2);
+      expect(
+        agent.workers.every((worker) => worker.labels.length == 2),
+        isTrue,
+      );
+      expect(agent.activities.first.kind, 'cluster_updated');
+      expect(agent.auditEvents.first.kind, 'cluster_updated');
+      expect(agent.auditEvents.first.toolName, 'AgentClusterTest');
+      expect(
+        agent.auditEvents.first.metadata['scheduler_policy'],
+        'round_robin',
+      );
+    });
   });
 }
 

@@ -744,6 +744,85 @@ class AgentsController extends ManagedChangeNotifier {
     });
   }
 
+  Future<bool> saveScaleSettings(
+    String agentId,
+    AgentScaleSettings settings, {
+    String auditToolName = 'AgentClusterDialog',
+  }) {
+    final normalizedAgentId = agentId.trim();
+    if (normalizedAgentId.isEmpty) return Future<bool>.value(false);
+    return _commitMutation(() async {
+      final index = _agents.indexWhere(
+        (agent) => agent.id == normalizedAgentId,
+      );
+      if (index < 0) return false;
+      final agent = _agents[index];
+      final now = DateTime.now().toUtc();
+      final maxWorkers = settings.maxWorkers.clamp(1, 999);
+      final normalized = settings.copyWith(
+        minWorkers: settings.minWorkers.clamp(0, maxWorkers),
+        maxWorkers: maxWorkers,
+        scaleOutThreshold: settings.scaleOutThreshold.clamp(0, 1).toDouble(),
+        scaleInThreshold: settings.scaleInThreshold.clamp(0, 1).toDouble(),
+        maxRetries: settings.maxRetries.clamp(0, 20),
+        tags: _dedupe(settings.tags),
+      );
+      final metadata = <String, Object?>{
+        'min_workers': normalized.minWorkers,
+        'max_workers': normalized.maxWorkers,
+        'scale_out_threshold': normalized.scaleOutThreshold,
+        'scale_in_threshold': normalized.scaleInThreshold,
+        'worker_removal_policy': normalized.workerRemovalPolicy,
+        'retry_policy': normalized.retryPolicy,
+        'max_retries': normalized.maxRetries,
+        'scheduler_policy': normalized.schedulerPolicy,
+        'tags': normalized.tags,
+      };
+      final updated = _normalizeAgent(
+        agent.copyWith(
+          scaleSettings: normalized,
+          workers: agent.workers
+              .map(
+                (worker) =>
+                    worker.copyWith(labels: normalized.tags, updatedAt: now),
+              )
+              .toList(growable: false),
+          activities: _prependActivity(
+            agent.activities,
+            AgentActivityEvent(
+              id: _uuid.v4(),
+              kind: 'cluster_updated',
+              title: 'cluster_updated',
+              content: agent.name,
+              createdAt: now,
+              metadata: metadata,
+            ),
+          ),
+          auditEvents: _prependAudit(
+            agent.auditEvents,
+            AgentAuditEvent(
+              id: _uuid.v4(),
+              kind: 'cluster_updated',
+              summary: 'cluster_updated: ${agent.name}',
+              toolName: auditToolName,
+              requestCount: 1,
+              createdAt: now,
+              metadata: metadata,
+            ),
+          ),
+          updatedAt: now,
+        ),
+      );
+      _setAgents(<AgentProfile>[
+        ..._agents.sublist(0, index),
+        updated,
+        ..._agents.sublist(index + 1),
+      ]);
+      await _store.save(_agents);
+      return true;
+    });
+  }
+
   Future<bool> updateAgent(
     String id,
     AgentProfile Function(AgentProfile agent) mutate,
