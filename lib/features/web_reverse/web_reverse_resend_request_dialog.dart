@@ -22,6 +22,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/localized_text.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
@@ -32,27 +33,18 @@ Future<void> showWebReverseResendRequestDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
   required CdpNetworkEntry entry,
-  required bool isZh,
 }) {
   return showWebReverseToolDialog<void>(
     context: context,
-    builder: (_) => _ResendRequestDialog(
-      controller: controller,
-      initial: entry,
-      isZh: isZh,
-    ),
+    builder: (_) =>
+        _ResendRequestDialog(controller: controller, initial: entry),
   );
 }
 
 class _ResendRequestDialog extends StatefulWidget {
-  const _ResendRequestDialog({
-    required this.controller,
-    required this.initial,
-    required this.isZh,
-  });
+  const _ResendRequestDialog({required this.controller, required this.initial});
   final WebReverseSessionController controller;
   final CdpNetworkEntry initial;
-  final bool isZh;
 
   @override
   State<_ResendRequestDialog> createState() => _ResendRequestDialogState();
@@ -209,9 +201,15 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     if (!widget.controller.isBrowserAlive) {
       if (!mounted || generation != _sendGeneration) return;
       setState(() {
-        _lastError = widget.isZh
-            ? 'CDP 浏览器运行时不可用'
-            : 'CDP browser runtime is unavailable';
+        _lastError = openHandLocalizedText(
+          context,
+          zh: 'CDP 浏览器运行时不可用',
+          zhHant: 'CDP 瀏覽器執行階段不可用',
+          en: 'CDP browser runtime is unavailable',
+          fr: 'Le runtime navigateur CDP est indisponible',
+          de: 'CDP-Browserlaufzeit ist nicht verfügbar',
+          ja: 'CDP ブラウザランタイムを利用できません',
+        );
         _sending = false;
       });
       return;
@@ -611,7 +609,8 @@ print(resp.text[:2000])''';
     OpenHandSnackBar.showSuccess(
       context,
       webReverseClipboardSnackMessage(
-        isZh: widget.isZh,
+        context: context,
+        isZh: openHandIsChineseLocale(context),
         base: loc?.webReverseResendRequestCopiedAs(kind) ?? 'Copied as $kind',
         result: copied,
       ),
@@ -667,9 +666,15 @@ print(resp.text[:2000])''';
               children: [
                 Text(
                   _transport == _ReplayTransport.browser
-                      ? (widget.isZh
-                            ? '通过 CDP 在页面上下文重放请求'
-                            : 'Replays through CDP in the page context')
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '通过 CDP 在页面上下文重放请求',
+                          zhHant: '透過 CDP 在頁面上下文重放請求',
+                          en: 'Replays through CDP in the page context',
+                          fr: 'Rejoue via CDP dans le contexte de la page',
+                          de: 'Wiederholt per CDP im Seitenkontext',
+                          ja: 'CDP でページコンテキスト内にリプレイ',
+                        )
                       : (loc?.webReverseResendRequestFooterNote ??
                             'Direct mode uses Dart HttpClient and bypasses the browser.'),
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -712,7 +717,15 @@ print(resp.text[:2000])''';
         Icon(Icons.route_rounded, size: 16, color: cs.primary),
         const SizedBox(width: 8),
         Text(
-          widget.isZh ? '发送方式' : 'Transport',
+          openHandLocalizedText(
+            context,
+            zh: '发送方式',
+            zhHant: '傳送方式',
+            en: 'Transport',
+            fr: 'Transport',
+            de: 'Transport',
+            ja: '送信方式',
+          ),
           style: theme.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -731,7 +744,7 @@ print(resp.text[:2000])''';
             ButtonSegment<_ReplayTransport>(
               value: _ReplayTransport.direct,
               icon: const Icon(Icons.cable_rounded, size: 16),
-              label: Text(widget.isZh ? '直连' : 'Direct'),
+              label: Text(_ReplayTransport.direct.label(context)),
             ),
           ],
           onSelectionChanged: (values) {
@@ -744,12 +757,24 @@ print(resp.text[:2000])''';
         Expanded(
           child: Text(
             _transport == _ReplayTransport.browser
-                ? (widget.isZh
-                      ? '使用页面 Cookie 和浏览器网络栈'
-                      : 'Page cookies and browser network stack')
-                : (widget.isZh
-                      ? '绕过浏览器，适合隔离验证'
-                      : 'Bypasses browser for isolated checks'),
+                ? openHandLocalizedText(
+                    context,
+                    zh: '使用页面 Cookie 和浏览器网络栈',
+                    zhHant: '使用頁面 Cookie 與瀏覽器網路棧',
+                    en: 'Page cookies and browser network stack',
+                    fr: 'Cookies de page et pile réseau du navigateur',
+                    de: 'Seiten-Cookies und Browser-Netzwerkstack',
+                    ja: 'ページ Cookie とブラウザのネットワークスタック',
+                  )
+                : openHandLocalizedText(
+                    context,
+                    zh: '绕过浏览器，适合隔离验证',
+                    zhHant: '繞過瀏覽器，適合隔離驗證',
+                    en: 'Bypasses browser for isolated checks',
+                    fr: 'Contourne le navigateur pour des vérifications isolées',
+                    de: 'Umgeht den Browser für isolierte Prüfungen',
+                    ja: 'ブラウザを迂回して単独検証に使用',
+                  ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -1093,7 +1118,7 @@ print(resp.text[:2000])''';
               ),
               const SizedBox(width: 8),
               Text(
-                '${r.transport.label(widget.isZh)} · ${r.byteSize} B · ${r.elapsed.inMilliseconds} ms',
+                '${r.transport.label(context)} · ${r.byteSize} B · ${r.elapsed.inMilliseconds} ms',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: cs.onSurfaceVariant,
                 ),
@@ -1107,7 +1132,6 @@ print(resp.text[:2000])''';
                   final dialogContext = context;
                   final messenger = ScaffoldMessenger.of(dialogContext);
                   final loc2 = AppLocalizations.of(dialogContext);
-                  final isZh = loc2?.localeName.startsWith('zh') ?? false;
                   final base =
                       loc2?.webReverseResendRequestResponseCopied ??
                       'Response copied';
@@ -1117,7 +1141,8 @@ print(resp.text[:2000])''';
                     dialogContext,
                     messenger,
                     webReverseClipboardSnackMessage(
-                      isZh: isZh,
+                      context: dialogContext,
+                      isZh: openHandIsChineseLocale(dialogContext),
                       base: base,
                       result: copied,
                     ),
@@ -1159,7 +1184,15 @@ print(resp.text[:2000])''';
                 ? (loc?.webReverseResendRequestBase64Hint ??
                       'Non-UTF8 response (base64 preview):')
                 : r.truncated
-                ? (widget.isZh ? 'Body (已截断):' : 'Body (truncated):')
+                ? openHandLocalizedText(
+                    context,
+                    zh: 'Body（已截断）：',
+                    zhHant: 'Body（已截斷）：',
+                    en: 'Body (truncated):',
+                    fr: 'Body (tronqué) :',
+                    de: 'Body (gekürzt):',
+                    ja: 'Body（切り詰め済み）:',
+                  )
                 : (loc?.webReverseResendRequestBodyHint ?? 'Body:'),
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
@@ -1177,7 +1210,7 @@ print(resp.text[:2000])''';
             child: SingleChildScrollView(
               child: SelectableText(
                 r.body.length > 8000
-                    ? '${r.body.substring(0, 8000)}\n…(truncated)'
+                    ? '${r.body.substring(0, 8000)}\n${openHandLocalizedText(context, zh: '…（已截断）', zhHant: '…（已截斷）', en: '…(truncated)', fr: '…(tronqué)', de: '…(gekürzt)', ja: '…（切り詰め済み）')}'
                     : r.body,
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
               ),
@@ -1193,10 +1226,18 @@ enum _ReplayTransport {
   browser,
   direct;
 
-  String label(bool isZh) {
+  String label(BuildContext context) {
     return switch (this) {
-      _ReplayTransport.browser => isZh ? 'CDP' : 'CDP',
-      _ReplayTransport.direct => isZh ? '直连' : 'Direct',
+      _ReplayTransport.browser => 'CDP',
+      _ReplayTransport.direct => openHandLocalizedText(
+        context,
+        zh: '直连',
+        zhHant: '直連',
+        en: 'Direct',
+        fr: 'Direct',
+        de: 'Direkt',
+        ja: '直接',
+      ),
     };
   }
 }

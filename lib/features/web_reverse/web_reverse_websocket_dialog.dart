@@ -15,6 +15,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/localized_text.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
@@ -25,21 +26,41 @@ const int _kJsonFuzzMinSafeInteger = -_kJsonFuzzMaxSafeInteger;
 const String _kJsonFuzzUnsafeIntegerText = '9007199254740993';
 final String _jsonFuzzLongString = 'A' * 1024;
 
+String _wsText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
 Future<void> showWebReverseWebSocketDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
-  required bool isZh,
 }) {
   return showWebReverseToolDialog<void>(
     context: context,
-    builder: (_) => _WsDialog(controller: controller, isZh: isZh),
+    builder: (_) => _WsDialog(controller: controller),
   );
 }
 
 class _WsDialog extends StatefulWidget {
-  const _WsDialog({required this.controller, required this.isZh});
+  const _WsDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
   @override
   State<_WsDialog> createState() => _WsDialogState();
 }
@@ -86,8 +107,17 @@ class _WsDialogState extends State<_WsDialog> {
           context,
           m,
           webReverseClipboardSnackMessage(
-            isZh: widget.isZh,
-            base: widget.isZh ? '帧 JSON 已复制' : 'Frames JSON copied',
+            context: context,
+            isZh: openHandIsChineseLocale(context),
+            base: _wsText(
+              context,
+              zh: '帧 JSON 已复制',
+              zhHant: '影格 JSON 已複製',
+              en: 'Frames JSON copied',
+              fr: 'JSON des trames copié',
+              de: 'Frame-JSON kopiert',
+              ja: 'フレーム JSON をコピーしました',
+            ),
             result: copied,
           ),
         );
@@ -100,18 +130,35 @@ class _WsDialogState extends State<_WsDialog> {
   Future<void> _replaySent() async {
     final e = _selected;
     if (e == null) return;
-    final isZh = widget.isZh;
     final sentFrames = e.wsFrames
         .where((f) => f.direction == CdpWebSocketDirection.sent)
         .map((f) => f.payload)
         .toList();
     if (sentFrames.isEmpty) {
-      setState(() => _status = isZh ? '该连接没有发送帧可重放' : 'No sent frames');
+      setState(
+        () => _status = _wsText(
+          context,
+          zh: '该连接没有发送帧可重放',
+          zhHant: '此連線沒有可重放的送出影格',
+          en: 'No sent frames',
+          fr: 'Aucune trame envoyée',
+          de: 'Keine gesendeten Frames',
+          ja: '再生できる送信フレームがありません',
+        ),
+      );
       return;
     }
     setState(() {
       _busy = true;
-      _status = isZh ? '在页面打开新 WS 并按序重放...' : 'Opening WS and replaying...';
+      _status = _wsText(
+        context,
+        zh: '在页面打开新 WS 并按序重放...',
+        zhHant: '正在頁面開啟新 WS 並依序重放...',
+        en: 'Opening WS and replaying...',
+        fr: 'Ouverture du WS et relecture...',
+        de: 'WS wird geöffnet und wiederholt...',
+        ja: 'WS を開いて順にリプレイしています...',
+      );
     });
     final js =
         '''
@@ -178,7 +225,15 @@ class _WsDialogState extends State<_WsDialog> {
         if (!mounted) return;
         setState(() {
           _busy = false;
-          _status = isZh ? '重放返回值异常' : 'Bad eval result';
+          _status = _wsText(
+            context,
+            zh: '重放返回值异常',
+            zhHant: '重放回傳值異常',
+            en: 'Bad eval result',
+            fr: 'Résultat eval invalide',
+            de: 'Ungültiges Eval-Ergebnis',
+            ja: 'eval の戻り値が不正です',
+          );
         });
         return;
       }
@@ -189,12 +244,24 @@ class _WsDialogState extends State<_WsDialog> {
       setState(() {
         _busy = false;
         _status = ok
-            ? (isZh
-                  ? '完成：已发送 $sent 条，收到 ${received.length} 条'
-                  : 'Done: sent $sent, received ${received.length}')
-            : (isZh
-                  ? '失败：sent=$sent err=${res['error']}'
-                  : 'Failed: sent=$sent err=${res['error']}');
+            ? _wsText(
+                context,
+                zh: '完成：已发送 $sent 条，收到 ${received.length} 条',
+                zhHant: '完成：已送出 $sent 條，收到 ${received.length} 條',
+                en: 'Done: sent $sent, received ${received.length}',
+                fr: 'Terminé : $sent envoyées, ${received.length} reçues',
+                de: 'Fertig: $sent gesendet, ${received.length} empfangen',
+                ja: '完了: $sent 件送信、${received.length} 件受信',
+              )
+            : _wsText(
+                context,
+                zh: '失败：sent=$sent err=${res['error']}',
+                zhHant: '失敗：sent=$sent err=${res['error']}',
+                en: 'Failed: sent=$sent err=${res['error']}',
+                fr: 'Échec : sent=$sent err=${res['error']}',
+                de: 'Fehlgeschlagen: sent=$sent err=${res['error']}',
+                ja: '失敗: sent=$sent err=${res['error']}',
+              );
       });
     } catch (err, st) {
       silentLog('web_reverse_websocket_dialog', 'replay', err, st);
@@ -299,10 +366,17 @@ class _WsDialogState extends State<_WsDialog> {
     if (e == null) return;
     final edited = await _showEditFrameDialog(basePayload);
     if (edited == null) return;
-    final isZh = widget.isZh;
     setState(() {
       _busy = true;
-      _status = isZh ? '发送单帧...' : 'Sending edited frame...';
+      _status = _wsText(
+        context,
+        zh: '发送单帧...',
+        zhHant: '正在傳送單一影格...',
+        en: 'Sending edited frame...',
+        fr: 'Envoi de la trame modifiée...',
+        de: 'Bearbeiteter Frame wird gesendet...',
+        ja: '編集したフレームを送信しています...',
+      );
     });
     try {
       final res = await _evalSendFrames(e.url, [edited], timeoutMs: 5000);
@@ -310,7 +384,15 @@ class _WsDialogState extends State<_WsDialog> {
       if (res == null) {
         setState(() {
           _busy = false;
-          _status = isZh ? '发送失败：返回值异常' : 'Bad eval result';
+          _status = _wsText(
+            context,
+            zh: '发送失败：返回值异常',
+            zhHant: '傳送失敗：回傳值異常',
+            en: 'Bad eval result',
+            fr: 'Résultat eval invalide',
+            de: 'Ungültiges Eval-Ergebnis',
+            ja: 'eval の戻り値が不正です',
+          );
         });
         return;
       }
@@ -319,8 +401,24 @@ class _WsDialogState extends State<_WsDialog> {
       setState(() {
         _busy = false;
         _status = ok
-            ? (isZh ? '已发送 1 条，收到 $recv 条' : 'Sent 1, received $recv')
-            : (isZh ? '失败：${res['error']}' : 'Failed: ${res['error']}');
+            ? _wsText(
+                context,
+                zh: '已发送 1 条，收到 $recv 条',
+                zhHant: '已送出 1 條，收到 $recv 條',
+                en: 'Sent 1, received $recv',
+                fr: '1 envoyée, $recv reçues',
+                de: '1 gesendet, $recv empfangen',
+                ja: '1 件送信、$recv 件受信',
+              )
+            : _wsText(
+                context,
+                zh: '失败：${res['error']}',
+                zhHant: '失敗：${res['error']}',
+                en: 'Failed: ${res['error']}',
+                fr: 'Échec : ${res['error']}',
+                de: 'Fehlgeschlagen: ${res['error']}',
+                ja: '失敗: ${res['error']}',
+              );
       });
     } catch (err, st) {
       silentLog('web_reverse_websocket_dialog', 'editAndSend', err, st);
@@ -337,7 +435,6 @@ class _WsDialogState extends State<_WsDialog> {
     if (e == null) return;
     final cfg = await _showFuzzConfigDialog(basePayload);
     if (cfg == null) return;
-    final isZh = widget.isZh;
     final mutated = <String>[];
     final rng = Random();
     for (var i = 0; i < cfg.count; i++) {
@@ -345,9 +442,15 @@ class _WsDialogState extends State<_WsDialog> {
     }
     setState(() {
       _busy = true;
-      _status = isZh
-          ? 'Fuzz 中：发送 ${cfg.count} 条变异帧...'
-          : 'Fuzzing ${cfg.count}...';
+      _status = _wsText(
+        context,
+        zh: 'Fuzz 中：发送 ${cfg.count} 条变异帧...',
+        zhHant: 'Fuzz 中：傳送 ${cfg.count} 條變異影格...',
+        en: 'Fuzzing ${cfg.count}...',
+        fr: 'Fuzzing de ${cfg.count} trames...',
+        de: 'Fuzzing von ${cfg.count} Frames...',
+        ja: '${cfg.count} 件の変異フレームを fuzz しています...',
+      );
     });
     try {
       final res = await _evalSendFrames(
@@ -360,7 +463,15 @@ class _WsDialogState extends State<_WsDialog> {
       if (res == null) {
         setState(() {
           _busy = false;
-          _status = isZh ? 'Fuzz 失败：返回值异常' : 'Fuzz bad eval';
+          _status = _wsText(
+            context,
+            zh: 'Fuzz 失败：返回值异常',
+            zhHant: 'Fuzz 失敗：回傳值異常',
+            en: 'Fuzz bad eval',
+            fr: 'Eval fuzz invalide',
+            de: 'Ungültiges Fuzz-Eval',
+            ja: 'Fuzz の eval 結果が不正です',
+          );
         });
         return;
       }
@@ -370,12 +481,24 @@ class _WsDialogState extends State<_WsDialog> {
       setState(() {
         _busy = false;
         _status = ok
-            ? (isZh
-                  ? 'Fuzz 完成：发送 $sent 条，收到 $recv 条'
-                  : 'Fuzz done: sent $sent, recv $recv')
-            : (isZh
-                  ? 'Fuzz 失败：sent=$sent err=${res['error']}'
-                  : 'Fuzz failed: $sent err=${res['error']}');
+            ? _wsText(
+                context,
+                zh: 'Fuzz 完成：发送 $sent 条，收到 $recv 条',
+                zhHant: 'Fuzz 完成：送出 $sent 條，收到 $recv 條',
+                en: 'Fuzz done: sent $sent, recv $recv',
+                fr: 'Fuzz terminé : $sent envoyées, $recv reçues',
+                de: 'Fuzz fertig: $sent gesendet, $recv empfangen',
+                ja: 'Fuzz 完了: $sent 件送信、$recv 件受信',
+              )
+            : _wsText(
+                context,
+                zh: 'Fuzz 失败：sent=$sent err=${res['error']}',
+                zhHant: 'Fuzz 失敗：sent=$sent err=${res['error']}',
+                en: 'Fuzz failed: $sent err=${res['error']}',
+                fr: 'Fuzz échoué : sent=$sent err=${res['error']}',
+                de: 'Fuzz fehlgeschlagen: sent=$sent err=${res['error']}',
+                ja: 'Fuzz 失敗: sent=$sent err=${res['error']}',
+              );
       });
     } catch (err, st) {
       silentLog('web_reverse_websocket_dialog', 'fuzz', err, st);
@@ -486,7 +609,6 @@ class _WsDialogState extends State<_WsDialog> {
 
   Future<String?> _showEditFrameDialog(String initial) async {
     final ctrl = TextEditingController(text: initial);
-    final isZh = widget.isZh;
     return showWebReverseToolDialog<String>(
       context: context,
       builder: (ctx) {
@@ -500,7 +622,15 @@ class _WsDialogState extends State<_WsDialog> {
               buildOpenHandToolDialogHeader(
                 context: ctx,
                 icon: Icons.edit_note_rounded,
-                title: isZh ? '编辑单帧再发送' : 'Edit frame & send',
+                title: _wsText(
+                  ctx,
+                  zh: '编辑单帧再发送',
+                  zhHant: '編輯單一影格後傳送',
+                  en: 'Edit frame & send',
+                  fr: 'Modifier puis envoyer',
+                  de: 'Frame bearbeiten und senden',
+                  ja: 'フレームを編集して送信',
+                ),
               ),
               Divider(height: 1, color: cs.outlineVariant),
               Expanded(
@@ -516,9 +646,15 @@ class _WsDialogState extends State<_WsDialog> {
                       fontSize: 12,
                     ),
                     decoration: InputDecoration(
-                      hintText: isZh
-                          ? '在这里修改 payload，然后点发送'
-                          : 'Edit payload, then send',
+                      hintText: _wsText(
+                        ctx,
+                        zh: '在这里修改 payload，然后点发送',
+                        zhHant: '在這裡修改 payload，然後點傳送',
+                        en: 'Edit payload, then send',
+                        fr: 'Modifiez le payload, puis envoyez',
+                        de: 'Payload bearbeiten, dann senden',
+                        ja: 'payload を編集してから送信',
+                      ),
                       filled: true,
                       fillColor: cs.surface,
                       border: const OutlineInputBorder(),
@@ -533,7 +669,15 @@ class _WsDialogState extends State<_WsDialog> {
                   children: [
                     Expanded(
                       child: OpenHandDialogActionButton.secondary(
-                        label: isZh ? '取消' : 'Cancel',
+                        label: _wsText(
+                          ctx,
+                          zh: '取消',
+                          zhHant: '取消',
+                          en: 'Cancel',
+                          fr: 'Annuler',
+                          de: 'Abbrechen',
+                          ja: 'キャンセル',
+                        ),
                         onPressed: () => Navigator.of(ctx).pop(),
                       ),
                     ),
@@ -541,7 +685,15 @@ class _WsDialogState extends State<_WsDialog> {
                     Expanded(
                       child: OpenHandDialogActionButton.primary(
                         icon: Icons.send_rounded,
-                        label: isZh ? '发送' : 'Send',
+                        label: _wsText(
+                          ctx,
+                          zh: '发送',
+                          zhHant: '傳送',
+                          en: 'Send',
+                          fr: 'Envoyer',
+                          de: 'Senden',
+                          ja: '送信',
+                        ),
                         onPressed: () => Navigator.of(ctx).pop(ctrl.text),
                       ),
                     ),
@@ -559,7 +711,6 @@ class _WsDialogState extends State<_WsDialog> {
     final countCtrl = TextEditingController(text: '20');
     final delayCtrl = TextEditingController(text: '50');
     var intensity = 2;
-    final isZh = widget.isZh;
     return showOpenHandStatefulDialog<_FuzzConfig>(
       context: context,
       builder: (ctx, setLocal) {
@@ -574,7 +725,15 @@ class _WsDialogState extends State<_WsDialog> {
                 context: ctx,
                 icon: Icons.bug_report_rounded,
                 iconColor: cs.tertiary,
-                title: isZh ? 'Fuzz 帧（按 JSON 叶子或字节变异）' : 'Fuzz frame',
+                title: _wsText(
+                  ctx,
+                  zh: 'Fuzz 帧（按 JSON 叶子或字节变异）',
+                  zhHant: 'Fuzz 影格（依 JSON 葉節點或位元組變異）',
+                  en: 'Fuzz frame',
+                  fr: 'Fuzz de trame',
+                  de: 'Frame fuzzing',
+                  ja: 'フレームを fuzz',
+                ),
               ),
               Divider(height: 1, color: cs.outlineVariant),
               Padding(
@@ -583,9 +742,15 @@ class _WsDialogState extends State<_WsDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isZh
-                          ? '基准 payload 长度：${basePayload.length} 字符'
-                          : 'Base payload: ${basePayload.length} chars',
+                      _wsText(
+                        ctx,
+                        zh: '基准 payload 长度：${basePayload.length} 字符',
+                        zhHant: '基準 payload 長度：${basePayload.length} 字元',
+                        en: 'Base payload: ${basePayload.length} chars',
+                        fr: 'Payload de base : ${basePayload.length} caractères',
+                        de: 'Basis-Payload: ${basePayload.length} Zeichen',
+                        ja: '基準 payload: ${basePayload.length} 文字',
+                      ),
                       style: Theme.of(ctx).textTheme.labelSmall,
                     ),
                     const SizedBox(height: 8),
@@ -595,9 +760,15 @@ class _WsDialogState extends State<_WsDialog> {
                           child: TextField(
                             controller: countCtrl,
                             decoration: InputDecoration(
-                              labelText: isZh
-                                  ? '发送次数 (1-200)'
-                                  : 'Count (1-200)',
+                              labelText: _wsText(
+                                ctx,
+                                zh: '发送次数 (1-200)',
+                                zhHant: '傳送次數 (1-200)',
+                                en: 'Count (1-200)',
+                                fr: 'Nombre (1-200)',
+                                de: 'Anzahl (1-200)',
+                                ja: '回数 (1-200)',
+                              ),
                               border: const OutlineInputBorder(),
                               isDense: true,
                             ),
@@ -609,9 +780,15 @@ class _WsDialogState extends State<_WsDialog> {
                           child: TextField(
                             controller: delayCtrl,
                             decoration: InputDecoration(
-                              labelText: isZh
-                                  ? '间隔 ms (10-1000)'
-                                  : 'Delay ms (10-1000)',
+                              labelText: _wsText(
+                                ctx,
+                                zh: '间隔 ms (10-1000)',
+                                zhHant: '間隔 ms (10-1000)',
+                                en: 'Delay ms (10-1000)',
+                                fr: 'Délai ms (10-1000)',
+                                de: 'Pause ms (10-1000)',
+                                ja: '間隔 ms (10-1000)',
+                              ),
                               border: const OutlineInputBorder(),
                               isDense: true,
                             ),
@@ -622,7 +799,15 @@ class _WsDialogState extends State<_WsDialog> {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      isZh ? '变异强度' : 'Intensity',
+                      _wsText(
+                        ctx,
+                        zh: '变异强度',
+                        zhHant: '變異強度',
+                        en: 'Intensity',
+                        fr: 'Intensité',
+                        de: 'Intensität',
+                        ja: '強度',
+                      ),
                       style: Theme.of(ctx).textTheme.labelSmall,
                     ),
                     Slider(
@@ -643,7 +828,15 @@ class _WsDialogState extends State<_WsDialog> {
                   children: [
                     Expanded(
                       child: OpenHandDialogActionButton.secondary(
-                        label: isZh ? '取消' : 'Cancel',
+                        label: _wsText(
+                          ctx,
+                          zh: '取消',
+                          zhHant: '取消',
+                          en: 'Cancel',
+                          fr: 'Annuler',
+                          de: 'Abbrechen',
+                          ja: 'キャンセル',
+                        ),
                         onPressed: () => Navigator.of(ctx).pop(),
                       ),
                     ),
@@ -651,7 +844,15 @@ class _WsDialogState extends State<_WsDialog> {
                     Expanded(
                       child: OpenHandDialogActionButton.primary(
                         icon: Icons.play_arrow_rounded,
-                        label: isZh ? '开始 Fuzz' : 'Start Fuzz',
+                        label: _wsText(
+                          ctx,
+                          zh: '开始 Fuzz',
+                          zhHant: '開始 Fuzz',
+                          en: 'Start Fuzz',
+                          fr: 'Démarrer le fuzz',
+                          de: 'Fuzz starten',
+                          ja: 'Fuzz 開始',
+                        ),
                         onPressed: () {
                           Navigator.of(ctx).pop(
                             _FuzzConfig(
@@ -687,7 +888,6 @@ class _WsDialogState extends State<_WsDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     final conns = _connections;
     final cur = _selected;
     if (_selectedId == null && conns.isNotEmpty) {
@@ -702,15 +902,37 @@ class _WsDialogState extends State<_WsDialog> {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.swap_horiz_rounded,
-            title: isZh ? 'WebSocket 帧录制 / 重放' : 'WebSocket Frames',
-            subtitle: isZh
-                ? '查看帧 · 重放 sent 帧到新连接'
-                : 'inspect frames · replay sent frames in new ws',
+            title: _wsText(
+              context,
+              zh: 'WebSocket 帧录制 / 重放',
+              zhHant: 'WebSocket 影格錄製 / 重放',
+              en: 'WebSocket Frames',
+              fr: 'Trames WebSocket',
+              de: 'WebSocket-Frames',
+              ja: 'WebSocket フレーム',
+            ),
+            subtitle: _wsText(
+              context,
+              zh: '查看帧 · 重放 sent 帧到新连接',
+              zhHant: '查看影格 · 將 sent 影格重放到新連線',
+              en: 'inspect frames · replay sent frames in new ws',
+              fr: 'inspecter les trames · rejouer les trames envoyées',
+              de: 'Frames prüfen · gesendete Frames in neuer WS wiederholen',
+              ja: 'フレーム確認 · sent フレームを新しい WS にリプレイ',
+            ),
             actions: [
               IconButton(
                 onPressed: cur == null ? null : _copyFramesJson,
                 icon: const Icon(Icons.copy_rounded),
-                tooltip: isZh ? '复制帧 JSON' : 'Copy frames JSON',
+                tooltip: _wsText(
+                  context,
+                  zh: '复制帧 JSON',
+                  zhHant: '複製影格 JSON',
+                  en: 'Copy frames JSON',
+                  fr: 'Copier le JSON des trames',
+                  de: 'Frame-JSON kopieren',
+                  ja: 'フレーム JSON をコピー',
+                ),
               ),
             ],
           ),
@@ -719,9 +941,15 @@ class _WsDialogState extends State<_WsDialog> {
             child: conns.isEmpty
                 ? Center(
                     child: Text(
-                      isZh
-                          ? '当前会话没有 WebSocket / EventSource 连接'
-                          : 'No WebSocket / EventSource connections',
+                      _wsText(
+                        context,
+                        zh: '当前会话没有 WebSocket / EventSource 连接',
+                        zhHant: '目前會話沒有 WebSocket / EventSource 連線',
+                        en: 'No WebSocket / EventSource connections',
+                        fr: 'Aucune connexion WebSocket / EventSource',
+                        de: 'Keine WebSocket-/EventSource-Verbindungen',
+                        ja: 'WebSocket / EventSource 接続がありません',
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -772,7 +1000,15 @@ class _WsDialogState extends State<_WsDialog> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${c.wsFrames.length} ${isZh ? '帧' : 'frames'}',
+                                      _wsText(
+                                        context,
+                                        zh: '${c.wsFrames.length} 帧',
+                                        zhHant: '${c.wsFrames.length} 影格',
+                                        en: '${c.wsFrames.length} frames',
+                                        fr: '${c.wsFrames.length} trames',
+                                        de: '${c.wsFrames.length} Frames',
+                                        ja: '${c.wsFrames.length} フレーム',
+                                      ),
                                       style: theme.textTheme.labelSmall,
                                     ),
                                   ],
@@ -810,7 +1046,15 @@ class _WsDialogState extends State<_WsDialog> {
                                           onPressed: _busy ? null : _replaySent,
                                           icon: const Icon(Icons.send_rounded),
                                           label: Text(
-                                            isZh ? '重放 sent 帧' : 'Replay sent',
+                                            _wsText(
+                                              context,
+                                              zh: '重放 sent 帧',
+                                              zhHant: '重放 sent 影格',
+                                              en: 'Replay sent',
+                                              fr: 'Rejouer envoyées',
+                                              de: 'Gesendete wiederholen',
+                                              ja: 'sent をリプレイ',
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -939,9 +1183,15 @@ class _WsDialogState extends State<_WsDialog> {
                                                       _MiniFrameAction(
                                                         icon: Icons
                                                             .replay_rounded,
-                                                        tooltip: isZh
-                                                            ? '重发此帧'
-                                                            : 'Resend',
+                                                        tooltip: _wsText(
+                                                          context,
+                                                          zh: '重发此帧',
+                                                          zhHant: '重送此影格',
+                                                          en: 'Resend',
+                                                          fr: 'Renvoyer',
+                                                          de: 'Erneut senden',
+                                                          ja: '再送信',
+                                                        ),
                                                         onTap: _busy
                                                             ? null
                                                             : () =>
@@ -955,9 +1205,15 @@ class _WsDialogState extends State<_WsDialog> {
                                                       _MiniFrameAction(
                                                         icon:
                                                             Icons.edit_rounded,
-                                                        tooltip: isZh
-                                                            ? '编辑并发送'
-                                                            : 'Edit & send',
+                                                        tooltip: _wsText(
+                                                          context,
+                                                          zh: '编辑并发送',
+                                                          zhHant: '編輯並傳送',
+                                                          en: 'Edit & send',
+                                                          fr: 'Modifier et envoyer',
+                                                          de: 'Bearbeiten und senden',
+                                                          ja: '編集して送信',
+                                                        ),
                                                         onTap: _busy
                                                             ? null
                                                             : () =>
@@ -969,9 +1225,15 @@ class _WsDialogState extends State<_WsDialog> {
                                                       _MiniFrameAction(
                                                         icon: Icons
                                                             .bug_report_rounded,
-                                                        tooltip: isZh
-                                                            ? 'Fuzz 此帧'
-                                                            : 'Fuzz',
+                                                        tooltip: _wsText(
+                                                          context,
+                                                          zh: 'Fuzz 此帧',
+                                                          zhHant: 'Fuzz 此影格',
+                                                          en: 'Fuzz',
+                                                          fr: 'Fuzzer',
+                                                          de: 'Fuzzen',
+                                                          ja: 'Fuzz',
+                                                        ),
                                                         onTap: _busy
                                                             ? null
                                                             : () => _fuzz(
@@ -1010,7 +1272,15 @@ class _WsDialogState extends State<_WsDialog> {
             child: SizedBox(
               width: double.infinity,
               child: OpenHandDialogActionButton.primary(
-                label: isZh ? '关闭' : 'Close',
+                label: _wsText(
+                  context,
+                  zh: '关闭',
+                  zhHant: '關閉',
+                  en: 'Close',
+                  fr: 'Fermer',
+                  de: 'Schließen',
+                  ja: '閉じる',
+                ),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),

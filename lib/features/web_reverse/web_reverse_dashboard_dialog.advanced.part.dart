@@ -626,17 +626,27 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.swap_horiz_rounded,
-        title: isZh ? 'WebSocket 帧' : 'WebSocket Frames',
-        subtitle: isZh
-            ? '查看帧 · 重放 sent 帧到新连接'
-            : 'inspect frames · replay sent frames',
+        title: _wrText(
+          context,
+          zh: 'WebSocket 帧',
+          zhHant: 'WebSocket 影格',
+          en: 'WebSocket Frames',
+          fr: 'Trames WebSocket',
+          de: 'WebSocket-Frames',
+          ja: 'WebSocket フレーム',
+        ),
+        subtitle: _wrText(
+          context,
+          zh: '查看帧 · 重放 sent 帧到新连接',
+          zhHant: '查看影格 · 將 sent 影格重放到新連線',
+          en: 'inspect frames · replay sent frames',
+          fr: 'inspecter les trames · rejouer les trames envoyées',
+          de: 'Frames prüfen · gesendete Frames wiederholen',
+          ja: 'フレーム確認 · sent フレームをリプレイ',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
-          await showWebReverseWebSocketDialog(
-            context,
-            controller: controller,
-            isZh: isZh,
-          );
+          await showWebReverseWebSocketDialog(context, controller: controller);
         },
       ),
       _AdvancedEntry(

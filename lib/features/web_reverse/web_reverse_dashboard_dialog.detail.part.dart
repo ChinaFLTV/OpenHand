@@ -168,7 +168,6 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
                   context,
                   controller: widget.controller,
                   entry: widget.entry,
-                  isZh: isZh,
                 ),
                 child: Center(
                   child: Icon(
