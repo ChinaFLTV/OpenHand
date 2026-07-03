@@ -1800,6 +1800,609 @@ class AppLocalizationsFr extends AppLocalizations {
   String get dialogAnimationCurveDecelerate => 'Décélération';
 
   @override
+  String get commonOptional => 'Facultatif';
+
+  @override
+  String get cronScriptTypeCommand => 'Commande';
+
+  @override
+  String get cronScriptTypeScript => 'Script';
+
+  @override
+  String get cronScriptTypeAgent => 'Agent';
+
+  @override
+  String get cronJobStatusRunning => 'En cours';
+
+  @override
+  String get cronJobStatusPaused => 'En pause';
+
+  @override
+  String get cronJobStatusFailed => 'Echec';
+
+  @override
+  String get cronJobStatusError => 'Erreur';
+
+  @override
+  String get cronJobStatusIdle => 'Inactif';
+
+  @override
+  String get cronNotifyTypeNone => 'Aucune';
+
+  @override
+  String get cronNotifyTypeLog => 'Journal uniquement';
+
+  @override
+  String get cronNotifyTypeSystem => 'Notification systeme';
+
+  @override
+  String get cronNotifyTypeAppNotification => 'Notification dans l app';
+
+  @override
+  String get cronNotifySeverityInfo => 'Info';
+
+  @override
+  String get cronNotifySeveritySuccess => 'Succes';
+
+  @override
+  String get cronNotifySeverityWarning => 'Avertissement';
+
+  @override
+  String get cronNotifySeverityError => 'Erreur';
+
+  @override
+  String get cronNotifySeverityCritical => 'Critique';
+
+  @override
+  String get cronScheduleInvalidExpression => 'Expression invalide';
+
+  @override
+  String get cronScheduleEveryMinute => 'Chaque minute';
+
+  @override
+  String get cronParserFieldCountError =>
+      'L expression Cron doit contenir exactement 5 champs (min heure jour mois semaine)';
+
+  @override
+  String get cronParserFieldMinute => 'Minute';
+
+  @override
+  String get cronParserFieldHour => 'Heure';
+
+  @override
+  String get cronParserFieldDayOfMonth => 'Jour du mois';
+
+  @override
+  String get cronParserFieldDayOfMonthShort => 'Jour';
+
+  @override
+  String get cronParserFieldMonth => 'Mois';
+
+  @override
+  String get cronParserFieldDayOfWeek => 'Jour semaine';
+
+  @override
+  String get cronParserFieldDayOfWeekShort => 'Sem.';
+
+  @override
+  String cronParserInvalidField(String field, String value) {
+    return 'Champ $field invalide \"$value\"';
+  }
+
+  @override
+  String get cronsViewDescription =>
+      'Configurez et gerez les taches planifiees. Prend en charge les expressions Cron, les delais, les nouvelles tentatives et l historique.';
+
+  @override
+  String get cronsNewCronJob => 'Nouvelle tache Cron';
+
+  @override
+  String get cronsEditCronJob => 'Modifier la tache Cron';
+
+  @override
+  String get cronsDeleteCronJobTitle => 'Supprimer la tache Cron';
+
+  @override
+  String cronsDeleteCronJobMessage(String name) {
+    return 'Supprimer \"$name\" ? Cette action est irreversible. L historique d execution sera aussi supprime.';
+  }
+
+  @override
+  String get cronsEmptyTitle => 'Aucune tache Cron configuree';
+
+  @override
+  String get cronsEmptyBody =>
+      'Cliquez sur \"Nouvelle tache Cron\" ci-dessus pour commencer.';
+
+  @override
+  String get cronsCronExpressionTooltip => 'Expression Cron';
+
+  @override
+  String get cronsTimeoutTooltip => 'Delai';
+
+  @override
+  String get cronsRetryCountTooltip => 'Nombre de tentatives';
+
+  @override
+  String get cronsMcpKeywordIndexLockedTooltip =>
+      'Controle par Parametres -> MCP -> Mode de mise a jour de l index de mots-cles';
+
+  @override
+  String get cronsRunOnceNow => 'Executer maintenant';
+
+  @override
+  String get cronsHistory => 'Historique';
+
+  @override
+  String cronsLastRunAt(String time) {
+    return 'Derniere: $time';
+  }
+
+  @override
+  String get cronsFieldName => 'Nom';
+
+  @override
+  String get cronsFieldNameHint => 'ex. Sauvegarde quotidienne';
+
+  @override
+  String get cronsFieldDescription => 'Description';
+
+  @override
+  String get cronsFieldType => 'Type';
+
+  @override
+  String get cronsFieldScriptFilePath => 'Chemin du script';
+
+  @override
+  String get cronsFieldScriptFilePathHint =>
+      'Selectionnez un fichier .sh / .ps1 / .bat';
+
+  @override
+  String get cronsBrowse => 'Parcourir';
+
+  @override
+  String get cronsFieldCommand => 'Commande';
+
+  @override
+  String get cronsFieldCommandHintWindows =>
+      'Entrez une commande PowerShell / BAT';
+
+  @override
+  String get cronsFieldCommandHintShell => 'Entrez une commande shell';
+
+  @override
+  String get cronsCronSchedule => 'Planification Cron';
+
+  @override
+  String get cronsCronScheduleHelper =>
+      'Le champ secondes reste a 0. Granularite minimale: minute. Format: min heure jour mois semaine';
+
+  @override
+  String get cronsTimeoutSeconds => 'Delai (s)';
+
+  @override
+  String get cronsRetries => 'Tentatives';
+
+  @override
+  String get cronsMaxRetryDelaySeconds => 'Delai max entre tentatives (s)';
+
+  @override
+  String get cronsRunAsUser => 'Executer en tant que';
+
+  @override
+  String get cronsDefaultCurrentUser => 'Par defaut (utilisateur courant)';
+
+  @override
+  String get cronsDefault => 'Par defaut';
+
+  @override
+  String get cronsTagsCommaSeparated => 'Tags (separes par virgules)';
+
+  @override
+  String get cronsTagsHint => 'ex. sauvegarde, nettoyage';
+
+  @override
+  String get cronsWorkingDirectory => 'Dossier de travail';
+
+  @override
+  String get cronsWorkingDirectoryHint =>
+      'Facultatif, dossier de l app par defaut';
+
+  @override
+  String get cronsEnvironmentVariables => 'Variables d environnement';
+
+  @override
+  String get cronsEnvironmentVariablesHint =>
+      'Une par ligne, format: KEY=VALUE';
+
+  @override
+  String get cronsExecutionContextCollection =>
+      'Collecte du contexte d execution';
+
+  @override
+  String get cronsCollectAppMetadata => 'Capturer les metadonnees app';
+
+  @override
+  String get cronsCollectAppMetadataSubtitle =>
+      'Capture version, PID, chemin executable, etc.';
+
+  @override
+  String get cronsCollectHostMetadata => 'Capturer les metadonnees hote';
+
+  @override
+  String get cronsCollectHostMetadataSubtitle =>
+      'Capture version OS, nom d hote, coeurs CPU, etc.';
+
+  @override
+  String get cronsCollectEnvironmentSnapshot =>
+      'Capturer l instantane d environnement';
+
+  @override
+  String get cronsCollectEnvironmentSnapshotSubtitle =>
+      'Capture les variables d environnement effectives (peut contenir des donnees sensibles).';
+
+  @override
+  String get cronsSensitive => 'Sensible';
+
+  @override
+  String get cronsNotificationSettings => 'Parametres de notification';
+
+  @override
+  String get cronsTestNotification => 'Tester la notification';
+
+  @override
+  String get cronsTestSuccessNotification => 'Tester la notification de succes';
+
+  @override
+  String get cronsTestFailureNotification => 'Tester la notification d echec';
+
+  @override
+  String get cronsTestTimeoutNotification => 'Tester la notification de delai';
+
+  @override
+  String get cronsTestAllNotifications => 'Tout tester (sequence)';
+
+  @override
+  String get cronsNotificationSettingsHelper =>
+      'Chaque evenement peut configurer canal, severite, son et vibration independamment.';
+
+  @override
+  String get cronsOnSuccess => 'En cas de succes';
+
+  @override
+  String get cronsOnFailure => 'En cas d echec';
+
+  @override
+  String get cronsOnTimeout => 'En cas de delai';
+
+  @override
+  String get cronsEnabled => 'Active';
+
+  @override
+  String get cronsCustomNotificationMessageHint =>
+      'Message personnalise (facultatif)';
+
+  @override
+  String get cronsVibrationUnsupportedHint =>
+      'La vibration n est pas prise en charge sur cette plateforme et sera ignoree.';
+
+  @override
+  String get cronsValidationNameRequired => 'Entrez un nom de tache Cron.';
+
+  @override
+  String get cronsValidationScriptRequired => 'Selectionnez un script.';
+
+  @override
+  String get cronsValidationCommandRequired => 'Entrez une commande.';
+
+  @override
+  String cronsValidationInvalidEnvironment(String lines) {
+    return 'Format de variable d environnement invalide ligne(s) $lines. Utilisez KEY=VALUE.';
+  }
+
+  @override
+  String get cronsNotificationSequentialStartTitle =>
+      'Debut du test sequentiel';
+
+  @override
+  String get cronsNotificationSequentialStartBody =>
+      'Tests de notifications succes, echec et delai dans l ordre.';
+
+  @override
+  String get cronsNotificationVibrationIgnoredTitle => 'Vibration ignoree';
+
+  @override
+  String get cronsNotificationSequentialVibrationIgnoredBody =>
+      'La vibration n est pas prise en charge ici et a ete ignoree pendant le test sequentiel.';
+
+  @override
+  String get cronsNotificationSequentialCompletedTitle =>
+      'Test sequentiel termine';
+
+  @override
+  String get cronsNotificationSequentialCompletedBody =>
+      'Tests de notifications succes, echec et delai termines.';
+
+  @override
+  String get cronsNotificationScenarioSuccess => 'Succes';
+
+  @override
+  String get cronsNotificationScenarioFailure => 'Echec';
+
+  @override
+  String get cronsNotificationScenarioTimeout => 'Delai';
+
+  @override
+  String get cronsNotificationScenarioAll => 'Tout';
+
+  @override
+  String cronsNotificationTestTitle(String label) {
+    return 'Test de notification Cron - $label';
+  }
+
+  @override
+  String get cronsNotificationTestDefaultBodySuccess =>
+      'Message de test pour le succes.';
+
+  @override
+  String get cronsNotificationTestDefaultBodyFailure =>
+      'Message de test pour l echec.';
+
+  @override
+  String get cronsNotificationTestDefaultBodyTimeout =>
+      'Message de test pour le delai.';
+
+  @override
+  String get cronsNotificationNoEmitBody =>
+      'Le reglage est Aucune ou Journal uniquement; aucune notification n est emise.';
+
+  @override
+  String get cronsSystemNotificationUnavailableTitle =>
+      'Notification systeme indisponible';
+
+  @override
+  String get cronsSystemNotificationFallbackBody =>
+      'La notification systeme a echoue; bascule vers une notification dans l app.';
+
+  @override
+  String get cronsNotificationVibrationIgnoredBody =>
+      'La vibration n est pas prise en charge ici et a ete ignoree.';
+
+  @override
+  String get cronsUnknownPlatform => 'Plateforme inconnue';
+
+  @override
+  String get cronsToggleOn => 'Active';
+
+  @override
+  String get cronsToggleOff => 'Desactive';
+
+  @override
+  String get cronsSupportBestEffortSystemSound =>
+      'Pris en charge (son systeme au mieux)';
+
+  @override
+  String get cronsSupportSupported => 'Pris en charge';
+
+  @override
+  String get cronsSupportNotSupportedOnPlatform =>
+      'Non pris en charge sur cette plateforme';
+
+  @override
+  String get cronsSupportNotSupportedWillBeIgnored =>
+      'Non pris en charge (sera ignore)';
+
+  @override
+  String get cronsSoundLabel => 'Son';
+
+  @override
+  String get cronsVibrationLabel => 'Vibration';
+
+  @override
+  String get cronsPlatformLabel => 'Plateforme';
+
+  @override
+  String get cronsSupportLabel => 'Support';
+
+  @override
+  String get cronsExecutionHistoryTitle => 'Historique d execution de la tache';
+
+  @override
+  String get cronsClearAllExecutionHistory => 'Effacer tout l historique';
+
+  @override
+  String get cronsNoExecutionRecords => 'Aucun enregistrement d execution';
+
+  @override
+  String get cronsClearExecutionHistoryTitle => 'Effacer l historique';
+
+  @override
+  String cronsClearExecutionHistoryMessage(String name) {
+    return 'Effacer tout l historique pour \"$name\" ? Cette action est irreversible.';
+  }
+
+  @override
+  String get cronsClear => 'Effacer';
+
+  @override
+  String get cronsDeleteExecutionRecordTitle => 'Supprimer l enregistrement';
+
+  @override
+  String get cronsDeleteExecutionRecordMessage =>
+      'Supprimer cet enregistrement d execution ?';
+
+  @override
+  String get cronsExecutionStatusSuccess => 'Succes';
+
+  @override
+  String get cronsExecutionStatusFailed => 'Echec';
+
+  @override
+  String get cronsExecutionStatusTimedOut => 'Delai depasse';
+
+  @override
+  String get cronsExecutionStatusRunning => 'En cours';
+
+  @override
+  String get cronsExecutionStatusKilled => 'Arrete';
+
+  @override
+  String get cronsTriggerManual => 'Manuel';
+
+  @override
+  String get cronsTriggerScheduled => 'Planifie';
+
+  @override
+  String get cronsDeleteThisRecord => 'Supprimer cet enregistrement';
+
+  @override
+  String get cronsRetryAttempt => 'Tentative';
+
+  @override
+  String get cronsRunAs => 'Executer comme';
+
+  @override
+  String get cronsWorkingDir => 'Dossier travail';
+
+  @override
+  String get cronsScriptEnvironmentOverrides =>
+      'Surcharges d environnement du script:';
+
+  @override
+  String get cronsEnvironmentSnapshot => 'Instantane d environnement:';
+
+  @override
+  String get cronsErrorReason => 'Erreur:';
+
+  @override
+  String get cronsStdout => 'stdout:';
+
+  @override
+  String get cronsStderr => 'stderr:';
+
+  @override
+  String get cronsExecutionContext => 'Contexte d execution:';
+
+  @override
+  String get cronsHermesTalkerReportTitle => 'Rapport Hermes Talker';
+
+  @override
+  String get cronsHermesNoEligibleSessions =>
+      'Aucune session eligible n a ete apprise pendant ce cycle.';
+
+  @override
+  String cronsHermesAffectedSessions(int count) {
+    return 'Sessions affectees ($count)';
+  }
+
+  @override
+  String cronsHermesStatsLine(
+    int scanned,
+    int triggered,
+    int skipped,
+    int errors,
+  ) {
+    return 'analysees $scanned · declenchees $triggered · ignorees $skipped · erreurs $errors';
+  }
+
+  @override
+  String get cronsHermesUntitledSession => '(session sans titre)';
+
+  @override
+  String cronsHermesMemoryUpdates(int count) {
+    return 'memoire +$count';
+  }
+
+  @override
+  String cronsHermesMemoryErrors(int count) {
+    return 'erreurs memoire $count';
+  }
+
+  @override
+  String cronsHermesSkillUpdates(int count) {
+    return 'skill +$count';
+  }
+
+  @override
+  String cronsHermesSkillErrors(int count) {
+    return 'erreurs skill $count';
+  }
+
+  @override
+  String cronsHermesProfileChanges(int count) {
+    return 'profil $count';
+  }
+
+  @override
+  String cronsHermesToolRounds(int count) {
+    return 'tours $count';
+  }
+
+  @override
+  String get cronsHermesModelLabel => 'modele';
+
+  @override
+  String get cronsHermesProviderLabel => 'fournisseur';
+
+  @override
+  String get cronsHermesTerminatedLabel => 'termine';
+
+  @override
+  String get cronsHermesUserProfileChanges =>
+      'Changements du profil utilisateur';
+
+  @override
+  String get cronsHermesMemoryChanges => 'Changements de memoire';
+
+  @override
+  String get cronsHermesSkillChanges => 'Changements de skills';
+
+  @override
+  String get cronsHermesAiReasoningOnScene => 'Raisonnement IA sur place';
+
+  @override
+  String get cronsHermesAiResponseOnScene => 'Reponse IA sur place';
+
+  @override
+  String get cronsHermesNoFurtherDetails => 'Aucun autre detail.';
+
+  @override
+  String get cronsHermesStatusError => 'erreur';
+
+  @override
+  String get cronsHermesStatusSkipped => 'ignore';
+
+  @override
+  String get cronsHermesStatusOk => 'ok';
+
+  @override
+  String get cronsHermesChangeBefore => 'avant';
+
+  @override
+  String get cronsHermesChangeAfter => 'apres';
+
+  @override
+  String get cronsHermesChangeValue => 'valeur';
+
+  @override
+  String get cronsHermesChangeSource => 'source';
+
+  @override
+  String get cronsHermesChangeReason => 'raison';
+
+  @override
+  String get cronsHermesChangeMetadata => 'metadonnees';
+
+  @override
+  String get cronsHermesChangeError => 'erreur';
+
+  @override
+  String get cronsCollapse => 'Reduire';
+
+  @override
+  String get cronsExpand => 'Developper';
+
+  @override
   String get aiModelAdd => 'Ajouter un fournisseur';
 
   @override

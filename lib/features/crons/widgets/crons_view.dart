@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 import '../../../app/model/cron_config.dart';
 import '../../../app/support/openhand_notification_service.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/ansi_text.dart';
@@ -18,7 +19,6 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
-import '../../../shared/util/localized_text.dart';
 import '../crons_controller.dart';
 import '../model/cron_parser.dart';
 
@@ -38,7 +38,7 @@ class CronsView extends StatelessWidget {
       (controller) => controller.isLoading,
     );
     final controller = context.read<CronsController>();
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,12 +51,10 @@ class CronsView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Crons', style: theme.textTheme.displaySmall),
+                  Text(l10n.settingsCrons, style: theme.textTheme.displaySmall),
                   const SizedBox(height: 8),
                   Text(
-                    isZh
-                        ? '配置和管理定时任务。支持 Cron 表达式调度、超时控制、自动重试和执行历史查看。'
-                        : 'Configure and manage scheduled tasks. Supports cron expression scheduling, timeout control, auto-retry, and execution history.',
+                    l10n.cronsViewDescription,
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -68,7 +66,7 @@ class CronsView extends StatelessWidget {
             FilledButton.icon(
               onPressed: () => _showCronEditorDialog(context, null),
               icon: const Icon(Icons.add_rounded),
-              label: Text(isZh ? '新增定时任务' : 'New Cron Job'),
+              label: Text(l10n.cronsNewCronJob),
             ),
           ],
         ),
@@ -88,9 +86,9 @@ class CronsView extends StatelessWidget {
                     child: CircularProgressIndicator(),
                   )
                 : entries.isEmpty
-                ? KeyedSubtree(
-                    key: const ValueKey<String>('empty'),
-                    child: _CronEmptyState(isZh: isZh),
+                ? const KeyedSubtree(
+                    key: ValueKey<String>('empty'),
+                    child: _CronEmptyState(),
                   )
                 : ScrollConfiguration(
                     key: const ValueKey<String>('list'),
@@ -109,7 +107,6 @@ class CronsView extends StatelessWidget {
                           key: ValueKey<String>('cron-entry-${entry.id}'),
                           child: _CronEntryCard(
                             entry: entry,
-                            isZh: isZh,
                             onEdit: () => _showCronEditorDialog(context, entry),
                             onToggle: (enabled) {
                               controller.toggleCronEnabled(
@@ -148,15 +145,13 @@ class CronsView extends StatelessWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, CronEntry entry) async {
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '删除定时任务' : 'Delete Cron Job',
-      message: isZh
-          ? '确定删除 "${entry.name}" 吗？此操作不可撤销，执行历史也将一并删除。'
-          : 'Delete "${entry.name}"? This cannot be undone. Execution history will also be removed.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '删除' : 'Delete',
+      title: l10n.cronsDeleteCronJobTitle,
+      message: l10n.cronsDeleteCronJobMessage(entry.name),
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.commonDelete,
       destructive: true,
     );
     if (!confirmed || !context.mounted) {
@@ -171,14 +166,13 @@ class CronsView extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _CronEmptyState extends StatelessWidget {
-  const _CronEmptyState({required this.isZh});
-
-  final bool isZh;
+  const _CronEmptyState();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     return Expanded(
       child: Center(
         child: Column(
@@ -191,16 +185,14 @@ class _CronEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              isZh ? '暂无定时任务' : 'No cron jobs configured yet',
+              l10n.cronsEmptyTitle,
               style: theme.textTheme.titleLarge?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              isZh
-                  ? '点击右上角「新增定时任务」按钮开始配置。'
-                  : 'Click "New Cron Job" above to get started.',
+              l10n.cronsEmptyBody,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
               ),
@@ -219,7 +211,6 @@ class _CronEmptyState extends StatelessWidget {
 class _CronEntryCard extends StatelessWidget {
   const _CronEntryCard({
     required this.entry,
-    required this.isZh,
     required this.onEdit,
     required this.onToggle,
     required this.onDelete,
@@ -228,7 +219,6 @@ class _CronEntryCard extends StatelessWidget {
   });
 
   final CronEntry entry;
-  final bool isZh;
   final VoidCallback onEdit;
   final ValueChanged<bool> onToggle;
   final VoidCallback onDelete;
@@ -239,6 +229,7 @@ class _CronEntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final visibleTags = entry.tags
         .take(_cronTagPreviewLimit)
         .toList(growable: false);
@@ -288,7 +279,7 @@ class _CronEntryCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 // Cron expression badge
                 Tooltip(
-                  message: isZh ? 'Cron 表达式' : 'Cron expression',
+                  message: l10n.cronsCronExpressionTooltip,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -311,7 +302,7 @@ class _CronEntryCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 // Timeout badge
                 Tooltip(
-                  message: isZh ? '超时时间' : 'Timeout',
+                  message: l10n.cronsTimeoutTooltip,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -333,7 +324,7 @@ class _CronEntryCard extends StatelessWidget {
                 // Retry badge
                 if (entry.retryCount > 0) ...[
                   Tooltip(
-                    message: isZh ? '重试次数' : 'Retry count',
+                    message: l10n.cronsRetryCountTooltip,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -376,9 +367,7 @@ class _CronEntryCard extends StatelessWidget {
                     );
                     if (!locked) return toggle;
                     return Tooltip(
-                      message: isZh
-                          ? '由「全局设置 → MCP → 更新关键词映射模式」控制，不可手动开关'
-                          : 'Controlled by Settings → MCP → Keyword index update mode',
+                      message: l10n.cronsMcpKeywordIndexLockedTooltip,
                       child: toggle,
                     );
                   },
@@ -391,13 +380,13 @@ class _CronEntryCard extends StatelessWidget {
                 // Actions
                 IconButton(
                   icon: const Icon(Icons.bolt_rounded, size: 20),
-                  tooltip: isZh ? '立即执行一次' : 'Run once now',
+                  tooltip: l10n.cronsRunOnceNow,
                   onPressed: entry.enabled ? onRunNow : null,
                 ),
                 const SizedBox(width: 4),
                 IconButton(
                   icon: const Icon(Icons.history_rounded, size: 20),
-                  tooltip: isZh ? '执行历史' : 'History',
+                  tooltip: l10n.cronsHistory,
                   onPressed: onHistory,
                 ),
                 const SizedBox(width: 4),
@@ -409,7 +398,7 @@ class _CronEntryCard extends StatelessWidget {
                         ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
                         : null,
                   ),
-                  tooltip: isZh ? '编辑' : 'Edit',
+                  tooltip: l10n.commonEdit,
                   onPressed: entry.tags.contains('system') ? null : onEdit,
                 ),
                 const SizedBox(width: 4),
@@ -421,7 +410,7 @@ class _CronEntryCard extends StatelessWidget {
                         ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
                         : colorScheme.error,
                   ),
-                  tooltip: isZh ? '删除' : 'Delete',
+                  tooltip: l10n.commonDelete,
                   onPressed: entry.tags.contains('system') ? null : onDelete,
                 ),
               ],
@@ -478,13 +467,11 @@ class _CronEntryCard extends StatelessWidget {
                       ),
                     ),
                   // Status chip
-                  _CronStatusChip(entry: entry, isZh: isZh),
+                  _CronStatusChip(entry: entry),
                   if (entry.lastRunAt != null) ...[
                     const SizedBox(width: 8),
                     Text(
-                      isZh
-                          ? '上次: ${formatMonthDayHms(entry.lastRunAt!)}'
-                          : 'Last: ${formatMonthDayHms(entry.lastRunAt!)}',
+                      l10n.cronsLastRunAt(formatMonthDayHms(entry.lastRunAt!)),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: colorScheme.onSurfaceVariant.withValues(
                           alpha: 0.7,
@@ -539,16 +526,16 @@ class _CronStatusDot extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _CronStatusChip extends StatelessWidget {
-  const _CronStatusChip({required this.entry, required this.isZh});
+  const _CronStatusChip({required this.entry});
 
   final CronEntry entry;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final statusLabel = entry.status.label(isZh);
+    final l10n = AppLocalizations.of(context)!;
+    final statusLabel = entry.status.label(l10n);
     final bgColor = switch (entry.status) {
       CronJobStatus.running => const Color(0xFF56C271).withValues(alpha: 0.15),
       CronJobStatus.idle => colorScheme.surfaceContainerHigh,
@@ -742,7 +729,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
   }
 
   bool get _isEditing => widget.existing != null;
-  bool get isZh => openHandIsChineseLocale(context);
+  AppLocalizations get l10n => AppLocalizations.of(context)!;
 
   String get _cronExpression =>
       '${_cronMinController.text.trim()} '
@@ -760,11 +747,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     );
 
     return buildOpenHandAlertDialog(
-      title: Text(
-        _isEditing
-            ? (isZh ? '编辑定时任务' : 'Edit Cron Job')
-            : (isZh ? '新增定时任务' : 'New Cron Job'),
-      ),
+      title: Text(_isEditing ? l10n.cronsEditCronJob : l10n.cronsNewCronJob),
       content: SizedBox(
         width: 620,
         child: SingleChildScrollView(
@@ -782,8 +765,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
-                  labelText: isZh ? '任务名称' : 'Name',
-                  hintText: isZh ? '例如: 每日备份' : 'e.g. Daily Backup',
+                  labelText: l10n.cronsFieldName,
+                  hintText: l10n.cronsFieldNameHint,
                 ),
               ),
               const SizedBox(height: 14),
@@ -791,25 +774,25 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               TextField(
                 controller: _descriptionController,
                 decoration: InputDecoration(
-                  labelText: isZh ? '简介' : 'Description',
-                  hintText: isZh ? '可选' : 'Optional',
+                  labelText: l10n.cronsFieldDescription,
+                  hintText: l10n.commonOptional,
                 ),
               ),
               const SizedBox(height: 18),
               // Script type toggle
-              Text(isZh ? '类型' : 'Type', style: theme.textTheme.titleSmall),
+              Text(l10n.cronsFieldType, style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               SegmentedButton<CronScriptType>(
                 segments: [
                   ButtonSegment(
                     value: CronScriptType.command,
                     icon: const Icon(Icons.terminal_rounded, size: 18),
-                    label: Text(CronScriptType.command.label(isZh)),
+                    label: Text(CronScriptType.command.label(l10n)),
                   ),
                   ButtonSegment(
                     value: CronScriptType.script,
                     icon: const Icon(Icons.description_outlined, size: 18),
-                    label: Text(CronScriptType.script.label(isZh)),
+                    label: Text(CronScriptType.script.label(l10n)),
                   ),
                 ],
                 selected: {_scriptType},
@@ -826,10 +809,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                       child: TextField(
                         controller: _scriptPathController,
                         decoration: InputDecoration(
-                          labelText: isZh ? '脚本文件路径' : 'Script File Path',
-                          hintText: isZh
-                              ? '选择 .sh / .ps1 / .bat 文件'
-                              : 'Select a .sh / .ps1 / .bat file',
+                          labelText: l10n.cronsFieldScriptFilePath,
+                          hintText: l10n.cronsFieldScriptFilePathHint,
                         ),
                         readOnly: true,
                       ),
@@ -837,7 +818,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     const SizedBox(width: 8),
                     FilledButton.tonal(
                       onPressed: _pickScriptFile,
-                      child: Text(isZh ? '浏览' : 'Browse'),
+                      child: Text(l10n.cronsBrowse),
                     ),
                   ],
                 ),
@@ -852,12 +833,10 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   ),
                   decoration: InputDecoration(
                     contentPadding: const EdgeInsets.all(12),
-                    labelText: isZh ? '命令内容' : 'Command',
+                    labelText: l10n.cronsFieldCommand,
                     hintText: Platform.isWindows
-                        ? (isZh
-                              ? '输入 PowerShell / BAT 命令'
-                              : 'Enter PowerShell / BAT command')
-                        : (isZh ? '输入 Shell 命令' : 'Enter shell command'),
+                        ? l10n.cronsFieldCommandHintWindows
+                        : l10n.cronsFieldCommandHintShell,
                     hintStyle: theme.textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant.withValues(
                         alpha: 0.5,
@@ -870,10 +849,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               ],
               const SizedBox(height: 18),
               // Cron expression
-              Text(
-                isZh ? 'Cron 时间表达式' : 'Cron Schedule',
-                style: theme.textTheme.titleSmall,
-              ),
+              Text(l10n.cronsCronSchedule, style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -901,15 +877,21 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  _cronField(_cronMinController, isZh ? '分' : 'Min'),
+                  _cronField(_cronMinController, l10n.cronParserFieldMinute),
                   const SizedBox(width: 6),
-                  _cronField(_cronHourController, isZh ? '时' : 'Hour'),
+                  _cronField(_cronHourController, l10n.cronParserFieldHour),
                   const SizedBox(width: 6),
-                  _cronField(_cronDomController, isZh ? '日' : 'DoM'),
+                  _cronField(
+                    _cronDomController,
+                    l10n.cronParserFieldDayOfMonthShort,
+                  ),
                   const SizedBox(width: 6),
-                  _cronField(_cronMonController, isZh ? '月' : 'Mon'),
+                  _cronField(_cronMonController, l10n.cronParserFieldMonth),
                   const SizedBox(width: 6),
-                  _cronField(_cronDowController, isZh ? '周' : 'DoW'),
+                  _cronField(
+                    _cronDowController,
+                    l10n.cronParserFieldDayOfWeekShort,
+                  ),
                 ],
               ),
               if (_cronError != null) ...[
@@ -923,9 +905,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               ],
               const SizedBox(height: 4),
               Text(
-                isZh
-                    ? '秒字段已冻结为 0，最小粒度为分钟。格式: 分 时 日 月 周'
-                    : 'Seconds field frozen at 0. Min granularity: minute. Format: min hour dom mon dow',
+                l10n.cronsCronScheduleHelper,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                   fontSize: 11,
@@ -936,7 +916,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               Row(
                 children: [
                   Text(
-                    isZh ? '超时（秒）' : 'Timeout (s)',
+                    l10n.cronsTimeoutSeconds,
                     style: theme.textTheme.titleSmall,
                   ),
                   const SizedBox(width: 8),
@@ -955,10 +935,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     ),
                   ),
                   const SizedBox(width: 24),
-                  Text(
-                    isZh ? '重试次数' : 'Retries',
-                    style: theme.textTheme.titleSmall,
-                  ),
+                  Text(l10n.cronsRetries, style: theme.textTheme.titleSmall),
                   const SizedBox(width: 8),
                   SizedBox(
                     width: 60,
@@ -976,7 +953,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   ),
                   const SizedBox(width: 24),
                   Text(
-                    isZh ? '重试间隔上限（秒）' : 'Max retry delay (s)',
+                    l10n.cronsMaxRetryDelaySeconds,
                     style: theme.textTheme.titleSmall,
                   ),
                   const SizedBox(width: 8),
@@ -998,24 +975,19 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               ),
               const SizedBox(height: 18),
               // Run as user
-              Text(
-                isZh ? '执行用户' : 'Run As User',
-                style: theme.textTheme.titleSmall,
-              ),
+              Text(l10n.cronsRunAsUser, style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: _runAsUser,
                 decoration: InputDecoration(
-                  hintText: isZh ? '默认（当前用户）' : 'Default (current user)',
+                  hintText: l10n.cronsDefaultCurrentUser,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,
                   ),
                 ),
                 items: [
-                  DropdownMenuItem<String>(
-                    child: Text(isZh ? '默认' : 'Default'),
-                  ),
+                  DropdownMenuItem<String>(child: Text(l10n.cronsDefault)),
                   ...systemUsers.map(
                     (u) => DropdownMenuItem<String>(value: u, child: Text(u)),
                   ),
@@ -1027,8 +999,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               TextField(
                 controller: _tagsController,
                 decoration: InputDecoration(
-                  labelText: isZh ? '标签（逗号分隔）' : 'Tags (comma-separated)',
-                  hintText: isZh ? '例如: 备份, 清理' : 'e.g. backup, cleanup',
+                  labelText: l10n.cronsTagsCommaSeparated,
+                  hintText: l10n.cronsTagsHint,
                 ),
               ),
               const SizedBox(height: 18),
@@ -1036,10 +1008,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               TextField(
                 controller: _workingDirController,
                 decoration: InputDecoration(
-                  labelText: isZh ? '工作目录' : 'Working Directory',
-                  hintText: isZh
-                      ? '可选，默认为应用目录'
-                      : 'Optional, defaults to app dir',
+                  labelText: l10n.cronsWorkingDirectory,
+                  hintText: l10n.cronsWorkingDirectoryHint,
                 ),
               ),
               const SizedBox(height: 18),
@@ -1053,10 +1023,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   fontSize: 12,
                 ),
                 decoration: InputDecoration(
-                  labelText: isZh ? '环境变量' : 'Environment Variables',
-                  hintText: isZh
-                      ? '每行一个，格式: KEY=VALUE'
-                      : 'One per line, format: KEY=VALUE',
+                  labelText: l10n.cronsEnvironmentVariables,
+                  hintText: l10n.cronsEnvironmentVariablesHint,
                   contentPadding: const EdgeInsets.all(12),
                   hintStyle: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
@@ -1067,7 +1035,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               ),
               const SizedBox(height: 14),
               Text(
-                isZh ? '执行上下文采集' : 'Execution Context Collection',
+                l10n.cronsExecutionContextCollection,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -1086,30 +1054,24 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   children: [
                     _contextCollectTile(
                       icon: Icons.apps_rounded,
-                      label: isZh ? '采集应用信息' : 'Capture app metadata',
-                      subtitle: isZh
-                          ? '记录应用版本、PID、可执行文件路径等信息'
-                          : 'Capture app version, PID, executable path, etc.',
+                      label: l10n.cronsCollectAppMetadata,
+                      subtitle: l10n.cronsCollectAppMetadataSubtitle,
                       value: _collectAppMetadata,
                       onChanged: (value) =>
                           setState(() => _collectAppMetadata = value),
                     ),
                     _contextCollectTile(
                       icon: Icons.dns_rounded,
-                      label: isZh ? '采集主机信息' : 'Capture host metadata',
-                      subtitle: isZh
-                          ? '记录系统版本、主机名、CPU 核心数等信息'
-                          : 'Capture OS version, host name, CPU cores, etc.',
+                      label: l10n.cronsCollectHostMetadata,
+                      subtitle: l10n.cronsCollectHostMetadataSubtitle,
                       value: _collectHostMetadata,
                       onChanged: (value) =>
                           setState(() => _collectHostMetadata = value),
                     ),
                     _contextCollectTile(
                       icon: Icons.inventory_2_outlined,
-                      label: isZh ? '采集环境快照' : 'Capture environment snapshot',
-                      subtitle: isZh
-                          ? '记录执行时有效环境变量快照（可能包含敏感信息）'
-                          : 'Capture effective runtime environment variables (may include sensitive data).',
+                      label: l10n.cronsCollectEnvironmentSnapshot,
+                      subtitle: l10n.cronsCollectEnvironmentSnapshotSubtitle,
                       value: _collectEnvironmentSnapshot,
                       isSensitive: true,
                       onChanged: (value) =>
@@ -1124,40 +1086,32 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 children: [
                   Expanded(
                     child: Text(
-                      isZh ? '通知配置' : 'Notification Settings',
+                      l10n.cronsNotificationSettings,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                   AnimatedPopupMenuButton<_NotificationTestScenario>(
-                    tooltip: isZh ? '测试通知' : 'Test notification',
+                    tooltip: l10n.cronsTestNotification,
                     onSelected: _testNotification,
                     itemBuilder: (context) => [
                       PopupMenuItem(
                         value: _NotificationTestScenario.success,
-                        child: Text(
-                          isZh ? '测试成功通知' : 'Test success notification',
-                        ),
+                        child: Text(l10n.cronsTestSuccessNotification),
                       ),
                       PopupMenuItem(
                         value: _NotificationTestScenario.failure,
-                        child: Text(
-                          isZh ? '测试失败通知' : 'Test failure notification',
-                        ),
+                        child: Text(l10n.cronsTestFailureNotification),
                       ),
                       PopupMenuItem(
                         value: _NotificationTestScenario.timeout,
-                        child: Text(
-                          isZh ? '测试超时通知' : 'Test timeout notification',
-                        ),
+                        child: Text(l10n.cronsTestTimeoutNotification),
                       ),
                       const PopupMenuDivider(),
                       PopupMenuItem(
                         value: _NotificationTestScenario.all,
-                        child: Text(
-                          isZh ? '测试全部（顺序）' : 'Test all (sequential)',
-                        ),
+                        child: Text(l10n.cronsTestAllNotifications),
                       ),
                     ],
                     child: Container(
@@ -1184,7 +1138,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            isZh ? '测试通知' : 'Test Notification',
+                            l10n.cronsTestNotification,
                             style: theme.textTheme.labelLarge?.copyWith(
                               color: colorScheme.onSurface,
                             ),
@@ -1203,16 +1157,14 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               ),
               const SizedBox(height: 4),
               Text(
-                isZh
-                    ? '每个事件可分别配置通知渠道、严重程度、声音和震动。'
-                    : 'Each event can be configured independently for channel, severity, sound, and vibration.',
+                l10n.cronsNotificationSettingsHelper,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 8),
               _notifyRow(
-                label: isZh ? '执行成功' : 'On Success',
+                label: l10n.cronsOnSuccess,
                 notifyType: _onSuccessNotify,
                 severity: _onSuccessSeverity,
                 soundEnabled: _onSuccessSound,
@@ -1227,7 +1179,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               ),
               const SizedBox(height: 8),
               _notifyRow(
-                label: isZh ? '执行失败' : 'On Failure',
+                label: l10n.cronsOnFailure,
                 notifyType: _onFailureNotify,
                 severity: _onFailureSeverity,
                 soundEnabled: _onFailureSound,
@@ -1242,7 +1194,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               ),
               const SizedBox(height: 8),
               _notifyRow(
-                label: isZh ? '执行超时' : 'On Timeout',
+                label: l10n.cronsOnTimeout,
                 notifyType: _onTimeoutNotify,
                 severity: _onTimeoutSeverity,
                 soundEnabled: _onTimeoutSound,
@@ -1259,10 +1211,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               // Enabled switch
               Row(
                 children: [
-                  Text(
-                    isZh ? '启用' : 'Enabled',
-                    style: theme.textTheme.titleSmall,
-                  ),
+                  Text(l10n.cronsEnabled, style: theme.textTheme.titleSmall),
                   const Spacer(),
                   Switch(
                     value: _enabled,
@@ -1276,11 +1225,11 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       ),
       actions: [
         OpenHandDialogActionButton.secondary(
-          label: isZh ? '取消' : 'Cancel',
+          label: l10n.commonCancel,
           onPressed: () => Navigator.of(context).pop(),
         ),
         OpenHandDialogActionButton.primary(
-          label: isZh ? '保存' : 'Save',
+          label: l10n.commonSave,
           onPressed: _save,
         ),
       ],
@@ -1375,7 +1324,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     items: CronNotifyType.values.map((n) {
                       return DropdownMenuItem(
                         value: n,
-                        child: Text(n.label(isZh)),
+                        child: Text(n.label(l10n)),
                       );
                     }).toList(),
                     onChanged: (v) {
@@ -1396,7 +1345,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     items: CronNotifySeverity.values.map((s) {
                       return DropdownMenuItem(
                         value: s,
-                        child: Text(s.label(isZh)),
+                        child: Text(s.label(l10n)),
                       );
                     }).toList(),
                     onChanged: (v) {
@@ -1439,7 +1388,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
             TextField(
               controller: msgController,
               decoration: InputDecoration(
-                hintText: isZh ? '自定义通知内容（可选）' : 'Custom message (optional)',
+                hintText: l10n.cronsCustomNotificationMessageHint,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 10,
@@ -1449,9 +1398,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
             if (vibrationUnsupported) ...[
               const SizedBox(height: 6),
               Text(
-                isZh
-                    ? '当前平台不支持震动，开启后会自动忽略。'
-                    : 'Vibration is not supported on this platform and will be ignored.',
+                l10n.cronsVibrationUnsupportedHint,
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -1465,7 +1412,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
 
   void _validateCron() {
     final expr = _cronExpression;
-    final err = CronParser.validate(expr, isZh: isZh);
+    final err = CronParser.validate(expr, l10n: l10n);
     if (err != _cronError) {
       setState(() => _cronError = err);
     }
@@ -1502,7 +1449,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
 
     // Validate cron expression.
     final cronExpr = _cronExpression;
-    final cronErr = CronParser.validate(cronExpr, isZh: isZh);
+    final cronErr = CronParser.validate(cronExpr, l10n: l10n);
     if (cronErr != null) {
       setState(() {
         _cronError = cronErr;
@@ -1585,24 +1532,22 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
 
   String? _validateForm(String name) {
     if (name.isEmpty) {
-      return isZh ? '请填写任务名称。' : 'Enter a cron job name.';
+      return l10n.cronsValidationNameRequired;
     }
     if (_scriptType == CronScriptType.script &&
         nullIfBlank(_scriptPathController.text) == null) {
-      return isZh ? '请选择脚本文件。' : 'Select a script file.';
+      return l10n.cronsValidationScriptRequired;
     }
     if (_scriptType == CronScriptType.command &&
         nullIfBlank(_scriptContentController.text) == null) {
-      return isZh ? '请填写命令内容。' : 'Enter a command.';
+      return l10n.cronsValidationCommandRequired;
     }
     final invalidEnvLines = invalidKeyValueLineNumbersFromText(
       _envController.text,
     );
     if (invalidEnvLines.isNotEmpty) {
       final lines = invalidEnvLines.join(', ');
-      return isZh
-          ? '环境变量格式错误，请检查第 $lines 行。格式应为 KEY=VALUE。'
-          : 'Invalid environment variable format on line(s) $lines. Use KEY=VALUE.';
+      return l10n.cronsValidationInvalidEnvironment(lines);
     }
     return null;
   }
@@ -1629,10 +1574,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
             .any((cfg) => cfg.vibrationEnabled);
 
     await OpenHandNotificationService.showInApp(
-      title: isZh ? '开始顺序测试' : 'Starting Sequential Test',
-      body: isZh
-          ? '将按顺序测试成功、失败、超时通知。'
-          : 'Running success, failure, and timeout notification tests in sequence.',
+      title: l10n.cronsNotificationSequentialStartTitle,
+      body: l10n.cronsNotificationSequentialStartBody,
     );
 
     for (var i = 0; i < scenarios.length; i++) {
@@ -1647,18 +1590,14 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
 
     if (hasUnsupportedVibration) {
       await OpenHandNotificationService.showInApp(
-        title: isZh ? '震动已忽略' : 'Vibration Ignored',
-        body: isZh
-            ? '当前平台不支持震动，顺序测试中已自动忽略震动设置。'
-            : 'Vibration is not supported on this platform and was ignored during sequential test.',
+        title: l10n.cronsNotificationVibrationIgnoredTitle,
+        body: l10n.cronsNotificationSequentialVibrationIgnoredBody,
       );
     }
 
     await OpenHandNotificationService.showInApp(
-      title: isZh ? '顺序测试完成' : 'Sequential Test Completed',
-      body: isZh
-          ? '已完成成功、失败、超时三种通知测试。'
-          : 'Completed success, failure, and timeout notification tests.',
+      title: l10n.cronsNotificationSequentialCompletedTitle,
+      body: l10n.cronsNotificationSequentialCompletedBody,
       level: OpenHandNotificationLevel.success,
     );
   }
@@ -1668,21 +1607,15 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     bool showVibrationFallbackHint = true,
   }) async {
     final config = _resolveTestNotificationConfig(scenario);
-    final title = isZh
-        ? '定时任务通知测试 · ${config.labelZh}'
-        : 'Cron Notification Test - ${config.labelEn}';
-    final defaultBody = isZh
-        ? '${config.labelZh}场景通知测试消息。'
-        : 'Notification test message for ${config.labelEn.toLowerCase()}.';
+    final title = l10n.cronsNotificationTestTitle(config.label);
+    final defaultBody = config.defaultBody;
     final body = nullIfBlank(config.messageController.text) ?? defaultBody;
 
     if (config.type == CronNotifyType.none ||
         config.type == CronNotifyType.log) {
       await OpenHandNotificationService.showInApp(
         title: title,
-        body: isZh
-            ? '当前配置为“无”或“仅日志”，不会触发通知。'
-            : 'Current setting is None or Log Only, so no notification is emitted.',
+        body: l10n.cronsNotificationNoEmitBody,
         level: OpenHandNotificationLevel.warning,
       );
       return;
@@ -1699,10 +1632,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       );
       if (!shown) {
         await OpenHandNotificationService.showInApp(
-          title: isZh ? '系统通知不可用' : 'System Notification Unavailable',
-          body: isZh
-              ? '系统通知发送失败，已回退为应用内通知。'
-              : 'System notification failed; fallback to in-app notification.',
+          title: l10n.cronsSystemNotificationUnavailableTitle,
+          body: l10n.cronsSystemNotificationFallbackBody,
           level: OpenHandNotificationLevel.warning,
           playSound: config.soundEnabled,
           vibrate: config.vibrationEnabled,
@@ -1722,10 +1653,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
         config.vibrationEnabled &&
         !OpenHandNotificationService.supportsVibration) {
       await OpenHandNotificationService.showInApp(
-        title: isZh ? '震动已忽略' : 'Vibration Ignored',
-        body: isZh
-            ? '当前平台不支持震动，已自动忽略该配置。'
-            : 'Vibration is not supported on this platform and was ignored.',
+        title: l10n.cronsNotificationVibrationIgnoredTitle,
+        body: l10n.cronsNotificationVibrationIgnoredBody,
       );
     }
   }
@@ -1736,8 +1665,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     bool soundEnabled,
     bool vibrationEnabled,
     TextEditingController messageController,
-    String labelZh,
-    String labelEn,
+    String label,
+    String defaultBody,
   })
   _resolveTestNotificationConfig(_NotificationTestScenario scenario) {
     return switch (scenario) {
@@ -1747,8 +1676,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
         soundEnabled: _onSuccessSound,
         vibrationEnabled: _onSuccessVibration,
         messageController: _onSuccessMsgController,
-        labelZh: '成功',
-        labelEn: 'Success',
+        label: l10n.cronsNotificationScenarioSuccess,
+        defaultBody: l10n.cronsNotificationTestDefaultBodySuccess,
       ),
       _NotificationTestScenario.failure => (
         type: _onFailureNotify,
@@ -1756,8 +1685,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
         soundEnabled: _onFailureSound,
         vibrationEnabled: _onFailureVibration,
         messageController: _onFailureMsgController,
-        labelZh: '失败',
-        labelEn: 'Failure',
+        label: l10n.cronsNotificationScenarioFailure,
+        defaultBody: l10n.cronsNotificationTestDefaultBodyFailure,
       ),
       _NotificationTestScenario.timeout => (
         type: _onTimeoutNotify,
@@ -1765,8 +1694,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
         soundEnabled: _onTimeoutSound,
         vibrationEnabled: _onTimeoutVibration,
         messageController: _onTimeoutMsgController,
-        labelZh: '超时',
-        labelEn: 'Timeout',
+        label: l10n.cronsNotificationScenarioTimeout,
+        defaultBody: l10n.cronsNotificationTestDefaultBodyTimeout,
       ),
       _NotificationTestScenario.all => (
         type: _onFailureNotify,
@@ -1774,8 +1703,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
         soundEnabled: _onFailureSound,
         vibrationEnabled: _onFailureVibration,
         messageController: _onFailureMsgController,
-        labelZh: '全部',
-        labelEn: 'All',
+        label: l10n.cronsNotificationScenarioAll,
+        defaultBody: l10n.cronsNotificationTestDefaultBodyFailure,
       ),
     };
   }
@@ -1814,39 +1743,57 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     if (Platform.isIOS) {
       return 'iOS';
     }
-    return isZh ? '未知平台' : 'Unknown platform';
+    return l10n.cronsUnknownPlatform;
   }
 
   String _soundSupportTooltip(bool enabled) {
-    final state = enabled ? (isZh ? '已开启' : 'On') : (isZh ? '已关闭' : 'Off');
+    final state = enabled ? l10n.cronsToggleOn : l10n.cronsToggleOff;
     final support = _supportsSoundAlert;
 
     if (support) {
       final detail =
           (Platform.isMacOS || Platform.isLinux || Platform.isWindows)
-          ? (isZh ? '支持（尽力触发系统声音）' : 'Supported (best effort via system sound)')
-          : (isZh ? '支持' : 'Supported');
-      return isZh
-          ? '声音：$state\n平台：$_platformLabel\n状态：$detail'
-          : 'Sound: $state\nPlatform: $_platformLabel\nSupport: $detail';
+          ? l10n.cronsSupportBestEffortSystemSound
+          : l10n.cronsSupportSupported;
+      return _capabilityTooltip(
+        label: l10n.cronsSoundLabel,
+        state: state,
+        platform: _platformLabel,
+        support: detail,
+      );
     }
 
-    return isZh
-        ? '声音：$state\n平台：$_platformLabel\n状态：当前平台不支持'
-        : 'Sound: $state\nPlatform: $_platformLabel\nSupport: Not supported on this platform';
+    return _capabilityTooltip(
+      label: l10n.cronsSoundLabel,
+      state: state,
+      platform: _platformLabel,
+      support: l10n.cronsSupportNotSupportedOnPlatform,
+    );
   }
 
   String _vibrationSupportTooltip(bool enabled) {
-    final state = enabled ? (isZh ? '已开启' : 'On') : (isZh ? '已关闭' : 'Off');
+    final state = enabled ? l10n.cronsToggleOn : l10n.cronsToggleOff;
     final supported = OpenHandNotificationService.supportsVibration;
 
-    return supported
-        ? (isZh
-              ? '震动：$state\n平台：$_platformLabel\n状态：支持'
-              : 'Vibration: $state\nPlatform: $_platformLabel\nSupport: Supported')
-        : (isZh
-              ? '震动：$state\n平台：$_platformLabel\n状态：不支持（开启后将自动忽略）'
-              : 'Vibration: $state\nPlatform: $_platformLabel\nSupport: Not supported (will be ignored)');
+    return _capabilityTooltip(
+      label: l10n.cronsVibrationLabel,
+      state: state,
+      platform: _platformLabel,
+      support: supported
+          ? l10n.cronsSupportSupported
+          : l10n.cronsSupportNotSupportedWillBeIgnored,
+    );
+  }
+
+  String _capabilityTooltip({
+    required String label,
+    required String state,
+    required String platform,
+    required String support,
+  }) {
+    return '$label: $state\n'
+        '${l10n.cronsPlatformLabel}: $platform\n'
+        '${l10n.cronsSupportLabel}: $support';
   }
 
   Widget _contextCollectTile({
@@ -1933,7 +1880,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
-                                isZh ? '敏感' : 'Sensitive',
+                                l10n.cronsSensitive,
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: colorScheme.onTertiaryContainer,
                                 ),
@@ -1984,7 +1931,7 @@ class _CronHistoryDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final history = context.select<CronsController, List<CronExecutionRecord>>(
       (controller) => controller.historyFor(entry.id),
     );
@@ -1993,18 +1940,16 @@ class _CronHistoryDialog extends StatelessWidget {
     return buildOpenHandAlertDialog(
       title: Row(
         children: [
-          Expanded(
-            child: Text(isZh ? '定时任务执行历史' : 'Scheduled Task Execution History'),
-          ),
+          Expanded(child: Text(l10n.cronsExecutionHistoryTitle)),
           if (history.isNotEmpty)
             Tooltip(
-              message: isZh ? '清空全部执行历史' : 'Clear all execution history',
+              message: l10n.cronsClearAllExecutionHistory,
               child: IconButton(
                 icon: Icon(
                   Icons.delete_sweep_outlined,
                   color: colorScheme.error,
                 ),
-                onPressed: () => _confirmClearAll(context, controller, isZh),
+                onPressed: () => _confirmClearAll(context, controller, l10n),
               ),
             ),
         ],
@@ -2015,7 +1960,7 @@ class _CronHistoryDialog extends StatelessWidget {
         child: history.isEmpty
             ? Center(
                 child: Text(
-                  isZh ? '暂无执行记录' : 'No execution records yet',
+                  l10n.cronsNoExecutionRecords,
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -2032,7 +1977,7 @@ class _CronHistoryDialog extends StatelessWidget {
                       key: ValueKey(record.id),
                       direction: DismissDirection.endToStart,
                       confirmDismiss: (_) =>
-                          _confirmDeleteRecord(context, isZh),
+                          _confirmDeleteRecord(context, l10n),
                       onDismissed: (_) {
                         controller.deleteHistoryRecord(entry.id, record.id);
                       },
@@ -2050,7 +1995,6 @@ class _CronHistoryDialog extends StatelessWidget {
                       ),
                       child: _HistoryRecordTile(
                         record: record,
-                        isZh: isZh,
                         onDelete: () {
                           controller.deleteHistoryRecord(entry.id, record.id);
                         },
@@ -2062,7 +2006,7 @@ class _CronHistoryDialog extends StatelessWidget {
       ),
       actions: [
         OpenHandDialogActionButton.secondary(
-          label: isZh ? '关闭' : 'Close',
+          label: l10n.commonClose,
           onPressed: () => Navigator.of(context).pop(),
         ),
       ],
@@ -2072,16 +2016,14 @@ class _CronHistoryDialog extends StatelessWidget {
   Future<void> _confirmClearAll(
     BuildContext context,
     CronsController controller,
-    bool isZh,
+    AppLocalizations l10n,
   ) async {
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '清空执行历史' : 'Clear Execution History',
-      message: isZh
-          ? '确定清空「${entry.name}」的全部执行历史吗？此操作不可撤销。'
-          : 'Clear all execution history for "${entry.name}"? This cannot be undone.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '清空' : 'Clear',
+      title: l10n.cronsClearExecutionHistoryTitle,
+      message: l10n.cronsClearExecutionHistoryMessage(entry.name),
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.cronsClear,
       destructive: true,
     );
     if (!confirmed) {
@@ -2090,27 +2032,25 @@ class _CronHistoryDialog extends StatelessWidget {
     controller.clearHistoryForCron(entry.id);
   }
 
-  Future<bool> _confirmDeleteRecord(BuildContext context, bool isZh) {
+  Future<bool> _confirmDeleteRecord(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
     return showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '删除执行记录' : 'Delete Execution Record',
-      message: isZh ? '确定删除这条执行记录吗？' : 'Delete this execution record?',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '删除' : 'Delete',
+      title: l10n.cronsDeleteExecutionRecordTitle,
+      message: l10n.cronsDeleteExecutionRecordMessage,
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.commonDelete,
       destructive: true,
     );
   }
 }
 
 class _HistoryRecordTile extends StatefulWidget {
-  const _HistoryRecordTile({
-    required this.record,
-    required this.isZh,
-    required this.onDelete,
-  });
+  const _HistoryRecordTile({required this.record, required this.onDelete});
 
   final CronExecutionRecord record;
-  final bool isZh;
   final VoidCallback onDelete;
 
   @override
@@ -2169,7 +2109,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final record = widget.record;
-    final isZh = widget.isZh;
+    final l10n = AppLocalizations.of(context)!;
 
     final statusColor = switch (record.status) {
       'success' => const Color(0xFF56C271),
@@ -2181,11 +2121,11 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
     };
 
     final statusLabel = switch (record.status) {
-      'success' => isZh ? '成功' : 'Success',
-      'failed' => isZh ? '失败' : 'Failed',
-      'timed_out' => isZh ? '超时' : 'Timed Out',
-      'running' => isZh ? '运行中' : 'Running',
-      'killed' => isZh ? '已终止' : 'Killed',
+      'success' => l10n.cronsExecutionStatusSuccess,
+      'failed' => l10n.cronsExecutionStatusFailed,
+      'timed_out' => l10n.cronsExecutionStatusTimedOut,
+      'running' => l10n.cronsExecutionStatusRunning,
+      'killed' => l10n.cronsExecutionStatusKilled,
       _ => record.status,
     };
 
@@ -2278,8 +2218,8 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                       ),
                       child: Text(
                         record.triggerType == 'manual'
-                            ? (isZh ? '手动' : 'Manual')
-                            : (isZh ? '调度' : 'Scheduled'),
+                            ? l10n.cronsTriggerManual
+                            : l10n.cronsTriggerScheduled,
                         style: theme.textTheme.labelSmall?.copyWith(
                           fontSize: 9,
                           color: record.triggerType == 'manual'
@@ -2304,7 +2244,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                         minWidth: 28,
                         minHeight: 28,
                       ),
-                      tooltip: isZh ? '删除此条记录' : 'Delete this record',
+                      tooltip: l10n.cronsDeleteThisRecord,
                       onPressed: widget.onDelete,
                     ),
                     const SizedBox(width: 4),
@@ -2332,7 +2272,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                       child: _detailSection(
                         theme,
                         colorScheme,
-                        isZh: isZh,
+                        l10n: l10n,
                         record: record,
                         accentColor: statusColor,
                       ),
@@ -2350,7 +2290,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
   Widget _detailSection(
     ThemeData theme,
     ColorScheme colorScheme, {
-    required bool isZh,
+    required AppLocalizations l10n,
     required CronExecutionRecord record,
     required Color accentColor,
   }) {
@@ -2375,7 +2315,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
           // Retry attempt
           if (record.retryAttempt > 0)
             _detailRow(
-              isZh ? '重试次数' : 'Retry Attempt',
+              l10n.cronsRetryAttempt,
               '${record.retryAttempt}',
               theme,
               colorScheme,
@@ -2385,16 +2325,11 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
             _detailRow('PID', '${record.pid}', theme, colorScheme),
           // Run-as user
           if (record.runAsUser != null)
-            _detailRow(
-              isZh ? '执行用户' : 'Run As',
-              record.runAsUser!,
-              theme,
-              colorScheme,
-            ),
+            _detailRow(l10n.cronsRunAs, record.runAsUser!, theme, colorScheme),
           // Working directory
           if (record.workingDirectory != null)
             _detailRow(
-              isZh ? '工作目录' : 'Working Dir',
+              l10n.cronsWorkingDir,
               record.workingDirectory!,
               theme,
               colorScheme,
@@ -2403,7 +2338,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
           if (record.environment.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              isZh ? '脚本环境覆盖:' : 'Script Environment Overrides:',
+              l10n.cronsScriptEnvironmentOverrides,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
@@ -2425,9 +2360,9 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
             ),
           ],
           if (record.appContext.isNotEmpty) ...[
-            // 2026-04-25 — Hermes Talker 专属富面板：检测到结构化报告
-            // 时优先展开，并把对应的 JSON 键从下方"执行上下文"原始 KV
-            // 列表中过滤掉，避免重复且避免一坨 JSON 文本污染界面。
+            // 2026-04-25: Prefer the Hermes Talker rich panel for structured
+            // reports and hide the consumed JSON keys from the raw context
+            // list, avoiding duplicate noisy payloads in the UI.
             if (record.appContext.containsKey(
                   CronsController.hermesTalkerReportsKey,
                 ) ||
@@ -2435,22 +2370,19 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                   CronsController.hermesTalkerStatsKey,
                 )) ...[
               const SizedBox(height: 8),
-              _HermesTalkerHistoryPanel(
-                isZh: isZh,
-                appContext: record.appContext,
-              ),
+              _HermesTalkerHistoryPanel(appContext: record.appContext),
             ],
             ..._buildPlainAppContextSection(
               theme: theme,
               colorScheme: colorScheme,
-              isZh: isZh,
+              l10n: l10n,
               record: record,
             ),
           ],
           if (record.environmentSnapshot.isNotEmpty) ...[
             const SizedBox(height: 8),
             _kvSection(
-              title: isZh ? '环境快照:' : 'Environment Snapshot:',
+              title: l10n.cronsEnvironmentSnapshot,
               data: record.environmentSnapshot,
               theme: theme,
               colorScheme: colorScheme,
@@ -2462,7 +2394,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
               record.errorMessage!.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              isZh ? '错误原因:' : 'Error:',
+              l10n.cronsErrorReason,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: colorScheme.error,
                 fontWeight: FontWeight.w600,
@@ -2482,7 +2414,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
           if (record.stdout.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              isZh ? '标准输出 (stdout):' : 'stdout:',
+              l10n.cronsStdout,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
@@ -2517,7 +2449,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
           if (record.stderr.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              isZh ? '标准错误 (stderr):' : 'stderr:',
+              l10n.cronsStderr,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: colorScheme.error,
                 fontWeight: FontWeight.w600,
@@ -2593,7 +2525,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
   List<Widget> _buildPlainAppContextSection({
     required ThemeData theme,
     required ColorScheme colorScheme,
-    required bool isZh,
+    required AppLocalizations l10n,
     required CronExecutionRecord record,
   }) {
     final filtered = <String, String>{
@@ -2606,7 +2538,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
     return <Widget>[
       const SizedBox(height: 8),
       _kvSection(
-        title: isZh ? '执行上下文:' : 'Execution Context:',
+        title: l10n.cronsExecutionContext,
         data: filtered,
         theme: theme,
         colorScheme: colorScheme,
@@ -2742,18 +2674,15 @@ class _HermesTalkerSessionReport {
 }
 
 class _HermesTalkerHistoryPanel extends StatelessWidget {
-  const _HermesTalkerHistoryPanel({
-    required this.isZh,
-    required this.appContext,
-  });
+  const _HermesTalkerHistoryPanel({required this.appContext});
 
-  final bool isZh;
   final Map<String, String> appContext;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     final reports = _decodeReports();
     final stats = _decodeStats();
@@ -2796,7 +2725,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isZh ? 'Hermes Talker 自我学习报告' : 'Hermes Talker Report',
+                      l10n.cronsHermesTalkerReportTitle,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -2805,7 +2734,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
-                          _formatStatsLine(stats, isZh),
+                          _formatStatsLine(stats, l10n),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -2820,9 +2749,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: Text(
-                isZh
-                    ? '本轮无符合条件的会话被实际学习。'
-                    : 'No eligible sessions were actually learned this tick.',
+                l10n.cronsHermesNoEligibleSessions,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -2831,9 +2758,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
           else ...[
             const SizedBox(height: 10),
             Text(
-              isZh
-                  ? '受影响的会话 (${reports.length})'
-                  : 'Affected Sessions (${reports.length})',
+              l10n.cronsHermesAffectedSessions(reports.length),
               style: theme.textTheme.labelMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
@@ -2843,7 +2768,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
             ...reports.map(
               (r) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: _HermesTalkerSessionCard(report: r, isZh: isZh),
+                child: _HermesTalkerSessionCard(report: r),
               ),
             ),
           ],
@@ -2890,52 +2815,48 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
     }
   }
 
-  String _formatStatsLine(Map<String, int> stats, bool isZh) {
+  String _formatStatsLine(Map<String, int> stats, AppLocalizations l10n) {
     int v(String k) => stats[k] ?? 0;
-    if (isZh) {
-      return '扫描 ${v('scanned')} · 触发 ${v('triggered')} · '
-          '跳过 ${v('skipped')} · 异常 ${v('errors')}';
-    }
-    return 'scanned ${v('scanned')} · triggered ${v('triggered')} · '
-        'skipped ${v('skipped')} · errors ${v('errors')}';
+    return l10n.cronsHermesStatsLine(
+      v('scanned'),
+      v('triggered'),
+      v('skipped'),
+      v('errors'),
+    );
   }
 }
 
 class _HermesTalkerSessionCard extends StatelessWidget {
-  const _HermesTalkerSessionCard({required this.report, required this.isZh});
+  const _HermesTalkerSessionCard({required this.report});
 
   final _HermesTalkerSessionReport report;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     final isError = report.status == 'error';
     final accent = isError ? colorScheme.error : colorScheme.primary;
     final title = report.sessionTitle.trim().isEmpty
-        ? (isZh ? '(未命名会话)' : '(untitled session)')
+        ? l10n.cronsHermesUntitledSession
         : report.sessionTitle.trim();
 
     final chips = <Widget>[
-      _statusChip(theme, colorScheme, report.status, isZh),
+      _statusChip(theme, colorScheme, report.status, l10n),
       if (report.memoryUpdates > 0)
         _metaChip(
           theme,
           colorScheme,
           icon: Icons.memory,
-          label: isZh
-              ? '记忆 +${report.memoryUpdates}'
-              : 'memory +${report.memoryUpdates}',
+          label: l10n.cronsHermesMemoryUpdates(report.memoryUpdates),
         ),
       if (report.memoryErrors > 0)
         _metaChip(
           theme,
           colorScheme,
           icon: Icons.error_outline,
-          label: isZh
-              ? '记忆错误 ${report.memoryErrors}'
-              : 'memory err ${report.memoryErrors}',
+          label: l10n.cronsHermesMemoryErrors(report.memoryErrors),
           tone: colorScheme.error,
         ),
       if (report.skillUpdates > 0)
@@ -2943,18 +2864,14 @@ class _HermesTalkerSessionCard extends StatelessWidget {
           theme,
           colorScheme,
           icon: Icons.psychology_alt_outlined,
-          label: isZh
-              ? '技能 +${report.skillUpdates}'
-              : 'skill +${report.skillUpdates}',
+          label: l10n.cronsHermesSkillUpdates(report.skillUpdates),
         ),
       if (report.skillErrors > 0)
         _metaChip(
           theme,
           colorScheme,
           icon: Icons.error_outline,
-          label: isZh
-              ? '技能错误 ${report.skillErrors}'
-              : 'skill err ${report.skillErrors}',
+          label: l10n.cronsHermesSkillErrors(report.skillErrors),
           tone: colorScheme.error,
         ),
       if (report.profileChanges.isNotEmpty)
@@ -2962,18 +2879,14 @@ class _HermesTalkerSessionCard extends StatelessWidget {
           theme,
           colorScheme,
           icon: Icons.account_circle_outlined,
-          label: isZh
-              ? '用户轮廓 ${report.profileChanges.length}'
-              : 'profile ${report.profileChanges.length}',
+          label: l10n.cronsHermesProfileChanges(report.profileChanges.length),
         ),
       if (report.toolCallRounds > 0)
         _metaChip(
           theme,
           colorScheme,
           icon: Icons.repeat_rounded,
-          label: isZh
-              ? '工具轮次 ${report.toolCallRounds}'
-              : 'rounds ${report.toolCallRounds}',
+          label: l10n.cronsHermesToolRounds(report.toolCallRounds),
         ),
     ];
 
@@ -2994,11 +2907,11 @@ class _HermesTalkerSessionCard extends StatelessWidget {
           child: Text(
             [
               if (report.modelId != null)
-                '${isZh ? '模型' : 'model'}: ${report.modelId}',
+                '${l10n.cronsHermesModelLabel}: ${report.modelId}',
               if (report.providerId != null)
-                '${isZh ? '渠道' : 'provider'}: ${report.providerId}',
+                '${l10n.cronsHermesProviderLabel}: ${report.providerId}',
               if (report.terminatedReason != null)
-                '${isZh ? '结束原因' : 'terminated'}: ${report.terminatedReason}',
+                '${l10n.cronsHermesTerminatedLabel}: ${report.terminatedReason}',
             ].join(' · '),
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
@@ -3010,39 +2923,39 @@ class _HermesTalkerSessionCard extends StatelessWidget {
         _changeGroup(
           theme: theme,
           colorScheme: colorScheme,
-          title: isZh ? '用户轮廓变动' : 'User profile changes',
+          title: l10n.cronsHermesUserProfileChanges,
           icon: Icons.account_circle_outlined,
           changes: report.profileChanges,
-          isZh: isZh,
+          l10n: l10n,
         ),
       if (report.memoryChanges.isNotEmpty)
         _changeGroup(
           theme: theme,
           colorScheme: colorScheme,
-          title: isZh ? '记忆变动' : 'Memory changes',
+          title: l10n.cronsHermesMemoryChanges,
           icon: Icons.memory,
           changes: report.memoryChanges,
-          isZh: isZh,
+          l10n: l10n,
         ),
       if (report.skillChanges.isNotEmpty)
         _changeGroup(
           theme: theme,
           colorScheme: colorScheme,
-          title: isZh ? '技能变动' : 'Skill changes',
+          title: l10n.cronsHermesSkillChanges,
           icon: Icons.psychology_alt_outlined,
           changes: report.skillChanges,
-          isZh: isZh,
+          l10n: l10n,
         ),
       if (report.aiReasoning != null && report.aiReasoning!.isNotEmpty)
         _CollapsibleLongText(
-          title: isZh ? '当时现场的 AI 思考' : 'AI reasoning on scene',
+          title: l10n.cronsHermesAiReasoningOnScene,
           icon: Icons.tips_and_updates_outlined,
           body: report.aiReasoning!,
           subdued: true,
         ),
       if (report.aiResponse != null && report.aiResponse!.isNotEmpty)
         _CollapsibleLongText(
-          title: isZh ? '当时现场的 AI 响应' : 'AI response on scene',
+          title: l10n.cronsHermesAiResponseOnScene,
           icon: Icons.chat_bubble_outline,
           body: report.aiResponse!,
         ),
@@ -3094,7 +3007,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
                 ? children
                 : <Widget>[
                     Text(
-                      isZh ? '本会话无更多详情。' : 'No further details.',
+                      l10n.cronsHermesNoFurtherDetails,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -3110,7 +3023,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
     ThemeData theme,
     ColorScheme colorScheme,
     String status,
-    bool isZh,
+    AppLocalizations l10n,
   ) {
     Color bg;
     Color fg;
@@ -3121,19 +3034,19 @@ class _HermesTalkerSessionCard extends StatelessWidget {
         bg = colorScheme.errorContainer;
         fg = colorScheme.onErrorContainer;
         icon = Icons.error_outline;
-        label = isZh ? '失败' : 'error';
+        label = l10n.cronsHermesStatusError;
         break;
       case 'skipped':
         bg = colorScheme.surfaceContainerHighest;
         fg = colorScheme.onSurfaceVariant;
         icon = Icons.skip_next_rounded;
-        label = isZh ? '跳过' : 'skipped';
+        label = l10n.cronsHermesStatusSkipped;
         break;
       default:
         bg = colorScheme.primaryContainer;
         fg = colorScheme.onPrimaryContainer;
         icon = Icons.check_circle_outline;
-        label = isZh ? '完成' : 'ok';
+        label = l10n.cronsHermesStatusOk;
     }
     return _metaChip(
       theme,
@@ -3185,7 +3098,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
     required String title,
     required IconData icon,
     required List<Map<String, Object?>> changes,
-    required bool isZh,
+    required AppLocalizations l10n,
   }) {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
@@ -3233,7 +3146,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
                 theme: theme,
                 colorScheme: colorScheme,
                 change: m,
-                isZh: isZh,
+                l10n: l10n,
               ),
             ),
           ],
@@ -3246,7 +3159,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
     required ThemeData theme,
     required ColorScheme colorScheme,
     required Map<String, Object?> change,
-    required bool isZh,
+    required AppLocalizations l10n,
   }) {
     final action = _firstText(change, const ['action', 'type', 'operation']);
     final heading = _firstText(change, const [
@@ -3258,7 +3171,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
     ]);
     final id = _firstText(change, const ['id', 'key', 'path', 'target']);
     final details = _detailEntries(change)
-        .map((entry) => '**${_labelFor(entry.key, isZh)}**: ${entry.value}')
+        .map((entry) => '**${_labelFor(entry.key, l10n)}**: ${entry.value}')
         .toList(growable: false);
     final fallback = _jsonFallback(change);
 
@@ -3409,16 +3322,15 @@ class _HermesTalkerSessionCard extends StatelessWidget {
     return out.take(6).toList(growable: false);
   }
 
-  String _labelFor(String key, bool isZh) {
-    if (!isZh) return key;
+  String _labelFor(String key, AppLocalizations l10n) {
     return switch (key) {
-      'before' => '变更前',
-      'after' => '变更后',
-      'value' => '值',
-      'source' => '来源',
-      'reason' => '原因',
-      'metadata' => '元数据',
-      'error' => '错误',
+      'before' => l10n.cronsHermesChangeBefore,
+      'after' => l10n.cronsHermesChangeAfter,
+      'value' => l10n.cronsHermesChangeValue,
+      'source' => l10n.cronsHermesChangeSource,
+      'reason' => l10n.cronsHermesChangeReason,
+      'metadata' => l10n.cronsHermesChangeMetadata,
+      'error' => l10n.cronsHermesChangeError,
       _ => key,
     };
   }
@@ -3476,7 +3388,7 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
     final shown = (_expanded || !exceeds)
         ? body
         : '${body.substring(0, _CollapsibleLongText._previewChars)}…';
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
 
     final bodyTextColor = widget.subdued
         ? colorScheme.onSurfaceVariant
@@ -3546,9 +3458,7 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
                     ),
                     onPressed: () => setState(() => _expanded = !_expanded),
                     child: Text(
-                      _expanded
-                          ? (isZh ? '折叠' : 'Collapse')
-                          : (isZh ? '展开' : 'Expand'),
+                      _expanded ? l10n.cronsCollapse : l10n.cronsExpand,
                     ),
                   ),
               ],

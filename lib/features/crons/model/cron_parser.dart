@@ -1,3 +1,5 @@
+import '../../../l10n/app_localizations.dart';
+
 /// Minimal cron expression parser for 5-field (minute-level) expressions.
 ///
 /// Supports: `*`, exact numbers, comma-separated lists, ranges (`1-5`),
@@ -56,24 +58,25 @@ class CronParser {
     return null;
   }
 
-  /// Validates a 5-field cron expression. Returns null if valid, or an
-  /// English/Chinese error description if invalid.
-  static String? validate(String expression, {bool isZh = false}) {
+  /// Validates a 5-field cron expression. Returns null if valid, or a
+  /// localized error description if invalid.
+  static String? validate(String expression, {required AppLocalizations l10n}) {
     final fields = expression.trim().split(RegExp(r'\s+'));
     if (fields.length != 5) {
-      return isZh
-          ? 'Cron 表达式需要恰好 5 个字段（分 时 日 月 周）'
-          : 'Cron expression must have exactly 5 fields (min hour dom mon dow)';
+      return l10n.cronParserFieldCountError;
     }
-    const labels = ['minute', 'hour', 'day-of-month', 'month', 'day-of-week'];
-    const zhLabels = ['分钟', '小时', '日', '月', '星期'];
+    final labels = [
+      l10n.cronParserFieldMinute,
+      l10n.cronParserFieldHour,
+      l10n.cronParserFieldDayOfMonth,
+      l10n.cronParserFieldMonth,
+      l10n.cronParserFieldDayOfWeek,
+    ];
     const ranges = [(0, 59), (0, 23), (1, 31), (1, 12), (0, 7)];
     for (var i = 0; i < 5; i++) {
       final parsed = _parseField(fields[i], ranges[i].$1, ranges[i].$2);
       if (parsed == null) {
-        return isZh
-            ? '${zhLabels[i]}字段 "${fields[i]}" 无效'
-            : 'Invalid ${labels[i]} field "${fields[i]}"';
+        return l10n.cronParserInvalidField(labels[i], fields[i]);
       }
     }
     return null;

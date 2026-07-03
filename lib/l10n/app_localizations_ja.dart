@@ -1757,6 +1757,588 @@ class AppLocalizationsJa extends AppLocalizations {
   String get dialogAnimationCurveDecelerate => '減速';
 
   @override
+  String get commonOptional => '任意';
+
+  @override
+  String get cronScriptTypeCommand => 'コマンド';
+
+  @override
+  String get cronScriptTypeScript => 'スクリプト';
+
+  @override
+  String get cronScriptTypeAgent => 'Agent';
+
+  @override
+  String get cronJobStatusRunning => '実行中';
+
+  @override
+  String get cronJobStatusPaused => '一時停止';
+
+  @override
+  String get cronJobStatusFailed => '失敗';
+
+  @override
+  String get cronJobStatusError => 'エラー';
+
+  @override
+  String get cronJobStatusIdle => '待機中';
+
+  @override
+  String get cronNotifyTypeNone => 'なし';
+
+  @override
+  String get cronNotifyTypeLog => 'ログのみ';
+
+  @override
+  String get cronNotifyTypeSystem => 'システム通知';
+
+  @override
+  String get cronNotifyTypeAppNotification => 'アプリ内通知';
+
+  @override
+  String get cronNotifySeverityInfo => '情報';
+
+  @override
+  String get cronNotifySeveritySuccess => '成功';
+
+  @override
+  String get cronNotifySeverityWarning => '警告';
+
+  @override
+  String get cronNotifySeverityError => 'エラー';
+
+  @override
+  String get cronNotifySeverityCritical => '重大';
+
+  @override
+  String get cronScheduleInvalidExpression => '無効な式';
+
+  @override
+  String get cronScheduleEveryMinute => '毎分';
+
+  @override
+  String get cronParserFieldCountError =>
+      'Cron 式は 5 フィールド（分 時 日 月 曜日）である必要があります';
+
+  @override
+  String get cronParserFieldMinute => '分';
+
+  @override
+  String get cronParserFieldHour => '時';
+
+  @override
+  String get cronParserFieldDayOfMonth => '日';
+
+  @override
+  String get cronParserFieldDayOfMonthShort => '日';
+
+  @override
+  String get cronParserFieldMonth => '月';
+
+  @override
+  String get cronParserFieldDayOfWeek => '曜日';
+
+  @override
+  String get cronParserFieldDayOfWeekShort => '曜';
+
+  @override
+  String cronParserInvalidField(String field, String value) {
+    return '$field フィールド \"$value\" が無効です';
+  }
+
+  @override
+  String get cronsViewDescription =>
+      'スケジュールタスクを設定、管理します。Cron 式、タイムアウト、自動再試行、実行履歴に対応します。';
+
+  @override
+  String get cronsNewCronJob => '新規 Cron ジョブ';
+
+  @override
+  String get cronsEditCronJob => 'Cron ジョブを編集';
+
+  @override
+  String get cronsDeleteCronJobTitle => 'Cron ジョブを削除';
+
+  @override
+  String cronsDeleteCronJobMessage(String name) {
+    return '\"$name\" を削除しますか？この操作は元に戻せません。実行履歴も削除されます。';
+  }
+
+  @override
+  String get cronsEmptyTitle => 'Cron ジョブはまだありません';
+
+  @override
+  String get cronsEmptyBody => '上の「新規 Cron ジョブ」から設定を開始します。';
+
+  @override
+  String get cronsCronExpressionTooltip => 'Cron 式';
+
+  @override
+  String get cronsTimeoutTooltip => 'タイムアウト';
+
+  @override
+  String get cronsRetryCountTooltip => '再試行回数';
+
+  @override
+  String get cronsMcpKeywordIndexLockedTooltip =>
+      '設定 -> MCP -> キーワードインデックス更新モードで制御されます';
+
+  @override
+  String get cronsRunOnceNow => '今すぐ 1 回実行';
+
+  @override
+  String get cronsHistory => '履歴';
+
+  @override
+  String cronsLastRunAt(String time) {
+    return '前回: $time';
+  }
+
+  @override
+  String get cronsFieldName => '名前';
+
+  @override
+  String get cronsFieldNameHint => '例: 毎日バックアップ';
+
+  @override
+  String get cronsFieldDescription => '説明';
+
+  @override
+  String get cronsFieldType => '種類';
+
+  @override
+  String get cronsFieldScriptFilePath => 'スクリプトファイルパス';
+
+  @override
+  String get cronsFieldScriptFilePathHint => '.sh / .ps1 / .bat ファイルを選択';
+
+  @override
+  String get cronsBrowse => '参照';
+
+  @override
+  String get cronsFieldCommand => 'コマンド';
+
+  @override
+  String get cronsFieldCommandHintWindows => 'PowerShell / BAT コマンドを入力';
+
+  @override
+  String get cronsFieldCommandHintShell => 'Shell コマンドを入力';
+
+  @override
+  String get cronsCronSchedule => 'Cron スケジュール';
+
+  @override
+  String get cronsCronScheduleHelper =>
+      '秒フィールドは 0 固定です。最小粒度は分です。形式: 分 時 日 月 曜日';
+
+  @override
+  String get cronsTimeoutSeconds => 'タイムアウト（秒）';
+
+  @override
+  String get cronsRetries => '再試行';
+
+  @override
+  String get cronsMaxRetryDelaySeconds => '最大再試行間隔（秒）';
+
+  @override
+  String get cronsRunAsUser => '実行ユーザー';
+
+  @override
+  String get cronsDefaultCurrentUser => 'デフォルト（現在のユーザー）';
+
+  @override
+  String get cronsDefault => 'デフォルト';
+
+  @override
+  String get cronsTagsCommaSeparated => 'タグ（カンマ区切り）';
+
+  @override
+  String get cronsTagsHint => '例: backup, cleanup';
+
+  @override
+  String get cronsWorkingDirectory => '作業ディレクトリ';
+
+  @override
+  String get cronsWorkingDirectoryHint => '任意。未指定時はアプリのディレクトリ';
+
+  @override
+  String get cronsEnvironmentVariables => '環境変数';
+
+  @override
+  String get cronsEnvironmentVariablesHint => '1 行に 1 つ、形式: KEY=VALUE';
+
+  @override
+  String get cronsExecutionContextCollection => '実行コンテキスト収集';
+
+  @override
+  String get cronsCollectAppMetadata => 'アプリ情報を収集';
+
+  @override
+  String get cronsCollectAppMetadataSubtitle => 'アプリバージョン、PID、実行ファイルパスなどを記録します';
+
+  @override
+  String get cronsCollectHostMetadata => 'ホスト情報を収集';
+
+  @override
+  String get cronsCollectHostMetadataSubtitle =>
+      'OS バージョン、ホスト名、CPU コア数などを記録します';
+
+  @override
+  String get cronsCollectEnvironmentSnapshot => '環境スナップショットを収集';
+
+  @override
+  String get cronsCollectEnvironmentSnapshotSubtitle =>
+      '実行時の有効な環境変数を記録します（機密情報を含む場合があります）。';
+
+  @override
+  String get cronsSensitive => '機密';
+
+  @override
+  String get cronsNotificationSettings => '通知設定';
+
+  @override
+  String get cronsTestNotification => '通知をテスト';
+
+  @override
+  String get cronsTestSuccessNotification => '成功通知をテスト';
+
+  @override
+  String get cronsTestFailureNotification => '失敗通知をテスト';
+
+  @override
+  String get cronsTestTimeoutNotification => 'タイムアウト通知をテスト';
+
+  @override
+  String get cronsTestAllNotifications => 'すべてテスト（順番）';
+
+  @override
+  String get cronsNotificationSettingsHelper =>
+      'イベントごとに通知チャネル、重要度、音、振動を個別に設定できます。';
+
+  @override
+  String get cronsOnSuccess => '成功時';
+
+  @override
+  String get cronsOnFailure => '失敗時';
+
+  @override
+  String get cronsOnTimeout => 'タイムアウト時';
+
+  @override
+  String get cronsEnabled => '有効';
+
+  @override
+  String get cronsCustomNotificationMessageHint => 'カスタム通知内容（任意）';
+
+  @override
+  String get cronsVibrationUnsupportedHint =>
+      'このプラットフォームは振動に対応していないため、オンでも無視されます。';
+
+  @override
+  String get cronsValidationNameRequired => 'Cron ジョブ名を入力してください。';
+
+  @override
+  String get cronsValidationScriptRequired => 'スクリプトファイルを選択してください。';
+
+  @override
+  String get cronsValidationCommandRequired => 'コマンドを入力してください。';
+
+  @override
+  String cronsValidationInvalidEnvironment(String lines) {
+    return '環境変数の形式が無効です。$lines 行目を確認してください。形式は KEY=VALUE です。';
+  }
+
+  @override
+  String get cronsNotificationSequentialStartTitle => '順次テストを開始';
+
+  @override
+  String get cronsNotificationSequentialStartBody =>
+      '成功、失敗、タイムアウト通知を順番にテストします。';
+
+  @override
+  String get cronsNotificationVibrationIgnoredTitle => '振動を無視しました';
+
+  @override
+  String get cronsNotificationSequentialVibrationIgnoredBody =>
+      'このプラットフォームは振動に対応していないため、順次テスト中に無視されました。';
+
+  @override
+  String get cronsNotificationSequentialCompletedTitle => '順次テスト完了';
+
+  @override
+  String get cronsNotificationSequentialCompletedBody =>
+      '成功、失敗、タイムアウトの通知テストが完了しました。';
+
+  @override
+  String get cronsNotificationScenarioSuccess => '成功';
+
+  @override
+  String get cronsNotificationScenarioFailure => '失敗';
+
+  @override
+  String get cronsNotificationScenarioTimeout => 'タイムアウト';
+
+  @override
+  String get cronsNotificationScenarioAll => 'すべて';
+
+  @override
+  String cronsNotificationTestTitle(String label) {
+    return 'Cron 通知テスト - $label';
+  }
+
+  @override
+  String get cronsNotificationTestDefaultBodySuccess => '成功シナリオの通知テストメッセージです。';
+
+  @override
+  String get cronsNotificationTestDefaultBodyFailure => '失敗シナリオの通知テストメッセージです。';
+
+  @override
+  String get cronsNotificationTestDefaultBodyTimeout =>
+      'タイムアウトシナリオの通知テストメッセージです。';
+
+  @override
+  String get cronsNotificationNoEmitBody =>
+      '現在の設定は「なし」または「ログのみ」のため、通知は送信されません。';
+
+  @override
+  String get cronsSystemNotificationUnavailableTitle => 'システム通知を利用できません';
+
+  @override
+  String get cronsSystemNotificationFallbackBody =>
+      'システム通知に失敗したため、アプリ内通知に切り替えました。';
+
+  @override
+  String get cronsNotificationVibrationIgnoredBody =>
+      'このプラットフォームは振動に対応していないため、無視されました。';
+
+  @override
+  String get cronsUnknownPlatform => '不明なプラットフォーム';
+
+  @override
+  String get cronsToggleOn => 'オン';
+
+  @override
+  String get cronsToggleOff => 'オフ';
+
+  @override
+  String get cronsSupportBestEffortSystemSound => '対応（可能な範囲でシステム音）';
+
+  @override
+  String get cronsSupportSupported => '対応';
+
+  @override
+  String get cronsSupportNotSupportedOnPlatform => 'このプラットフォームでは非対応';
+
+  @override
+  String get cronsSupportNotSupportedWillBeIgnored => '非対応（無視されます）';
+
+  @override
+  String get cronsSoundLabel => '音';
+
+  @override
+  String get cronsVibrationLabel => '振動';
+
+  @override
+  String get cronsPlatformLabel => 'プラットフォーム';
+
+  @override
+  String get cronsSupportLabel => '対応状況';
+
+  @override
+  String get cronsExecutionHistoryTitle => '定時タスク実行履歴';
+
+  @override
+  String get cronsClearAllExecutionHistory => 'すべての実行履歴を消去';
+
+  @override
+  String get cronsNoExecutionRecords => '実行記録はまだありません';
+
+  @override
+  String get cronsClearExecutionHistoryTitle => '実行履歴を消去';
+
+  @override
+  String cronsClearExecutionHistoryMessage(String name) {
+    return '「$name」の実行履歴をすべて消去しますか？この操作は元に戻せません。';
+  }
+
+  @override
+  String get cronsClear => '消去';
+
+  @override
+  String get cronsDeleteExecutionRecordTitle => '実行記録を削除';
+
+  @override
+  String get cronsDeleteExecutionRecordMessage => 'この実行記録を削除しますか？';
+
+  @override
+  String get cronsExecutionStatusSuccess => '成功';
+
+  @override
+  String get cronsExecutionStatusFailed => '失敗';
+
+  @override
+  String get cronsExecutionStatusTimedOut => 'タイムアウト';
+
+  @override
+  String get cronsExecutionStatusRunning => '実行中';
+
+  @override
+  String get cronsExecutionStatusKilled => '終了済み';
+
+  @override
+  String get cronsTriggerManual => '手動';
+
+  @override
+  String get cronsTriggerScheduled => 'スケジュール';
+
+  @override
+  String get cronsDeleteThisRecord => 'この記録を削除';
+
+  @override
+  String get cronsRetryAttempt => '再試行回数';
+
+  @override
+  String get cronsRunAs => '実行ユーザー';
+
+  @override
+  String get cronsWorkingDir => '作業ディレクトリ';
+
+  @override
+  String get cronsScriptEnvironmentOverrides => 'スクリプト環境の上書き:';
+
+  @override
+  String get cronsEnvironmentSnapshot => '環境スナップショット:';
+
+  @override
+  String get cronsErrorReason => 'エラー:';
+
+  @override
+  String get cronsStdout => '標準出力 (stdout):';
+
+  @override
+  String get cronsStderr => '標準エラー (stderr):';
+
+  @override
+  String get cronsExecutionContext => '実行コンテキスト:';
+
+  @override
+  String get cronsHermesTalkerReportTitle => 'Hermes Talker レポート';
+
+  @override
+  String get cronsHermesNoEligibleSessions => '今回の実行では学習対象のセッションはありませんでした。';
+
+  @override
+  String cronsHermesAffectedSessions(int count) {
+    return '影響を受けたセッション ($count)';
+  }
+
+  @override
+  String cronsHermesStatsLine(
+    int scanned,
+    int triggered,
+    int skipped,
+    int errors,
+  ) {
+    return 'スキャン $scanned · トリガー $triggered · スキップ $skipped · エラー $errors';
+  }
+
+  @override
+  String get cronsHermesUntitledSession => '(無題のセッション)';
+
+  @override
+  String cronsHermesMemoryUpdates(int count) {
+    return '記憶 +$count';
+  }
+
+  @override
+  String cronsHermesMemoryErrors(int count) {
+    return '記憶エラー $count';
+  }
+
+  @override
+  String cronsHermesSkillUpdates(int count) {
+    return 'スキル +$count';
+  }
+
+  @override
+  String cronsHermesSkillErrors(int count) {
+    return 'スキルエラー $count';
+  }
+
+  @override
+  String cronsHermesProfileChanges(int count) {
+    return 'プロフィール $count';
+  }
+
+  @override
+  String cronsHermesToolRounds(int count) {
+    return 'ツールラウンド $count';
+  }
+
+  @override
+  String get cronsHermesModelLabel => 'モデル';
+
+  @override
+  String get cronsHermesProviderLabel => 'プロバイダー';
+
+  @override
+  String get cronsHermesTerminatedLabel => '終了理由';
+
+  @override
+  String get cronsHermesUserProfileChanges => 'ユーザープロフィールの変更';
+
+  @override
+  String get cronsHermesMemoryChanges => '記憶の変更';
+
+  @override
+  String get cronsHermesSkillChanges => 'スキルの変更';
+
+  @override
+  String get cronsHermesAiReasoningOnScene => '当時の AI 推論';
+
+  @override
+  String get cronsHermesAiResponseOnScene => '当時の AI 応答';
+
+  @override
+  String get cronsHermesNoFurtherDetails => '追加の詳細はありません。';
+
+  @override
+  String get cronsHermesStatusError => 'エラー';
+
+  @override
+  String get cronsHermesStatusSkipped => 'スキップ';
+
+  @override
+  String get cronsHermesStatusOk => '完了';
+
+  @override
+  String get cronsHermesChangeBefore => '変更前';
+
+  @override
+  String get cronsHermesChangeAfter => '変更後';
+
+  @override
+  String get cronsHermesChangeValue => '値';
+
+  @override
+  String get cronsHermesChangeSource => 'ソース';
+
+  @override
+  String get cronsHermesChangeReason => '理由';
+
+  @override
+  String get cronsHermesChangeMetadata => 'メタデータ';
+
+  @override
+  String get cronsHermesChangeError => 'エラー';
+
+  @override
+  String get cronsCollapse => '折りたたむ';
+
+  @override
+  String get cronsExpand => '展開';
+
+  @override
   String get aiModelAdd => 'プロバイダーを追加';
 
   @override

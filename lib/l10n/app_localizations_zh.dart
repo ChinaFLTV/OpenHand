@@ -1738,6 +1738,577 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dialogAnimationCurveDecelerate => '减速';
 
   @override
+  String get commonOptional => '可选';
+
+  @override
+  String get cronScriptTypeCommand => '命令';
+
+  @override
+  String get cronScriptTypeScript => '脚本';
+
+  @override
+  String get cronScriptTypeAgent => 'Agent';
+
+  @override
+  String get cronJobStatusRunning => '运行中';
+
+  @override
+  String get cronJobStatusPaused => '已暂停';
+
+  @override
+  String get cronJobStatusFailed => '失败';
+
+  @override
+  String get cronJobStatusError => '异常';
+
+  @override
+  String get cronJobStatusIdle => '空闲';
+
+  @override
+  String get cronNotifyTypeNone => '无';
+
+  @override
+  String get cronNotifyTypeLog => '仅日志';
+
+  @override
+  String get cronNotifyTypeSystem => '系统通知';
+
+  @override
+  String get cronNotifyTypeAppNotification => '应用内通知';
+
+  @override
+  String get cronNotifySeverityInfo => '信息';
+
+  @override
+  String get cronNotifySeveritySuccess => '成功';
+
+  @override
+  String get cronNotifySeverityWarning => '警告';
+
+  @override
+  String get cronNotifySeverityError => '错误';
+
+  @override
+  String get cronNotifySeverityCritical => '严重';
+
+  @override
+  String get cronScheduleInvalidExpression => '无效表达式';
+
+  @override
+  String get cronScheduleEveryMinute => '每分钟';
+
+  @override
+  String get cronParserFieldCountError => 'Cron 表达式需要恰好 5 个字段（分 时 日 月 周）';
+
+  @override
+  String get cronParserFieldMinute => '分钟';
+
+  @override
+  String get cronParserFieldHour => '小时';
+
+  @override
+  String get cronParserFieldDayOfMonth => '日';
+
+  @override
+  String get cronParserFieldDayOfMonthShort => '日';
+
+  @override
+  String get cronParserFieldMonth => '月';
+
+  @override
+  String get cronParserFieldDayOfWeek => '星期';
+
+  @override
+  String get cronParserFieldDayOfWeekShort => '周';
+
+  @override
+  String cronParserInvalidField(String field, String value) {
+    return '$field字段 \"$value\" 无效';
+  }
+
+  @override
+  String get cronsViewDescription =>
+      '配置和管理定时任务。支持 Cron 表达式调度、超时控制、自动重试和执行历史查看。';
+
+  @override
+  String get cronsNewCronJob => '新增定时任务';
+
+  @override
+  String get cronsEditCronJob => '编辑定时任务';
+
+  @override
+  String get cronsDeleteCronJobTitle => '删除定时任务';
+
+  @override
+  String cronsDeleteCronJobMessage(String name) {
+    return '确定删除 \"$name\" 吗？此操作不可撤销，执行历史也将一并删除。';
+  }
+
+  @override
+  String get cronsEmptyTitle => '暂无定时任务';
+
+  @override
+  String get cronsEmptyBody => '点击右上角「新增定时任务」按钮开始配置。';
+
+  @override
+  String get cronsCronExpressionTooltip => 'Cron 表达式';
+
+  @override
+  String get cronsTimeoutTooltip => '超时时间';
+
+  @override
+  String get cronsRetryCountTooltip => '重试次数';
+
+  @override
+  String get cronsMcpKeywordIndexLockedTooltip =>
+      '由「全局设置 -> MCP -> 更新关键词映射模式」控制，不可手动开关';
+
+  @override
+  String get cronsRunOnceNow => '立即执行一次';
+
+  @override
+  String get cronsHistory => '执行历史';
+
+  @override
+  String cronsLastRunAt(String time) {
+    return '上次: $time';
+  }
+
+  @override
+  String get cronsFieldName => '任务名称';
+
+  @override
+  String get cronsFieldNameHint => '例如: 每日备份';
+
+  @override
+  String get cronsFieldDescription => '简介';
+
+  @override
+  String get cronsFieldType => '类型';
+
+  @override
+  String get cronsFieldScriptFilePath => '脚本文件路径';
+
+  @override
+  String get cronsFieldScriptFilePathHint => '选择 .sh / .ps1 / .bat 文件';
+
+  @override
+  String get cronsBrowse => '浏览';
+
+  @override
+  String get cronsFieldCommand => '命令内容';
+
+  @override
+  String get cronsFieldCommandHintWindows => '输入 PowerShell / BAT 命令';
+
+  @override
+  String get cronsFieldCommandHintShell => '输入 Shell 命令';
+
+  @override
+  String get cronsCronSchedule => 'Cron 时间表达式';
+
+  @override
+  String get cronsCronScheduleHelper => '秒字段已冻结为 0，最小粒度为分钟。格式: 分 时 日 月 周';
+
+  @override
+  String get cronsTimeoutSeconds => '超时（秒）';
+
+  @override
+  String get cronsRetries => '重试次数';
+
+  @override
+  String get cronsMaxRetryDelaySeconds => '重试间隔上限（秒）';
+
+  @override
+  String get cronsRunAsUser => '执行用户';
+
+  @override
+  String get cronsDefaultCurrentUser => '默认（当前用户）';
+
+  @override
+  String get cronsDefault => '默认';
+
+  @override
+  String get cronsTagsCommaSeparated => '标签（逗号分隔）';
+
+  @override
+  String get cronsTagsHint => '例如: 备份, 清理';
+
+  @override
+  String get cronsWorkingDirectory => '工作目录';
+
+  @override
+  String get cronsWorkingDirectoryHint => '可选，默认为应用目录';
+
+  @override
+  String get cronsEnvironmentVariables => '环境变量';
+
+  @override
+  String get cronsEnvironmentVariablesHint => '每行一个，格式: KEY=VALUE';
+
+  @override
+  String get cronsExecutionContextCollection => '执行上下文采集';
+
+  @override
+  String get cronsCollectAppMetadata => '采集应用信息';
+
+  @override
+  String get cronsCollectAppMetadataSubtitle => '记录应用版本、PID、可执行文件路径等信息';
+
+  @override
+  String get cronsCollectHostMetadata => '采集主机信息';
+
+  @override
+  String get cronsCollectHostMetadataSubtitle => '记录系统版本、主机名、CPU 核心数等信息';
+
+  @override
+  String get cronsCollectEnvironmentSnapshot => '采集环境快照';
+
+  @override
+  String get cronsCollectEnvironmentSnapshotSubtitle =>
+      '记录执行时有效环境变量快照（可能包含敏感信息）';
+
+  @override
+  String get cronsSensitive => '敏感';
+
+  @override
+  String get cronsNotificationSettings => '通知配置';
+
+  @override
+  String get cronsTestNotification => '测试通知';
+
+  @override
+  String get cronsTestSuccessNotification => '测试成功通知';
+
+  @override
+  String get cronsTestFailureNotification => '测试失败通知';
+
+  @override
+  String get cronsTestTimeoutNotification => '测试超时通知';
+
+  @override
+  String get cronsTestAllNotifications => '测试全部（顺序）';
+
+  @override
+  String get cronsNotificationSettingsHelper => '每个事件可分别配置通知渠道、严重程度、声音和震动。';
+
+  @override
+  String get cronsOnSuccess => '执行成功';
+
+  @override
+  String get cronsOnFailure => '执行失败';
+
+  @override
+  String get cronsOnTimeout => '执行超时';
+
+  @override
+  String get cronsEnabled => '启用';
+
+  @override
+  String get cronsCustomNotificationMessageHint => '自定义通知内容（可选）';
+
+  @override
+  String get cronsVibrationUnsupportedHint => '当前平台不支持震动，开启后会自动忽略。';
+
+  @override
+  String get cronsValidationNameRequired => '请填写任务名称。';
+
+  @override
+  String get cronsValidationScriptRequired => '请选择脚本文件。';
+
+  @override
+  String get cronsValidationCommandRequired => '请填写命令内容。';
+
+  @override
+  String cronsValidationInvalidEnvironment(String lines) {
+    return '环境变量格式错误，请检查第 $lines 行。格式应为 KEY=VALUE。';
+  }
+
+  @override
+  String get cronsNotificationSequentialStartTitle => '开始顺序测试';
+
+  @override
+  String get cronsNotificationSequentialStartBody => '将按顺序测试成功、失败、超时通知。';
+
+  @override
+  String get cronsNotificationVibrationIgnoredTitle => '震动已忽略';
+
+  @override
+  String get cronsNotificationSequentialVibrationIgnoredBody =>
+      '当前平台不支持震动，顺序测试中已自动忽略震动设置。';
+
+  @override
+  String get cronsNotificationSequentialCompletedTitle => '顺序测试完成';
+
+  @override
+  String get cronsNotificationSequentialCompletedBody => '已完成成功、失败、超时三种通知测试。';
+
+  @override
+  String get cronsNotificationScenarioSuccess => '成功';
+
+  @override
+  String get cronsNotificationScenarioFailure => '失败';
+
+  @override
+  String get cronsNotificationScenarioTimeout => '超时';
+
+  @override
+  String get cronsNotificationScenarioAll => '全部';
+
+  @override
+  String cronsNotificationTestTitle(String label) {
+    return '定时任务通知测试 · $label';
+  }
+
+  @override
+  String get cronsNotificationTestDefaultBodySuccess => '成功场景通知测试消息。';
+
+  @override
+  String get cronsNotificationTestDefaultBodyFailure => '失败场景通知测试消息。';
+
+  @override
+  String get cronsNotificationTestDefaultBodyTimeout => '超时场景通知测试消息。';
+
+  @override
+  String get cronsNotificationNoEmitBody => '当前配置为“无”或“仅日志”，不会触发通知。';
+
+  @override
+  String get cronsSystemNotificationUnavailableTitle => '系统通知不可用';
+
+  @override
+  String get cronsSystemNotificationFallbackBody => '系统通知发送失败，已回退为应用内通知。';
+
+  @override
+  String get cronsNotificationVibrationIgnoredBody => '当前平台不支持震动，已自动忽略该配置。';
+
+  @override
+  String get cronsUnknownPlatform => '未知平台';
+
+  @override
+  String get cronsToggleOn => '已开启';
+
+  @override
+  String get cronsToggleOff => '已关闭';
+
+  @override
+  String get cronsSupportBestEffortSystemSound => '支持（尽力触发系统声音）';
+
+  @override
+  String get cronsSupportSupported => '支持';
+
+  @override
+  String get cronsSupportNotSupportedOnPlatform => '当前平台不支持';
+
+  @override
+  String get cronsSupportNotSupportedWillBeIgnored => '不支持（开启后将自动忽略）';
+
+  @override
+  String get cronsSoundLabel => '声音';
+
+  @override
+  String get cronsVibrationLabel => '震动';
+
+  @override
+  String get cronsPlatformLabel => '平台';
+
+  @override
+  String get cronsSupportLabel => '状态';
+
+  @override
+  String get cronsExecutionHistoryTitle => '定时任务执行历史';
+
+  @override
+  String get cronsClearAllExecutionHistory => '清空全部执行历史';
+
+  @override
+  String get cronsNoExecutionRecords => '暂无执行记录';
+
+  @override
+  String get cronsClearExecutionHistoryTitle => '清空执行历史';
+
+  @override
+  String cronsClearExecutionHistoryMessage(String name) {
+    return '确定清空「$name」的全部执行历史吗？此操作不可撤销。';
+  }
+
+  @override
+  String get cronsClear => '清空';
+
+  @override
+  String get cronsDeleteExecutionRecordTitle => '删除执行记录';
+
+  @override
+  String get cronsDeleteExecutionRecordMessage => '确定删除这条执行记录吗？';
+
+  @override
+  String get cronsExecutionStatusSuccess => '成功';
+
+  @override
+  String get cronsExecutionStatusFailed => '失败';
+
+  @override
+  String get cronsExecutionStatusTimedOut => '超时';
+
+  @override
+  String get cronsExecutionStatusRunning => '运行中';
+
+  @override
+  String get cronsExecutionStatusKilled => '已终止';
+
+  @override
+  String get cronsTriggerManual => '手动';
+
+  @override
+  String get cronsTriggerScheduled => '调度';
+
+  @override
+  String get cronsDeleteThisRecord => '删除此条记录';
+
+  @override
+  String get cronsRetryAttempt => '重试次数';
+
+  @override
+  String get cronsRunAs => '执行用户';
+
+  @override
+  String get cronsWorkingDir => '工作目录';
+
+  @override
+  String get cronsScriptEnvironmentOverrides => '脚本环境覆盖:';
+
+  @override
+  String get cronsEnvironmentSnapshot => '环境快照:';
+
+  @override
+  String get cronsErrorReason => '错误原因:';
+
+  @override
+  String get cronsStdout => '标准输出 (stdout):';
+
+  @override
+  String get cronsStderr => '标准错误 (stderr):';
+
+  @override
+  String get cronsExecutionContext => '执行上下文:';
+
+  @override
+  String get cronsHermesTalkerReportTitle => 'Hermes Talker 自我学习报告';
+
+  @override
+  String get cronsHermesNoEligibleSessions => '本轮无符合条件的会话被实际学习。';
+
+  @override
+  String cronsHermesAffectedSessions(int count) {
+    return '受影响的会话 ($count)';
+  }
+
+  @override
+  String cronsHermesStatsLine(
+    int scanned,
+    int triggered,
+    int skipped,
+    int errors,
+  ) {
+    return '扫描 $scanned · 触发 $triggered · 跳过 $skipped · 异常 $errors';
+  }
+
+  @override
+  String get cronsHermesUntitledSession => '(未命名会话)';
+
+  @override
+  String cronsHermesMemoryUpdates(int count) {
+    return '记忆 +$count';
+  }
+
+  @override
+  String cronsHermesMemoryErrors(int count) {
+    return '记忆错误 $count';
+  }
+
+  @override
+  String cronsHermesSkillUpdates(int count) {
+    return '技能 +$count';
+  }
+
+  @override
+  String cronsHermesSkillErrors(int count) {
+    return '技能错误 $count';
+  }
+
+  @override
+  String cronsHermesProfileChanges(int count) {
+    return '用户轮廓 $count';
+  }
+
+  @override
+  String cronsHermesToolRounds(int count) {
+    return '工具轮次 $count';
+  }
+
+  @override
+  String get cronsHermesModelLabel => '模型';
+
+  @override
+  String get cronsHermesProviderLabel => '渠道';
+
+  @override
+  String get cronsHermesTerminatedLabel => '结束原因';
+
+  @override
+  String get cronsHermesUserProfileChanges => '用户轮廓变动';
+
+  @override
+  String get cronsHermesMemoryChanges => '记忆变动';
+
+  @override
+  String get cronsHermesSkillChanges => '技能变动';
+
+  @override
+  String get cronsHermesAiReasoningOnScene => '当时现场的 AI 思考';
+
+  @override
+  String get cronsHermesAiResponseOnScene => '当时现场的 AI 响应';
+
+  @override
+  String get cronsHermesNoFurtherDetails => '本会话无更多详情。';
+
+  @override
+  String get cronsHermesStatusError => '失败';
+
+  @override
+  String get cronsHermesStatusSkipped => '跳过';
+
+  @override
+  String get cronsHermesStatusOk => '完成';
+
+  @override
+  String get cronsHermesChangeBefore => '变更前';
+
+  @override
+  String get cronsHermesChangeAfter => '变更后';
+
+  @override
+  String get cronsHermesChangeValue => '值';
+
+  @override
+  String get cronsHermesChangeSource => '来源';
+
+  @override
+  String get cronsHermesChangeReason => '原因';
+
+  @override
+  String get cronsHermesChangeMetadata => '元数据';
+
+  @override
+  String get cronsHermesChangeError => '错误';
+
+  @override
+  String get cronsCollapse => '折叠';
+
+  @override
+  String get cronsExpand => '展开';
+
+  @override
   String get aiModelAdd => '新增提供商';
 
   @override
@@ -12173,6 +12744,577 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get dialogAnimationCurveDecelerate => '减速';
+
+  @override
+  String get commonOptional => '可选';
+
+  @override
+  String get cronScriptTypeCommand => '命令';
+
+  @override
+  String get cronScriptTypeScript => '脚本';
+
+  @override
+  String get cronScriptTypeAgent => 'Agent';
+
+  @override
+  String get cronJobStatusRunning => '运行中';
+
+  @override
+  String get cronJobStatusPaused => '已暂停';
+
+  @override
+  String get cronJobStatusFailed => '失败';
+
+  @override
+  String get cronJobStatusError => '异常';
+
+  @override
+  String get cronJobStatusIdle => '空闲';
+
+  @override
+  String get cronNotifyTypeNone => '无';
+
+  @override
+  String get cronNotifyTypeLog => '仅日志';
+
+  @override
+  String get cronNotifyTypeSystem => '系统通知';
+
+  @override
+  String get cronNotifyTypeAppNotification => '应用内通知';
+
+  @override
+  String get cronNotifySeverityInfo => '信息';
+
+  @override
+  String get cronNotifySeveritySuccess => '成功';
+
+  @override
+  String get cronNotifySeverityWarning => '警告';
+
+  @override
+  String get cronNotifySeverityError => '错误';
+
+  @override
+  String get cronNotifySeverityCritical => '严重';
+
+  @override
+  String get cronScheduleInvalidExpression => '无效表达式';
+
+  @override
+  String get cronScheduleEveryMinute => '每分钟';
+
+  @override
+  String get cronParserFieldCountError => 'Cron 表达式需要恰好 5 个字段（分 时 日 月 周）';
+
+  @override
+  String get cronParserFieldMinute => '分钟';
+
+  @override
+  String get cronParserFieldHour => '小时';
+
+  @override
+  String get cronParserFieldDayOfMonth => '日';
+
+  @override
+  String get cronParserFieldDayOfMonthShort => '日';
+
+  @override
+  String get cronParserFieldMonth => '月';
+
+  @override
+  String get cronParserFieldDayOfWeek => '星期';
+
+  @override
+  String get cronParserFieldDayOfWeekShort => '周';
+
+  @override
+  String cronParserInvalidField(String field, String value) {
+    return '$field字段 \"$value\" 无效';
+  }
+
+  @override
+  String get cronsViewDescription =>
+      '配置和管理定时任务。支持 Cron 表达式调度、超时控制、自动重试和执行历史查看。';
+
+  @override
+  String get cronsNewCronJob => '新增定时任务';
+
+  @override
+  String get cronsEditCronJob => '编辑定时任务';
+
+  @override
+  String get cronsDeleteCronJobTitle => '删除定时任务';
+
+  @override
+  String cronsDeleteCronJobMessage(String name) {
+    return '确定删除 \"$name\" 吗？此操作不可撤销，执行历史也将一并删除。';
+  }
+
+  @override
+  String get cronsEmptyTitle => '暂无定时任务';
+
+  @override
+  String get cronsEmptyBody => '点击右上角「新增定时任务」按钮开始配置。';
+
+  @override
+  String get cronsCronExpressionTooltip => 'Cron 表达式';
+
+  @override
+  String get cronsTimeoutTooltip => '超时时间';
+
+  @override
+  String get cronsRetryCountTooltip => '重试次数';
+
+  @override
+  String get cronsMcpKeywordIndexLockedTooltip =>
+      '由「全局设置 -> MCP -> 更新关键词映射模式」控制，不可手动开关';
+
+  @override
+  String get cronsRunOnceNow => '立即执行一次';
+
+  @override
+  String get cronsHistory => '执行历史';
+
+  @override
+  String cronsLastRunAt(String time) {
+    return '上次: $time';
+  }
+
+  @override
+  String get cronsFieldName => '任务名称';
+
+  @override
+  String get cronsFieldNameHint => '例如: 每日备份';
+
+  @override
+  String get cronsFieldDescription => '简介';
+
+  @override
+  String get cronsFieldType => '类型';
+
+  @override
+  String get cronsFieldScriptFilePath => '脚本文件路径';
+
+  @override
+  String get cronsFieldScriptFilePathHint => '选择 .sh / .ps1 / .bat 文件';
+
+  @override
+  String get cronsBrowse => '浏览';
+
+  @override
+  String get cronsFieldCommand => '命令内容';
+
+  @override
+  String get cronsFieldCommandHintWindows => '输入 PowerShell / BAT 命令';
+
+  @override
+  String get cronsFieldCommandHintShell => '输入 Shell 命令';
+
+  @override
+  String get cronsCronSchedule => 'Cron 时间表达式';
+
+  @override
+  String get cronsCronScheduleHelper => '秒字段已冻结为 0，最小粒度为分钟。格式: 分 时 日 月 周';
+
+  @override
+  String get cronsTimeoutSeconds => '超时（秒）';
+
+  @override
+  String get cronsRetries => '重试次数';
+
+  @override
+  String get cronsMaxRetryDelaySeconds => '重试间隔上限（秒）';
+
+  @override
+  String get cronsRunAsUser => '执行用户';
+
+  @override
+  String get cronsDefaultCurrentUser => '默认（当前用户）';
+
+  @override
+  String get cronsDefault => '默认';
+
+  @override
+  String get cronsTagsCommaSeparated => '标签（逗号分隔）';
+
+  @override
+  String get cronsTagsHint => '例如: 备份, 清理';
+
+  @override
+  String get cronsWorkingDirectory => '工作目录';
+
+  @override
+  String get cronsWorkingDirectoryHint => '可选，默认为应用目录';
+
+  @override
+  String get cronsEnvironmentVariables => '环境变量';
+
+  @override
+  String get cronsEnvironmentVariablesHint => '每行一个，格式: KEY=VALUE';
+
+  @override
+  String get cronsExecutionContextCollection => '执行上下文采集';
+
+  @override
+  String get cronsCollectAppMetadata => '采集应用信息';
+
+  @override
+  String get cronsCollectAppMetadataSubtitle => '记录应用版本、PID、可执行文件路径等信息';
+
+  @override
+  String get cronsCollectHostMetadata => '采集主机信息';
+
+  @override
+  String get cronsCollectHostMetadataSubtitle => '记录系统版本、主机名、CPU 核心数等信息';
+
+  @override
+  String get cronsCollectEnvironmentSnapshot => '采集环境快照';
+
+  @override
+  String get cronsCollectEnvironmentSnapshotSubtitle =>
+      '记录执行时有效环境变量快照（可能包含敏感信息）';
+
+  @override
+  String get cronsSensitive => '敏感';
+
+  @override
+  String get cronsNotificationSettings => '通知配置';
+
+  @override
+  String get cronsTestNotification => '测试通知';
+
+  @override
+  String get cronsTestSuccessNotification => '测试成功通知';
+
+  @override
+  String get cronsTestFailureNotification => '测试失败通知';
+
+  @override
+  String get cronsTestTimeoutNotification => '测试超时通知';
+
+  @override
+  String get cronsTestAllNotifications => '测试全部（顺序）';
+
+  @override
+  String get cronsNotificationSettingsHelper => '每个事件可分别配置通知渠道、严重程度、声音和震动。';
+
+  @override
+  String get cronsOnSuccess => '执行成功';
+
+  @override
+  String get cronsOnFailure => '执行失败';
+
+  @override
+  String get cronsOnTimeout => '执行超时';
+
+  @override
+  String get cronsEnabled => '启用';
+
+  @override
+  String get cronsCustomNotificationMessageHint => '自定义通知内容（可选）';
+
+  @override
+  String get cronsVibrationUnsupportedHint => '当前平台不支持震动，开启后会自动忽略。';
+
+  @override
+  String get cronsValidationNameRequired => '请填写任务名称。';
+
+  @override
+  String get cronsValidationScriptRequired => '请选择脚本文件。';
+
+  @override
+  String get cronsValidationCommandRequired => '请填写命令内容。';
+
+  @override
+  String cronsValidationInvalidEnvironment(String lines) {
+    return '环境变量格式错误，请检查第 $lines 行。格式应为 KEY=VALUE。';
+  }
+
+  @override
+  String get cronsNotificationSequentialStartTitle => '开始顺序测试';
+
+  @override
+  String get cronsNotificationSequentialStartBody => '将按顺序测试成功、失败、超时通知。';
+
+  @override
+  String get cronsNotificationVibrationIgnoredTitle => '震动已忽略';
+
+  @override
+  String get cronsNotificationSequentialVibrationIgnoredBody =>
+      '当前平台不支持震动，顺序测试中已自动忽略震动设置。';
+
+  @override
+  String get cronsNotificationSequentialCompletedTitle => '顺序测试完成';
+
+  @override
+  String get cronsNotificationSequentialCompletedBody => '已完成成功、失败、超时三种通知测试。';
+
+  @override
+  String get cronsNotificationScenarioSuccess => '成功';
+
+  @override
+  String get cronsNotificationScenarioFailure => '失败';
+
+  @override
+  String get cronsNotificationScenarioTimeout => '超时';
+
+  @override
+  String get cronsNotificationScenarioAll => '全部';
+
+  @override
+  String cronsNotificationTestTitle(String label) {
+    return '定时任务通知测试 · $label';
+  }
+
+  @override
+  String get cronsNotificationTestDefaultBodySuccess => '成功场景通知测试消息。';
+
+  @override
+  String get cronsNotificationTestDefaultBodyFailure => '失败场景通知测试消息。';
+
+  @override
+  String get cronsNotificationTestDefaultBodyTimeout => '超时场景通知测试消息。';
+
+  @override
+  String get cronsNotificationNoEmitBody => '当前配置为“无”或“仅日志”，不会触发通知。';
+
+  @override
+  String get cronsSystemNotificationUnavailableTitle => '系统通知不可用';
+
+  @override
+  String get cronsSystemNotificationFallbackBody => '系统通知发送失败，已回退为应用内通知。';
+
+  @override
+  String get cronsNotificationVibrationIgnoredBody => '当前平台不支持震动，已自动忽略该配置。';
+
+  @override
+  String get cronsUnknownPlatform => '未知平台';
+
+  @override
+  String get cronsToggleOn => '已开启';
+
+  @override
+  String get cronsToggleOff => '已关闭';
+
+  @override
+  String get cronsSupportBestEffortSystemSound => '支持（尽力触发系统声音）';
+
+  @override
+  String get cronsSupportSupported => '支持';
+
+  @override
+  String get cronsSupportNotSupportedOnPlatform => '当前平台不支持';
+
+  @override
+  String get cronsSupportNotSupportedWillBeIgnored => '不支持（开启后将自动忽略）';
+
+  @override
+  String get cronsSoundLabel => '声音';
+
+  @override
+  String get cronsVibrationLabel => '震动';
+
+  @override
+  String get cronsPlatformLabel => '平台';
+
+  @override
+  String get cronsSupportLabel => '状态';
+
+  @override
+  String get cronsExecutionHistoryTitle => '定时任务执行历史';
+
+  @override
+  String get cronsClearAllExecutionHistory => '清空全部执行历史';
+
+  @override
+  String get cronsNoExecutionRecords => '暂无执行记录';
+
+  @override
+  String get cronsClearExecutionHistoryTitle => '清空执行历史';
+
+  @override
+  String cronsClearExecutionHistoryMessage(String name) {
+    return '确定清空「$name」的全部执行历史吗？此操作不可撤销。';
+  }
+
+  @override
+  String get cronsClear => '清空';
+
+  @override
+  String get cronsDeleteExecutionRecordTitle => '删除执行记录';
+
+  @override
+  String get cronsDeleteExecutionRecordMessage => '确定删除这条执行记录吗？';
+
+  @override
+  String get cronsExecutionStatusSuccess => '成功';
+
+  @override
+  String get cronsExecutionStatusFailed => '失败';
+
+  @override
+  String get cronsExecutionStatusTimedOut => '超时';
+
+  @override
+  String get cronsExecutionStatusRunning => '运行中';
+
+  @override
+  String get cronsExecutionStatusKilled => '已终止';
+
+  @override
+  String get cronsTriggerManual => '手动';
+
+  @override
+  String get cronsTriggerScheduled => '调度';
+
+  @override
+  String get cronsDeleteThisRecord => '删除此条记录';
+
+  @override
+  String get cronsRetryAttempt => '重试次数';
+
+  @override
+  String get cronsRunAs => '执行用户';
+
+  @override
+  String get cronsWorkingDir => '工作目录';
+
+  @override
+  String get cronsScriptEnvironmentOverrides => '脚本环境覆盖:';
+
+  @override
+  String get cronsEnvironmentSnapshot => '环境快照:';
+
+  @override
+  String get cronsErrorReason => '错误原因:';
+
+  @override
+  String get cronsStdout => '标准输出 (stdout):';
+
+  @override
+  String get cronsStderr => '标准错误 (stderr):';
+
+  @override
+  String get cronsExecutionContext => '执行上下文:';
+
+  @override
+  String get cronsHermesTalkerReportTitle => 'Hermes Talker 自我学习报告';
+
+  @override
+  String get cronsHermesNoEligibleSessions => '本轮无符合条件的会话被实际学习。';
+
+  @override
+  String cronsHermesAffectedSessions(int count) {
+    return '受影响的会话 ($count)';
+  }
+
+  @override
+  String cronsHermesStatsLine(
+    int scanned,
+    int triggered,
+    int skipped,
+    int errors,
+  ) {
+    return '扫描 $scanned · 触发 $triggered · 跳过 $skipped · 异常 $errors';
+  }
+
+  @override
+  String get cronsHermesUntitledSession => '(未命名会话)';
+
+  @override
+  String cronsHermesMemoryUpdates(int count) {
+    return '记忆 +$count';
+  }
+
+  @override
+  String cronsHermesMemoryErrors(int count) {
+    return '记忆错误 $count';
+  }
+
+  @override
+  String cronsHermesSkillUpdates(int count) {
+    return '技能 +$count';
+  }
+
+  @override
+  String cronsHermesSkillErrors(int count) {
+    return '技能错误 $count';
+  }
+
+  @override
+  String cronsHermesProfileChanges(int count) {
+    return '用户轮廓 $count';
+  }
+
+  @override
+  String cronsHermesToolRounds(int count) {
+    return '工具轮次 $count';
+  }
+
+  @override
+  String get cronsHermesModelLabel => '模型';
+
+  @override
+  String get cronsHermesProviderLabel => '渠道';
+
+  @override
+  String get cronsHermesTerminatedLabel => '结束原因';
+
+  @override
+  String get cronsHermesUserProfileChanges => '用户轮廓变动';
+
+  @override
+  String get cronsHermesMemoryChanges => '记忆变动';
+
+  @override
+  String get cronsHermesSkillChanges => '技能变动';
+
+  @override
+  String get cronsHermesAiReasoningOnScene => '当时现场的 AI 思考';
+
+  @override
+  String get cronsHermesAiResponseOnScene => '当时现场的 AI 响应';
+
+  @override
+  String get cronsHermesNoFurtherDetails => '本会话无更多详情。';
+
+  @override
+  String get cronsHermesStatusError => '失败';
+
+  @override
+  String get cronsHermesStatusSkipped => '跳过';
+
+  @override
+  String get cronsHermesStatusOk => '完成';
+
+  @override
+  String get cronsHermesChangeBefore => '变更前';
+
+  @override
+  String get cronsHermesChangeAfter => '变更后';
+
+  @override
+  String get cronsHermesChangeValue => '值';
+
+  @override
+  String get cronsHermesChangeSource => '来源';
+
+  @override
+  String get cronsHermesChangeReason => '原因';
+
+  @override
+  String get cronsHermesChangeMetadata => '元数据';
+
+  @override
+  String get cronsHermesChangeError => '错误';
+
+  @override
+  String get cronsCollapse => '折叠';
+
+  @override
+  String get cronsExpand => '展开';
 
   @override
   String get aiModelAdd => '新增提供商';
@@ -22611,6 +23753,577 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get dialogAnimationCurveDecelerate => '減速';
+
+  @override
+  String get commonOptional => '可選';
+
+  @override
+  String get cronScriptTypeCommand => '命令';
+
+  @override
+  String get cronScriptTypeScript => '指令碼';
+
+  @override
+  String get cronScriptTypeAgent => 'Agent';
+
+  @override
+  String get cronJobStatusRunning => '執行中';
+
+  @override
+  String get cronJobStatusPaused => '已暫停';
+
+  @override
+  String get cronJobStatusFailed => '失敗';
+
+  @override
+  String get cronJobStatusError => '異常';
+
+  @override
+  String get cronJobStatusIdle => '閒置';
+
+  @override
+  String get cronNotifyTypeNone => '無';
+
+  @override
+  String get cronNotifyTypeLog => '僅記錄';
+
+  @override
+  String get cronNotifyTypeSystem => '系統通知';
+
+  @override
+  String get cronNotifyTypeAppNotification => '應用程式內通知';
+
+  @override
+  String get cronNotifySeverityInfo => '資訊';
+
+  @override
+  String get cronNotifySeveritySuccess => '成功';
+
+  @override
+  String get cronNotifySeverityWarning => '警告';
+
+  @override
+  String get cronNotifySeverityError => '錯誤';
+
+  @override
+  String get cronNotifySeverityCritical => '嚴重';
+
+  @override
+  String get cronScheduleInvalidExpression => '無效表示式';
+
+  @override
+  String get cronScheduleEveryMinute => '每分鐘';
+
+  @override
+  String get cronParserFieldCountError => 'Cron 表示式需要剛好 5 個欄位（分 時 日 月 週）';
+
+  @override
+  String get cronParserFieldMinute => '分鐘';
+
+  @override
+  String get cronParserFieldHour => '小時';
+
+  @override
+  String get cronParserFieldDayOfMonth => '日';
+
+  @override
+  String get cronParserFieldDayOfMonthShort => '日';
+
+  @override
+  String get cronParserFieldMonth => '月';
+
+  @override
+  String get cronParserFieldDayOfWeek => '星期';
+
+  @override
+  String get cronParserFieldDayOfWeekShort => '周';
+
+  @override
+  String cronParserInvalidField(String field, String value) {
+    return '$field欄位 \"$value\" 無效';
+  }
+
+  @override
+  String get cronsViewDescription =>
+      '設定和管理定時任務。支援 Cron 表示式排程、逾時控制、自動重試和執行歷史檢視。';
+
+  @override
+  String get cronsNewCronJob => '新增定時任務';
+
+  @override
+  String get cronsEditCronJob => '編輯定時任務';
+
+  @override
+  String get cronsDeleteCronJobTitle => '刪除定時任務';
+
+  @override
+  String cronsDeleteCronJobMessage(String name) {
+    return '確定刪除 \"$name\" 嗎？此操作無法復原，執行歷史也會一併刪除。';
+  }
+
+  @override
+  String get cronsEmptyTitle => '暫無定時任務';
+
+  @override
+  String get cronsEmptyBody => '點擊右上角「新增定時任務」按鈕開始設定。';
+
+  @override
+  String get cronsCronExpressionTooltip => 'Cron 表达式';
+
+  @override
+  String get cronsTimeoutTooltip => '逾時時間';
+
+  @override
+  String get cronsRetryCountTooltip => '重試次數';
+
+  @override
+  String get cronsMcpKeywordIndexLockedTooltip =>
+      '由「全域設定 -> MCP -> 更新關鍵詞映射模式」控制，不可手動開關';
+
+  @override
+  String get cronsRunOnceNow => '立即執行一次';
+
+  @override
+  String get cronsHistory => '執行歷史';
+
+  @override
+  String cronsLastRunAt(String time) {
+    return '上次: $time';
+  }
+
+  @override
+  String get cronsFieldName => '任務名稱';
+
+  @override
+  String get cronsFieldNameHint => '例如: 每日備份';
+
+  @override
+  String get cronsFieldDescription => '簡介';
+
+  @override
+  String get cronsFieldType => '类型';
+
+  @override
+  String get cronsFieldScriptFilePath => '指令碼檔案路徑';
+
+  @override
+  String get cronsFieldScriptFilePathHint => '選擇 .sh / .ps1 / .bat 檔案';
+
+  @override
+  String get cronsBrowse => '浏览';
+
+  @override
+  String get cronsFieldCommand => '命令內容';
+
+  @override
+  String get cronsFieldCommandHintWindows => '輸入 PowerShell / BAT 命令';
+
+  @override
+  String get cronsFieldCommandHintShell => '輸入 Shell 命令';
+
+  @override
+  String get cronsCronSchedule => 'Cron 時間表示式';
+
+  @override
+  String get cronsCronScheduleHelper => '秒欄位已固定為 0，最小粒度為分鐘。格式: 分 時 日 月 週';
+
+  @override
+  String get cronsTimeoutSeconds => '逾時（秒）';
+
+  @override
+  String get cronsRetries => '重試次數';
+
+  @override
+  String get cronsMaxRetryDelaySeconds => '重試間隔上限（秒）';
+
+  @override
+  String get cronsRunAsUser => '執行使用者';
+
+  @override
+  String get cronsDefaultCurrentUser => '預設（目前使用者）';
+
+  @override
+  String get cronsDefault => '預設';
+
+  @override
+  String get cronsTagsCommaSeparated => '標籤（逗號分隔）';
+
+  @override
+  String get cronsTagsHint => '例如: 備份, 清理';
+
+  @override
+  String get cronsWorkingDirectory => '工作目錄';
+
+  @override
+  String get cronsWorkingDirectoryHint => '可選，預設為應用程式目錄';
+
+  @override
+  String get cronsEnvironmentVariables => '環境變數';
+
+  @override
+  String get cronsEnvironmentVariablesHint => '每行一个，格式: KEY=VALUE';
+
+  @override
+  String get cronsExecutionContextCollection => '執行上下文採集';
+
+  @override
+  String get cronsCollectAppMetadata => '採集應用程式資訊';
+
+  @override
+  String get cronsCollectAppMetadataSubtitle => '記錄應用程式版本、PID、可執行檔路徑等資訊';
+
+  @override
+  String get cronsCollectHostMetadata => '採集主機資訊';
+
+  @override
+  String get cronsCollectHostMetadataSubtitle => '記錄系統版本、主機名稱、CPU 核心數等資訊';
+
+  @override
+  String get cronsCollectEnvironmentSnapshot => '採集環境快照';
+
+  @override
+  String get cronsCollectEnvironmentSnapshotSubtitle =>
+      '記錄執行時有效環境變數快照（可能包含敏感資訊）';
+
+  @override
+  String get cronsSensitive => '敏感';
+
+  @override
+  String get cronsNotificationSettings => '通知設定';
+
+  @override
+  String get cronsTestNotification => '测试通知';
+
+  @override
+  String get cronsTestSuccessNotification => '测试成功通知';
+
+  @override
+  String get cronsTestFailureNotification => '测试失败通知';
+
+  @override
+  String get cronsTestTimeoutNotification => '测试超时通知';
+
+  @override
+  String get cronsTestAllNotifications => '测试全部（顺序）';
+
+  @override
+  String get cronsNotificationSettingsHelper => '每個事件可分別設定通知渠道、嚴重程度、聲音和震動。';
+
+  @override
+  String get cronsOnSuccess => '執行成功';
+
+  @override
+  String get cronsOnFailure => '執行失敗';
+
+  @override
+  String get cronsOnTimeout => '執行逾時';
+
+  @override
+  String get cronsEnabled => '啟用';
+
+  @override
+  String get cronsCustomNotificationMessageHint => '自定义通知内容（可选）';
+
+  @override
+  String get cronsVibrationUnsupportedHint => '目前平台不支援震動，開啟後會自動忽略。';
+
+  @override
+  String get cronsValidationNameRequired => '請填寫任務名稱。';
+
+  @override
+  String get cronsValidationScriptRequired => '請選擇指令碼檔案。';
+
+  @override
+  String get cronsValidationCommandRequired => '請填寫命令內容。';
+
+  @override
+  String cronsValidationInvalidEnvironment(String lines) {
+    return '環境變數格式錯誤，請檢查第 $lines 行。格式應為 KEY=VALUE。';
+  }
+
+  @override
+  String get cronsNotificationSequentialStartTitle => '开始顺序测试';
+
+  @override
+  String get cronsNotificationSequentialStartBody => '将按顺序测试成功、失败、超时通知。';
+
+  @override
+  String get cronsNotificationVibrationIgnoredTitle => '震動已忽略';
+
+  @override
+  String get cronsNotificationSequentialVibrationIgnoredBody =>
+      '当前平台不支持震动，顺序测试中已自动忽略震动设置。';
+
+  @override
+  String get cronsNotificationSequentialCompletedTitle => '顺序测试完成';
+
+  @override
+  String get cronsNotificationSequentialCompletedBody => '已完成成功、失败、超时三种通知测试。';
+
+  @override
+  String get cronsNotificationScenarioSuccess => '成功';
+
+  @override
+  String get cronsNotificationScenarioFailure => '失败';
+
+  @override
+  String get cronsNotificationScenarioTimeout => '超时';
+
+  @override
+  String get cronsNotificationScenarioAll => '全部';
+
+  @override
+  String cronsNotificationTestTitle(String label) {
+    return '定时任务通知测试 · $label';
+  }
+
+  @override
+  String get cronsNotificationTestDefaultBodySuccess => '成功场景通知测试消息。';
+
+  @override
+  String get cronsNotificationTestDefaultBodyFailure => '失败场景通知测试消息。';
+
+  @override
+  String get cronsNotificationTestDefaultBodyTimeout => '超时场景通知测试消息。';
+
+  @override
+  String get cronsNotificationNoEmitBody => '当前配置为“无”或“仅日志”，不会触发通知。';
+
+  @override
+  String get cronsSystemNotificationUnavailableTitle => '系统通知不可用';
+
+  @override
+  String get cronsSystemNotificationFallbackBody => '系统通知发送失败，已回退为应用内通知。';
+
+  @override
+  String get cronsNotificationVibrationIgnoredBody => '当前平台不支持震动，已自动忽略该配置。';
+
+  @override
+  String get cronsUnknownPlatform => '未知平台';
+
+  @override
+  String get cronsToggleOn => '已開啟';
+
+  @override
+  String get cronsToggleOff => '已關閉';
+
+  @override
+  String get cronsSupportBestEffortSystemSound => '支援（盡力觸發系統聲音）';
+
+  @override
+  String get cronsSupportSupported => '支持';
+
+  @override
+  String get cronsSupportNotSupportedOnPlatform => '目前平台不支援';
+
+  @override
+  String get cronsSupportNotSupportedWillBeIgnored => '不支援（開啟後將自動忽略）';
+
+  @override
+  String get cronsSoundLabel => '聲音';
+
+  @override
+  String get cronsVibrationLabel => '震動';
+
+  @override
+  String get cronsPlatformLabel => '平台';
+
+  @override
+  String get cronsSupportLabel => '狀態';
+
+  @override
+  String get cronsExecutionHistoryTitle => '定時任務執行歷史';
+
+  @override
+  String get cronsClearAllExecutionHistory => '清空全部執行歷史';
+
+  @override
+  String get cronsNoExecutionRecords => '暫無執行記錄';
+
+  @override
+  String get cronsClearExecutionHistoryTitle => '清空執行歷史';
+
+  @override
+  String cronsClearExecutionHistoryMessage(String name) {
+    return '確定清空「$name」的全部執行歷史嗎？此操作無法復原。';
+  }
+
+  @override
+  String get cronsClear => '清空';
+
+  @override
+  String get cronsDeleteExecutionRecordTitle => '刪除執行記錄';
+
+  @override
+  String get cronsDeleteExecutionRecordMessage => '確定刪除這條執行記錄嗎？';
+
+  @override
+  String get cronsExecutionStatusSuccess => '成功';
+
+  @override
+  String get cronsExecutionStatusFailed => '失败';
+
+  @override
+  String get cronsExecutionStatusTimedOut => '逾時';
+
+  @override
+  String get cronsExecutionStatusRunning => '运行中';
+
+  @override
+  String get cronsExecutionStatusKilled => '已終止';
+
+  @override
+  String get cronsTriggerManual => '手動';
+
+  @override
+  String get cronsTriggerScheduled => '排程';
+
+  @override
+  String get cronsDeleteThisRecord => '刪除此條記錄';
+
+  @override
+  String get cronsRetryAttempt => '重試次數';
+
+  @override
+  String get cronsRunAs => '執行使用者';
+
+  @override
+  String get cronsWorkingDir => '工作目錄';
+
+  @override
+  String get cronsScriptEnvironmentOverrides => '指令碼環境覆寫:';
+
+  @override
+  String get cronsEnvironmentSnapshot => '環境快照:';
+
+  @override
+  String get cronsErrorReason => '錯誤原因:';
+
+  @override
+  String get cronsStdout => '標準輸出 (stdout):';
+
+  @override
+  String get cronsStderr => '標準錯誤 (stderr):';
+
+  @override
+  String get cronsExecutionContext => '執行上下文:';
+
+  @override
+  String get cronsHermesTalkerReportTitle => 'Hermes Talker 自我学习报告';
+
+  @override
+  String get cronsHermesNoEligibleSessions => '本輪無符合條件的會話被實際學習。';
+
+  @override
+  String cronsHermesAffectedSessions(int count) {
+    return '受影響的會話 ($count)';
+  }
+
+  @override
+  String cronsHermesStatsLine(
+    int scanned,
+    int triggered,
+    int skipped,
+    int errors,
+  ) {
+    return '掃描 $scanned · 觸發 $triggered · 跳過 $skipped · 異常 $errors';
+  }
+
+  @override
+  String get cronsHermesUntitledSession => '(未命名會話)';
+
+  @override
+  String cronsHermesMemoryUpdates(int count) {
+    return '记忆 +$count';
+  }
+
+  @override
+  String cronsHermesMemoryErrors(int count) {
+    return '記憶錯誤 $count';
+  }
+
+  @override
+  String cronsHermesSkillUpdates(int count) {
+    return '技能 +$count';
+  }
+
+  @override
+  String cronsHermesSkillErrors(int count) {
+    return '技能錯誤 $count';
+  }
+
+  @override
+  String cronsHermesProfileChanges(int count) {
+    return '使用者輪廓 $count';
+  }
+
+  @override
+  String cronsHermesToolRounds(int count) {
+    return '工具輪次 $count';
+  }
+
+  @override
+  String get cronsHermesModelLabel => '模型';
+
+  @override
+  String get cronsHermesProviderLabel => '渠道';
+
+  @override
+  String get cronsHermesTerminatedLabel => '結束原因';
+
+  @override
+  String get cronsHermesUserProfileChanges => '使用者輪廓變動';
+
+  @override
+  String get cronsHermesMemoryChanges => '记忆变动';
+
+  @override
+  String get cronsHermesSkillChanges => '技能变动';
+
+  @override
+  String get cronsHermesAiReasoningOnScene => '當時現場的 AI 思考';
+
+  @override
+  String get cronsHermesAiResponseOnScene => '當時現場的 AI 回應';
+
+  @override
+  String get cronsHermesNoFurtherDetails => '本會話無更多詳情。';
+
+  @override
+  String get cronsHermesStatusError => '失敗';
+
+  @override
+  String get cronsHermesStatusSkipped => '跳過';
+
+  @override
+  String get cronsHermesStatusOk => '完成';
+
+  @override
+  String get cronsHermesChangeBefore => '變更前';
+
+  @override
+  String get cronsHermesChangeAfter => '變更後';
+
+  @override
+  String get cronsHermesChangeValue => '值';
+
+  @override
+  String get cronsHermesChangeSource => '來源';
+
+  @override
+  String get cronsHermesChangeReason => '原因';
+
+  @override
+  String get cronsHermesChangeMetadata => '中繼資料';
+
+  @override
+  String get cronsHermesChangeError => '錯誤';
+
+  @override
+  String get cronsCollapse => '折疊';
+
+  @override
+  String get cronsExpand => '展開';
 
   @override
   String get aiModelAdd => '新增提供者';

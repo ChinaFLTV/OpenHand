@@ -3104,6 +3104,1079 @@ abstract class AppLocalizations {
   /// **'减速'**
   String get dialogAnimationCurveDecelerate;
 
+  /// No description provided for @commonOptional.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'可选'**
+  String get commonOptional;
+
+  /// No description provided for @cronScriptTypeCommand.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'命令'**
+  String get cronScriptTypeCommand;
+
+  /// No description provided for @cronScriptTypeScript.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'脚本'**
+  String get cronScriptTypeScript;
+
+  /// No description provided for @cronScriptTypeAgent.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Agent'**
+  String get cronScriptTypeAgent;
+
+  /// No description provided for @cronJobStatusRunning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行中'**
+  String get cronJobStatusRunning;
+
+  /// No description provided for @cronJobStatusPaused.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已暂停'**
+  String get cronJobStatusPaused;
+
+  /// No description provided for @cronJobStatusFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'失败'**
+  String get cronJobStatusFailed;
+
+  /// No description provided for @cronJobStatusError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'异常'**
+  String get cronJobStatusError;
+
+  /// No description provided for @cronJobStatusIdle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'空闲'**
+  String get cronJobStatusIdle;
+
+  /// No description provided for @cronNotifyTypeNone.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无'**
+  String get cronNotifyTypeNone;
+
+  /// No description provided for @cronNotifyTypeLog.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'仅日志'**
+  String get cronNotifyTypeLog;
+
+  /// No description provided for @cronNotifyTypeSystem.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'系统通知'**
+  String get cronNotifyTypeSystem;
+
+  /// No description provided for @cronNotifyTypeAppNotification.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用内通知'**
+  String get cronNotifyTypeAppNotification;
+
+  /// No description provided for @cronNotifySeverityInfo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'信息'**
+  String get cronNotifySeverityInfo;
+
+  /// No description provided for @cronNotifySeveritySuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'成功'**
+  String get cronNotifySeveritySuccess;
+
+  /// No description provided for @cronNotifySeverityWarning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'警告'**
+  String get cronNotifySeverityWarning;
+
+  /// No description provided for @cronNotifySeverityError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'错误'**
+  String get cronNotifySeverityError;
+
+  /// No description provided for @cronNotifySeverityCritical.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'严重'**
+  String get cronNotifySeverityCritical;
+
+  /// No description provided for @cronScheduleInvalidExpression.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无效表达式'**
+  String get cronScheduleInvalidExpression;
+
+  /// No description provided for @cronScheduleEveryMinute.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'每分钟'**
+  String get cronScheduleEveryMinute;
+
+  /// No description provided for @cronParserFieldCountError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Cron 表达式需要恰好 5 个字段（分 时 日 月 周）'**
+  String get cronParserFieldCountError;
+
+  /// No description provided for @cronParserFieldMinute.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'分钟'**
+  String get cronParserFieldMinute;
+
+  /// No description provided for @cronParserFieldHour.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'小时'**
+  String get cronParserFieldHour;
+
+  /// No description provided for @cronParserFieldDayOfMonth.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'日'**
+  String get cronParserFieldDayOfMonth;
+
+  /// No description provided for @cronParserFieldDayOfMonthShort.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'日'**
+  String get cronParserFieldDayOfMonthShort;
+
+  /// No description provided for @cronParserFieldMonth.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'月'**
+  String get cronParserFieldMonth;
+
+  /// No description provided for @cronParserFieldDayOfWeek.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'星期'**
+  String get cronParserFieldDayOfWeek;
+
+  /// No description provided for @cronParserFieldDayOfWeekShort.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'周'**
+  String get cronParserFieldDayOfWeekShort;
+
+  /// No description provided for @cronParserInvalidField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{field}字段 \"{value}\" 无效'**
+  String cronParserInvalidField(String field, String value);
+
+  /// No description provided for @cronsViewDescription.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'配置和管理定时任务。支持 Cron 表达式调度、超时控制、自动重试和执行历史查看。'**
+  String get cronsViewDescription;
+
+  /// No description provided for @cronsNewCronJob.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增定时任务'**
+  String get cronsNewCronJob;
+
+  /// No description provided for @cronsEditCronJob.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑定时任务'**
+  String get cronsEditCronJob;
+
+  /// No description provided for @cronsDeleteCronJobTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除定时任务'**
+  String get cronsDeleteCronJobTitle;
+
+  /// No description provided for @cronsDeleteCronJobMessage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'确定删除 \"{name}\" 吗？此操作不可撤销，执行历史也将一并删除。'**
+  String cronsDeleteCronJobMessage(String name);
+
+  /// No description provided for @cronsEmptyTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无定时任务'**
+  String get cronsEmptyTitle;
+
+  /// No description provided for @cronsEmptyBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击右上角「新增定时任务」按钮开始配置。'**
+  String get cronsEmptyBody;
+
+  /// No description provided for @cronsCronExpressionTooltip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Cron 表达式'**
+  String get cronsCronExpressionTooltip;
+
+  /// No description provided for @cronsTimeoutTooltip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'超时时间'**
+  String get cronsTimeoutTooltip;
+
+  /// No description provided for @cronsRetryCountTooltip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重试次数'**
+  String get cronsRetryCountTooltip;
+
+  /// No description provided for @cronsMcpKeywordIndexLockedTooltip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'由「全局设置 -> MCP -> 更新关键词映射模式」控制，不可手动开关'**
+  String get cronsMcpKeywordIndexLockedTooltip;
+
+  /// No description provided for @cronsRunOnceNow.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'立即执行一次'**
+  String get cronsRunOnceNow;
+
+  /// No description provided for @cronsHistory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行历史'**
+  String get cronsHistory;
+
+  /// No description provided for @cronsLastRunAt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'上次: {time}'**
+  String cronsLastRunAt(String time);
+
+  /// No description provided for @cronsFieldName.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'任务名称'**
+  String get cronsFieldName;
+
+  /// No description provided for @cronsFieldNameHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'例如: 每日备份'**
+  String get cronsFieldNameHint;
+
+  /// No description provided for @cronsFieldDescription.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'简介'**
+  String get cronsFieldDescription;
+
+  /// No description provided for @cronsFieldType.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'类型'**
+  String get cronsFieldType;
+
+  /// No description provided for @cronsFieldScriptFilePath.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'脚本文件路径'**
+  String get cronsFieldScriptFilePath;
+
+  /// No description provided for @cronsFieldScriptFilePathHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择 .sh / .ps1 / .bat 文件'**
+  String get cronsFieldScriptFilePathHint;
+
+  /// No description provided for @cronsBrowse.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'浏览'**
+  String get cronsBrowse;
+
+  /// No description provided for @cronsFieldCommand.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'命令内容'**
+  String get cronsFieldCommand;
+
+  /// No description provided for @cronsFieldCommandHintWindows.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入 PowerShell / BAT 命令'**
+  String get cronsFieldCommandHintWindows;
+
+  /// No description provided for @cronsFieldCommandHintShell.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入 Shell 命令'**
+  String get cronsFieldCommandHintShell;
+
+  /// No description provided for @cronsCronSchedule.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Cron 时间表达式'**
+  String get cronsCronSchedule;
+
+  /// No description provided for @cronsCronScheduleHelper.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'秒字段已冻结为 0，最小粒度为分钟。格式: 分 时 日 月 周'**
+  String get cronsCronScheduleHelper;
+
+  /// No description provided for @cronsTimeoutSeconds.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'超时（秒）'**
+  String get cronsTimeoutSeconds;
+
+  /// No description provided for @cronsRetries.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重试次数'**
+  String get cronsRetries;
+
+  /// No description provided for @cronsMaxRetryDelaySeconds.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重试间隔上限（秒）'**
+  String get cronsMaxRetryDelaySeconds;
+
+  /// No description provided for @cronsRunAsUser.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行用户'**
+  String get cronsRunAsUser;
+
+  /// No description provided for @cronsDefaultCurrentUser.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认（当前用户）'**
+  String get cronsDefaultCurrentUser;
+
+  /// No description provided for @cronsDefault.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认'**
+  String get cronsDefault;
+
+  /// No description provided for @cronsTagsCommaSeparated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'标签（逗号分隔）'**
+  String get cronsTagsCommaSeparated;
+
+  /// No description provided for @cronsTagsHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'例如: 备份, 清理'**
+  String get cronsTagsHint;
+
+  /// No description provided for @cronsWorkingDirectory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工作目录'**
+  String get cronsWorkingDirectory;
+
+  /// No description provided for @cronsWorkingDirectoryHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'可选，默认为应用目录'**
+  String get cronsWorkingDirectoryHint;
+
+  /// No description provided for @cronsEnvironmentVariables.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'环境变量'**
+  String get cronsEnvironmentVariables;
+
+  /// No description provided for @cronsEnvironmentVariablesHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'每行一个，格式: KEY=VALUE'**
+  String get cronsEnvironmentVariablesHint;
+
+  /// No description provided for @cronsExecutionContextCollection.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行上下文采集'**
+  String get cronsExecutionContextCollection;
+
+  /// No description provided for @cronsCollectAppMetadata.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'采集应用信息'**
+  String get cronsCollectAppMetadata;
+
+  /// No description provided for @cronsCollectAppMetadataSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记录应用版本、PID、可执行文件路径等信息'**
+  String get cronsCollectAppMetadataSubtitle;
+
+  /// No description provided for @cronsCollectHostMetadata.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'采集主机信息'**
+  String get cronsCollectHostMetadata;
+
+  /// No description provided for @cronsCollectHostMetadataSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记录系统版本、主机名、CPU 核心数等信息'**
+  String get cronsCollectHostMetadataSubtitle;
+
+  /// No description provided for @cronsCollectEnvironmentSnapshot.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'采集环境快照'**
+  String get cronsCollectEnvironmentSnapshot;
+
+  /// No description provided for @cronsCollectEnvironmentSnapshotSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记录执行时有效环境变量快照（可能包含敏感信息）'**
+  String get cronsCollectEnvironmentSnapshotSubtitle;
+
+  /// No description provided for @cronsSensitive.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'敏感'**
+  String get cronsSensitive;
+
+  /// No description provided for @cronsNotificationSettings.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'通知配置'**
+  String get cronsNotificationSettings;
+
+  /// No description provided for @cronsTestNotification.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'测试通知'**
+  String get cronsTestNotification;
+
+  /// No description provided for @cronsTestSuccessNotification.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'测试成功通知'**
+  String get cronsTestSuccessNotification;
+
+  /// No description provided for @cronsTestFailureNotification.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'测试失败通知'**
+  String get cronsTestFailureNotification;
+
+  /// No description provided for @cronsTestTimeoutNotification.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'测试超时通知'**
+  String get cronsTestTimeoutNotification;
+
+  /// No description provided for @cronsTestAllNotifications.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'测试全部（顺序）'**
+  String get cronsTestAllNotifications;
+
+  /// No description provided for @cronsNotificationSettingsHelper.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'每个事件可分别配置通知渠道、严重程度、声音和震动。'**
+  String get cronsNotificationSettingsHelper;
+
+  /// No description provided for @cronsOnSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行成功'**
+  String get cronsOnSuccess;
+
+  /// No description provided for @cronsOnFailure.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行失败'**
+  String get cronsOnFailure;
+
+  /// No description provided for @cronsOnTimeout.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行超时'**
+  String get cronsOnTimeout;
+
+  /// No description provided for @cronsEnabled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用'**
+  String get cronsEnabled;
+
+  /// No description provided for @cronsCustomNotificationMessageHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自定义通知内容（可选）'**
+  String get cronsCustomNotificationMessageHint;
+
+  /// No description provided for @cronsVibrationUnsupportedHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前平台不支持震动，开启后会自动忽略。'**
+  String get cronsVibrationUnsupportedHint;
+
+  /// No description provided for @cronsValidationNameRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请填写任务名称。'**
+  String get cronsValidationNameRequired;
+
+  /// No description provided for @cronsValidationScriptRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请选择脚本文件。'**
+  String get cronsValidationScriptRequired;
+
+  /// No description provided for @cronsValidationCommandRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请填写命令内容。'**
+  String get cronsValidationCommandRequired;
+
+  /// No description provided for @cronsValidationInvalidEnvironment.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'环境变量格式错误，请检查第 {lines} 行。格式应为 KEY=VALUE。'**
+  String cronsValidationInvalidEnvironment(String lines);
+
+  /// No description provided for @cronsNotificationSequentialStartTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开始顺序测试'**
+  String get cronsNotificationSequentialStartTitle;
+
+  /// No description provided for @cronsNotificationSequentialStartBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'将按顺序测试成功、失败、超时通知。'**
+  String get cronsNotificationSequentialStartBody;
+
+  /// No description provided for @cronsNotificationVibrationIgnoredTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'震动已忽略'**
+  String get cronsNotificationVibrationIgnoredTitle;
+
+  /// No description provided for @cronsNotificationSequentialVibrationIgnoredBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前平台不支持震动，顺序测试中已自动忽略震动设置。'**
+  String get cronsNotificationSequentialVibrationIgnoredBody;
+
+  /// No description provided for @cronsNotificationSequentialCompletedTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'顺序测试完成'**
+  String get cronsNotificationSequentialCompletedTitle;
+
+  /// No description provided for @cronsNotificationSequentialCompletedBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已完成成功、失败、超时三种通知测试。'**
+  String get cronsNotificationSequentialCompletedBody;
+
+  /// No description provided for @cronsNotificationScenarioSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'成功'**
+  String get cronsNotificationScenarioSuccess;
+
+  /// No description provided for @cronsNotificationScenarioFailure.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'失败'**
+  String get cronsNotificationScenarioFailure;
+
+  /// No description provided for @cronsNotificationScenarioTimeout.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'超时'**
+  String get cronsNotificationScenarioTimeout;
+
+  /// No description provided for @cronsNotificationScenarioAll.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部'**
+  String get cronsNotificationScenarioAll;
+
+  /// No description provided for @cronsNotificationTestTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'定时任务通知测试 · {label}'**
+  String cronsNotificationTestTitle(String label);
+
+  /// No description provided for @cronsNotificationTestDefaultBodySuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'成功场景通知测试消息。'**
+  String get cronsNotificationTestDefaultBodySuccess;
+
+  /// No description provided for @cronsNotificationTestDefaultBodyFailure.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'失败场景通知测试消息。'**
+  String get cronsNotificationTestDefaultBodyFailure;
+
+  /// No description provided for @cronsNotificationTestDefaultBodyTimeout.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'超时场景通知测试消息。'**
+  String get cronsNotificationTestDefaultBodyTimeout;
+
+  /// No description provided for @cronsNotificationNoEmitBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前配置为“无”或“仅日志”，不会触发通知。'**
+  String get cronsNotificationNoEmitBody;
+
+  /// No description provided for @cronsSystemNotificationUnavailableTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'系统通知不可用'**
+  String get cronsSystemNotificationUnavailableTitle;
+
+  /// No description provided for @cronsSystemNotificationFallbackBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'系统通知发送失败，已回退为应用内通知。'**
+  String get cronsSystemNotificationFallbackBody;
+
+  /// No description provided for @cronsNotificationVibrationIgnoredBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前平台不支持震动，已自动忽略该配置。'**
+  String get cronsNotificationVibrationIgnoredBody;
+
+  /// No description provided for @cronsUnknownPlatform.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未知平台'**
+  String get cronsUnknownPlatform;
+
+  /// No description provided for @cronsToggleOn.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已开启'**
+  String get cronsToggleOn;
+
+  /// No description provided for @cronsToggleOff.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已关闭'**
+  String get cronsToggleOff;
+
+  /// No description provided for @cronsSupportBestEffortSystemSound.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'支持（尽力触发系统声音）'**
+  String get cronsSupportBestEffortSystemSound;
+
+  /// No description provided for @cronsSupportSupported.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'支持'**
+  String get cronsSupportSupported;
+
+  /// No description provided for @cronsSupportNotSupportedOnPlatform.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前平台不支持'**
+  String get cronsSupportNotSupportedOnPlatform;
+
+  /// No description provided for @cronsSupportNotSupportedWillBeIgnored.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'不支持（开启后将自动忽略）'**
+  String get cronsSupportNotSupportedWillBeIgnored;
+
+  /// No description provided for @cronsSoundLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'声音'**
+  String get cronsSoundLabel;
+
+  /// No description provided for @cronsVibrationLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'震动'**
+  String get cronsVibrationLabel;
+
+  /// No description provided for @cronsPlatformLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'平台'**
+  String get cronsPlatformLabel;
+
+  /// No description provided for @cronsSupportLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'状态'**
+  String get cronsSupportLabel;
+
+  /// No description provided for @cronsExecutionHistoryTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'定时任务执行历史'**
+  String get cronsExecutionHistoryTitle;
+
+  /// No description provided for @cronsClearAllExecutionHistory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空全部执行历史'**
+  String get cronsClearAllExecutionHistory;
+
+  /// No description provided for @cronsNoExecutionRecords.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无执行记录'**
+  String get cronsNoExecutionRecords;
+
+  /// No description provided for @cronsClearExecutionHistoryTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空执行历史'**
+  String get cronsClearExecutionHistoryTitle;
+
+  /// No description provided for @cronsClearExecutionHistoryMessage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'确定清空「{name}」的全部执行历史吗？此操作不可撤销。'**
+  String cronsClearExecutionHistoryMessage(String name);
+
+  /// No description provided for @cronsClear.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空'**
+  String get cronsClear;
+
+  /// No description provided for @cronsDeleteExecutionRecordTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除执行记录'**
+  String get cronsDeleteExecutionRecordTitle;
+
+  /// No description provided for @cronsDeleteExecutionRecordMessage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'确定删除这条执行记录吗？'**
+  String get cronsDeleteExecutionRecordMessage;
+
+  /// No description provided for @cronsExecutionStatusSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'成功'**
+  String get cronsExecutionStatusSuccess;
+
+  /// No description provided for @cronsExecutionStatusFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'失败'**
+  String get cronsExecutionStatusFailed;
+
+  /// No description provided for @cronsExecutionStatusTimedOut.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'超时'**
+  String get cronsExecutionStatusTimedOut;
+
+  /// No description provided for @cronsExecutionStatusRunning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行中'**
+  String get cronsExecutionStatusRunning;
+
+  /// No description provided for @cronsExecutionStatusKilled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已终止'**
+  String get cronsExecutionStatusKilled;
+
+  /// No description provided for @cronsTriggerManual.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'手动'**
+  String get cronsTriggerManual;
+
+  /// No description provided for @cronsTriggerScheduled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'调度'**
+  String get cronsTriggerScheduled;
+
+  /// No description provided for @cronsDeleteThisRecord.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除此条记录'**
+  String get cronsDeleteThisRecord;
+
+  /// No description provided for @cronsRetryAttempt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重试次数'**
+  String get cronsRetryAttempt;
+
+  /// No description provided for @cronsRunAs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行用户'**
+  String get cronsRunAs;
+
+  /// No description provided for @cronsWorkingDir.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工作目录'**
+  String get cronsWorkingDir;
+
+  /// No description provided for @cronsScriptEnvironmentOverrides.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'脚本环境覆盖:'**
+  String get cronsScriptEnvironmentOverrides;
+
+  /// No description provided for @cronsEnvironmentSnapshot.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'环境快照:'**
+  String get cronsEnvironmentSnapshot;
+
+  /// No description provided for @cronsErrorReason.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'错误原因:'**
+  String get cronsErrorReason;
+
+  /// No description provided for @cronsStdout.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'标准输出 (stdout):'**
+  String get cronsStdout;
+
+  /// No description provided for @cronsStderr.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'标准错误 (stderr):'**
+  String get cronsStderr;
+
+  /// No description provided for @cronsExecutionContext.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行上下文:'**
+  String get cronsExecutionContext;
+
+  /// No description provided for @cronsHermesTalkerReportTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Hermes Talker 自我学习报告'**
+  String get cronsHermesTalkerReportTitle;
+
+  /// No description provided for @cronsHermesNoEligibleSessions.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'本轮无符合条件的会话被实际学习。'**
+  String get cronsHermesNoEligibleSessions;
+
+  /// No description provided for @cronsHermesAffectedSessions.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'受影响的会话 ({count})'**
+  String cronsHermesAffectedSessions(int count);
+
+  /// No description provided for @cronsHermesStatsLine.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'扫描 {scanned} · 触发 {triggered} · 跳过 {skipped} · 异常 {errors}'**
+  String cronsHermesStatsLine(
+    int scanned,
+    int triggered,
+    int skipped,
+    int errors,
+  );
+
+  /// No description provided for @cronsHermesUntitledSession.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'(未命名会话)'**
+  String get cronsHermesUntitledSession;
+
+  /// No description provided for @cronsHermesMemoryUpdates.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记忆 +{count}'**
+  String cronsHermesMemoryUpdates(int count);
+
+  /// No description provided for @cronsHermesMemoryErrors.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记忆错误 {count}'**
+  String cronsHermesMemoryErrors(int count);
+
+  /// No description provided for @cronsHermesSkillUpdates.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能 +{count}'**
+  String cronsHermesSkillUpdates(int count);
+
+  /// No description provided for @cronsHermesSkillErrors.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能错误 {count}'**
+  String cronsHermesSkillErrors(int count);
+
+  /// No description provided for @cronsHermesProfileChanges.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户轮廓 {count}'**
+  String cronsHermesProfileChanges(int count);
+
+  /// No description provided for @cronsHermesToolRounds.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具轮次 {count}'**
+  String cronsHermesToolRounds(int count);
+
+  /// No description provided for @cronsHermesModelLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模型'**
+  String get cronsHermesModelLabel;
+
+  /// No description provided for @cronsHermesProviderLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'渠道'**
+  String get cronsHermesProviderLabel;
+
+  /// No description provided for @cronsHermesTerminatedLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'结束原因'**
+  String get cronsHermesTerminatedLabel;
+
+  /// No description provided for @cronsHermesUserProfileChanges.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户轮廓变动'**
+  String get cronsHermesUserProfileChanges;
+
+  /// No description provided for @cronsHermesMemoryChanges.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记忆变动'**
+  String get cronsHermesMemoryChanges;
+
+  /// No description provided for @cronsHermesSkillChanges.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能变动'**
+  String get cronsHermesSkillChanges;
+
+  /// No description provided for @cronsHermesAiReasoningOnScene.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当时现场的 AI 思考'**
+  String get cronsHermesAiReasoningOnScene;
+
+  /// No description provided for @cronsHermesAiResponseOnScene.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当时现场的 AI 响应'**
+  String get cronsHermesAiResponseOnScene;
+
+  /// No description provided for @cronsHermesNoFurtherDetails.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'本会话无更多详情。'**
+  String get cronsHermesNoFurtherDetails;
+
+  /// No description provided for @cronsHermesStatusError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'失败'**
+  String get cronsHermesStatusError;
+
+  /// No description provided for @cronsHermesStatusSkipped.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'跳过'**
+  String get cronsHermesStatusSkipped;
+
+  /// No description provided for @cronsHermesStatusOk.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'完成'**
+  String get cronsHermesStatusOk;
+
+  /// No description provided for @cronsHermesChangeBefore.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'变更前'**
+  String get cronsHermesChangeBefore;
+
+  /// No description provided for @cronsHermesChangeAfter.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'变更后'**
+  String get cronsHermesChangeAfter;
+
+  /// No description provided for @cronsHermesChangeValue.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'值'**
+  String get cronsHermesChangeValue;
+
+  /// No description provided for @cronsHermesChangeSource.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'来源'**
+  String get cronsHermesChangeSource;
+
+  /// No description provided for @cronsHermesChangeReason.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'原因'**
+  String get cronsHermesChangeReason;
+
+  /// No description provided for @cronsHermesChangeMetadata.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'元数据'**
+  String get cronsHermesChangeMetadata;
+
+  /// No description provided for @cronsHermesChangeError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'错误'**
+  String get cronsHermesChangeError;
+
+  /// No description provided for @cronsCollapse.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'折叠'**
+  String get cronsCollapse;
+
+  /// No description provided for @cronsExpand.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'展开'**
+  String get cronsExpand;
+
   /// No description provided for @aiModelAdd.
   ///
   /// In zh_Hans, this message translates to:

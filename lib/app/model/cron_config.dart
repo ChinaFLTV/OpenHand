@@ -1,21 +1,26 @@
+import '../../l10n/app_localizations.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 /// Type of script source for a cron job.
 enum CronScriptType {
-  command('command', 'Command', '命令'),
-  script('script', 'Script', '脚本'),
+  command('command'),
+  script('script'),
   // 2026-04-25 system-managed Agent entries (Hermes Talker self-learning).
   // These dispatch to an in-process agent handler rather than spawning a
   // shell process. UI must render them read-only with a lock icon.
-  agent('agent', 'Agent', 'Agent');
+  agent('agent');
 
-  const CronScriptType(this.storageValue, this.labelEn, this.labelZh);
+  const CronScriptType(this.storageValue);
 
   final String storageValue;
-  final String labelEn;
-  final String labelZh;
 
-  String label(bool isZh) => isZh ? labelZh : labelEn;
+  String label(AppLocalizations l10n) {
+    return switch (this) {
+      CronScriptType.command => l10n.cronScriptTypeCommand,
+      CronScriptType.script => l10n.cronScriptTypeScript,
+      CronScriptType.agent => l10n.cronScriptTypeAgent,
+    };
+  }
 
   static CronScriptType? fromStorage(String? value) {
     if (value == null || value.isEmpty) return null;
@@ -28,19 +33,25 @@ enum CronScriptType {
 
 /// Runtime status of a cron job.
 enum CronJobStatus {
-  running('running', 'Running', '运行中'),
-  paused('paused', 'Paused', '已暂停'),
-  failed('failed', 'Failed', '失败'),
-  error('error', 'Error', '异常'),
-  idle('idle', 'Idle', '空闲');
+  running('running'),
+  paused('paused'),
+  failed('failed'),
+  error('error'),
+  idle('idle');
 
-  const CronJobStatus(this.storageValue, this.labelEn, this.labelZh);
+  const CronJobStatus(this.storageValue);
 
   final String storageValue;
-  final String labelEn;
-  final String labelZh;
 
-  String label(bool isZh) => isZh ? labelZh : labelEn;
+  String label(AppLocalizations l10n) {
+    return switch (this) {
+      CronJobStatus.running => l10n.cronJobStatusRunning,
+      CronJobStatus.paused => l10n.cronJobStatusPaused,
+      CronJobStatus.failed => l10n.cronJobStatusFailed,
+      CronJobStatus.error => l10n.cronJobStatusError,
+      CronJobStatus.idle => l10n.cronJobStatusIdle,
+    };
+  }
 
   static CronJobStatus fromStorage(String? value) {
     if (value == null || value.isEmpty) return CronJobStatus.idle;
@@ -53,18 +64,23 @@ enum CronJobStatus {
 
 /// Notification type for cron job events.
 enum CronNotifyType {
-  none('none', 'None', '无'),
-  log('log', 'Log Only', '仅日志'),
-  system('system', 'System Notification', '系统通知'),
-  appNotification('app_notification', 'In-App Notification', '应用内通知');
+  none('none'),
+  log('log'),
+  system('system'),
+  appNotification('app_notification');
 
-  const CronNotifyType(this.storageValue, this.labelEn, this.labelZh);
+  const CronNotifyType(this.storageValue);
 
   final String storageValue;
-  final String labelEn;
-  final String labelZh;
 
-  String label(bool isZh) => isZh ? labelZh : labelEn;
+  String label(AppLocalizations l10n) {
+    return switch (this) {
+      CronNotifyType.none => l10n.cronNotifyTypeNone,
+      CronNotifyType.log => l10n.cronNotifyTypeLog,
+      CronNotifyType.system => l10n.cronNotifyTypeSystem,
+      CronNotifyType.appNotification => l10n.cronNotifyTypeAppNotification,
+    };
+  }
 
   static CronNotifyType fromStorage(String? value) {
     if (value == null || value.isEmpty) return CronNotifyType.log;
@@ -77,19 +93,25 @@ enum CronNotifyType {
 
 /// Notification severity for cron job events.
 enum CronNotifySeverity {
-  info('info', 'Info', '信息'),
-  success('success', 'Success', '成功'),
-  warning('warning', 'Warning', '警告'),
-  error('error', 'Error', '错误'),
-  critical('critical', 'Critical', '严重');
+  info('info'),
+  success('success'),
+  warning('warning'),
+  error('error'),
+  critical('critical');
 
-  const CronNotifySeverity(this.storageValue, this.labelEn, this.labelZh);
+  const CronNotifySeverity(this.storageValue);
 
   final String storageValue;
-  final String labelEn;
-  final String labelZh;
 
-  String label(bool isZh) => isZh ? labelZh : labelEn;
+  String label(AppLocalizations l10n) {
+    return switch (this) {
+      CronNotifySeverity.info => l10n.cronNotifySeverityInfo,
+      CronNotifySeverity.success => l10n.cronNotifySeveritySuccess,
+      CronNotifySeverity.warning => l10n.cronNotifySeverityWarning,
+      CronNotifySeverity.error => l10n.cronNotifySeverityError,
+      CronNotifySeverity.critical => l10n.cronNotifySeverityCritical,
+    };
+  }
 
   static CronNotifySeverity fromStorage(
     String? value, {
@@ -282,13 +304,13 @@ class CronEntry {
       (scriptContent != null && scriptContent!.isNotEmpty);
 
   /// Human-readable cron schedule description.
-  String scheduleLabel(bool isZh) {
+  String scheduleLabel(AppLocalizations l10n) {
     final parts = cronExpression.trim().split(RegExp(r'\s+'));
     if (parts.length != 5) {
-      return isZh ? '无效表达式' : 'Invalid expression';
+      return l10n.cronScheduleInvalidExpression;
     }
     if (parts.every((p) => p == '*')) {
-      return isZh ? '每分钟' : 'Every minute';
+      return l10n.cronScheduleEveryMinute;
     }
     return cronExpression;
   }
