@@ -1346,6 +1346,49 @@ void main() {
       },
     );
 
+    test('detail tool exposes structured workspace scope paths', () async {
+      await controller.saveAgent(
+        _agent(enabled: true).copyWith(
+          workspacePath: '/repo',
+          workspaceScope: '/legacy/ignored',
+          workspaceScopePaths: const <String>[
+            '/repo/app',
+            '/repo/docs',
+            '/repo/app',
+          ],
+        ),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(),
+      );
+      final result = await runtime.execute(
+        sessionId: 'session-1',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-1',
+          name: 'AgentDetail',
+          arguments: jsonEncode(<String, Object?>{'agent_id': 'agent-1'}),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+      final agent = payload['agent'] as Map<String, Object?>;
+      expect(agent['workspace_path'], '/repo');
+      expect(agent['workspace_scope'], '/repo/app\n/repo/docs');
+      expect(agent['workspace_scope_paths'], <Object?>[
+        '/repo/app',
+        '/repo/docs',
+      ]);
+    });
+
     test('publish tool routes to the best matching enabled agent', () async {
       await controller.saveAgent(
         _agent(

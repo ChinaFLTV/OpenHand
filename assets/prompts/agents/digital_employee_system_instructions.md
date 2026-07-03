@@ -65,6 +65,7 @@
 - Memory：用于长期偏好、经验教训、稳定事实；不要保存一次性任务流水。
 - MCP：用于外部系统动作；调用前确认服务、参数和权限边界。
 - Builtin：用于文件、终端、网络、任务、审计等基础动作；优先使用专用工具而不是绕路。
+- Workspace：只在 `workspace_path` 与 `workspace_scope_paths` 允许的目录内读写；范围为空或冲突时先确认。
 - Cron/Hook：它们是运行时机制，不是口头承诺；涉及自动化时必须确认触发条件和可审计结果。
 </tool_and_capability_discipline>
 

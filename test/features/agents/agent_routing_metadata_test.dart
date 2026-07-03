@@ -44,6 +44,39 @@ domains: cloud, finops
     expect(parsed['priority'], 10);
   });
 
+  test('normalizes structured workspace scope paths with legacy fallback', () {
+    final legacy = AgentProfile.fromJson(<String, Object?>{
+      'id': 'agent-legacy',
+      'name': 'Legacy Agent',
+      'workspace_scope': '/repo/app\n/repo/docs\n/repo/app',
+    });
+    final structured = AgentProfile.fromJson(<String, Object?>{
+      'id': 'agent-structured',
+      'name': 'Structured Agent',
+      'workspace_scope': '/legacy/ignored',
+      'workspace_scope_paths': <String>[
+        '/repo/app',
+        '/repo/docs',
+        '/repo/app',
+        ' ',
+      ],
+    });
+
+    expect(legacy.normalizedWorkspaceScopePaths, <String>[
+      '/repo/app',
+      '/repo/docs',
+    ]);
+    expect(structured.normalizedWorkspaceScopePaths, <String>[
+      '/repo/app',
+      '/repo/docs',
+    ]);
+    expect(structured.workspaceScopeText, '/repo/app\n/repo/docs');
+    expect(structured.toJson()['workspace_scope_paths'], <String>[
+      '/repo/app',
+      '/repo/docs',
+    ]);
+  });
+
   test('prompt metadata exposes structured routing profile', () async {
     final renderer = AgentPromptRenderer(
       loader: (_) async => '''
@@ -70,6 +103,8 @@ domains: cloud, finops
         id: 'agent-1',
         name: 'Release Agent',
         routeFrontMatter: 'keywords: release, deploy',
+        workspacePath: '/repo',
+        workspaceScopePaths: <String>['/repo/app', '/repo/docs'],
         taskLabels: <String>['release'],
         metadata: <String, Object?>{'cost_center': 'release-platform'},
         approvals: <AgentApprovalRequest>[
@@ -155,7 +190,7 @@ domains: cloud, finops
     final recentAudit =
         operationalState['recent_audit_events'] as List<Object?>;
 
-    expect(snapshot.version, '1.2.1');
+    expect(snapshot.version, '1.2.2');
     expect(routing['has_route'], isTrue);
     expect(routing['keywords'], <Object?>['release', 'deploy']);
     expect(profile['metadata'], <String, Object?>{
@@ -165,6 +200,7 @@ domains: cloud, finops
     expect(snapshot.renderedPrompt, contains('"metadata"'));
     expect(snapshot.renderedPrompt, contains('"active_tasks"'));
     expect(snapshot.renderedPrompt, contains('"kpi_state"'));
+    expect(snapshot.renderedPrompt, contains('"workspace_scope_paths"'));
     expect(snapshot.renderedPrompt, contains('<operational_state>'));
     expect(
       snapshot.renderedPrompt,
@@ -176,6 +212,12 @@ domains: cloud, finops
     expect(stateFlags['workers_saturated'], isTrue);
     expect(stateFlags['has_blocked_tasks'], isTrue);
     expect(workerCapacity['busy'], 1);
+    final runtimePolicy =
+        snapshot.metadataJson()['runtime_policy'] as Map<String, Object?>;
+    expect(runtimePolicy['workspace_scope_paths'], <Object?>[
+      '/repo/app',
+      '/repo/docs',
+    ]);
     expect(activeTasks, hasLength(2));
     expect(blockedTasks, hasLength(1));
     expect(terminalTasks, hasLength(1));

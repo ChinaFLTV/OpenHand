@@ -722,6 +722,7 @@ class AgentProfile {
     this.builtinToolNames = const <String>[],
     this.workspacePath = '',
     this.workspaceScope = '',
+    this.workspaceScopePaths = const <String>[],
     this.cronIds = const <String>[],
     this.hookIds = const <String>[],
     this.selfLearningEnabled = true,
@@ -744,6 +745,11 @@ class AgentProfile {
   factory AgentProfile.fromJson(Object? raw) {
     final json = stringKeyedMapFromValue(raw);
     final now = DateTime.now().toUtc();
+    final workspaceScope = stringFromValue(json['workspace_scope']);
+    final workspaceScopePaths = _workspaceScopePathsFromValue(
+      json['workspace_scope_paths'],
+      legacyText: workspaceScope,
+    );
     return AgentProfile(
       id: _nonEmpty(json['id'], ''),
       name: _nonEmpty(json['name'], 'Unnamed Agent'),
@@ -769,7 +775,8 @@ class AgentProfile {
       mcpServerNames: stringListFromValue(json['mcp_server_names']),
       builtinToolNames: stringListFromValue(json['builtin_tool_names']),
       workspacePath: stringFromValue(json['workspace_path']),
-      workspaceScope: stringFromValue(json['workspace_scope']),
+      workspaceScope: workspaceScope,
+      workspaceScopePaths: workspaceScopePaths,
       cronIds: stringListFromValue(json['cron_ids']),
       hookIds: stringListFromValue(json['hook_ids']),
       selfLearningEnabled: boolFromValue(
@@ -829,6 +836,7 @@ class AgentProfile {
   final List<String> builtinToolNames;
   final String workspacePath;
   final String workspaceScope;
+  final List<String> workspaceScopePaths;
   final List<String> cronIds;
   final List<String> hookIds;
   final bool selfLearningEnabled;
@@ -866,6 +874,18 @@ class AgentProfile {
   int get completedTaskCount =>
       tasks.where((item) => item.status == AgentTaskStatus.completed).length;
 
+  List<String> get normalizedWorkspaceScopePaths {
+    final structured = _dedupeNonEmptyStrings(workspaceScopePaths);
+    if (structured.isNotEmpty) return structured;
+    return _workspaceScopePathsFromValue(null, legacyText: workspaceScope);
+  }
+
+  String get workspaceScopeText {
+    final paths = normalizedWorkspaceScopePaths;
+    if (paths.isNotEmpty) return paths.join('\n');
+    return workspaceScope.trim();
+  }
+
   double get workerUtilization {
     if (workers.isEmpty) return 0;
     final total = workers.fold<double>(
@@ -899,6 +919,7 @@ class AgentProfile {
     List<String>? builtinToolNames,
     String? workspacePath,
     String? workspaceScope,
+    List<String>? workspaceScopePaths,
     List<String>? cronIds,
     List<String>? hookIds,
     bool? selfLearningEnabled,
@@ -946,6 +967,7 @@ class AgentProfile {
       builtinToolNames: builtinToolNames ?? this.builtinToolNames,
       workspacePath: workspacePath ?? this.workspacePath,
       workspaceScope: workspaceScope ?? this.workspaceScope,
+      workspaceScopePaths: workspaceScopePaths ?? this.workspaceScopePaths,
       cronIds: cronIds ?? this.cronIds,
       hookIds: hookIds ?? this.hookIds,
       selfLearningEnabled: selfLearningEnabled ?? this.selfLearningEnabled,
@@ -990,7 +1012,8 @@ class AgentProfile {
       'mcp_server_names': mcpServerNames,
       'builtin_tool_names': builtinToolNames,
       'workspace_path': workspacePath,
-      'workspace_scope': workspaceScope,
+      'workspace_scope': workspaceScopeText,
+      'workspace_scope_paths': normalizedWorkspaceScopePaths,
       'cron_ids': cronIds,
       'hook_ids': hookIds,
       'self_learning_enabled': selfLearningEnabled,
@@ -1037,4 +1060,34 @@ double _ratioFromValue(Object? raw, {required double fallback}) {
   if (value < 0) return 0;
   if (value > 1) return 1;
   return value;
+}
+
+List<String> _workspaceScopePathsFromValue(
+  Object? raw, {
+  required String legacyText,
+}) {
+  final structured = stringListFromValue(
+    raw,
+    separator: RegExp(r'[\r\n,，;；]+'),
+    ignoreLiteralNull: true,
+  );
+  if (structured.isNotEmpty) return _dedupeNonEmptyStrings(structured);
+  return _dedupeNonEmptyStrings(
+    stringListFromValue(
+      legacyText,
+      separator: RegExp(r'[\r\n,，;；]+'),
+      ignoreLiteralNull: true,
+    ),
+  );
+}
+
+List<String> _dedupeNonEmptyStrings(Iterable<String> values) {
+  final seen = <String>{};
+  final result = <String>[];
+  for (final raw in values) {
+    final value = raw.trim();
+    if (value.isEmpty) continue;
+    if (seen.add(value.toLowerCase())) result.add(value);
+  }
+  return result;
 }

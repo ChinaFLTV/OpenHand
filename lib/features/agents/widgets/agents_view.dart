@@ -3707,7 +3707,9 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     _workspacePath = TextEditingController(text: agent?.workspacePath ?? '');
     _taskLabelInput = TextEditingController();
     _workerTagInput = TextEditingController();
-    _workspaceScopePaths = _splitStructuredText(agent?.workspaceScope ?? '');
+    _workspaceScopePaths = List<String>.from(
+      agent?.normalizedWorkspaceScopePaths ?? const <String>[],
+    );
     _taskLabelValues = List<String>.from(agent?.taskLabels ?? const <String>[]);
     _workerTagValues = List<String>.from(
       agent?.scaleSettings.tags ?? const <String>[],
@@ -5197,7 +5199,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       mcpServerNames: _mcpServerNames.toList(),
       builtinToolNames: builtinToolNames,
       workspacePath: _workspacePath.text.trim(),
-      workspaceScope: _workspaceScopePaths.join('\n'),
+      workspaceScope: _dedupeStrings(_workspaceScopePaths).join('\n'),
+      workspaceScopePaths: _dedupeStrings(_workspaceScopePaths),
       cronIds: _cronIds.toList(),
       hookIds: _hookIds.toList(),
       selfLearningEnabled: _selfLearningEnabled,
