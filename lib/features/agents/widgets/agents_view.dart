@@ -1567,7 +1567,9 @@ class _AgentTaskActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final terminal = _agentTaskIsTerminal(task.status);
+    final canPause = _agentTaskCanPause(task.status);
+    final canComplete = _agentTaskCanComplete(task.status);
+    final canStop = _agentTaskCanStop(task.status);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1598,7 +1600,7 @@ class _AgentTaskActions extends StatelessWidget {
               activityTitle: 'task_resumed',
             ),
           )
-        else if (!terminal)
+        else if (canPause)
           _AgentSmallIconButton(
             icon: Icons.pause_rounded,
             tooltip: openHandLocalizedText(
@@ -1615,7 +1617,7 @@ class _AgentTaskActions extends StatelessWidget {
               activityTitle: 'task_paused',
             ),
           ),
-        if (!terminal) ...[
+        if (canComplete) ...[
           const SizedBox(width: 6),
           _AgentSmallIconButton(
             icon: Icons.done_rounded,
@@ -1626,6 +1628,8 @@ class _AgentTaskActions extends StatelessWidget {
             ),
             onPressed: () => _showCompleteTaskDialog(context, agent, task),
           ),
+        ],
+        if (canStop) ...[
           const SizedBox(width: 6),
           _AgentSmallIconButton(
             icon: Icons.cancel_outlined,
@@ -1703,16 +1707,42 @@ class _AgentSmallIconButton extends StatelessWidget {
   }
 }
 
-bool _agentTaskIsTerminal(AgentTaskStatus status) {
+bool _agentTaskCanPause(AgentTaskStatus status) {
   return switch (status) {
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running => true,
+    AgentTaskStatus.waitingApproval ||
+    AgentTaskStatus.paused ||
     AgentTaskStatus.completed ||
     AgentTaskStatus.failed ||
-    AgentTaskStatus.canceled => true,
+    AgentTaskStatus.canceled => false,
+  };
+}
+
+bool _agentTaskCanComplete(AgentTaskStatus status) {
+  return switch (status) {
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running => true,
+    AgentTaskStatus.waitingApproval ||
+    AgentTaskStatus.paused ||
+    AgentTaskStatus.completed ||
+    AgentTaskStatus.failed ||
+    AgentTaskStatus.canceled => false,
+  };
+}
+
+bool _agentTaskCanStop(AgentTaskStatus status) {
+  return switch (status) {
     AgentTaskStatus.backlog ||
     AgentTaskStatus.ready ||
     AgentTaskStatus.running ||
     AgentTaskStatus.waitingApproval ||
-    AgentTaskStatus.paused => false,
+    AgentTaskStatus.paused => true,
+    AgentTaskStatus.completed ||
+    AgentTaskStatus.failed ||
+    AgentTaskStatus.canceled => false,
   };
 }
 

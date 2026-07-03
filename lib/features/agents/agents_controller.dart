@@ -310,14 +310,18 @@ class AgentsController extends ManagedChangeNotifier {
     AgentTask? updatedTask;
     final normalizedTaskId = taskId.trim();
     if (normalizedTaskId.isEmpty) return null;
-    return updateAgent(agentId, (agent) {
-      if (!agent.enabled) return agent;
+    final changed = await _commitMutation(() async {
+      final index = _agents.indexWhere((agent) => agent.id == agentId);
+      if (index < 0) return false;
+      final agent = _agents[index];
+      if (!agent.enabled) return false;
       final now = DateTime.now().toUtc();
       var found = false;
       final tasks = agent.tasks
           .map((task) {
             if (task.id != normalizedTaskId) return task;
             found = true;
+            if (!_canUpdateTaskState(task, status)) return task;
             final nextProgress = progress == null
                 ? status == AgentTaskStatus.completed
                       ? 1.0
@@ -336,7 +340,7 @@ class AgentsController extends ManagedChangeNotifier {
             return updatedTask!;
           })
           .toList(growable: false);
-      if (!found || updatedTask == null) return agent;
+      if (!found || updatedTask == null) return false;
       final releasedTask = updatedTask!;
       final retryScheduled = _shouldRetryTask(
         agent,
@@ -424,8 +428,20 @@ class AgentsController extends ManagedChangeNotifier {
         (task) => task.id == normalizedTaskId,
         orElse: () => updatedTask!,
       );
-      return next;
-    }).then((changed) => changed ? updatedTask : null);
+      final normalized = _normalizeAgent(next.copyWith(updatedAt: now));
+      updatedTask = normalized.tasks.firstWhere(
+        (task) => task.id == normalizedTaskId,
+        orElse: () => updatedTask!,
+      );
+      _setAgents(<AgentProfile>[
+        ..._agents.sublist(0, index),
+        normalized,
+        ..._agents.sublist(index + 1),
+      ]);
+      await _store.save(_agents);
+      return true;
+    });
+    return changed ? updatedTask : null;
   }
 
   Future<AgentApprovalRequest?> requestApproval(
@@ -1361,6 +1377,40 @@ class AgentsController extends ManagedChangeNotifier {
         ),
       ),
     );
+  }
+
+  bool _canUpdateTaskState(AgentTask task, AgentTaskStatus? nextStatus) {
+    if (_taskStatusIsTerminal(task.status)) return false;
+    if (nextStatus == null) return true;
+    if (nextStatus == task.status) return true;
+    return switch (task.status) {
+      AgentTaskStatus.waitingApproval =>
+        nextStatus == AgentTaskStatus.canceled ||
+            nextStatus == AgentTaskStatus.failed,
+      AgentTaskStatus.paused =>
+        nextStatus == AgentTaskStatus.ready ||
+            nextStatus == AgentTaskStatus.canceled ||
+            nextStatus == AgentTaskStatus.failed,
+      AgentTaskStatus.backlog ||
+      AgentTaskStatus.ready ||
+      AgentTaskStatus.running => true,
+      AgentTaskStatus.completed ||
+      AgentTaskStatus.failed ||
+      AgentTaskStatus.canceled => false,
+    };
+  }
+
+  bool _taskStatusIsTerminal(AgentTaskStatus status) {
+    return switch (status) {
+      AgentTaskStatus.completed ||
+      AgentTaskStatus.failed ||
+      AgentTaskStatus.canceled => true,
+      AgentTaskStatus.backlog ||
+      AgentTaskStatus.ready ||
+      AgentTaskStatus.running ||
+      AgentTaskStatus.waitingApproval ||
+      AgentTaskStatus.paused => false,
+    };
   }
 
   Set<String> _selectWorkerRemovalIds(

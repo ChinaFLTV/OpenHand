@@ -148,6 +148,81 @@ void main() {
     );
 
     test(
+      'task state updates reject invalid transitions without side effects',
+      () async {
+        await controller.saveAgent(_runningAgent());
+        final task = await controller.publishTaskWithResult(
+          'agent-1',
+          title: 'Guard task state',
+        );
+        final paused = await controller.updateTaskState(
+          'agent-1',
+          task!.id,
+          status: AgentTaskStatus.paused,
+        );
+        expect(paused, isNotNull);
+
+        final beforePausedAgent = controller.agentById('agent-1')!;
+        final invalidComplete = await controller.updateTaskState(
+          'agent-1',
+          task.id,
+          status: AgentTaskStatus.completed,
+          result: 'should not complete while paused',
+        );
+        final afterPausedAgent = controller.agentById('agent-1')!;
+        expect(invalidComplete, isNull);
+        expect(afterPausedAgent.tasks.single.status, AgentTaskStatus.paused);
+        expect(afterPausedAgent.tasks.single.result, isEmpty);
+        expect(
+          afterPausedAgent.activities.length,
+          beforePausedAgent.activities.length,
+        );
+        expect(
+          afterPausedAgent.auditEvents.length,
+          beforePausedAgent.auditEvents.length,
+        );
+
+        final resumed = await controller.updateTaskState(
+          'agent-1',
+          task.id,
+          status: AgentTaskStatus.ready,
+        );
+        expect(resumed, isNotNull);
+        final completed = await controller.updateTaskState(
+          'agent-1',
+          task.id,
+          status: AgentTaskStatus.completed,
+          result: 'done',
+        );
+        expect(completed, isNotNull);
+
+        final beforeTerminalAgent = controller.agentById('agent-1')!;
+        final invalidCancel = await controller.updateTaskState(
+          'agent-1',
+          task.id,
+          status: AgentTaskStatus.canceled,
+          note: 'late cancel',
+        );
+        final afterTerminalAgent = controller.agentById('agent-1')!;
+        expect(invalidCancel, isNull);
+        expect(
+          afterTerminalAgent.tasks.single.status,
+          AgentTaskStatus.completed,
+        );
+        expect(afterTerminalAgent.tasks.single.note, isEmpty);
+        expect(
+          afterTerminalAgent.activities.length,
+          beforeTerminalAgent.activities.length,
+        );
+        expect(
+          afterTerminalAgent.auditEvents.length,
+          beforeTerminalAgent.auditEvents.length,
+        );
+        expect(afterTerminalAgent.workers.single.executedTaskCount, 1);
+      },
+    );
+
+    test(
       'publishing queued work scales out workers within the max range',
       () async {
         await controller.saveAgent(
