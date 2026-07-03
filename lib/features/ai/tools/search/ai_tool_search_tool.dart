@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/chat/ai_protocol_adapter.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
@@ -164,12 +165,7 @@ class AiToolSearchTool extends AiTool {
 
     // 1) `select:NAME[,NAME...]` direct multi-select.
     if (lower.startsWith('select:')) {
-      final requested = query
-          .substring('select:'.length)
-          .split(',')
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .toList(growable: false);
+      final requested = splitTrimmedNonEmpty(query.substring('select:'.length));
       final byLower = <String, String>{
         for (final n in deferred) n.toLowerCase(): n,
       };

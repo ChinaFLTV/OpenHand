@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
@@ -277,12 +278,7 @@ class AiGrepTool extends AiTool {
       if (rawPattern.contains('{') && rawPattern.contains('}')) {
         patterns.add(rawPattern);
       } else {
-        patterns.addAll(
-          rawPattern
-              .split(',')
-              .map((part) => part.trim())
-              .where((part) => part.isNotEmpty),
-        );
+        patterns.addAll(splitTrimmedNonEmpty(rawPattern));
       }
     }
     return patterns;
