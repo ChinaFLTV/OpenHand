@@ -244,6 +244,6 @@ int? _firstInt(List<Object?> candidates) {
 
 Map<String, Object?>? _readMap(Object? value) {
   if (value is Map<String, Object?>) return value;
-  if (value is Map) return Map<String, Object?>.from(value);
+  if (value is Map) return stringKeyedMapFromValue(value);
   return null;
 }

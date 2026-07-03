@@ -538,11 +538,11 @@ class KnowledgeMessageMetadata {
   }
 
   static Map<String, Object?> _toolArguments(Object? raw) {
-    if (raw is Map) return Map<String, Object?>.from(raw);
+    if (raw is Map) return stringKeyedMapFromValue(raw);
     if (raw is String && raw.trim().isNotEmpty) {
       try {
         final decoded = jsonDecode(raw);
-        if (decoded is Map) return Map<String, Object?>.from(decoded);
+        if (decoded is Map) return stringKeyedMapFromValue(decoded);
       } catch (_) {
         return const <String, Object?>{};
       }

@@ -12,6 +12,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
@@ -1257,7 +1258,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       return value;
     }
     if (value is Map) {
-      return Map<String, Object?>.from(value);
+      return stringKeyedMapFromValue(value);
     }
     return null;
   }
@@ -1306,7 +1307,7 @@ Map<String, Object?>? _jsonRpcMessageAsMap(Object? value) {
     return value;
   }
   if (value is Map) {
-    return Map<String, Object?>.from(value);
+    return stringKeyedMapFromValue(value);
   }
   return null;
 }

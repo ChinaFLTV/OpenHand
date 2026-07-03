@@ -1294,7 +1294,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
 
   static Map<String, Object?>? _mapFromObject(Object? value) {
     if (value is Map<String, Object?>) return value;
-    if (value is Map) return Map<String, Object?>.from(value);
+    if (value is Map) return stringKeyedMapFromValue(value);
     return null;
   }
 

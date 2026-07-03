@@ -499,7 +499,7 @@ Map<String, Object?>? _goalMap(Object? value) {
     return value;
   }
   if (value is Map) {
-    return Map<String, Object?>.from(value);
+    return stringKeyedMapFromValue(value);
   }
   return null;
 }

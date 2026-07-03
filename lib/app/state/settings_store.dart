@@ -1196,7 +1196,7 @@ DialogAnimationSettings _dialogAnimationFromValue(
   required DialogAnimationSettings fallback,
 }) {
   if (value is! Map) return fallback;
-  return DialogAnimationSettings.fromJson(Map<String, Object?>.from(value));
+  return DialogAnimationSettings.fromJson(stringKeyedMapFromValue(value));
 }
 
 DialogAnimationSettings _animationSettingsFromStorage(

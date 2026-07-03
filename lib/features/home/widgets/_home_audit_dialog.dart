@@ -1987,7 +1987,7 @@ bool _auditFirstBool(Iterable<Object?> candidates) {
 Map<String, Object?>? _auditFirstMap(Iterable<Object?> candidates) {
   for (final value in candidates) {
     if (value is Map<String, Object?>) return value;
-    if (value is Map) return Map<String, Object?>.from(value);
+    if (value is Map) return stringKeyedMapFromValue(value);
   }
   return null;
 }
