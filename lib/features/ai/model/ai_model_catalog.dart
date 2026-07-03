@@ -1,3 +1,4 @@
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/reader_file_type.dart';
 import 'ai_model_config.dart';
 import 'openrouter_exact_model_catalog.dart';
@@ -25,8 +26,8 @@ class AiModelCatalog {
   /// Returns a pre-filled [AiModelProfile] for [modelId] under the given
   /// [protocolType], or `null` if no catalog entry matches.
   static AiModelProfile? lookup(String modelId, AiProtocolType protocolType) {
-    final id = modelId.toLowerCase().trim();
-    if (id.isEmpty) return null;
+    final id = optionalLowercaseStringFromValue(modelId);
+    if (id == null) return null;
 
     final exact = _exactModelProfiles[id];
     if (exact != null) {

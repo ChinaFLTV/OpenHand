@@ -1,6 +1,10 @@
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_endpoint_override.dart';
 import '../../model/ai_model_config.dart';
+
+const String _defaultEndpointMethod = 'POST';
+const String _defaultEndpointTransport = 'json';
 
 class AiResolvedEndpoint {
   const AiResolvedEndpoint({
@@ -25,20 +29,19 @@ class AiEndpointRouter {
     AiModelConfig config,
     AiApiFamily family, {
     String? fallbackPath,
-    String method = 'POST',
-    String transport = 'json',
+    String method = _defaultEndpointMethod,
+    String transport = _defaultEndpointTransport,
   }) {
     final override = config.endpointOverrides[family];
-    final resolvedMethod =
-        (override?.method?.trim().isNotEmpty == true
-                ? override!.method!.trim()
-                : method)
-            .toUpperCase();
-    final resolvedTransport =
-        (override?.transport?.trim().isNotEmpty == true
-                ? override!.transport!.trim()
-                : transport)
-            .toLowerCase();
+    final fallbackMethod = nullIfBlank(method) ?? _defaultEndpointMethod;
+    final fallbackTransport =
+        nullIfBlank(transport) ?? _defaultEndpointTransport;
+    final resolvedMethod = (nullIfBlank(override?.method) ?? fallbackMethod)
+        .toUpperCase();
+    final resolvedTransport = lowercaseStringFromValue(
+      override?.transport,
+      fallback: fallbackTransport,
+    );
     final url = _resolveUrl(
       config.normalizedBaseUrl,
       config,
@@ -63,8 +66,8 @@ class AiEndpointRouter {
     String? fallbackPath,
   }) {
     final queryDefaults = override?.queryDefaults ?? const <String, String>{};
-    final explicitUrl = override?.url?.trim() ?? '';
-    if (explicitUrl.isNotEmpty) {
+    final explicitUrl = nullIfBlank(override?.url);
+    if (explicitUrl != null) {
       final explicitUri = Uri.parse(
         _replaceModelPlaceholders(explicitUrl, config, family),
       );
@@ -76,13 +79,11 @@ class AiEndpointRouter {
           .replace(queryParameters: mergedQuery.isEmpty ? null : mergedQuery)
           .toString();
     }
-    final overridePath = override?.path?.trim();
-    final usesExplicitOverridePath = overridePath?.isNotEmpty == true;
-    final rawPath =
-        (usesExplicitOverridePath
-                ? overridePath!
-                : fallbackPath ?? _defaultPathFor(family))
-            .trim();
+    final overridePath = nullIfBlank(override?.path);
+    final usesExplicitOverridePath = overridePath != null;
+    final rawPath = usesExplicitOverridePath
+        ? overridePath
+        : nullIfBlank(fallbackPath) ?? _defaultPathFor(family);
     final pathParts = rawPath.split('?');
     final path = usesExplicitOverridePath
         ? pathParts.first

@@ -79,7 +79,7 @@ class AiOperationRouting {
       AiApiFamily.audioAsrSse ||
       AiApiFamily.messages => null,
     };
-    return nullIfBlank(resolved) ?? fallbackModelId.trim();
+    return nullIfBlank(resolved) ?? (nullIfBlank(fallbackModelId) ?? '');
   }
 
   AiOperationRouting copyWith({

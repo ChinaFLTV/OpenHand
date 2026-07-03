@@ -6,6 +6,9 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/input_value_parsing.dart';
+
+const String _contentTypeHeaderName = 'content-type';
 
 class AiMultipartUploadFile {
   const AiMultipartUploadFile({required this.filePath, this.filename});
@@ -43,7 +46,7 @@ class AiTransportClient {
   }) async {
     final request = http.MultipartRequest(method.toUpperCase(), uri);
     headers.forEach((key, value) {
-      if (key.trim().toLowerCase() == 'content-type') return;
+      if (lowercaseStringFromValue(key) == _contentTypeHeaderName) return;
       request.headers[key] = value;
     });
     for (final entry in body.entries) {
@@ -72,12 +75,11 @@ class AiTransportClient {
         }
         continue;
       }
-      final fieldValue =
-          value is String
-              ? value
-              : (value is num || value is bool
-                  ? value.toString()
-                  : jsonEncode(value));
+      final fieldValue = value is String
+          ? value
+          : (value is num || value is bool
+                ? value.toString()
+                : jsonEncode(value));
       request.fields[key] = fieldValue;
     }
     final streamed = await _client.send(request).timeout(timeout);
