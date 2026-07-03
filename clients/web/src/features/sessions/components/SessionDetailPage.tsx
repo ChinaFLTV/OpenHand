@@ -471,8 +471,7 @@ function isAssistantTextLikeMessage(message: SessionMessage): boolean {
 }
 
 function messageMetadataStreaming(message: SessionMessage): boolean {
-  const value = message.metadata?.streaming;
-  return value === true || value === 'true' || value === 1 || value === '1';
+  return booleanFromUnknown(message.metadata?.streaming);
 }
 
 function normalizedMessageFeedback(value: unknown): SessionMessageFeedback | null {
