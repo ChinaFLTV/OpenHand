@@ -12,8 +12,8 @@ class AgentsView extends StatelessWidget {
       title: openHandLocalizedText(context, zh: '智能体', en: 'Agents'),
       subtitle: openHandLocalizedText(
         context,
-        zh: '面向 AI 数字员工、数字人与业务助理的统一编排入口；当前产品形态仍在打磨中。',
-        en: 'A future orchestration home for AI digital employees, digital humans, and business assistants.',
+        zh: '面向 AI 数字员工、数字人与业务助理的统一编排入口。',
+        en: 'An orchestration home for AI digital employees, digital humans, and business assistants.',
       ),
       actions: const SizedBox.shrink(),
       body: const SizedBox.shrink(),
