@@ -501,10 +501,7 @@ class _HttpProxyRequest {
     final method = parts[0];
     final target = parts[1];
     final version = parts[2];
-    final headerLines = lines
-        .skip(1)
-        .where((line) => line.trim().isNotEmpty)
-        .toList(growable: false);
+    final headerLines = trimRightNonEmptyLines(lines.skip(1));
     final headers = <String, String>{};
     for (final line in headerLines) {
       final separator = line.indexOf(':');

@@ -3426,9 +3426,9 @@ class WebReverseSessionController extends ChangeNotifier {
           _extraHeaders
             ..clear()
             ..addEntries(
-              headers.entries
-                  .map((entry) => MapEntry('${entry.key}', '${entry.value}'))
-                  .where((entry) => entry.key.trim().isNotEmpty),
+              stringKeyedMapFromValue(headers).entries
+                  .where((entry) => nullIfBlank(entry.key) != null)
+                  .map((entry) => MapEntry(entry.key, '${entry.value}')),
             );
           changed = true;
         }
