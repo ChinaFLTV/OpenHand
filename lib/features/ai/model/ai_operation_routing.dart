@@ -79,8 +79,7 @@ class AiOperationRouting {
       AiApiFamily.audioAsrSse ||
       AiApiFamily.messages => null,
     };
-    final trimmed = resolved?.trim() ?? '';
-    return trimmed.isEmpty ? fallbackModelId.trim() : trimmed;
+    return nullIfBlank(resolved) ?? fallbackModelId.trim();
   }
 
   AiOperationRouting copyWith({
@@ -158,26 +157,22 @@ class AiOperationRouting {
   }
 
   Map<String, Object?> toJson() {
-    return <String, Object?>{
-      if (!_isBlank(chatModelId)) 'chat_model_id': chatModelId,
-      if (!_isBlank(responsesModelId)) 'responses_model_id': responsesModelId,
-      if (!_isBlank(completionModelId))
-        'completion_model_id': completionModelId,
-      if (!_isBlank(embeddingModelId)) 'embedding_model_id': embeddingModelId,
-      if (!_isBlank(moderationModelId))
-        'moderation_model_id': moderationModelId,
-      if (!_isBlank(rerankModelId)) 'rerank_model_id': rerankModelId,
-      if (!_isBlank(imageModelId)) 'image_model_id': imageModelId,
-      if (!_isBlank(imageEditModelId)) 'image_edit_model_id': imageEditModelId,
-      if (!_isBlank(videoModelId)) 'video_model_id': videoModelId,
-      if (!_isBlank(speechModelId)) 'speech_model_id': speechModelId,
-      if (!_isBlank(transcriptionModelId))
-        'transcription_model_id': transcriptionModelId,
-      if (!_isBlank(translationModelId))
-        'translation_model_id': translationModelId,
-      if (!_isBlank(realtimeModelId)) 'realtime_model_id': realtimeModelId,
-      if (!_isBlank(defaultVoice)) 'default_voice': defaultVoice,
-    };
+    final json = <String, Object?>{};
+    _putIfNotBlank(json, 'chat_model_id', chatModelId);
+    _putIfNotBlank(json, 'responses_model_id', responsesModelId);
+    _putIfNotBlank(json, 'completion_model_id', completionModelId);
+    _putIfNotBlank(json, 'embedding_model_id', embeddingModelId);
+    _putIfNotBlank(json, 'moderation_model_id', moderationModelId);
+    _putIfNotBlank(json, 'rerank_model_id', rerankModelId);
+    _putIfNotBlank(json, 'image_model_id', imageModelId);
+    _putIfNotBlank(json, 'image_edit_model_id', imageEditModelId);
+    _putIfNotBlank(json, 'video_model_id', videoModelId);
+    _putIfNotBlank(json, 'speech_model_id', speechModelId);
+    _putIfNotBlank(json, 'transcription_model_id', transcriptionModelId);
+    _putIfNotBlank(json, 'translation_model_id', translationModelId);
+    _putIfNotBlank(json, 'realtime_model_id', realtimeModelId);
+    _putIfNotBlank(json, 'default_voice', defaultVoice);
+    return json;
   }
 
   static AiOperationRouting? fromJson(Object? raw) {
@@ -203,5 +198,14 @@ class AiOperationRouting {
     );
   }
 
-  static bool _isBlank(String? value) => value == null || value.trim().isEmpty;
+  static bool _isBlank(String? value) => nullIfBlank(value) == null;
+
+  static void _putIfNotBlank(
+    Map<String, Object?> json,
+    String key,
+    String? value,
+  ) {
+    final normalized = nullIfBlank(value);
+    if (normalized != null) json[key] = normalized;
+  }
 }

@@ -19,10 +19,10 @@ class AiEndpointOverride {
   final Map<String, String> queryDefaults;
 
   bool get isEmpty =>
-      (path == null || path!.trim().isEmpty) &&
-      (url == null || url!.trim().isEmpty) &&
-      (method == null || method!.trim().isEmpty) &&
-      (transport == null || transport!.trim().isEmpty) &&
+      nullIfBlank(path) == null &&
+      nullIfBlank(url) == null &&
+      nullIfBlank(method) == null &&
+      nullIfBlank(transport) == null &&
       headers.isEmpty &&
       queryDefaults.isEmpty;
 
@@ -49,15 +49,14 @@ class AiEndpointOverride {
   }
 
   Map<String, Object?> toJson() {
-    return <String, Object?>{
-      if (path != null && path!.trim().isNotEmpty) 'path': path,
-      if (url != null && url!.trim().isNotEmpty) 'url': url,
-      if (method != null && method!.trim().isNotEmpty) 'method': method,
-      if (transport != null && transport!.trim().isNotEmpty)
-        'transport': transport,
-      if (headers.isNotEmpty) 'headers': headers,
-      if (queryDefaults.isNotEmpty) 'query_defaults': queryDefaults,
-    };
+    final json = <String, Object?>{};
+    _putIfNotBlank(json, 'path', path);
+    _putIfNotBlank(json, 'url', url);
+    _putIfNotBlank(json, 'method', method);
+    _putIfNotBlank(json, 'transport', transport);
+    if (headers.isNotEmpty) json['headers'] = headers;
+    if (queryDefaults.isNotEmpty) json['query_defaults'] = queryDefaults;
+    return json;
   }
 
   static AiEndpointOverride? fromJson(Object? raw) {
@@ -84,6 +83,15 @@ class AiEndpointOverride {
     }
     return result;
   }
+
+  static void _putIfNotBlank(
+    Map<String, Object?> json,
+    String key,
+    String? value,
+  ) {
+    final normalized = nullIfBlank(value);
+    if (normalized != null) json[key] = normalized;
+  }
 }
 
 Map<AiApiFamily, AiEndpointOverride> parseAiEndpointOverrides(Object? raw) {
@@ -91,7 +99,7 @@ Map<AiApiFamily, AiEndpointOverride> parseAiEndpointOverrides(Object? raw) {
   if (json == null) return const <AiApiFamily, AiEndpointOverride>{};
   final result = <AiApiFamily, AiEndpointOverride>{};
   for (final entry in json.entries) {
-    final family = AiApiFamily.fromStorage(entry.key.trim());
+    final family = AiApiFamily.fromStorage(optionalStringFromValue(entry.key));
     final override = AiEndpointOverride.fromJson(entry.value);
     if (family == null || override == null || override.isEmpty) continue;
     result[family] = override;
