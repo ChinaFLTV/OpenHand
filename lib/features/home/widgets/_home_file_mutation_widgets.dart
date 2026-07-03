@@ -777,11 +777,9 @@ class _FileMutationCardState extends State<_FileMutationCard> {
   }
 
   void _showLegacyDiff(String path, String kind) {
-    final isZh = openHandIsChineseLocale(context);
     showAnimatedDialog(
       context: context,
-      builder: (ctx) =>
-          _FileDiffDialog(filePath: path, changeKind: kind, isZh: isZh),
+      builder: (ctx) => _FileDiffDialog(filePath: path, changeKind: kind),
     );
   }
 }
@@ -2279,15 +2277,10 @@ Future<void> _revealFileMutationPath(
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _FileDiffDialog extends StatefulWidget {
-  const _FileDiffDialog({
-    required this.filePath,
-    required this.changeKind,
-    required this.isZh,
-  });
+  const _FileDiffDialog({required this.filePath, required this.changeKind});
 
   final String filePath;
   final String changeKind;
-  final bool isZh;
 
   @override
   State<_FileDiffDialog> createState() => _FileDiffDialogState();
@@ -2325,7 +2318,15 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
         } else {
           if (!mounted) return;
           setState(() {
-            _error = widget.isZh ? '没有保存的版本历史' : 'No saved version history';
+            _error = _localizedText(
+              context,
+              zh: '没有保存的版本历史',
+              zhHant: '沒有儲存的版本歷史',
+              en: 'No saved version history',
+              fr: 'Aucun historique de versions enregistré',
+              de: 'Kein gespeicherter Versionsverlauf',
+              ja: '保存済みのバージョン履歴はありません',
+            );
             _loading = false;
           });
         }
@@ -2360,7 +2361,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
       silentLog('file_diff_dialog', '_loadDiff', e, stack);
       if (!mounted) return;
       setState(() {
-        _error = _friendlyFileDiffError(e, isZh: widget.isZh);
+        _error = _friendlyFileDiffError(context, e);
         _loading = false;
       });
     }
@@ -2402,7 +2403,15 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.isZh ? '文件变更对比' : 'File Diff',
+                          _localizedText(
+                            context,
+                            zh: '文件变更对比',
+                            zhHant: '檔案變更對比',
+                            en: 'File Diff',
+                            fr: 'Diff de fichier',
+                            de: 'Dateivergleich',
+                            ja: 'ファイル差分',
+                          ),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -2423,7 +2432,15 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
-                    tooltip: widget.isZh ? '关闭' : 'Close',
+                    tooltip: _localizedText(
+                      context,
+                      zh: '关闭',
+                      zhHant: '關閉',
+                      en: 'Close',
+                      fr: 'Fermer',
+                      de: 'Schließen',
+                      ja: '閉じる',
+                    ),
                   ),
                 ],
               ),
@@ -2899,7 +2916,6 @@ class _InspectorEntryRow extends StatelessWidget {
         Overlay.of(context, rootOverlay: true).context.findRenderObject()
             as RenderBox?;
     if (overlay == null) return;
-    final isZh = openHandIsChineseLocale(context);
     final selected = await showAnimatedMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
@@ -2914,7 +2930,17 @@ class _InspectorEntryRow extends StatelessWidget {
             children: [
               const Icon(Icons.data_object_rounded, size: 16),
               const SizedBox(width: 8),
-              Text(isZh ? '复制此条记录 JSON' : 'Copy record JSON'),
+              Text(
+                _localizedText(
+                  context,
+                  zh: '复制此条记录 JSON',
+                  zhHant: '複製此筆記錄 JSON',
+                  en: 'Copy record JSON',
+                  fr: 'Copier le JSON de l’entrée',
+                  de: 'Eintrag-JSON kopieren',
+                  ja: 'このレコードの JSON をコピー',
+                ),
+              ),
             ],
           ),
         ),
@@ -2924,7 +2950,17 @@ class _InspectorEntryRow extends StatelessWidget {
             children: [
               const Icon(Icons.tag_rounded, size: 16),
               const SizedBox(width: 8),
-              Text(isZh ? '复制 record ID' : 'Copy record ID'),
+              Text(
+                _localizedText(
+                  context,
+                  zh: '复制 record ID',
+                  zhHant: '複製 record ID',
+                  en: 'Copy record ID',
+                  fr: 'Copier le record ID',
+                  de: 'Record-ID kopieren',
+                  ja: 'record ID をコピー',
+                ),
+              ),
             ],
           ),
         ),
@@ -2939,7 +2975,17 @@ class _InspectorEntryRow extends StatelessWidget {
           context,
           SnackBar(
             duration: const Duration(seconds: 2),
-            content: Text(isZh ? '已复制 record JSON' : 'Copied record JSON'),
+            content: Text(
+              _localizedText(
+                context,
+                zh: '已复制 record JSON',
+                zhHant: '已複製 record JSON',
+                en: 'Copied record JSON',
+                fr: 'JSON de l’entrée copié',
+                de: 'Record-JSON kopiert',
+                ja: 'record JSON をコピーしました',
+              ),
+            ),
           ),
         );
       }
@@ -2950,7 +2996,17 @@ class _InspectorEntryRow extends StatelessWidget {
           context,
           SnackBar(
             duration: const Duration(seconds: 2),
-            content: Text(isZh ? '已复制 record ID' : 'Copied record ID'),
+            content: Text(
+              _localizedText(
+                context,
+                zh: '已复制 record ID',
+                zhHant: '已複製 record ID',
+                en: 'Copied record ID',
+                fr: 'Record ID copié',
+                de: 'Record-ID kopiert',
+                ja: 'record ID をコピーしました',
+              ),
+            ),
           ),
         );
       }

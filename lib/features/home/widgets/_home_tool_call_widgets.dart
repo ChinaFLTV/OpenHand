@@ -4073,20 +4073,32 @@ String _formatSelfLearningElapsed(BuildContext context, DateTime createdAt) {
   return AppLocalizations.of(context)!.tlCallDaysDAgo(days);
 }
 
-/// 把文件差异预览加载失败的常见 dart:io 异常翻译成中英双语简短文案，
+/// 把文件差异预览加载失败的常见 dart:io 异常翻译成简短用户文案，
 /// 替代直接 `e.toString()` 把 `FileSystemException(...)` 暴露给用户。
-String _friendlyFileDiffError(Object error, {required bool isZh}) {
+String _friendlyFileDiffError(BuildContext context, Object error) {
   final raw = error.toString();
   if (raw.startsWith('PathNotFoundException') ||
       raw.contains('No such file or directory')) {
-    return isZh
-        ? '文件已不存在或路径已被移动。\n原始错误：$raw'
-        : 'File no longer exists or has been moved.\nRaw: $raw';
+    return _localizedText(
+      context,
+      zh: '文件已不存在或路径已被移动。\n原始错误：$raw',
+      zhHant: '檔案已不存在或路徑已被移動。\n原始錯誤：$raw',
+      en: 'File no longer exists or has been moved.\nRaw: $raw',
+      fr: 'Le fichier n’existe plus ou a été déplacé.\nBrut : $raw',
+      de: 'Die Datei existiert nicht mehr oder wurde verschoben.\nRohdaten: $raw',
+      ja: 'ファイルは存在しないか移動されました。\nRaw: $raw',
+    );
   }
   if (raw.startsWith('FileSystemException')) {
-    return isZh
-        ? '文件系统操作失败 (可能是权限不足 / 磁盘已满 / 路径被占用)。\n原始错误：$raw'
-        : 'Filesystem operation failed (permission, disk space, or lock).\nRaw: $raw';
+    return _localizedText(
+      context,
+      zh: '文件系统操作失败 (可能是权限不足 / 磁盘已满 / 路径被占用)。\n原始错误：$raw',
+      zhHant: '檔案系統操作失敗 (可能是權限不足 / 磁碟已滿 / 路徑被占用)。\n原始錯誤：$raw',
+      en: 'Filesystem operation failed (permission, disk space, or lock).\nRaw: $raw',
+      fr: 'L’opération du système de fichiers a échoué (droits, espace disque ou verrou).\nBrut : $raw',
+      de: 'Dateisystemvorgang fehlgeschlagen (Berechtigung, Speicherplatz oder Sperre).\nRohdaten: $raw',
+      ja: 'ファイルシステム操作に失敗しました (権限、空き容量、ロックの可能性)。\nRaw: $raw',
+    );
   }
   return raw;
 }
