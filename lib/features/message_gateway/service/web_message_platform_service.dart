@@ -4588,15 +4588,17 @@ class WebMessagePlatformService {
     int start;
     int end;
     if (rawStart.isEmpty) {
-      final suffixLength = int.tryParse(rawEnd);
-      if (suffixLength == null || suffixLength <= 0) {
+      final suffixLength = optionalPositiveIntFromValue(rawEnd);
+      if (suffixLength == null) {
         return null;
       }
       start = math.max(0, totalBytes - suffixLength);
       end = totalBytes - 1;
     } else {
-      start = int.tryParse(rawStart) ?? -1;
-      end = rawEnd.isEmpty ? totalBytes - 1 : int.tryParse(rawEnd) ?? -1;
+      start = optionalNonNegativeIntFromValue(rawStart) ?? -1;
+      end = rawEnd.isEmpty
+          ? totalBytes - 1
+          : optionalNonNegativeIntFromValue(rawEnd) ?? -1;
     }
     if (start < 0 || end < start || start >= totalBytes) {
       return null;
