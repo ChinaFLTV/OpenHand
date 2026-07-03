@@ -39,7 +39,7 @@ import {
 } from '../../../hooks/useDialogMotionSettings';
 import { useTransientFlag } from '../../../hooks/useTransientFlag';
 import { showSnackbar } from '../../../components/Snackbar';
-import { clampNumber } from '../../../shared/util/number';
+import { clampNumber, finiteNumberFromText } from '../../../shared/util/number';
 import { finiteNumberOrNullFromUnknown } from '../../../shared/util/value';
 import { describeApiError } from '../../../utils/api_error';
 
@@ -956,8 +956,8 @@ function NumberSetting(props: {
     setValue(String(props.value));
   }, [props.value]);
   const commit = () => {
-    const parsed = Number.parseFloat(value);
-    if (!Number.isFinite(parsed)) {
+    const parsed = finiteNumberFromText(value);
+    if (parsed == null) {
       setValue(String(props.value));
       return;
     }

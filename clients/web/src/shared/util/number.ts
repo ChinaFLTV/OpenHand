@@ -32,6 +32,13 @@ export function clampNumber(value: number, min: number, max: number): number {
   return Math.min(Math.max(finiteNumberOr(value, lower), lower), upper);
 }
 
+export function finiteNumberFromText(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function normalizeInteger(
   value: number | null | undefined,
   {
