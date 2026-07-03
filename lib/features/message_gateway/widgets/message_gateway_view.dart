@@ -37,6 +37,84 @@ void _showGatewaySnackBar(BuildContext context, SnackBar snackBar) {
   OpenHandSnackBar.showInContext(context, snackBar);
 }
 
+String _gatewayText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
+String _gatewayEmptyMeansAllLabel(BuildContext context, String label) {
+  final suffix = _gatewayText(
+    context,
+    zh: '空=全部',
+    zhHant: '空=全部',
+    en: 'empty = all',
+    fr: 'vide = tout',
+    de: 'leer = alle',
+    ja: '空欄 = すべて',
+  );
+  return '$label（$suffix）';
+}
+
+String _gatewayListSeparator(BuildContext context) {
+  final languageCode = Localizations.localeOf(
+    context,
+  ).languageCode.toLowerCase();
+  return languageCode == 'zh' || languageCode == 'ja' ? '、' : ', ';
+}
+
+String _gatewayUnavailable(BuildContext context) {
+  return _gatewayText(
+    context,
+    zh: '不可用',
+    zhHant: '不可用',
+    en: 'Unavailable',
+    fr: 'Indisponible',
+    de: 'Nicht verfügbar',
+    ja: '利用不可',
+  );
+}
+
+String _gatewayScopeAll(BuildContext context) {
+  return _gatewayText(
+    context,
+    zh: '全部条目',
+    zhHant: '全部項目',
+    en: 'All items',
+    fr: 'Tous les éléments',
+    de: 'Alle Einträge',
+    ja: 'すべての項目',
+  );
+}
+
+String _gatewaySelectedCount(BuildContext context, int selected, int total) {
+  return _gatewayText(
+    context,
+    zh: '已选 $selected/$total',
+    zhHant: '已選 $selected/$total',
+    en: 'Selected $selected/$total',
+    fr: '$selected/$total sélectionnés',
+    de: '$selected/$total ausgewählt',
+    ja: '$selected/$total 選択済み',
+  );
+}
+
 class MessageGatewayView extends StatefulWidget {
   const MessageGatewayView({super.key});
 
@@ -74,7 +152,15 @@ class _MessageGatewayViewState extends State<MessageGatewayView> {
       return FeatureStateCard.centered(
         icon: Icons.error_outline_rounded,
         tone: FeatureStateTone.error,
-        title: '消息网关加载失败',
+        title: _gatewayText(
+          context,
+          zh: '消息网关加载失败',
+          zhHant: '訊息閘道載入失敗',
+          en: 'Message gateway failed to load',
+          fr: 'Échec du chargement de la passerelle de messages',
+          de: 'Nachrichten-Gateway konnte nicht geladen werden',
+          ja: 'メッセージゲートウェイの読み込みに失敗しました',
+        ),
         body: controller.errorMessage!,
       );
     }
@@ -176,14 +262,48 @@ class _WebPlatformServiceCard extends StatelessWidget {
                   children: [
                     _FeatureIconButton(
                       tooltip: config.loggingEnabled
-                          ? '查看 Web 服务日志'
-                          : '开启日志后可查看日志',
+                          ? _gatewayText(
+                              context,
+                              zh: '查看 Web 服务日志',
+                              zhHant: '查看 Web 服務日誌',
+                              en: 'View web service logs',
+                              fr: 'Voir les journaux du service web',
+                              de: 'Webdienste-Protokolle anzeigen',
+                              ja: 'Webサービスログを表示',
+                            )
+                          : _gatewayText(
+                              context,
+                              zh: '开启日志后可查看日志',
+                              zhHant: '開啟日誌後可查看日誌',
+                              en: 'Enable logging to view logs',
+                              fr: 'Activez les journaux pour les consulter',
+                              de: 'Aktivieren Sie Protokolle zum Anzeigen',
+                              ja: 'ログを有効にすると表示できます',
+                            ),
                       enabled: config.loggingEnabled,
                       icon: Icons.terminal_rounded,
                       onPressed: () => _showLogs(context, controller),
                     ),
                     _FeatureIconButton(
-                      tooltip: isRunning ? '端口连通性测试' : '服务运行后可测试端口',
+                      tooltip: isRunning
+                          ? _gatewayText(
+                              context,
+                              zh: '端口连通性测试',
+                              zhHant: '連接埠連通性測試',
+                              en: 'Port connectivity test',
+                              fr: 'Test de connectivité du port',
+                              de: 'Port-Konnektivitätstest',
+                              ja: 'ポート接続テスト',
+                            )
+                          : _gatewayText(
+                              context,
+                              zh: '服务运行后可测试端口',
+                              zhHant: '服務執行後可測試連接埠',
+                              en: 'Start the service to test ports',
+                              fr: 'Démarrez le service pour tester les ports',
+                              de: 'Starten Sie den Dienst, um Ports zu testen',
+                              ja: 'サービス起動後にポートをテストできます',
+                            ),
                       enabled: isRunning,
                       icon: Icons.network_check_rounded,
                       onPressed: () =>
@@ -191,25 +311,85 @@ class _WebPlatformServiceCard extends StatelessWidget {
                     ),
                     _FeatureIconButton(
                       tooltip: config.healthCheck.enabled
-                          ? '健康检测'
-                          : '开启健康检查后可使用',
+                          ? _gatewayText(
+                              context,
+                              zh: '健康检测',
+                              zhHant: '健康檢測',
+                              en: 'Health check',
+                              fr: 'Contrôle de santé',
+                              de: 'Integritätsprüfung',
+                              ja: 'ヘルスチェック',
+                            )
+                          : _gatewayText(
+                              context,
+                              zh: '开启健康检查后可使用',
+                              zhHant: '開啟健康檢查後可使用',
+                              en: 'Enable health checks to use this',
+                              fr: 'Activez les contrôles de santé pour utiliser ceci',
+                              de: 'Aktivieren Sie Integritätsprüfungen zur Nutzung',
+                              ja: 'ヘルスチェックを有効にすると使用できます',
+                            ),
                       enabled: config.healthCheck.enabled,
                       icon: Icons.monitor_heart_outlined,
                       onPressed: () => _runHealth(context, controller),
                     ),
                     _FeatureIconButton(
-                      tooltip: config.opsEnabled ? '运维面板' : '开启运维后可查看',
+                      tooltip: config.opsEnabled
+                          ? _gatewayText(
+                              context,
+                              zh: '运维面板',
+                              zhHant: '維運面板',
+                              en: 'Operations panel',
+                              fr: 'Panneau opérations',
+                              de: 'Betriebsbereich',
+                              ja: '運用パネル',
+                            )
+                          : _gatewayText(
+                              context,
+                              zh: '开启运维后可查看',
+                              zhHant: '開啟維運後可查看',
+                              en: 'Enable operations to view this',
+                              fr: 'Activez les opérations pour voir ceci',
+                              de: 'Aktivieren Sie Betrieb zur Anzeige',
+                              ja: '運用機能を有効にすると表示できます',
+                            ),
                       enabled: config.opsEnabled,
                       icon: Icons.speed_rounded,
                       onPressed: () => _showOps(context, controller),
                     ),
                     IconButton.filledTonal(
-                      tooltip: '编辑配置',
+                      tooltip: _gatewayText(
+                        context,
+                        zh: '编辑配置',
+                        zhHant: '編輯設定',
+                        en: 'Edit configuration',
+                        fr: 'Modifier la configuration',
+                        de: 'Konfiguration bearbeiten',
+                        ja: '設定を編集',
+                      ),
                       onPressed: () => _showEditor(context, controller),
                       icon: const Icon(Icons.edit_rounded),
                     ),
                     IconButton.filled(
-                      tooltip: isRunning ? '停止' : '启动',
+                      tooltip: isRunning
+                          ? _gatewayText(
+                              context,
+                              zh: '停止',
+                              zhHant: '停止',
+                              en: 'Stop',
+                              fr: 'Arrêter',
+                              de: 'Stoppen',
+                              ja: '停止',
+                            )
+                          : _gatewayText(
+                              context,
+                              zh: '启动',
+                              zhHant: '啟動',
+                              en: 'Start',
+                              fr: 'Démarrer',
+                              de: 'Starten',
+                              ja: '起動',
+                            ),
                       onPressed: controller.isOperating
                           ? null
                           : () => isRunning
@@ -254,20 +434,82 @@ class _WebPlatformServiceCard extends StatelessWidget {
               children: [
                 _InfoChip(
                   icon: Icons.power_settings_new_rounded,
-                  label: config.enabled ? '已启用' : '未启用',
+                  label: config.enabled
+                      ? _gatewayText(
+                          context,
+                          zh: '已启用',
+                          zhHant: '已啟用',
+                          en: 'Enabled',
+                          fr: 'Activé',
+                          de: 'Aktiviert',
+                          ja: '有効',
+                        )
+                      : _gatewayText(
+                          context,
+                          zh: '未启用',
+                          zhHant: '未啟用',
+                          en: 'Disabled',
+                          fr: 'Désactivé',
+                          de: 'Deaktiviert',
+                          ja: '無効',
+                        ),
                 ),
                 _InfoChip(
                   icon: Icons.rocket_launch_outlined,
-                  label: config.autoStartOnLaunch ? '冷启动自启' : '冷启动不干预',
+                  label: config.autoStartOnLaunch
+                      ? _gatewayText(
+                          context,
+                          zh: '冷启动自启',
+                          zhHant: '冷啟動自啟',
+                          en: 'Auto-start on launch',
+                          fr: 'Démarrage auto au lancement',
+                          de: 'Autostart beim Start',
+                          ja: '起動時に自動開始',
+                        )
+                      : _gatewayText(
+                          context,
+                          zh: '冷启动不干预',
+                          zhHant: '冷啟動不干預',
+                          en: 'No launch auto-start',
+                          fr: 'Pas de démarrage auto',
+                          de: 'Kein Autostart',
+                          ja: '起動時は自動開始しない',
+                        ),
                 ),
                 _InfoChip(
                   icon: Icons.sync_rounded,
-                  label: config.autoReloadOnChange ? '配置自动重载' : '配置重启生效',
+                  label: config.autoReloadOnChange
+                      ? _gatewayText(
+                          context,
+                          zh: '配置自动重载',
+                          zhHant: '設定自動重載',
+                          en: 'Auto-reload config',
+                          fr: 'Rechargement auto',
+                          de: 'Konfiguration automatisch neu laden',
+                          ja: '設定を自動再読み込み',
+                        )
+                      : _gatewayText(
+                          context,
+                          zh: '配置重启生效',
+                          zhHant: '設定重啟生效',
+                          en: 'Restart required for config',
+                          fr: 'Redémarrage requis',
+                          de: 'Neustart für Konfiguration nötig',
+                          ja: '設定反映には再起動が必要',
+                        ),
                 ),
                 if (controller.hasPendingRuntimeConfig)
-                  const _InfoChip(
+                  _InfoChip(
                     icon: Icons.pending_actions_rounded,
-                    label: '待重启生效',
+                    label: _gatewayText(
+                      context,
+                      zh: '待重启生效',
+                      zhHant: '待重啟生效',
+                      en: 'Pending restart',
+                      fr: 'Redémarrage en attente',
+                      de: 'Neustart ausstehend',
+                      ja: '再起動待ち',
+                    ),
                   ),
                 _InfoChip(
                   icon: Icons.link_rounded,
@@ -278,45 +520,183 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 if (usingFallbackPort)
                   _InfoChip(
                     icon: Icons.warning_amber_rounded,
-                    label: '${config.listenPort} 被占用，临时端口 $boundPort',
+                    label: _gatewayText(
+                      context,
+                      zh: '${config.listenPort} 被占用，临时端口 $boundPort',
+                      zhHant: '${config.listenPort} 已被占用，臨時連接埠 $boundPort',
+                      en: '${config.listenPort} is in use, temporary port $boundPort',
+                      fr: '${config.listenPort} est occupé, port temporaire $boundPort',
+                      de: '${config.listenPort} ist belegt, temporärer Port $boundPort',
+                      ja: '${config.listenPort} は使用中、一時ポート $boundPort',
+                    ),
                   ),
                 _InfoChip(
                   icon: Icons.lock_outline_rounded,
-                  label: config.authEnabled ? '鉴权开启' : '免鉴权',
+                  label: config.authEnabled
+                      ? _gatewayText(
+                          context,
+                          zh: '鉴权开启',
+                          zhHant: '鑑權開啟',
+                          en: 'Auth enabled',
+                          fr: 'Auth activée',
+                          de: 'Auth aktiviert',
+                          ja: '認証有効',
+                        )
+                      : _gatewayText(
+                          context,
+                          zh: '免鉴权',
+                          zhHant: '免鑑權',
+                          en: 'Auth disabled',
+                          fr: 'Auth désactivée',
+                          de: 'Auth deaktiviert',
+                          ja: '認証なし',
+                        ),
                 ),
                 _InfoChip(
                   icon: Icons.analytics_outlined,
-                  label: config.telemetryEnabled ? '遥测开启' : '遥测关闭',
+                  label: config.telemetryEnabled
+                      ? _gatewayText(
+                          context,
+                          zh: '遥测开启',
+                          zhHant: '遙測開啟',
+                          en: 'Telemetry enabled',
+                          fr: 'Télémétrie activée',
+                          de: 'Telemetrie aktiviert',
+                          ja: 'テレメトリ有効',
+                        )
+                      : _gatewayText(
+                          context,
+                          zh: '遥测关闭',
+                          zhHant: '遙測關閉',
+                          en: 'Telemetry disabled',
+                          fr: 'Télémétrie désactivée',
+                          de: 'Telemetrie deaktiviert',
+                          ja: 'テレメトリ無効',
+                        ),
                 ),
                 _InfoChip(
                   icon: Icons.article_outlined,
-                  label: config.loggingEnabled ? '日志开启' : '日志关闭',
+                  label: config.loggingEnabled
+                      ? _gatewayText(
+                          context,
+                          zh: '日志开启',
+                          zhHant: '日誌開啟',
+                          en: 'Logging enabled',
+                          fr: 'Journaux activés',
+                          de: 'Protokolle aktiviert',
+                          ja: 'ログ有効',
+                        )
+                      : _gatewayText(
+                          context,
+                          zh: '日志关闭',
+                          zhHant: '日誌關閉',
+                          en: 'Logging disabled',
+                          fr: 'Journaux désactivés',
+                          de: 'Protokolle deaktiviert',
+                          ja: 'ログ無効',
+                        ),
                 ),
                 _InfoChip(
                   icon: Icons.security_rounded,
-                  label: '并发 ${config.maxConcurrentRequests}',
+                  label: _gatewayText(
+                    context,
+                    zh: '并发 ${config.maxConcurrentRequests}',
+                    zhHant: '並發 ${config.maxConcurrentRequests}',
+                    en: 'Concurrency ${config.maxConcurrentRequests}',
+                    fr: 'Concurrence ${config.maxConcurrentRequests}',
+                    de: 'Parallelität ${config.maxConcurrentRequests}',
+                    ja: '同時実行 ${config.maxConcurrentRequests}',
+                  ),
                 ),
                 _InfoChip(
                   icon: Icons.chat_bubble_outline_rounded,
-                  label: '单消息 ${config.singleMessageTokenLimit} tokens',
+                  label: _gatewayText(
+                    context,
+                    zh: '单消息 ${config.singleMessageTokenLimit} tokens',
+                    zhHant: '單訊息 ${config.singleMessageTokenLimit} tokens',
+                    en: '${config.singleMessageTokenLimit} tokens/message',
+                    fr: '${config.singleMessageTokenLimit} tokens/message',
+                    de: '${config.singleMessageTokenLimit} Tokens/Nachricht',
+                    ja: '1メッセージ ${config.singleMessageTokenLimit} tokens',
+                  ),
                 ),
                 _InfoChip(
                   icon: Icons.forum_outlined,
-                  label: '单会话 ${config.maxMessagesPerSession} 条',
+                  label: _gatewayText(
+                    context,
+                    zh: '单会话 ${config.maxMessagesPerSession} 条',
+                    zhHant: '單會話 ${config.maxMessagesPerSession} 則',
+                    en: '${config.maxMessagesPerSession} messages/session',
+                    fr: '${config.maxMessagesPerSession} messages/session',
+                    de: '${config.maxMessagesPerSession} Nachrichten/Sitzung',
+                    ja: '1セッション ${config.maxMessagesPerSession} 件',
+                  ),
                 ),
                 _InfoChip(
                   icon: Icons.manage_accounts_outlined,
-                  label: config.sessionManagementEnabled ? '会话可管理' : '会话只读',
+                  label: config.sessionManagementEnabled
+                      ? _gatewayText(
+                          context,
+                          zh: '会话可管理',
+                          zhHant: '會話可管理',
+                          en: 'Sessions manageable',
+                          fr: 'Sessions gérables',
+                          de: 'Sitzungen verwaltbar',
+                          ja: 'セッション管理可',
+                        )
+                      : _gatewayText(
+                          context,
+                          zh: '会话只读',
+                          zhHant: '會話唯讀',
+                          en: 'Sessions read-only',
+                          fr: 'Sessions en lecture seule',
+                          de: 'Sitzungen schreibgeschützt',
+                          ja: 'セッション読み取り専用',
+                        ),
                 ),
                 _InfoChip(
                   icon: Icons.library_books_outlined,
-                  label: config.knowledgeBaseEnabled ? '知识库开启' : '知识库关闭',
+                  label: config.knowledgeBaseEnabled
+                      ? _gatewayText(
+                          context,
+                          zh: '知识库开启',
+                          zhHant: '知識庫開啟',
+                          en: 'Knowledge base enabled',
+                          fr: 'Base de connaissances activée',
+                          de: 'Wissensdatenbank aktiviert',
+                          ja: 'ナレッジベース有効',
+                        )
+                      : _gatewayText(
+                          context,
+                          zh: '知识库关闭',
+                          zhHant: '知識庫關閉',
+                          en: 'Knowledge base disabled',
+                          fr: 'Base de connaissances désactivée',
+                          de: 'Wissensdatenbank deaktiviert',
+                          ja: 'ナレッジベース無効',
+                        ),
                 ),
                 _InfoChip(
                   icon: Icons.folder_open_rounded,
                   label: config.workspaceFileWriteEnabled
-                      ? '文件浏览 / 可操作'
-                      : '文件浏览 / 只读',
+                      ? _gatewayText(
+                          context,
+                          zh: '文件浏览 / 可操作',
+                          zhHant: '檔案瀏覽 / 可操作',
+                          en: 'Files browsable / writable',
+                          fr: 'Fichiers consultables / modifiables',
+                          de: 'Dateien durchsuchbar / schreibbar',
+                          ja: 'ファイル閲覧 / 操作可',
+                        )
+                      : _gatewayText(
+                          context,
+                          zh: '文件浏览 / 只读',
+                          zhHant: '檔案瀏覽 / 唯讀',
+                          en: 'Files browsable / read-only',
+                          fr: 'Fichiers consultables / lecture seule',
+                          de: 'Dateien durchsuchbar / schreibgeschützt',
+                          ja: 'ファイル閲覧 / 読み取り専用',
+                        ),
                 ),
               ],
             ),
@@ -340,16 +720,51 @@ class _WebPlatformServiceCard extends StatelessWidget {
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
                     _MetricTile(
-                      label: '状态',
+                      label: _gatewayText(
+                        context,
+                        zh: '状态',
+                        zhHant: '狀態',
+                        en: 'Status',
+                        fr: 'État',
+                        de: 'Status',
+                        ja: '状態',
+                      ),
                       value: _runtimeStateLabel(context, runtime.state),
                     ),
                     _MetricTile(
-                      label: '请求数',
+                      label: _gatewayText(
+                        context,
+                        zh: '请求数',
+                        zhHant: '請求數',
+                        en: 'Requests',
+                        fr: 'Requêtes',
+                        de: 'Anfragen',
+                        ja: 'リクエスト数',
+                      ),
                       value: '${runtime.totalRequests}',
                     ),
-                    _MetricTile(label: '错误数', value: '${runtime.totalErrors}'),
                     _MetricTile(
-                      label: '运行时长',
+                      label: _gatewayText(
+                        context,
+                        zh: '错误数',
+                        zhHant: '錯誤數',
+                        en: 'Errors',
+                        fr: 'Erreurs',
+                        de: 'Fehler',
+                        ja: 'エラー数',
+                      ),
+                      value: '${runtime.totalErrors}',
+                    ),
+                    _MetricTile(
+                      label: _gatewayText(
+                        context,
+                        zh: '运行时长',
+                        zhHant: '執行時間',
+                        en: 'Uptime',
+                        fr: 'Temps actif',
+                        de: 'Laufzeit',
+                        ja: '稼働時間',
+                      ),
                       value: formatCompactDurationMs(runtime.uptimeMs),
                     ),
                   ],
@@ -666,7 +1081,15 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '配置 Web 端可见能力、访问边界与运行保护策略',
+                        _gatewayText(
+                          context,
+                          zh: '配置 Web 端可见能力、访问边界与运行保护策略',
+                          zhHant: '設定 Web 端可見能力、存取邊界與執行保護策略',
+                          en: 'Configure web-visible capabilities, access boundaries, and runtime safeguards',
+                          fr: 'Configurez les capacités web visibles, les limites d’accès et les protections',
+                          de: 'Websichtbare Funktionen, Zugriffsgrenzen und Schutzregeln konfigurieren',
+                          ja: 'Web側の表示機能、アクセス境界、実行保護を設定',
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -678,7 +1101,15 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                 ),
                 const SizedBox(width: 10),
                 IconButton.filledTonal(
-                  tooltip: '关闭',
+                  tooltip: _gatewayText(
+                    context,
+                    zh: '关闭',
+                    zhHant: '關閉',
+                    en: 'Close',
+                    fr: 'Fermer',
+                    de: 'Schließen',
+                    ja: '閉じる',
+                  ),
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.close_rounded),
                 ),
@@ -701,93 +1132,221 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         twoColumns: twoColumns,
                         children: [
                           _SwitchTile(
-                            label: '是否启用',
+                            label: _gatewayText(
+                              context,
+                              zh: '是否启用',
+                              zhHant: '是否啟用',
+                              en: 'Enabled',
+                              fr: 'Activé',
+                              de: 'Aktiviert',
+                              ja: '有効',
+                            ),
                             value: _enabled,
                             onChanged: (v) => setState(() => _enabled = v),
                           ),
                           _SwitchTile(
-                            label: '冷启动自动启动',
+                            label: _gatewayText(
+                              context,
+                              zh: '冷启动自动启动',
+                              zhHant: '冷啟動自動啟動',
+                              en: 'Auto-start on launch',
+                              fr: 'Démarrage auto au lancement',
+                              de: 'Autostart beim Start',
+                              ja: '起動時に自動開始',
+                            ),
                             value: _autoStartOnLaunch,
                             onChanged: (value) =>
                                 setState(() => _autoStartOnLaunch = value),
                           ),
                           _SwitchTile(
-                            label: '配置变更自动重载',
+                            label: _gatewayText(
+                              context,
+                              zh: '配置变更自动重载',
+                              zhHant: '設定變更自動重載',
+                              en: 'Auto-reload config changes',
+                              fr: 'Recharger automatiquement les changements',
+                              de: 'Konfigurationsänderungen automatisch laden',
+                              ja: '設定変更を自動再読み込み',
+                            ),
                             value: _autoReloadOnChange,
                             onChanged: (value) =>
                                 setState(() => _autoReloadOnChange = value),
                           ),
                           _SwitchTile(
-                            label: '是否开启鉴权',
+                            label: _gatewayText(
+                              context,
+                              zh: '是否开启鉴权',
+                              zhHant: '是否開啟鑑權',
+                              en: 'Authentication',
+                              fr: 'Authentification',
+                              de: 'Authentifizierung',
+                              ja: '認証',
+                            ),
                             value: _authEnabled,
                             onChanged: (v) => setState(() => _authEnabled = v),
                           ),
                           _SwitchTile(
-                            label: '是否启用遥测',
+                            label: _gatewayText(
+                              context,
+                              zh: '是否启用遥测',
+                              zhHant: '是否啟用遙測',
+                              en: 'Telemetry',
+                              fr: 'Télémétrie',
+                              de: 'Telemetrie',
+                              ja: 'テレメトリ',
+                            ),
                             value: _telemetryEnabled,
                             onChanged: (v) =>
                                 setState(() => _telemetryEnabled = v),
                           ),
                           _SwitchTile(
-                            label: '是否记录日志',
+                            label: _gatewayText(
+                              context,
+                              zh: '是否记录日志',
+                              zhHant: '是否記錄日誌',
+                              en: 'Logging',
+                              fr: 'Journaux',
+                              de: 'Protokollierung',
+                              ja: 'ログ記録',
+                            ),
                             value: _loggingEnabled,
                             onChanged: (v) =>
                                 setState(() => _loggingEnabled = v),
                           ),
                           _SwitchTile(
-                            label: '是否支持运维',
+                            label: _gatewayText(
+                              context,
+                              zh: '是否支持运维',
+                              zhHant: '是否支援維運',
+                              en: 'Operations panel',
+                              fr: 'Panneau opérations',
+                              de: 'Betriebsbereich',
+                              ja: '運用パネル',
+                            ),
                             value: _opsEnabled,
                             onChanged: (v) => setState(() => _opsEnabled = v),
                           ),
                           _SwitchTile(
-                            label: '是否开启健康检查',
+                            label: _gatewayText(
+                              context,
+                              zh: '是否开启健康检查',
+                              zhHant: '是否開啟健康檢查',
+                              en: 'Health checks',
+                              fr: 'Contrôles de santé',
+                              de: 'Integritätsprüfungen',
+                              ja: 'ヘルスチェック',
+                            ),
                             value: _healthEnabled,
                             onChanged: (v) =>
                                 setState(() => _healthEnabled = v),
                           ),
                           _SwitchTile(
-                            label: '是否支持计划模式',
+                            label: _gatewayText(
+                              context,
+                              zh: '是否支持计划模式',
+                              zhHant: '是否支援計劃模式',
+                              en: 'Plan mode',
+                              fr: 'Mode plan',
+                              de: 'Planmodus',
+                              ja: 'プランモード',
+                            ),
                             value: _planModeEnabled,
                             onChanged: (v) =>
                                 setState(() => _planModeEnabled = v),
                           ),
                           _SwitchTile(
-                            label: '是否开启知识库',
+                            label: _gatewayText(
+                              context,
+                              zh: '是否开启知识库',
+                              zhHant: '是否開啟知識庫',
+                              en: 'Knowledge base',
+                              fr: 'Base de connaissances',
+                              de: 'Wissensdatenbank',
+                              ja: 'ナレッジベース',
+                            ),
                             value: _knowledgeBaseEnabled,
                             onChanged: _setKnowledgeBaseEnabled,
                           ),
                           _SwitchTile(
-                            label: '是否启用朗读功能',
+                            label: _gatewayText(
+                              context,
+                              zh: '是否启用朗读功能',
+                              zhHant: '是否啟用朗讀功能',
+                              en: 'Read aloud',
+                              fr: 'Lecture vocale',
+                              de: 'Vorlesen',
+                              ja: '読み上げ',
+                            ),
                             value: _readAloudEnabled,
                             onChanged: (v) =>
                                 setState(() => _readAloudEnabled = v),
                           ),
                           _SwitchTile(
-                            label: '是否启用翻译功能',
+                            label: _gatewayText(
+                              context,
+                              zh: '是否启用翻译功能',
+                              zhHant: '是否啟用翻譯功能',
+                              en: 'Translation',
+                              fr: 'Traduction',
+                              de: 'Übersetzung',
+                              ja: '翻訳',
+                            ),
                             value: _translationEnabled,
                             onChanged: (v) =>
                                 setState(() => _translationEnabled = v),
                           ),
                           _SwitchTile(
-                            label: '是否启用点赞功能',
+                            label: _gatewayText(
+                              context,
+                              zh: '是否启用点赞功能',
+                              zhHant: '是否啟用按讚功能',
+                              en: 'Feedback buttons',
+                              fr: 'Boutons de retour',
+                              de: 'Feedback-Schaltflächen',
+                              ja: 'フィードバックボタン',
+                            ),
                             value: _feedbackEnabled,
                             onChanged: (v) =>
                                 setState(() => _feedbackEnabled = v),
                           ),
                           _SwitchTile(
-                            label: '是否启用重新生成功能',
+                            label: _gatewayText(
+                              context,
+                              zh: '是否启用重新生成功能',
+                              zhHant: '是否啟用重新生成功能',
+                              en: 'Regenerate',
+                              fr: 'Régénération',
+                              de: 'Neu generieren',
+                              ja: '再生成',
+                            ),
                             value: _regenerationEnabled,
                             onChanged: (v) =>
                                 setState(() => _regenerationEnabled = v),
                           ),
                           _SwitchTile(
-                            label: '是否允许 Web 会话管理',
+                            label: _gatewayText(
+                              context,
+                              zh: '是否允许 Web 会话管理',
+                              zhHant: '是否允許 Web 會話管理',
+                              en: 'Web session management',
+                              fr: 'Gestion des sessions web',
+                              de: 'Web-Sitzungsverwaltung',
+                              ja: 'Webセッション管理',
+                            ),
                             value: _sessionManagementEnabled,
                             onChanged: (v) =>
                                 setState(() => _sessionManagementEnabled = v),
                           ),
                           _SwitchTile(
-                            label: '是否支持操作文件',
+                            label: _gatewayText(
+                              context,
+                              zh: '是否支持操作文件',
+                              zhHant: '是否支援操作檔案',
+                              en: 'File write access',
+                              fr: 'Accès en écriture aux fichiers',
+                              de: 'Dateischreibzugriff',
+                              ja: 'ファイル書き込み',
+                            ),
                             value: _workspaceFileWriteEnabled,
                             onChanged: (v) =>
                                 setState(() => _workspaceFileWriteEnabled = v),
@@ -802,47 +1361,122 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             ? const SizedBox.shrink(
                                 key: ValueKey('auto-reload-on'),
                               )
-                            : const Padding(
-                                key: ValueKey('auto-reload-off'),
-                                padding: EdgeInsets.only(top: 10),
+                            : Padding(
+                                key: const ValueKey('auto-reload-off'),
+                                padding: const EdgeInsets.only(top: 10),
                                 child: _EditorNotice(
                                   icon: Icons.restart_alt_rounded,
-                                  title: '配置将等待重启生效',
-                                  body:
-                                      '自动重载关闭后，本次保存只写入配置文件；运行中的 Web 服务会继续使用旧配置，直到手动重启服务或应用冷启动。',
+                                  title: _gatewayText(
+                                    context,
+                                    zh: '配置将等待重启生效',
+                                    zhHant: '設定將等待重啟生效',
+                                    en: 'Configuration will apply after restart',
+                                    fr: 'La configuration s’appliquera après redémarrage',
+                                    de: 'Konfiguration wird nach Neustart wirksam',
+                                    ja: '設定は再起動後に反映されます',
+                                  ),
+                                  body: _gatewayText(
+                                    context,
+                                    zh: '自动重载关闭后，本次保存只写入配置文件；运行中的 Web 服务会继续使用旧配置，直到手动重启服务或应用冷启动。',
+                                    zhHant:
+                                        '自動重載關閉後，本次儲存只會寫入設定檔；執行中的 Web 服務會繼續使用舊設定，直到手動重啟服務或應用冷啟動。',
+                                    en: 'With auto-reload off, saving only writes the config file. The running web service keeps the old config until you restart the service or relaunch the app.',
+                                    fr: 'Quand le rechargement auto est désactivé, l’enregistrement écrit seulement le fichier. Le service web garde l’ancienne configuration jusqu’au redémarrage.',
+                                    de: 'Bei deaktiviertem Auto-Reload wird nur die Datei gespeichert. Der laufende Webdienst nutzt die alte Konfiguration bis zum Neustart.',
+                                    ja: '自動再読み込みがオフの場合、保存は設定ファイルだけを書き込みます。実行中のWebサービスは再起動まで旧設定を使います。',
+                                  ),
                                 ),
                               ),
                       ),
                       const SizedBox(height: 18),
-                      const _SectionTitle('基础信息'),
+                      _SectionTitle(
+                        _gatewayText(
+                          context,
+                          zh: '基础信息',
+                          zhHant: '基礎資訊',
+                          en: 'Basic Info',
+                          fr: 'Informations de base',
+                          de: 'Basisinformationen',
+                          ja: '基本情報',
+                        ),
+                        icon: Icons.info_outline_rounded,
+                      ),
                       _TextArea(
-                        label: '介绍',
+                        label: _gatewayText(
+                          context,
+                          zh: '介绍',
+                          zhHant: '介紹',
+                          en: 'Description',
+                          fr: 'Description',
+                          de: 'Beschreibung',
+                          ja: '説明',
+                        ),
                         controller: _descriptionController,
                       ),
                       _ResponsiveFields(
                         twoColumns: twoColumns,
                         children: [
                           _TextFieldSpec(
-                            label: '监听 IP 地址',
+                            label: _gatewayText(
+                              context,
+                              zh: '监听 IP 地址',
+                              zhHant: '監聽 IP 位址',
+                              en: 'Listen IP address',
+                              fr: 'Adresse IP d’écoute',
+                              de: 'Lausch-IP-Adresse',
+                              ja: 'リッスンIPアドレス',
+                            ),
                             controller: _hostController,
                           ),
                           _TextFieldSpec(
-                            label: '监听端口',
+                            label: _gatewayText(
+                              context,
+                              zh: '监听端口',
+                              zhHant: '監聽連接埠',
+                              en: 'Listen port',
+                              fr: 'Port d’écoute',
+                              de: 'Lausch-Port',
+                              ja: 'リッスンポート',
+                            ),
                             controller: _portController,
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: '可接受并发数',
+                            label: _gatewayText(
+                              context,
+                              zh: '可接受并发数',
+                              zhHant: '可接受並發數',
+                              en: 'Max concurrency',
+                              fr: 'Concurrence maximale',
+                              de: 'Maximale Parallelität',
+                              ja: '最大同時実行数',
+                            ),
                             controller: _maxConcurrentController,
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: '单消息大小(tokens)',
+                            label: _gatewayText(
+                              context,
+                              zh: '单消息大小(tokens)',
+                              zhHant: '單訊息大小(tokens)',
+                              en: 'Single message size (tokens)',
+                              fr: 'Taille d’un message (tokens)',
+                              de: 'Nachrichtengröße (Tokens)',
+                              ja: '1メッセージサイズ(tokens)',
+                            ),
                             controller: _singleMessageController,
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: '单会话最大消息数',
+                            label: _gatewayText(
+                              context,
+                              zh: '单会话最大消息数',
+                              zhHant: '單會話最大訊息數',
+                              en: 'Max messages per session',
+                              fr: 'Messages max par session',
+                              de: 'Max. Nachrichten pro Sitzung',
+                              ja: 'セッション最大メッセージ数',
+                            ),
                             controller: _maxMessagesController,
                             keyboardType: TextInputType.number,
                           ),
@@ -850,16 +1484,43 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                       ),
                       if (_authEnabled) ...[
                         const SizedBox(height: 18),
-                        const _SectionTitle('鉴权'),
+                        _SectionTitle(
+                          _gatewayText(
+                            context,
+                            zh: '鉴权',
+                            zhHant: '鑑權',
+                            en: 'Authentication',
+                            fr: 'Authentification',
+                            de: 'Authentifizierung',
+                            ja: '認証',
+                          ),
+                          icon: Icons.lock_outline_rounded,
+                        ),
                         _ResponsiveFields(
                           twoColumns: twoColumns,
                           children: [
                             _TextFieldSpec(
-                              label: '用户名',
+                              label: _gatewayText(
+                                context,
+                                zh: '用户名',
+                                zhHant: '使用者名稱',
+                                en: 'Username',
+                                fr: 'Nom d’utilisateur',
+                                de: 'Benutzername',
+                                ja: 'ユーザー名',
+                              ),
                               controller: _usernameController,
                             ),
                             _TextFieldSpec(
-                              label: '密码',
+                              label: _gatewayText(
+                                context,
+                                zh: '密码',
+                                zhHant: '密碼',
+                                en: 'Password',
+                                fr: 'Mot de passe',
+                                de: 'Passwort',
+                                ja: 'パスワード',
+                              ),
                               controller: _passwordController,
                               obscureText: true,
                             ),
@@ -867,9 +1528,28 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         ),
                       ],
                       const SizedBox(height: 18),
-                      const _SectionTitle('安全控制'),
+                      _SectionTitle(
+                        _gatewayText(
+                          context,
+                          zh: '安全控制',
+                          zhHant: '安全控制',
+                          en: 'Security Controls',
+                          fr: 'Contrôles de sécurité',
+                          de: 'Sicherheitssteuerung',
+                          ja: 'セキュリティ制御',
+                        ),
+                        icon: Icons.shield_outlined,
+                      ),
                       _MultiSelectDropdown<String>(
-                        label: '可新建的线程模板类型',
+                        label: _gatewayText(
+                          context,
+                          zh: '可新建的线程模板类型',
+                          zhHant: '可新建的執行緒模板類型',
+                          en: 'Allowed thread templates',
+                          fr: 'Modèles de fil autorisés',
+                          de: 'Erlaubte Thread-Vorlagen',
+                          ja: '作成可能なスレッドテンプレート',
+                        ),
                         emptyMeansAll: true,
                         noneValue: webGatewayDenyAllSelectionMarker,
                         options: [
@@ -880,7 +1560,15 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         onChanged: (next) => setState(() => _templates = next),
                       ),
                       _MultiSelectDropdown<String>(
-                        label: '可用的技能',
+                        label: _gatewayText(
+                          context,
+                          zh: '可用的技能',
+                          zhHant: '可用的技能',
+                          en: 'Allowed skills',
+                          fr: 'Compétences autorisées',
+                          de: 'Erlaubte Skills',
+                          ja: '利用可能なスキル',
+                        ),
                         emptyMeansAll: true,
                         noneValue: webGatewayDenyAllSelectionMarker,
                         options: [
@@ -891,7 +1579,15 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         onChanged: (next) => setState(() => _skills = next),
                       ),
                       _MultiSelectDropdown<String>(
-                        label: '可用的 MCP',
+                        label: _gatewayText(
+                          context,
+                          zh: '可用的 MCP',
+                          zhHant: '可用的 MCP',
+                          en: 'Allowed MCP servers',
+                          fr: 'Serveurs MCP autorisés',
+                          de: 'Erlaubte MCP-Server',
+                          ja: '利用可能なMCP',
+                        ),
                         emptyMeansAll: true,
                         noneValue: webGatewayDenyAllSelectionMarker,
                         options: [
@@ -902,7 +1598,15 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         onChanged: (next) => setState(() => _mcpServers = next),
                       ),
                       _MultiSelectDropdown<String>(
-                        label: '可用的记忆',
+                        label: _gatewayText(
+                          context,
+                          zh: '可用的记忆',
+                          zhHant: '可用的記憶',
+                          en: 'Allowed memories',
+                          fr: 'Mémoires autorisées',
+                          de: 'Erlaubte Erinnerungen',
+                          ja: '利用可能なメモリ',
+                        ),
                         emptyMeansAll: true,
                         noneValue: webGatewayDenyAllSelectionMarker,
                         options: [
@@ -913,7 +1617,15 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         onChanged: (next) => setState(() => _memories = next),
                       ),
                       _MultiSelectDropdown<String>(
-                        label: '可用的内建工具',
+                        label: _gatewayText(
+                          context,
+                          zh: '可用的内建工具',
+                          zhHant: '可用的內建工具',
+                          en: 'Allowed built-in tools',
+                          fr: 'Outils intégrés autorisés',
+                          de: 'Erlaubte integrierte Tools',
+                          ja: '利用可能な内蔵ツール',
+                        ),
                         emptyMeansAll: true,
                         noneValue: webGatewayDenyAllSelectionMarker,
                         options: [
@@ -924,7 +1636,15 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         onChanged: (next) => setState(() => _tools = next),
                       ),
                       _MultiSelectDropdown<String>(
-                        label: '可用的用户指令',
+                        label: _gatewayText(
+                          context,
+                          zh: '可用的用户指令',
+                          zhHant: '可用的使用者指令',
+                          en: 'Allowed user instructions',
+                          fr: 'Instructions utilisateur autorisées',
+                          de: 'Erlaubte Benutzeranweisungen',
+                          ja: '利用可能なユーザー指示',
+                        ),
                         emptyMeansAll: true,
                         noneValue: webGatewayDenyAllSelectionMarker,
                         options: [
@@ -934,7 +1654,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                               value: option.id,
                               label: option.enabled
                                   ? option.label
-                                  : '${option.label}（已禁用）',
+                                  : '${option.label}（${_gatewayText(context, zh: '已禁用', zhHant: '已停用', en: 'disabled', fr: 'désactivé', de: 'deaktiviert', ja: '無効')}）',
                             ),
                         ],
                         selected: _instructions,
@@ -942,58 +1662,143 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                             setState(() => _instructions = next),
                       ),
                       _EnumMultiSelectDropdown<WebGatewayMessageType>(
-                        label: '可发送的消息类型',
+                        label: _gatewayText(
+                          context,
+                          zh: '可发送的消息类型',
+                          zhHant: '可傳送的訊息類型',
+                          en: 'Allowed message types',
+                          fr: 'Types de message autorisés',
+                          de: 'Erlaubte Nachrichtentypen',
+                          ja: '送信可能なメッセージタイプ',
+                        ),
                         values: WebGatewayMessageType.values,
                         selected: _messageTypes,
-                        labelFor: (v) =>
-                            v == WebGatewayMessageType.text ? '纯文本' : '带附件',
+                        labelFor: (value) => _messageTypeLabel(context, value),
                         onChanged: (next) =>
                             setState(() => _messageTypes = next),
                       ),
                       _EnumMultiSelectDropdown<WebGatewayConversationMode>(
-                        label: '可使用的对话模式',
+                        label: _gatewayText(
+                          context,
+                          zh: '可使用的对话模式',
+                          zhHant: '可使用的對話模式',
+                          en: 'Allowed conversation modes',
+                          fr: 'Modes de conversation autorisés',
+                          de: 'Erlaubte Gesprächsmodi',
+                          ja: '利用可能な会話モード',
+                        ),
                         values: WebGatewayConversationMode.values,
                         selected: _modes,
-                        labelFor: _modeLabel,
+                        labelFor: (mode) => _modeLabel(context, mode),
                         onChanged: (next) => setState(() => _modes = next),
                       ),
                       _ModelMultiSelectField(
-                        label: '可使用的模型',
+                        label: _gatewayText(
+                          context,
+                          zh: '可使用的模型',
+                          zhHant: '可使用的模型',
+                          en: 'Allowed models',
+                          fr: 'Modèles autorisés',
+                          de: 'Erlaubte Modelle',
+                          ja: '利用可能なモデル',
+                        ),
                         emptyMeansAll: true,
                         options: widget.controller.modelOptions,
                         selected: _models,
                         onChanged: (next) => setState(() => _models = next),
                       ),
                       const SizedBox(height: 18),
-                      const _SectionTitle('项目文件'),
+                      _SectionTitle(
+                        _gatewayText(
+                          context,
+                          zh: '项目文件',
+                          zhHant: '專案檔案',
+                          en: 'Project Files',
+                          fr: 'Fichiers du projet',
+                          de: 'Projektdateien',
+                          ja: 'プロジェクトファイル',
+                        ),
+                        icon: Icons.folder_open_rounded,
+                      ),
                       _ResponsiveFields(
                         twoColumns: twoColumns,
                         children: [
                           _TextFieldSpec(
-                            label: '单文件最大(MB)',
+                            label: _gatewayText(
+                              context,
+                              zh: '单文件最大(MB)',
+                              zhHant: '單檔最大(MB)',
+                              en: 'Max file size (MB)',
+                              fr: 'Taille max du fichier (Mo)',
+                              de: 'Max. Dateigröße (MB)',
+                              ja: '最大ファイルサイズ(MB)',
+                            ),
                             controller: _workspaceFileMaxMbController,
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: '允许扩展名(空=全部文本)',
+                            label: _gatewayText(
+                              context,
+                              zh: '允许扩展名(空=全部文本)',
+                              zhHant: '允許副檔名(空=全部文字)',
+                              en: 'Allowed extensions (empty = all text)',
+                              fr: 'Extensions autorisées (vide = tout texte)',
+                              de: 'Erlaubte Endungen (leer = alle Texte)',
+                              ja: '許可拡張子(空欄=すべてのテキスト)',
+                            ),
                             controller: _workspaceFileExtensionsController,
                           ),
                           _TextFieldSpec(
-                            label: '上传缓存保留天数',
+                            label: _gatewayText(
+                              context,
+                              zh: '上传缓存保留天数',
+                              zhHant: '上傳快取保留天數',
+                              en: 'Upload cache retention days',
+                              fr: 'Jours de rétention du cache',
+                              de: 'Aufbewahrungstage für Upload-Cache',
+                              ja: 'アップロードキャッシュ保持日数',
+                            ),
                             controller: _uploadCacheRetentionDaysController,
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: '上传缓存上限(MB)',
+                            label: _gatewayText(
+                              context,
+                              zh: '上传缓存上限(MB)',
+                              zhHant: '上傳快取上限(MB)',
+                              en: 'Upload cache limit (MB)',
+                              fr: 'Limite du cache d’envoi (Mo)',
+                              de: 'Limit für Upload-Cache (MB)',
+                              ja: 'アップロードキャッシュ上限(MB)',
+                            ),
                             controller: _uploadCacheMaxMbController,
                             keyboardType: TextInputType.number,
                           ),
                         ],
                       ),
                       const SizedBox(height: 18),
-                      const _SectionTitle('健康检查'),
+                      _SectionTitle(
+                        _gatewayText(
+                          context,
+                          zh: '健康检查',
+                          zhHant: '健康檢查',
+                          en: 'Health Check',
+                          fr: 'Contrôle de santé',
+                          de: 'Integritätsprüfung',
+                          ja: 'ヘルスチェック',
+                        ),
+                        icon: Icons.monitor_heart_outlined,
+                      ),
                       _SwitchTile(
-                        label: '是否跟随重定向',
+                        label: _gatewayText(
+                          context,
+                          zh: '是否跟随重定向',
+                          zhHant: '是否跟隨重新導向',
+                          en: 'Follow redirects',
+                          fr: 'Suivre les redirections',
+                          de: 'Weiterleitungen folgen',
+                          ja: 'リダイレクトを追跡',
+                        ),
                         value: _healthFollowRedirects,
                         onChanged: (v) =>
                             setState(() => _healthFollowRedirects = v),
@@ -1003,50 +1808,133 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         twoColumns: twoColumns,
                         children: [
                           _TextFieldSpec(
-                            label: '请求 URL',
+                            label: _gatewayText(
+                              context,
+                              zh: '请求 URL',
+                              zhHant: '請求 URL',
+                              en: 'Request URL',
+                              fr: 'URL de requête',
+                              de: 'Anfrage-URL',
+                              ja: 'リクエストURL',
+                            ),
                             controller: _healthPathController,
                           ),
                           _TextFieldSpec(
-                            label: '请求方式',
+                            label: _gatewayText(
+                              context,
+                              zh: '请求方式',
+                              zhHant: '請求方式',
+                              en: 'Request method',
+                              fr: 'Méthode de requête',
+                              de: 'Anfragemethode',
+                              ja: 'リクエスト方式',
+                            ),
                             controller: _healthMethodController,
                           ),
                           _TextFieldSpec(
-                            label: '超时时间(ms)',
+                            label: _gatewayText(
+                              context,
+                              zh: '超时时间(ms)',
+                              zhHant: '逾時時間(ms)',
+                              en: 'Timeout (ms)',
+                              fr: 'Délai d’attente (ms)',
+                              de: 'Timeout (ms)',
+                              ja: 'タイムアウト(ms)',
+                            ),
                             controller: _healthTimeoutController,
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: '期望状态码',
+                            label: _gatewayText(
+                              context,
+                              zh: '期望状态码',
+                              zhHant: '期望狀態碼',
+                              en: 'Expected status code',
+                              fr: 'Code d’état attendu',
+                              de: 'Erwarteter Statuscode',
+                              ja: '期待ステータスコード',
+                            ),
                             controller: _healthStatusController,
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: '响应断言包含',
+                            label: _gatewayText(
+                              context,
+                              zh: '响应断言包含',
+                              zhHant: '回應斷言包含',
+                              en: 'Response must contain',
+                              fr: 'La réponse doit contenir',
+                              de: 'Antwort muss enthalten',
+                              ja: 'レスポンスに含む文字列',
+                            ),
                             controller: _healthContainsController,
                           ),
                           _TextFieldSpec(
-                            label: '查询参数(k=v&k2=v2)',
+                            label: _gatewayText(
+                              context,
+                              zh: '查询参数(k=v&k2=v2)',
+                              zhHant: '查詢參數(k=v&k2=v2)',
+                              en: 'Query parameters (k=v&k2=v2)',
+                              fr: 'Paramètres de requête (k=v&k2=v2)',
+                              de: 'Abfrageparameter (k=v&k2=v2)',
+                              ja: 'クエリパラメータ(k=v&k2=v2)',
+                            ),
                             controller: _healthQueryController,
                           ),
                         ],
                       ),
                       const SizedBox(height: 18),
-                      const _SectionTitle('日志轮转'),
+                      _SectionTitle(
+                        _gatewayText(
+                          context,
+                          zh: '日志轮转',
+                          zhHant: '日誌輪轉',
+                          en: 'Log Rotation',
+                          fr: 'Rotation des journaux',
+                          de: 'Protokollrotation',
+                          ja: 'ログローテーション',
+                        ),
+                        icon: Icons.article_outlined,
+                      ),
                       _ResponsiveFields(
                         twoColumns: twoColumns,
                         children: [
                           _TextFieldSpec(
-                            label: '单日志最大(MB)',
+                            label: _gatewayText(
+                              context,
+                              zh: '单日志最大(MB)',
+                              zhHant: '單日誌最大(MB)',
+                              en: 'Max log size (MB)',
+                              fr: 'Taille max d’un journal (Mo)',
+                              de: 'Max. Protokollgröße (MB)',
+                              ja: '最大ログサイズ(MB)',
+                            ),
                             controller: _logMaxMbController,
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: '轮转天数',
+                            label: _gatewayText(
+                              context,
+                              zh: '轮转天数',
+                              zhHant: '輪轉天數',
+                              en: 'Rotation days',
+                              fr: 'Jours de rotation',
+                              de: 'Rotationstage',
+                              ja: 'ローテーション日数',
+                            ),
                             controller: _logRotationDaysController,
                             keyboardType: TextInputType.number,
                           ),
                           _TextFieldSpec(
-                            label: '最多日志文件数',
+                            label: _gatewayText(
+                              context,
+                              zh: '最多日志文件数',
+                              zhHant: '最多日誌檔案數',
+                              en: 'Max log files',
+                              fr: 'Nombre max de fichiers journaux',
+                              de: 'Max. Protokolldateien',
+                              ja: '最大ログファイル数',
+                            ),
                             controller: _logMaxFilesController,
                             keyboardType: TextInputType.number,
                           ),
@@ -1080,7 +1968,15 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                           padding: const EdgeInsets.only(bottom: 12),
                           child: _EditorNotice(
                             icon: Icons.error_outline_rounded,
-                            title: '保存失败',
+                            title: _gatewayText(
+                              context,
+                              zh: '保存失败',
+                              zhHant: '儲存失敗',
+                              en: 'Save failed',
+                              fr: 'Échec de l’enregistrement',
+                              de: 'Speichern fehlgeschlagen',
+                              ja: '保存に失敗しました',
+                            ),
                             body: _saveError!,
                             error: true,
                           ),
@@ -1090,14 +1986,40 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     OpenHandDialogActionButton.secondary(
-                      label: '取消',
+                      label: _gatewayText(
+                        context,
+                        zh: '取消',
+                        zhHant: '取消',
+                        en: 'Cancel',
+                        fr: 'Annuler',
+                        de: 'Abbrechen',
+                        ja: 'キャンセル',
+                      ),
                       onPressed: _saving
                           ? null
                           : () => Navigator.of(context).pop(),
                     ),
                     const SizedBox(width: 12),
                     OpenHandDialogActionButton.primary(
-                      label: _saving ? '保存中' : '保存配置',
+                      label: _saving
+                          ? _gatewayText(
+                              context,
+                              zh: '保存中',
+                              zhHant: '儲存中',
+                              en: 'Saving',
+                              fr: 'Enregistrement',
+                              de: 'Speichern',
+                              ja: '保存中',
+                            )
+                          : _gatewayText(
+                              context,
+                              zh: '保存配置',
+                              zhHant: '儲存設定',
+                              en: 'Save configuration',
+                              fr: 'Enregistrer la configuration',
+                              de: 'Konfiguration speichern',
+                              ja: '設定を保存',
+                            ),
                       onPressed: _saving ? null : _save,
                     ),
                   ],
@@ -1201,7 +2123,18 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       if (!mounted) return;
       _showGatewaySnackBar(
         context,
-        OpenHandSnackBar.error(context, '保存失败: $error'),
+        OpenHandSnackBar.error(
+          context,
+          _gatewayText(
+            context,
+            zh: '保存失败: $error',
+            zhHant: '儲存失敗: $error',
+            en: 'Save failed: $error',
+            fr: 'Échec de l’enregistrement : $error',
+            de: 'Speichern fehlgeschlagen: $error',
+            ja: '保存に失敗しました: $error',
+          ),
+        ),
       );
       setState(() {
         _saveError = '$error';
@@ -1378,10 +2311,29 @@ class _WebGatewayConnectivityDialogState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('端口连通性测试', style: theme.textTheme.titleMedium),
+                      Text(
+                        _gatewayText(
+                          context,
+                          zh: '端口连通性测试',
+                          zhHant: '連接埠連通性測試',
+                          en: 'Port connectivity test',
+                          fr: 'Test de connectivité du port',
+                          de: 'Port-Konnektivitätstest',
+                          ja: 'ポート接続テスト',
+                        ),
+                        style: theme.textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 2),
                       Text(
-                        '逐一探测当前可用 IP + 端口入口的 /api/health',
+                        _gatewayText(
+                          context,
+                          zh: '逐一探测当前可用 IP + 端口入口的 /api/health',
+                          zhHant: '逐一探測目前可用 IP + 連接埠入口的 /api/health',
+                          en: 'Probe /api/health for each available IP + port entry',
+                          fr: 'Sonde /api/health pour chaque entrée IP + port disponible',
+                          de: '/api/health für jeden verfügbaren IP- und Port-Eintrag prüfen',
+                          ja: '利用可能なIP + ポート入口ごとに /api/health を検査',
+                        ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -1394,14 +2346,30 @@ class _WebGatewayConnectivityDialogState
                   runSpacing: 8,
                   children: [
                     IconButton.filledTonal(
-                      tooltip: '复制结果 JSON',
+                      tooltip: _gatewayText(
+                        context,
+                        zh: '复制结果 JSON',
+                        zhHant: '複製結果 JSON',
+                        en: 'Copy result JSON',
+                        fr: 'Copier le JSON du résultat',
+                        de: 'Ergebnis-JSON kopieren',
+                        ja: '結果JSONをコピー',
+                      ),
                       onPressed: result == null
                           ? null
                           : () => _copyResult(result),
                       icon: const Icon(Icons.content_copy_rounded),
                     ),
                     IconButton.filledTonal(
-                      tooltip: '重新测试',
+                      tooltip: _gatewayText(
+                        context,
+                        zh: '重新测试',
+                        zhHant: '重新測試',
+                        en: 'Test again',
+                        fr: 'Relancer le test',
+                        de: 'Erneut testen',
+                        ja: '再テスト',
+                      ),
                       onPressed: _running ? null : _run,
                       icon: _running
                           ? const SizedBox.square(
@@ -1411,7 +2379,15 @@ class _WebGatewayConnectivityDialogState
                           : const Icon(Icons.refresh_rounded),
                     ),
                     IconButton.filledTonal(
-                      tooltip: '关闭',
+                      tooltip: _gatewayText(
+                        context,
+                        zh: '关闭',
+                        zhHant: '關閉',
+                        en: 'Close',
+                        fr: 'Fermer',
+                        de: 'Schließen',
+                        ja: '閉じる',
+                      ),
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded),
                     ),
@@ -1448,7 +2424,15 @@ class _WebGatewayConnectivityDialogState
       context,
       OpenHandSnackBar.success(
         context,
-        '连通性测试结果已复制',
+        _gatewayText(
+          context,
+          zh: '连通性测试结果已复制',
+          zhHant: '連通性測試結果已複製',
+          en: 'Connectivity test result copied',
+          fr: 'Résultat du test de connectivité copié',
+          de: 'Konnektivitätstestergebnis kopiert',
+          ja: '接続テスト結果をコピーしました',
+        ),
         duration: const Duration(milliseconds: 1600),
       ),
     );
@@ -1467,10 +2451,29 @@ class _ConnectivityLoadingView extends StatelessWidget {
         children: [
           const CircularProgressIndicator(),
           const SizedBox(height: 16),
-          Text('正在检测全部可访问入口', style: theme.textTheme.titleSmall),
+          Text(
+            _gatewayText(
+              context,
+              zh: '正在检测全部可访问入口',
+              zhHant: '正在檢測全部可存取入口',
+              en: 'Checking all accessible entries',
+              fr: 'Vérification de toutes les entrées accessibles',
+              de: 'Alle erreichbaren Einträge werden geprüft',
+              ja: 'すべてのアクセス可能な入口を確認中',
+            ),
+            style: theme.textTheme.titleSmall,
+          ),
           const SizedBox(height: 6),
           Text(
-            '会按当前运行时 URL 顺序逐个探测并汇总结果',
+            _gatewayText(
+              context,
+              zh: '会按当前运行时 URL 顺序逐个探测并汇总结果',
+              zhHant: '會依目前執行時 URL 順序逐個探測並彙總結果',
+              en: 'Entries are probed in runtime URL order and summarized',
+              fr: 'Les entrées sont sondées dans l’ordre des URL d’exécution puis résumées',
+              de: 'Einträge werden in Laufzeit-URL-Reihenfolge geprüft und zusammengefasst',
+              ja: '実行時URLの順序で順番に検査して結果を集計します',
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -1493,7 +2496,15 @@ class _ConnectivityErrorView extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          '测试启动失败: $error',
+          _gatewayText(
+            context,
+            zh: '测试启动失败: $error',
+            zhHant: '測試啟動失敗: $error',
+            en: 'Test failed to start: $error',
+            fr: 'Échec du démarrage du test : $error',
+            de: 'Test konnte nicht gestartet werden: $error',
+            ja: 'テストを開始できませんでした: $error',
+          ),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.error,
           ),
@@ -1548,7 +2559,16 @@ class _ConnectivityResultView extends StatelessWidget {
                       Text(result.summary, style: theme.textTheme.titleMedium),
                       const SizedBox(height: 4),
                       Text(
-                        '${formatYearMonthDayHms(result.startedAt.toLocal())} · 总耗时 ${result.durationMs}ms',
+                        _gatewayText(
+                          context,
+                          zh: '${formatYearMonthDayHms(result.startedAt.toLocal())} · 总耗时 ${result.durationMs}ms',
+                          zhHant:
+                              '${formatYearMonthDayHms(result.startedAt.toLocal())} · 總耗時 ${result.durationMs}ms',
+                          en: '${formatYearMonthDayHms(result.startedAt.toLocal())} · Total ${result.durationMs}ms',
+                          fr: '${formatYearMonthDayHms(result.startedAt.toLocal())} · Total ${result.durationMs}ms',
+                          de: '${formatYearMonthDayHms(result.startedAt.toLocal())} · Gesamt ${result.durationMs}ms',
+                          ja: '${formatYearMonthDayHms(result.startedAt.toLocal())} · 合計 ${result.durationMs}ms',
+                        ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -1571,19 +2591,82 @@ class _ConnectivityResultView extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  _MetricTile(label: '入口总数', value: '${result.targets.length}'),
-                  _MetricTile(label: '连通', value: '${result.successCount}'),
-                  _MetricTile(label: '失败', value: '${result.failureCount}'),
-                  _MetricTile(label: '总耗时', value: '${result.durationMs}ms'),
+                  _MetricTile(
+                    label: _gatewayText(
+                      context,
+                      zh: '入口总数',
+                      zhHant: '入口總數',
+                      en: 'Entries',
+                      fr: 'Entrées',
+                      de: 'Einträge',
+                      ja: '入口数',
+                    ),
+                    value: '${result.targets.length}',
+                  ),
+                  _MetricTile(
+                    label: _gatewayText(
+                      context,
+                      zh: '连通',
+                      zhHant: '連通',
+                      en: 'Reachable',
+                      fr: 'Joignables',
+                      de: 'Erreichbar',
+                      ja: '接続可',
+                    ),
+                    value: '${result.successCount}',
+                  ),
+                  _MetricTile(
+                    label: _gatewayText(
+                      context,
+                      zh: '失败',
+                      zhHant: '失敗',
+                      en: 'Failed',
+                      fr: 'Échecs',
+                      de: 'Fehlgeschlagen',
+                      ja: '失敗',
+                    ),
+                    value: '${result.failureCount}',
+                  ),
+                  _MetricTile(
+                    label: _gatewayText(
+                      context,
+                      zh: '总耗时',
+                      zhHant: '總耗時',
+                      en: 'Total time',
+                      fr: 'Temps total',
+                      de: 'Gesamtzeit',
+                      ja: '合計時間',
+                    ),
+                    value: '${result.durationMs}ms',
+                  ),
                 ],
               );
             },
           ),
           const SizedBox(height: 18),
-          const _SectionTitle('入口探测结果'),
+          _SectionTitle(
+            _gatewayText(
+              context,
+              zh: '入口探测结果',
+              zhHant: '入口探測結果',
+              en: 'Entry Probe Results',
+              fr: 'Résultats des sondes',
+              de: 'Ergebnisse der Eintragsprüfung',
+              ja: '入口検査結果',
+            ),
+            icon: Icons.monitor_heart_outlined,
+          ),
           if (result.targets.isEmpty)
             Text(
-              '当前服务没有可测试入口。请先启动 Web 通用消息平台服务。',
+              _gatewayText(
+                context,
+                zh: '当前服务没有可测试入口。请先启动 Web 通用消息平台服务。',
+                zhHant: '目前服務沒有可測試入口。請先啟動 Web 通用訊息平台服務。',
+                en: 'The current service has no testable entries. Start the web message platform service first.',
+                fr: 'Le service actuel n’a aucune entrée testable. Démarrez d’abord la passerelle web.',
+                de: 'Der aktuelle Dienst hat keine testbaren Einträge. Starten Sie zuerst den Webnachrichtendienst.',
+                ja: '現在のサービスにはテスト可能な入口がありません。先にWebメッセージプラットフォームサービスを起動してください。',
+              ),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -1595,7 +2678,18 @@ class _ConnectivityResultView extends StatelessWidget {
                 index: index,
               ),
           const SizedBox(height: 18),
-          const _SectionTitle('测试流程日志'),
+          _SectionTitle(
+            _gatewayText(
+              context,
+              zh: '测试流程日志',
+              zhHant: '測試流程日誌',
+              en: 'Test Flow Logs',
+              fr: 'Journaux du test',
+              de: 'Testablauf-Protokolle',
+              ja: 'テストフローログ',
+            ),
+            icon: Icons.article_outlined,
+          ),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
@@ -1605,7 +2699,17 @@ class _ConnectivityResultView extends StatelessWidget {
               border: Border.all(color: colorScheme.outlineVariant),
             ),
             child: SelectableText(
-              result.logs.isEmpty ? '暂无流程日志' : result.logs.join('\n'),
+              result.logs.isEmpty
+                  ? _gatewayText(
+                      context,
+                      zh: '暂无流程日志',
+                      zhHant: '暫無流程日誌',
+                      en: 'No flow logs yet',
+                      fr: 'Aucun journal de test',
+                      de: 'Noch keine Ablaufprotokolle',
+                      ja: 'フローログはまだありません',
+                    )
+                  : result.logs.join('\n'),
               style: const TextStyle(
                 fontFamily: 'Menlo',
                 fontSize: 12,
@@ -1759,7 +2863,18 @@ class _StructuredResponsePreview extends StatelessWidget {
                 color: colorScheme.primary,
               ),
               const SizedBox(width: 6),
-              Text('响应数据', style: theme.textTheme.labelLarge),
+              Text(
+                _gatewayText(
+                  context,
+                  zh: '响应数据',
+                  zhHant: '回應資料',
+                  en: 'Response data',
+                  fr: 'Données de réponse',
+                  de: 'Antwortdaten',
+                  ja: 'レスポンスデータ',
+                ),
+                style: theme.textTheme.labelLarge,
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -1913,7 +3028,15 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Web 服务日志',
+                    _gatewayText(
+                      context,
+                      zh: 'Web 服务日志',
+                      zhHant: 'Web 服務日誌',
+                      en: 'Web service logs',
+                      fr: 'Journaux du service web',
+                      de: 'Webdienste-Protokolle',
+                      ja: 'Webサービスログ',
+                    ),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -1922,19 +3045,53 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                   runSpacing: 8,
                   children: [
                     IconButton(
-                      tooltip: '加载历史更多',
+                      tooltip: _gatewayText(
+                        context,
+                        zh: '加载历史更多',
+                        zhHant: '載入更多歷史',
+                        en: 'Load more history',
+                        fr: 'Charger plus d’historique',
+                        de: 'Mehr Verlauf laden',
+                        ja: '履歴をさらに読み込む',
+                      ),
                       onPressed: historicalCount > _historyLimit
                           ? () => setState(() => _historyLimit += _lastPageSize)
                           : null,
                       icon: const Icon(Icons.history_rounded),
                     ),
                     IconButton(
-                      tooltip: '加载最新日志',
+                      tooltip: _gatewayText(
+                        context,
+                        zh: '加载最新日志',
+                        zhHant: '載入最新日誌',
+                        en: 'Load latest logs',
+                        fr: 'Charger les derniers journaux',
+                        de: 'Neueste Protokolle laden',
+                        ja: '最新ログを読み込む',
+                      ),
                       onPressed: _loadLatestLogs,
                       icon: const Icon(Icons.new_releases_outlined),
                     ),
                     IconButton(
-                      tooltip: _follow ? '取消跟随' : '跟随日志',
+                      tooltip: _follow
+                          ? _gatewayText(
+                              context,
+                              zh: '取消跟随',
+                              zhHant: '取消跟隨',
+                              en: 'Stop following',
+                              fr: 'Arrêter le suivi',
+                              de: 'Folgen beenden',
+                              ja: '追従を停止',
+                            )
+                          : _gatewayText(
+                              context,
+                              zh: '跟随日志',
+                              zhHant: '跟隨日誌',
+                              en: 'Follow logs',
+                              fr: 'Suivre les journaux',
+                              de: 'Protokollen folgen',
+                              ja: 'ログに追従',
+                            ),
                       onPressed: () => setState(() => _follow = !_follow),
                       icon: Icon(
                         _follow
@@ -1943,12 +3100,28 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                       ),
                     ),
                     IconButton(
-                      tooltip: '保存日志到剪贴板',
+                      tooltip: _gatewayText(
+                        context,
+                        zh: '保存日志到剪贴板',
+                        zhHant: '儲存日誌到剪貼簿',
+                        en: 'Copy logs to clipboard',
+                        fr: 'Copier les journaux',
+                        de: 'Protokolle in Zwischenablage kopieren',
+                        ja: 'ログをクリップボードへコピー',
+                      ),
                       onPressed: () => _copyLogs(visible),
                       icon: const Icon(Icons.content_copy_rounded),
                     ),
                     IconButton(
-                      tooltip: '导出当前日志',
+                      tooltip: _gatewayText(
+                        context,
+                        zh: '导出当前日志',
+                        zhHant: '匯出目前日誌',
+                        en: 'Export current logs',
+                        fr: 'Exporter les journaux actuels',
+                        de: 'Aktuelle Protokolle exportieren',
+                        ja: '現在のログをエクスポート',
+                      ),
                       onPressed: _isExportingLog ? null : _exportCurrentLog,
                       icon: _isExportingLog
                           ? const SizedBox.square(
@@ -1960,14 +3133,30 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                     // 清空终端：仅清除当前弹窗内的渲染项，
                     // 底层服务的日志环形缓冲与磁盘文件保持不变（类似 shell `clear`）。
                     IconButton(
-                      tooltip: '清空终端（仅清除显示，不删除日志文件）',
+                      tooltip: _gatewayText(
+                        context,
+                        zh: '清空终端（仅清除显示，不删除日志文件）',
+                        zhHant: '清空終端（僅清除顯示，不刪除日誌檔案）',
+                        en: 'Clear terminal display only',
+                        fr: 'Effacer seulement l’affichage du terminal',
+                        de: 'Nur Terminalanzeige leeren',
+                        ja: '端末表示のみクリア',
+                      ),
                       onPressed: _clearTerminal,
                       icon: const Icon(Icons.cleaning_services_outlined),
                     ),
                     // 日志级别多选菜单：取代原来顶部的 FilterChip 条，并走
                     // OpenHand 共用菜单转场，让 App / Web 服务面板的进退场手感一致。
                     AnimatedPopupMenuButton<WebGatewayLogLevel>(
-                      tooltip: '日志级别筛选',
+                      tooltip: _gatewayText(
+                        context,
+                        zh: '日志级别筛选',
+                        zhHant: '日誌級別篩選',
+                        en: 'Filter log levels',
+                        fr: 'Filtrer les niveaux de journal',
+                        de: 'Protokollstufen filtern',
+                        ja: 'ログレベルを絞り込む',
+                      ),
                       icon: const Icon(Icons.filter_list_rounded),
                       // 返回 null 代表点击了外部区域 / Esc，不需要响应。
                       onSelected: (level) =>
@@ -1985,7 +3174,15 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
                           .toList(growable: false),
                     ),
                     IconButton(
-                      tooltip: '关闭',
+                      tooltip: _gatewayText(
+                        context,
+                        zh: '关闭',
+                        zhHant: '關閉',
+                        en: 'Close',
+                        fr: 'Fermer',
+                        de: 'Schließen',
+                        ja: '閉じる',
+                      ),
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded),
                     ),
@@ -2049,7 +3246,15 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       context,
       OpenHandSnackBar.success(
         context,
-        '终端显示已清空，底层日志文件保持不变',
+        _gatewayText(
+          context,
+          zh: '终端显示已清空，底层日志文件保持不变',
+          zhHant: '終端顯示已清空，底層日誌檔案保持不變',
+          en: 'Terminal display cleared; log files are unchanged',
+          fr: 'Affichage effacé ; les fichiers journaux sont inchangés',
+          de: 'Terminalanzeige geleert; Protokolldateien bleiben unverändert',
+          ja: '端末表示をクリアしました。ログファイルは変更されません',
+        ),
         duration: const Duration(milliseconds: 1600),
       ),
     );
@@ -2162,7 +3367,18 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
     if (!mounted) return;
     _showGatewaySnackBar(
       context,
-      OpenHandSnackBar.success(context, '日志已保存到剪贴板'),
+      OpenHandSnackBar.success(
+        context,
+        _gatewayText(
+          context,
+          zh: '日志已保存到剪贴板',
+          zhHant: '日誌已儲存到剪貼簿',
+          en: 'Logs copied to clipboard',
+          fr: 'Journaux copiés',
+          de: 'Protokolle kopiert',
+          ja: 'ログをクリップボードにコピーしました',
+        ),
+      ),
     );
   }
 
@@ -2189,7 +3405,15 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
         context,
         OpenHandSnackBar.success(
           context,
-          '当前日志已导出到 ${location.path}',
+          _gatewayText(
+            context,
+            zh: '当前日志已导出到 ${location.path}',
+            zhHant: '目前日誌已匯出到 ${location.path}',
+            en: 'Current logs exported to ${location.path}',
+            fr: 'Journaux actuels exportés vers ${location.path}',
+            de: 'Aktuelle Protokolle exportiert nach ${location.path}',
+            ja: '現在のログを ${location.path} にエクスポートしました',
+          ),
           maxLines: 2,
         ),
       );
@@ -2197,7 +3421,19 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       if (!mounted) return;
       _showGatewaySnackBar(
         context,
-        OpenHandSnackBar.error(context, '当前日志导出失败: $error', maxLines: 2),
+        OpenHandSnackBar.error(
+          context,
+          _gatewayText(
+            context,
+            zh: '当前日志导出失败: $error',
+            zhHant: '目前日誌匯出失敗: $error',
+            en: 'Current log export failed: $error',
+            fr: 'Échec de l’export des journaux : $error',
+            de: 'Export der aktuellen Protokolle fehlgeschlagen: $error',
+            ja: '現在のログのエクスポートに失敗しました: $error',
+          ),
+          maxLines: 2,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isExportingLog = false);
@@ -2300,6 +3536,87 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         snapshot.state == WebGatewayRuntimeState.starting ||
         snapshot.state == WebGatewayRuntimeState.stopping;
     final serviceControlsDisabled = _isServiceActing || isTransitioning;
+    final startLabel = _gatewayText(
+      context,
+      zh: '开启',
+      zhHant: '開啟',
+      en: 'Start',
+      fr: 'Démarrer',
+      de: 'Starten',
+      ja: '起動',
+    );
+    final stopLabel = _gatewayText(
+      context,
+      zh: '关机',
+      zhHant: '關機',
+      en: 'Stop',
+      fr: 'Arrêter',
+      de: 'Stoppen',
+      ja: '停止',
+    );
+    final restartLabel = _gatewayText(
+      context,
+      zh: '重启',
+      zhHant: '重啟',
+      en: 'Restart',
+      fr: 'Redémarrer',
+      de: 'Neustarten',
+      ja: '再起動',
+    );
+    final reloadLabel = _gatewayText(
+      context,
+      zh: '配置重载',
+      zhHant: '設定重載',
+      en: 'Reload config',
+      fr: 'Recharger la configuration',
+      de: 'Konfiguration neu laden',
+      ja: '設定を再読み込み',
+    );
+    final hotFixLabel = _gatewayText(
+      context,
+      zh: '热修复',
+      zhHant: '熱修復',
+      en: 'Hotfix',
+      fr: 'Correctif à chaud',
+      de: 'Hotfix',
+      ja: 'ホットフィックス',
+    );
+    final healthLabel = _gatewayText(
+      context,
+      zh: '健康诊断',
+      zhHant: '健康診斷',
+      en: 'Health diagnosis',
+      fr: 'Diagnostic de santé',
+      de: 'Integritätsdiagnose',
+      ja: 'ヘルス診断',
+    );
+    final expiredResourcesLabel = _gatewayText(
+      context,
+      zh: '过期资源',
+      zhHant: '過期資源',
+      en: 'Expired resources',
+      fr: 'Ressources expirées',
+      de: 'Abgelaufene Ressourcen',
+      ja: '期限切れリソース',
+    );
+    final logsLabel = _gatewayText(
+      context,
+      zh: '日志',
+      zhHant: '日誌',
+      en: 'Logs',
+      fr: 'Journaux',
+      de: 'Protokolle',
+      ja: 'ログ',
+    );
+    final uploadCacheLabel = _gatewayText(
+      context,
+      zh: '上传缓存',
+      zhHant: '上傳快取',
+      en: 'Upload cache',
+      fr: 'Cache d’envoi',
+      de: 'Upload-Cache',
+      ja: 'アップロードキャッシュ',
+    );
     return buildOpenHandResponsiveDialogShell(
       context: context,
       maxWidth: 1100,
@@ -2315,11 +3632,28 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Web 服务运维',
+                    _gatewayText(
+                      context,
+                      zh: 'Web 服务运维',
+                      zhHant: 'Web 服務維運',
+                      en: 'Web service operations',
+                      fr: 'Opérations du service web',
+                      de: 'Webdienstbetrieb',
+                      ja: 'Webサービス運用',
+                    ),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
                 IconButton(
+                  tooltip: _gatewayText(
+                    context,
+                    zh: '关闭',
+                    zhHant: '關閉',
+                    en: 'Close',
+                    fr: 'Fermer',
+                    de: 'Schließen',
+                    ja: '閉じる',
+                  ),
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.close_rounded),
                 ),
@@ -2350,51 +3684,51 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                             onPressed: isRunning || serviceControlsDisabled
                                 ? null
                                 : () => _runServiceAction(
-                                    label: '开启',
+                                    label: startLabel,
                                     action: widget.controller.startService,
                                   ),
                             icon: const Icon(Icons.play_arrow_rounded),
-                            label: const Text('开启'),
+                            label: Text(startLabel),
                           ),
                           FilledButton.tonalIcon(
                             onPressed: !isRunning || serviceControlsDisabled
                                 ? null
                                 : () => _runServiceAction(
-                                    label: '关机',
+                                    label: stopLabel,
                                     action: widget.controller.stopService,
                                   ),
                             icon: const Icon(Icons.stop_rounded),
-                            label: const Text('关机'),
+                            label: Text(stopLabel),
                           ),
                           FilledButton.tonalIcon(
                             onPressed: serviceControlsDisabled
                                 ? null
                                 : () => _runServiceAction(
-                                    label: '重启',
+                                    label: restartLabel,
                                     action: widget.controller.restartService,
                                   ),
                             icon: const Icon(Icons.restart_alt_rounded),
-                            label: const Text('重启'),
+                            label: Text(restartLabel),
                           ),
                           FilledButton.tonalIcon(
                             onPressed: serviceControlsDisabled
                                 ? null
                                 : () => _runServiceAction(
-                                    label: '配置重载',
+                                    label: reloadLabel,
                                     action: widget.controller.reloadConfig,
                                   ),
                             icon: const Icon(Icons.sync_rounded),
-                            label: const Text('配置重载'),
+                            label: Text(reloadLabel),
                           ),
                           FilledButton.tonalIcon(
                             onPressed: serviceControlsDisabled
                                 ? null
                                 : () => _runServiceAction(
-                                    label: '热修复',
+                                    label: hotFixLabel,
                                     action: widget.controller.hotFix,
                                   ),
                             icon: const Icon(Icons.healing_rounded),
-                            label: const Text('热修复'),
+                            label: Text(hotFixLabel),
                           ),
                           FilledButton.icon(
                             onPressed: _isHealthChecking
@@ -2408,45 +3742,107 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                     ),
                                   )
                                 : const Icon(Icons.monitor_heart_outlined),
-                            label: const Text('健康诊断'),
+                            label: Text(healthLabel),
                           ),
                           FilledButton.tonalIcon(
                             onPressed: _isCleaning
                                 ? null
                                 : () => _runCleanup(
-                                    label: '过期资源',
+                                    label: expiredResourcesLabel,
                                     action: widget
                                         .controller
                                         .cleanupExpiredArtifacts,
                                   ),
                             icon: const Icon(Icons.cleaning_services_outlined),
-                            label: const Text('清理过期'),
+                            label: Text(
+                              _gatewayText(
+                                context,
+                                zh: '清理过期',
+                                zhHant: '清理過期',
+                                en: 'Clean expired',
+                                fr: 'Nettoyer les expirés',
+                                de: 'Abgelaufene bereinigen',
+                                ja: '期限切れを清理',
+                              ),
+                            ),
                           ),
                           FilledButton.tonalIcon(
                             onPressed: _isCleaning
                                 ? null
                                 : () => _confirmAndCleanup(
-                                    title: '清空日志',
-                                    message:
-                                        '会清空内存日志和 Web 服务磁盘日志，保留策略不会保留当前内容。',
-                                    label: '日志',
+                                    title: _gatewayText(
+                                      context,
+                                      zh: '清空日志',
+                                      zhHant: '清空日誌',
+                                      en: 'Clear logs',
+                                      fr: 'Effacer les journaux',
+                                      de: 'Protokolle leeren',
+                                      ja: 'ログをクリア',
+                                    ),
+                                    message: _gatewayText(
+                                      context,
+                                      zh: '会清空内存日志和 Web 服务磁盘日志，保留策略不会保留当前内容。',
+                                      zhHant:
+                                          '會清空記憶體日誌和 Web 服務磁碟日誌，保留策略不會保留目前內容。',
+                                      en: 'This clears in-memory logs and web service log files. Retention policy will not keep the current content.',
+                                      fr: 'Cela efface les journaux en mémoire et sur disque. La rétention ne conservera pas le contenu actuel.',
+                                      de: 'Dies leert Speicher- und Dateiprotokolle. Die Aufbewahrungsregel behält den aktuellen Inhalt nicht.',
+                                      ja: 'メモリ内ログとWebサービスのディスクログをクリアします。保持ポリシーは現在の内容を保持しません。',
+                                    ),
+                                    label: logsLabel,
                                     action: widget.controller.cleanupLogs,
                                   ),
                             icon: const Icon(Icons.delete_sweep_outlined),
-                            label: const Text('清空日志'),
+                            label: Text(
+                              _gatewayText(
+                                context,
+                                zh: '清空日志',
+                                zhHant: '清空日誌',
+                                en: 'Clear logs',
+                                fr: 'Effacer les journaux',
+                                de: 'Protokolle leeren',
+                                ja: 'ログをクリア',
+                              ),
+                            ),
                           ),
                           FilledButton.tonalIcon(
                             onPressed: _isCleaning
                                 ? null
                                 : () => _confirmAndCleanup(
-                                    title: '清空上传缓存',
-                                    message: '会删除 Web 消息附件落盘缓存，不影响已经写入会话的消息记录。',
-                                    label: '上传缓存',
+                                    title: _gatewayText(
+                                      context,
+                                      zh: '清空上传缓存',
+                                      zhHant: '清空上傳快取',
+                                      en: 'Clear upload cache',
+                                      fr: 'Effacer le cache d’envoi',
+                                      de: 'Upload-Cache leeren',
+                                      ja: 'アップロードキャッシュをクリア',
+                                    ),
+                                    message: _gatewayText(
+                                      context,
+                                      zh: '会删除 Web 消息附件落盘缓存，不影响已经写入会话的消息记录。',
+                                      zhHant: '會刪除 Web 訊息附件落盤快取，不影響已寫入會話的訊息記錄。',
+                                      en: 'This deletes cached web message attachments. Messages already written to sessions are unaffected.',
+                                      fr: 'Cela supprime le cache des pièces jointes web. Les messages déjà écrits ne sont pas affectés.',
+                                      de: 'Dies löscht zwischengespeicherte Webnachrichten-Anhänge. Bereits gespeicherte Sitzungsnachrichten bleiben erhalten.',
+                                      ja: 'Webメッセージ添付のディスクキャッシュを削除します。セッションに保存済みのメッセージには影響しません。',
+                                    ),
+                                    label: uploadCacheLabel,
                                     action:
                                         widget.controller.cleanupUploadCache,
                                   ),
                             icon: const Icon(Icons.folder_delete_outlined),
-                            label: const Text('清空缓存'),
+                            label: Text(
+                              _gatewayText(
+                                context,
+                                zh: '清空缓存',
+                                zhHant: '清空快取',
+                                en: 'Clear cache',
+                                fr: 'Effacer le cache',
+                                de: 'Cache leeren',
+                                ja: 'キャッシュをクリア',
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -2464,123 +3860,334 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                           physics: const NeverScrollableScrollPhysics(),
                           children: [
                             _MetricTile(
-                              label: '运行状态',
+                              label: _gatewayText(
+                                context,
+                                zh: '运行状态',
+                                zhHant: '執行狀態',
+                                en: 'Runtime state',
+                                fr: 'État d’exécution',
+                                de: 'Laufzeitstatus',
+                                ja: '実行状態',
+                              ),
                               value: _runtimeStateLabel(
                                 context,
                                 snapshot.state,
                               ),
                             ),
                             _MetricTile(
-                              label: '运行时间',
+                              label: _gatewayText(
+                                context,
+                                zh: '运行时间',
+                                zhHant: '執行時間',
+                                en: 'Uptime',
+                                fr: 'Temps actif',
+                                de: 'Laufzeit',
+                                ja: '稼働時間',
+                              ),
                               value: formatCompactDurationMs(snapshot.uptimeMs),
                             ),
                             _MetricTile(
                               label: 'CPU',
                               value: snapshot.cpuPercent == null
-                                  ? '不可用'
+                                  ? _gatewayUnavailable(context)
                                   : '${snapshot.cpuPercent!.toStringAsFixed(1)}%',
                             ),
                             _MetricTile(
-                              label: '线程数',
-                              value: snapshot.threadCount?.toString() ?? '不可用',
+                              label: _gatewayText(
+                                context,
+                                zh: '线程数',
+                                zhHant: '執行緒數',
+                                en: 'Threads',
+                                fr: 'Threads',
+                                de: 'Threads',
+                                ja: 'スレッド数',
+                              ),
+                              value:
+                                  snapshot.threadCount?.toString() ??
+                                  _gatewayUnavailable(context),
                             ),
                             _MetricTile(
-                              label: '文件句柄',
+                              label: _gatewayText(
+                                context,
+                                zh: '文件句柄',
+                                zhHant: '檔案句柄',
+                                en: 'File handles',
+                                fr: 'Descripteurs de fichier',
+                                de: 'Dateihandles',
+                                ja: 'ファイルハンドル',
+                              ),
                               value:
-                                  snapshot.fileHandleCount?.toString() ?? '不可用',
+                                  snapshot.fileHandleCount?.toString() ??
+                                  _gatewayUnavailable(context),
                             ),
                             _MetricTile(
                               label: 'Swap',
                               value: snapshot.swapBytes == null
-                                  ? '不可用'
+                                  ? _gatewayUnavailable(context)
                                   : _bytes(snapshot.swapBytes!),
                             ),
                             _MetricTile(
-                              label: '内存',
+                              label: _gatewayText(
+                                context,
+                                zh: '内存',
+                                zhHant: '記憶體',
+                                en: 'Memory',
+                                fr: 'Mémoire',
+                                de: 'Speicher',
+                                ja: 'メモリ',
+                              ),
                               value: _bytes(snapshot.currentRssBytes),
                             ),
                             _MetricTile(
-                              label: '最大内存',
+                              label: _gatewayText(
+                                context,
+                                zh: '最大内存',
+                                zhHant: '最大記憶體',
+                                en: 'Peak memory',
+                                fr: 'Mémoire max',
+                                de: 'Max. Speicher',
+                                ja: '最大メモリ',
+                              ),
                               value: _bytes(snapshot.maxRssBytes),
                             ),
                             _MetricTile(
-                              label: '日志磁盘',
+                              label: _gatewayText(
+                                context,
+                                zh: '日志磁盘',
+                                zhHant: '日誌磁碟',
+                                en: 'Log disk',
+                                fr: 'Disque des journaux',
+                                de: 'Protokollspeicher',
+                                ja: 'ログディスク',
+                              ),
                               value: _bytes(snapshot.logBytes),
                             ),
                             _MetricTile(
-                              label: '活动请求',
+                              label: _gatewayText(
+                                context,
+                                zh: '活动请求',
+                                zhHant: '活動請求',
+                                en: 'Active requests',
+                                fr: 'Requêtes actives',
+                                de: 'Aktive Anfragen',
+                                ja: 'アクティブリクエスト',
+                              ),
                               value: '${snapshot.activeRequests}',
                             ),
                             _MetricTile(
-                              label: 'SSE 长连接',
+                              label: _gatewayText(
+                                context,
+                                zh: 'SSE 长连接',
+                                zhHant: 'SSE 長連線',
+                                en: 'SSE connections',
+                                fr: 'Connexions SSE',
+                                de: 'SSE-Verbindungen',
+                                ja: 'SSE接続',
+                              ),
                               value: '${snapshot.activeSseSubscriptions}',
                             ),
                             _MetricTile(
-                              label: '总请求',
+                              label: _gatewayText(
+                                context,
+                                zh: '总请求',
+                                zhHant: '總請求',
+                                en: 'Total requests',
+                                fr: 'Requêtes totales',
+                                de: 'Anfragen gesamt',
+                                ja: '総リクエスト',
+                              ),
                               value: '${snapshot.totalRequests}',
                             ),
                             _MetricTile(
-                              label: '请求/min',
+                              label: _gatewayText(
+                                context,
+                                zh: '请求/min',
+                                zhHant: '請求/min',
+                                en: 'Requests/min',
+                                fr: 'Requêtes/min',
+                                de: 'Anfragen/min',
+                                ja: 'リクエスト/min',
+                              ),
                               value: _rate(snapshot.requestsPerMinute),
                             ),
                             _MetricTile(
-                              label: '错误数',
+                              label: _gatewayText(
+                                context,
+                                zh: '错误数',
+                                zhHant: '錯誤數',
+                                en: 'Errors',
+                                fr: 'Erreurs',
+                                de: 'Fehler',
+                                ja: 'エラー数',
+                              ),
                               value: '${snapshot.totalErrors}',
                             ),
                             _MetricTile(
-                              label: '错误/min',
+                              label: _gatewayText(
+                                context,
+                                zh: '错误/min',
+                                zhHant: '錯誤/min',
+                                en: 'Errors/min',
+                                fr: 'Erreurs/min',
+                                de: 'Fehler/min',
+                                ja: 'エラー/min',
+                              ),
                               value: _rate(snapshot.errorsPerMinute),
                             ),
                             _MetricTile(
-                              label: '入流量/min',
+                              label: _gatewayText(
+                                context,
+                                zh: '入流量/min',
+                                zhHant: '入流量/min',
+                                en: 'Inbound/min',
+                                fr: 'Entrant/min',
+                                de: 'Eingehend/min',
+                                ja: '受信/min',
+                              ),
                               value: _bytes(snapshot.bytesInPerMinute.round()),
                             ),
                             _MetricTile(
-                              label: '出流量/min',
+                              label: _gatewayText(
+                                context,
+                                zh: '出流量/min',
+                                zhHant: '出流量/min',
+                                en: 'Outbound/min',
+                                fr: 'Sortant/min',
+                                de: 'Ausgehend/min',
+                                ja: '送信/min',
+                              ),
                               value: _bytes(snapshot.bytesOutPerMinute.round()),
                             ),
                             _MetricTile(
-                              label: '延迟 P95',
+                              label: _gatewayText(
+                                context,
+                                zh: '延迟 P95',
+                                zhHant: '延遲 P95',
+                                en: 'Latency P95',
+                                fr: 'Latence P95',
+                                de: 'Latenz P95',
+                                ja: 'レイテンシ P95',
+                              ),
                               value: '${snapshot.latencyStats.p95Ms}ms',
                             ),
                             _MetricTile(
-                              label: '延迟 P50',
+                              label: _gatewayText(
+                                context,
+                                zh: '延迟 P50',
+                                zhHant: '延遲 P50',
+                                en: 'Latency P50',
+                                fr: 'Latence P50',
+                                de: 'Latenz P50',
+                                ja: 'レイテンシ P50',
+                              ),
                               value: '${snapshot.latencyStats.p50Ms}ms',
                             ),
                             _MetricTile(
-                              label: '延迟 P99',
+                              label: _gatewayText(
+                                context,
+                                zh: '延迟 P99',
+                                zhHant: '延遲 P99',
+                                en: 'Latency P99',
+                                fr: 'Latence P99',
+                                de: 'Latenz P99',
+                                ja: 'レイテンシ P99',
+                              ),
                               value: '${snapshot.latencyStats.p99Ms}ms',
                             ),
                             _MetricTile(
-                              label: '延迟 MAX',
+                              label: _gatewayText(
+                                context,
+                                zh: '延迟 MAX',
+                                zhHant: '延遲 MAX',
+                                en: 'Latency MAX',
+                                fr: 'Latence MAX',
+                                de: 'Latenz MAX',
+                                ja: 'レイテンシ MAX',
+                              ),
                               value: '${snapshot.latencyStats.maxMs}ms',
                             ),
                             _MetricTile(
-                              label: '延迟样本',
+                              label: _gatewayText(
+                                context,
+                                zh: '延迟样本',
+                                zhHant: '延遲樣本',
+                                en: 'Latency samples',
+                                fr: 'Échantillons latence',
+                                de: 'Latenzstichproben',
+                                ja: 'レイテンシサンプル',
+                              ),
                               value: '${snapshot.latencyStats.sampleCount}',
                             ),
                             _MetricTile(
-                              label: '累计入流量',
+                              label: _gatewayText(
+                                context,
+                                zh: '累计入流量',
+                                zhHant: '累計入流量',
+                                en: 'Total inbound',
+                                fr: 'Entrant total',
+                                de: 'Eingehend gesamt',
+                                ja: '総受信量',
+                              ),
                               value: _bytes(snapshot.totalBytesIn),
                             ),
                             _MetricTile(
-                              label: '累计出流量',
+                              label: _gatewayText(
+                                context,
+                                zh: '累计出流量',
+                                zhHant: '累計出流量',
+                                en: 'Total outbound',
+                                fr: 'Sortant total',
+                                de: 'Ausgehend gesamt',
+                                ja: '総送信量',
+                              ),
                               value: _bytes(snapshot.totalBytesOut),
                             ),
                             _MetricTile(
-                              label: '崩溃数',
+                              label: _gatewayText(
+                                context,
+                                zh: '崩溃数',
+                                zhHant: '崩潰數',
+                                en: 'Crashes',
+                                fr: 'Plantages',
+                                de: 'Abstürze',
+                                ja: 'クラッシュ数',
+                              ),
                               value: '${snapshot.crashCount}',
                             ),
                             _MetricTile(
-                              label: '重启数',
+                              label: _gatewayText(
+                                context,
+                                zh: '重启数',
+                                zhHant: '重啟數',
+                                en: 'Restarts',
+                                fr: 'Redémarrages',
+                                de: 'Neustarts',
+                                ja: '再起動数',
+                              ),
                               value: '${snapshot.restartCount}',
                             ),
                             _MetricTile(
-                              label: '线程会话',
+                              label: _gatewayText(
+                                context,
+                                zh: '线程会话',
+                                zhHant: '執行緒會話',
+                                en: 'Thread sessions',
+                                fr: 'Sessions de fil',
+                                de: 'Thread-Sitzungen',
+                                ja: 'スレッドセッション',
+                              ),
                               value: '${snapshot.openSessionCount}',
                             ),
                             _MetricTile(
-                              label: '并发水位',
+                              label: _gatewayText(
+                                context,
+                                zh: '并发水位',
+                                zhHant: '並發水位',
+                                en: 'Concurrency level',
+                                fr: 'Niveau de concurrence',
+                                de: 'Parallelitätsniveau',
+                                ja: '同時実行水位',
+                              ),
                               value: _percent(snapshot.activeRequestRatio),
                             ),
                           ],
@@ -2598,19 +4205,51 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                       maxColumns: 2,
                       children: [
                         _OpsBreakdownCard(
-                          title: 'HTTP 状态码分布',
+                          title: _gatewayText(
+                            context,
+                            zh: 'HTTP 状态码分布',
+                            zhHant: 'HTTP 狀態碼分布',
+                            en: 'HTTP status distribution',
+                            fr: 'Répartition des statuts HTTP',
+                            de: 'HTTP-Statusverteilung',
+                            ja: 'HTTPステータス分布',
+                          ),
                           values: snapshot.statusCodeBreakdown,
                         ),
                         _OpsBreakdownCard(
-                          title: 'HTTP Method 分布',
+                          title: _gatewayText(
+                            context,
+                            zh: 'HTTP Method 分布',
+                            zhHant: 'HTTP Method 分布',
+                            en: 'HTTP method distribution',
+                            fr: 'Répartition des méthodes HTTP',
+                            de: 'HTTP-Methodenverteilung',
+                            ja: 'HTTPメソッド分布',
+                          ),
                           values: snapshot.methodBreakdown,
                         ),
                         _OpsBreakdownCard(
-                          title: '延迟桶',
+                          title: _gatewayText(
+                            context,
+                            zh: '延迟桶',
+                            zhHant: '延遲桶',
+                            en: 'Latency buckets',
+                            fr: 'Buckets de latence',
+                            de: 'Latenz-Buckets',
+                            ja: 'レイテンシバケット',
+                          ),
                           values: snapshot.latencyBuckets,
                         ),
                         _OpsBreakdownCard(
-                          title: '发送阶段分布',
+                          title: _gatewayText(
+                            context,
+                            zh: '发送阶段分布',
+                            zhHant: '傳送階段分布',
+                            en: 'Send phase distribution',
+                            fr: 'Répartition des phases d’envoi',
+                            de: 'Sendephasenverteilung',
+                            ja: '送信フェーズ分布',
+                          ),
                           values: snapshot.sendPhaseBreakdown,
                         ),
                       ],
@@ -2624,15 +4263,42 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                         _TopRoutesCard(routes: snapshot.topRoutes),
                         _RecentErrorsCard(errors: snapshot.recentErrors),
                         _OpsBreakdownCard(
-                          title: '日志级别分布',
+                          title: _gatewayText(
+                            context,
+                            zh: '日志级别分布',
+                            zhHant: '日誌級別分布',
+                            en: 'Log level distribution',
+                            fr: 'Répartition des niveaux de journal',
+                            de: 'Protokollstufenverteilung',
+                            ja: 'ログレベル分布',
+                          ),
                           values: snapshot.logLevelBreakdown,
-                          footer: '${snapshot.memoryLogCount} 条内存日志',
+                          footer: _gatewayText(
+                            context,
+                            zh: '${snapshot.memoryLogCount} 条内存日志',
+                            zhHant: '${snapshot.memoryLogCount} 則記憶體日誌',
+                            en: '${snapshot.memoryLogCount} in-memory logs',
+                            fr: '${snapshot.memoryLogCount} journaux en mémoire',
+                            de: '${snapshot.memoryLogCount} Speicherprotokolle',
+                            ja: '${snapshot.memoryLogCount} 件のメモリ内ログ',
+                          ),
                         ),
                         _ResourceInventoryCard(snapshot: snapshot),
                       ],
                     ),
                     const SizedBox(height: 18),
-                    const _SectionTitle('吞吐趋势'),
+                    _SectionTitle(
+                      _gatewayText(
+                        context,
+                        zh: '吞吐趋势',
+                        zhHant: '吞吐趨勢',
+                        en: 'Throughput Trends',
+                        fr: 'Tendances du débit',
+                        de: 'Durchsatztrends',
+                        ja: 'スループット傾向',
+                      ),
+                      icon: Icons.show_chart,
+                    ),
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final columns = constraints.maxWidth < 720 ? 1 : 2;
@@ -2645,7 +4311,15 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                           physics: const NeverScrollableScrollPhysics(),
                           children: [
                             _TrendLineChart(
-                              title: '请求/秒',
+                              title: _gatewayText(
+                                context,
+                                zh: '请求/秒',
+                                zhHant: '請求/秒',
+                                en: 'Requests/sec',
+                                fr: 'Requêtes/s',
+                                de: 'Anfragen/s',
+                                ja: 'リクエスト/秒',
+                              ),
                               values: _deltaSeries(
                                 _trend,
                                 (snapshot) => snapshot.totalRequests.toDouble(),
@@ -2654,7 +4328,15 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   value.toStringAsFixed(0),
                             ),
                             _TrendLineChart(
-                              title: '错误/秒',
+                              title: _gatewayText(
+                                context,
+                                zh: '错误/秒',
+                                zhHant: '錯誤/秒',
+                                en: 'Errors/sec',
+                                fr: 'Erreurs/s',
+                                de: 'Fehler/s',
+                                ja: 'エラー/秒',
+                              ),
                               values: _deltaSeries(
                                 _trend,
                                 (snapshot) => snapshot.totalErrors.toDouble(),
@@ -2663,7 +4345,15 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   value.toStringAsFixed(0),
                             ),
                             _TrendLineChart(
-                              title: '活动请求',
+                              title: _gatewayText(
+                                context,
+                                zh: '活动请求',
+                                zhHant: '活動請求',
+                                en: 'Active requests',
+                                fr: 'Requêtes actives',
+                                de: 'Aktive Anfragen',
+                                ja: 'アクティブリクエスト',
+                              ),
                               values: _series(
                                 _trend,
                                 (snapshot) =>
@@ -2673,7 +4363,15 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   value.toStringAsFixed(0),
                             ),
                             _TrendLineChart(
-                              title: 'P95 延迟',
+                              title: _gatewayText(
+                                context,
+                                zh: 'P95 延迟',
+                                zhHant: 'P95 延遲',
+                                en: 'P95 latency',
+                                fr: 'Latence P95',
+                                de: 'P95-Latenz',
+                                ja: 'P95レイテンシ',
+                              ),
                               values: _series(
                                 _trend,
                                 (snapshot) =>
@@ -2687,7 +4385,18 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                       },
                     ),
                     const SizedBox(height: 18),
-                    const _SectionTitle('资源趋势'),
+                    _SectionTitle(
+                      _gatewayText(
+                        context,
+                        zh: '资源趋势',
+                        zhHant: '資源趨勢',
+                        en: 'Resource Trends',
+                        fr: 'Tendances des ressources',
+                        de: 'Ressourcentrends',
+                        ja: 'リソース傾向',
+                      ),
+                      icon: Icons.show_chart,
+                    ),
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final columns = constraints.maxWidth < 720 ? 1 : 2;
@@ -2709,7 +4418,15 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   '${value.toStringAsFixed(1)}%',
                             ),
                             _TrendLineChart(
-                              title: '内存 RSS',
+                              title: _gatewayText(
+                                context,
+                                zh: '内存 RSS',
+                                zhHant: '記憶體 RSS',
+                                en: 'Memory RSS',
+                                fr: 'Mémoire RSS',
+                                de: 'Speicher RSS',
+                                ja: 'メモリ RSS',
+                              ),
                               values: _series(
                                 _trend,
                                 (snapshot) =>
@@ -2718,7 +4435,15 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               valueFormatter: (value) => _bytes(value.round()),
                             ),
                             _TrendLineChart(
-                              title: '日志磁盘',
+                              title: _gatewayText(
+                                context,
+                                zh: '日志磁盘',
+                                zhHant: '日誌磁碟',
+                                en: 'Log disk',
+                                fr: 'Disque des journaux',
+                                de: 'Protokollspeicher',
+                                ja: 'ログディスク',
+                              ),
                               values: _series(
                                 _trend,
                                 (snapshot) => snapshot.logBytes.toDouble(),
@@ -2726,7 +4451,15 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                               valueFormatter: (value) => _bytes(value.round()),
                             ),
                             _TrendLineChart(
-                              title: '线程数',
+                              title: _gatewayText(
+                                context,
+                                zh: '线程数',
+                                zhHant: '執行緒數',
+                                en: 'Threads',
+                                fr: 'Threads',
+                                de: 'Threads',
+                                ja: 'スレッド数',
+                              ),
                               values: _series(
                                 _trend,
                                 (snapshot) => snapshot.threadCount?.toDouble(),
@@ -2735,7 +4468,15 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   value.toStringAsFixed(0),
                             ),
                             _TrendLineChart(
-                              title: '会话数',
+                              title: _gatewayText(
+                                context,
+                                zh: '会话数',
+                                zhHant: '會話數',
+                                en: 'Sessions',
+                                fr: 'Sessions',
+                                de: 'Sitzungen',
+                                ja: 'セッション数',
+                              ),
                               values: _series(
                                 _trend,
                                 (snapshot) =>
@@ -2745,7 +4486,15 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                                   value.toStringAsFixed(0),
                             ),
                             _TrendLineChart(
-                              title: '入流量/min',
+                              title: _gatewayText(
+                                context,
+                                zh: '入流量/min',
+                                zhHant: '入流量/min',
+                                en: 'Inbound/min',
+                                fr: 'Entrant/min',
+                                de: 'Eingehend/min',
+                                ja: '受信/min',
+                              ),
                               values: _series(
                                 _trend,
                                 (snapshot) => snapshot.bytesInPerMinute,
@@ -2758,14 +4507,36 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                     ),
                     if (cleanupHistory.isNotEmpty) ...[
                       const SizedBox(height: 18),
-                      const _SectionTitle('清理历史'),
+                      _SectionTitle(
+                        _gatewayText(
+                          context,
+                          zh: '清理历史',
+                          zhHant: '清理歷史',
+                          en: 'Cleanup History',
+                          fr: 'Historique de nettoyage',
+                          de: 'Bereinigungsverlauf',
+                          ja: 'クリーンアップ履歴',
+                        ),
+                        icon: Icons.cleaning_services_outlined,
+                      ),
                       ...cleanupHistory.map(
                         (entry) => _CleanupHistoryLine(entry: entry),
                       ),
                     ],
                     if (snapshot.lastError.isNotEmpty) ...[
                       const SizedBox(height: 18),
-                      const _SectionTitle('最近错误'),
+                      _SectionTitle(
+                        _gatewayText(
+                          context,
+                          zh: '最近错误',
+                          zhHant: '最近錯誤',
+                          en: 'Latest Error',
+                          fr: 'Dernière erreur',
+                          de: 'Letzter Fehler',
+                          ja: '最新エラー',
+                        ),
+                        icon: Icons.article_outlined,
+                      ),
                       SelectableText(snapshot.lastError),
                     ],
                   ],
@@ -2788,8 +4559,24 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       context: context,
       title: title,
       message: message,
-      cancelLabel: '取消',
-      confirmLabel: '确认清理',
+      cancelLabel: _gatewayText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _gatewayText(
+        context,
+        zh: '确认清理',
+        zhHant: '確認清理',
+        en: 'Confirm cleanup',
+        fr: 'Confirmer le nettoyage',
+        de: 'Bereinigung bestätigen',
+        ja: 'クリーンアップを確認',
+      ),
     );
     if (confirmed) {
       await _runCleanup(label: label, action: action);
@@ -2810,7 +4597,15 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         context,
         OpenHandSnackBar.success(
           context,
-          '$label 已完成',
+          _gatewayText(
+            context,
+            zh: '$label 已完成',
+            zhHant: '$label 已完成',
+            en: '$label completed',
+            fr: '$label terminé',
+            de: '$label abgeschlossen',
+            ja: '$label が完了しました',
+          ),
           duration: const Duration(milliseconds: 1600),
         ),
       );
@@ -2818,7 +4613,19 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       if (!mounted) return;
       _showGatewaySnackBar(
         context,
-        OpenHandSnackBar.error(context, '$label 失败: $error', maxLines: 2),
+        OpenHandSnackBar.error(
+          context,
+          _gatewayText(
+            context,
+            zh: '$label 失败: $error',
+            zhHant: '$label 失敗: $error',
+            en: '$label failed: $error',
+            fr: 'Échec de $label : $error',
+            de: '$label fehlgeschlagen: $error',
+            ja: '$label に失敗しました: $error',
+          ),
+          maxLines: 2,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isServiceActing = false);
@@ -2850,7 +4657,19 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       if (!mounted) return;
       _showGatewaySnackBar(
         context,
-        OpenHandSnackBar.error(context, '健康诊断失败: $error', maxLines: 2),
+        OpenHandSnackBar.error(
+          context,
+          _gatewayText(
+            context,
+            zh: '健康诊断失败: $error',
+            zhHant: '健康診斷失敗: $error',
+            en: 'Health diagnosis failed: $error',
+            fr: 'Échec du diagnostic de santé : $error',
+            de: 'Integritätsdiagnose fehlgeschlagen: $error',
+            ja: 'ヘルス診断に失敗しました: $error',
+          ),
+          maxLines: 2,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isHealthChecking = false);
@@ -2870,7 +4689,16 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         context,
         OpenHandSnackBar.success(
           context,
-          '$label清理完成，释放 ${_bytes(result.bytesFreed)}，删除 ${result.deletedFiles} 个文件',
+          _gatewayText(
+            context,
+            zh: '$label清理完成，释放 ${_bytes(result.bytesFreed)}，删除 ${result.deletedFiles} 个文件',
+            zhHant:
+                '$label 清理完成，釋放 ${_bytes(result.bytesFreed)}，刪除 ${result.deletedFiles} 個檔案',
+            en: '$label cleanup completed, freed ${_bytes(result.bytesFreed)}, deleted ${result.deletedFiles} files',
+            fr: 'Nettoyage $label terminé, ${_bytes(result.bytesFreed)} libérés, ${result.deletedFiles} fichiers supprimés',
+            de: '$label-Bereinigung abgeschlossen, ${_bytes(result.bytesFreed)} freigegeben, ${result.deletedFiles} Dateien gelöscht',
+            ja: '$label のクリーンアップが完了しました。${_bytes(result.bytesFreed)} 解放、${result.deletedFiles} ファイル削除',
+          ),
         ),
       );
       await _tick();
@@ -2878,7 +4706,18 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       if (!mounted) return;
       _showGatewaySnackBar(
         context,
-        OpenHandSnackBar.error(context, '$label清理失败: $error'),
+        OpenHandSnackBar.error(
+          context,
+          _gatewayText(
+            context,
+            zh: '$label清理失败: $error',
+            zhHant: '$label 清理失敗: $error',
+            en: '$label cleanup failed: $error',
+            fr: 'Échec du nettoyage $label : $error',
+            de: '$label-Bereinigung fehlgeschlagen: $error',
+            ja: '$label のクリーンアップに失敗しました: $error',
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isCleaning = false);
@@ -2975,7 +4814,18 @@ class _AccessibleUrlsBar extends StatelessWidget {
     if (!context.mounted) return;
     _showGatewaySnackBar(
       context,
-      OpenHandSnackBar.success(context, '已复制 $url'),
+      OpenHandSnackBar.success(
+        context,
+        _gatewayText(
+          context,
+          zh: '已复制 $url',
+          zhHant: '已複製 $url',
+          en: 'Copied $url',
+          fr: '$url copié',
+          de: '$url kopiert',
+          ja: '$url をコピーしました',
+        ),
+      ),
     );
   }
 
@@ -2999,20 +4849,53 @@ class _AccessibleUrlsBar extends StatelessWidget {
       if (!opened) {
         _showGatewaySnackBar(
           context,
-          OpenHandSnackBar.error(context, '打开失败: $url'),
+          OpenHandSnackBar.error(
+            context,
+            _gatewayText(
+              context,
+              zh: '打开失败: $url',
+              zhHant: '開啟失敗: $url',
+              en: 'Failed to open: $url',
+              fr: 'Échec de l’ouverture : $url',
+              de: 'Öffnen fehlgeschlagen: $url',
+              ja: '開けませんでした: $url',
+            ),
+          ),
         );
         return;
       }
       _showGatewaySnackBar(
         context,
-        OpenHandSnackBar.info(context, '正在打开 $url'),
+        OpenHandSnackBar.info(
+          context,
+          _gatewayText(
+            context,
+            zh: '正在打开 $url',
+            zhHant: '正在開啟 $url',
+            en: 'Opening $url',
+            fr: 'Ouverture de $url',
+            de: '$url wird geöffnet',
+            ja: '$url を開いています',
+          ),
+        ),
       );
     } catch (error, stack) {
       silentLog('message_gateway_view', 'open url', error, stack);
       if (!context.mounted) return;
       _showGatewaySnackBar(
         context,
-        OpenHandSnackBar.error(context, '打开失败: $error'),
+        OpenHandSnackBar.error(
+          context,
+          _gatewayText(
+            context,
+            zh: '打开失败: $error',
+            zhHant: '開啟失敗: $error',
+            en: 'Failed to open: $error',
+            fr: 'Échec de l’ouverture : $error',
+            de: 'Öffnen fehlgeschlagen: $error',
+            ja: '開けませんでした: $error',
+          ),
+        ),
       );
     }
   }
@@ -3029,7 +4912,15 @@ class _AccessibleUrlsBar extends StatelessWidget {
             Icon(Icons.lan_outlined, size: 16, color: cs.onSurfaceVariant),
             const SizedBox(width: 6),
             Text(
-              '可访问 URL（复制 / 访问）',
+              _gatewayText(
+                context,
+                zh: '可访问 URL（复制 / 访问）',
+                zhHant: '可存取 URL（複製 / 存取）',
+                en: 'Accessible URLs (copy / open)',
+                fr: 'URL accessibles (copier / ouvrir)',
+                de: 'Erreichbare URLs (kopieren / öffnen)',
+                ja: 'アクセス可能なURL（コピー / 開く）',
+              ),
               style: theme.textTheme.labelMedium?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
@@ -3083,7 +4974,15 @@ class _AccessibleUrlPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Tooltip(
-            message: '复制地址',
+            message: _gatewayText(
+              context,
+              zh: '复制地址',
+              zhHant: '複製位址',
+              en: 'Copy address',
+              fr: 'Copier l’adresse',
+              de: 'Adresse kopieren',
+              ja: 'アドレスをコピー',
+            ),
             child: IconButton(
               onPressed: onCopy,
               style: IconButton.styleFrom(
@@ -3113,7 +5012,15 @@ class _AccessibleUrlPill extends StatelessWidget {
             ),
           ),
           Tooltip(
-            message: '浏览器访问',
+            message: _gatewayText(
+              context,
+              zh: '浏览器访问',
+              zhHant: '瀏覽器存取',
+              en: 'Open in browser',
+              fr: 'Ouvrir dans le navigateur',
+              de: 'Im Browser öffnen',
+              ja: 'ブラウザで開く',
+            ),
             child: IconButton(
               onPressed: onOpen,
               style: IconButton.styleFrom(
@@ -3196,8 +5103,9 @@ class _MetricTile extends StatelessWidget {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
+  const _SectionTitle(this.text, {required this.icon});
   final String text;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -3214,11 +5122,7 @@ class _SectionTitle extends StatelessWidget {
               color: colorScheme.primaryContainer.withValues(alpha: .74),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              _sectionIconFor(text),
-              size: 15,
-              color: colorScheme.onPrimaryContainer,
-            ),
+            child: Icon(icon, size: 15, color: colorScheme.onPrimaryContainer),
           ),
           const SizedBox(width: 9),
           Text(
@@ -3239,22 +5143,6 @@ class _SectionTitle extends StatelessWidget {
       ),
     );
   }
-}
-
-IconData _sectionIconFor(String text) {
-  if (text.contains('基础')) return Icons.info_outline_rounded;
-  if (text.contains('鉴权')) return Icons.lock_outline_rounded;
-  if (text.contains('安全')) return Icons.shield_outlined;
-  if (text.contains('项目') || text.contains('资源')) {
-    return Icons.folder_open_rounded;
-  }
-  if (text.contains('健康') || text.contains('入口')) {
-    return Icons.monitor_heart_outlined;
-  }
-  if (text.contains('日志') || text.contains('错误')) return Icons.article_outlined;
-  if (text.contains('吞吐') || text.contains('趋势')) return Icons.show_chart;
-  if (text.contains('清理')) return Icons.cleaning_services_outlined;
-  return Icons.tune_rounded;
 }
 
 class _NaturalCardGrid extends StatelessWidget {
@@ -3298,7 +5186,7 @@ class _OpsHealthCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final diagnosis = _OpsDiagnosis.from(snapshot);
+    final diagnosis = _OpsDiagnosis.from(context, snapshot);
     final color = switch (diagnosis.tone) {
       _OpsDiagnosisTone.ok => Colors.green.shade700,
       _OpsDiagnosisTone.warn => Colors.orange.shade800,
@@ -3320,7 +5208,15 @@ class _OpsHealthCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '运行健康度',
+                      _gatewayText(
+                        context,
+                        zh: '运行健康度',
+                        zhHant: '執行健康度',
+                        en: 'Runtime health',
+                        fr: 'Santé d’exécution',
+                        de: 'Laufzeitintegrität',
+                        ja: '実行ヘルス',
+                      ),
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -3364,10 +5260,31 @@ class _OpsHealthCard extends StatelessWidget {
                 .toList(growable: false),
           ),
           const SizedBox(height: 12),
-          ...diagnosis.recommendations.map((item) => _OpsKeyValue('建议', item)),
+          ...diagnosis.recommendations.map(
+            (item) => _OpsKeyValue(
+              _gatewayText(
+                context,
+                zh: '建议',
+                zhHant: '建議',
+                en: 'Advice',
+                fr: 'Conseil',
+                de: 'Empfehlung',
+                ja: '推奨',
+              ),
+              item,
+            ),
+          ),
           const SizedBox(height: 4),
           Text(
-            '阈值告警',
+            _gatewayText(
+              context,
+              zh: '阈值告警',
+              zhHant: '閾值告警',
+              en: 'Threshold alerts',
+              fr: 'Alertes de seuil',
+              de: 'Schwellwertwarnungen',
+              ja: 'しきい値アラート',
+            ),
             style: theme.textTheme.labelMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -3375,7 +5292,15 @@ class _OpsHealthCard extends StatelessWidget {
           const SizedBox(height: 8),
           if (diagnosis.alerts.isEmpty)
             Text(
-              '暂无触发阈值',
+              _gatewayText(
+                context,
+                zh: '暂无触发阈值',
+                zhHant: '暫無觸發閾值',
+                en: 'No thresholds triggered',
+                fr: 'Aucun seuil déclenché',
+                de: 'Keine Schwellenwerte ausgelöst',
+                ja: 'しきい値超過はありません',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -3424,7 +5349,10 @@ class _OpsDiagnosis {
     required this.recommendations,
   });
 
-  factory _OpsDiagnosis.from(WebGatewayRuntimeSnapshot snapshot) {
+  factory _OpsDiagnosis.from(
+    BuildContext context,
+    WebGatewayRuntimeSnapshot snapshot,
+  ) {
     var score = 100;
     final recommendations = <String>[];
     final alerts = <_OpsDiagnosisAlert>[];
@@ -3435,49 +5363,200 @@ class _OpsDiagnosis {
     final p99 = snapshot.latencyStats.p99Ms;
     final saturation = snapshot.activeRequestRatio;
     final logErrors = snapshot.logLevelBreakdown['error'] ?? 0;
+    final serviceStateLabel = _gatewayText(
+      context,
+      zh: '服务状态',
+      zhHant: '服務狀態',
+      en: 'Service state',
+      fr: 'État du service',
+      de: 'Dienststatus',
+      ja: 'サービス状態',
+    );
+    final errorRateLabel = _gatewayText(
+      context,
+      zh: '错误率',
+      zhHant: '錯誤率',
+      en: 'Error rate',
+      fr: 'Taux d’erreur',
+      de: 'Fehlerrate',
+      ja: 'エラー率',
+    );
+    final errorsPerMinuteLabel = _gatewayText(
+      context,
+      zh: '错误/min',
+      zhHant: '錯誤/min',
+      en: 'Errors/min',
+      fr: 'Erreurs/min',
+      de: 'Fehler/min',
+      ja: 'エラー/min',
+    );
+    final concurrencyLabel = _gatewayText(
+      context,
+      zh: '并发水位',
+      zhHant: '並發水位',
+      en: 'Concurrency level',
+      fr: 'Niveau de concurrence',
+      de: 'Parallelitätsniveau',
+      ja: '同時実行水位',
+    );
+    final p95LatencyLabel = _gatewayText(
+      context,
+      zh: 'P95 延迟',
+      zhHant: 'P95 延遲',
+      en: 'P95 latency',
+      fr: 'Latence P95',
+      de: 'P95-Latenz',
+      ja: 'P95レイテンシ',
+    );
 
     if (snapshot.state == WebGatewayRuntimeState.crashed) {
       score -= 45;
-      alerts.add(_OpsDiagnosisAlert('服务状态', 'running', snapshot.state.name));
-      recommendations.add('服务处于 crashed，优先查看最近错误和内存日志并重启服务。');
+      alerts.add(
+        _OpsDiagnosisAlert(serviceStateLabel, 'running', snapshot.state.name),
+      );
+      recommendations.add(
+        _gatewayText(
+          context,
+          zh: '服务处于 crashed，优先查看最近错误和内存日志并重启服务。',
+          zhHant: '服務處於 crashed，優先查看最近錯誤和記憶體日誌並重啟服務。',
+          en: 'Service is crashed. Check latest errors and in-memory logs, then restart it.',
+          fr: 'Le service est crashed. Consultez les erreurs récentes et les journaux mémoire, puis redémarrez.',
+          de: 'Der Dienst ist abgestürzt. Prüfen Sie letzte Fehler und Speicherprotokolle und starten Sie neu.',
+          ja: 'サービスは crashed 状態です。最新エラーとメモリ内ログを確認して再起動してください。',
+        ),
+      );
     } else if (snapshot.state != WebGatewayRuntimeState.running) {
       score -= 20;
-      alerts.add(_OpsDiagnosisAlert('服务状态', 'running', snapshot.state.name));
-      recommendations.add('服务未处于 running，确认监听端口、鉴权配置和启动日志。');
+      alerts.add(
+        _OpsDiagnosisAlert(serviceStateLabel, 'running', snapshot.state.name),
+      );
+      recommendations.add(
+        _gatewayText(
+          context,
+          zh: '服务未处于 running，确认监听端口、鉴权配置和启动日志。',
+          zhHant: '服務未處於 running，請確認監聽連接埠、鑑權設定和啟動日誌。',
+          en: 'Service is not running. Check listen port, auth configuration, and startup logs.',
+          fr: 'Le service n’est pas running. Vérifiez le port, l’authentification et les journaux de démarrage.',
+          de: 'Der Dienst läuft nicht. Prüfen Sie Port, Auth-Konfiguration und Startprotokolle.',
+          ja: 'サービスは running ではありません。リッスンポート、認証設定、起動ログを確認してください。',
+        ),
+      );
     }
     if (errorRate >= 0.05) {
       score -= 25;
-      alerts.add(_OpsDiagnosisAlert('错误率', '>= 5%', _percent(errorRate)));
-      recommendations.add('错误率超过 5%，优先按最近错误路径定位 4xx/5xx 来源。');
+      alerts.add(
+        _OpsDiagnosisAlert(errorRateLabel, '>= 5%', _percent(errorRate)),
+      );
+      recommendations.add(
+        _gatewayText(
+          context,
+          zh: '错误率超过 5%，优先按最近错误路径定位 4xx/5xx 来源。',
+          zhHant: '錯誤率超過 5%，優先按最近錯誤路徑定位 4xx/5xx 來源。',
+          en: 'Error rate is above 5%. Use recent error paths to locate 4xx/5xx sources first.',
+          fr: 'Le taux d’erreur dépasse 5 %. Utilisez les chemins récents pour trouver les sources 4xx/5xx.',
+          de: 'Fehlerrate über 5 %. Nutzen Sie aktuelle Fehlerpfade zur 4xx/5xx-Analyse.',
+          ja: 'エラー率が5%を超えています。最近のエラーパスから4xx/5xxの原因を優先確認してください。',
+        ),
+      );
     } else if (errorRate >= 0.01) {
       score -= 12;
-      alerts.add(_OpsDiagnosisAlert('错误率', '>= 1%', _percent(errorRate)));
-      recommendations.add('错误率超过 1%，建议核对请求来源、模型服务和文件权限。');
+      alerts.add(
+        _OpsDiagnosisAlert(errorRateLabel, '>= 1%', _percent(errorRate)),
+      );
+      recommendations.add(
+        _gatewayText(
+          context,
+          zh: '错误率超过 1%，建议核对请求来源、模型服务和文件权限。',
+          zhHant: '錯誤率超過 1%，建議核對請求來源、模型服務和檔案權限。',
+          en: 'Error rate is above 1%. Check request sources, model service, and file permissions.',
+          fr: 'Le taux d’erreur dépasse 1 %. Vérifiez les sources, le service modèle et les droits fichier.',
+          de: 'Fehlerrate über 1 %. Prüfen Sie Anfragequellen, Modelldienst und Dateirechte.',
+          ja: 'エラー率が1%を超えています。リクエスト元、モデルサービス、ファイル権限を確認してください。',
+        ),
+      );
     }
     if (snapshot.errorsPerMinute > 0) {
       score -= math.min(15, 5 + (snapshot.errorsPerMinute * 2).round());
       alerts.add(
-        _OpsDiagnosisAlert('错误/min', '> 0', _rate(snapshot.errorsPerMinute)),
+        _OpsDiagnosisAlert(
+          errorsPerMinuteLabel,
+          '> 0',
+          _rate(snapshot.errorsPerMinute),
+        ),
       );
-      recommendations.add('最近 1 分钟仍有错误增长，观察错误是否持续并检查对应路由。');
+      recommendations.add(
+        _gatewayText(
+          context,
+          zh: '最近 1 分钟仍有错误增长，观察错误是否持续并检查对应路由。',
+          zhHant: '最近 1 分鐘仍有錯誤增長，觀察錯誤是否持續並檢查對應路由。',
+          en: 'Errors are still increasing in the last minute. Watch for persistence and inspect related routes.',
+          fr: 'Les erreurs augmentent encore sur la dernière minute. Surveillez la tendance et vérifiez les routes concernées.',
+          de: 'Fehler steigen in der letzten Minute weiter. Beobachten Sie die Entwicklung und prüfen Sie betroffene Routen.',
+          ja: '直近1分でエラーが増えています。継続するか確認し、該当ルートを調べてください。',
+        ),
+      );
     }
     if (saturation >= 0.85) {
       score -= 20;
-      alerts.add(_OpsDiagnosisAlert('并发水位', '>= 85%', _percent(saturation)));
-      recommendations.add('并发水位接近上限，建议降低长连接/轮询压力或提高并发限制。');
+      alerts.add(
+        _OpsDiagnosisAlert(concurrencyLabel, '>= 85%', _percent(saturation)),
+      );
+      recommendations.add(
+        _gatewayText(
+          context,
+          zh: '并发水位接近上限，建议降低长连接/轮询压力或提高并发限制。',
+          zhHant: '並發水位接近上限，建議降低長連線/輪詢壓力或提高並發限制。',
+          en: 'Concurrency is near the limit. Reduce long-connection or polling pressure, or raise the concurrency limit.',
+          fr: 'La concurrence approche la limite. Réduisez les connexions longues/le polling ou augmentez la limite.',
+          de: 'Parallelität nahe am Limit. Reduzieren Sie Langverbindungen/Polling oder erhöhen Sie das Limit.',
+          ja: '同時実行が上限に近づいています。長時間接続やポーリング負荷を下げるか上限を上げてください。',
+        ),
+      );
     } else if (saturation >= 0.6) {
       score -= 10;
-      alerts.add(_OpsDiagnosisAlert('并发水位', '>= 60%', _percent(saturation)));
-      recommendations.add('并发水位偏高，继续观察请求排队和 SSE 连接数。');
+      alerts.add(
+        _OpsDiagnosisAlert(concurrencyLabel, '>= 60%', _percent(saturation)),
+      );
+      recommendations.add(
+        _gatewayText(
+          context,
+          zh: '并发水位偏高，继续观察请求排队和 SSE 连接数。',
+          zhHant: '並發水位偏高，繼續觀察請求排隊和 SSE 連線數。',
+          en: 'Concurrency is elevated. Keep watching request queueing and SSE connections.',
+          fr: 'La concurrence est élevée. Surveillez la file de requêtes et les connexions SSE.',
+          de: 'Parallelität ist erhöht. Beobachten Sie Anfragewarteschlangen und SSE-Verbindungen.',
+          ja: '同時実行水位が高めです。リクエスト待ちとSSE接続数を引き続き確認してください。',
+        ),
+      );
     }
     if (p95 >= 3000) {
       score -= 15;
-      alerts.add(_OpsDiagnosisAlert('P95 延迟', '>= 3000ms', '${p95}ms'));
-      recommendations.add('P95 延迟超过 3s，建议检查慢路由、上游模型和文件 IO。');
+      alerts.add(_OpsDiagnosisAlert(p95LatencyLabel, '>= 3000ms', '${p95}ms'));
+      recommendations.add(
+        _gatewayText(
+          context,
+          zh: 'P95 延迟超过 3s，建议检查慢路由、上游模型和文件 IO。',
+          zhHant: 'P95 延遲超過 3s，建議檢查慢路由、上游模型和檔案 IO。',
+          en: 'P95 latency is above 3s. Check slow routes, upstream models, and file I/O.',
+          fr: 'La latence P95 dépasse 3 s. Vérifiez les routes lentes, les modèles amont et les E/S fichier.',
+          de: 'P95-Latenz über 3 s. Prüfen Sie langsame Routen, Upstream-Modelle und Datei-I/O.',
+          ja: 'P95レイテンシが3秒を超えています。低速ルート、上流モデル、ファイルI/Oを確認してください。',
+        ),
+      );
     } else if (p95 >= 1000) {
       score -= 8;
-      alerts.add(_OpsDiagnosisAlert('P95 延迟', '>= 1000ms', '${p95}ms'));
-      recommendations.add('P95 延迟超过 1s，可结合 Top Routes 排查热点路径。');
+      alerts.add(_OpsDiagnosisAlert(p95LatencyLabel, '>= 1000ms', '${p95}ms'));
+      recommendations.add(
+        _gatewayText(
+          context,
+          zh: 'P95 延迟超过 1s，可结合 Top Routes 排查热点路径。',
+          zhHant: 'P95 延遲超過 1s，可結合 Top Routes 排查熱點路徑。',
+          en: 'P95 latency is above 1s. Use top routes to inspect hot paths.',
+          fr: 'La latence P95 dépasse 1 s. Utilisez les routes principales pour trouver les chemins chauds.',
+          de: 'P95-Latenz über 1 s. Nutzen Sie Top-Routen zur Hotpath-Analyse.',
+          ja: 'P95レイテンシが1秒を超えています。トップルートと合わせてホットパスを確認してください。',
+        ),
+      );
     }
     if (snapshot.crashCount > 0 || snapshot.restartCount > 0) {
       score -= math.min(
@@ -3486,7 +5565,15 @@ class _OpsDiagnosis {
       );
       alerts.add(
         _OpsDiagnosisAlert(
-          '崩溃/重启',
+          _gatewayText(
+            context,
+            zh: '崩溃/重启',
+            zhHant: '崩潰/重啟',
+            en: 'Crashes/restarts',
+            fr: 'Plantages/redémarrages',
+            de: 'Abstürze/Neustarts',
+            ja: 'クラッシュ/再起動',
+          ),
           '= 0',
           '${snapshot.crashCount}/${snapshot.restartCount}',
         ),
@@ -3494,10 +5581,34 @@ class _OpsDiagnosis {
     }
     if (logErrors > 0) {
       score -= math.min(10, logErrors);
-      alerts.add(_OpsDiagnosisAlert('错误日志', '= 0', '$logErrors'));
+      alerts.add(
+        _OpsDiagnosisAlert(
+          _gatewayText(
+            context,
+            zh: '错误日志',
+            zhHant: '錯誤日誌',
+            en: 'Error logs',
+            fr: 'Journaux d’erreur',
+            de: 'Fehlerprotokolle',
+            ja: 'エラーログ',
+          ),
+          '= 0',
+          '$logErrors',
+        ),
+      );
     }
     if (recommendations.isEmpty) {
-      recommendations.add('当前核心信号平稳，保持自动刷新并关注错误率、P95 延迟和并发水位。');
+      recommendations.add(
+        _gatewayText(
+          context,
+          zh: '当前核心信号平稳，保持自动刷新并关注错误率、P95 延迟和并发水位。',
+          zhHant: '目前核心信號平穩，保持自動刷新並關注錯誤率、P95 延遲和並發水位。',
+          en: 'Core signals are stable. Keep auto-refresh on and watch error rate, P95 latency, and concurrency.',
+          fr: 'Les signaux clés sont stables. Gardez l’actualisation et surveillez le taux d’erreur, la latence P95 et la concurrence.',
+          de: 'Kernsignale sind stabil. Lassen Sie Auto-Refresh aktiv und beobachten Sie Fehlerrate, P95-Latenz und Parallelität.',
+          ja: '主要シグナルは安定しています。自動更新を維持し、エラー率、P95レイテンシ、同時実行水位を確認してください。',
+        ),
+      );
     }
     score = score.clamp(0, 100).toInt();
     final tone = score >= 85
@@ -3506,9 +5617,33 @@ class _OpsDiagnosis {
         ? _OpsDiagnosisTone.warn
         : _OpsDiagnosisTone.error;
     final label = switch (tone) {
-      _OpsDiagnosisTone.ok => '健康',
-      _OpsDiagnosisTone.warn => '需关注',
-      _OpsDiagnosisTone.error => '异常',
+      _OpsDiagnosisTone.ok => _gatewayText(
+        context,
+        zh: '健康',
+        zhHant: '健康',
+        en: 'Healthy',
+        fr: 'Sain',
+        de: 'Gesund',
+        ja: '正常',
+      ),
+      _OpsDiagnosisTone.warn => _gatewayText(
+        context,
+        zh: '需关注',
+        zhHant: '需關注',
+        en: 'Needs attention',
+        fr: 'À surveiller',
+        de: 'Beobachten',
+        ja: '要注意',
+      ),
+      _OpsDiagnosisTone.error => _gatewayText(
+        context,
+        zh: '异常',
+        zhHant: '異常',
+        en: 'Unhealthy',
+        fr: 'Anormal',
+        de: 'Fehlerhaft',
+        ja: '異常',
+      ),
     };
     return _OpsDiagnosis(
       score: score,
@@ -3517,11 +5652,14 @@ class _OpsDiagnosis {
       recommendations: recommendations.take(4).toList(growable: false),
       alerts: alerts,
       signals: [
-        _OpsDiagnosisSignal('错误率', _percent(errorRate)),
+        _OpsDiagnosisSignal(errorRateLabel, _percent(errorRate)),
         _OpsDiagnosisSignal('P95', p95 > 0 ? '${p95}ms' : '—'),
         _OpsDiagnosisSignal('P99', p99 > 0 ? '${p99}ms' : '—'),
-        _OpsDiagnosisSignal('并发水位', _percent(saturation)),
-        _OpsDiagnosisSignal('错误/min', _rate(snapshot.errorsPerMinute)),
+        _OpsDiagnosisSignal(concurrencyLabel, _percent(saturation)),
+        _OpsDiagnosisSignal(
+          errorsPerMinuteLabel,
+          _rate(snapshot.errorsPerMinute),
+        ),
         _OpsDiagnosisSignal('SSE', '${snapshot.activeSseSubscriptions}'),
       ],
     );
@@ -3554,7 +5692,18 @@ class _OpsSummaryCard extends StatelessWidget {
             children: [
               const Icon(Icons.monitor_heart_outlined, size: 18),
               const SizedBox(width: 8),
-              Text('Golden Signals', style: theme.textTheme.titleSmall),
+              Text(
+                _gatewayText(
+                  context,
+                  zh: '核心信号',
+                  zhHant: '核心信號',
+                  en: 'Golden Signals',
+                  fr: 'Signaux clés',
+                  de: 'Golden Signals',
+                  ja: '主要シグナル',
+                ),
+                style: theme.textTheme.titleSmall,
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -3563,38 +5712,157 @@ class _OpsSummaryCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               _OpsPill(
-                'Traffic',
-                '${_rate(snapshot.requestsPerMinute)} req/min',
+                _gatewayText(
+                  context,
+                  zh: '流量',
+                  zhHant: '流量',
+                  en: 'Traffic',
+                  fr: 'Trafic',
+                  de: 'Traffic',
+                  ja: 'トラフィック',
+                ),
+                _gatewayText(
+                  context,
+                  zh: '${_rate(snapshot.requestsPerMinute)} 请求/min',
+                  zhHant: '${_rate(snapshot.requestsPerMinute)} 請求/min',
+                  en: '${_rate(snapshot.requestsPerMinute)} req/min',
+                  fr: '${_rate(snapshot.requestsPerMinute)} req/min',
+                  de: '${_rate(snapshot.requestsPerMinute)} Anfragen/min',
+                  ja: '${_rate(snapshot.requestsPerMinute)} リクエスト/min',
+                ),
               ),
-              _OpsPill('Errors', '${_rate(snapshot.errorsPerMinute)} err/min'),
               _OpsPill(
-                'Latency',
-                'avg ${snapshot.latencyStats.avgMs}ms / p95 ${snapshot.latencyStats.p95Ms}ms / p99 ${snapshot.latencyStats.p99Ms}ms',
+                _gatewayText(
+                  context,
+                  zh: '错误',
+                  zhHant: '錯誤',
+                  en: 'Errors',
+                  fr: 'Erreurs',
+                  de: 'Fehler',
+                  ja: 'エラー',
+                ),
+                _gatewayText(
+                  context,
+                  zh: '${_rate(snapshot.errorsPerMinute)} 错误/min',
+                  zhHant: '${_rate(snapshot.errorsPerMinute)} 錯誤/min',
+                  en: '${_rate(snapshot.errorsPerMinute)} err/min',
+                  fr: '${_rate(snapshot.errorsPerMinute)} err/min',
+                  de: '${_rate(snapshot.errorsPerMinute)} Fehler/min',
+                  ja: '${_rate(snapshot.errorsPerMinute)} エラー/min',
+                ),
               ),
               _OpsPill(
-                'Saturation',
-                '${snapshot.activeRequests}/${snapshot.maxConcurrentRequests} active · ${_percent(snapshot.activeRequestRatio)}',
+                _gatewayText(
+                  context,
+                  zh: '延迟',
+                  zhHant: '延遲',
+                  en: 'Latency',
+                  fr: 'Latence',
+                  de: 'Latenz',
+                  ja: 'レイテンシ',
+                ),
+                _gatewayText(
+                  context,
+                  zh: '平均 ${snapshot.latencyStats.avgMs}ms / p95 ${snapshot.latencyStats.p95Ms}ms / p99 ${snapshot.latencyStats.p99Ms}ms',
+                  zhHant:
+                      '平均 ${snapshot.latencyStats.avgMs}ms / p95 ${snapshot.latencyStats.p95Ms}ms / p99 ${snapshot.latencyStats.p99Ms}ms',
+                  en: 'avg ${snapshot.latencyStats.avgMs}ms / p95 ${snapshot.latencyStats.p95Ms}ms / p99 ${snapshot.latencyStats.p99Ms}ms',
+                  fr: 'moy ${snapshot.latencyStats.avgMs}ms / p95 ${snapshot.latencyStats.p95Ms}ms / p99 ${snapshot.latencyStats.p99Ms}ms',
+                  de: 'Ø ${snapshot.latencyStats.avgMs}ms / p95 ${snapshot.latencyStats.p95Ms}ms / p99 ${snapshot.latencyStats.p99Ms}ms',
+                  ja: '平均 ${snapshot.latencyStats.avgMs}ms / p95 ${snapshot.latencyStats.p95Ms}ms / p99 ${snapshot.latencyStats.p99Ms}ms',
+                ),
+              ),
+              _OpsPill(
+                _gatewayText(
+                  context,
+                  zh: '饱和度',
+                  zhHant: '飽和度',
+                  en: 'Saturation',
+                  fr: 'Saturation',
+                  de: 'Sättigung',
+                  ja: '飽和度',
+                ),
+                _gatewayText(
+                  context,
+                  zh: '${snapshot.activeRequests}/${snapshot.maxConcurrentRequests} 活动 · ${_percent(snapshot.activeRequestRatio)}',
+                  zhHant:
+                      '${snapshot.activeRequests}/${snapshot.maxConcurrentRequests} 活動 · ${_percent(snapshot.activeRequestRatio)}',
+                  en: '${snapshot.activeRequests}/${snapshot.maxConcurrentRequests} active · ${_percent(snapshot.activeRequestRatio)}',
+                  fr: '${snapshot.activeRequests}/${snapshot.maxConcurrentRequests} actives · ${_percent(snapshot.activeRequestRatio)}',
+                  de: '${snapshot.activeRequests}/${snapshot.maxConcurrentRequests} aktiv · ${_percent(snapshot.activeRequestRatio)}',
+                  ja: '${snapshot.activeRequests}/${snapshot.maxConcurrentRequests} アクティブ · ${_percent(snapshot.activeRequestRatio)}',
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
           _OpsKeyValue(
-            '绑定地址',
-            snapshot.boundUrl.isEmpty ? '未监听' : snapshot.boundUrl,
+            _gatewayText(
+              context,
+              zh: '绑定地址',
+              zhHant: '綁定位址',
+              en: 'Bound address',
+              fr: 'Adresse liée',
+              de: 'Gebundene Adresse',
+              ja: 'バインドアドレス',
+            ),
+            snapshot.boundUrl.isEmpty
+                ? _gatewayText(
+                    context,
+                    zh: '未监听',
+                    zhHant: '未監聽',
+                    en: 'Not listening',
+                    fr: 'Pas à l’écoute',
+                    de: 'Nicht lauschend',
+                    ja: 'リッスンなし',
+                  )
+                : snapshot.boundUrl,
           ),
           _OpsKeyValue(
-            '可访问 URL',
+            _gatewayText(
+              context,
+              zh: '可访问 URL',
+              zhHant: '可存取 URL',
+              en: 'Accessible URLs',
+              fr: 'URL accessibles',
+              de: 'Erreichbare URLs',
+              ja: 'アクセス可能なURL',
+            ),
             snapshot.accessibleUrls.isEmpty
-                ? '暂无'
+                ? _gatewayText(
+                    context,
+                    zh: '暂无',
+                    zhHant: '暫無',
+                    en: 'None',
+                    fr: 'Aucune',
+                    de: 'Keine',
+                    ja: 'なし',
+                  )
                 : snapshot.accessibleUrls.join(' / '),
           ),
           _OpsKeyValue(
-            '主机 / Dart',
+            _gatewayText(
+              context,
+              zh: '主机 / Dart',
+              zhHant: '主機 / Dart',
+              en: 'Host / Dart',
+              fr: 'Hôte / Dart',
+              de: 'Host / Dart',
+              ja: 'ホスト / Dart',
+            ),
             '${snapshot.hostName.isEmpty ? 'unknown' : snapshot.hostName} · ${snapshot.dartVersion.isEmpty ? 'unknown' : snapshot.dartVersion}',
           ),
           if (slow != null)
             _OpsKeyValue(
-              '近期最慢请求',
+              _gatewayText(
+                context,
+                zh: '近期最慢请求',
+                zhHant: '近期最慢請求',
+                en: 'Slowest recent request',
+                fr: 'Requête récente la plus lente',
+                de: 'Langsamste aktuelle Anfrage',
+                ja: '最近最も遅いリクエスト',
+              ),
               '${slow.method} ${slow.path} -> ${slow.statusCode} · ${slow.durationMs}ms${slow.at == null ? '' : ' · ${formatYearMonthDayHms(slow.at!.toLocal())}'}',
             ),
         ],
@@ -3630,7 +5898,15 @@ class _OpsBreakdownCard extends StatelessWidget {
           const SizedBox(height: 10),
           if (entries.isEmpty)
             Text(
-              '暂无样本',
+              _gatewayText(
+                context,
+                zh: '暂无样本',
+                zhHant: '暫無樣本',
+                en: 'No samples yet',
+                fr: 'Aucun échantillon',
+                de: 'Noch keine Stichproben',
+                ja: 'サンプルはまだありません',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -3722,11 +5998,30 @@ class _TopRoutesCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Top Routes', style: theme.textTheme.titleSmall),
+          Text(
+            _gatewayText(
+              context,
+              zh: '高频路由',
+              zhHant: '高頻路由',
+              en: 'Top Routes',
+              fr: 'Routes principales',
+              de: 'Top-Routen',
+              ja: '上位ルート',
+            ),
+            style: theme.textTheme.titleSmall,
+          ),
           const SizedBox(height: 10),
           if (routes.isEmpty)
             Text(
-              '暂无路由样本',
+              _gatewayText(
+                context,
+                zh: '暂无路由样本',
+                zhHant: '暫無路由樣本',
+                en: 'No route samples yet',
+                fr: 'Aucun échantillon de route',
+                de: 'Noch keine Routenstichproben',
+                ja: 'ルートサンプルはまだありません',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -3734,7 +6029,20 @@ class _TopRoutesCard extends StatelessWidget {
           else
             ...routes
                 .take(8)
-                .map((entry) => _OpsKeyValue(entry.key, '${entry.value} 次')),
+                .map(
+                  (entry) => _OpsKeyValue(
+                    entry.key,
+                    _gatewayText(
+                      context,
+                      zh: '${entry.value} 次',
+                      zhHant: '${entry.value} 次',
+                      en: '${entry.value} times',
+                      fr: '${entry.value} fois',
+                      de: '${entry.value} Mal',
+                      ja: '${entry.value} 回',
+                    ),
+                  ),
+                ),
         ],
       ),
     );
@@ -3755,11 +6063,30 @@ class _RecentErrorsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('近期错误请求', style: theme.textTheme.titleSmall),
+          Text(
+            _gatewayText(
+              context,
+              zh: '近期错误请求',
+              zhHant: '近期錯誤請求',
+              en: 'Recent error requests',
+              fr: 'Requêtes récentes en erreur',
+              de: 'Aktuelle Fehleranfragen',
+              ja: '最近のエラーリクエスト',
+            ),
+            style: theme.textTheme.titleSmall,
+          ),
           const SizedBox(height: 10),
           if (errors.isEmpty)
             Text(
-              '暂无 4xx/5xx 请求',
+              _gatewayText(
+                context,
+                zh: '暂无 4xx/5xx 请求',
+                zhHant: '暫無 4xx/5xx 請求',
+                en: 'No 4xx/5xx requests yet',
+                fr: 'Aucune requête 4xx/5xx',
+                de: 'Noch keine 4xx/5xx-Anfragen',
+                ja: '4xx/5xx リクエストはまだありません',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -3792,26 +6119,100 @@ class _ResourceInventoryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Web 可见资源', style: theme.textTheme.titleSmall),
+          Text(
+            _gatewayText(
+              context,
+              zh: 'Web 可见资源',
+              zhHant: 'Web 可見資源',
+              en: 'Web-visible resources',
+              fr: 'Ressources visibles par le web',
+              de: 'Websichtbare Ressourcen',
+              ja: 'Web表示リソース',
+            ),
+            style: theme.textTheme.titleSmall,
+          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              _OpsPill('模型', '${snapshot.allowedModelCount}'),
-              _OpsPill('供应商', '${snapshot.modelProviderCount}'),
-              _OpsPill('模板', '${snapshot.templateCount}'),
               _OpsPill(
-                'Crons',
+                _gatewayText(
+                  context,
+                  zh: '模型',
+                  zhHant: '模型',
+                  en: 'Models',
+                  fr: 'Modèles',
+                  de: 'Modelle',
+                  ja: 'モデル',
+                ),
+                '${snapshot.allowedModelCount}',
+              ),
+              _OpsPill(
+                _gatewayText(
+                  context,
+                  zh: '供应商',
+                  zhHant: '供應商',
+                  en: 'Providers',
+                  fr: 'Fournisseurs',
+                  de: 'Anbieter',
+                  ja: 'プロバイダー',
+                ),
+                '${snapshot.modelProviderCount}',
+              ),
+              _OpsPill(
+                _gatewayText(
+                  context,
+                  zh: '模板',
+                  zhHant: '模板',
+                  en: 'Templates',
+                  fr: 'Modèles',
+                  de: 'Vorlagen',
+                  ja: 'テンプレート',
+                ),
+                '${snapshot.templateCount}',
+              ),
+              _OpsPill(
+                _gatewayText(
+                  context,
+                  zh: '定时任务',
+                  zhHant: '定時任務',
+                  en: 'Crons',
+                  fr: 'Tâches cron',
+                  de: 'Cronjobs',
+                  ja: 'Cron',
+                ),
                 '${snapshot.cronEnabledCount}/${snapshot.cronTotalCount}',
               ),
-              _OpsPill('Memory', '${snapshot.memoryEntryCount}'),
+              _OpsPill(
+                _gatewayText(
+                  context,
+                  zh: '记忆',
+                  zhHant: '記憶',
+                  en: 'Memory',
+                  fr: 'Mémoire',
+                  de: 'Speicher',
+                  ja: 'メモリ',
+                ),
+                '${snapshot.memoryEntryCount}',
+              ),
               _OpsPill(
                 'MCP',
                 '${snapshot.mcpServerEnabledCount}/${snapshot.mcpServerTotalCount}',
               ),
               _OpsPill('SSE', '${snapshot.activeSseSubscriptions}'),
-              _OpsPill('会话', '${snapshot.openSessionCount}'),
+              _OpsPill(
+                _gatewayText(
+                  context,
+                  zh: '会话',
+                  zhHant: '會話',
+                  en: 'Sessions',
+                  fr: 'Sessions',
+                  de: 'Sitzungen',
+                  ja: 'セッション',
+                ),
+                '${snapshot.openSessionCount}',
+              ),
             ],
           ),
         ],
@@ -4102,7 +6503,7 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
                   _gatewayInputDecoration(
                     context,
                     widget.emptyMeansAll
-                        ? '${widget.label}（空=全部）'
+                        ? _gatewayEmptyMeansAllLabel(context, widget.label)
                         : widget.label,
                   ).copyWith(
                     suffixIcon: Icon(
@@ -4112,7 +6513,7 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
                     ),
                   ),
               child: Text(
-                _summary(),
+                _summary(context),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium,
@@ -4124,16 +6525,55 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
     );
   }
 
-  String _summary() {
-    if (_isExplicitNone(widget.selected, widget.noneValue)) return '全部不可用';
-    if (widget.emptyMeansAll && widget.selected.isEmpty) return '全部可用';
-    if (widget.selected.isEmpty) return '未选择';
+  String _summary(BuildContext context) {
+    if (_isExplicitNone(widget.selected, widget.noneValue)) {
+      return _gatewayText(
+        context,
+        zh: '全部不可用',
+        zhHant: '全部不可用',
+        en: 'All unavailable',
+        fr: 'Tout indisponible',
+        de: 'Alle nicht verfügbar',
+        ja: 'すべて利用不可',
+      );
+    }
+    if (widget.emptyMeansAll && widget.selected.isEmpty) {
+      return _gatewayText(
+        context,
+        zh: '全部可用',
+        zhHant: '全部可用',
+        en: 'All available',
+        fr: 'Tout disponible',
+        de: 'Alle verfügbar',
+        ja: 'すべて利用可能',
+      );
+    }
+    if (widget.selected.isEmpty) {
+      return _gatewayText(
+        context,
+        zh: '未选择',
+        zhHant: '未選擇',
+        en: 'None selected',
+        fr: 'Aucune sélection',
+        de: 'Nichts ausgewählt',
+        ja: '未選択',
+      );
+    }
     final labels = widget.options
         .where((option) => widget.selected.contains(option.value))
         .map((option) => option.label)
         .toList(growable: false);
-    if (labels.length <= 2) return labels.join('、');
-    return '${labels.take(2).join('、')} 等 ${labels.length} 项';
+    final separator = _gatewayListSeparator(context);
+    if (labels.length <= 2) return labels.join(separator);
+    return _gatewayText(
+      context,
+      zh: '${labels.take(2).join(separator)} 等 ${labels.length} 项',
+      zhHant: '${labels.take(2).join(separator)} 等 ${labels.length} 項',
+      en: '${labels.take(2).join(separator)} and ${labels.length} items',
+      fr: '${labels.take(2).join(separator)} et ${labels.length} éléments',
+      de: '${labels.take(2).join(separator)} und ${labels.length} Einträge',
+      ja: '${labels.take(2).join(separator)} ほか ${labels.length} 項目',
+    );
   }
 }
 
@@ -4226,7 +6666,17 @@ class _MultiSelectDropdownMenuState<T>
     final totalValues = widget.options.map((option) => option.value).toSet();
     final effectiveSelected = _effectiveSelectedValues();
     final selectedCount = effectiveSelected.length;
-    final scopeText = query.isEmpty ? '全部条目' : '当前筛选 ${filtered.length} 项';
+    final scopeText = query.isEmpty
+        ? _gatewayScopeAll(context)
+        : _gatewayText(
+            context,
+            zh: '当前筛选 ${filtered.length} 项',
+            zhHant: '目前篩選 ${filtered.length} 項',
+            en: 'Current filter: ${filtered.length} items',
+            fr: 'Filtre actuel : ${filtered.length} éléments',
+            de: 'Aktueller Filter: ${filtered.length} Einträge',
+            ja: '現在の絞り込み: ${filtered.length} 項目',
+          );
     return Align(
       alignment: Alignment.topLeft,
       child: buildAnimationStyleTransition(
@@ -4282,6 +6732,7 @@ class _MultiSelectDropdownMenuState<T>
                             const SizedBox(height: 2),
                             Text(
                               _selectionSummaryText(
+                                context,
                                 selectedCount,
                                 totalValues.length,
                                 scopeText,
@@ -4297,7 +6748,25 @@ class _MultiSelectDropdownMenuState<T>
                       ),
                       const SizedBox(width: 8),
                       _GatewayRoundIconActionButton(
-                        tooltip: query.isEmpty ? '全选' : '当前筛选全选',
+                        tooltip: query.isEmpty
+                            ? _gatewayText(
+                                context,
+                                zh: '全选',
+                                zhHant: '全選',
+                                en: 'Select all',
+                                fr: 'Tout sélectionner',
+                                de: 'Alle auswählen',
+                                ja: 'すべて選択',
+                              )
+                            : _gatewayText(
+                                context,
+                                zh: '当前筛选全选',
+                                zhHant: '目前篩選全選',
+                                en: 'Select filtered',
+                                fr: 'Sélectionner le filtre',
+                                de: 'Gefilterte auswählen',
+                                ja: '絞り込み結果を全選択',
+                              ),
                         icon: Icons.done_all_rounded,
                         onPressed: filteredValues.isEmpty
                             ? null
@@ -4305,7 +6774,25 @@ class _MultiSelectDropdownMenuState<T>
                       ),
                       const SizedBox(width: 8),
                       _GatewayRoundIconActionButton(
-                        tooltip: query.isEmpty ? '全不选' : '当前筛选全不选',
+                        tooltip: query.isEmpty
+                            ? _gatewayText(
+                                context,
+                                zh: '全不选',
+                                zhHant: '全不選',
+                                en: 'Deselect all',
+                                fr: 'Tout désélectionner',
+                                de: 'Alle abwählen',
+                                ja: 'すべて解除',
+                              )
+                            : _gatewayText(
+                                context,
+                                zh: '当前筛选全不选',
+                                zhHant: '目前篩選全不選',
+                                en: 'Deselect filtered',
+                                fr: 'Désélectionner le filtre',
+                                de: 'Gefilterte abwählen',
+                                ja: '絞り込み結果を全解除',
+                              ),
                         icon: Icons.remove_done_rounded,
                         onPressed: filteredValues.isEmpty
                             ? null
@@ -4325,7 +6812,15 @@ class _MultiSelectDropdownMenuState<T>
                         alpha: 0.58,
                       ),
                       prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                      hintText: '搜索',
+                      hintText: _gatewayText(
+                        context,
+                        zh: '搜索',
+                        zhHant: '搜尋',
+                        en: 'Search',
+                        fr: 'Rechercher',
+                        de: 'Suchen',
+                        ja: '検索',
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide(
@@ -4343,7 +6838,15 @@ class _MultiSelectDropdownMenuState<T>
                       suffixIcon: _searchController.text.isEmpty
                           ? null
                           : IconButton(
-                              tooltip: '清空搜索',
+                              tooltip: _gatewayText(
+                                context,
+                                zh: '清空搜索',
+                                zhHant: '清空搜尋',
+                                en: 'Clear search',
+                                fr: 'Effacer la recherche',
+                                de: 'Suche leeren',
+                                ja: '検索をクリア',
+                              ),
                               onPressed: _searchController.clear,
                               icon: const Icon(Icons.clear_rounded, size: 18),
                             ),
@@ -4355,7 +6858,15 @@ class _MultiSelectDropdownMenuState<T>
                   child: filtered.isEmpty
                       ? Center(
                           child: Text(
-                            '没有匹配项',
+                            _gatewayText(
+                              context,
+                              zh: '没有匹配项',
+                              zhHant: '沒有符合項目',
+                              en: 'No matches',
+                              fr: 'Aucune correspondance',
+                              de: 'Keine Treffer',
+                              ja: '一致する項目はありません',
+                            ),
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -4408,7 +6919,25 @@ class _MultiSelectDropdownMenuState<T>
                     children: [
                       Expanded(
                         child: Text(
-                          query.isEmpty ? '对全部条目生效' : '仅对当前筛选结果生效',
+                          query.isEmpty
+                              ? _gatewayText(
+                                  context,
+                                  zh: '对全部条目生效',
+                                  zhHant: '對全部項目生效',
+                                  en: 'Applies to all items',
+                                  fr: 'S’applique à tous les éléments',
+                                  de: 'Gilt für alle Einträge',
+                                  ja: 'すべての項目に適用',
+                                )
+                              : _gatewayText(
+                                  context,
+                                  zh: '仅对当前筛选结果生效',
+                                  zhHant: '僅對目前篩選結果生效',
+                                  en: 'Applies only to filtered results',
+                                  fr: 'S’applique seulement aux résultats filtrés',
+                                  de: 'Gilt nur für gefilterte Ergebnisse',
+                                  ja: '現在の絞り込み結果だけに適用',
+                                ),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -4417,7 +6946,17 @@ class _MultiSelectDropdownMenuState<T>
                       _MenuActionButton(
                         onPressed: _applyAndClose,
                         icon: const Icon(Icons.check_rounded, size: 18),
-                        label: const Text('完成'),
+                        label: Text(
+                          _gatewayText(
+                            context,
+                            zh: '完成',
+                            zhHant: '完成',
+                            en: 'Done',
+                            fr: 'Terminé',
+                            de: 'Fertig',
+                            ja: '完了',
+                          ),
+                        ),
                         filled: true,
                       ),
                     ],
@@ -4495,13 +7034,18 @@ class _MultiSelectDropdownMenuState<T>
   }
 
   String _selectionSummaryText(
+    BuildContext context,
     int selectedCount,
     int totalCount,
     String scope,
   ) {
-    if (_isExplicitNone(_selected, widget.noneValue)) return '$scope · 全部不可用';
-    if (widget.emptyMeansAll && _selected.isEmpty) return '$scope · 全部可用';
-    return '$scope · 已选 $selectedCount/$totalCount';
+    if (_isExplicitNone(_selected, widget.noneValue)) {
+      return '$scope · ${_gatewayText(context, zh: '全部不可用', zhHant: '全部不可用', en: 'All unavailable', fr: 'Tout indisponible', de: 'Alle nicht verfügbar', ja: 'すべて利用不可')}';
+    }
+    if (widget.emptyMeansAll && _selected.isEmpty) {
+      return '$scope · ${_gatewayText(context, zh: '全部可用', zhHant: '全部可用', en: 'All available', fr: 'Tout disponible', de: 'Alle verfügbar', ja: 'すべて利用可能')}';
+    }
+    return '$scope · ${_gatewaySelectedCount(context, selectedCount, totalCount)}';
   }
 }
 
@@ -4649,10 +7193,10 @@ class _ModelMultiSelectField extends StatelessWidget {
         child: InputDecorator(
           decoration: _gatewayInputDecoration(
             context,
-            emptyMeansAll ? '$label（空=全部）' : label,
+            emptyMeansAll ? _gatewayEmptyMeansAllLabel(context, label) : label,
           ).copyWith(suffixIcon: const Icon(Icons.manage_search_rounded)),
           child: Text(
-            _modelSummary(options, selected, emptyMeansAll),
+            _modelSummary(context, options, selected, emptyMeansAll),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodyMedium,
@@ -4738,7 +7282,25 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
     final visibleKeys = filtered.map((option) => option.key).toSet();
     final totalKeys = _allModelKeys();
     final effectiveSelected = _effectiveSelectedModelKeys();
-    final scopeText = query.isEmpty ? '全部模型' : '当前筛选 ${filtered.length} 个模型';
+    final scopeText = query.isEmpty
+        ? _gatewayText(
+            context,
+            zh: '全部模型',
+            zhHant: '全部模型',
+            en: 'All models',
+            fr: 'Tous les modèles',
+            de: 'Alle Modelle',
+            ja: 'すべてのモデル',
+          )
+        : _gatewayText(
+            context,
+            zh: '当前筛选 ${filtered.length} 个模型',
+            zhHant: '目前篩選 ${filtered.length} 個模型',
+            en: 'Current filter: ${filtered.length} models',
+            fr: 'Filtre actuel : ${filtered.length} modèles',
+            de: 'Aktueller Filter: ${filtered.length} Modelle',
+            ja: '現在の絞り込み: ${filtered.length} モデル',
+          );
     return buildOpenHandDialog(
       backgroundColor: colorScheme.surfaceContainerHigh,
       surfaceTintColor: colorScheme.surfaceTint,
@@ -4770,10 +7332,21 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('选择可用模型', style: theme.textTheme.titleMedium),
+                      Text(
+                        _gatewayText(
+                          context,
+                          zh: '选择可用模型',
+                          zhHant: '選擇可用模型',
+                          en: 'Choose available models',
+                          fr: 'Choisir les modèles disponibles',
+                          de: 'Verfügbare Modelle auswählen',
+                          ja: '利用可能なモデルを選択',
+                        ),
+                        style: theme.textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 3),
                       Text(
-                        '$scopeText · ${_modelSelectionCountText(effectiveSelected.length, totalKeys.length)}',
+                        '$scopeText · ${_modelSelectionCountText(context, effectiveSelected.length, totalKeys.length)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.labelSmall?.copyWith(
@@ -4785,7 +7358,25 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 ),
                 const SizedBox(width: 8),
                 _GatewayRoundIconActionButton(
-                  tooltip: query.isEmpty ? '全选' : '当前筛选全选',
+                  tooltip: query.isEmpty
+                      ? _gatewayText(
+                          context,
+                          zh: '全选',
+                          zhHant: '全選',
+                          en: 'Select all',
+                          fr: 'Tout sélectionner',
+                          de: 'Alle auswählen',
+                          ja: 'すべて選択',
+                        )
+                      : _gatewayText(
+                          context,
+                          zh: '当前筛选全选',
+                          zhHant: '目前篩選全選',
+                          en: 'Select filtered',
+                          fr: 'Sélectionner le filtre',
+                          de: 'Gefilterte auswählen',
+                          ja: '絞り込み結果を全選択',
+                        ),
                   icon: Icons.done_all_rounded,
                   onPressed: visibleKeys.isEmpty
                       ? null
@@ -4793,7 +7384,25 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 ),
                 const SizedBox(width: 8),
                 _GatewayRoundIconActionButton(
-                  tooltip: query.isEmpty ? '全不选' : '当前筛选全不选',
+                  tooltip: query.isEmpty
+                      ? _gatewayText(
+                          context,
+                          zh: '全不选',
+                          zhHant: '全不選',
+                          en: 'Deselect all',
+                          fr: 'Tout désélectionner',
+                          de: 'Alle abwählen',
+                          ja: 'すべて解除',
+                        )
+                      : _gatewayText(
+                          context,
+                          zh: '当前筛选全不选',
+                          zhHant: '目前篩選全不選',
+                          en: 'Deselect filtered',
+                          fr: 'Désélectionner le filtre',
+                          de: 'Gefilterte abwählen',
+                          ja: '絞り込み結果を全解除',
+                        ),
                   icon: Icons.remove_done_rounded,
                   onPressed: visibleKeys.isEmpty
                       ? null
@@ -4801,7 +7410,15 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  tooltip: '关闭',
+                  tooltip: _gatewayText(
+                    context,
+                    zh: '关闭',
+                    zhHant: '關閉',
+                    en: 'Close',
+                    fr: 'Fermer',
+                    de: 'Schließen',
+                    ja: '閉じる',
+                  ),
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.close_rounded),
                 ),
@@ -4819,7 +7436,15 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                   alpha: 0.58,
                 ),
                 prefixIcon: const Icon(Icons.search_rounded),
-                hintText: '搜索模型',
+                hintText: _gatewayText(
+                  context,
+                  zh: '搜索模型',
+                  zhHant: '搜尋模型',
+                  en: 'Search models',
+                  fr: 'Rechercher des modèles',
+                  de: 'Modelle suchen',
+                  ja: 'モデルを検索',
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -4832,7 +7457,15 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 suffixIcon: _searchController.text.isEmpty
                     ? null
                     : IconButton(
-                        tooltip: '清空搜索',
+                        tooltip: _gatewayText(
+                          context,
+                          zh: '清空搜索',
+                          zhHant: '清空搜尋',
+                          en: 'Clear search',
+                          fr: 'Effacer la recherche',
+                          de: 'Suche leeren',
+                          ja: '検索をクリア',
+                        ),
                         onPressed: _searchController.clear,
                         icon: const Icon(Icons.clear_rounded),
                       ),
@@ -4844,7 +7477,15 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
             child: filtered.isEmpty
                 ? Center(
                     child: Text(
-                      '没有匹配的模型',
+                      _gatewayText(
+                        context,
+                        zh: '没有匹配的模型',
+                        zhHant: '沒有符合的模型',
+                        en: 'No matching models',
+                        fr: 'Aucun modèle correspondant',
+                        de: 'Keine passenden Modelle',
+                        ja: '一致するモデルはありません',
+                      ),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -4886,7 +7527,15 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                               ),
                               const SizedBox(width: 10),
                               _GatewayRoundIconActionButton(
-                                tooltip: '本服务商全选',
+                                tooltip: _gatewayText(
+                                  context,
+                                  zh: '本服务商全选',
+                                  zhHant: '本供應商全選',
+                                  en: 'Select this provider',
+                                  fr: 'Sélectionner ce fournisseur',
+                                  de: 'Diesen Anbieter auswählen',
+                                  ja: 'このプロバイダーを全選択',
+                                ),
                                 icon: Icons.done_all_rounded,
                                 onPressed: allSelected
                                     ? null
@@ -4894,7 +7543,15 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                               ),
                               const SizedBox(width: 8),
                               _GatewayRoundIconActionButton(
-                                tooltip: '本服务商全不选',
+                                tooltip: _gatewayText(
+                                  context,
+                                  zh: '本服务商全不选',
+                                  zhHant: '本供應商全不選',
+                                  en: 'Deselect this provider',
+                                  fr: 'Désélectionner ce fournisseur',
+                                  de: 'Diesen Anbieter abwählen',
+                                  ja: 'このプロバイダーを全解除',
+                                ),
                                 icon: Icons.remove_done_rounded,
                                 onPressed: noneSelected
                                     ? null
@@ -4940,6 +7597,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 Expanded(
                   child: Text(
                     _modelSummary(
+                      context,
                       widget.options,
                       _selected,
                       widget.emptyMeansAll,
@@ -4950,7 +7608,15 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                 ),
                 const SizedBox(width: 12),
                 OpenHandDialogActionButton.primary(
-                  label: '完成',
+                  label: _gatewayText(
+                    context,
+                    zh: '完成',
+                    zhHant: '完成',
+                    en: 'Done',
+                    fr: 'Terminé',
+                    de: 'Fertig',
+                    ja: '完了',
+                  ),
                   onPressed: () => Navigator.of(context).pop(_selected),
                 ),
               ],
@@ -5016,10 +7682,34 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
     setState(() => _selected = keys.intersection(allKeys));
   }
 
-  String _modelSelectionCountText(int selectedCount, int totalCount) {
-    if (_selected.contains(webGatewayDenyAllSelectionMarker)) return '全部不可用';
-    if (widget.emptyMeansAll && _selected.isEmpty) return '全部可用';
-    return '已选 $selectedCount/$totalCount';
+  String _modelSelectionCountText(
+    BuildContext context,
+    int selectedCount,
+    int totalCount,
+  ) {
+    if (_selected.contains(webGatewayDenyAllSelectionMarker)) {
+      return _gatewayText(
+        context,
+        zh: '全部不可用',
+        zhHant: '全部不可用',
+        en: 'All unavailable',
+        fr: 'Tout indisponible',
+        de: 'Alle nicht verfügbar',
+        ja: 'すべて利用不可',
+      );
+    }
+    if (widget.emptyMeansAll && _selected.isEmpty) {
+      return _gatewayText(
+        context,
+        zh: '全部可用',
+        zhHant: '全部可用',
+        en: 'All available',
+        fr: 'Tout disponible',
+        de: 'Alle verfügbar',
+        ja: 'すべて利用可能',
+      );
+    }
+    return _gatewaySelectedCount(context, selectedCount, totalCount);
   }
 }
 
@@ -5134,14 +7824,22 @@ class _CleanupHistoryLine extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '${_cleanupTargetLabel(entry.target)} · ${entry.expiredOnly ? '保留策略' : '手动清理'} · ${formatYearMonthDayHms(entry.timestamp.toLocal())}',
+              '${_cleanupTargetLabel(context, entry.target)} · ${entry.expiredOnly ? _gatewayText(context, zh: '保留策略', zhHant: '保留策略', en: 'Retention policy', fr: 'Politique de rétention', de: 'Aufbewahrungsregel', ja: '保持ポリシー') : _gatewayText(context, zh: '手动清理', zhHant: '手動清理', en: 'Manual cleanup', fr: 'Nettoyage manuel', de: 'Manuelle Bereinigung', ja: '手動クリーンアップ')} · ${formatYearMonthDayHms(entry.timestamp.toLocal())}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 10),
           Text(
-            '${entry.deletedFiles} 文件 / ${_bytes(entry.bytesFreed)}',
+            _gatewayText(
+              context,
+              zh: '${entry.deletedFiles} 文件 / ${_bytes(entry.bytesFreed)}',
+              zhHant: '${entry.deletedFiles} 個檔案 / ${_bytes(entry.bytesFreed)}',
+              en: '${entry.deletedFiles} files / ${_bytes(entry.bytesFreed)}',
+              fr: '${entry.deletedFiles} fichiers / ${_bytes(entry.bytesFreed)}',
+              de: '${entry.deletedFiles} Dateien / ${_bytes(entry.bytesFreed)}',
+              ja: '${entry.deletedFiles} ファイル / ${_bytes(entry.bytesFreed)}',
+            ),
             style: theme.textTheme.labelMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -5220,7 +7918,15 @@ class _TrendLineChartState extends State<_TrendLineChart> {
                 ),
                 Text(
                   headerValues.isEmpty
-                      ? '暂无数据'
+                      ? _gatewayText(
+                          context,
+                          zh: '暂无数据',
+                          zhHant: '暫無資料',
+                          en: 'No data',
+                          fr: 'Aucune donnée',
+                          de: 'Keine Daten',
+                          ja: 'データなし',
+                        )
                       : widget.valueFormatter(headerValues.last),
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
@@ -5427,51 +8133,182 @@ class _TrendLinePainter extends CustomPainter {
   }
 }
 
-String _modeLabel(WebGatewayConversationMode mode) {
+String _messageTypeLabel(BuildContext context, WebGatewayMessageType type) {
+  return switch (type) {
+    WebGatewayMessageType.text => _gatewayText(
+      context,
+      zh: '纯文本',
+      zhHant: '純文字',
+      en: 'Plain text',
+      fr: 'Texte brut',
+      de: 'Nur Text',
+      ja: 'プレーンテキスト',
+    ),
+    WebGatewayMessageType.attachment => _gatewayText(
+      context,
+      zh: '带附件',
+      zhHant: '含附件',
+      en: 'With attachments',
+      fr: 'Avec pièces jointes',
+      de: 'Mit Anhängen',
+      ja: '添付あり',
+    ),
+  };
+}
+
+String _modeLabel(BuildContext context, WebGatewayConversationMode mode) {
   return switch (mode) {
-    WebGatewayConversationMode.normal => '普通',
-    WebGatewayConversationMode.image => '生成图片',
-    WebGatewayConversationMode.video => '生成视频',
-    WebGatewayConversationMode.audio => '生成音频',
-    WebGatewayConversationMode.deepResearch => '深度研究',
+    WebGatewayConversationMode.normal => _gatewayText(
+      context,
+      zh: '普通',
+      zhHant: '普通',
+      en: 'Normal',
+      fr: 'Normal',
+      de: 'Normal',
+      ja: '通常',
+    ),
+    WebGatewayConversationMode.image => _gatewayText(
+      context,
+      zh: '生成图片',
+      zhHant: '生成圖片',
+      en: 'Generate image',
+      fr: 'Générer une image',
+      de: 'Bild erzeugen',
+      ja: '画像生成',
+    ),
+    WebGatewayConversationMode.video => _gatewayText(
+      context,
+      zh: '生成视频',
+      zhHant: '生成影片',
+      en: 'Generate video',
+      fr: 'Générer une vidéo',
+      de: 'Video erzeugen',
+      ja: '動画生成',
+    ),
+    WebGatewayConversationMode.audio => _gatewayText(
+      context,
+      zh: '生成音频',
+      zhHant: '生成音訊',
+      en: 'Generate audio',
+      fr: 'Générer un audio',
+      de: 'Audio erzeugen',
+      ja: '音声生成',
+    ),
+    WebGatewayConversationMode.deepResearch => _gatewayText(
+      context,
+      zh: '深度研究',
+      zhHant: '深度研究',
+      en: 'Deep research',
+      fr: 'Recherche approfondie',
+      de: 'Tiefe Recherche',
+      ja: 'ディープリサーチ',
+    ),
   };
 }
 
 String _modelSummary(
+  BuildContext context,
   List<WebGatewayModelOption> options,
   Set<String> selected,
   bool emptyMeansAll,
 ) {
   if (selected.contains(webGatewayDenyAllSelectionMarker)) {
-    return '全部模型不可用';
+    return _gatewayText(
+      context,
+      zh: '全部模型不可用',
+      zhHant: '全部模型不可用',
+      en: 'All models unavailable',
+      fr: 'Tous les modèles indisponibles',
+      de: 'Alle Modelle nicht verfügbar',
+      ja: 'すべてのモデルが利用不可',
+    );
   }
-  if (emptyMeansAll && selected.isEmpty) return '全部模型可用';
-  if (selected.isEmpty) return '未选择模型';
+  if (emptyMeansAll && selected.isEmpty) {
+    return _gatewayText(
+      context,
+      zh: '全部模型可用',
+      zhHant: '全部模型可用',
+      en: 'All models available',
+      fr: 'Tous les modèles disponibles',
+      de: 'Alle Modelle verfügbar',
+      ja: 'すべてのモデルが利用可能',
+    );
+  }
+  if (selected.isEmpty) {
+    return _gatewayText(
+      context,
+      zh: '未选择模型',
+      zhHant: '未選擇模型',
+      en: 'No models selected',
+      fr: 'Aucun modèle sélectionné',
+      de: 'Keine Modelle ausgewählt',
+      ja: 'モデル未選択',
+    );
+  }
   final labels = options
       .where((option) => selected.contains(option.key))
       .map((option) => option.label)
       .toList(growable: false);
-  if (labels.length <= 2) return labels.join('、');
-  return '${labels.take(2).join('、')} 等 ${labels.length} 个模型';
+  final separator = _gatewayListSeparator(context);
+  if (labels.length <= 2) return labels.join(separator);
+  return _gatewayText(
+    context,
+    zh: '${labels.take(2).join(separator)} 等 ${labels.length} 个模型',
+    zhHant: '${labels.take(2).join(separator)} 等 ${labels.length} 個模型',
+    en: '${labels.take(2).join(separator)} and ${labels.length} models',
+    fr: '${labels.take(2).join(separator)} et ${labels.length} modèles',
+    de: '${labels.take(2).join(separator)} und ${labels.length} Modelle',
+    ja: '${labels.take(2).join(separator)} ほか ${labels.length} モデル',
+  );
 }
 
 String _runtimeStateLabel(BuildContext context, WebGatewayRuntimeState state) {
-  final isZh = openHandIsChineseLocale(context);
-  if (!isZh) {
-    return switch (state) {
-      WebGatewayRuntimeState.stopped => 'Stopped',
-      WebGatewayRuntimeState.starting => 'Starting',
-      WebGatewayRuntimeState.running => 'Running',
-      WebGatewayRuntimeState.stopping => 'Stopping',
-      WebGatewayRuntimeState.crashed => 'Crashed',
-    };
-  }
   return switch (state) {
-    WebGatewayRuntimeState.stopped => '已停止',
-    WebGatewayRuntimeState.starting => '启动中',
-    WebGatewayRuntimeState.running => '运行中',
-    WebGatewayRuntimeState.stopping => '停止中',
-    WebGatewayRuntimeState.crashed => '已崩溃',
+    WebGatewayRuntimeState.stopped => _gatewayText(
+      context,
+      zh: '已停止',
+      zhHant: '已停止',
+      en: 'Stopped',
+      fr: 'Arrêté',
+      de: 'Gestoppt',
+      ja: '停止済み',
+    ),
+    WebGatewayRuntimeState.starting => _gatewayText(
+      context,
+      zh: '启动中',
+      zhHant: '啟動中',
+      en: 'Starting',
+      fr: 'Démarrage',
+      de: 'Startet',
+      ja: '起動中',
+    ),
+    WebGatewayRuntimeState.running => _gatewayText(
+      context,
+      zh: '运行中',
+      zhHant: '執行中',
+      en: 'Running',
+      fr: 'En cours',
+      de: 'Läuft',
+      ja: '実行中',
+    ),
+    WebGatewayRuntimeState.stopping => _gatewayText(
+      context,
+      zh: '停止中',
+      zhHant: '停止中',
+      en: 'Stopping',
+      fr: 'Arrêt en cours',
+      de: 'Stoppt',
+      ja: '停止中',
+    ),
+    WebGatewayRuntimeState.crashed => _gatewayText(
+      context,
+      zh: '已崩溃',
+      zhHant: '已崩潰',
+      en: 'Crashed',
+      fr: 'Planté',
+      de: 'Abgestürzt',
+      ja: 'クラッシュ',
+    ),
   };
 }
 
@@ -5540,11 +8377,35 @@ String _rate(double value) {
 String _percent(double value) =>
     '${(value * 100).clamp(0, 999).toStringAsFixed(0)}%';
 
-String _cleanupTargetLabel(String target) {
+String _cleanupTargetLabel(BuildContext context, String target) {
   return switch (target) {
-    'logs' => '日志',
-    'uploads' => '上传缓存',
-    'all' => '全部资源',
+    'logs' => _gatewayText(
+      context,
+      zh: '日志',
+      zhHant: '日誌',
+      en: 'Logs',
+      fr: 'Journaux',
+      de: 'Protokolle',
+      ja: 'ログ',
+    ),
+    'uploads' => _gatewayText(
+      context,
+      zh: '上传缓存',
+      zhHant: '上傳快取',
+      en: 'Upload cache',
+      fr: 'Cache d’envoi',
+      de: 'Upload-Cache',
+      ja: 'アップロードキャッシュ',
+    ),
+    'all' => _gatewayText(
+      context,
+      zh: '全部资源',
+      zhHant: '全部資源',
+      en: 'All resources',
+      fr: 'Toutes les ressources',
+      de: 'Alle Ressourcen',
+      ja: 'すべてのリソース',
+    ),
     _ => target,
   };
 }
