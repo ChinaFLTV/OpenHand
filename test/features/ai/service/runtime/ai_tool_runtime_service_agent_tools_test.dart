@@ -159,7 +159,7 @@ void main() {
             BashCommandApprovalDecision.approved,
       );
 
-      expect(result.status, BashToolExecutionStatus.failed);
+      expect(result.status, BashToolExecutionStatus.invalidArguments);
       expect(result.resultText, contains('result is required'));
       expect(
         controller.taskById('agent-1', task.id)!.status,
