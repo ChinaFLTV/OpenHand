@@ -197,8 +197,15 @@ Widget _buildProgrammingExpertConfigSection(
 ) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  final isZh = openHandIsChineseLocale(context);
-  final sectionTitle = isZh ? '编程专家配置' : 'Programming Expert Config';
+  final sectionTitle = _localizedText(
+    context,
+    zh: '编程专家配置',
+    zhHant: '程式專家設定',
+    en: 'Programming Expert Config',
+    fr: 'Configuration expert dev',
+    de: 'Programmierexperten-Konfiguration',
+    ja: 'プログラミング専門家設定',
+  );
   final configMap = _threadTemplateMetadataMap(
     session,
     'programming_expert_config',
@@ -208,9 +215,15 @@ Widget _buildProgrammingExpertConfigSection(
       title: sectionTitle,
       children: [
         Text(
-          isZh
-              ? '配置数据尚未写入会话元数据。'
-              : 'Configuration data has not been stored in session metadata.',
+          _localizedText(
+            context,
+            zh: '配置数据尚未写入会话元数据。',
+            zhHant: '設定資料尚未寫入會話中繼資料。',
+            en: 'Configuration data has not been stored in session metadata.',
+            fr: 'Les données de configuration ne sont pas encore dans les métadonnées de session.',
+            de: 'Konfigurationsdaten wurden noch nicht in den Sitzungsmetadaten gespeichert.',
+            ja: '設定データはまだセッションメタデータに保存されていません。',
+          ),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
@@ -231,19 +244,51 @@ Widget _buildProgrammingExpertConfigSection(
     title: sectionTitle,
     children: [
       _MetadataEntryRow(
-        label: isZh ? '项目根目录' : 'Project Root',
+        label: _localizedText(
+          context,
+          zh: '项目根目录',
+          zhHant: '專案根目錄',
+          en: 'Project Root',
+          fr: 'Racine du projet',
+          de: 'Projektstamm',
+          ja: 'プロジェクトルート',
+        ),
         value: projectRoot.isEmpty ? '-' : projectRoot,
       ),
       _MetadataEntryRow(
-        label: isZh ? '项目语言' : 'Project Language',
+        label: _localizedText(
+          context,
+          zh: '项目语言',
+          zhHant: '專案語言',
+          en: 'Project Language',
+          fr: 'Langage du projet',
+          de: 'Projektsprache',
+          ja: 'プロジェクト言語',
+        ),
         value: _programmingLanguageLabel(context, language),
       ),
       _MetadataEntryRow(
-        label: isZh ? 'SDK 路径' : 'SDK Path',
+        label: _localizedText(
+          context,
+          zh: 'SDK 路径',
+          zhHant: 'SDK 路徑',
+          en: 'SDK Path',
+          fr: 'Chemin SDK',
+          de: 'SDK-Pfad',
+          ja: 'SDK パス',
+        ),
         value: sdkPath.isEmpty ? '-' : OpenHandPaths.shortenHomePath(sdkPath),
       ),
       _MetadataEntryRow(
-        label: isZh ? 'LSP 路径' : 'LSP Path',
+        label: _localizedText(
+          context,
+          zh: 'LSP 路径',
+          zhHant: 'LSP 路徑',
+          en: 'LSP Path',
+          fr: 'Chemin LSP',
+          de: 'LSP-Pfad',
+          ja: 'LSP パス',
+        ),
         value: lspPath.isEmpty ? '-' : OpenHandPaths.shortenHomePath(lspPath),
       ),
     ],
@@ -254,18 +299,30 @@ Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
   final isZh = openHandIsChineseLocale(context);
-  final sectionTitle = isZh
-      ? 'Harness Engineering 配置'
-      : 'Harness Engineering Config';
+  final sectionTitle = _localizedText(
+    context,
+    zh: 'Harness Engineering 配置',
+    zhHant: 'Harness Engineering 設定',
+    en: 'Harness Engineering Config',
+    fr: 'Configuration Harness Engineering',
+    de: 'Harness-Engineering-Konfiguration',
+    ja: 'Harness Engineering 設定',
+  );
   final configMap = _threadTemplateMetadataMap(session, 'hardness_config');
   if (configMap == null) {
     return _MetadataSection(
       title: sectionTitle,
       children: [
         Text(
-          isZh
-              ? '配置数据尚未写入会话元数据（该会话可能创建于功能推出之前）。'
-              : 'Configuration data has not been stored in session metadata (session may predate this feature).',
+          _localizedText(
+            context,
+            zh: '配置数据尚未写入会话元数据（该会话可能创建于功能推出之前）。',
+            zhHant: '設定資料尚未寫入會話中繼資料（此會話可能早於此功能）。',
+            en: 'Configuration data has not been stored in session metadata (session may predate this feature).',
+            fr: 'Les données de configuration ne sont pas dans les métadonnées de session (session peut-être antérieure à cette fonction).',
+            de: 'Konfigurationsdaten fehlen in den Sitzungsmetadaten (die Sitzung ist eventuell älter als diese Funktion).',
+            ja: '設定データはセッションメタデータにありません（この機能以前のセッションの可能性があります）。',
+          ),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
@@ -290,36 +347,150 @@ Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
   final firstRunRaw = configMap['first_run'];
 
   final roleConfigs = <(String, HardnessRoleConfig?)>[
-    (isZh ? '探档者 (Profiler)' : 'Profiler', parseRole('profiler')),
-    (isZh ? '调查者 (Reader)' : 'Reader', parseRole('reader')),
-    (isZh ? '规划者 (Planner)' : 'Planner', parseRole('planner')),
-    (isZh ? '实施者 (Implementer)' : 'Implementer', parseRole('implementer')),
-    (isZh ? '验收者 (Reviewer)' : 'Reviewer', parseRole('reviewer')),
+    (
+      _localizedText(
+        context,
+        zh: '探档者 (Profiler)',
+        zhHant: '探檔者 (Profiler)',
+        en: 'Profiler',
+        fr: 'Profiler',
+        de: 'Profiler',
+        ja: 'Profiler',
+      ),
+      parseRole('profiler'),
+    ),
+    (
+      _localizedText(
+        context,
+        zh: '调查者 (Reader)',
+        zhHant: '調查者 (Reader)',
+        en: 'Reader',
+        fr: 'Lecteur',
+        de: 'Reader',
+        ja: 'Reader',
+      ),
+      parseRole('reader'),
+    ),
+    (
+      _localizedText(
+        context,
+        zh: '规划者 (Planner)',
+        zhHant: '規劃者 (Planner)',
+        en: 'Planner',
+        fr: 'Planificateur',
+        de: 'Planner',
+        ja: 'Planner',
+      ),
+      parseRole('planner'),
+    ),
+    (
+      _localizedText(
+        context,
+        zh: '实施者 (Implementer)',
+        zhHant: '實作者 (Implementer)',
+        en: 'Implementer',
+        fr: 'Implémenteur',
+        de: 'Implementer',
+        ja: 'Implementer',
+      ),
+      parseRole('implementer'),
+    ),
+    (
+      _localizedText(
+        context,
+        zh: '验收者 (Reviewer)',
+        zhHant: '驗收者 (Reviewer)',
+        en: 'Reviewer',
+        fr: 'Relecteur',
+        de: 'Reviewer',
+        ja: 'Reviewer',
+      ),
+      parseRole('reviewer'),
+    ),
   ];
 
   return _MetadataSection(
     title: sectionTitle,
     children: [
       if (task.isNotEmpty)
-        _MetadataEntryRow(label: isZh ? '任务描述' : 'Task', value: task),
+        _MetadataEntryRow(
+          label: _localizedText(
+            context,
+            zh: '任务描述',
+            zhHant: '任務描述',
+            en: 'Task',
+            fr: 'Tâche',
+            de: 'Aufgabe',
+            ja: 'タスク',
+          ),
+          value: task,
+        ),
       _MetadataEntryRow(
-        label: isZh ? '工作目录' : 'Working Directory',
+        label: _localizedText(
+          context,
+          zh: '工作目录',
+          zhHant: '工作目錄',
+          en: 'Working Directory',
+          fr: 'Dossier de travail',
+          de: 'Arbeitsverzeichnis',
+          ja: '作業ディレクトリ',
+        ),
         value: workingDirectory.isEmpty ? '-' : workingDirectory,
       ),
       _MetadataEntryRow(
-        label: isZh ? '持久化目录' : 'Persistence Directory',
+        label: _localizedText(
+          context,
+          zh: '持久化目录',
+          zhHant: '持久化目錄',
+          en: 'Persistence Directory',
+          fr: 'Dossier persistant',
+          de: 'Persistenzverzeichnis',
+          ja: '永続化ディレクトリ',
+        ),
         value: persistenceDirectory.isEmpty ? '-' : persistenceDirectory,
       ),
       if (firstRunRaw != null)
         _MetadataEntryRow(
-          label: isZh ? '首次运行' : 'First Run',
+          label: _localizedText(
+            context,
+            zh: '首次运行',
+            zhHant: '首次執行',
+            en: 'First Run',
+            fr: 'Premier lancement',
+            de: 'Erster Lauf',
+            ja: '初回実行',
+          ),
           value: firstRunRaw == true
-              ? (isZh ? '是（含探档阶段）' : 'Yes (profiler phase included)')
-              : (isZh ? '否（增量运行）' : 'No (incremental run)'),
+              ? _localizedText(
+                  context,
+                  zh: '是（含探档阶段）',
+                  zhHant: '是（含探檔階段）',
+                  en: 'Yes (profiler phase included)',
+                  fr: 'Oui (phase profiler incluse)',
+                  de: 'Ja (Profiler-Phase enthalten)',
+                  ja: 'はい（Profiler フェーズを含む）',
+                )
+              : _localizedText(
+                  context,
+                  zh: '否（增量运行）',
+                  zhHant: '否（增量執行）',
+                  en: 'No (incremental run)',
+                  fr: 'Non (exécution incrémentale)',
+                  de: 'Nein (inkrementeller Lauf)',
+                  ja: 'いいえ（増分実行）',
+                ),
         ),
       const SizedBox(height: 12),
       Text(
-        isZh ? '角色配置' : 'Role Configs',
+        _localizedText(
+          context,
+          zh: '角色配置',
+          zhHant: '角色設定',
+          en: 'Role Configs',
+          fr: 'Configurations de rôle',
+          de: 'Rollenkonfigurationen',
+          ja: 'ロール設定',
+        ),
         style: theme.textTheme.labelLarge?.copyWith(
           fontWeight: FontWeight.w800,
         ),
@@ -331,7 +502,15 @@ Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
           value: () {
             final rc = entry.$2;
             if (rc == null || !rc.isConfigured) {
-              return isZh ? '未配置' : 'Not configured';
+              return _localizedText(
+                context,
+                zh: '未配置',
+                zhHant: '未設定',
+                en: 'Not configured',
+                fr: 'Non configuré',
+                de: 'Nicht konfiguriert',
+                ja: '未設定',
+              );
             }
             return '${rc.cliName} · ${describeHardnessCliModel(findHardnessCliByName(rc.cliName), rc.modelId, isZh: isZh)}';
           }(),
@@ -352,15 +531,34 @@ String _localizedText(
   BuildContext context, {
   required String zh,
   required String en,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
 }) {
-  return openHandLocalizedText(context, zh: zh, en: en);
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    zhHant: zhHant,
+    en: en,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
 }
 
 Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  final isZh = openHandIsChineseLocale(context);
-  final sectionTitle = isZh ? 'Web 逆向配置' : 'Web Reverse Config';
+  final sectionTitle = _localizedText(
+    context,
+    zh: 'Web 逆向配置',
+    zhHant: 'Web 逆向設定',
+    en: 'Web Reverse Config',
+    fr: 'Configuration Web Reverse',
+    de: 'Web-Reverse-Konfiguration',
+    ja: 'Web Reverse 設定',
+  );
   final config = WebReverseSessionConfig.fromJson(
     session.metadata['web_reverse_config'],
   );
@@ -369,9 +567,15 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
       title: sectionTitle,
       children: [
         Text(
-          isZh
-              ? '配置数据尚未写入会话元数据。'
-              : 'Configuration data has not been stored in session metadata.',
+          _localizedText(
+            context,
+            zh: '配置数据尚未写入会话元数据。',
+            zhHant: '設定資料尚未寫入會話中繼資料。',
+            en: 'Configuration data has not been stored in session metadata.',
+            fr: 'Les données de configuration ne sont pas encore dans les métadonnées de session.',
+            de: 'Konfigurationsdaten wurden noch nicht in den Sitzungsmetadaten gespeichert.',
+            ja: '設定データはまだセッションメタデータに保存されていません。',
+          ),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
@@ -383,67 +587,225 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
     title: sectionTitle,
     children: [
       _MetadataEntryRow(
-        label: isZh ? '目标 URL' : 'Target URL',
+        label: _localizedText(
+          context,
+          zh: '目标 URL',
+          zhHant: '目標 URL',
+          en: 'Target URL',
+          fr: 'URL cible',
+          de: 'Ziel-URL',
+          ja: '対象 URL',
+        ),
         value: config.targetUrl,
       ),
       _MetadataEntryRow(
-        label: isZh ? '逆向目标' : 'Objective',
+        label: _localizedText(
+          context,
+          zh: '逆向目标',
+          zhHant: '逆向目標',
+          en: 'Objective',
+          fr: 'Objectif',
+          de: 'Ziel',
+          ja: '目的',
+        ),
         value: config.objective,
       ),
       _MetadataEntryRow(
-        label: isZh ? '浏览器' : 'Browser',
+        label: _localizedText(
+          context,
+          zh: '浏览器',
+          zhHant: '瀏覽器',
+          en: 'Browser',
+          fr: 'Navigateur',
+          de: 'Browser',
+          ja: 'ブラウザ',
+        ),
         value: config.browserKind.displayName,
       ),
       _MetadataEntryRow(label: 'CDP Port', value: '${config.cdpPort}'),
       _MetadataEntryRow(
-        label: isZh ? 'AI 侧 CDP MCP' : 'AI-side CDP MCP',
+        label: _localizedText(
+          context,
+          zh: 'AI 侧 CDP MCP',
+          zhHant: 'AI 側 CDP MCP',
+          en: 'AI-side CDP MCP',
+          fr: 'CDP MCP côté IA',
+          de: 'AI-seitiges CDP MCP',
+          ja: 'AI側 CDP MCP',
+        ),
         value: config.cdpMcpEnabled
-            ? (isZh ? '已启用' : 'Enabled')
-            : (isZh ? '未启用' : 'Disabled'),
+            ? _localizedText(
+                context,
+                zh: '已启用',
+                zhHant: '已啟用',
+                en: 'Enabled',
+                fr: 'Activé',
+                de: 'Aktiviert',
+                ja: '有効',
+              )
+            : _localizedText(
+                context,
+                zh: '未启用',
+                zhHant: '未啟用',
+                en: 'Disabled',
+                fr: 'Désactivé',
+                de: 'Deaktiviert',
+                ja: '無効',
+              ),
       ),
       _MetadataEntryRow(
-        label: isZh ? '登录态' : 'Login Mode',
-        value: isZh ? config.loginMode.label : config.loginMode.id,
+        label: _localizedText(
+          context,
+          zh: '登录态',
+          zhHant: '登入狀態',
+          en: 'Login Mode',
+          fr: 'Mode de connexion',
+          de: 'Login-Modus',
+          ja: 'ログインモード',
+        ),
+        value: _webReverseLoginModeLabel(context, config.loginMode),
       ),
       if (config.proxy != null && config.proxy!.isNotEmpty)
-        _MetadataEntryRow(label: isZh ? '代理' : 'Proxy', value: config.proxy!),
+        _MetadataEntryRow(
+          label: _localizedText(
+            context,
+            zh: '代理',
+            zhHant: '代理',
+            en: 'Proxy',
+            fr: 'Proxy',
+            de: 'Proxy',
+            ja: 'プロキシ',
+          ),
+          value: config.proxy!,
+        ),
       if (config.keywords.isNotEmpty)
         _MetadataEntryRow(
-          label: isZh ? '关键字' : 'Keywords',
+          label: _localizedText(
+            context,
+            zh: '关键字',
+            zhHant: '關鍵字',
+            en: 'Keywords',
+            fr: 'Mots-clés',
+            de: 'Schlüsselwörter',
+            ja: 'キーワード',
+          ),
           value: config.keywords.join(', '),
         ),
       if (config.triggerActions != null && config.triggerActions!.isNotEmpty)
         _MetadataEntryRow(
-          label: isZh ? '触发动作' : 'Trigger Actions',
+          label: _localizedText(
+            context,
+            zh: '触发动作',
+            zhHant: '觸發動作',
+            en: 'Trigger Actions',
+            fr: 'Actions déclencheuses',
+            de: 'Auslöseaktionen',
+            ja: 'トリガー操作',
+          ),
           value: config.triggerActions!,
         ),
       _MetadataEntryRow(
-        label: isZh ? 'Profile 目录' : 'User Data Dir',
+        label: _localizedText(
+          context,
+          zh: 'Profile 目录',
+          zhHant: 'Profile 目錄',
+          en: 'User Data Dir',
+          fr: 'Dossier profil',
+          de: 'Profildatenordner',
+          ja: 'ユーザーデータディレクトリ',
+        ),
         value: OpenHandPaths.shortenHomePath(config.userDataDir),
       ),
     ],
   );
 }
 
+String _webReverseLoginModeLabel(
+  BuildContext context,
+  WebReverseLoginMode mode,
+) {
+  return switch (mode) {
+    WebReverseLoginMode.none => _localizedText(
+      context,
+      zh: '无需登录',
+      zhHant: '無需登入',
+      en: 'None',
+      fr: 'Aucune',
+      de: 'Keine',
+      ja: '不要',
+    ),
+    WebReverseLoginMode.manual => _localizedText(
+      context,
+      zh: '手动登录',
+      zhHant: '手動登入',
+      en: 'Manual',
+      fr: 'Manuelle',
+      de: 'Manuell',
+      ja: '手動',
+    ),
+    WebReverseLoginMode.storageState => _localizedText(
+      context,
+      zh: '已有状态',
+      zhHant: '既有狀態',
+      en: 'Storage state',
+      fr: 'État stocké',
+      de: 'Gespeicherter Status',
+      ja: '保存済み状態',
+    ),
+  };
+}
+
 Future<String?> _showEditQueuedMessageDialog(
   BuildContext context,
   String currentText,
 ) async {
-  final isZh = openHandIsChineseLocale(context);
+  final hint = _localizedText(
+    context,
+    zh: '输入消息内容…',
+    zhHant: '輸入訊息內容…',
+    en: 'Enter message…',
+    fr: 'Saisir le message…',
+    de: 'Nachricht eingeben…',
+    ja: 'メッセージを入力…',
+  );
   return showOpenHandTextInputDialog(
     context: context,
-    title: isZh ? '编辑等待消息' : 'Edit Queued Message',
+    title: _localizedText(
+      context,
+      zh: '编辑等待消息',
+      zhHant: '編輯等待訊息',
+      en: 'Edit Queued Message',
+      fr: 'Modifier le message en attente',
+      de: 'Wartende Nachricht bearbeiten',
+      ja: '待機中メッセージを編集',
+    ),
     initialValue: currentText,
-    hintText: isZh ? '输入消息内容…' : 'Enter message…',
-    cancelLabel: isZh ? '取消' : 'Cancel',
-    confirmLabel: isZh ? '保存' : 'Save',
+    hintText: hint,
+    cancelLabel: _localizedText(
+      context,
+      zh: '取消',
+      zhHant: '取消',
+      en: 'Cancel',
+      fr: 'Annuler',
+      de: 'Abbrechen',
+      ja: 'キャンセル',
+    ),
+    confirmLabel: _localizedText(
+      context,
+      zh: '保存',
+      zhHant: '儲存',
+      en: 'Save',
+      fr: 'Enregistrer',
+      de: 'Speichern',
+      ja: '保存',
+    ),
     maxWidth: 480,
     minLines: 3,
     maxLines: 8,
     trimResult: false,
     decoration: InputDecoration(
       border: const OutlineInputBorder(),
-      hintText: isZh ? '输入消息内容…' : 'Enter message…',
+      hintText: hint,
     ),
   );
 }
