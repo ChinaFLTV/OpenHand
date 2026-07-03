@@ -779,18 +779,19 @@ class AiMachineExpertRequestCard {
   final bool truncated;
 
   bool get isEmpty =>
-      terminalApplication.trim().isEmpty &&
-      terminalLocation.trim().isEmpty &&
-      (appleScriptTarget ?? '').trim().isEmpty &&
-      taskRequirement.trim().isEmpty;
+      nullIfBlank(terminalApplication) == null &&
+      nullIfBlank(terminalLocation) == null &&
+      nullIfBlank(appleScriptTarget) == null &&
+      nullIfBlank(taskRequirement) == null;
 
   Map<String, Object?> toJson() {
+    final normalizedAppleScriptTarget = nullIfBlank(appleScriptTarget);
     return <String, Object?>{
       'schema_version': aiSessionMachineExpertRequestCardSchemaVersion,
       'terminal_application': terminalApplication,
       'terminal_location': terminalLocation,
-      if ((appleScriptTarget ?? '').trim().isNotEmpty)
-        'applescript_target': appleScriptTarget!.trim(),
+      if (normalizedAppleScriptTarget != null)
+        'applescript_target': normalizedAppleScriptTarget,
       'task_requirement': taskRequirement,
       if (truncated) 'truncated': true,
     };
@@ -844,10 +845,10 @@ class AiMachineExpertRequestCard {
       appleScriptTarget,
       taskRequirement,
     ];
-    if (taskRequirement.trim().isEmpty ||
-        (terminalApplication.trim().isEmpty &&
-            terminalLocation.trim().isEmpty) ||
-        rawFields.every((field) => field.trim().isEmpty)) {
+    if (nullIfBlank(taskRequirement) == null ||
+        (nullIfBlank(terminalApplication) == null &&
+            nullIfBlank(terminalLocation) == null) ||
+        rawFields.every((field) => nullIfBlank(field) == null)) {
       return null;
     }
     final card = AiMachineExpertRequestCard(
@@ -899,29 +900,32 @@ class AiWebReverseRequestCard {
   final bool truncated;
 
   bool get isEmpty =>
-      targetUrl.trim().isEmpty &&
-      reverseTarget.trim().isEmpty &&
-      loginState.trim().isEmpty &&
-      browser.trim().isEmpty &&
-      cdpPort.trim().isEmpty &&
-      cdpMcp.trim().isEmpty &&
-      evidenceDiscipline.trim().isEmpty &&
-      deliverables.trim().isEmpty &&
-      acceptanceCriteria.trim().isEmpty;
+      nullIfBlank(targetUrl) == null &&
+      nullIfBlank(reverseTarget) == null &&
+      nullIfBlank(loginState) == null &&
+      nullIfBlank(browser) == null &&
+      nullIfBlank(cdpPort) == null &&
+      nullIfBlank(cdpMcp) == null &&
+      nullIfBlank(evidenceDiscipline) == null &&
+      nullIfBlank(deliverables) == null &&
+      nullIfBlank(acceptanceCriteria) == null;
 
   Map<String, Object?> toJson() {
+    final normalizedTriggerActions = nullIfBlank(triggerActions);
+    final normalizedProxy = nullIfBlank(proxy);
+    final normalizedKeywords = nullIfBlank(keywords);
     return <String, Object?>{
       'schema_version': aiSessionExpertRequestCardSchemaVersion,
       'target_url': targetUrl,
       'reverse_target': reverseTarget,
-      if ((triggerActions ?? '').trim().isNotEmpty)
-        'trigger_actions': triggerActions!.trim(),
+      if (normalizedTriggerActions != null)
+        'trigger_actions': normalizedTriggerActions,
       'login_state': loginState,
       'browser': browser,
       'cdp_port': cdpPort,
       'cdp_mcp': cdpMcp,
-      if ((proxy ?? '').trim().isNotEmpty) 'proxy': proxy!.trim(),
-      if ((keywords ?? '').trim().isNotEmpty) 'keywords': keywords!.trim(),
+      if (normalizedProxy != null) 'proxy': normalizedProxy,
+      if (normalizedKeywords != null) 'keywords': normalizedKeywords,
       'evidence_discipline': evidenceDiscipline,
       'deliverables': deliverables,
       'acceptance_criteria': acceptanceCriteria,
@@ -1101,38 +1105,41 @@ class AiAndroidReverseRequestCard {
   final String acceptanceCriteria;
   final bool truncated;
 
-  String get deviceDisplay => (deviceSerial ?? '').trim().isNotEmpty
-      ? deviceSerial!.trim()
-      : device ?? '';
+  String get deviceDisplay => nullIfBlank(deviceSerial) ?? device ?? '';
 
   bool get isEmpty =>
-      reverseTarget.trim().isEmpty &&
-      (packageName ?? '').trim().isEmpty &&
-      (apkPath ?? '').trim().isEmpty &&
-      deviceDisplay.trim().isEmpty &&
-      analysisMode.trim().isEmpty &&
-      authorizationScope.trim().isEmpty &&
-      adbMcp.trim().isEmpty &&
-      fridaMcp.trim().isEmpty &&
-      evidenceDiscipline.trim().isEmpty &&
-      acceptanceCriteria.trim().isEmpty;
+      nullIfBlank(reverseTarget) == null &&
+      nullIfBlank(packageName) == null &&
+      nullIfBlank(apkPath) == null &&
+      nullIfBlank(deviceDisplay) == null &&
+      nullIfBlank(analysisMode) == null &&
+      nullIfBlank(authorizationScope) == null &&
+      nullIfBlank(adbMcp) == null &&
+      nullIfBlank(fridaMcp) == null &&
+      nullIfBlank(evidenceDiscipline) == null &&
+      nullIfBlank(acceptanceCriteria) == null;
 
   Map<String, Object?> toJson() {
+    final normalizedPackageName = nullIfBlank(packageName);
+    final normalizedApkPath = nullIfBlank(apkPath);
+    final normalizedDevice = nullIfBlank(device);
+    final normalizedDeviceSerial = nullIfBlank(deviceSerial);
+    final normalizedKeywords = nullIfBlank(keywords);
+    final normalizedNotes = nullIfBlank(notes);
     return <String, Object?>{
       'schema_version': aiSessionExpertRequestCardSchemaVersion,
       'reverse_target': reverseTarget,
-      if ((packageName ?? '').trim().isNotEmpty)
-        'package_name': packageName!.trim(),
-      if ((apkPath ?? '').trim().isNotEmpty) 'apk_path': apkPath!.trim(),
-      if ((device ?? '').trim().isNotEmpty) 'device': device!.trim(),
-      if ((deviceSerial ?? '').trim().isNotEmpty)
-        'device_serial': deviceSerial!.trim(),
+      if (normalizedPackageName != null) 'package_name': normalizedPackageName,
+      if (normalizedApkPath != null) 'apk_path': normalizedApkPath,
+      if (normalizedDevice != null) 'device': normalizedDevice,
+      if (normalizedDeviceSerial != null)
+        'device_serial': normalizedDeviceSerial,
       'analysis_mode': analysisMode,
       'authorization_scope': authorizationScope,
       'adb_mcp': adbMcp,
       'frida_mcp': fridaMcp,
-      if ((keywords ?? '').trim().isNotEmpty) 'keywords': keywords!.trim(),
-      if ((notes ?? '').trim().isNotEmpty) 'notes': notes!.trim(),
+      if (normalizedKeywords != null) 'keywords': normalizedKeywords,
+      if (normalizedNotes != null) 'notes': normalizedNotes,
       'evidence_discipline': evidenceDiscipline,
       'acceptance_criteria': acceptanceCriteria,
       if (truncated) 'truncated': true,
@@ -1384,13 +1391,15 @@ class AiSessionMessageResponseVariant {
   }
 
   Map<String, Object?> toJson() {
+    final normalizedId = nullIfBlank(id);
+    final normalizedModelId = nullIfBlank(modelId);
+    final normalizedModelLabel = nullIfBlank(modelLabel);
     return <String, Object?>{
-      if (id != null && id!.trim().isNotEmpty) 'id': id,
+      if (normalizedId != null) 'id': normalizedId,
       'content': content,
       'created_at': createdAt.toUtc().toIso8601String(),
-      if (modelId != null && modelId!.trim().isNotEmpty) 'model_id': modelId,
-      if (modelLabel != null && modelLabel!.trim().isNotEmpty)
-        'model_label': modelLabel,
+      if (normalizedModelId != null) 'model_id': normalizedModelId,
+      if (normalizedModelLabel != null) 'model_label': normalizedModelLabel,
       if (usage != null && !usage!.isEmpty) 'usage': usage!.toJson(),
       if (feedback != null)
         aiSessionMessageFeedbackMetadataKey: feedback!.storageValue,
@@ -1444,7 +1453,7 @@ class AiSessionMessageResponseVariant {
         continue;
       }
       final variant = AiSessionMessageResponseVariant.fromJson(map);
-      if (variant.content.trim().isNotEmpty) {
+      if (nullIfBlank(variant.content) != null) {
         variants.add(variant);
       }
     }
