@@ -291,7 +291,7 @@ class AiToolExecutionResult {
   final String writeAnalysisReason;
   final Map<String, Object?> metadata;
 
-  String toToolOutput() => resultText.trim();
+  String toToolOutput() => nullIfBlank(resultText) ?? '';
 }
 
 class _PersistedToolOutput {
@@ -1100,15 +1100,17 @@ class AiToolRuntimeService {
         toolCallId: toolCall.id,
         result: rawResult,
       );
+      final postHookWorkingDirectory = _effectiveWorkingDirectory(
+        rawResult.workingDirectory,
+        fallback: hookWorkingDirectory,
+      );
       final postHookResult = await _hookService.runHooks(
         eventName: rawResult.status == BashToolExecutionStatus.success
             ? 'PostToolUse'
             : 'PostToolUseFailure',
         sessionId: sessionId,
         matcherValue: hookMatcherValue,
-        cwd: rawResult.workingDirectory.trim().isEmpty
-            ? hookWorkingDirectory
-            : rawResult.workingDirectory,
+        cwd: postHookWorkingDirectory,
         payload: _toolHookPayload(
           eventName: rawResult.status == BashToolExecutionStatus.success
               ? 'PostToolUse'
@@ -1117,9 +1119,7 @@ class AiToolRuntimeService {
           toolSource: resolvedTool.source.name,
           sessionId: sessionId,
           toolInput: decodedArguments,
-          cwd: rawResult.workingDirectory.trim().isEmpty
-              ? hookWorkingDirectory
-              : rawResult.workingDirectory,
+          cwd: postHookWorkingDirectory,
           toolOutput: <String, Object?>{
             'status': rawResult.status.storageValue,
             'command': rawResult.command,
@@ -1333,8 +1333,7 @@ class AiToolRuntimeService {
   }
 
   String _safeToolOutputStorageIdentifier(String raw, String fallback) {
-    final normalized = raw
-        .trim()
+    final normalized = (nullIfBlank(raw) ?? '')
         .replaceAll(RegExp(r'[^A-Za-z0-9_.-]+'), '_')
         .replaceAll(RegExp(r'_+'), '_');
     final value = normalized.isEmpty ? fallback : normalized;
@@ -1690,9 +1689,8 @@ class AiToolRuntimeService {
       arguments: decodedArguments,
       toolCallId: toolCall.id,
     );
-    final outputText = result.outputText.trim().isEmpty
-        ? 'The MCP tool returned no output.'
-        : result.outputText.trim();
+    final outputText =
+        nullIfBlank(result.outputText) ?? 'The MCP tool returned no output.';
     return AiToolExecutionResult(
       status: result.isError
           ? BashToolExecutionStatus.failed
@@ -1880,8 +1878,8 @@ class AiToolRuntimeService {
     }
     final startedAt = Stopwatch()..start();
     final requestedTask =
-        '${decodedArguments['task'] ?? decodedArguments['prompt'] ?? ''}'
-            .trim();
+        optionalStringFromValue(decodedArguments['task']) ??
+        optionalStringFromValue(decodedArguments['prompt']);
     final String manifestContent;
     try {
       manifestContent = await File(skill.manifestPath).readAsString();
@@ -1900,12 +1898,13 @@ class AiToolRuntimeService {
       ..writeln('description: ${skill.description}')
       ..writeln('directory: ${skill.directoryPath}')
       ..writeln('manifest_path: ${skill.manifestPath}');
-    if ((skill.defaultPrompt ?? '').trim().isNotEmpty) {
+    final defaultPrompt = nullIfBlank(skill.defaultPrompt);
+    if (defaultPrompt != null) {
       buffer
         ..writeln('default_prompt:')
         ..writeln(skill.defaultPrompt!.trimRight());
     }
-    if (requestedTask.isNotEmpty) {
+    if (requestedTask != null) {
       buffer.writeln('requested_task: $requestedTask');
     }
     buffer
@@ -1916,14 +1915,15 @@ class AiToolRuntimeService {
         ..writeln('linked_resources:')
         ..writeln(linkedResources.trimRight());
     }
+    final output = nullIfBlank(buffer.toString()) ?? '';
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.success,
       command: tool.name,
       workingDirectory: skill.directoryPath,
-      stdout: buffer.toString().trim(),
+      stdout: output,
       stderr: '',
       durationMs: startedAt.elapsedMilliseconds,
-      resultText: buffer.toString().trim(),
+      resultText: output,
       metadata: <String, Object?>{
         'tool_source': 'skill',
         'skill_name': skill.name,
@@ -1996,12 +1996,13 @@ class AiToolRuntimeService {
   }
 
   String _hookWorkingDirectory(Map<String, Object?> decodedArguments) {
-    final rawWorkingDirectory =
-        '${decodedArguments['working_directory'] ?? decodedArguments['cwd'] ?? ''}'
-            .trim();
-    return rawWorkingDirectory.isEmpty
-        ? AiToolUtils.defaultWorkingDirectory()
-        : rawWorkingDirectory;
+    return optionalStringFromValue(decodedArguments['working_directory']) ??
+        optionalStringFromValue(decodedArguments['cwd']) ??
+        AiToolUtils.defaultWorkingDirectory();
+  }
+
+  String _effectiveWorkingDirectory(String value, {required String fallback}) {
+    return nullIfBlank(value) ?? fallback;
   }
 
   // 2026-04-01 10:27:21
