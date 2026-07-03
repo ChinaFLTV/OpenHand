@@ -160,8 +160,8 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     }
     final vector = <double>[];
     for (final value in values) {
-      final parsed = double.tryParse(value);
-      if (parsed == null || parsed.isNaN || !parsed.isFinite) {
+      final parsed = optionalDoubleFromValue(value);
+      if (parsed == null) {
         OpenHandSnackBar.showError(
           context,
           l10n.qdrantStatusRawVectorInvalid(value),

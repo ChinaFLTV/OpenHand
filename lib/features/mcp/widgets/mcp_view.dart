@@ -6550,11 +6550,9 @@ String _schemaType(Object? schema) {
     if (variants is! List || variants.isEmpty) {
       continue;
     }
-    final variantTypes = variants
-        .map(_schemaType)
-        .where((item) => item.trim().isNotEmpty)
-        .toSet()
-        .toList(growable: false);
+    final variantTypes = trimmedNonEmptyStrings(
+      variants.map(_schemaType),
+    ).toSet().toList(growable: false);
     if (variantTypes.isNotEmpty) {
       return variantTypes.join(' | ');
     }
