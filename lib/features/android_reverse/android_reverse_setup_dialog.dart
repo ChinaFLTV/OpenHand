@@ -147,21 +147,15 @@ class _AndroidReverseSetupDialogState
     final keywords = splitLooseDelimitedValues(_keywordsCtrl.text);
     final config = AndroidReverseSessionConfig(
       objective: _objectiveCtrl.text.trim(),
-      packageName: _packageCtrl.text.trim().isEmpty
-          ? null
-          : _packageCtrl.text.trim(),
-      apkPath: _apkCtrl.text.trim().isEmpty ? null : _apkCtrl.text.trim(),
-      deviceSerial: _deviceCtrl.text.trim().isEmpty
-          ? null
-          : _deviceCtrl.text.trim(),
-      authorizationScope: _authorizationScopeCtrl.text.trim().isEmpty
-          ? null
-          : _authorizationScopeCtrl.text.trim(),
+      packageName: nullIfBlank(_packageCtrl.text),
+      apkPath: nullIfBlank(_apkCtrl.text),
+      deviceSerial: nullIfBlank(_deviceCtrl.text),
+      authorizationScope: nullIfBlank(_authorizationScopeCtrl.text),
       analysisMode: _analysisMode,
       adbMcpEnabled: _adbMcpEnabled,
       fridaMcpEnabled: _fridaMcpEnabled,
       keywords: keywords,
-      notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+      notes: nullIfBlank(_notesCtrl.text),
     );
     Navigator.of(context).pop(
       AndroidReverseSetupResult(

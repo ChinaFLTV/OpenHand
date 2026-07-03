@@ -11,6 +11,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/resizable_splitter.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -302,8 +303,8 @@ class _StorageDialogState extends State<_StorageDialog>
       final success = await widget.controller.setCookie(
         name: name,
         value: valueCtl.text,
-        domain: domainCtl.text.trim().isEmpty ? null : domainCtl.text.trim(),
-        path: pathCtl.text.trim().isEmpty ? null : pathCtl.text.trim(),
+        domain: nullIfBlank(domainCtl.text),
+        path: nullIfBlank(pathCtl.text),
         secure: secure,
         httpOnly: httpOnly,
       );

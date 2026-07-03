@@ -1168,8 +1168,8 @@ class _PendingFetchBanner extends StatelessWidget {
       final bodyB64 = body.isEmpty ? null : base64Encode(utf8.encode(body));
       await controller.continueFetchRequestEdited(
         p.requestId,
-        url: urlCtrl.text.trim().isEmpty ? null : urlCtrl.text.trim(),
-        method: methodCtrl.text.trim().isEmpty ? null : methodCtrl.text.trim(),
+        url: nullIfBlank(urlCtrl.text),
+        method: nullIfBlank(methodCtrl.text),
         headers: headers,
         postDataBase64: bodyB64,
       );

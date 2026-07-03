@@ -153,7 +153,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
         height: h,
         deviceScaleFactor: dpr,
         mobile: _mobile,
-        userAgent: _ua.text.trim().isEmpty ? null : _ua.text.trim(),
+        userAgent: nullIfBlank(_ua.text),
       );
       final ok = await _setDevicePreset(preset, action: 'device-emu.custom');
       if (!mounted) return;

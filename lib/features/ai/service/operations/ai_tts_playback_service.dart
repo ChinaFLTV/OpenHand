@@ -357,7 +357,7 @@ class AiTtsPlaybackService {
       model: model,
       prompt: text,
       options: AiCreationOptions(
-        voice: voice.trim().isEmpty ? null : voice.trim(),
+        voice: nullIfBlank(voice),
         speed: settings.speed,
         volume: settings.volume,
         pitch: settings.pitch,
