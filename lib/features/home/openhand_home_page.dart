@@ -5097,10 +5097,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   /// Extracts a short display title from the raw task text.
   static String _hardnessTitleFromTask(String task) {
-    final firstLine = task
-        .split('\n')
-        .map((l) => l.trim())
-        .firstWhere((l) => l.isNotEmpty, orElse: () => task.trim());
+    final firstLine =
+        splitTrimmedNonEmpty(task, separator: '\n').firstOrNull ?? task.trim();
     if (firstLine.length <= 45) return firstLine;
     return '${firstLine.substring(0, 45)}…';
   }

@@ -1587,11 +1587,12 @@ class AiToolUtils {
         tag: 'ai_tool_utils.resolve_rg_path',
       );
       if (whichResult.exitCode == 0) {
-        final foundPath = whichResult.stdout
-            .toString()
-            .trim()
-            .split('\n')
-            .first;
+        final foundPath =
+            splitTrimmedNonEmpty(
+              whichResult.stdout.toString(),
+              separator: '\n',
+            ).firstOrNull ??
+            '';
         if (foundPath.isNotEmpty && await File(foundPath).exists()) {
           _cachedRgPath = foundPath;
           return _cachedRgPath;

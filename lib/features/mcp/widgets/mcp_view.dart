@@ -3621,11 +3621,14 @@ class _McpHealthHistorySheet extends StatelessWidget {
         buffer.write(' · ${probe.latencyMs} ms');
       }
       if (probe.errorMessage != null && probe.errorMessage!.trim().isNotEmpty) {
-        final firstLine = probe.errorMessage!
-            .split('\n')
-            .firstWhere((line) => line.trim().isNotEmpty, orElse: () => '');
+        final firstLine =
+            splitTrimmedNonEmpty(
+              probe.errorMessage!,
+              separator: '\n',
+            ).firstOrNull ??
+            '';
         if (firstLine.isNotEmpty) {
-          buffer.write(' — ${firstLine.trim()}');
+          buffer.write(' — $firstLine');
         }
       }
       buffer.writeln();
