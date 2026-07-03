@@ -35,6 +35,36 @@ let monacoLoadPromise: Promise<MonacoStub> | null = null;
 
 const MONACO_VERSION = '0.52.2';
 const MONACO_BASE = `https://cdn.jsdelivr.net/npm/monaco-editor@${MONACO_VERSION}/min/vs`;
+const LANGUAGE_SUFFIX_RULES: ReadonlyArray<{
+  suffixes: readonly string[];
+  language: string;
+}> = [
+  { suffixes: ['.dart'], language: 'dart' },
+  { suffixes: ['.ts', '.tsx'], language: 'typescript' },
+  { suffixes: ['.js', '.mjs', '.cjs', '.jsx'], language: 'javascript' },
+  { suffixes: ['.json'], language: 'json' },
+  { suffixes: ['.html', '.htm'], language: 'html' },
+  { suffixes: ['.css'], language: 'css' },
+  { suffixes: ['.scss'], language: 'scss' },
+  { suffixes: ['.md', '.markdown'], language: 'markdown' },
+  { suffixes: ['.py'], language: 'python' },
+  { suffixes: ['.go'], language: 'go' },
+  { suffixes: ['.rs'], language: 'rust' },
+  { suffixes: ['.java'], language: 'java' },
+  { suffixes: ['.kt', '.kts'], language: 'kotlin' },
+  { suffixes: ['.swift'], language: 'swift' },
+  { suffixes: ['.c', '.h'], language: 'c' },
+  { suffixes: ['.cc', '.cpp', '.hpp', '.hxx'], language: 'cpp' },
+  { suffixes: ['.cs'], language: 'csharp' },
+  { suffixes: ['.rb'], language: 'ruby' },
+  { suffixes: ['.php'], language: 'php' },
+  { suffixes: ['.sh', '.bash', '.zsh'], language: 'shell' },
+  { suffixes: ['.yml', '.yaml'], language: 'yaml' },
+  { suffixes: ['.toml', '.ini', '.conf'], language: 'ini' },
+  { suffixes: ['.xml', '.svg'], language: 'xml' },
+  { suffixes: ['.sql'], language: 'sql' },
+  { suffixes: ['.dockerfile', 'dockerfile'], language: 'dockerfile' },
+];
 
 function loadMonaco(): Promise<MonacoStub> {
   if (monacoLoadPromise) return monacoLoadPromise;
@@ -93,33 +123,11 @@ function loadMonaco(): Promise<MonacoStub> {
 
 function languageFromFilename(name: string): string {
   const lower = name.toLowerCase();
-  if (lower.endsWith('.dart')) return 'dart';
-  if (lower.endsWith('.ts') || lower.endsWith('.tsx')) return 'typescript';
-  if (lower.endsWith('.js') || lower.endsWith('.mjs') || lower.endsWith('.cjs')) return 'javascript';
-  if (lower.endsWith('.jsx')) return 'javascript';
-  if (lower.endsWith('.json')) return 'json';
-  if (lower.endsWith('.html') || lower.endsWith('.htm')) return 'html';
-  if (lower.endsWith('.css')) return 'css';
-  if (lower.endsWith('.scss')) return 'scss';
-  if (lower.endsWith('.md') || lower.endsWith('.markdown')) return 'markdown';
-  if (lower.endsWith('.py')) return 'python';
-  if (lower.endsWith('.go')) return 'go';
-  if (lower.endsWith('.rs')) return 'rust';
-  if (lower.endsWith('.java')) return 'java';
-  if (lower.endsWith('.kt') || lower.endsWith('.kts')) return 'kotlin';
-  if (lower.endsWith('.swift')) return 'swift';
-  if (lower.endsWith('.c') || lower.endsWith('.h')) return 'c';
-  if (lower.endsWith('.cc') || lower.endsWith('.cpp') || lower.endsWith('.hpp') || lower.endsWith('.hxx')) return 'cpp';
-  if (lower.endsWith('.cs')) return 'csharp';
-  if (lower.endsWith('.rb')) return 'ruby';
-  if (lower.endsWith('.php')) return 'php';
-  if (lower.endsWith('.sh') || lower.endsWith('.bash') || lower.endsWith('.zsh')) return 'shell';
-  if (lower.endsWith('.yml') || lower.endsWith('.yaml')) return 'yaml';
-  if (lower.endsWith('.toml')) return 'ini';
-  if (lower.endsWith('.xml') || lower.endsWith('.svg')) return 'xml';
-  if (lower.endsWith('.sql')) return 'sql';
-  if (lower.endsWith('.ini') || lower.endsWith('.conf')) return 'ini';
-  if (lower.endsWith('.dockerfile') || lower.endsWith('dockerfile')) return 'dockerfile';
+  for (const rule of LANGUAGE_SUFFIX_RULES) {
+    if (rule.suffixes.some((suffix) => lower.endsWith(suffix))) {
+      return rule.language;
+    }
+  }
   return 'plaintext';
 }
 
