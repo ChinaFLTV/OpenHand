@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/skill_market.dart';
 
 class SkillMarketException implements Exception {
@@ -27,6 +28,7 @@ class SkillMarketClient {
   static const int _maxDownloadBytes = 48 * 1024 * 1024;
   static const Duration _requestTimeout = Duration(seconds: 14);
   static const Duration _downloadIdleTimeout = Duration(seconds: 18);
+  static const String _skillManifestPath = 'SKILL.MD';
 
   final http.Client _client;
   final Map<String, Future<SkillMarketSearchResult>> _searchCache =
@@ -55,7 +57,7 @@ class SkillMarketClient {
     required int page,
     int pageSize = defaultPageSize,
   }) {
-    final normalizedKeyword = keyword.trim();
+    final normalizedKeyword = nullIfBlank(keyword) ?? '';
     final normalizedPage = page < 1 ? 1 : page;
     final normalizedPageSize = pageSize < 1 ? defaultPageSize : pageSize;
     final cacheKey = '$normalizedPage|$normalizedPageSize|$normalizedKeyword';
@@ -78,13 +80,13 @@ class SkillMarketClient {
   }
 
   Future<SkillMarketBundle> loadSkillBundle(String slug, {String? version}) {
-    final normalizedSlug = slug.trim();
-    if (normalizedSlug.isEmpty) {
+    final normalizedSlug = _normalizeSlug(slug);
+    if (normalizedSlug == null) {
       return Future<SkillMarketBundle>.error(
         const SkillMarketException('Skill slug is empty.'),
       );
     }
-    final normalizedVersion = version?.trim() ?? '';
+    final normalizedVersion = _normalizeVersion(version);
     final cacheKey = '$normalizedSlug|$normalizedVersion';
     final cached = _bundleCache[cacheKey];
     if (cached != null) {
@@ -104,8 +106,8 @@ class SkillMarketClient {
   }
 
   Future<Uint8List> downloadSkillArchive(String slug) async {
-    final normalizedSlug = slug.trim();
-    if (normalizedSlug.isEmpty) {
+    final normalizedSlug = _normalizeSlug(slug);
+    if (normalizedSlug == null) {
       throw const SkillMarketException('Skill slug is empty.');
     }
 
@@ -241,7 +243,10 @@ class SkillMarketClient {
   }
 
   Future<SkillMarketDetail> fetchSkillDetail(String slug) async {
-    final normalizedSlug = slug.trim();
+    final normalizedSlug = _normalizeSlug(slug);
+    if (normalizedSlug == null) {
+      throw const SkillMarketException('Skill slug is empty.');
+    }
     return _cached(_detailCache, normalizedSlug, () async {
       final json = await _getJson(
         Uri.https(_host, '/api/v1/skills/$normalizedSlug'),
@@ -254,8 +259,14 @@ class SkillMarketClient {
     String slug,
     String version,
   ) async {
-    final normalizedSlug = slug.trim();
-    final normalizedVersion = version.trim();
+    final normalizedSlug = _normalizeSlug(slug);
+    if (normalizedSlug == null) {
+      throw const SkillMarketException('Skill slug is empty.');
+    }
+    final normalizedVersion = _normalizeVersion(version);
+    if (normalizedVersion.isEmpty) {
+      throw const SkillMarketException('Skill version is empty.');
+    }
     return _cached(_filesCache, '$normalizedSlug|$normalizedVersion', () async {
       final json = await _getJson(
         Uri.https(
@@ -273,9 +284,18 @@ class SkillMarketClient {
     required String path,
     required String version,
   }) async {
-    final normalizedSlug = slug.trim();
-    final normalizedPath = path.trim();
-    final normalizedVersion = version.trim();
+    final normalizedSlug = _normalizeSlug(slug);
+    if (normalizedSlug == null) {
+      throw const SkillMarketException('Skill slug is empty.');
+    }
+    final normalizedPath = nullIfBlank(path);
+    if (normalizedPath == null) {
+      throw const SkillMarketException('Skill file path is empty.');
+    }
+    final normalizedVersion = _normalizeVersion(version);
+    if (normalizedVersion.isEmpty) {
+      throw const SkillMarketException('Skill version is empty.');
+    }
     return _cached(
       _fileContentCache,
       '$normalizedSlug|$normalizedVersion|$normalizedPath',
@@ -306,7 +326,10 @@ class SkillMarketClient {
   }
 
   Future<SkillMarketVersionsResult> fetchSkillVersions(String slug) async {
-    final normalizedSlug = slug.trim();
+    final normalizedSlug = _normalizeSlug(slug);
+    if (normalizedSlug == null) {
+      throw const SkillMarketException('Skill slug is empty.');
+    }
     return _cached(_versionsCache, normalizedSlug, () async {
       final json = await _getJson(
         Uri.https(_host, '/api/v1/skills/$normalizedSlug/versions'),
@@ -325,7 +348,7 @@ class SkillMarketClient {
     }
     SkillMarketFileEntry? skillManifest;
     for (final file in files.files) {
-      if (file.path.trim().toUpperCase() == 'SKILL.MD') {
+      if (nullIfBlank(file.path)?.toUpperCase() == _skillManifestPath) {
         skillManifest = file;
         break;
       }
@@ -352,20 +375,24 @@ class SkillMarketClient {
   }
 
   String _resolveVersion(SkillMarketDetail detail, String requestedVersion) {
-    final normalizedRequestedVersion = requestedVersion.trim();
+    final normalizedRequestedVersion = _normalizeVersion(requestedVersion);
     if (normalizedRequestedVersion.isNotEmpty) {
       return normalizedRequestedVersion;
     }
-    final latestVersion = detail.latestVersion?.version.trim() ?? '';
+    final latestVersion = _normalizeVersion(detail.latestVersion?.version);
     if (latestVersion.isNotEmpty) {
       return latestVersion;
     }
-    final latestTag = detail.skill.latestTag.trim();
+    final latestTag = _normalizeVersion(detail.skill.latestTag);
     if (latestTag.isNotEmpty) {
       return latestTag;
     }
     return '';
   }
+
+  String? _normalizeSlug(String slug) => nullIfBlank(slug);
+
+  String _normalizeVersion(String? version) => nullIfBlank(version) ?? '';
 
   Future<Map<String, Object?>> _getJson(Uri uri) async {
     final response = await _client
