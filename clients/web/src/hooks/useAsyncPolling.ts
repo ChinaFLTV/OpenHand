@@ -5,6 +5,7 @@ import {
   runWithAbortableTimeout,
 } from '../utils/timed_abort';
 import { useEventCallback } from './useEventCallback';
+import { useTimeoutController } from './useTimeoutController';
 
 const MIN_POLL_INTERVAL_MS = 250;
 const DEFAULT_TASK_TIMEOUT_MS = 30_000;
@@ -61,28 +62,24 @@ export function useAsyncPolling(
   const handleError = useEventCallback((error: unknown) => {
     onError?.(error);
   });
+  const {
+    clearTimer: clearPollTimer,
+    scheduleTimer: schedulePollTimer,
+  } = useTimeoutController();
 
   useEffect(() => {
     if (!enabled) return undefined;
 
     let stopped = false;
-    let timer: number | null = null;
     let activeController: AbortController | null = null;
     let activeRunId = 0;
     const delayMs = normalizeIntervalMs(intervalMs);
     const timeoutMs = normalizeTaskTimeoutMs(taskTimeoutMs);
 
-    const clearTimer = () => {
-      if (timer == null || typeof window === 'undefined') return;
-      window.clearTimeout(timer);
-      timer = null;
-    };
-
     const schedule = (delay: number) => {
       if (stopped || typeof window === 'undefined') return;
-      clearTimer();
-      timer = window.setTimeout(() => {
-        timer = null;
+      schedulePollTimer(() => {
+        if (stopped) return;
         void run();
       }, delay);
     };
@@ -143,7 +140,16 @@ export function useAsyncPolling(
       stopped = true;
       activeController?.abort();
       activeController = null;
-      clearTimer();
+      clearPollTimer();
     };
-  }, [enabled, handleError, immediate, intervalMs, runTask, taskTimeoutMs]);
+  }, [
+    clearPollTimer,
+    enabled,
+    handleError,
+    immediate,
+    intervalMs,
+    runTask,
+    schedulePollTimer,
+    taskTimeoutMs,
+  ]);
 }
