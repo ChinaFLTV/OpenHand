@@ -5,6 +5,7 @@ import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { describeApiError, isAbortError } from '../utils/api_error';
+import { normalizeInteger } from '../shared/util/number';
 import {
   DIALOG_OVERLAY_FOCUSED_Z_INDEX,
   DialogFrame,
@@ -188,9 +189,14 @@ export function TitleSummaryDialog({
 
   const handleSliderInput = (e: Event, which: 'start' | 'end') => {
     const target = e.currentTarget as HTMLInputElement;
-    const value = parseInt(target.value, 10);
+    const maxIndex = Math.max(0, totalMessages - 1);
+    const value = normalizeInteger(Number(target.value), {
+      fallback: which === 'start' ? startIdx : endIdx,
+      min: 0,
+      max: maxIndex,
+    });
     const rect = target.getBoundingClientRect();
-    const ratio = (value / Math.max(1, totalMessages - 1));
+    const ratio = maxIndex > 0 ? value / maxIndex : 0;
     const clientX = rect.left + ratio * rect.width;
     if (which === 'start') {
       const clamped = Math.min(value, endIdx);
