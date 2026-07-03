@@ -237,8 +237,6 @@ DateTime? dateTimeFromValue(Object? value) {
 }
 
 bool boolFromValue(Object? value, {bool defaultValue = false}) {
-  if (value is bool) return value;
-  if (value is num) return value.isFinite ? value.toInt() == 1 : defaultValue;
   return optionalBoolFromValue(value) ?? defaultValue;
 }
 
