@@ -49,6 +49,30 @@ void main() {
     });
   });
 
+  group('stringListFromListValue', () {
+    test('trims list entries and drops blank or null values', () {
+      expect(
+        stringListFromListValue(<Object?>[' alpha ', '', null, ' beta ']),
+        <String>['alpha', 'beta'],
+      );
+    });
+
+    test('does not treat scalar text as a list', () {
+      expect(stringListFromListValue('alpha,beta'), isEmpty);
+    });
+
+    test('can ignore literal null entries', () {
+      expect(
+        stringListFromListValue(<Object?>[
+          'alpha',
+          ' null ',
+          'beta',
+        ], ignoreLiteralNull: true),
+        <String>['alpha', 'beta'],
+      );
+    });
+  });
+
   group('splitTrimmedNonEmpty', () {
     test('trims entries and drops empty delimiter gaps', () {
       expect(splitTrimmedNonEmpty(' alpha, , beta ,'), <String>[

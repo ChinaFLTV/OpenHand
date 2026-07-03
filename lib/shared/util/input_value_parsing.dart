@@ -31,26 +31,40 @@ List<String> splitLooseDelimitedValues(String value) {
   return splitTrimmedNonEmpty(value, separator: _looseDelimitedValueSeparator);
 }
 
+bool _keepStringListItem(String item, {required bool ignoreLiteralNull}) {
+  return item.isNotEmpty && (!ignoreLiteralNull || item != 'null');
+}
+
+List<String> stringListFromListValue(
+  Object? value, {
+  bool ignoreLiteralNull = false,
+}) {
+  if (value is! List) return const <String>[];
+  return value
+      .where((item) => item != null)
+      .map((item) => '$item'.trim())
+      .where(
+        (item) =>
+            _keepStringListItem(item, ignoreLiteralNull: ignoreLiteralNull),
+      )
+      .toList(growable: false);
+}
+
 List<String> stringListFromValue(
   Object? value, {
   Pattern separator = ',',
   bool ignoreLiteralNull = false,
 }) {
-  bool keep(String item) =>
-      item.isNotEmpty && (!ignoreLiteralNull || item != 'null');
-
   if (value is List) {
-    return value
-        .where((item) => item != null)
-        .map((item) => '$item'.trim())
-        .where(keep)
-        .toList(growable: false);
+    return stringListFromListValue(value, ignoreLiteralNull: ignoreLiteralNull);
   }
   if (value is String) {
-    return splitTrimmedNonEmpty(
-      value,
-      separator: separator,
-    ).where(keep).toList(growable: false);
+    return splitTrimmedNonEmpty(value, separator: separator)
+        .where(
+          (item) =>
+              _keepStringListItem(item, ignoreLiteralNull: ignoreLiteralNull),
+        )
+        .toList(growable: false);
   }
   return const <String>[];
 }

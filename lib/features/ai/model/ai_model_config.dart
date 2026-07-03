@@ -12,14 +12,6 @@ import 'ai_realtime_config.dart';
 
 const int kInferredModelContextWindowTokens = 128000;
 
-List<String> _parseStringListLoose(Object? value) {
-  if (value is! List) return const <String>[];
-  return value
-      .map((item) => '$item'.trim())
-      .where((item) => item.isNotEmpty)
-      .toList(growable: false);
-}
-
 class AiModelArchitectureMetadata {
   const AiModelArchitectureMetadata({
     this.modality,
@@ -32,8 +24,8 @@ class AiModelArchitectureMetadata {
   factory AiModelArchitectureMetadata.fromJson(Map<String, Object?> json) {
     return AiModelArchitectureMetadata(
       modality: json['modality'] as String?,
-      inputModalities: _parseStringListLoose(json['input_modalities']),
-      outputModalities: _parseStringListLoose(json['output_modalities']),
+      inputModalities: stringListFromListValue(json['input_modalities']),
+      outputModalities: stringListFromListValue(json['output_modalities']),
       tokenizer: json['tokenizer'] as String?,
       instructType: json['instruct_type'] as String?,
     );
@@ -1063,31 +1055,25 @@ class AiModelProfile {
   }
 
   static Set<AiModelModality> _parseModalities(Object? value) {
-    if (value is! List) return const <AiModelModality>{};
     final result = <AiModelModality>{};
-    for (final item in value) {
-      final m = AiModelModality.fromStorage('$item');
+    for (final item in stringListFromListValue(value)) {
+      final m = AiModelModality.fromStorage(item);
       if (m != null) result.add(m);
     }
     return result;
   }
 
   static Set<AiModelCapability> _parseCapabilities(Object? value) {
-    if (value is! List) return const <AiModelCapability>{};
     final result = <AiModelCapability>{};
-    for (final item in value) {
-      final c = AiModelCapability.fromStorage('$item');
+    for (final item in stringListFromListValue(value)) {
+      final c = AiModelCapability.fromStorage(item);
       if (c != null) result.add(c);
     }
     return result;
   }
 
   static List<String> _parseStringList(Object? value) {
-    if (value is! List) return const <String>[];
-    return value
-        .map((item) => '$item'.trim())
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
+    return stringListFromListValue(value);
   }
 
   static Map<String, Object?> _parseObjectMap(Object? value) {
