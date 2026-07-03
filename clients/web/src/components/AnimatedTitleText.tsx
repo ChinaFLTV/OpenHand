@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { useTimeoutController } from '../hooks/useTimeoutController';
 
 const TITLE_TEXT_EXIT_MS = 220;
 
@@ -18,42 +19,31 @@ export function AnimatedTitleText({
   title,
 }: AnimatedTitleTextProps) {
   const reducedMotion = useReducedMotion();
+  const { clearTimer, scheduleTimer } = useTimeoutController();
   const currentRef = useRef(text);
-  const exitTimerRef = useRef<number | null>(null);
   const [current, setCurrent] = useState(text);
   const [exiting, setExiting] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    if (text === currentRef.current) return;
-    if (exitTimerRef.current !== null) {
-      window.clearTimeout(exitTimerRef.current);
-      exitTimerRef.current = null;
-    }
     if (reducedMotion) {
+      clearTimer();
       currentRef.current = text;
       setCurrent(text);
       setExiting(null);
       return;
     }
+    if (text === currentRef.current) return;
+    clearTimer();
     const previous = currentRef.current;
     currentRef.current = text;
     setExiting(previous);
     setCurrent(text);
     setTick((value) => value + 1);
-    exitTimerRef.current = window.setTimeout(() => {
+    scheduleTimer(() => {
       setExiting(null);
-      exitTimerRef.current = null;
     }, TITLE_TEXT_EXIT_MS);
-  }, [text, reducedMotion]);
-
-  useEffect(() => {
-    return () => {
-      if (exitTimerRef.current !== null) {
-        window.clearTimeout(exitTimerRef.current);
-      }
-    };
-  }, []);
+  }, [clearTimer, text, reducedMotion, scheduleTimer]);
 
   const rootClass = ['oh-animated-title-text', className]
     .filter(Boolean)

@@ -41,6 +41,7 @@ import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
 import { useStickyBottom } from '../hooks/useStickyBottom';
 import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
 import { useDelayedFalse } from '../hooks/useDelayedFalse';
+import { useTimeoutController } from '../hooks/useTimeoutController';
 import { boundedFnv1aHashBase36 } from '../shared/util/hash';
 import { knowledgeBaseResultsUsedByAnswer } from '../shared/util/knowledge';
 import {
@@ -2079,9 +2080,11 @@ function useRecentMessageActivity(
 ): boolean {
   const [active, setActive] = useState(false);
   const initializedRef = useRef(false);
+  const { clearTimer, scheduleTimer } = useTimeoutController();
 
   useEffect(() => {
     if (!enabled) {
+      clearTimer();
       initializedRef.current = true;
       setActive(false);
       return;
@@ -2091,9 +2094,9 @@ function useRecentMessageActivity(
       return;
     }
     setActive(true);
-    const handle = window.setTimeout(() => setActive(false), holdMs);
-    return () => window.clearTimeout(handle);
-  }, [signal, enabled, holdMs]);
+    scheduleTimer(() => setActive(false), holdMs);
+    return clearTimer;
+  }, [clearTimer, signal, enabled, holdMs, scheduleTimer]);
 
   return active;
 }
@@ -4616,16 +4619,13 @@ function ReasoningCollapsibleBody({
 }) {
   const useCollapsedScroll = collapsed && scrollableCollapsed;
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  const scrollSettleTimerRef = useRef<number | null>(null);
+  const {
+    clearTimer: cancelScrollSettleTimer,
+    scheduleTimer: scheduleScrollSettleTimer,
+  } = useTimeoutController();
   const [atBottom, setAtBottom] = useState(false);
   const [scrollingCollapsedBody, setScrollingCollapsedBody] = useState(false);
   const expandedMaxHeight = scrollableCollapsed ? 'none' : '4000px';
-
-  const cancelScrollSettleTimer = useCallback(() => {
-    if (scrollSettleTimerRef.current == null) return;
-    window.clearTimeout(scrollSettleTimerRef.current);
-    scrollSettleTimerRef.current = null;
-  }, []);
 
   const syncAtBottom = useCallback((element: HTMLDivElement | null = bodyRef.current) => {
     if (!element || !useCollapsedScroll) {
@@ -4639,13 +4639,11 @@ function ReasoningCollapsibleBody({
   }, [useCollapsedScroll]);
 
   const settleCollapsedScroll = useCallback(() => {
-    cancelScrollSettleTimer();
-    scrollSettleTimerRef.current = window.setTimeout(() => {
-      scrollSettleTimerRef.current = null;
+    scheduleScrollSettleTimer(() => {
       setScrollingCollapsedBody(false);
       syncAtBottom();
     }, COLLAPSED_BODY_SCROLL_SETTLE_MS);
-  }, [cancelScrollSettleTimer, syncAtBottom]);
+  }, [scheduleScrollSettleTimer, syncAtBottom]);
 
   useEffect(() => {
     if (!useCollapsedScroll) {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { useTimeoutController } from '../hooks/useTimeoutController';
 
 export type MediaGenerationMode = 'image' | 'video' | 'audio' | 'deep_research';
 
@@ -68,11 +69,13 @@ export function MediaGeneratingPlaceholderTransition(props: {
   className?: string;
 }) {
   const reduceMotion = useReducedMotion();
+  const { clearTimer, scheduleTimer } = useTimeoutController();
   const [renderedMode, setRenderedMode] = useState<MediaGenerationMode | null>(props.mode);
   const [exiting, setExiting] = useState(false);
 
   useEffect(() => {
     if (props.mode) {
+      clearTimer();
       setRenderedMode(props.mode);
       setExiting(false);
       return undefined;
@@ -84,12 +87,12 @@ export function MediaGeneratingPlaceholderTransition(props: {
       return undefined;
     }
     setExiting(true);
-    const timer = window.setTimeout(() => {
+    scheduleTimer(() => {
       setRenderedMode(null);
       setExiting(false);
     }, MEDIA_GENERATION_PLACEHOLDER_EXIT_MS);
-    return () => window.clearTimeout(timer);
-  }, [props.mode, reduceMotion, renderedMode]);
+    return clearTimer;
+  }, [clearTimer, props.mode, reduceMotion, renderedMode, scheduleTimer]);
 
   if (!renderedMode) return null;
   const shellClass = [
