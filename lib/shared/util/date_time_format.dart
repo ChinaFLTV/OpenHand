@@ -1,3 +1,5 @@
+import 'input_value_parsing.dart';
+
 const int _minHourOfDay = 0;
 const int _maxHourOfDay = 23;
 const int _minMinuteOfHour = 0;
@@ -29,8 +31,8 @@ String formatHourMinuteParts({required int hour, required int minute}) {
   if (colon <= 0 || colon >= value.length - 1) {
     return (hour: safeFallbackHour, minute: safeFallbackMinute);
   }
-  final hour = int.tryParse(value.substring(0, colon));
-  final minute = int.tryParse(value.substring(colon + 1));
+  final hour = optionalIntFromValue(value.substring(0, colon));
+  final minute = optionalIntFromValue(value.substring(colon + 1));
   if (hour == null || minute == null) {
     return (hour: safeFallbackHour, minute: safeFallbackMinute);
   }

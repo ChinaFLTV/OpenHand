@@ -18,6 +18,10 @@ void main() {
       expect(parseHourMinuteOfDay(' 08:45 '), (hour: 8, minute: 45));
     });
 
+    test('allows whitespace around hour and minute parts', () {
+      expect(parseHourMinuteOfDay('08 : 45'), (hour: 8, minute: 45));
+    });
+
     test('clamps parsed values into the day range', () {
       expect(parseHourMinuteOfDay('99:70'), (hour: 23, minute: 59));
       expect(parseHourMinuteOfDay('-1:-2'), (hour: 0, minute: 0));

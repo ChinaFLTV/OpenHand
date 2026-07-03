@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/util/input_value_parsing.dart';
 
 const String _kTag = 'android_reverse_adb_client';
 const Duration _kAdbCommandTimeout = Duration(seconds: 30);
@@ -219,12 +220,10 @@ class AndroidReverseAdbClient {
     );
     if (!result.ok && !result.hasUsableStdout) return const <String>[];
     final raw = result.stdout;
-    final packages = raw
-        .split('\n')
-        .map((l) => l.trim())
-        .where((l) => l.startsWith('package:'))
-        .map((l) => l.substring(8))
-        .where((l) => l.isNotEmpty)
+    final packages = splitTrimmedNonEmpty(raw, separator: '\n')
+        .where((line) => line.startsWith('package:'))
+        .map((line) => line.substring(8))
+        .where((line) => line.isNotEmpty)
         .toList();
     packages.sort();
     return List<String>.unmodifiable(packages);
@@ -243,9 +242,7 @@ class AndroidReverseAdbClient {
     );
     if (!result.ok && !result.hasUsableStdout) return const <String>[];
     final raw = result.stdout;
-    final paths = raw
-        .split('\n')
-        .map((line) => line.trim())
+    final paths = splitTrimmedNonEmpty(raw, separator: '\n')
         .where((line) => line.startsWith('package:'))
         .map((line) => line.substring(8).trim())
         .where((line) => line.isNotEmpty)
@@ -476,15 +473,16 @@ class AndroidReverseAdbClient {
 
   List<AndroidProcess> _parseProcessList(String raw, {String? filterName}) {
     final processes = <AndroidProcess>[];
+    final normalizedFilter = nullIfBlank(filterName)?.toLowerCase();
     final lines = raw.split('\n');
     for (final line in lines.skip(1)) {
       final parts = line.trim().split(RegExp(r'\s+'));
       if (parts.length < 9) continue;
-      final pid = int.tryParse(parts[1]);
+      final pid = optionalIntFromValue(parts[1]);
       if (pid == null) continue;
       final name = parts.last;
-      if (filterName != null &&
-          !name.toLowerCase().contains(filterName.toLowerCase())) {
+      if (normalizedFilter != null &&
+          !name.toLowerCase().contains(normalizedFilter)) {
         continue;
       }
       processes.add(
@@ -492,7 +490,7 @@ class AndroidReverseAdbClient {
           pid: pid,
           name: name,
           user: parts[0],
-          ppid: int.tryParse(parts[2]),
+          ppid: optionalIntFromValue(parts[2]),
         ),
       );
     }
@@ -1038,8 +1036,7 @@ class AndroidReverseAdbClient {
   }
 
   String? _launcherActivityFromResolveOutput(String raw, String packageName) {
-    if (raw.trim().isEmpty) return null;
-    final lines = raw.split('\n').map((line) => line.trim()).toList().reversed;
+    final lines = splitTrimmedNonEmpty(raw, separator: '\n').reversed;
     for (final line in lines) {
       if (line.isEmpty || !line.contains('/')) continue;
       final lower = line.toLowerCase();

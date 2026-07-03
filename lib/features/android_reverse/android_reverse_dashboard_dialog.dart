@@ -3292,7 +3292,7 @@ fi
 
   Future<void> _removeReverseFromRow(String row) async {
     final match = RegExp(r'tcp:(\d+)').firstMatch(row);
-    final devicePort = int.tryParse(match?.group(1) ?? '');
+    final devicePort = optionalIntFromValue(match?.group(1));
     if (devicePort == null) return;
     await _runDeviceAction(
       () => _ctrl.removeReverseDetailed(devicePort, serial: _targetSerial),
