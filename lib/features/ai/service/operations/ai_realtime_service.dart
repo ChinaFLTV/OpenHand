@@ -152,9 +152,7 @@ class AiRealtimeService {
     );
     final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
     final clientSecret = payload['client_secret'];
-    final nestedSecret = clientSecret is Map
-        ? Map<String, Object?>.from(clientSecret)
-        : const <String, Object?>{};
+    final nestedSecret = AiOperationHttp.jsonMapOrEmpty(clientSecret);
     return AiRealtimeSessionResult(
       rawResponse: response.body,
       payload: payload,

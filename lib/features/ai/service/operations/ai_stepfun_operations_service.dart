@@ -773,7 +773,7 @@ class AiStepFunOperationsService {
       return AiTokenUsageParser.parseOpenAi(usage);
     }
     if (usage is Map) {
-      return AiTokenUsageParser.parseOpenAi(Map<String, Object?>.from(usage));
+      return AiTokenUsageParser.parseOpenAi(stringKeyedMapFromValue(usage));
     }
     return null;
   }

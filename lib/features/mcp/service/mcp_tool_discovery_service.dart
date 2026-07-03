@@ -1105,7 +1105,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
 
     if (rawSchema is Map) {
-      final rawSchemaMap = Map<String, Object?>.from(rawSchema);
+      final rawSchemaMap = stringKeyedMapFromValue(rawSchema);
       final nestedDescriptor = _resolveOutputDescriptor(rawSchemaMap);
       if (nestedDescriptor.rawSchema != null) {
         rawSchema = nestedDescriptor.rawSchema;

@@ -691,9 +691,7 @@ String _renderEnvelopeAsDsml(String rawBody) {
       decoded['parameters'] ??
       decoded['args'] ??
       decoded['inputs'];
-  final argsMap = argsRaw is Map
-      ? Map<String, Object?>.from(argsRaw)
-      : <String, Object?>{};
+  final argsMap = stringKeyedMapFromValue(argsRaw);
   final buffer = StringBuffer()
     ..write('<DSML:invoke name="')
     ..write(_escapeDsmlAttributeValue(name))
