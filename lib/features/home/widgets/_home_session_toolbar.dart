@@ -510,21 +510,50 @@ class _HermesSelfLearningWarningPill extends StatelessWidget {
     }
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
-    final tooltip = isZh
-        ? '当前 Hermes Talker 自主学习能力已关闭。\n\n'
-              '影响：AI 不会在后台周期性地把本会话沉淀的偏好、画像、'
-              '通用记忆与可复用技能持久化到长期记忆库——下次新会话将无法'
-              '基于这些信息做更贴心的回应。\n\n'
-              '建议：前往「定时任务」面板，把 “Hermes Talker 自我学习” '
-              '开关打开即可恢复。'
-        : 'Hermes Talker self-learning is currently disabled.\n\n'
-              'Impact: the agent will not periodically persist the '
-              'preferences, profile, general memories or reusable skills '
-              'absorbed from this conversation. Future sessions will lose '
-              'this background context.\n\n'
-              'Tip: open the Crons panel and re-enable '
-              '"Hermes Talker 自我学习" to resume.';
+    final tooltip = _localizedText(
+      context,
+      zh:
+          '当前 Hermes Talker 自主学习能力已关闭。\n\n'
+          '影响：AI 不会在后台周期性地把本会话沉淀的偏好、画像、'
+          '通用记忆与可复用技能持久化到长期记忆库——下次新会话将无法'
+          '基于这些信息做更贴心的回应。\n\n'
+          '建议：前往「定时任务」面板，把 “Hermes Talker 自我学习” '
+          '开关打开即可恢复。',
+      zhHant:
+          '目前 Hermes Talker 自主學習能力已關閉。\n\n'
+          '影響：AI 不會在背景週期性地把本會話沉澱的偏好、画像、'
+          '通用記憶與可複用技能持久化到長期記憶庫；下次新會話將無法'
+          '基於這些資訊做更貼心的回應。\n\n'
+          '建議：前往「定時任務」面板，開啟 “Hermes Talker 自我學習” '
+          '即可恢復。',
+      en:
+          'Hermes Talker self-learning is currently disabled.\n\n'
+          'Impact: the agent will not periodically persist the preferences, '
+          'profile, general memories or reusable skills absorbed from this '
+          'conversation. Future sessions will lose this background context.\n\n'
+          'Tip: open the Crons panel and re-enable '
+          '"Hermes Talker self-learning" to resume.',
+      fr:
+          'L’auto-apprentissage de Hermes Talker est désactivé.\n\n'
+          'Impact : l’agent ne persistera pas périodiquement les préférences, '
+          'le profil, les souvenirs généraux ou les compétences réutilisables '
+          'issus de cette conversation. Les futures sessions perdront ce contexte.\n\n'
+          'Conseil : ouvrez le panneau Crons et réactivez '
+          '"Hermes Talker self-learning".',
+      de:
+          'Hermes Talker Self-Learning ist derzeit deaktiviert.\n\n'
+          'Auswirkung: Der Agent speichert Präferenzen, Profil, allgemeine '
+          'Erinnerungen und wiederverwendbare Skills aus dieser Unterhaltung '
+          'nicht regelmäßig dauerhaft. Künftige Sitzungen verlieren diesen Kontext.\n\n'
+          'Tipp: Öffne das Crons-Panel und aktiviere '
+          '"Hermes Talker self-learning" erneut.',
+      ja:
+          'Hermes Talker の自己学習は現在オフです。\n\n'
+          '影響: エージェントはこの会話から得た設定、プロフィール、'
+          '一般的な記憶、再利用可能なスキルを定期的に長期記憶へ保存しません。'
+          '今後のセッションではこの背景コンテキストが失われます。\n\n'
+          'ヒント: Crons パネルで "Hermes Talker self-learning" を再度有効にしてください。',
+    );
     return Padding(
       padding: const EdgeInsets.only(left: 8),
       child: Tooltip(
@@ -547,7 +576,15 @@ class _HermesSelfLearningWarningPill extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                isZh ? '自主学习已关闭' : 'Self-learning off',
+                _localizedText(
+                  context,
+                  zh: '自主学习已关闭',
+                  zhHant: '自主學習已關閉',
+                  en: 'Self-learning off',
+                  fr: 'Auto-apprentissage désactivé',
+                  de: 'Self-Learning aus',
+                  ja: '自己学習オフ',
+                ),
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: colorScheme.onErrorContainer,
@@ -3186,10 +3223,28 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
   Widget build(BuildContext context) {
     _attachIfNeeded();
     final ctrl = _controller;
-    final isZh = openHandIsChineseLocale(context);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    String text({
+      required String zh,
+      String? zhHant,
+      required String en,
+      String? fr,
+      String? de,
+      String? ja,
+    }) {
+      return _localizedText(
+        context,
+        zh: zh,
+        zhHant: zhHant,
+        en: en,
+        fr: fr,
+        de: de,
+        ja: ja,
+      );
+    }
+
     final cdpRuntimeMeta = context.select<AiSessionController, Object?>((
       controller,
     ) {
@@ -3206,7 +3261,7 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
     final cdpStatus = _WebReverseDebugCdpStatus.fromRuntime(
       cdpRuntimeMeta,
       controller: ctrl,
-      isZh: isZh,
+      context: context,
     );
     final dotColor = !running
         ? cs.outline
@@ -3218,15 +3273,64 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
         ? cs.primary
         : cs.tertiary;
     final label = _restoring
-        ? (isZh ? '启动中…' : 'starting…')
+        ? text(
+            zh: '启动中…',
+            zhHant: '啟動中…',
+            en: 'starting…',
+            fr: 'démarrage…',
+            de: 'startet…',
+            ja: '起動中…',
+          )
         : running
-        ? '$reqs · ${isZh ? "$errs 错" : "$errs err"} · ${cdpStatus.label}'
-        : (isZh ? '点击连接' : 'click to connect');
+        ? text(
+            zh: '$reqs · $errs 错 · ${cdpStatus.label}',
+            zhHant: '$reqs · $errs 錯 · ${cdpStatus.label}',
+            en: '$reqs · $errs err · ${cdpStatus.label}',
+            fr: '$reqs · $errs err · ${cdpStatus.label}',
+            de: '$reqs · $errs Fehler · ${cdpStatus.label}',
+            ja: '$reqs · $errs 件のエラー · ${cdpStatus.label}',
+          )
+        : text(
+            zh: '点击连接',
+            zhHant: '點擊連線',
+            en: 'click to connect',
+            fr: 'cliquer pour connecter',
+            de: 'zum Verbinden klicken',
+            ja: 'クリックして接続',
+          );
     final tooltip = <String>[
-      isZh ? 'Web 逆向调试面板' : 'Web Reverse Debugger',
-      '${isZh ? '浏览器' : 'Browser'}: ${running ? (isZh ? '运行中' : 'running') : (isZh ? '未连接' : 'not connected')}',
-      '${isZh ? '请求数' : 'Requests'}: $reqs',
-      '${isZh ? '错误数' : 'Errors'}: $errs',
+      text(
+        zh: 'Web 逆向调试面板',
+        zhHant: 'Web 逆向除錯面板',
+        en: 'Web Reverse Debugger',
+        fr: 'Débogueur Web Reverse',
+        de: 'Web-Reverse-Debugger',
+        ja: 'Web Reverse デバッガ',
+      ),
+      text(
+        zh: '浏览器: ${running ? "运行中" : "未连接"}',
+        zhHant: '瀏覽器: ${running ? "執行中" : "未連線"}',
+        en: 'Browser: ${running ? "running" : "not connected"}',
+        fr: 'Navigateur : ${running ? "actif" : "non connecté"}',
+        de: 'Browser: ${running ? "läuft" : "nicht verbunden"}',
+        ja: 'ブラウザ: ${running ? "実行中" : "未接続"}',
+      ),
+      text(
+        zh: '请求数: $reqs',
+        zhHant: '請求數: $reqs',
+        en: 'Requests: $reqs',
+        fr: 'Requêtes : $reqs',
+        de: 'Anfragen: $reqs',
+        ja: 'リクエスト数: $reqs',
+      ),
+      text(
+        zh: '错误数: $errs',
+        zhHant: '錯誤數: $errs',
+        en: 'Errors: $errs',
+        fr: 'Erreurs : $errs',
+        de: 'Fehler: $errs',
+        ja: 'エラー数: $errs',
+      ),
       cdpStatus.tooltip,
     ].join('\n');
 
@@ -3260,7 +3364,7 @@ class _WebReverseDebugCdpStatus {
   static _WebReverseDebugCdpStatus fromRuntime(
     Object? runtime, {
     required WebReverseSessionController? controller,
-    required bool isZh,
+    required BuildContext context,
   }) {
     final runtimeStatus = WebReverseCdpMcpRuntimeStatus.fromRuntime(
       runtime,
@@ -3272,37 +3376,108 @@ class _WebReverseDebugCdpStatus {
     late final String label;
     if (runtimeStatus.rawStatus == 'disabled') {
       tone = _WebReverseDebugCdpTone.disabled;
-      label = isZh ? 'MCP未启用' : 'MCP off';
+      label = _localizedText(
+        context,
+        zh: 'MCP未启用',
+        zhHant: 'MCP未啟用',
+        en: 'MCP off',
+        fr: 'MCP désactivé',
+        de: 'MCP aus',
+        ja: 'MCP オフ',
+      );
     } else if (runtimeStatus.ready) {
       tone = _WebReverseDebugCdpTone.ready;
-      label = isZh
-          ? 'CDP ${runtimeStatus.toolCount}'
-          : 'CDP ${runtimeStatus.toolCount}';
+      label = 'CDP ${runtimeStatus.toolCount}';
     } else if (!runtimeStatus.browserAlive) {
       tone = _WebReverseDebugCdpTone.unavailable;
-      label = isZh ? 'CDP离线' : 'CDP off';
+      label = _localizedText(
+        context,
+        zh: 'CDP离线',
+        zhHant: 'CDP離線',
+        en: 'CDP off',
+        fr: 'CDP hors ligne',
+        de: 'CDP offline',
+        ja: 'CDP オフライン',
+      );
     } else if (runtimeStatus.rawStatus == 'preparing') {
       tone = _WebReverseDebugCdpTone.preparing;
-      label = isZh ? 'CDP…' : 'CDP…';
+      label = 'CDP…';
     } else if (runtimeStatus.rawStatus == 'failed') {
       tone = _WebReverseDebugCdpTone.failed;
-      label = isZh ? 'CDP!' : 'CDP!';
+      label = 'CDP!';
     } else {
       tone = _WebReverseDebugCdpTone.unavailable;
-      label = isZh ? 'CDP待同步' : 'CDP pending';
+      label = _localizedText(
+        context,
+        zh: 'CDP待同步',
+        zhHant: 'CDP待同步',
+        en: 'CDP pending',
+        fr: 'CDP en attente',
+        de: 'CDP ausstehend',
+        ja: 'CDP 同期待ち',
+      );
     }
 
     final tooltipLines = <String>[
-      isZh ? 'AI 侧 CDP MCP' : 'AI-side CDP MCP',
-      '${isZh ? '状态' : 'Status'}: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
-      '${isZh ? '可调用工具' : 'Callable tools'}: ${runtimeStatus.toolCount}',
+      _localizedText(
+        context,
+        zh: 'AI 侧 CDP MCP',
+        zhHant: 'AI 側 CDP MCP',
+        en: 'AI-side CDP MCP',
+        fr: 'CDP MCP côté IA',
+        de: 'KI-seitiges CDP MCP',
+        ja: 'AI 側 CDP MCP',
+      ),
+      _localizedText(
+        context,
+        zh: '状态: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
+        zhHant:
+            '狀態: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
+        en: 'Status: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
+        fr: 'État : ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
+        de: 'Status: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
+        ja: '状態: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
+      ),
+      _localizedText(
+        context,
+        zh: '可调用工具: ${runtimeStatus.toolCount}',
+        zhHant: '可呼叫工具: ${runtimeStatus.toolCount}',
+        en: 'Callable tools: ${runtimeStatus.toolCount}',
+        fr: 'Outils appelables : ${runtimeStatus.toolCount}',
+        de: 'Aufrufbare Tools: ${runtimeStatus.toolCount}',
+        ja: '呼び出し可能ツール: ${runtimeStatus.toolCount}',
+      ),
       if (runtimeStatus.port != null && runtimeStatus.port! > 0)
-        '${isZh ? 'CDP 端口' : 'CDP port'}: ${runtimeStatus.port}',
+        _localizedText(
+          context,
+          zh: 'CDP 端口: ${runtimeStatus.port}',
+          zhHant: 'CDP 連接埠: ${runtimeStatus.port}',
+          en: 'CDP port: ${runtimeStatus.port}',
+          fr: 'Port CDP : ${runtimeStatus.port}',
+          de: 'CDP-Port: ${runtimeStatus.port}',
+          ja: 'CDP ポート: ${runtimeStatus.port}',
+        ),
       if (runtimeStatus.message.isNotEmpty) runtimeStatus.message,
       if (runtimeStatus.warningMessage.isNotEmpty)
-        '${isZh ? '提示' : 'Warning'}: ${runtimeStatus.warningMessage}',
+        _localizedText(
+          context,
+          zh: '提示: ${runtimeStatus.warningMessage}',
+          zhHant: '提示: ${runtimeStatus.warningMessage}',
+          en: 'Warning: ${runtimeStatus.warningMessage}',
+          fr: 'Avertissement : ${runtimeStatus.warningMessage}',
+          de: 'Warnung: ${runtimeStatus.warningMessage}',
+          ja: '警告: ${runtimeStatus.warningMessage}',
+        ),
       if (runtimeStatus.errorMessage.isNotEmpty)
-        '${isZh ? '错误' : 'Error'}: ${runtimeStatus.errorMessage}',
+        _localizedText(
+          context,
+          zh: '错误: ${runtimeStatus.errorMessage}',
+          zhHant: '錯誤: ${runtimeStatus.errorMessage}',
+          en: 'Error: ${runtimeStatus.errorMessage}',
+          fr: 'Erreur : ${runtimeStatus.errorMessage}',
+          de: 'Fehler: ${runtimeStatus.errorMessage}',
+          ja: 'エラー: ${runtimeStatus.errorMessage}',
+        ),
     ];
     return _WebReverseDebugCdpStatus(
       tone: tone,
@@ -3371,14 +3546,45 @@ class _StreamThrottlePill extends StatelessWidget {
         final iconColor = showAsGray
             ? scheme.outline
             : scheme.onTertiaryContainer;
-        final isZh = openHandIsChineseLocale(context);
         final label = !effEnabled
-            ? (isZh ? '节流·关' : 'Throttle·off')
+            ? _localizedText(
+                context,
+                zh: '节流·关',
+                zhHant: '節流·關',
+                en: 'Throttle·off',
+                fr: 'Limite·off',
+                de: 'Drossel·aus',
+                ja: 'スロットル·オフ',
+              )
             : disabled
-            ? (isZh ? '节流·关' : 'Throttle·off')
+            ? _localizedText(
+                context,
+                zh: '节流·关',
+                zhHant: '節流·關',
+                en: 'Throttle·off',
+                fr: 'Limite·off',
+                de: 'Drossel·aus',
+                ja: 'スロットル·オフ',
+              )
             : durationExpired
-            ? (isZh ? '节流·已耗尽' : 'Throttle·expired')
-            : (isZh ? '字$effChars·卡$effCards' : 'Ch$effChars·Cd$effCards');
+            ? _localizedText(
+                context,
+                zh: '节流·已耗尽',
+                zhHant: '節流·已耗盡',
+                en: 'Throttle·expired',
+                fr: 'Limite·expirée',
+                de: 'Drossel·abgelaufen',
+                ja: 'スロットル·期限切れ',
+              )
+            : _localizedText(
+                context,
+                zh: '字$effChars·卡$effCards',
+                zhHant: '字$effChars·卡$effCards',
+                en: 'Ch$effChars·Cd$effCards',
+                fr: 'Car$effChars·Cart$effCards',
+                de: 'Z$effChars·K$effCards',
+                ja: '字$effChars·カード$effCards',
+              );
         return MicroPressFeedback(
           child: Material(
             color: Colors.transparent,
@@ -3513,9 +3719,27 @@ class _StreamThrottleSessionDialogState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = openHandIsChineseLocale(context);
     final settings = context.watch<SettingsController>();
     final session = context.watch<AiSessionController>();
+    String text({
+      required String zh,
+      String? zhHant,
+      required String en,
+      String? fr,
+      String? de,
+      String? ja,
+    }) {
+      return _localizedText(
+        context,
+        zh: zh,
+        zhHant: zhHant,
+        en: en,
+        fr: fr,
+        de: de,
+        ja: ja,
+      );
+    }
+
     final globalChars = settings.effectiveStreamMaxCharsPerSecond();
     final globalCards = settings.effectiveStreamMaxMessageCardsPerSecond();
     // 当前会话「真正生效」的速率：会话级覆盖 > 全局。
@@ -3530,6 +3754,40 @@ class _StreamThrottleSessionDialogState
     // 当前生效的启用态：会话级 > 全局。
     final globalEnabled = settings.aiStreamThrottleEnabled;
     final effectiveEnabled = _enabledOverride ?? globalEnabled;
+    final globalStateLabel = globalEnabled
+        ? text(
+            zh: '已开启',
+            zhHant: '已開啟',
+            en: 'on',
+            fr: 'activé',
+            de: 'ein',
+            ja: 'オン',
+          )
+        : text(
+            zh: '已关闭',
+            zhHant: '已關閉',
+            en: 'off',
+            fr: 'désactivé',
+            de: 'aus',
+            ja: 'オフ',
+          );
+    final forcedStateLabel = (_enabledOverride ?? false)
+        ? text(
+            zh: '开启',
+            zhHant: '開啟',
+            en: 'on',
+            fr: 'activé',
+            de: 'ein',
+            ja: 'オン',
+          )
+        : text(
+            zh: '关闭',
+            zhHant: '關閉',
+            en: 'off',
+            fr: 'désactivé',
+            de: 'aus',
+            ja: 'オフ',
+          );
     return buildOpenHandResponsiveDialogShell(
       context: context,
       maxWidth: 860,
@@ -3546,14 +3804,26 @@ class _StreamThrottleSessionDialogState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              isZh ? '本会话流式节流' : 'Session Throttle',
+              text(
+                zh: '本会话流式节流',
+                zhHant: '本會話串流節流',
+                en: 'Session Throttle',
+                fr: 'Limitation de session',
+                de: 'Sitzungsdrosselung',
+                ja: 'セッションスロットル',
+              ),
               style: theme.textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             Text(
-              isZh
-                  ? '调整后随会话持久保存，重启后仍保留。留空 = 沿用全局值。'
-                  : 'Saved with this session and restored after restart. Empty = use global.',
+              text(
+                zh: '调整后随会话持久保存，重启后仍保留。留空 = 沿用全局值。',
+                zhHant: '調整後會隨會話持久保存，重啟後仍保留。留空 = 沿用全域值。',
+                en: 'Saved with this session and restored after restart. Empty = use global.',
+                fr: 'Enregistré avec cette session et restauré au redémarrage. Vide = valeur globale.',
+                de: 'Wird mit dieser Sitzung gespeichert und nach Neustart wiederhergestellt. Leer = globaler Wert.',
+                ja: 'このセッションに保存され、再起動後も復元されます。空欄 = グローバル値。',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -3577,9 +3847,14 @@ class _StreamThrottleSessionDialogState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh
-                              ? '启用流式输出节流（本会话）'
-                              : 'Enable stream throttle (this session)',
+                          text(
+                            zh: '启用流式输出节流（本会话）',
+                            zhHant: '啟用串流輸出節流（本會話）',
+                            en: 'Enable stream throttle (this session)',
+                            fr: 'Activer la limitation du flux (cette session)',
+                            de: 'Stream-Drosselung aktivieren (diese Sitzung)',
+                            ja: 'ストリーム出力スロットルを有効化（このセッション）',
+                          ),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -3587,12 +3862,22 @@ class _StreamThrottleSessionDialogState
                         const SizedBox(height: 2),
                         Text(
                           _enabledOverride == null
-                              ? (isZh
-                                    ? '当前沿用全局：${globalEnabled ? '已开启' : '已关闭'}'
-                                    : 'Following global: ${globalEnabled ? 'on' : 'off'}')
-                              : (isZh
-                                    ? '已会话级强制${_enabledOverride! ? '开启' : '关闭'}'
-                                    : 'Session-level forced ${_enabledOverride! ? 'on' : 'off'}'),
+                              ? text(
+                                  zh: '当前沿用全局：$globalStateLabel',
+                                  zhHant: '目前沿用全域：$globalStateLabel',
+                                  en: 'Following global: $globalStateLabel',
+                                  fr: 'Suit le global : $globalStateLabel',
+                                  de: 'Folgt global: $globalStateLabel',
+                                  ja: 'グローバルに従う: $globalStateLabel',
+                                )
+                              : text(
+                                  zh: '已会话级强制$forcedStateLabel',
+                                  zhHant: '已於會話級強制$forcedStateLabel',
+                                  en: 'Session-level forced $forcedStateLabel',
+                                  fr: 'Forcé au niveau session : $forcedStateLabel',
+                                  de: 'Auf Sitzungsebene erzwungen: $forcedStateLabel',
+                                  ja: 'セッション単位で $forcedStateLabel に固定',
+                                ),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -3638,9 +3923,14 @@ class _StreamThrottleSessionDialogState
                 FilteringTextInputFormatter.digitsOnly,
               ],
               decoration: InputDecoration(
-                labelText: isZh
-                    ? '字符 / 秒（当前生效：$effectiveChars）'
-                    : 'Chars / Sec (current: $effectiveChars)',
+                labelText: text(
+                  zh: '字符 / 秒（当前生效：$effectiveChars）',
+                  zhHant: '字元 / 秒（目前生效：$effectiveChars）',
+                  en: 'Chars / Sec (current: $effectiveChars)',
+                  fr: 'Caractères / s (actuel : $effectiveChars)',
+                  de: 'Zeichen / Sek. (aktuell: $effectiveChars)',
+                  ja: '文字 / 秒（現在: $effectiveChars）',
+                ),
                 hintText:
                     '${AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond}',
               ),
@@ -3658,9 +3948,14 @@ class _StreamThrottleSessionDialogState
                 FilteringTextInputFormatter.digitsOnly,
               ],
               decoration: InputDecoration(
-                labelText: isZh
-                    ? '卡片 / 秒（当前生效：$effectiveCards）'
-                    : 'Cards / Sec (current: $effectiveCards)',
+                labelText: text(
+                  zh: '卡片 / 秒（当前生效：$effectiveCards）',
+                  zhHant: '卡片 / 秒（目前生效：$effectiveCards）',
+                  en: 'Cards / Sec (current: $effectiveCards)',
+                  fr: 'Cartes / s (actuel : $effectiveCards)',
+                  de: 'Karten / Sek. (aktuell: $effectiveCards)',
+                  ja: 'カード / 秒（現在: $effectiveCards）',
+                ),
                 hintText:
                     '${AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond}',
               ),
@@ -3686,11 +3981,25 @@ class _StreamThrottleSessionDialogState
                       );
                       Navigator.of(context).pop();
                     },
-                    label: isZh ? '恢复默认' : 'Reset',
+                    label: text(
+                      zh: '恢复默认',
+                      zhHant: '恢復預設',
+                      en: 'Reset',
+                      fr: 'Réinitialiser',
+                      de: 'Zurücksetzen',
+                      ja: '既定に戻す',
+                    ),
                   ),
                   OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(),
-                    label: isZh ? '取消' : 'Cancel',
+                    label: text(
+                      zh: '取消',
+                      zhHant: '取消',
+                      en: 'Cancel',
+                      fr: 'Annuler',
+                      de: 'Abbrechen',
+                      ja: 'キャンセル',
+                    ),
                   ),
                   OpenHandDialogActionButton.primary(
                     onPressed: () {
@@ -3710,7 +4019,14 @@ class _StreamThrottleSessionDialogState
                       );
                       Navigator.of(context).pop();
                     },
-                    label: isZh ? '应用' : 'Apply',
+                    label: text(
+                      zh: '应用',
+                      zhHant: '套用',
+                      en: 'Apply',
+                      fr: 'Appliquer',
+                      de: 'Anwenden',
+                      ja: '適用',
+                    ),
                   ),
                 ],
               ),
@@ -3998,22 +4314,64 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
   }
 
   String _formatRangeLabel(BuildContext context, int seconds) {
-    final isZh = openHandIsChineseLocale(context);
-    if (seconds < 60) return isZh ? '$seconds秒' : '${seconds}s';
+    if (seconds < 60) {
+      return _localizedText(
+        context,
+        zh: '$seconds秒',
+        zhHant: '$seconds秒',
+        en: '${seconds}s',
+        fr: '$seconds s',
+        de: '$seconds s',
+        ja: '$seconds秒',
+      );
+    }
     final minutes = seconds ~/ 60;
     if (seconds % 60 != 0 && seconds < 60 * 60) {
       final value = (seconds / 60).toStringAsFixed(1);
-      return isZh ? '$value分' : '${value}m';
+      return _localizedText(
+        context,
+        zh: '$value分',
+        zhHant: '$value分',
+        en: '${value}m',
+        fr: '$value min',
+        de: '$value Min.',
+        ja: '$value分',
+      );
     }
-    if (minutes < 60) return isZh ? '$minutes分' : '${minutes}m';
+    if (minutes < 60) {
+      return _localizedText(
+        context,
+        zh: '$minutes分',
+        zhHant: '$minutes分',
+        en: '${minutes}m',
+        fr: '$minutes min',
+        de: '$minutes Min.',
+        ja: '$minutes分',
+      );
+    }
     final hours = minutes ~/ 60;
-    return isZh ? '$hours小时' : '${hours}h';
+    return _localizedText(
+      context,
+      zh: '$hours小时',
+      zhHant: '$hours小時',
+      en: '${hours}h',
+      fr: '$hours h',
+      de: '$hours Std.',
+      ja: '$hours時間',
+    );
   }
 
   String _formatGranularityLabel(BuildContext context, int seconds) {
     final unit = _formatRangeLabel(context, seconds);
-    final isZh = openHandIsChineseLocale(context);
-    return isZh ? '$unit/点' : '$unit/pt';
+    return _localizedText(
+      context,
+      zh: '$unit/点',
+      zhHant: '$unit/點',
+      en: '$unit/pt',
+      fr: '$unit/pt',
+      de: '$unit/Pkt.',
+      ja: '$unit/点',
+    );
   }
 
   int _peak(List<int> values) {
@@ -4067,7 +4425,6 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     final windowSeconds = _visibleWindowSeconds();
     final displayWindow = _displaySamples
         .take(math.min(windowSeconds, _displaySamples.length))
@@ -4114,9 +4471,15 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  isZh
-                      ? '节流后字符吞吐 · $headerWindow'
-                      : 'Throttled Chars · $headerWindow',
+                  _localizedText(
+                    context,
+                    zh: '节流后字符吞吐 · $headerWindow',
+                    zhHant: '節流後字元吞吐 · $headerWindow',
+                    en: 'Throttled Chars · $headerWindow',
+                    fr: 'Caractères limités · $headerWindow',
+                    de: 'Gedrosselte Zeichen · $headerWindow',
+                    ja: 'スロットル後の文字 · $headerWindow',
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.fade,
                   softWrap: false,
@@ -4128,9 +4491,15 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               ),
               const SizedBox(width: 6),
               Tooltip(
-                message: isZh
-                    ? '触控板双指捏合或 Ctrl+滚轮放缩时间区间'
-                    : 'Pinch or Ctrl+wheel to zoom the time range',
+                message: _localizedText(
+                  context,
+                  zh: '触控板双指捏合或 Ctrl+滚轮放缩时间区间',
+                  zhHant: '觸控板雙指捏合或 Ctrl+滾輪縮放時間區間',
+                  en: 'Pinch or Ctrl+wheel to zoom the time range',
+                  fr: 'Pincez ou utilisez Ctrl+molette pour zoomer la période',
+                  de: 'Zum Zoomen des Zeitbereichs kneifen oder Strg+Mausrad nutzen',
+                  ja: 'ピンチまたは Ctrl+ホイールで時間範囲をズーム',
+                ),
                 child: Icon(
                   Icons.pinch_rounded,
                   size: 12,
@@ -4140,9 +4509,16 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  isZh
-                      ? '当前 $current/s · 峰 $peak/s · 均 $average/s · 上限 ${widget.maxRate}/s'
-                      : 'now $current/s · peak $peak/s · avg $average/s · cap ${widget.maxRate}/s',
+                  _localizedText(
+                    context,
+                    zh: '当前 $current/s · 峰 $peak/s · 均 $average/s · 上限 ${widget.maxRate}/s',
+                    zhHant:
+                        '目前 $current/s · 峰 $peak/s · 均 $average/s · 上限 ${widget.maxRate}/s',
+                    en: 'now $current/s · peak $peak/s · avg $average/s · cap ${widget.maxRate}/s',
+                    fr: 'actuel $current/s · pic $peak/s · moy $average/s · limite ${widget.maxRate}/s',
+                    de: 'jetzt $current/s · Spitze $peak/s · Ø $average/s · Limit ${widget.maxRate}/s',
+                    ja: '現在 $current/s · 最大 $peak/s · 平均 $average/s · 上限 ${widget.maxRate}/s',
+                  ),
                   textAlign: TextAlign.end,
                   maxLines: 1,
                   overflow: TextOverflow.fade,
@@ -4400,7 +4776,6 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                               limitValue: widget.maxRate,
                               cap: cap,
                               bucketSeconds: _chartData.bucketSeconds,
-                              isZh: isZh,
                             ),
                         ],
                       ),
@@ -4412,9 +4787,15 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
           ),
           const SizedBox(height: 8),
           Text(
-            isZh
-                ? '模型原始流入 当前 $rawCurrent/s · 峰 $rawPeak/s'
-                : 'Raw ingress now $rawCurrent/s · peak $rawPeak/s',
+            _localizedText(
+              context,
+              zh: '模型原始流入 当前 $rawCurrent/s · 峰 $rawPeak/s',
+              zhHant: '模型原始流入 目前 $rawCurrent/s · 峰 $rawPeak/s',
+              en: 'Raw ingress now $rawCurrent/s · peak $rawPeak/s',
+              fr: 'Entrée brute actuelle $rawCurrent/s · pic $rawPeak/s',
+              de: 'Roheingang jetzt $rawCurrent/s · Spitze $rawPeak/s',
+              ja: 'モデル原始流入 現在 $rawCurrent/s · 最大 $rawPeak/s',
+            ),
             style: theme.textTheme.labelSmall?.copyWith(
               color: scheme.onSurfaceVariant,
               fontFeatures: const [FontFeature.tabularFigures()],
@@ -4647,7 +5028,6 @@ class _ThroughputTooltip extends StatelessWidget {
     required this.limitValue,
     required this.cap,
     required this.bucketSeconds,
-    required this.isZh,
   });
 
   final List<int> samples;
@@ -4656,7 +5036,6 @@ class _ThroughputTooltip extends StatelessWidget {
   final int limitValue;
   final int cap;
   final int bucketSeconds;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -4673,13 +5052,45 @@ class _ThroughputTooltip extends StatelessWidget {
     final bg = overLimit ? scheme.errorContainer : scheme.primaryContainer;
     final fg = overLimit ? scheme.onErrorContainer : scheme.onPrimaryContainer;
     final timeLabel = agoStart == 0 && bucketSeconds == 1
-        ? (isZh ? '当前秒' : 'now')
+        ? _localizedText(
+            context,
+            zh: '当前秒',
+            zhHant: '目前秒',
+            en: 'now',
+            fr: 'maintenant',
+            de: 'jetzt',
+            ja: '現在',
+          )
         : bucketSeconds <= 1
-        ? (isZh ? '${agoStart}s 前' : '${agoStart}s ago')
-        : (isZh ? '$agoStart-${agoEnd}s 前' : '$agoStart-${agoEnd}s ago');
+        ? _localizedText(
+            context,
+            zh: '${agoStart}s 前',
+            zhHant: '${agoStart}s 前',
+            en: '${agoStart}s ago',
+            fr: 'il y a ${agoStart}s',
+            de: 'vor ${agoStart}s',
+            ja: '$agoStart秒前',
+          )
+        : _localizedText(
+            context,
+            zh: '$agoStart-${agoEnd}s 前',
+            zhHant: '$agoStart-${agoEnd}s 前',
+            en: '$agoStart-${agoEnd}s ago',
+            fr: 'il y a $agoStart-${agoEnd}s',
+            de: 'vor $agoStart-${agoEnd}s',
+            ja: '$agoStart-$agoEnd秒前',
+          );
     final valueLabel = bucketSeconds <= 1
         ? '$value/s'
-        : (isZh ? '峰 $value/s' : 'peak $value/s');
+        : _localizedText(
+            context,
+            zh: '峰 $value/s',
+            zhHant: '峰 $value/s',
+            en: 'peak $value/s',
+            fr: 'pic $value/s',
+            de: 'Spitze $value/s',
+            ja: '最大 $value/s',
+          );
     return Positioned.fill(
       child: IgnorePointer(
         child: LayoutBuilder(
@@ -4823,15 +5234,39 @@ class _AndroidReverseDebugPillState extends State<_AndroidReverseDebugPill> {
   Widget build(BuildContext context) {
     _attachIfNeeded();
     final ctrl = _controller;
-    final isZh = openHandIsChineseLocale(context);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    String text({
+      required String zh,
+      String? zhHant,
+      required String en,
+      String? fr,
+      String? de,
+      String? ja,
+    }) {
+      return _localizedText(
+        context,
+        zh: zh,
+        zhHant: zhHant,
+        en: en,
+        fr: fr,
+        de: de,
+        ja: ja,
+      );
+    }
 
     final running = ctrl?.isRunning ?? false;
     final deviceOnline = ctrl?.connectedDevice != null;
     final processCount = ctrl?.processes.length ?? 0;
-    final processLabel = isZh ? '$processCount 进程' : '$processCount proc';
+    final processLabel = text(
+      zh: '$processCount 进程',
+      zhHant: '$processCount 進程',
+      en: '$processCount proc',
+      fr: '$processCount proc.',
+      de: '$processCount Proz.',
+      ja: '$processCount プロセス',
+    );
     final dotColor = !running
         ? cs.outline
         : !deviceOnline
@@ -4840,16 +5275,58 @@ class _AndroidReverseDebugPillState extends State<_AndroidReverseDebugPill> {
     final deviceLabel =
         ctrl?.connectedDevice?.model ??
         ctrl?.connectedDevice?.serial ??
-        (running ? (isZh ? '无设备' : 'no device') : (isZh ? '点击连接' : 'click'));
+        (running
+            ? text(
+                zh: '无设备',
+                zhHant: '無設備',
+                en: 'no device',
+                fr: 'aucun appareil',
+                de: 'kein Gerät',
+                ja: 'デバイスなし',
+              )
+            : text(
+                zh: '点击连接',
+                zhHant: '點擊連線',
+                en: 'click',
+                fr: 'cliquer',
+                de: 'klicken',
+                ja: 'クリック',
+              ));
     final label = running
-        ? (isZh
-              ? '${deviceOnline ? deviceLabel : '无设备'} · $processLabel'
-              : '${deviceOnline ? deviceLabel : 'no device'} · $processLabel')
-        : (isZh ? '点击打开' : 'open');
+        ? '${deviceOnline ? deviceLabel : text(zh: '无设备', zhHant: '無設備', en: 'no device', fr: 'aucun appareil', de: 'kein Gerät', ja: 'デバイスなし')} · $processLabel'
+        : text(
+            zh: '点击打开',
+            zhHant: '點擊開啟',
+            en: 'open',
+            fr: 'ouvrir',
+            de: 'öffnen',
+            ja: '開く',
+          );
     final tooltip = <String>[
-      isZh ? 'Android 逆向调试面板' : 'Android Reverse Debugger',
-      '${isZh ? "设备" : "Device"}: ${running ? (deviceOnline ? deviceLabel : (isZh ? "无设备" : "no device")) : (isZh ? "未运行" : "stopped")}',
-      '${isZh ? "进程" : "Processes"}: $processCount',
+      text(
+        zh: 'Android 逆向调试面板',
+        zhHant: 'Android 逆向除錯面板',
+        en: 'Android Reverse Debugger',
+        fr: 'Débogueur Android Reverse',
+        de: 'Android-Reverse-Debugger',
+        ja: 'Android Reverse デバッガ',
+      ),
+      text(
+        zh: '设备: ${running ? (deviceOnline ? deviceLabel : '无设备') : '未运行'}',
+        zhHant: '設備: ${running ? (deviceOnline ? deviceLabel : '無設備') : '未執行'}',
+        en: 'Device: ${running ? (deviceOnline ? deviceLabel : 'no device') : 'stopped'}',
+        fr: 'Appareil : ${running ? (deviceOnline ? deviceLabel : 'aucun appareil') : 'arrêté'}',
+        de: 'Gerät: ${running ? (deviceOnline ? deviceLabel : 'kein Gerät') : 'gestoppt'}',
+        ja: 'デバイス: ${running ? (deviceOnline ? deviceLabel : 'デバイスなし') : '停止中'}',
+      ),
+      text(
+        zh: '进程: $processCount',
+        zhHant: '進程: $processCount',
+        en: 'Processes: $processCount',
+        fr: 'Processus : $processCount',
+        de: 'Prozesse: $processCount',
+        ja: 'プロセス: $processCount',
+      ),
     ].join('\n');
 
     return _SessionToolbarStatusPill(
