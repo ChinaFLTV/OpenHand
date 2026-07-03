@@ -3020,8 +3020,9 @@ String _localizedTtsCatalogOptionLabel(
   BuildContext context,
   AiTtsCatalogOption option,
 ) {
-  if (option.enLabel?.trim().isNotEmpty == true) {
-    return option.labelForLocale(chinese: openHandIsChineseLocale(context));
+  final english = option.enLabel?.trim();
+  if (english?.isNotEmpty == true) {
+    return _localizedText(context, zh: option.label, en: english!);
   }
   final languageLabel = _localizedLanguageCodeLabel(
     context,
