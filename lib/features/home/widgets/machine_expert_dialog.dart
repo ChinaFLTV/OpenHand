@@ -117,6 +117,11 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
   List<String> _allTerminalsCached = [];
   final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
 
+  static const Duration _windowFallbackDelay = Duration(milliseconds: 150);
+  static const Duration _tabFallbackDelay = Duration(milliseconds: 100);
+  static const int _fallbackWindowCount = 10;
+  static const int _fallbackSessionCount = 1;
+
   static const Map<String, List<String>> _terminalsByPlatform = {
     'macOS': [
       'iTerm2',
@@ -230,8 +235,11 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
         .toList();
   }
 
+  bool _isActiveFetch(int fetchId) => mounted && _fetchSequence == fetchId;
+
   Future<void> _updateWindowsForTerminal(String terminal) async {
     final currentFetchId = ++_fetchSequence;
+    final windowLabel = openHandLocalizedText(context, zh: '窗口', en: 'Window');
 
     setState(() {
       _isLoading = true;
@@ -252,14 +260,14 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
         );
       }
 
-      if (!mounted || _fetchSequence != currentFetchId) return;
+      if (!_isActiveFetch(currentFetchId)) return;
 
       if (windows.isEmpty) {
-        await Future.delayed(const Duration(milliseconds: 150));
+        await Future.delayed(_windowFallbackDelay);
+        if (!_isActiveFetch(currentFetchId)) return;
         windows = List.generate(
-          10,
-          (index) =>
-              '${openHandLocalizedText(context, zh: '窗口', en: 'Window')} ${index + 1}',
+          _fallbackWindowCount,
+          (index) => '$windowLabel ${index + 1}',
         );
       }
 
@@ -288,10 +296,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
     } finally {
       // Guarantee the loader flag settles for the LATEST fetch even if
       // osascript throws or an unexpected early-return path is taken.
-      if (!clearedLoading &&
-          mounted &&
-          _fetchSequence == currentFetchId &&
-          _isLoading) {
+      if (!clearedLoading && _isActiveFetch(currentFetchId) && _isLoading) {
         setState(() {
           _isLoading = false;
         });
@@ -312,7 +317,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
     try {
       await _updateTabsForWindowInternal(window, currentFetchId);
     } finally {
-      if (mounted && _fetchSequence == currentFetchId && _isLoading) {
+      if (_isActiveFetch(currentFetchId) && _isLoading) {
         setState(() {
           _isLoading = false;
         });
@@ -390,7 +395,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
 
       if (tabs.isEmpty) {
         // Fallback to exactly the real count of tabs/sessions if possible, otherwise just 1.
-        int mockCount = 1;
+        int mockCount = _fallbackSessionCount;
         final countSubject = appName == 'iTerm'
             ? 'session of every tab'
             : 'tab';
@@ -413,12 +418,12 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
       }
     }
 
-    if (!mounted || _fetchSequence != fetchId) return;
+    if (!_isActiveFetch(fetchId)) return;
 
     if (tabs.isEmpty) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (!mounted) return;
-      tabs = <String>['$sessionLabel 1'];
+      await Future.delayed(_tabFallbackDelay);
+      if (!_isActiveFetch(fetchId)) return;
+      tabs = <String>['$sessionLabel $_fallbackSessionCount'];
     }
 
     final seen = <String, int>{};
