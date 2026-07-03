@@ -10,6 +10,8 @@ import 'package:yaml/yaml.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
 
+final RegExp _knowledgeInlineWhitespacePattern = RegExp(r'\s+');
+
 class KnowledgeDocumentParseRequest {
   const KnowledgeDocumentParseRequest({
     required this.file,
@@ -781,7 +783,7 @@ List<List<String>> _xlsxRows(xml.XmlDocument doc, List<String> sharedStrings) {
     while (values.isNotEmpty && values.last.trim().isEmpty) {
       values.removeLast();
     }
-    if (values.any((value) => value.trim().isNotEmpty)) rows.add(values);
+    if (_rowHasContent(values)) rows.add(values);
   }
   return rows;
 }
@@ -825,7 +827,7 @@ String _wordTableToMarkdown(xml.XmlElement table) {
         .where((child) => _isElement(child, 'tc'))
         .map(_trimmedOoxmlText)
         .toList(growable: false);
-    if (cells.any((cell) => cell.isNotEmpty)) rows.add(cells);
+    if (_rowHasContent(cells)) rows.add(cells);
   }
   return _rowsToMarkdown(rows);
 }
@@ -873,6 +875,14 @@ String _markdownCell(String value) {
       .replaceAll('\n', '<br>')
       .replaceAll('|', r'\|')
       .trim();
+}
+
+bool _rowHasContent(List<String> row) {
+  return row.any((cell) => nullIfBlank(cell) != null);
+}
+
+String _collapseInlineWhitespace(String value) {
+  return value.replaceAll(_knowledgeInlineWhitespacePattern, ' ').trim();
 }
 
 String _ooxmlText(xml.XmlElement element) {
@@ -1033,9 +1043,7 @@ List<List<String>> _parseDelimitedRows(
     row.add(cell.toString());
     rows.add(List<String>.from(row));
   }
-  return rows
-      .where((row) => row.any((cell) => cell.trim().isNotEmpty))
-      .toList(growable: false);
+  return rows.where(_rowHasContent).toList(growable: false);
 }
 
 String _structuredDataToMarkdown({
@@ -1202,7 +1210,7 @@ String _extractPdfContentText(String stream) {
   final textBlocks = RegExp(r'BT(.*?)ET', dotAll: true).allMatches(stream);
   for (final block in textBlocks) {
     final strings = _extractPdfStrings(block.group(1) ?? '')
-        .map((value) => value.replaceAll(RegExp(r'\s+'), ' ').trim())
+        .map(_collapseInlineWhitespace)
         .where((value) => value.length > 1)
         .toList(growable: false);
     if (strings.isNotEmpty) buffer.writeln(strings.join(' '));
@@ -1235,7 +1243,7 @@ List<String> _extractPdfStrings(String block) {
     index += 1;
   }
   return values
-      .where((value) => value.trim().isNotEmpty)
+      .where((value) => nullIfBlank(value) != null)
       .toList(growable: false);
 }
 
