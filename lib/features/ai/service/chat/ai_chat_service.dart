@@ -1751,7 +1751,7 @@ void _processOpenAiStreamEvent(
       if (rawToolCall is! Map) {
         continue;
       }
-      final toolCallMap = Map<String, Object?>.from(rawToolCall);
+      final toolCallMap = stringKeyedMapFromValue(rawToolCall);
       // OpenAI streaming spec assigns each tool_call a stable `index`.
       // Some non-strict OpenAI-compatible providers omit it and instead
       // ship two complete tool_calls in a single chunk — both would then
@@ -1784,7 +1784,7 @@ void _processOpenAiStreamEvent(
       }
       final function = toolCallMap['function'];
       if (function is Map) {
-        final functionMap = Map<String, Object?>.from(function);
+        final functionMap = stringKeyedMapFromValue(function);
         final name = '${functionMap['name'] ?? ''}'.trim();
         if (name.isNotEmpty) {
           entry.name = name;

@@ -930,11 +930,9 @@ class WebReverseSessionController extends ChangeNotifier {
         sessionId: _pageSessionId,
       );
       final list = r['cookies'] as List?;
-      return list
-              ?.whereType<Map>()
-              .map((m) => Map<String, Object?>.from(m))
-              .toList() ??
-          const [];
+      return list == null
+          ? const <Map<String, Object?>>[]
+          : stringKeyedMapListFromValue(list);
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', 'listCookies', error, stack);
       return const [];
@@ -1234,12 +1232,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       final list = r['objectStoreDataEntries'] as List?;
       final hasMore = r['hasMore'] == true;
-      final entries =
-          list
-              ?.whereType<Map>()
-              .map((m) => Map<String, Object?>.from(m))
-              .toList(growable: false) ??
-          const <Map<String, Object?>>[];
+      final entries = stringKeyedMapListFromValue(list);
       return (entries: entries, hasMore: hasMore);
     } catch (error, stack) {
       silentLog(
@@ -3865,10 +3858,7 @@ class WebReverseSessionController extends ChangeNotifier {
       if (raw == null || raw.isEmpty) return const [];
       final decoded = jsonDecode(raw);
       if (decoded is! List) return const [];
-      return decoded
-          .whereType<Map>()
-          .map((m) => Map<String, Object?>.from(m))
-          .toList(growable: false);
+      return stringKeyedMapListFromValue(decoded);
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',
@@ -4041,10 +4031,7 @@ class WebReverseSessionController extends ChangeNotifier {
       if (raw == null || raw.isEmpty) return const [];
       final decoded = jsonDecode(raw);
       if (decoded is! List) return const [];
-      return decoded
-          .whereType<Map>()
-          .map((m) => Map<String, Object?>.from(m))
-          .toList(growable: false);
+      return stringKeyedMapListFromValue(decoded);
     } catch (error, stack) {
       silentLog(
         'web_reverse_session_controller',

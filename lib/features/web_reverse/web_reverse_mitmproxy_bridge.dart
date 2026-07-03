@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/util/input_value_parsing.dart';
 
 /// mitmproxy 桥接：通过 spawn `mitmdump` 子进程 + 自定义 inline addon，
 /// 把所有进出流量以 NDJSON 形式 POST 到本地回调端口；OpenHand 这边起一个
@@ -126,7 +127,7 @@ class WebReverseMitmproxyBridge {
             try {
               final m = jsonDecode(t);
               if (m is Map && !controller.isClosed) {
-                controller.add(Map<String, Object?>.from(m));
+                controller.add(stringKeyedMapFromValue(m));
               }
             } catch (error, stack) {
               silentLog(
