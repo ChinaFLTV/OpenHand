@@ -36,6 +36,7 @@ enum _AgentToolOperation {
   detail,
   requestApproval,
   upsertKpi,
+  updateResource,
   publishTask,
   trackTask,
   progressTask,
@@ -91,6 +92,13 @@ class AiAgentTool extends AiTool {
         kind: AiBuiltinToolKind.agentKpiUpsert,
         name: 'AgentKpiUpsert',
         operation: _AgentToolOperation.upsertKpi,
+        agentsControllerProvider: agentsControllerProvider,
+        promptRenderer: renderer,
+      ),
+      AiAgentTool._(
+        kind: AiBuiltinToolKind.agentResourceUpdate,
+        name: 'AgentResourceUpdate',
+        operation: _AgentToolOperation.updateResource,
         agentsControllerProvider: agentsControllerProvider,
         promptRenderer: renderer,
       ),
@@ -178,6 +186,7 @@ class AiAgentTool extends AiTool {
       _AgentToolOperation.publishTask ||
       _AgentToolOperation.requestApproval ||
       _AgentToolOperation.upsertKpi ||
+      _AgentToolOperation.updateResource ||
       _AgentToolOperation.cancelTask ||
       _AgentToolOperation.pauseTask ||
       _AgentToolOperation.terminateTask ||
@@ -218,6 +227,11 @@ class AiAgentTool extends AiTool {
           stopwatch,
         ),
         _AgentToolOperation.upsertKpi => await _upsertKpi(
+          controller,
+          context,
+          stopwatch,
+        ),
+        _AgentToolOperation.updateResource => await _updateResource(
           controller,
           context,
           stopwatch,
@@ -360,6 +374,64 @@ class AiAgentTool extends AiTool {
       metadata: <String, Object?>{
         'action': 'detail',
         'agent_id': resolution.agent!.id,
+      },
+    );
+  }
+
+  Future<AiToolExecutionResult> _updateResource(
+    AgentsController controller,
+    AiToolExecutionContext context,
+    Stopwatch stopwatch,
+  ) async {
+    final args = context.decodedArguments;
+    final resolution = _resolveAgent(controller, args);
+    if (resolution.error != null) return resolution.error!;
+    final agent = resolution.agent!;
+    final previous = agent.resourceUsage;
+    final rawExtra = optionalStringKeyedMapFromValueOrJsonText(args['extra']);
+    final usage = AgentResourceUsage(
+      cpuPercent: _optionalRatio(args['cpu_percent']) ?? previous.cpuPercent,
+      memoryBytes:
+          optionalIntFromValue(args['memory_bytes']) ?? previous.memoryBytes,
+      diskBytes: optionalIntFromValue(args['disk_bytes']) ?? previous.diskBytes,
+      persistedBytes:
+          optionalIntFromValue(args['persisted_bytes']) ??
+          previous.persistedBytes,
+      tokenBudget:
+          optionalIntFromValue(args['token_budget']) ?? previous.tokenBudget,
+      tokenUsed: optionalIntFromValue(args['token_used']) ?? previous.tokenUsed,
+      openHandles:
+          optionalIntFromValue(args['open_handles']) ?? previous.openHandles,
+      extra: <String, Object?>{
+        ...previous.extra,
+        if (rawExtra != null) ...rawExtra,
+        'updated_by_session_id': context.sessionId,
+      },
+    );
+    final saved = await controller.saveResourceUsage(
+      agent.id,
+      usage,
+      auditToolName: _name,
+    );
+    if (!saved) {
+      return AiToolUtils.invalidResult(
+        _name,
+        'Failed to update resource usage. The agent may have been removed.',
+      );
+    }
+    final currentAgent = controller.agentById(agent.id) ?? agent;
+    return _success(
+      <String, Object?>{
+        'agent': _agentSummaryJson(currentAgent),
+        'resource_usage': currentAgent.resourceUsage.toJson(),
+        'resource_summary': _resourceUsageSummaryJson(
+          currentAgent.resourceUsage,
+        ),
+      },
+      stopwatch,
+      metadata: <String, Object?>{
+        'action': 'resource_updated',
+        'agent_id': agent.id,
       },
     );
   }

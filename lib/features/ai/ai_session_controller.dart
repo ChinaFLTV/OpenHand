@@ -8640,6 +8640,7 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.memory:
       case AiBuiltinToolKind.agentApprovalRequest:
       case AiBuiltinToolKind.agentKpiUpsert:
+      case AiBuiltinToolKind.agentResourceUpdate:
       case AiBuiltinToolKind.agentTaskPublish:
       case AiBuiltinToolKind.agentTaskCancel:
       case AiBuiltinToolKind.agentTaskPause:

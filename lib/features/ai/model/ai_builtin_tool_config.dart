@@ -483,6 +483,7 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.agentDetail:
       case AiBuiltinToolKind.agentApprovalRequest:
       case AiBuiltinToolKind.agentKpiUpsert:
+      case AiBuiltinToolKind.agentResourceUpdate:
       case AiBuiltinToolKind.agentTaskPublish:
       case AiBuiltinToolKind.agentTaskTrack:
       case AiBuiltinToolKind.agentTaskProgress:

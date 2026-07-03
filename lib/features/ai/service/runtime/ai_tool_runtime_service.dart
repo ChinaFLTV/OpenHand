@@ -218,6 +218,7 @@ enum AiBuiltinToolKind {
   agentDetail,
   agentApprovalRequest,
   agentKpiUpsert,
+  agentResourceUpdate,
   agentTaskPublish,
   agentTaskTrack,
   agentTaskProgress,
@@ -356,6 +357,7 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.skillManager,
         AiBuiltinToolKind.agentApprovalRequest,
         AiBuiltinToolKind.agentKpiUpsert,
+        AiBuiltinToolKind.agentResourceUpdate,
         AiBuiltinToolKind.agentTaskPublish,
         AiBuiltinToolKind.agentTaskCancel,
         AiBuiltinToolKind.agentTaskPause,
@@ -478,6 +480,7 @@ class AiToolRuntimeService {
         normalized == 'agentdetail' ||
         normalized.startsWith('agentapproval') ||
         normalized.startsWith('agentkpi') ||
+        normalized.startsWith('agentresource') ||
         normalized.startsWith('agenttask');
   }
 
@@ -503,6 +506,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.agentDetail ||
       AiBuiltinToolKind.agentApprovalRequest ||
       AiBuiltinToolKind.agentKpiUpsert ||
+      AiBuiltinToolKind.agentResourceUpdate ||
       AiBuiltinToolKind.agentTaskPublish ||
       AiBuiltinToolKind.agentTaskTrack ||
       AiBuiltinToolKind.agentTaskProgress ||
@@ -1401,6 +1405,7 @@ class AiToolRuntimeService {
       return kind == AiBuiltinToolKind.agentTaskPublish ||
           kind == AiBuiltinToolKind.agentApprovalRequest ||
           kind == AiBuiltinToolKind.agentKpiUpsert ||
+          kind == AiBuiltinToolKind.agentResourceUpdate ||
           kind == AiBuiltinToolKind.agentTaskCancel ||
           kind == AiBuiltinToolKind.agentTaskPause ||
           kind == AiBuiltinToolKind.agentTaskTerminate ||
@@ -1941,6 +1946,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.agentDetail => 'AgentDetail',
       AiBuiltinToolKind.agentApprovalRequest => 'AgentApprovalRequest',
       AiBuiltinToolKind.agentKpiUpsert => 'AgentKpiUpsert',
+      AiBuiltinToolKind.agentResourceUpdate => 'AgentResourceUpdate',
       AiBuiltinToolKind.agentTaskPublish => 'AgentTaskPublish',
       AiBuiltinToolKind.agentTaskTrack => 'AgentTaskTrack',
       AiBuiltinToolKind.agentTaskProgress => 'AgentTaskProgress',
@@ -3701,6 +3707,38 @@ class AiToolRuntimeService {
             'required': <String>['id'],
           },
         ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentResourceUpdate,
+      name: 'AgentResourceUpdate',
+      description:
+          'Update one enabled digital employee resource snapshot with observed CPU, memory, disk, persisted storage, token, and open-handle usage. Omitted fields keep their previous values. Use this after a worker run, report generation, durable artifact write, or resource cleanup so audit/resource dashboards stay current.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{
+            'type': 'string',
+            'description': 'Agent id or exact display name.',
+          },
+          'cpu_percent': <String, Object?>{
+            'type': 'number',
+            'minimum': 0,
+            'maximum': 1,
+            'description': '0..1 CPU pressure ratio.',
+          },
+          'memory_bytes': <String, Object?>{'type': 'integer', 'minimum': 0},
+          'disk_bytes': <String, Object?>{'type': 'integer', 'minimum': 0},
+          'persisted_bytes': <String, Object?>{'type': 'integer', 'minimum': 0},
+          'token_budget': <String, Object?>{'type': 'integer', 'minimum': 0},
+          'token_used': <String, Object?>{'type': 'integer', 'minimum': 0},
+          'open_handles': <String, Object?>{'type': 'integer', 'minimum': 0},
+          'extra': _agentToolExtraSchema,
+        },
+        'anyOf': _agentToolAgentSelectorAnyOf,
         'additionalProperties': false,
       },
     ),

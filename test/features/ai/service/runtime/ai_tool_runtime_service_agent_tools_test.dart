@@ -62,6 +62,9 @@ void main() {
       final kpi = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentKpiUpsert,
       )!;
+      final resource = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentResourceUpdate,
+      )!;
       final result = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentTaskResult,
       )!;
@@ -99,6 +102,11 @@ void main() {
         kpi.definition.description,
         contains('updates a matching KPI name before creating a new one'),
       );
+      expect(
+        resource.definition.description,
+        contains('Update one enabled digital employee resource snapshot'),
+      );
+      expect(resource.definition.description, contains('Omitted fields keep'));
       expect(
         result.definition.description,
         contains('terminal, requires attention'),
@@ -173,6 +181,23 @@ void main() {
       final statusSchema = kpiProperties['status'] as Map<String, Object?>;
       expect(statusSchema['enum'], contains('at_risk'));
       expect(kpiProperties['extra'], isA<Map<String, Object?>>());
+
+      final resourceParameters = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentResourceUpdate,
+      )!.definition.parameters;
+      expect(
+        _schemaAnyOfAllowsRequired(resourceParameters, 'agent_id'),
+        isTrue,
+      );
+      expect(
+        _schemaAnyOfAllowsRequired(resourceParameters, 'agent_name'),
+        isTrue,
+      );
+      final resourceProperties =
+          resourceParameters['properties'] as Map<String, Object?>;
+      expect(resourceProperties['cpu_percent'], isA<Map<String, Object?>>());
+      expect(resourceProperties['memory_bytes'], isA<Map<String, Object?>>());
+      expect(resourceProperties['extra'], isA<Map<String, Object?>>());
     });
 
     test('hides agent tools until at least one agent is enabled', () async {
@@ -209,6 +234,10 @@ void main() {
         AiBuiltinToolKind.agentKpiUpsert,
       );
       expect(
+        catalog.find('AgentResourceUpdate')?.builtinKind,
+        AiBuiltinToolKind.agentResourceUpdate,
+      );
+      expect(
         catalog.find('AgentTaskComplete')?.builtinKind,
         AiBuiltinToolKind.agentTaskComplete,
       );
@@ -221,6 +250,7 @@ void main() {
       expect(catalog.find('AgentTaskPublish'), isNull);
       expect(catalog.find('AgentApprovalRequest'), isNull);
       expect(catalog.find('AgentKpiUpsert'), isNull);
+      expect(catalog.find('AgentResourceUpdate'), isNull);
       expect(catalog.find('AgentTaskComplete'), isNull);
     });
 
@@ -249,6 +279,7 @@ void main() {
         expect(catalog.find('AgentTaskPublish'), isNull);
         expect(catalog.find('AgentApprovalRequest'), isNull);
         expect(catalog.find('AgentKpiUpsert'), isNull);
+        expect(catalog.find('AgentResourceUpdate'), isNull);
         expect(catalog.find('AgentTaskComplete'), isNull);
       },
     );
@@ -268,6 +299,7 @@ void main() {
         expect(catalog.find('AgentTaskPublish'), isNull);
         expect(catalog.find('AgentApprovalRequest'), isNull);
         expect(catalog.find('AgentKpiUpsert'), isNull);
+        expect(catalog.find('AgentResourceUpdate'), isNull);
         expect(catalog.find('AgentTaskResult'), isNull);
         expect(catalog.find('Bash'), isNotNull);
       },
@@ -409,6 +441,77 @@ void main() {
       expect(agent.auditEvents.first.kind, 'kpi_updated');
       expect(agent.auditEvents.first.toolName, 'AgentKpiUpsert');
     });
+
+    test(
+      'resource update tool preserves omitted metrics and records audit',
+      () async {
+        await controller.saveAgent(
+          _agent(enabled: true).copyWith(
+            resourceUsage: const AgentResourceUsage(
+              cpuPercent: 0.2,
+              memoryBytes: 2048,
+              diskBytes: 4096,
+              persistedBytes: 1024,
+              tokenBudget: 1000,
+              tokenUsed: 200,
+              openHandles: 2,
+              extra: <String, Object?>{'source': 'initial'},
+            ),
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        final result = await runtime.execute(
+          sessionId: 'session-resource',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-resource',
+            name: 'AgentResourceUpdate',
+            arguments: jsonEncode(<String, Object?>{
+              'agent_id': 'agent-1',
+              'cpu_percent': 1.4,
+              'disk_bytes': -1,
+              'token_used': 640,
+              'open_handles': 5,
+              'extra': <String, Object?>{'artifact': 'weekly.md'},
+            }),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
+
+        expect(result.status, BashToolExecutionStatus.success);
+        final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+        final usage = payload['resource_usage'] as Map<String, Object?>;
+        final summary = payload['resource_summary'] as Map<String, Object?>;
+        final agent = controller.agentById('agent-1')!;
+        final stored = agent.resourceUsage;
+
+        expect(stored.cpuPercent, 1);
+        expect(stored.memoryBytes, 2048);
+        expect(stored.diskBytes, 0);
+        expect(stored.persistedBytes, 1024);
+        expect(stored.tokenBudget, 1000);
+        expect(stored.tokenUsed, 640);
+        expect(stored.openHandles, 5);
+        expect(stored.extra['source'], 'initial');
+        expect(stored.extra['artifact'], 'weekly.md');
+        expect(stored.extra['updated_by_session_id'], 'session-resource');
+        expect(usage['memory_bytes'], 2048);
+        expect(summary['token_remaining'], 360);
+        expect(summary['token_usage_ratio'], 0.64);
+        expect(agent.activities.first.kind, 'resource_updated');
+        expect(agent.auditEvents.first.kind, 'resource_updated');
+        expect(agent.auditEvents.first.toolName, 'AgentResourceUpdate');
+        expect(agent.auditEvents.first.metadata['token_used'], 640);
+      },
+    );
 
     test('publish tool routes to the best matching enabled agent', () async {
       await controller.saveAgent(
