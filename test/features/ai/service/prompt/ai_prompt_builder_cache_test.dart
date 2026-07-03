@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/features/ai/model/ai_allow_command_rule.dart';
+import 'package:openhand/features/ai/model/ai_deny_command_rule.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
 import 'package:openhand/features/ai/model/ai_session_message.dart';
@@ -9,6 +11,7 @@ import 'package:openhand/features/ai/service/prompt/ai_prompt_builder.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_sections.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_assembly.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_repository.dart';
+import 'package:openhand/features/ai/service/runtime/ai_tool_runtime_service.dart';
 import 'package:openhand/features/instructions/index.dart';
 import 'package:openhand/features/mcp/index.dart';
 import 'package:openhand/features/memory/index.dart';
@@ -397,6 +400,109 @@ void main() {
       expect(firstInstructionsText, contains('- keywords: CI, Flutter'));
     },
   );
+
+  test('allow command rules are stable across settings order', () {
+    final first = _buildPrompt(
+      const <AiToolDefinition>[],
+      allowCommandRules: const <AiAllowCommandRule>[
+        AiAllowCommandRule(
+          id: 'z-rule',
+          pattern: 'pnpm *',
+          matchMode: AiDenyCommandMatchMode.simple,
+          note: 'package scripts',
+        ),
+        AiAllowCommandRule(
+          id: 'a-rule',
+          pattern: r'^flutter test\b',
+          matchMode: AiDenyCommandMatchMode.regex,
+          note: 'tests',
+        ),
+        AiAllowCommandRule(
+          id: 'empty-rule',
+          pattern: ' ',
+          matchMode: AiDenyCommandMatchMode.simple,
+        ),
+      ],
+    );
+    final second = _buildPrompt(
+      const <AiToolDefinition>[],
+      allowCommandRules: const <AiAllowCommandRule>[
+        AiAllowCommandRule(
+          id: 'empty-rule',
+          pattern: ' ',
+          matchMode: AiDenyCommandMatchMode.simple,
+        ),
+        AiAllowCommandRule(
+          id: 'z-rule',
+          pattern: ' pnpm * ',
+          matchMode: AiDenyCommandMatchMode.simple,
+          note: ' package scripts ',
+        ),
+        AiAllowCommandRule(
+          id: 'a-rule',
+          pattern: r'^flutter test\b',
+          matchMode: AiDenyCommandMatchMode.regex,
+          note: ' tests ',
+        ),
+      ],
+    );
+    final firstStatic = _sectionText(
+      first,
+      AiPromptSectionHeaders.staticSessionState,
+    );
+    final secondStatic = _sectionText(
+      second,
+      AiPromptSectionHeaders.staticSessionState,
+    );
+
+    expect(firstStatic, secondStatic);
+    expect(
+      first.metadata['stable_prefix_hash'],
+      second.metadata['stable_prefix_hash'],
+    );
+    expect(firstStatic, contains(r'regex:^flutter test\\b (tests)'));
+    expect(firstStatic, contains('simple:pnpm * (package scripts)'));
+    expect(firstStatic, isNot(contains('empty-rule')));
+  });
+
+  test(
+    'post-compact task tool listing is stable across resolved tool order',
+    () {
+      final alphaTask = _resolvedTaskTool('Task_Alpha');
+      final zetaTask = _resolvedTaskTool('Task_Zeta');
+      final first = _buildPrompt(
+        const <AiToolDefinition>[],
+        session: _compressedSession(),
+        resolvedToolsByName: <String, AiResolvedTool>{
+          zetaTask.name: zetaTask,
+          alphaTask.name: alphaTask,
+        },
+      );
+      final second = _buildPrompt(
+        const <AiToolDefinition>[],
+        session: _compressedSession(),
+        resolvedToolsByName: <String, AiResolvedTool>{
+          alphaTask.name: alphaTask,
+          zetaTask.name: zetaTask,
+        },
+      );
+      final firstListing = _sectionText(
+        first,
+        AiPromptSectionHeaders.restoredToolAndAgentListing,
+      );
+      final secondListing = _sectionText(
+        second,
+        AiPromptSectionHeaders.restoredToolAndAgentListing,
+      );
+
+      expect(firstListing, secondListing);
+      expect(
+        first.metadata['stable_prefix_hash'],
+        second.metadata['stable_prefix_hash'],
+      );
+      expect(firstListing, contains('- Task tool: Task_Alpha'));
+    },
+  );
 }
 
 AiPromptBuildResult _buildPrompt(
@@ -406,6 +512,9 @@ AiPromptBuildResult _buildPrompt(
   bool memoryEnabled = false,
   List<UserMemoryEntry> memoryEntries = const <UserMemoryEntry>[],
   List<UserInstructionEntry> userInstructions = const <UserInstructionEntry>[],
+  List<AiAllowCommandRule> allowCommandRules = const <AiAllowCommandRule>[],
+  Map<String, AiResolvedTool> resolvedToolsByName =
+      const <String, AiResolvedTool>{},
   Map<String, String> mcpServerInstructionsByName = const <String, String>{},
   String templateId = AiPromptTemplatePolicies.defaultTemplateId,
 }) {
@@ -427,13 +536,24 @@ AiPromptBuildResult _buildPrompt(
           memoryEnabled: memoryEnabled,
           memoryEntries: memoryEntries,
           userInstructions: userInstructions,
+          allowCommandRules: allowCommandRules,
         ),
     memoryEntries: memoryEntries,
     sessionMessages: effectiveSession.messages,
     latestUserMessageId: 'user-1',
     availableTools: tools,
+    resolvedToolsByName: resolvedToolsByName,
     displayCatalogOverride: tools,
     mcpServerInstructionsByName: mcpServerInstructionsByName,
+  );
+}
+
+AiResolvedTool _resolvedTaskTool(String name) {
+  return AiResolvedTool(
+    name: name,
+    definition: _tool(name, 'Task tool.'),
+    source: AiRuntimeToolSource.builtin,
+    builtinKind: AiBuiltinToolKind.task,
   );
 }
 
@@ -609,6 +729,7 @@ AiSessionRuntimeContext _runtimeContext({
   bool memoryEnabled = false,
   List<UserMemoryEntry> memoryEntries = const <UserMemoryEntry>[],
   List<UserInstructionEntry> userInstructions = const <UserInstructionEntry>[],
+  List<AiAllowCommandRule> allowCommandRules = const <AiAllowCommandRule>[],
 }) {
   return AiSessionRuntimeContext(
     localeTag: 'zh-Hans',
@@ -626,6 +747,7 @@ AiSessionRuntimeContext _runtimeContext({
     timeZoneName: 'UTC',
     availableMcpServers: availableMcpServers,
     userInstructions: userInstructions,
+    allowCommandRules: allowCommandRules,
   );
 }
 

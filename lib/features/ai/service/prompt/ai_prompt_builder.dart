@@ -14,6 +14,7 @@ import '../../../instructions/index.dart';
 import '../../../knowledge_base/index.dart';
 import '../../../memory/index.dart';
 import '../../../skills/index.dart';
+import '../../model/ai_allow_command_rule.dart';
 import '../../model/ai_attachment.dart';
 import '../../model/ai_builtin_tool_config.dart' show AiBuiltinToolLoadStrategy;
 import '../../model/ai_input_cache_policy.dart';
@@ -208,6 +209,9 @@ class AiPromptBuilder {
     final promptMemoryEntries = runtimeContext.memoryEnabled
         ? _memoryEntriesForPrompt(memoryEntries)
         : const <UserMemoryEntry>[];
+    final promptAllowCommandRules = _allowCommandRulesForPrompt(
+      runtimeContext.allowCommandRules,
+    );
     final visibleSessionMessages = sessionMessages
         .where(
           (item) =>
@@ -378,8 +382,8 @@ class AiPromptBuilder {
       'write_command_confirmation_enabled':
           runtimeContext.writeCommandConfirmationEnabled,
       'write_command_confirmation_required': writeCommandConfirmationRequired,
-      'allow_command_rule_count': runtimeContext.allowCommandRules.length,
-      'allow_command_rules': runtimeContext.allowCommandRules
+      'allow_command_rule_count': promptAllowCommandRules.length,
+      'allow_command_rules': promptAllowCommandRules
           .map((item) => item.toJson())
           .toList(growable: false),
       'repository_snapshot': repositorySnapshot?.toJson(),
@@ -388,6 +392,7 @@ class AiPromptBuilder {
       'memory_enabled': runtimeContext.memoryEnabled,
       'environment': _buildPromptEnvironmentSnapshot(
         runtimeContext,
+        allowCommandRules: promptAllowCommandRules,
         includeRepositorySnapshot: false,
       ),
       'app_theme': <String, String>{
@@ -418,6 +423,7 @@ class AiPromptBuilder {
     final staticSessionState = _buildCompactStaticSessionState(
       session: session,
       runtimeContext: runtimeContext,
+      allowCommandRules: promptAllowCommandRules,
     );
     final dynamicSessionState = _buildCompactDynamicSessionState(
       session: session,
@@ -1218,6 +1224,7 @@ class AiPromptBuilder {
 
   Map<String, Object?> _buildPromptEnvironmentSnapshot(
     AiSessionRuntimeContext runtimeContext, {
+    required List<AiAllowCommandRule> allowCommandRules,
     required bool includeRepositorySnapshot,
   }) {
     final workingDirectory = runtimeContext.workingDirectory.trim().isEmpty
@@ -1236,8 +1243,8 @@ class AiPromptBuilder {
           .map((item) => item.path)
           .toList(growable: false),
     };
-    if (runtimeContext.allowCommandRules.isNotEmpty) {
-      snapshot['allow_command_rules'] = runtimeContext.allowCommandRules
+    if (allowCommandRules.isNotEmpty) {
+      snapshot['allow_command_rules'] = allowCommandRules
           .map((item) => item.toJson())
           .toList(growable: false);
     }
@@ -1267,6 +1274,7 @@ class AiPromptBuilder {
   Map<String, Object?> _buildCompactStaticSessionState({
     required AiSession session,
     required AiSessionRuntimeContext runtimeContext,
+    required List<AiAllowCommandRule> allowCommandRules,
   }) {
     final workingDirectory = runtimeContext.workingDirectory.trim().isEmpty
         ? OpenHandPaths.applicationDirectoryPath()
@@ -1293,13 +1301,13 @@ class AiPromptBuilder {
       },
     };
 
-    if (runtimeContext.allowCommandRules.isNotEmpty) {
-      staticState['allow_cmd_rules'] = runtimeContext.allowCommandRules
+    if (allowCommandRules.isNotEmpty) {
+      staticState['allow_cmd_rules'] = allowCommandRules
           .map((rule) {
             final note = rule.note.trim();
             return note.isEmpty
-                ? '${rule.matchMode.storageValue}:${rule.pattern}'
-                : '${rule.matchMode.storageValue}:${rule.pattern} ($note)';
+                ? '${rule.matchMode.storageValue}:${rule.pattern.trim()}'
+                : '${rule.matchMode.storageValue}:${rule.pattern.trim()} ($note)';
           })
           .toList(growable: false);
     }
@@ -3710,6 +3718,38 @@ $tail''';
     return a.compareTo(b);
   }
 
+  List<AiAllowCommandRule> _allowCommandRulesForPrompt(
+    List<AiAllowCommandRule> rules,
+  ) {
+    final visible = rules
+        .map(
+          (rule) => rule.copyWith(
+            id: rule.id.trim(),
+            pattern: rule.pattern.trim(),
+            note: rule.note.trim(),
+          ),
+        )
+        .where((rule) => rule.pattern.isNotEmpty)
+        .toList(growable: false);
+    visible.sort(_compareAllowCommandRulesForPrompt);
+    return visible;
+  }
+
+  int _compareAllowCommandRulesForPrompt(
+    AiAllowCommandRule a,
+    AiAllowCommandRule b,
+  ) {
+    final modeCompare = a.matchMode.storageValue.compareTo(
+      b.matchMode.storageValue,
+    );
+    if (modeCompare != 0) return modeCompare;
+    final patternCompare = _comparePromptText(a.pattern, b.pattern);
+    if (patternCompare != 0) return patternCompare;
+    final noteCompare = _comparePromptText(a.note, b.note);
+    if (noteCompare != 0) return noteCompare;
+    return _comparePromptText(a.id, b.id);
+  }
+
   /// 渲染用户画像独立子段。当 user_profile 为空 / memory 被关闭时返回空字符串
   /// （连同后续 `_renderUserMemory` 一起就只剩通用记忆段，不破坏原有结构）。
   ///
@@ -4730,17 +4770,27 @@ $content
     required List<String> availableToolNames,
     required Map<String, AiResolvedTool> resolvedToolsByName,
   }) {
-    for (final tool in resolvedToolsByName.values) {
-      if (tool.source == AiRuntimeToolSource.builtin &&
-          tool.builtinKind == AiBuiltinToolKind.task &&
-          tool.name.trim().isNotEmpty) {
-        return tool.name.trim();
-      }
+    final resolvedTaskNames = resolvedToolsByName.values
+        .where(
+          (tool) =>
+              tool.source == AiRuntimeToolSource.builtin &&
+              tool.builtinKind == AiBuiltinToolKind.task,
+        )
+        .map((tool) => tool.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    resolvedTaskNames.sort(_comparePromptCatalogNames);
+    if (resolvedTaskNames.isNotEmpty) {
+      return resolvedTaskNames.first;
     }
-    for (final name in availableToolNames) {
-      if (name == 'Task') {
-        return name;
-      }
+    final availableTaskNames = availableToolNames
+        .where((name) => name == 'Task')
+        .toSet()
+        .toList(growable: false);
+    availableTaskNames.sort(_comparePromptCatalogNames);
+    if (availableTaskNames.isNotEmpty) {
+      return availableTaskNames.first;
     }
     return '';
   }
