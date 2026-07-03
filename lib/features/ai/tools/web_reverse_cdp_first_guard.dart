@@ -1,4 +1,5 @@
 import '../../../app/support/url_validation.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../service/web_reverse_runtime_metadata.dart';
 
 class WebReverseCdpFirstDecision {
@@ -343,11 +344,12 @@ _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
       (cdpRuntime != null && webReverseCdpRuntimeIsLive(cdpRuntime));
   if (!runtimeLive) return _WebReverseCdpRoute.runtimeUnavailable();
 
-  final currentToolNames = _stringList(
+  final currentToolNames = stringListFromValue(
     availability?['current_turn_callable_names'],
   );
-  final currentToolCount = _intValue(
+  final currentToolCount = intFromValue(
     availability?['current_turn_callable_count'],
+    fallback: 0,
   );
   final currentCallable =
       webReverseRuntimeBoolTrue(
@@ -364,11 +366,12 @@ _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
     );
   }
 
-  final deferredToolNames = _stringList(
+  final deferredToolNames = stringListFromValue(
     availability?['tool_search_deferred_cdp_mcp_names'],
   );
-  final deferredToolCount = _intValue(
+  final deferredToolCount = intFromValue(
     availability?['tool_search_deferred_cdp_mcp_count'],
+    fallback: 0,
   );
   if (webReverseRuntimeBoolTrue(availability?['tool_search_available']) &&
       (deferredToolNames.isNotEmpty || deferredToolCount > 0)) {
@@ -502,19 +505,6 @@ String _normalizeHttpHost(String host) {
     normalized = normalized.substring(1, normalized.length - 1);
   }
   return normalized;
-}
-
-List<String> _stringList(Object? raw) {
-  if (raw is! List) return const <String>[];
-  return raw
-      .map((entry) => '$entry'.trim())
-      .where((entry) => entry.isNotEmpty)
-      .toList(growable: false);
-}
-
-int _intValue(Object? raw) {
-  if (raw is num) return raw.toInt();
-  return int.tryParse('${raw ?? ''}'.trim()) ?? 0;
 }
 
 class _WebReverseCdpRoute {

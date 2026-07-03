@@ -48,5 +48,36 @@ void main() {
       expect(WebReverseCdpFirstGuard.isRequired(metadata: metadata), isFalse);
       expect(decision, isNull);
     });
+
+    test('parses callable tool names from web metadata strings', () {
+      final metadata = <String, Object?>{
+        'web_reverse_runtime': <String, Object?>{
+          'cdp_first_required': true,
+          'config': <String, Object?>{
+            'target_url': 'https://example.com/dashboard',
+          },
+          'cdp_runtime': <String, Object?>{
+            'browser_alive': true,
+            'cdp_port': 9222,
+          },
+          'cdp_mcp_tool_availability': <String, Object?>{
+            'browser_runtime_live': true,
+            'current_turn_callable': true,
+            'current_turn_callable_count': double.nan,
+            'current_turn_callable_names': 'cdp_click, cdp_type',
+          },
+        },
+      };
+
+      final decision = WebReverseCdpFirstGuard.evaluateUrl(
+        requestedUri: Uri.parse('https://example.com/settings'),
+        metadata: metadata,
+      );
+
+      expect(decision, isNotNull);
+      expect(decision!.routeKind, 'current_turn_callable');
+      expect(decision.toolPreview, <String>['cdp_click', 'cdp_type']);
+      expect(decision.toolText, 'cdp_click, cdp_type');
+    });
   });
 }
