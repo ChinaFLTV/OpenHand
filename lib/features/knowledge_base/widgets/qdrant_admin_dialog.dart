@@ -11,6 +11,28 @@ import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import 'knowledge_dialog_widgets.dart';
 
+String _qdrantAdminText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
 Future<void> showQdrantAdminDialog(BuildContext context) {
   return showAnimatedDialog<void>(
     context: context,
@@ -85,23 +107,50 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
 
   Future<void> _deleteCollection(String collection) async {
     final controller = context.read<KnowledgeBaseController>();
-    final isZh = openHandIsChineseLocale(context);
     if (!controller.settings.enableDangerousAdminOperations) {
       OpenHandSnackBar.showError(
         context,
-        isZh
-            ? '请先在知识库配置中启用危险管理操作。'
-            : 'Enable dangerous admin operations in Knowledge Base settings first.',
+        _qdrantAdminText(
+          context,
+          zh: '请先在知识库配置中启用危险管理操作。',
+          zhHant: '請先在知識庫設定中啟用危險管理操作。',
+          en: 'Enable dangerous admin operations in Knowledge Base settings first.',
+          fr: 'Activez d’abord les opérations admin dangereuses dans les paramètres de la base de connaissances.',
+          de: 'Aktivieren Sie zuerst gefährliche Admin-Aktionen in den Wissensdatenbank-Einstellungen.',
+          ja: '先にナレッジベース設定で危険な管理操作を有効にしてください。',
+        ),
       );
       return;
     }
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '删除 Qdrant collection？' : 'Delete Qdrant collection?',
-      message: isZh
-          ? '将删除 collection "$collection" 及其中所有 points。此操作不可撤销。'
-          : 'This deletes collection "$collection" and all points in it. This cannot be undone.',
-      confirmLabel: isZh ? '删除 Collection' : 'Delete collection',
+      title: _qdrantAdminText(
+        context,
+        zh: '删除 Qdrant collection？',
+        zhHant: '刪除 Qdrant collection？',
+        en: 'Delete Qdrant collection?',
+        fr: 'Supprimer la collection Qdrant ?',
+        de: 'Qdrant-Collection löschen?',
+        ja: 'Qdrant collection を削除しますか？',
+      ),
+      message: _qdrantAdminText(
+        context,
+        zh: '将删除 collection "$collection" 及其中所有 points。此操作不可撤销。',
+        zhHant: '將刪除 collection "$collection" 及其中所有 points。此操作無法復原。',
+        en: 'This deletes collection "$collection" and all points in it. This cannot be undone.',
+        fr: 'Supprime la collection "$collection" et tous ses points. Cette action est irréversible.',
+        de: 'Löscht die Collection "$collection" und alle enthaltenen Points. Dies kann nicht rückgängig gemacht werden.',
+        ja: 'collection "$collection" とそのすべての points を削除します。この操作は元に戻せません。',
+      ),
+      confirmLabel: _qdrantAdminText(
+        context,
+        zh: '删除 Collection',
+        zhHant: '刪除 Collection',
+        en: 'Delete collection',
+        fr: 'Supprimer la collection',
+        de: 'Collection löschen',
+        ja: 'Collection を削除',
+      ),
       destructive: true,
     );
     if (confirmed != true || !mounted) return;
@@ -111,7 +160,15 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
       if (!mounted) return;
       OpenHandSnackBar.showSuccess(
         context,
-        isZh ? 'Collection 已删除。' : 'Collection deleted.',
+        _qdrantAdminText(
+          context,
+          zh: 'Collection 已删除。',
+          zhHant: 'Collection 已刪除。',
+          en: 'Collection deleted.',
+          fr: 'Collection supprimée.',
+          de: 'Collection gelöscht.',
+          ja: 'Collection を削除しました。',
+        ),
       );
       _refresh();
     } catch (error) {
@@ -124,9 +181,19 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<KnowledgeBaseController>();
-    final isZh = openHandIsChineseLocale(context);
+    final isChineseLayout = openHandIsChineseLocale(context);
     return buildOpenHandAlertDialog(
-      title: Text(isZh ? 'Qdrant 管理' : 'Qdrant Admin'),
+      title: Text(
+        _qdrantAdminText(
+          context,
+          zh: 'Qdrant 管理',
+          zhHant: 'Qdrant 管理',
+          en: 'Qdrant Admin',
+          fr: 'Admin Qdrant',
+          de: 'Qdrant-Admin',
+          ja: 'Qdrant 管理',
+        ),
+      ),
       content: buildOpenHandDialogConstrainedContent(
         width: 880,
         maxHeight: MediaQuery.sizeOf(context).height * 0.80,
@@ -144,7 +211,15 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                   ),
                 ),
               KnowledgeDialogSection(
-                title: isZh ? 'Collections 列表' : 'Collections',
+                title: _qdrantAdminText(
+                  context,
+                  zh: 'Collections 列表',
+                  zhHant: 'Collections 清單',
+                  en: 'Collections',
+                  fr: 'Collections',
+                  de: 'Collections',
+                  ja: 'Collections',
+                ),
                 icon: Icons.dataset_outlined,
                 child: FutureBuilder<List<Map<String, Object?>>>(
                   future: _collectionsFuture,
@@ -160,9 +235,15 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                     if (collections.isEmpty) {
                       return KnowledgeDialogNotice(
                         icon: Icons.info_outline_rounded,
-                        message: isZh
-                            ? '没有 collection 或 Qdrant 不可用。'
-                            : 'No collection found or Qdrant unavailable.',
+                        message: _qdrantAdminText(
+                          context,
+                          zh: '没有 collection 或 Qdrant 不可用。',
+                          zhHant: '沒有 collection 或 Qdrant 不可用。',
+                          en: 'No collection found or Qdrant unavailable.',
+                          fr: 'Aucune collection trouvée ou Qdrant indisponible.',
+                          de: 'Keine Collection gefunden oder Qdrant ist nicht verfügbar.',
+                          ja: 'collection がないか、Qdrant を利用できません。',
+                        ),
                       );
                     }
                     return Column(
@@ -171,7 +252,6 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                           _CollectionTile(
                             item: item,
                             busy: _busy,
-                            isZh: isZh,
                             onInfo: () => _loadInfo('${item['name'] ?? ''}'),
                             onDelete: () =>
                                 _deleteCollection('${item['name'] ?? ''}'),
@@ -182,24 +262,47 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                 ),
               ),
               KnowledgeDialogSection(
-                title: isZh ? 'Points / 搜索 / 滚动读取' : 'Points / Search / Scroll',
+                title: _qdrantAdminText(
+                  context,
+                  zh: 'Points / 搜索 / 滚动读取',
+                  zhHant: 'Points / 搜尋 / 捲動讀取',
+                  en: 'Points / Search / Scroll',
+                  fr: 'Points / Recherche / Scroll',
+                  de: 'Points / Suche / Scroll',
+                  ja: 'Points / 検索 / スクロール',
+                ),
                 icon: Icons.manage_search_rounded,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     KnowledgeDialogKeyValueList(
                       rows: {
-                        isZh ? '当前 collection' : 'Current collection':
-                            controller.settings.effectiveCollectionName,
+                        _qdrantAdminText(
+                          context,
+                          zh: '当前 collection',
+                          zhHant: '目前 collection',
+                          en: 'Current collection',
+                          fr: 'Collection actuelle',
+                          de: 'Aktuelle Collection',
+                          ja: '現在の collection',
+                        ): controller.settings.effectiveCollectionName,
                       },
-                      labelWidth: isZh ? 150 : 170,
+                      labelWidth: isChineseLayout ? 150 : 170,
                     ),
                     const SizedBox(height: 12),
                     FilledButton.tonalIcon(
                       onPressed: _busy ? null : _scroll,
                       icon: const Icon(Icons.list_alt_rounded),
                       label: Text(
-                        isZh ? '滚动读取前 20 个 points' : 'Scroll first 20 points',
+                        _qdrantAdminText(
+                          context,
+                          zh: '滚动读取前 20 个 points',
+                          zhHant: '捲動讀取前 20 個 points',
+                          en: 'Scroll first 20 points',
+                          fr: 'Lire les 20 premiers points',
+                          de: 'Erste 20 Points scrollen',
+                          ja: '先頭 20 points をスクロール取得',
+                        ),
                       ),
                     ),
                     if (_scrollResult case final scrollResult?) ...[
@@ -211,20 +314,42 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
               ),
               if (_collectionInfo case final collectionInfo?)
                 KnowledgeDialogSection(
-                  title: isZh
-                      ? 'Collection 结构 / 配置'
-                      : 'Collection schema / config',
+                  title: _qdrantAdminText(
+                    context,
+                    zh: 'Collection 结构 / 配置',
+                    zhHant: 'Collection 結構 / 設定',
+                    en: 'Collection schema / config',
+                    fr: 'Schéma / configuration de collection',
+                    de: 'Collection-Schema / Konfiguration',
+                    ja: 'Collection スキーマ / 設定',
+                  ),
                   icon: Icons.schema_outlined,
                   child: KnowledgeDialogJsonBox(value: collectionInfo),
                 ),
               KnowledgeDialogSection(
-                title: isZh ? '操作日志' : 'Operation Log',
+                title: _qdrantAdminText(
+                  context,
+                  zh: '操作日志',
+                  zhHant: '操作日誌',
+                  en: 'Operation Log',
+                  fr: 'Journal des opérations',
+                  de: 'Aktionsprotokoll',
+                  ja: '操作ログ',
+                ),
                 icon: Icons.receipt_long_outlined,
                 margin: EdgeInsets.zero,
                 child: controller.qdrantAdminLogs.isEmpty
                     ? KnowledgeDialogNotice(
                         icon: Icons.history_toggle_off_rounded,
-                        message: isZh ? '暂无操作。' : 'No operations yet.',
+                        message: _qdrantAdminText(
+                          context,
+                          zh: '暂无操作。',
+                          zhHant: '暫無操作。',
+                          en: 'No operations yet.',
+                          fr: 'Aucune opération pour le moment.',
+                          de: 'Noch keine Aktionen.',
+                          ja: '操作はまだありません。',
+                        ),
                       )
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -247,11 +372,27 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
         OpenHandDialogActionButton.secondary(
           onPressed: _refresh,
           icon: Icons.refresh_rounded,
-          label: isZh ? '刷新' : 'Refresh',
+          label: _qdrantAdminText(
+            context,
+            zh: '刷新',
+            zhHant: '重新整理',
+            en: 'Refresh',
+            fr: 'Actualiser',
+            de: 'Aktualisieren',
+            ja: '更新',
+          ),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          label: isZh ? '关闭' : 'Close',
+          label: _qdrantAdminText(
+            context,
+            zh: '关闭',
+            zhHant: '關閉',
+            en: 'Close',
+            fr: 'Fermer',
+            de: 'Schließen',
+            ja: '閉じる',
+          ),
         ),
       ],
     );
@@ -262,14 +403,12 @@ class _CollectionTile extends StatelessWidget {
   const _CollectionTile({
     required this.item,
     required this.busy,
-    required this.isZh,
     required this.onInfo,
     required this.onDelete,
   });
 
   final Map<String, Object?> item;
   final bool busy;
-  final bool isZh;
   final VoidCallback onInfo;
   final VoidCallback onDelete;
 
@@ -313,13 +452,29 @@ class _CollectionTile extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: isZh ? '查看配置' : 'View config',
+            tooltip: _qdrantAdminText(
+              context,
+              zh: '查看配置',
+              zhHant: '查看設定',
+              en: 'View config',
+              fr: 'Voir la configuration',
+              de: 'Konfiguration anzeigen',
+              ja: '設定を表示',
+            ),
             onPressed: busy ? null : onInfo,
             icon: const Icon(Icons.info_outline_rounded),
           ),
           const SizedBox(width: 8),
           IconButton(
-            tooltip: isZh ? '删除' : 'Delete',
+            tooltip: _qdrantAdminText(
+              context,
+              zh: '删除',
+              zhHant: '刪除',
+              en: 'Delete',
+              fr: 'Supprimer',
+              de: 'Löschen',
+              ja: '削除',
+            ),
             onPressed: busy ? null : onDelete,
             icon: const Icon(Icons.delete_outline_rounded),
           ),
