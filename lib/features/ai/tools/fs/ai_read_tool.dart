@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/fs/ai_file_tracker_service.dart';
 import '../../service/hook/ai_claude_hook_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -306,9 +307,9 @@ class AiReadTool extends AiTool {
       if (rangeMatch == null) {
         return _invalidPdfPages(raw);
       }
-      final start = int.tryParse(rangeMatch.group(1) ?? '');
-      final end = int.tryParse(rangeMatch.group(2) ?? '') ?? start;
-      if (start == null || start <= 0 || end == null || end < start) {
+      final start = optionalPositiveIntFromValue(rangeMatch.group(1));
+      final end = optionalPositiveIntFromValue(rangeMatch.group(2)) ?? start;
+      if (start == null || end == null || end < start) {
         return _invalidPdfPages(raw);
       }
       for (var page = start; page <= end; page++) {
