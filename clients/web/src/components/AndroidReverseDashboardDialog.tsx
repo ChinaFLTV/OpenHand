@@ -5,7 +5,7 @@ import type { SessionSummary } from '../api/sessions';
 import {
   arrayFromUnknown,
   booleanFromUnknown,
-  integerFromUnknown,
+  nonNegativeIntegerFromUnknown,
   recordFromUnknown,
   stringFromUnknown,
   stringListFromUnknown,
@@ -105,13 +105,13 @@ function runtimeSummaryFromMetadata(metadata: Record<string, unknown>): AndroidR
     tone: running ? 'ok' : state === 'deviceLost' || warning ? 'warn' : 'muted',
     deviceLabel,
     visibleDeviceCount,
-    processCount: Math.max(0, integerFromUnknown(runtime['process_count'])),
+    processCount: nonNegativeIntegerFromUnknown(runtime['process_count']),
     tabCount,
     actionCount,
     toolSearchQuery: stringFromUnknown(mcp['tool_search_recommended_query']) || 'select:adb,android,frida,ida,apktool,jadx',
-    relatedServerCount: Math.max(0, integerFromUnknown(mcp['related_server_count'])),
-    relatedToolCount: Math.max(0, integerFromUnknown(mcp['related_tool_count'])),
-    pluginInstalledCount: Math.max(0, integerFromUnknown(plugins['installed_count'])),
+    relatedServerCount: nonNegativeIntegerFromUnknown(mcp['related_server_count']),
+    relatedToolCount: nonNegativeIntegerFromUnknown(mcp['related_tool_count']),
+    pluginInstalledCount: nonNegativeIntegerFromUnknown(plugins['installed_count']),
     pluginTotalCount: arrayFromUnknown(plugins['plugins']).length,
     artifactRoot: stringFromUnknown(localArtifacts['root_dir']) || stringFromUnknown(runtime['artifacts_root_dir']) || '-',
     quickScanDir: latestQuickScanDir || '-',
@@ -258,7 +258,7 @@ function McpTab({ metadata, summary }: { metadata: Record<string, unknown>; summ
               const name = stringFromUnknown(server['name']) || `server-${index + 1}`;
               const health = stringFromUnknown(server['health_status']);
               const catalog = stringFromUnknown(server['tool_catalog_status']);
-              const tools = integerFromUnknown(server['android_related_tool_count']);
+              const tools = nonNegativeIntegerFromUnknown(server['android_related_tool_count']);
               return <DashboardInfoRow key={`${name}-${index}`} label={name} value={`${health || '-'} · ${catalog || '-'} · Android tools ${tools}`} />;
             })}
           </div>

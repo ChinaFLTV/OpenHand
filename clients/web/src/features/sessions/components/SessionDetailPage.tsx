@@ -5534,7 +5534,7 @@ export function SessionDetailPage() {
       const serial = stringFromUnknown(connected['serial']) || stringFromUnknown(cfg['device_serial']);
       const running = booleanFromUnknown(runtime['is_running']);
       const state = stringFromUnknown(runtime['state']);
-      const processCount = Math.max(0, integerFromUnknown(runtime['process_count']));
+      const processCount = nonNegativeIntegerFromUnknown(runtime['process_count']);
       const visibleDeviceCount = arrayFromUnknown(runtime['visible_devices']).length;
       const deviceLabel = serial || (visibleDeviceCount > 0 ? `${visibleDeviceCount} 台设备` : running ? '无设备' : state === 'stopped' ? '已停止' : '待连接');
       const processLabel = ` · ${processCount} 进程`;

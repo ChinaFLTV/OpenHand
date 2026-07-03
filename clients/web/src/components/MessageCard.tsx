@@ -56,6 +56,7 @@ import {
 import {
   booleanFromUnknown,
   finiteNumberOrNullFromUnknown,
+  nonNegativeIntegerFromUnknown,
   recordOrNullFromUnknown,
   strictStringFromUnknown,
   stringFromUnknown,
@@ -689,10 +690,10 @@ function parseKnowledgeVectorDistribution(
   const durationMs = finiteNumberOrNullFromUnknown(record['duration_ms']);
   return {
     algorithm: nonEmptyString(record['algorithm']) || 'deterministic_random_projection_3d',
-    originalDimensions: Math.max(0, Math.round(finiteNumberOrNullFromUnknown(record['original_dimensions']) ?? 0)),
-    sampledCount: Math.max(points.length, Math.round(finiteNumberOrNullFromUnknown(record['sampled_count']) ?? points.length)),
+    originalDimensions: nonNegativeIntegerFromUnknown(record['original_dimensions']),
+    sampledCount: Math.max(points.length, nonNegativeIntegerFromUnknown(record['sampled_count'], points.length)),
     hasMore: record['has_more'] === true,
-    ...(durationMs != null ? { durationMs: Math.max(0, Math.round(durationMs)) } : {}),
+    ...(durationMs != null ? { durationMs: nonNegativeIntegerFromUnknown(durationMs) } : {}),
     ...(nonEmptyString(record['generated_at']) ? { generatedAt: nonEmptyString(record['generated_at']) } : {}),
     points,
   };
