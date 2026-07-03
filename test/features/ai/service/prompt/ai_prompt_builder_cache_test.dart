@@ -120,12 +120,122 @@ void main() {
       lessThan(firstRestoredMcp.indexOf('- mcp__alpha__beta__inspect:')),
     );
   });
+
+  test('post-compact dynamic MCP rehydration has stable ordering', () {
+    final first = _buildPrompt(
+      const <AiToolDefinition>[],
+      session: _compressedSession(),
+      runtimeContext: _runtimeContext(
+        availableMcpServers: const <McpServer>[
+          McpServer(
+            name: 'zeta',
+            type: McpServerType.stdio,
+            enabled: true,
+            command: 'zeta',
+          ),
+          McpServer(
+            name: 'alpha',
+            type: McpServerType.stdio,
+            enabled: true,
+            command: 'alpha',
+          ),
+        ],
+      ),
+      mcpServerInstructionsByName: const <String, String>{
+        'zeta': 'Zeta instruction',
+        'alpha': 'Alpha instruction',
+      },
+    );
+    final second = _buildPrompt(
+      const <AiToolDefinition>[],
+      session: _compressedSession(),
+      runtimeContext: _runtimeContext(
+        availableMcpServers: const <McpServer>[
+          McpServer(
+            name: 'alpha',
+            type: McpServerType.stdio,
+            enabled: true,
+            command: 'alpha',
+          ),
+          McpServer(
+            name: 'zeta',
+            type: McpServerType.stdio,
+            enabled: true,
+            command: 'zeta',
+          ),
+        ],
+      ),
+      mcpServerInstructionsByName: const <String, String>{
+        'alpha': 'Alpha instruction',
+        'zeta': 'Zeta instruction',
+      },
+    );
+    final firstDynamic = _runtimeSectionText(
+      first,
+      AiPromptSectionHeaders.dynamicSessionState,
+    );
+    final secondDynamic = _runtimeSectionText(
+      second,
+      AiPromptSectionHeaders.dynamicSessionState,
+    );
+
+    expect(firstDynamic, secondDynamic);
+    expect(
+      firstDynamic.indexOf('"alpha"'),
+      lessThan(firstDynamic.indexOf('"zeta"')),
+    );
+  });
+
+  test('reverse runtime metadata maps are stable across key order', () {
+    final first = _buildPrompt(
+      const <AiToolDefinition>[],
+      session: _compressedSession(
+        templateId: AiPromptTemplatePolicies.webReverseExpertTemplateId,
+        metadata: const <String, Object?>{
+          'web_reverse_config': <String, Object?>{
+            'zeta': <String, Object?>{'tail': true, 'alpha': 1},
+            'alpha': <String, Object?>{'zeta': 2, 'alpha': 1},
+          },
+        },
+      ),
+      templateId: AiPromptTemplatePolicies.webReverseExpertTemplateId,
+    );
+    final second = _buildPrompt(
+      const <AiToolDefinition>[],
+      session: _compressedSession(
+        templateId: AiPromptTemplatePolicies.webReverseExpertTemplateId,
+        metadata: const <String, Object?>{
+          'web_reverse_config': <String, Object?>{
+            'alpha': <String, Object?>{'alpha': 1, 'zeta': 2},
+            'zeta': <String, Object?>{'alpha': 1, 'tail': true},
+          },
+        },
+      ),
+      templateId: AiPromptTemplatePolicies.webReverseExpertTemplateId,
+    );
+    final firstDynamic = _runtimeSectionText(
+      first,
+      AiPromptSectionHeaders.dynamicSessionState,
+    );
+    final secondDynamic = _runtimeSectionText(
+      second,
+      AiPromptSectionHeaders.dynamicSessionState,
+    );
+
+    expect(firstDynamic, secondDynamic);
+    expect(
+      firstDynamic.indexOf('"alpha"'),
+      lessThan(firstDynamic.indexOf('"zeta"')),
+    );
+  });
 }
 
 AiPromptBuildResult _buildPrompt(
   List<AiToolDefinition> tools, {
   AiSession? session,
   AiSessionRuntimeContext? runtimeContext,
+  Map<String, String> mcpServerInstructionsByName = const <String, String>{},
+  String templateId = AiPromptTemplatePolicies.defaultTemplateId,
 }) {
   final now = DateTime.utc(2026);
   final userMessage = AiSessionMessage.user(
@@ -136,7 +246,7 @@ AiPromptBuildResult _buildPrompt(
   final effectiveSession =
       session ?? _session(messages: <AiSessionMessage>[userMessage], now: now);
   return const AiPromptBuilder().buildSessionPrompt(
-    templateBundle: _templateBundle(),
+    templateBundle: _templateBundle(templateId: templateId),
     session: effectiveSession,
     model: _model(),
     runtimeContext: runtimeContext ?? _runtimeContext(),
@@ -145,10 +255,14 @@ AiPromptBuildResult _buildPrompt(
     latestUserMessageId: 'user-1',
     availableTools: tools,
     displayCatalogOverride: tools,
+    mcpServerInstructionsByName: mcpServerInstructionsByName,
   );
 }
 
-AiSession _compressedSession() {
+AiSession _compressedSession({
+  String templateId = AiPromptTemplatePolicies.defaultTemplateId,
+  Map<String, Object?> metadata = const <String, Object?>{},
+}) {
   final now = DateTime.utc(2026);
   return _session(
     messages: <AiSessionMessage>[
@@ -165,18 +279,22 @@ AiSession _compressedSession() {
       ),
     ],
     now: now,
+    templateId: templateId,
+    metadata: metadata,
   );
 }
 
 AiSession _session({
   required List<AiSessionMessage> messages,
   required DateTime now,
+  String templateId = AiPromptTemplatePolicies.defaultTemplateId,
+  Map<String, Object?> metadata = const <String, Object?>{},
 }) {
   return AiSession(
     id: 'session-1',
     title: 'cache test',
-    templateId: AiPromptTemplatePolicies.defaultTemplateId,
-    templateName: 'Default',
+    templateId: templateId,
+    templateName: _templateName(templateId),
     templateIconName: 'auto_awesome_rounded',
     templateInternalVersion: 'test',
     createdAt: now,
@@ -185,6 +303,7 @@ AiSession _session({
     environment: _environment(),
     statistics: const AiSessionStatistics.initial(),
     recentErrors: const <AiSessionErrorRecord>[],
+    metadata: metadata,
   );
 }
 
@@ -227,21 +346,47 @@ String _sectionText(AiPromptBuildResult result, String header) {
       .content;
 }
 
-AiPromptTemplateBundle _templateBundle() {
-  return const AiPromptTemplateBundle(
+String _runtimeSectionText(AiPromptBuildResult result, String header) {
+  return result.messages
+      .firstWhere((turn) => turn.content.contains(header))
+      .content;
+}
+
+AiPromptTemplateBundle _templateBundle({
+  String templateId = AiPromptTemplatePolicies.defaultTemplateId,
+}) {
+  return AiPromptTemplateBundle(
     template: AiThreadTemplate(
-      id: AiPromptTemplatePolicies.defaultTemplateId,
-      name: 'Default',
+      id: templateId,
+      name: _templateName(templateId),
       iconName: 'auto_awesome_rounded',
       description: 'Default test template',
       internalVersion: 'test',
-      promptAssetDirectory:
-          AiPromptTemplatePolicies.defaultPromptAssetDirectory,
+      promptAssetDirectory: _templatePromptAssetDirectory(templateId),
     ),
     systemInstructions: 'System',
     developerInstructions: 'Developer',
     compressionSummaryInstructions: 'Compression',
   );
+}
+
+String _templateName(String templateId) {
+  return switch (templateId) {
+    AiPromptTemplatePolicies.webReverseExpertTemplateId => 'Web Reverse',
+    AiPromptTemplatePolicies.androidReverseExpertTemplateId =>
+      'Android Reverse',
+    _ => 'Default',
+  };
+}
+
+String _templatePromptAssetDirectory(String templateId) {
+  return switch (templateId) {
+    AiPromptTemplatePolicies.webReverseExpertTemplateId =>
+      AiPromptTemplatePolicies.webReverseExpertPromptAssetDirectory,
+    AiPromptTemplatePolicies.androidReverseExpertTemplateId =>
+      AiPromptTemplatePolicies.androidReverseExpertPromptAssetDirectory,
+    _ => AiPromptTemplatePolicies.defaultPromptAssetDirectory,
+  };
 }
 
 AiSessionRuntimeContext _runtimeContext({

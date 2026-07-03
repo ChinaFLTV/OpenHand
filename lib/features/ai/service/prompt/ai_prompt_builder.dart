@@ -275,10 +275,7 @@ class AiPromptBuilder {
         .where((item) => AiSessionTodoState.isFailureStatus(item.status))
         .map((item) => item.toJson())
         .toList(growable: false);
-    final availableToolNames = availableTools
-        .map((tool) => tool.name.trim())
-        .where((name) => name.isNotEmpty)
-        .toList(growable: false);
+    final availableToolNames = _promptCatalogToolNames(availableTools);
     final promptCatalogTools = displayCatalogOverride ?? availableTools;
     final promptCatalogToolNames = _promptCatalogToolNames(promptCatalogTools);
     final currentFileEditingToolNames = availableToolNames
@@ -1077,6 +1074,11 @@ class AiPromptBuilder {
         .length;
     final builtinToolCount =
         availableToolNames.length - skillToolCount - mcpToolCount;
+    final mcpServerNames = runtimeContext.availableMcpServers
+        .map((server) => server.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
+    mcpServerNames.sort(_comparePromptCatalogNames);
     final mcpServerInstructionNames = mcpServerInstructionsByName.entries
         .where(
           (entry) =>
@@ -1084,6 +1086,7 @@ class AiPromptBuilder {
         )
         .map((entry) => entry.key.trim())
         .toList(growable: false);
+    mcpServerInstructionNames.sort(_comparePromptCatalogNames);
     final sidecarMarkdownPath = _sessionCompactMemoryMarkdownPath(
       session,
       latestCompressionPoint,
@@ -1124,7 +1127,7 @@ class AiPromptBuilder {
       if (session.planHistory.isNotEmpty) 'plan_history',
       if (_hasRestorablePlanContext(session)) 'plan_context',
       if (mcpToolCount > 0 ||
-          runtimeContext.availableMcpServers.isNotEmpty ||
+          mcpServerNames.isNotEmpty ||
           mcpServerInstructionNames.isNotEmpty)
         'mcp_context',
       if (mcpServerInstructionNames.isNotEmpty) 'mcp_instructions',
@@ -1148,12 +1151,9 @@ class AiPromptBuilder {
       'builtin_tool_count': builtinToolCount,
       'skill_tool_count': skillToolCount,
       'mcp_tool_count': mcpToolCount,
-      'mcp_server_count': runtimeContext.availableMcpServers.length,
+      'mcp_server_count': mcpServerNames.length,
       'mcp_server_instruction_count': mcpServerInstructionNames.length,
-      if (runtimeContext.availableMcpServers.isNotEmpty)
-        'mcp_server_names': runtimeContext.availableMcpServers
-            .map((server) => server.name)
-            .toList(growable: false),
+      if (mcpServerNames.isNotEmpty) 'mcp_server_names': mcpServerNames,
       if (mcpServerInstructionNames.isNotEmpty)
         'mcp_server_instruction_names': mcpServerInstructionNames,
       'memory_enabled': runtimeContext.memoryEnabled,
@@ -2254,15 +2254,9 @@ class AiPromptBuilder {
     if (!templatePolicy.includesWebReverseRuntime) {
       return null;
     }
-    final rawConfig = session.metadata['web_reverse_config'];
-    final config = <String, Object?>{};
-    if (rawConfig is Map) {
-      for (final entry in rawConfig.entries) {
-        final key = '${entry.key}'.trim();
-        if (key.isEmpty) continue;
-        config[key] = _boundedWebReverseMetadataValue(entry.value);
-      }
-    }
+    final config = _boundedPromptMetadataMap(
+      session.metadata['web_reverse_config'],
+    );
 
     Object? meta(String key) =>
         _boundedWebReverseMetadataValue(session.metadata[key]);
@@ -2398,15 +2392,9 @@ class AiPromptBuilder {
     required Map<String, AiResolvedTool> resolvedToolsByName,
   }) {
     if (!templatePolicy.usesAndroidReverseToolCatalog) return null;
-    final rawConfig = session.metadata['android_reverse_config'];
-    final config = <String, Object?>{};
-    if (rawConfig is Map) {
-      for (final entry in rawConfig.entries) {
-        final key = '${entry.key}'.trim();
-        if (key.isEmpty) continue;
-        config[key] = _boundedAndroidReverseMetadataValue(entry.value);
-      }
-    }
+    final config = _boundedPromptMetadataMap(
+      session.metadata['android_reverse_config'],
+    );
     final rawRuntime = _boundedAndroidReverseMetadataValue(
       session.metadata['android_reverse_runtime'],
     );
@@ -2618,6 +2606,13 @@ class AiPromptBuilder {
     };
   }
 
+  Map<String, Object?> _boundedPromptMetadataMap(Object? value) {
+    final bounded = _boundedWebReverseMetadataValue(value);
+    return bounded is Map<String, Object?>
+        ? bounded
+        : const <String, Object?>{};
+  }
+
   Object? _boundedWebReverseMetadataValue(Object? value, {int depth = 0}) {
     if (value == null || value is num || value is bool) {
       return value;
@@ -2639,13 +2634,21 @@ class AiPromptBuilder {
           .toList(growable: false);
     }
     if (value is Map) {
+      final entries = value.entries
+          .map(
+            (entry) =>
+                MapEntry<String, Object?>('${entry.key}'.trim(), entry.value),
+          )
+          .where((entry) => entry.key.isNotEmpty)
+          .toList(growable: false);
+      entries.sort(
+        (left, right) => _comparePromptCatalogNames(left.key, right.key),
+      );
       final result = <String, Object?>{};
       var count = 0;
-      for (final entry in value.entries) {
+      for (final entry in entries) {
         if (count >= 32) break;
-        final key = '${entry.key}'.trim();
-        if (key.isEmpty) continue;
-        result[key] = _boundedWebReverseMetadataValue(
+        result[entry.key] = _boundedWebReverseMetadataValue(
           entry.value,
           depth: depth + 1,
         );
