@@ -3751,15 +3751,12 @@ $tail''';
     Set<String> skippedIds,
   ) {
     if (instructions.isEmpty) return '';
-    final visible = instructions
-        .where((entry) => entry.enabled && !skippedIds.contains(entry.id))
-        .toList(growable: false);
+    final visible = _userInstructionsForPrompt(instructions, skippedIds);
     if (visible.isEmpty) return '';
     final buf = StringBuffer();
     for (int i = 0; i < visible.length; i++) {
       final entry = visible[i];
       final body = entry.body.trim();
-      if (body.isEmpty) continue;
       final name = entry.name.trim().isEmpty
           ? 'Instruction'
           : entry.name.trim();
@@ -3772,11 +3769,13 @@ $tail''';
       if (entry.applyTo.trim().isNotEmpty) {
         buf.writeln('- applyTo: ${entry.applyTo.trim()}');
       }
-      if (entry.taskTypes.isNotEmpty) {
-        buf.writeln('- taskTypes: ${entry.taskTypes.join(", ")}');
+      final taskTypes = _instructionTaskTypesForPrompt(entry);
+      if (taskTypes.isNotEmpty) {
+        buf.writeln('- taskTypes: ${taskTypes.join(", ")}');
       }
-      if (entry.keywords.isNotEmpty) {
-        buf.writeln('- keywords: ${entry.keywords.join(", ")}');
+      final keywords = _instructionKeywordsForPrompt(entry);
+      if (keywords.isNotEmpty) {
+        buf.writeln('- keywords: ${keywords.join(", ")}');
       }
       buf
         ..writeln()
@@ -3784,6 +3783,60 @@ $tail''';
         ..writeln();
     }
     return buf.toString();
+  }
+
+  List<UserInstructionEntry> _userInstructionsForPrompt(
+    List<UserInstructionEntry> instructions,
+    Set<String> skippedIds,
+  ) {
+    final visible = instructions
+        .where(
+          (entry) =>
+              entry.enabled &&
+              !skippedIds.contains(entry.id) &&
+              entry.body.trim().isNotEmpty,
+        )
+        .toList(growable: false);
+    visible.sort(_compareUserInstructionsForPrompt);
+    return visible;
+  }
+
+  int _compareUserInstructionsForPrompt(
+    UserInstructionEntry a,
+    UserInstructionEntry b,
+  ) {
+    final sortOrderCompare = a.sortOrder.compareTo(b.sortOrder);
+    if (sortOrderCompare != 0) return sortOrderCompare;
+    final createdAtCompare = a.createdAt
+        .toUtc()
+        .microsecondsSinceEpoch
+        .compareTo(b.createdAt.toUtc().microsecondsSinceEpoch);
+    if (createdAtCompare != 0) return createdAtCompare;
+    final idCompare = _comparePromptText(a.id, b.id);
+    if (idCompare != 0) return idCompare;
+    return _comparePromptText(a.name, b.name);
+  }
+
+  List<String> _instructionTaskTypesForPrompt(UserInstructionEntry entry) {
+    final values = UserInstructionEntry.normalizeStringList(
+      entry.taskTypes,
+      maxItems: UserInstructionEntry.maxTaskTypes,
+      maxItemLength: 64,
+      dedupeCaseInsensitive: true,
+    );
+    values.sort(_comparePromptText);
+    return values;
+  }
+
+  List<String> _instructionKeywordsForPrompt(UserInstructionEntry entry) {
+    final values = UserInstructionEntry.normalizeStringList(
+      entry.keywords,
+      maxItems: UserInstructionEntry.maxKeywords,
+      maxItemLength: 64,
+      dedupeCaseInsensitive: true,
+    );
+    values.sort(_comparePromptText);
+    return values;
   }
 
   String _renderCompressionSummary(

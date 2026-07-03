@@ -9,6 +9,7 @@ import 'package:openhand/features/ai/service/prompt/ai_prompt_builder.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_sections.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_assembly.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_repository.dart';
+import 'package:openhand/features/instructions/index.dart';
 import 'package:openhand/features/mcp/index.dart';
 import 'package:openhand/features/memory/index.dart';
 
@@ -319,6 +320,83 @@ void main() {
       lessThan(firstMemory.indexOf('- Uses Flutter.')),
     );
   });
+
+  test(
+    'user instructions rendering is stable across entry and metadata order',
+    () {
+      final firstCreatedAt = DateTime.utc(2026);
+      final secondCreatedAt = DateTime.utc(2026, 1, 2);
+      final firstInstructions = <UserInstructionEntry>[
+        _instruction(
+          id: 'deploy',
+          name: 'Deploy',
+          body: 'Use staging first.',
+          sortOrder: 2,
+          createdAt: secondCreatedAt,
+          taskTypes: const <String>['Release', 'build'],
+          keywords: const <String>['Flutter', 'CI'],
+        ),
+        _instruction(
+          id: 'style',
+          name: 'Style',
+          body: 'Be concise.',
+          sortOrder: 1,
+          createdAt: firstCreatedAt,
+          taskTypes: const <String>['review', 'Refactor'],
+          keywords: const <String>['prompt', 'Cache'],
+        ),
+      ];
+      final secondInstructions = <UserInstructionEntry>[
+        _instruction(
+          id: 'style',
+          name: 'Style',
+          body: 'Be concise.',
+          sortOrder: 1,
+          createdAt: firstCreatedAt,
+          taskTypes: const <String>['Refactor', 'review'],
+          keywords: const <String>['Cache', 'prompt'],
+        ),
+        _instruction(
+          id: 'deploy',
+          name: 'Deploy',
+          body: 'Use staging first.',
+          sortOrder: 2,
+          createdAt: secondCreatedAt,
+          taskTypes: const <String>['build', 'Release'],
+          keywords: const <String>['CI', 'Flutter'],
+        ),
+      ];
+
+      final first = _buildPrompt(
+        const <AiToolDefinition>[],
+        userInstructions: firstInstructions,
+      );
+      final second = _buildPrompt(
+        const <AiToolDefinition>[],
+        userInstructions: secondInstructions,
+      );
+      final firstInstructionsText = _sectionText(
+        first,
+        AiPromptSectionHeaders.userInstructions,
+      );
+      final secondInstructionsText = _sectionText(
+        second,
+        AiPromptSectionHeaders.userInstructions,
+      );
+
+      expect(firstInstructionsText, secondInstructionsText);
+      expect(
+        first.metadata['stable_prefix_hash'],
+        second.metadata['stable_prefix_hash'],
+      );
+      expect(
+        firstInstructionsText.indexOf('## 1. Style'),
+        lessThan(firstInstructionsText.indexOf('## 2. Deploy')),
+      );
+      expect(firstInstructionsText, contains('- taskTypes: build, Release'));
+      expect(firstInstructionsText, contains('- keywords: CI, Flutter'));
+    },
+  );
 }
 
 AiPromptBuildResult _buildPrompt(
@@ -327,6 +405,7 @@ AiPromptBuildResult _buildPrompt(
   AiSessionRuntimeContext? runtimeContext,
   bool memoryEnabled = false,
   List<UserMemoryEntry> memoryEntries = const <UserMemoryEntry>[],
+  List<UserInstructionEntry> userInstructions = const <UserInstructionEntry>[],
   Map<String, String> mcpServerInstructionsByName = const <String, String>{},
   String templateId = AiPromptTemplatePolicies.defaultTemplateId,
 }) {
@@ -347,6 +426,7 @@ AiPromptBuildResult _buildPrompt(
         _runtimeContext(
           memoryEnabled: memoryEnabled,
           memoryEntries: memoryEntries,
+          userInstructions: userInstructions,
         ),
     memoryEntries: memoryEntries,
     sessionMessages: effectiveSession.messages,
@@ -354,6 +434,27 @@ AiPromptBuildResult _buildPrompt(
     availableTools: tools,
     displayCatalogOverride: tools,
     mcpServerInstructionsByName: mcpServerInstructionsByName,
+  );
+}
+
+UserInstructionEntry _instruction({
+  required String id,
+  required String name,
+  required String body,
+  required int sortOrder,
+  required DateTime createdAt,
+  List<String> taskTypes = const <String>[],
+  List<String> keywords = const <String>[],
+}) {
+  return UserInstructionEntry(
+    id: id,
+    name: name,
+    body: body,
+    createdAt: createdAt,
+    updatedAt: createdAt,
+    sortOrder: sortOrder,
+    taskTypes: taskTypes,
+    keywords: keywords,
   );
 }
 
@@ -507,6 +608,7 @@ AiSessionRuntimeContext _runtimeContext({
   List<McpServer> availableMcpServers = const <McpServer>[],
   bool memoryEnabled = false,
   List<UserMemoryEntry> memoryEntries = const <UserMemoryEntry>[],
+  List<UserInstructionEntry> userInstructions = const <UserInstructionEntry>[],
 }) {
   return AiSessionRuntimeContext(
     localeTag: 'zh-Hans',
@@ -523,6 +625,7 @@ AiSessionRuntimeContext _runtimeContext({
     workingDirectory: '/tmp/openhand-test',
     timeZoneName: 'UTC',
     availableMcpServers: availableMcpServers,
+    userInstructions: userInstructions,
   );
 }
 
