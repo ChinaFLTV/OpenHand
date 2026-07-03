@@ -250,6 +250,56 @@ void main() {
         AgentApprovalStatus.approved,
       );
     });
+
+    test('saving and deleting KPI records activity and audit', () async {
+      await controller.saveAgent(_runningAgent());
+
+      final created = await controller.saveKpi(
+        'agent-1',
+        const AgentKpiItem(
+          id: '',
+          name: 'Weekly delivery',
+          target: 'Ship 3 improvements',
+          progress: 0.4,
+          plan: 'Prioritize task loop gaps',
+        ),
+        auditToolName: 'AgentKpiTest',
+      );
+
+      expect(created, isNotNull);
+      expect(created!.id, isNotEmpty);
+      expect(created.progress, 0.4);
+      var agent = controller.agentById('agent-1')!;
+      expect(agent.kpis.single.id, created.id);
+      expect(agent.activities.first.kind, 'kpi_created');
+      expect(agent.auditEvents.first.kind, 'kpi_created');
+      expect(agent.auditEvents.first.toolName, 'AgentKpiTest');
+
+      final updated = await controller.saveKpi(
+        'agent-1',
+        created.copyWith(progress: 1, status: 'done'),
+        auditToolName: 'AgentKpiTest',
+      );
+
+      expect(updated, isNotNull);
+      expect(updated!.status, 'done');
+      agent = controller.agentById('agent-1')!;
+      expect(agent.kpis.single.progress, 1);
+      expect(agent.activities.first.kind, 'kpi_updated');
+      expect(agent.auditEvents.first.metadata['kpi_id'], created.id);
+
+      final deleted = await controller.deleteKpi(
+        'agent-1',
+        created.id,
+        auditToolName: 'AgentKpiTest',
+      );
+
+      expect(deleted, isTrue);
+      agent = controller.agentById('agent-1')!;
+      expect(agent.kpis, isEmpty);
+      expect(agent.activities.first.kind, 'kpi_deleted');
+      expect(agent.auditEvents.first.kind, 'kpi_deleted');
+    });
   });
 }
 

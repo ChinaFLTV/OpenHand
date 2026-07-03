@@ -545,6 +545,30 @@ class AgentKpiItem {
   final DateTime? updatedAt;
   final Map<String, Object?> extra;
 
+  AgentKpiItem copyWith({
+    String? id,
+    String? name,
+    String? target,
+    double? progress,
+    String? status,
+    String? plan,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Map<String, Object?>? extra,
+  }) {
+    return AgentKpiItem(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      target: target ?? this.target,
+      progress: progress ?? this.progress,
+      status: status ?? this.status,
+      plan: plan ?? this.plan,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      extra: extra ?? this.extra,
+    );
+  }
+
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'id': id,

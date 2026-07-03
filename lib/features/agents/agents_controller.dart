@@ -518,6 +518,161 @@ class AgentsController extends ManagedChangeNotifier {
     return changed ? resolvedApproval : null;
   }
 
+  Future<AgentKpiItem?> saveKpi(
+    String agentId,
+    AgentKpiItem draft, {
+    String auditToolName = 'AgentKpiDialog',
+  }) async {
+    final normalizedAgentId = agentId.trim();
+    final trimmedName = draft.name.trim();
+    if (normalizedAgentId.isEmpty || trimmedName.isEmpty) return null;
+    AgentKpiItem? savedKpi;
+    final changed = await _commitMutation(() async {
+      final index = _agents.indexWhere(
+        (agent) => agent.id == normalizedAgentId,
+      );
+      if (index < 0) return false;
+      final agent = _agents[index];
+      final now = DateTime.now().toUtc();
+      final normalizedId = draft.id.trim().isEmpty
+          ? _uuid.v4()
+          : draft.id.trim();
+      final existed = agent.kpis.any((item) => item.id == normalizedId);
+      final normalizedStatus = draft.status.trim().isEmpty
+          ? 'tracking'
+          : draft.status.trim();
+      savedKpi = draft.copyWith(
+        id: normalizedId,
+        name: trimmedName,
+        target: draft.target.trim(),
+        plan: draft.plan.trim(),
+        status: normalizedStatus,
+        progress: draft.progress.clamp(0, 1).toDouble(),
+        createdAt: draft.createdAt ?? now,
+        updatedAt: now,
+      );
+      final nextKpis = existed
+          ? agent.kpis
+                .map((item) => item.id == normalizedId ? savedKpi! : item)
+                .toList(growable: false)
+          : <AgentKpiItem>[savedKpi!, ...agent.kpis];
+      final kind = existed ? 'kpi_updated' : 'kpi_created';
+      final metadata = <String, Object?>{
+        'kpi_id': savedKpi!.id,
+        'kpi_status': savedKpi!.status,
+        'kpi_progress': savedKpi!.progress,
+      };
+      final updated = _normalizeAgent(
+        agent.copyWith(
+          kpis: nextKpis,
+          activities: _prependActivity(
+            agent.activities,
+            AgentActivityEvent(
+              id: _uuid.v4(),
+              kind: kind,
+              title: kind,
+              content: savedKpi!.name,
+              createdAt: now,
+              metadata: metadata,
+            ),
+          ),
+          auditEvents: _prependAudit(
+            agent.auditEvents,
+            AgentAuditEvent(
+              id: _uuid.v4(),
+              kind: kind,
+              summary: '$kind: ${savedKpi!.name}',
+              toolName: auditToolName,
+              requestCount: 1,
+              createdAt: now,
+              metadata: metadata,
+            ),
+          ),
+          updatedAt: now,
+        ),
+      );
+      _setAgents(<AgentProfile>[
+        ..._agents.sublist(0, index),
+        updated,
+        ..._agents.sublist(index + 1),
+      ]);
+      await _store.save(_agents);
+      return true;
+    });
+    return changed ? savedKpi : null;
+  }
+
+  Future<bool> deleteKpi(
+    String agentId,
+    String kpiId, {
+    String auditToolName = 'AgentKpiDialog',
+  }) {
+    final normalizedAgentId = agentId.trim();
+    final normalizedKpiId = kpiId.trim();
+    if (normalizedAgentId.isEmpty || normalizedKpiId.isEmpty) {
+      return Future<bool>.value(false);
+    }
+    return _commitMutation(() async {
+      final index = _agents.indexWhere(
+        (agent) => agent.id == normalizedAgentId,
+      );
+      if (index < 0) return false;
+      final agent = _agents[index];
+      AgentKpiItem? deletedKpi;
+      final nextKpis = <AgentKpiItem>[];
+      for (final item in agent.kpis) {
+        if (item.id == normalizedKpiId) {
+          deletedKpi = item;
+          continue;
+        }
+        nextKpis.add(item);
+      }
+      if (deletedKpi == null) return false;
+      final now = DateTime.now().toUtc();
+      final metadata = <String, Object?>{
+        'kpi_id': deletedKpi.id,
+        'kpi_status': deletedKpi.status,
+        'kpi_progress': deletedKpi.progress,
+      };
+      final updated = _normalizeAgent(
+        agent.copyWith(
+          kpis: nextKpis,
+          activities: _prependActivity(
+            agent.activities,
+            AgentActivityEvent(
+              id: _uuid.v4(),
+              kind: 'kpi_deleted',
+              title: 'kpi_deleted',
+              content: deletedKpi.name,
+              createdAt: now,
+              metadata: metadata,
+            ),
+          ),
+          auditEvents: _prependAudit(
+            agent.auditEvents,
+            AgentAuditEvent(
+              id: _uuid.v4(),
+              kind: 'kpi_deleted',
+              summary: 'kpi_deleted: ${deletedKpi.name}',
+              toolName: auditToolName,
+              requestCount: 1,
+              createdAt: now,
+              metadata: metadata,
+            ),
+          ),
+          updatedAt: now,
+        ),
+      );
+      _setAgents(<AgentProfile>[
+        ..._agents.sublist(0, index),
+        updated,
+        ..._agents.sublist(index + 1),
+      ]);
+      await _store.save(_agents);
+      return true;
+    });
+  }
+
   Future<bool> updateAgent(
     String id,
     AgentProfile Function(AgentProfile agent) mutate,

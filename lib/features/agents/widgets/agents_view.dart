@@ -51,6 +51,12 @@ const List<String> _agentWorkerRemovalPolicyOptions = <String>[
   'newest_first',
 ];
 const List<String> _agentRetryPolicyOptions = <String>['bounded_retry', 'none'];
+const List<String> _agentKpiStatusOptions = <String>[
+  'tracking',
+  'at_risk',
+  'done',
+  'paused',
+];
 
 FeatureStateCard _agentRuntimeNotice(
   BuildContext context,
@@ -1298,37 +1304,301 @@ Future<void> _showAgentKpiDialog(BuildContext context, AgentProfile agent) {
   final l10n = AppLocalizations.of(context)!;
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => buildOpenHandDialog(
-      maxWidth: 820,
-      maxHeight: 680,
-      child: _AgentDialogScaffold(
-        icon: Icons.flag_rounded,
-        title: l10n.agentsDialogTitleWithName(l10n.agentsKpi, agent.name),
-        child: agent.kpis.isEmpty
-            ? FeatureStateCard.inline(
-                icon: Icons.flag_outlined,
-                title: l10n.agentsNoKpiTitle,
-                body: l10n.agentsNoKpiBody,
-              )
-            : Column(
-                children: [
-                  for (final item in agent.kpis)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(item.name),
-                      subtitle: Text(
-                        [
-                          item.target,
-                          item.plan,
-                        ].where((v) => v.isNotEmpty).join(' · '),
-                      ),
-                      trailing: Text('${(item.progress * 100).round()}%'),
-                    ),
-                ],
+    builder: (_) => Consumer<AgentsController>(
+      builder: (context, controller, _) {
+        final currentAgent = controller.agentById(agent.id) ?? agent;
+        return buildOpenHandDialog(
+          maxWidth: 860,
+          maxHeight: 680,
+          child: _AgentDialogScaffold(
+            icon: Icons.flag_rounded,
+            title: l10n.agentsDialogTitleWithName(
+              l10n.agentsKpi,
+              currentAgent.name,
+            ),
+            actions: [
+              FilledButton.icon(
+                onPressed: () async {
+                  final draft = await _showAgentKpiEditorDialog(context);
+                  if (draft == null || !context.mounted) return;
+                  await context.read<AgentsController>().saveKpi(
+                    currentAgent.id,
+                    draft,
+                  );
+                },
+                icon: const Icon(Icons.add_rounded),
+                label: Text(
+                  openHandLocalizedText(context, zh: '新增 KPI', en: 'Add KPI'),
+                ),
               ),
-      ),
+            ],
+            child: currentAgent.kpis.isEmpty
+                ? FeatureStateCard.inline(
+                    icon: Icons.flag_outlined,
+                    title: l10n.agentsNoKpiTitle,
+                    body: l10n.agentsNoKpiBody,
+                  )
+                : Column(
+                    children: [
+                      for (final item in currentAgent.kpis)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(item.name),
+                          subtitle: Text(
+                            [
+                              item.target,
+                              item.plan,
+                              _agentKpiStatusLabel(context, item.status),
+                              if (item.updatedAt != null)
+                                formatMonthDayHm(item.updatedAt!.toLocal()),
+                            ].where((v) => v.trim().isNotEmpty).join(' · '),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('${(item.progress * 100).round()}%'),
+                              const SizedBox(width: 8),
+                              _AgentSmallIconButton(
+                                icon: Icons.edit_rounded,
+                                tooltip: openHandLocalizedText(
+                                  context,
+                                  zh: '编辑 KPI',
+                                  en: 'Edit KPI',
+                                ),
+                                onPressed: () async {
+                                  final draft = await _showAgentKpiEditorDialog(
+                                    context,
+                                    initial: item,
+                                  );
+                                  if (draft == null || !context.mounted) {
+                                    return;
+                                  }
+                                  await context
+                                      .read<AgentsController>()
+                                      .saveKpi(currentAgent.id, draft);
+                                },
+                              ),
+                              const SizedBox(width: 6),
+                              _AgentSmallIconButton(
+                                icon: Icons.delete_outline_rounded,
+                                tooltip: openHandLocalizedText(
+                                  context,
+                                  zh: '删除 KPI',
+                                  en: 'Delete KPI',
+                                ),
+                                onPressed: () => _deleteAgentKpi(
+                                  context,
+                                  currentAgent,
+                                  item,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
+        );
+      },
     ),
   );
+}
+
+Future<AgentKpiItem?> _showAgentKpiEditorDialog(
+  BuildContext context, {
+  AgentKpiItem? initial,
+}) {
+  return showAnimatedDialog<AgentKpiItem>(
+    context: context,
+    builder: (_) => _AgentKpiEditorDialog(initial: initial),
+  );
+}
+
+Future<void> _deleteAgentKpi(
+  BuildContext context,
+  AgentProfile agent,
+  AgentKpiItem item,
+) async {
+  final confirmed = await showOpenHandConfirmDialog(
+    context: context,
+    title: openHandLocalizedText(context, zh: '删除 KPI', en: 'Delete KPI'),
+    message: openHandLocalizedText(
+      context,
+      zh: '确认删除「${item.name}」吗？',
+      en: 'Delete "${item.name}"?',
+    ),
+    confirmLabel: openHandLocalizedText(context, zh: '删除', en: 'Delete'),
+    destructive: true,
+  );
+  if (confirmed && context.mounted) {
+    await context.read<AgentsController>().deleteKpi(agent.id, item.id);
+  }
+}
+
+class _AgentKpiEditorDialog extends StatefulWidget {
+  const _AgentKpiEditorDialog({this.initial});
+
+  final AgentKpiItem? initial;
+
+  @override
+  State<_AgentKpiEditorDialog> createState() => _AgentKpiEditorDialogState();
+}
+
+class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
+  late final TextEditingController _name;
+  late final TextEditingController _target;
+  late final TextEditingController _plan;
+  late double _progress;
+  late String _status;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _name = TextEditingController(text: initial?.name ?? '');
+    _target = TextEditingController(text: initial?.target ?? '');
+    _plan = TextEditingController(text: initial?.plan ?? '');
+    _progress = (initial?.progress ?? 0).clamp(0, 1).toDouble();
+    _status = _agentKpiStatusOptions.contains(initial?.status)
+        ? initial!.status
+        : _agentKpiStatusOptions.first;
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _target.dispose();
+    _plan.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return buildOpenHandDialog(
+      maxWidth: 680,
+      child: _AgentDialogScaffold(
+        icon: Icons.flag_rounded,
+        title: widget.initial == null
+            ? openHandLocalizedText(context, zh: '新增 KPI', en: 'Add KPI')
+            : openHandLocalizedText(context, zh: '编辑 KPI', en: 'Edit KPI'),
+        footer: buildOpenHandDialogActionsBar(
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(context).pop(),
+              label: l10n.commonCancel,
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: _name.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.of(context).pop(_buildKpi()),
+              label: l10n.commonSave,
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            TextField(
+              controller: _name,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(labelText: l10n.agentsFieldName),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _target,
+              decoration: InputDecoration(labelText: l10n.agentsFieldTarget),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _plan,
+              minLines: 3,
+              maxLines: 6,
+              decoration: InputDecoration(
+                labelText: openHandLocalizedText(
+                  context,
+                  zh: '推进计划',
+                  en: 'Plan',
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _status,
+              decoration: InputDecoration(
+                labelText: openHandLocalizedText(
+                  context,
+                  zh: '状态',
+                  en: 'Status',
+                ),
+              ),
+              items: [
+                for (final value in _agentKpiStatusOptions)
+                  DropdownMenuItem(
+                    value: value,
+                    child: Text(_agentKpiStatusLabel(context, value)),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _status = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            InputDecorator(
+              decoration: InputDecoration(
+                labelText: openHandLocalizedText(
+                  context,
+                  zh: '进度',
+                  en: 'Progress',
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Slider(
+                      value: _progress,
+                      divisions: 20,
+                      label: '${(_progress * 100).round()}%',
+                      onChanged: (value) => setState(() => _progress = value),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 48,
+                    child: Text(
+                      '${(_progress * 100).round()}%',
+                      textAlign: TextAlign.end,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  AgentKpiItem _buildKpi() {
+    final initial = widget.initial;
+    return AgentKpiItem(
+      id: initial?.id ?? '',
+      name: _name.text.trim(),
+      target: _target.text.trim(),
+      plan: _plan.text.trim(),
+      progress: _progress.clamp(0, 1).toDouble(),
+      status: _status,
+      createdAt: initial?.createdAt,
+      extra: initial?.extra ?? const <String, Object?>{},
+    );
+  }
+}
+
+String _agentKpiStatusLabel(BuildContext context, String status) {
+  return switch (status.trim().toLowerCase()) {
+    'done' => openHandLocalizedText(context, zh: '已完成', en: 'Done'),
+    'at_risk' => openHandLocalizedText(context, zh: '有风险', en: 'At risk'),
+    'paused' => openHandLocalizedText(context, zh: '已暂停', en: 'Paused'),
+    _ => openHandLocalizedText(context, zh: '跟进中', en: 'Tracking'),
+  };
 }
 
 Future<void> _showAgentResourcesDialog(
