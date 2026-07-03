@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../web_engine/web_engine_concurrency.dart';
@@ -344,8 +345,10 @@ class WebFetchOrchestrator {
   }
 
   Uri? _normalizedUriForScore(String raw) {
-    final uri = Uri.tryParse(raw.trim());
-    if (uri == null || uri.host.trim().isEmpty) return null;
+    final text = nullIfBlank(raw);
+    if (text == null) return null;
+    final uri = Uri.tryParse(text);
+    if (uri == null || nullIfBlank(uri.host) == null) return null;
     final host = uri.host.toLowerCase().replaceFirst(RegExp(r'^www\.'), '');
     final path = uri.path.endsWith('/') && uri.path.length > 1
         ? uri.path.substring(0, uri.path.length - 1)

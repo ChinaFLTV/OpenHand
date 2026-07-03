@@ -3680,7 +3680,7 @@ $tail''';
     List<UserMemoryEntry> memoryEntries,
   ) {
     final entries = memoryEntries
-        .where((entry) => entry.content.trim().isNotEmpty)
+        .where((entry) => nullIfBlank(entry.content) != null)
         .toList(growable: false);
     entries.sort(_compareMemoryEntriesForPrompt);
     return entries;
@@ -4878,7 +4878,7 @@ $content
           ..sort(_compareToolDefinitionsForPromptCatalog);
     final servers =
         runtimeContext.availableMcpServers
-            .where((server) => server.name.trim().isNotEmpty)
+            .where((server) => nullIfBlank(server.name) != null)
             .toList(growable: false)
           ..sort(
             (left, right) => _comparePromptCatalogNames(left.name, right.name),
