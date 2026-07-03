@@ -1945,7 +1945,7 @@ class AiSessionController extends ChangeNotifier {
     _toolRuntimeService.fileTracker.clearAllTracking();
     final sessionMetadata = metadata == null
         ? await _buildDefaultSessionMetadata(runtimeContext)
-        : Map<String, Object?>.from(metadata);
+        : Map<String, Object?>.of(stringKeyedMapFromValue(metadata));
     final session = AiSession(
       id: _idGenerator(),
       title: _defaultNewSessionTitle,
@@ -5473,7 +5473,7 @@ class AiSessionController extends ChangeNotifier {
           return decoded;
         }
         if (decoded is Map) {
-          return Map<String, Object?>.from(decoded);
+          return stringKeyedMapFromValue(decoded);
         }
       } catch (_) {
         continue;
@@ -8742,7 +8742,7 @@ class AiSessionController extends ChangeNotifier {
           if (item is! Map) {
             return null;
           }
-          final todoMap = Map<String, Object?>.from(item);
+          final todoMap = stringKeyedMapFromValue(item);
           final id = '${todoMap['id'] ?? ''}'.trim();
           final content = '${todoMap['content'] ?? ''}'.trim();
           final status = '${todoMap['status'] ?? ''}'.trim();
@@ -11879,7 +11879,7 @@ $tail''';
         return decoded;
       }
       if (decoded is Map) {
-        return Map<String, Object?>.from(decoded);
+        return stringKeyedMapFromValue(decoded);
       }
     } catch (error, stack) {
       silentLog(
@@ -12980,7 +12980,7 @@ $tail''';
       return value;
     }
     if (value is Map) {
-      return Map<String, Object?>.from(value);
+      return stringKeyedMapFromValue(value);
     }
     return null;
   }
