@@ -1062,7 +1062,7 @@ class PluginScannerService {
       if (infoResult.exitCode == 0) {
         final decoded = _decodeOptionalJson(infoResult.stdout.toString());
         if (decoded is Map) {
-          final info = Map<String, Object?>.from(decoded);
+          final info = stringKeyedMapFromValue(decoded);
           metadata.addAll(<String, Object?>{
             if (info['ServerVersion'] != null)
               'server_version': '${info['ServerVersion']}',

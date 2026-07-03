@@ -86,7 +86,7 @@ class SettingsStore {
             final decoded = jsonDecode(jsonStr);
             if (decoded is Map) {
               final snapshot = _snapshotFromJson(
-                Map<String, Object?>.from(decoded),
+                stringKeyedMapFromValue(decoded),
               );
               return SettingsLoadResult(snapshot: snapshot);
             }

@@ -2588,7 +2588,7 @@ String _toolArgumentsPreview(AiSessionMessage message) {
     try {
       final decoded = jsonDecode(rawArguments);
       if (decoded is Map) {
-        final entries = Map<String, Object?>.from(decoded).entries.take(2);
+        final entries = stringKeyedMapFromValue(decoded).entries.take(2);
         final summary = entries
             .map((entry) => '${entry.key}: ${entry.value}')
             .join(', ');

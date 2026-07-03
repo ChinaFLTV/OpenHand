@@ -4991,7 +4991,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
         if (decoded is! Map) {
           throw const FormatException('root-not-object');
         }
-        arguments = Map<String, Object?>.from(decoded);
+        arguments = stringKeyedMapFromValue(decoded);
       }
     } catch (_) {
       setState(() {
@@ -6655,7 +6655,7 @@ Map<String, Object?>? _asMap(Object? value) {
     return value;
   }
   if (value is Map) {
-    return Map<String, Object?>.from(value);
+    return stringKeyedMapFromValue(value);
   }
   return null;
 }

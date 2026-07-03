@@ -1472,7 +1472,7 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
         if (decoded is! Map) {
           throw const FormatException('Metadata root must be a JSON object.');
         }
-        parsed = Map<String, Object?>.from(decoded);
+        parsed = stringKeyedMapFromValue(decoded);
       }
       // Build a diff payload that resets existing keys that were removed by
       // overlaying `null` onto them; updateSessionMetadata skips equal values
@@ -1949,12 +1949,8 @@ class _AuditMessageRow extends StatelessWidget {
 
 int? _auditFirstInt(Iterable<Object?> candidates) {
   for (final value in candidates) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) {
-      final parsed = int.tryParse(value.trim());
-      if (parsed != null) return parsed;
-    }
+    final parsed = optionalIntFromValue(value);
+    if (parsed != null) return parsed;
   }
   return null;
 }
