@@ -38,7 +38,7 @@ enum AiBuiltinToolLazyLoadingMode {
   final String storageValue;
 
   static AiBuiltinToolLazyLoadingMode fromStorage(String? raw) {
-    final normalized = raw?.trim().toLowerCase();
+    final normalized = optionalLowercaseStringFromValue(raw);
     for (final mode in AiBuiltinToolLazyLoadingMode.values) {
       if (mode.storageValue == normalized) return mode;
     }
@@ -221,24 +221,21 @@ class AiBuiltinToolConfig {
 
   /// 生效的工具名称。
   String get effectiveName {
-    if (isCustom &&
-        customToolName != null &&
-        customToolName!.trim().isNotEmpty) {
-      return customToolName!.trim();
+    final customName = nullIfBlank(customToolName);
+    if (isCustom && customName != null) {
+      return customName;
     }
-    return displayName?.trim().isNotEmpty == true
-        ? displayName!.trim()
-        : kind.name;
+    return nullIfBlank(displayName) ?? kind.name;
   }
 
   /// 生效的描述。
   String get effectiveDescription {
-    final base = isCustom ? (customDescription ?? '') : '';
-    final prompt = promptOverride?.trim() ?? '';
-    if (base.isNotEmpty && prompt.isNotEmpty) {
+    final base = isCustom ? nullIfBlank(customDescription) : null;
+    final prompt = nullIfBlank(promptOverride);
+    if (base != null && prompt != null) {
       return '$base\n\n$prompt';
     }
-    return base.isNotEmpty ? base : prompt;
+    return base ?? prompt ?? '';
   }
 
   AiBuiltinToolConfig copyWith({

@@ -92,6 +92,24 @@ void main() {
     });
   });
 
+  group('lowercaseStringFromValue', () {
+    test('trims values before lowercasing', () {
+      expect(lowercaseStringFromValue('  HeLLo  '), 'hello');
+      expect(lowercaseStringFromValue(42), '42');
+    });
+
+    test('uses a lowercased fallback for blank values', () {
+      expect(lowercaseStringFromValue(null, fallback: 'Fallback'), 'fallback');
+      expect(lowercaseStringFromValue(' ', fallback: 'Fallback'), 'fallback');
+    });
+
+    test('optional variant returns null for blank values', () {
+      expect(optionalLowercaseStringFromValue(null), isNull);
+      expect(optionalLowercaseStringFromValue(' '), isNull);
+      expect(optionalLowercaseStringFromValue('  Sync  '), 'sync');
+    });
+  });
+
   group('trimRightNonEmptyLines', () {
     test('drops blank lines while preserving leading whitespace', () {
       expect(

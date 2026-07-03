@@ -796,9 +796,8 @@ class AiTtsProviderCatalogs {
 
   static String _trimmedVoice(String? voice) => nullIfBlank(voice) ?? '';
 
-  static String _normalizedLookupValue(Object? value) {
-    return (optionalStringFromValue(value) ?? '').toLowerCase();
-  }
+  static String _normalizedLookupValue(Object? value) =>
+      lowercaseStringFromValue(value);
 
   static List<AiTtsCatalogOption> _uniqueOptions(
     List<AiTtsCatalogOption> options,

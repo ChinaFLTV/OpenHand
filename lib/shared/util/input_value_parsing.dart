@@ -158,10 +158,18 @@ String stringFromValue(Object? value, {String fallback = ''}) {
   return optionalStringFromValue(value) ?? fallback;
 }
 
+String lowercaseStringFromValue(Object? value, {String fallback = ''}) {
+  return optionalLowercaseStringFromValue(value) ?? fallback.toLowerCase();
+}
+
 String? optionalStringFromValue(Object? value) {
   if (value == null) return null;
   final text = '$value'.trim();
   return text.isEmpty ? null : text;
+}
+
+String? optionalLowercaseStringFromValue(Object? value) {
+  return optionalStringFromValue(value)?.toLowerCase();
 }
 
 Map<String, Object?> stringKeyedMapFromValue(Object? value) {

@@ -182,7 +182,7 @@ AppReleaseInfo? parseGitHubReleaseInfo(
   final json = stringKeyedMapFromValue(raw);
   final tagName = stringFromValue(json['tag_name']);
   if (tagName.isEmpty) return null;
-  final suffix = platformAssetSuffix.trim().toLowerCase();
+  final suffix = lowercaseStringFromValue(platformAssetSuffix);
   final version = tagName.replaceFirst(RegExp(r'^v'), '');
   final assets = stringKeyedMapListFromValue(json['assets']);
   final selectedAsset = _selectReleaseAsset(assets, suffix);
@@ -206,7 +206,7 @@ Map<String, Object?>? _selectReleaseAsset(
   if (assets.isEmpty) return null;
   if (platformAssetSuffix.isNotEmpty) {
     for (final asset in assets) {
-      final name = stringFromValue(asset['name']).toLowerCase();
+      final name = lowercaseStringFromValue(asset['name']);
       if (name.contains(platformAssetSuffix)) return asset;
     }
   }

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import '../../shared/util/input_value_parsing.dart';
+
 final RegExp _httpUrlWhitespacePattern = RegExp(r'\s');
 final RegExp _httpUrlTokenPattern = RegExp(
   r'''https?://[^\s<>"'`\)\]\}）】》〉」』]+''',
@@ -40,8 +42,8 @@ const Set<String> _httpUrlTrailingTokenCharacters = <String>{
 };
 
 Uri? tryParseValidHttpUrl(String rawValue, {bool allowUserInfo = false}) {
-  final trimmed = rawValue.trim();
-  if (trimmed.isEmpty || _httpUrlWhitespacePattern.hasMatch(trimmed)) {
+  final trimmed = nullIfBlank(rawValue);
+  if (trimmed == null || _httpUrlWhitespacePattern.hasMatch(trimmed)) {
     return null;
   }
   return normalizeValidHttpUri(
@@ -58,11 +60,11 @@ Uri? normalizeValidHttpUri(Uri? uri, {bool allowUserInfo = false}) {
   if (scheme != 'http' && scheme != 'https') {
     return null;
   }
-  final host = uri.host.trim();
-  if (host.isEmpty ||
+  final host = nullIfBlank(uri.host);
+  if (host == null ||
       _httpUrlWhitespacePattern.hasMatch(host) ||
       host.contains('%') ||
-      (!allowUserInfo && uri.userInfo.trim().isNotEmpty)) {
+      (!allowUserInfo && nullIfBlank(uri.userInfo) != null)) {
     return null;
   }
   return uri.scheme == scheme ? uri : uri.replace(scheme: scheme);
@@ -73,8 +75,8 @@ bool isValidHttpUrl(String rawValue, {bool allowUserInfo = false}) {
 }
 
 String? firstHttpUrlFromText(String? rawText, {bool allowUserInfo = false}) {
-  final text = rawText?.trim();
-  if (text == null || text.isEmpty) return null;
+  final text = nullIfBlank(rawText);
+  if (text == null) return null;
   final uris = extractHttpUrisFromText(text, allowUserInfo: allowUserInfo);
   return uris.isEmpty ? null : uris.first.toString();
 }
@@ -123,7 +125,7 @@ String? agentFetchBlockReasonForUri(Uri uri) {
 }
 
 String? agentFetchBlockReasonForHost(String rawHost) {
-  final host = rawHost.trim().toLowerCase();
+  final host = lowercaseStringFromValue(rawHost);
   if (host.isEmpty) {
     return 'missing or invalid host';
   }

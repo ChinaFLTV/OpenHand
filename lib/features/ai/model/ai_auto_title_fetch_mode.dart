@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 enum AiAutoTitleFetchMode {
   asynchronous('async'),
   synchronous('sync');
@@ -7,7 +9,7 @@ enum AiAutoTitleFetchMode {
   final String storageValue;
 
   static AiAutoTitleFetchMode fromStorage(String? value) {
-    final normalized = (value ?? '').trim().toLowerCase();
+    final normalized = lowercaseStringFromValue(value);
     for (final mode in values) {
       if (mode.storageValue == normalized) {
         return mode;

@@ -1,5 +1,7 @@
 import 'package:flutter/services.dart';
 
+import '../../shared/util/input_value_parsing.dart';
+
 enum OpenHandShortcutAction {
   sendMessage,
   toggleComposer,
@@ -65,7 +67,7 @@ String openHandShortcutActionStorageKey(OpenHandShortcutAction action) {
 }
 
 OpenHandShortcutAction? openHandShortcutActionFromStorageKey(String rawValue) {
-  return switch (rawValue.trim()) {
+  return switch (nullIfBlank(rawValue)) {
     'send_message' => OpenHandShortcutAction.sendMessage,
     'toggle_composer' => OpenHandShortcutAction.toggleComposer,
     'select_previous_model' => OpenHandShortcutAction.selectPreviousModel,
@@ -188,12 +190,12 @@ String _fallbackShortcutKeyLabel(int keyId) {
   if (logicalKey == null) {
     return 'Key';
   }
-  final keyLabel = logicalKey.keyLabel.trim();
-  if (keyLabel.isNotEmpty) {
+  final keyLabel = nullIfBlank(logicalKey.keyLabel);
+  if (keyLabel != null) {
     return keyLabel.length == 1 ? keyLabel.toUpperCase() : keyLabel;
   }
-  final debugName = logicalKey.debugName?.trim() ?? '';
-  if (debugName.isEmpty) {
+  final debugName = nullIfBlank(logicalKey.debugName);
+  if (debugName == null) {
     return 'Key';
   }
   return switch (debugName) {

@@ -73,12 +73,13 @@ class AiSessionTodoItem {
   }
 
   Map<String, Object?> toJson() {
-    return <String, Object?>{
+    final json = <String, Object?>{
       'id': id,
       'content': content,
       'status': status,
-      if (activeForm.trim().isNotEmpty) 'activeForm': activeForm,
     };
+    putIfNotBlank(json, 'activeForm', activeForm);
+    return json;
   }
 
   static AiSessionTodoItem fromJson(Object? raw) {
@@ -100,7 +101,8 @@ abstract final class AiSessionTodoState {
   static const String blocked = 'blocked';
   static const String cancelled = 'cancelled';
 
-  static String normalizeStatus(String value) => value.trim().toLowerCase();
+  static String normalizeStatus(String value) =>
+      lowercaseStringFromValue(value);
 
   static bool isCompletedStatus(String value) {
     return normalizeStatus(value) == completed;

@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 enum AiLspManagedInstallKind {
   none,
   npmLocal,
@@ -69,7 +71,8 @@ class AiLspBackendDescriptor {
 }
 
 String normalizeAiLspLanguage(String? language) {
-  switch ((language ?? '').trim().toLowerCase()) {
+  final normalized = lowercaseStringFromValue(language);
+  switch (normalized) {
     case 'bash':
     case 'shellscript':
       return 'shell';
@@ -93,7 +96,7 @@ String normalizeAiLspLanguage(String? language) {
     case '':
       return 'plaintext';
     default:
-      return language!.trim().toLowerCase();
+      return normalized;
   }
 }
 
@@ -110,10 +113,8 @@ List<String> aiLspSupportedLanguages() {
 }
 
 AiLspBackendDescriptor? aiLspBackendById(String id) {
-  final trimmedId = id.trim();
-  if (trimmedId.isEmpty) {
-    return null;
-  }
+  final trimmedId = nullIfBlank(id);
+  if (trimmedId == null) return null;
   for (final backend in kAiLspBackendCatalog) {
     if (backend.id == trimmedId) {
       return backend;
