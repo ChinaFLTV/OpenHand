@@ -70,6 +70,74 @@ void main() {
       expect(find.textContaining('Hermes Agent 未就绪'), findsOneWidget);
       expect(find.byType(SnackBar), findsOneWidget);
     });
+
+    testWidgets('opens a complete task detail dialog from task desk', (
+      tester,
+    ) async {
+      controller.setRuntimeAvailabilityProvider(
+        () => const AgentRuntimeAvailability(
+          isLoading: false,
+          isInstalled: true,
+          isEnabled: true,
+          pluginName: 'Hermes Agent',
+        ),
+      );
+      await controller.saveAgent(
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          enabled: true,
+          lifecycleState: AgentLifecycleState.running,
+          tasks: <AgentTask>[
+            AgentTask(
+              id: 'task-1',
+              title: 'Quarterly report',
+              description: 'Prepare the quarterly review.',
+              content: 'Use invoices, tickets, and KPI evidence.',
+              result: 'Draft report is ready.',
+              note: 'Needs mentor review.',
+              progress: 0.8,
+              status: AgentTaskStatus.running,
+              createdAt: DateTime.utc(2026, 7, 4, 1, 2),
+              updatedAt: DateTime.utc(2026, 7, 4, 3, 4),
+              extra: const <String, Object?>{
+                'assigned_worker_id': 'worker-1',
+                'assigned_worker_name': 'Worker 1',
+                'agent_system_prompt': 'secret prompt body',
+              },
+            ),
+          ],
+          workers: const <AgentWorker>[
+            AgentWorker(
+              id: 'worker-1',
+              name: 'Worker 1',
+              status: AgentWorkerStatus.busy,
+              currentTaskId: 'task-1',
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(_AgentsViewHarness(controller: controller));
+      await tester.tap(find.byTooltip('更多').first);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('任务台'));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Quarterly report').first);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('任务详情'), findsOneWidget);
+      expect(find.text('task-1'), findsOneWidget);
+      expect(find.text('Prepare the quarterly review.'), findsOneWidget);
+      expect(
+        find.text('Use invoices, tickets, and KPI evidence.'),
+        findsOneWidget,
+      );
+      expect(find.text('Draft report is ready.'), findsOneWidget);
+      expect(find.text('Needs mentor review.'), findsOneWidget);
+      expect(find.textContaining('"omitted": true'), findsOneWidget);
+      expect(find.textContaining('secret prompt body'), findsNothing);
+    });
   });
 }
 

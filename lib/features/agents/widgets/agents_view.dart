@@ -1248,6 +1248,11 @@ Future<void> _showAgentTasksDialog(BuildContext context, AgentProfile agent) {
                       for (final task in currentAgent.tasks)
                         ListTile(
                           contentPadding: EdgeInsets.zero,
+                          onTap: () => _showAgentTaskDetailDialog(
+                            context,
+                            currentAgent,
+                            task,
+                          ),
                           title: Text(task.title),
                           subtitle: Text(
                             [
@@ -1275,6 +1280,123 @@ Future<void> _showAgentTasksDialog(BuildContext context, AgentProfile agent) {
   );
 }
 
+Future<void> _showAgentTaskDetailDialog(
+  BuildContext context,
+  AgentProfile agent,
+  AgentTask task,
+) {
+  final l10n = AppLocalizations.of(context)!;
+  final assignedWorker = _agentTaskAssignedWorkerLabel(l10n, task);
+  final extraText = const JsonEncoder.withIndent(
+    '  ',
+  ).convert(_agentTaskExtraDisplayJson(task.extra));
+  return showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => buildOpenHandDialog(
+      maxWidth: 880,
+      maxHeight: 720,
+      child: _AgentDialogScaffold(
+        icon: Icons.task_alt_rounded,
+        title: openHandLocalizedText(context, zh: '任务详情', en: 'Task details'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _MetricTile(
+                  label: openHandLocalizedText(context, zh: '状态', en: 'Status'),
+                  value: _agentTaskStatusLabel(l10n, task.status),
+                ),
+                _MetricTile(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '进度',
+                    en: 'Progress',
+                  ),
+                  value: '${(task.progress * 100).round()}%',
+                ),
+                _MetricTile(
+                  label: openHandLocalizedText(
+                    context,
+                    zh: 'Worker',
+                    en: 'Worker',
+                  ),
+                  value: assignedWorker.isEmpty ? '-' : assignedWorker,
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _AgentTaskDetailBlock(
+              title: openHandLocalizedText(context, zh: '标题', en: 'Title'),
+              body: task.title,
+            ),
+            _AgentTaskDetailGrid(
+              children: [
+                _AgentTaskDetailBlock(
+                  title: 'ID',
+                  body: task.id,
+                  compact: true,
+                ),
+                _AgentTaskDetailBlock(
+                  title: openHandLocalizedText(
+                    context,
+                    zh: '创建时间',
+                    en: 'Created',
+                  ),
+                  body: _agentDateTimeLabel(task.createdAt),
+                  compact: true,
+                ),
+                _AgentTaskDetailBlock(
+                  title: openHandLocalizedText(
+                    context,
+                    zh: '更新时间',
+                    en: 'Updated',
+                  ),
+                  body: _agentDateTimeLabel(task.updatedAt),
+                  compact: true,
+                ),
+                _AgentTaskDetailBlock(
+                  title: openHandLocalizedText(
+                    context,
+                    zh: '分配 Worker',
+                    en: 'Assigned worker',
+                  ),
+                  body: assignedWorker,
+                  compact: true,
+                ),
+              ],
+            ),
+            _AgentTaskDetailBlock(
+              title: l10n.agentsDescriptionLabel,
+              body: task.description,
+            ),
+            _AgentTaskDetailBlock(
+              title: l10n.agentsContentLabel,
+              body: task.content,
+            ),
+            _AgentTaskDetailBlock(
+              title: openHandLocalizedText(
+                context,
+                zh: '任务结果',
+                en: 'Task result',
+              ),
+              body: task.result,
+            ),
+            _AgentTaskDetailBlock(title: l10n.agentsNoteLabel, body: task.note),
+            _AgentTaskDetailBlock(
+              title: 'extra',
+              body: extraText,
+              monospace: true,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 class _AgentTaskActions extends StatelessWidget {
   const _AgentTaskActions({required this.agent, required this.task});
 
@@ -1287,6 +1409,16 @@ class _AgentTaskActions extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        _AgentSmallIconButton(
+          icon: Icons.info_outline_rounded,
+          tooltip: openHandLocalizedText(
+            context,
+            zh: '查看任务详情',
+            en: 'View task details',
+          ),
+          onPressed: () => _showAgentTaskDetailDialog(context, agent, task),
+        ),
+        const SizedBox(width: 6),
         if (task.status == AgentTaskStatus.paused)
           _AgentSmallIconButton(
             icon: Icons.play_arrow_rounded,
@@ -2202,6 +2334,82 @@ class _MetricTile extends StatelessWidget {
               Text(label, style: theme.textTheme.labelMedium),
               const SizedBox(height: 8),
               Text(value, style: theme.textTheme.titleLarge),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentTaskDetailGrid extends StatelessWidget {
+  const _AgentTaskDetailGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final twoColumns = constraints.maxWidth >= 620;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final child in children)
+              SizedBox(
+                width: twoColumns
+                    ? (constraints.maxWidth - 12) / 2
+                    : constraints.maxWidth,
+                child: child,
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _AgentTaskDetailBlock extends StatelessWidget {
+  const _AgentTaskDetailBlock({
+    required this.title,
+    required this.body,
+    this.compact = false,
+    this.monospace = false,
+  });
+
+  final String title;
+  final String body;
+  final bool compact;
+  final bool monospace;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final value = body.trim().isEmpty ? '-' : body.trim();
+    final textStyle =
+        (compact ? theme.textTheme.bodyMedium : theme.textTheme.bodyLarge)
+            ?.copyWith(
+              color: cs.onSurface,
+              fontFamily: monospace ? 'monospace' : null,
+            );
+    return Padding(
+      padding: EdgeInsets.only(bottom: compact ? 0 : 12),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: cs.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: theme.textTheme.labelLarge),
+              const SizedBox(height: 8),
+              SelectableText(value, style: textStyle),
             ],
           ),
         ),
@@ -3660,6 +3868,25 @@ String _agentTaskAssignedWorkerLabel(AppLocalizations l10n, AgentTask task) {
   final label = workerName.isNotEmpty ? workerName : workerId;
   if (label.isEmpty) return '';
   return _agentInlineText(l10n, zh: 'Worker $label', en: 'Worker $label');
+}
+
+String _agentDateTimeLabel(DateTime? value) {
+  if (value == null) return '';
+  final local = value.toLocal();
+  return '${formatMonthDayHm(local)} · ${local.toIso8601String()}';
+}
+
+Map<String, Object?> _agentTaskExtraDisplayJson(Map<String, Object?> extra) {
+  if (extra.isEmpty) return const <String, Object?>{};
+  final sanitized = Map<String, Object?>.from(extra);
+  final prompt = sanitized.remove('agent_system_prompt');
+  if (prompt is String && prompt.isNotEmpty) {
+    sanitized['agent_system_prompt'] = <String, Object?>{
+      'omitted': true,
+      'chars': prompt.length,
+    };
+  }
+  return sanitized;
 }
 
 AgentTask? _agentTaskById(AgentProfile agent, String taskId) {
