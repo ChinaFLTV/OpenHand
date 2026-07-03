@@ -71,6 +71,7 @@ domains: cloud, finops
         name: 'Release Agent',
         routeFrontMatter: 'keywords: release, deploy',
         taskLabels: <String>['release'],
+        metadata: <String, Object?>{'cost_center': 'release-platform'},
         approvals: <AgentApprovalRequest>[
           AgentApprovalRequest(
             id: 'approval-1',
@@ -92,7 +93,10 @@ domains: cloud, finops
             content: 'Roll out the release after approval.',
             status: AgentTaskStatus.running,
             progress: 0.35,
-            extra: <String, Object?>{'assigned_worker_id': 'worker-1'},
+            extra: <String, Object?>{
+              'assigned_worker_id': 'worker-1',
+              'agent_system_prompt': 'hidden system prompt body',
+            },
           ),
           AgentTask(
             id: 'task-2',
@@ -151,13 +155,21 @@ domains: cloud, finops
     final recentAudit =
         operationalState['recent_audit_events'] as List<Object?>;
 
-    expect(snapshot.version, '1.2.0');
+    expect(snapshot.version, '1.2.1');
     expect(routing['has_route'], isTrue);
     expect(routing['keywords'], <Object?>['release', 'deploy']);
+    expect(profile['metadata'], <String, Object?>{
+      'cost_center': 'release-platform',
+    });
     expect(snapshot.renderedPrompt, contains('"routing"'));
+    expect(snapshot.renderedPrompt, contains('"metadata"'));
     expect(snapshot.renderedPrompt, contains('"active_tasks"'));
     expect(snapshot.renderedPrompt, contains('"kpi_state"'));
     expect(snapshot.renderedPrompt, contains('<operational_state>'));
+    expect(
+      snapshot.renderedPrompt,
+      isNot(contains('hidden system prompt body')),
+    );
     expect(operationalState['pending_approvals'], isNotEmpty);
     expect(operationalState['workers'], isNotEmpty);
     expect(stateFlags['has_pending_approvals'], isTrue);
@@ -174,6 +186,13 @@ domains: cloud, finops
       (activeTasks.first as Map<String, Object?>)['extra'],
       containsPair('assigned_worker_id', 'worker-1'),
     );
+    final activeTaskExtra =
+        (activeTasks.first as Map<String, Object?>)['extra']
+            as Map<String, Object?>;
+    final omittedPrompt =
+        activeTaskExtra['agent_system_prompt'] as Map<String, Object?>;
+    expect(omittedPrompt['omitted'], isTrue);
+    expect(omittedPrompt['chars'], 25);
     expect(
       (terminalTasks.single as Map<String, Object?>)['result'],
       'Release notes published.',

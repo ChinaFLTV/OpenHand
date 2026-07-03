@@ -49,7 +49,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.0';
+  static const String promptVersion = '1.2.1';
 
   final Future<String> Function(String path) _loader;
 
@@ -118,6 +118,7 @@ Map<String, Object?> _profileJson(AgentProfile agent) {
     'archive': agent.archive,
     'route_front_matter': agent.routeFrontMatter,
     'routing': routing.toJson(),
+    'metadata': agent.metadata,
   };
 }
 
@@ -350,10 +351,25 @@ Map<String, Object?> _taskJson(AgentTask task) {
     'progress': task.progress,
     'result': task.result,
     'note': task.note,
-    'extra': task.extra,
+    'extra': _taskExtraJson(task.extra),
     'created_at': task.createdAt?.toUtc().toIso8601String(),
     'updated_at': task.updatedAt?.toUtc().toIso8601String(),
   };
+}
+
+Map<String, Object?> _taskExtraJson(Map<String, Object?> extra) {
+  if (extra.isEmpty) return const <String, Object?>{};
+  final sanitized = Map<String, Object?>.from(extra);
+  final prompt = sanitized.remove('agent_system_prompt');
+  if (prompt is String && prompt.isNotEmpty) {
+    sanitized['agent_system_prompt'] = <String, Object?>{
+      'omitted': true,
+      'chars': prompt.length,
+      'reason':
+          'Use agent_prompt_snapshot metadata instead of raw prompt text.',
+    };
+  }
+  return sanitized;
 }
 
 Map<String, Object?> _activityJson(AgentActivityEvent event) {
