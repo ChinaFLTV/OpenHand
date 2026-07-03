@@ -14,6 +14,7 @@ class AgentPromptSnapshot {
     required this.profile,
     required this.capabilities,
     required this.runtimePolicy,
+    required this.operationalState,
     required this.taskContext,
   });
 
@@ -23,6 +24,7 @@ class AgentPromptSnapshot {
   final Map<String, Object?> profile;
   final Map<String, Object?> capabilities;
   final Map<String, Object?> runtimePolicy;
+  final Map<String, Object?> operationalState;
   final Map<String, Object?> taskContext;
 
   Map<String, Object?> metadataJson({bool includePrompt = false}) {
@@ -33,6 +35,7 @@ class AgentPromptSnapshot {
       'profile': profile,
       'capabilities': capabilities,
       'runtime_policy': runtimePolicy,
+      'operational_state': operationalState,
       'task_context': taskContext,
       if (includePrompt) 'rendered_prompt': renderedPrompt,
     };
@@ -45,7 +48,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.0.0';
+  static const String promptVersion = '1.1.0';
 
   final Future<String> Function(String path) _loader;
 
@@ -58,6 +61,7 @@ class AgentPromptRenderer {
     final profile = _profileJson(agent);
     final capabilities = _capabilitiesJson(agent);
     final runtimePolicy = _runtimePolicyJson(agent);
+    final operationalState = _operationalStateJson(agent);
     final effectiveTaskContext = <String, Object?>{
       if (task != null) 'task': _taskJson(task),
       ...taskContext,
@@ -66,6 +70,7 @@ class AgentPromptRenderer {
         .replaceAll('{{AGENT_PROFILE_JSON}}', _json(profile))
         .replaceAll('{{CAPABILITY_BINDINGS_JSON}}', _json(capabilities))
         .replaceAll('{{RUNTIME_POLICY_JSON}}', _json(runtimePolicy))
+        .replaceAll('{{OPERATIONAL_STATE_JSON}}', _json(operationalState))
         .replaceAll('{{TASK_CONTEXT_JSON}}', _json(effectiveTaskContext));
     return AgentPromptSnapshot(
       assetPath: defaultAssetPath,
@@ -74,6 +79,7 @@ class AgentPromptRenderer {
       profile: profile,
       capabilities: capabilities,
       runtimePolicy: runtimePolicy,
+      operationalState: operationalState,
       taskContext: effectiveTaskContext,
     );
   }
@@ -142,6 +148,130 @@ Map<String, Object?> _runtimePolicyJson(AgentProfile agent) {
   };
 }
 
+Map<String, Object?> _operationalStateJson(AgentProfile agent) {
+  final pendingApprovals = agent.approvals
+      .where((item) => item.status == AgentApprovalStatus.pending)
+      .take(10)
+      .map(_approvalJson)
+      .toList(growable: false);
+  final workers = agent.workers;
+  final idleWorkers = workers
+      .where((worker) => worker.status == AgentWorkerStatus.idle)
+      .length;
+  final busyWorkers = workers
+      .where((worker) => worker.status == AgentWorkerStatus.busy)
+      .length;
+  final drainingWorkers = workers
+      .where((worker) => worker.status == AgentWorkerStatus.draining)
+      .length;
+  final offlineWorkers = workers
+      .where((worker) => worker.status == AgentWorkerStatus.offline)
+      .length;
+  final resourceUsage = agent.resourceUsage;
+  final tokenRatio = resourceUsage.tokenBudget <= 0
+      ? 0
+      : resourceUsage.tokenUsed / resourceUsage.tokenBudget;
+  final resourcePressure =
+      resourceUsage.cpuPercent >= 0.85 || tokenRatio >= 0.85;
+  final requests = agent.auditEvents.fold<int>(
+    0,
+    (sum, event) => sum + event.requestCount,
+  );
+  final tokens = agent.auditEvents.fold<int>(
+    0,
+    (sum, event) => sum + event.tokenUsage,
+  );
+  return <String, Object?>{
+    'task_counts': <String, Object?>{
+      'total': agent.tasks.length,
+      'backlog': agent.tasks
+          .where((task) => task.status == AgentTaskStatus.backlog)
+          .length,
+      'ready': agent.tasks
+          .where((task) => task.status == AgentTaskStatus.ready)
+          .length,
+      'running': agent.runningTaskCount,
+      'paused': agent.tasks
+          .where((task) => task.status == AgentTaskStatus.paused)
+          .length,
+      'completed': agent.completedTaskCount,
+      'waiting_approval': agent.tasks
+          .where((task) => task.status == AgentTaskStatus.waitingApproval)
+          .length,
+      'failed': agent.tasks
+          .where((task) => task.status == AgentTaskStatus.failed)
+          .length,
+      'canceled': agent.tasks
+          .where((task) => task.status == AgentTaskStatus.canceled)
+          .length,
+    },
+    'state_flags': <String, Object?>{
+      'enabled': agent.enabled,
+      'running': agent.isRunning,
+      'has_pending_approvals': pendingApprovals.isNotEmpty,
+      'has_active_tasks': agent.runningTaskCount > 0,
+      'has_blocked_tasks': agent.tasks.any(
+        (task) =>
+            task.status == AgentTaskStatus.waitingApproval ||
+            task.status == AgentTaskStatus.paused ||
+            task.status == AgentTaskStatus.failed,
+      ),
+      'workers_saturated': workers.isNotEmpty && idleWorkers == 0,
+      'resource_pressure': resourcePressure,
+    },
+    'worker_capacity': <String, Object?>{
+      'total': workers.length,
+      'idle': idleWorkers,
+      'busy': busyWorkers,
+      'draining': drainingWorkers,
+      'offline': offlineWorkers,
+      'utilization': agent.workerUtilization,
+    },
+    'pending_approvals': pendingApprovals,
+    'workers': agent.workers.map(_workerJson).toList(growable: false),
+    'resource_usage': agent.resourceUsage.toJson(),
+    'audit_summary': <String, Object?>{
+      'events': agent.auditEvents.length,
+      'requests': requests,
+      'tokens': tokens,
+      'recent_kinds': agent.auditEvents
+          .take(10)
+          .map((event) => event.kind)
+          .toList(growable: false),
+      'recent_tools': agent.auditEvents
+          .where((event) => event.toolName.trim().isNotEmpty)
+          .take(10)
+          .map((event) => event.toolName)
+          .toList(growable: false),
+    },
+  };
+}
+
+Map<String, Object?> _approvalJson(AgentApprovalRequest approval) {
+  return <String, Object?>{
+    'id': approval.id,
+    'title': approval.title,
+    'reason': approval.reason,
+    'requested_action': approval.requestedAction,
+    'status': approval.status.storageValue,
+    'created_at': approval.createdAt?.toUtc().toIso8601String(),
+  };
+}
+
+Map<String, Object?> _workerJson(AgentWorker worker) {
+  return <String, Object?>{
+    'id': worker.id,
+    'name': worker.name,
+    'status': worker.status.storageValue,
+    'current_task_id': worker.currentTaskId,
+    'executed_task_count': worker.executedTaskCount,
+    'busy_score': worker.busyScore,
+    'priority': worker.priority,
+    'labels': worker.labels,
+    'updated_at': worker.updatedAt?.toUtc().toIso8601String(),
+  };
+}
+
 Map<String, Object?> _taskJson(AgentTask task) {
   return <String, Object?>{
     'id': task.id,
@@ -176,6 +306,10 @@ You are an OpenHand digital employee. Stay inside your profile, mentor chain, re
 {{RUNTIME_POLICY_JSON}}
 </runtime_policy>
 
+<operational_state>
+{{OPERATIONAL_STATE_JSON}}
+</operational_state>
+
 <task_context>
 {{TASK_CONTEXT_JSON}}
 </task_context>
@@ -185,5 +319,6 @@ You are an OpenHand digital employee. Stay inside your profile, mentor chain, re
 2. Use real tools from the current catalog; do not invent tools.
 3. Escalate uncertainty, missing permission, or high-risk actions to the mentor/user.
 4. Verify before claiming completion.
+5. Read `operational_state.state_flags` first; respect pending approvals, worker load, resource limits, and blocked tasks before starting new work.
 </core_rules>
 ''';

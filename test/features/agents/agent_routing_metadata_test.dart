@@ -56,6 +56,9 @@ domains: cloud, finops
 <runtime_policy>
 {{RUNTIME_POLICY_JSON}}
 </runtime_policy>
+<operational_state>
+{{OPERATIONAL_STATE_JSON}}
+</operational_state>
 <task_context>
 {{TASK_CONTEXT_JSON}}
 </task_context>
@@ -68,14 +71,39 @@ domains: cloud, finops
         name: 'Release Agent',
         routeFrontMatter: 'keywords: release, deploy',
         taskLabels: <String>['release'],
+        approvals: <AgentApprovalRequest>[
+          AgentApprovalRequest(
+            id: 'approval-1',
+            title: 'Deploy production',
+            requestedAction: 'deploy',
+          ),
+        ],
+        workers: <AgentWorker>[
+          AgentWorker(
+            id: 'worker-1',
+            status: AgentWorkerStatus.busy,
+            currentTaskId: 'task-1',
+          ),
+        ],
       ),
     );
 
     final profile = snapshot.metadataJson()['profile'] as Map<String, Object?>;
     final routing = profile['routing'] as Map<String, Object?>;
+    final operationalState =
+        snapshot.metadataJson()['operational_state'] as Map<String, Object?>;
+    final stateFlags = operationalState['state_flags'] as Map<String, Object?>;
+    final workerCapacity =
+        operationalState['worker_capacity'] as Map<String, Object?>;
 
     expect(routing['has_route'], isTrue);
     expect(routing['keywords'], <Object?>['release', 'deploy']);
     expect(snapshot.renderedPrompt, contains('"routing"'));
+    expect(snapshot.renderedPrompt, contains('<operational_state>'));
+    expect(operationalState['pending_approvals'], isNotEmpty);
+    expect(operationalState['workers'], isNotEmpty);
+    expect(stateFlags['has_pending_approvals'], isTrue);
+    expect(stateFlags['workers_saturated'], isTrue);
+    expect(workerCapacity['busy'], 1);
   });
 }
