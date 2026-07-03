@@ -47,7 +47,7 @@ import {
   knowledgeBaseHitTokenEstimateTotal,
   knowledgeBaseResultsUsedByAnswer,
 } from '../shared/util/knowledge';
-import { strictPositiveIntegerFromUnknown } from '../shared/util/number';
+import { clampNumber, strictPositiveIntegerFromUnknown } from '../shared/util/number';
 import {
   booleanFromUnknown,
   finiteNumberOrNullFromUnknown,
@@ -3848,7 +3848,7 @@ function KnowledgeVectorDistributionScene({
 
   const setClampedZoom = useCallback((next: number) => {
     setZoom((current) => {
-      const value = clampKnowledgeNumber(next, KB_VECTOR_MIN_ZOOM, KB_VECTOR_MAX_ZOOM);
+      const value = clampNumber(next, KB_VECTOR_MIN_ZOOM, KB_VECTOR_MAX_ZOOM);
       return Math.abs(value - current) < 0.001 ? current : value;
     });
   }, []);
@@ -3889,7 +3889,7 @@ function KnowledgeVectorDistributionScene({
 
   const rotateViewportByPointerDelta = useCallback((dx: number, dy: number) => {
     setYaw((value) => value + dx * 0.010);
-    setPitch((value) => clampKnowledgeNumber(value + dy * 0.008, -1.18, 1.18));
+    setPitch((value) => clampNumber(value + dy * 0.008, -1.18, 1.18));
   }, []);
 
   const scenePointFromEvent = useCallback((event: { clientX: number; clientY: number }) => {
@@ -3961,7 +3961,7 @@ function KnowledgeVectorDistributionScene({
       onWheel={(event) => {
         event.preventDefault();
         const factor = Math.exp(-event.deltaY * KB_VECTOR_SCROLL_ZOOM_SENSITIVITY);
-        setZoom((value) => clampKnowledgeNumber(value * factor, KB_VECTOR_MIN_ZOOM, KB_VECTOR_MAX_ZOOM));
+        setZoom((value) => clampNumber(value * factor, KB_VECTOR_MIN_ZOOM, KB_VECTOR_MAX_ZOOM));
       }}
     >
       <svg
@@ -4061,7 +4061,7 @@ function KnowledgeVectorDistributionScene({
         <button
           type="button"
           class="oh-kb-vector-control oh-tap-press"
-          onClick={() => setZoom((value) => clampKnowledgeNumber(value / KB_VECTOR_ZOOM_BUTTON_FACTOR, KB_VECTOR_MIN_ZOOM, KB_VECTOR_MAX_ZOOM))}
+          onClick={() => setZoom((value) => clampNumber(value / KB_VECTOR_ZOOM_BUTTON_FACTOR, KB_VECTOR_MIN_ZOOM, KB_VECTOR_MAX_ZOOM))}
           disabled={zoom <= KB_VECTOR_MIN_ZOOM + 0.001}
           title={t('message.kbDialog.zoomOut', '缩小')}
           aria-label={t('message.kbDialog.zoomOut', '缩小')}
@@ -4070,7 +4070,7 @@ function KnowledgeVectorDistributionScene({
         <button
           type="button"
           class="oh-kb-vector-control oh-tap-press"
-          onClick={() => setZoom((value) => clampKnowledgeNumber(value * KB_VECTOR_ZOOM_BUTTON_FACTOR, KB_VECTOR_MIN_ZOOM, KB_VECTOR_MAX_ZOOM))}
+          onClick={() => setZoom((value) => clampNumber(value * KB_VECTOR_ZOOM_BUTTON_FACTOR, KB_VECTOR_MIN_ZOOM, KB_VECTOR_MAX_ZOOM))}
           disabled={zoom >= KB_VECTOR_MAX_ZOOM - 0.001}
           title={t('message.kbDialog.zoomIn', '放大')}
           aria-label={t('message.kbDialog.zoomIn', '放大')}
@@ -4185,8 +4185,8 @@ function KnowledgeVectorPointPopover({
   onClose: () => void;
 }) {
   const width = Math.min(KB_VECTOR_POPOVER_WIDTH, Math.max(180, sceneSize.width - KB_VECTOR_POPOVER_PADDING * 2));
-  const left = clampKnowledgeNumber(projection.x + 14, KB_VECTOR_POPOVER_PADDING, Math.max(KB_VECTOR_POPOVER_PADDING, sceneSize.width - width - KB_VECTOR_POPOVER_PADDING));
-  const top = clampKnowledgeNumber(projection.y - 120, KB_VECTOR_POPOVER_PADDING, Math.max(KB_VECTOR_POPOVER_PADDING, sceneSize.height - 228));
+  const left = clampNumber(projection.x + 14, KB_VECTOR_POPOVER_PADDING, Math.max(KB_VECTOR_POPOVER_PADDING, sceneSize.width - width - KB_VECTOR_POPOVER_PADDING));
+  const top = clampNumber(projection.y - 120, KB_VECTOR_POPOVER_PADDING, Math.max(KB_VECTOR_POPOVER_PADDING, sceneSize.height - 228));
   const point = projection.point;
   return (
     <div
@@ -4256,7 +4256,7 @@ function projectKnowledgeSceneCoordinate(
   const z1 = -x * sinY + z * cosY;
   const y1 = y * cosP - z1 * sinP;
   const z2 = y * sinP + z1 * cosP;
-  const perspective = clampKnowledgeNumber(1 / (1.9 - z2 * 0.46), 0.42, 1.35);
+  const perspective = clampNumber(1 / (1.9 - z2 * 0.46), 0.42, 1.35);
   return {
     x: centerX + x1 * radius * perspective,
     y: centerY - y1 * radius * perspective,
@@ -4277,7 +4277,7 @@ function resolveKnowledgeVectorAxisScale(
 }
 
 function closestKnowledgeAxisStep(rawStep: number): number {
-  const target = clampKnowledgeNumber(rawStep, 0.05, 1);
+  const target = clampNumber(rawStep, 0.05, 1);
   const steps = [0.05, 0.10, 0.20, 0.25, 0.50, 1.0];
   let best = steps[0];
   let bestScore = Number.POSITIVE_INFINITY;
@@ -4451,11 +4451,6 @@ function knowledgeVectorKindLabel(kind: KnowledgeVectorDistributionPoint['kind']
     case 'match': return t('message.kbDialog.kind.match', '命中结果');
     case 'corpus': return t('message.kbDialog.kind.corpus', '全量采样');
   }
-}
-
-function clampKnowledgeNumber(value: number, min: number, max: number): number {
-  if (!Number.isFinite(value)) return min;
-  return Math.max(min, Math.min(max, value));
 }
 
 function formatKnowledgeAxisValue(value: number): string {
