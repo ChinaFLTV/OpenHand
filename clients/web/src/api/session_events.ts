@@ -71,6 +71,19 @@ export interface SessionEventsHandlers {
   onOpen?(): void;
 }
 
+function dispatchParsedEvent<T>(
+  event: Event,
+  onParsed: (data: T) => void,
+  onError: (err: Event) => void,
+): void {
+  try {
+    const data = JSON.parse((event as MessageEvent).data) as T;
+    onParsed(data);
+  } catch (error) {
+    onError(new ErrorEvent('parse_error', { error }));
+  }
+}
+
 /// 打开 SSE 连接。返回 `close` 句柄；调用方在 unmount/会话切换时务必调用。
 export function subscribeSessionEvents(
   sessionId: string,
@@ -89,26 +102,32 @@ export function subscribeSessionEvents(
   if (token) params.set('token', token);
   const url = `/api/sessions/${encodeURIComponent(sessionId)}/events?${params.toString()}`;
   const es = new EventSource(url, { withCredentials: false });
+  let closed = false;
 
-  es.addEventListener('snapshot', (ev) => {
-    try {
-      const data = JSON.parse((ev as MessageEvent).data) as SessionEventSnapshot;
-      handlers.onSnapshot(data);
-    } catch (e) {
-      handlers.onError(new ErrorEvent('parse_error', { error: e }));
-    }
-  });
-  es.addEventListener('session_deleted', (ev) => {
-    try {
-      const data = JSON.parse((ev as MessageEvent).data) as SessionDeletedEvent;
-      handlers.onDeleted?.(data);
-    } catch (e) {
-      handlers.onError(new ErrorEvent('parse_error', { error: e }));
-    }
-  });
-  es.onopen = () => handlers.onOpen?.();
-  es.onerror = (ev) => handlers.onError(ev);
+  const handleSnapshot = (ev: Event) => dispatchParsedEvent<SessionEventSnapshot>(
+    ev,
+    handlers.onSnapshot,
+    handlers.onError,
+  );
+  const handleDeleted = (ev: Event) => dispatchParsedEvent<SessionDeletedEvent>(
+    ev,
+    (data) => handlers.onDeleted?.(data),
+    handlers.onError,
+  );
+  const handleOpen = () => handlers.onOpen?.();
+  const handleError = (ev: Event) => handlers.onError(ev);
+
+  es.addEventListener('snapshot', handleSnapshot);
+  es.addEventListener('session_deleted', handleDeleted);
+  es.onopen = handleOpen;
+  es.onerror = handleError;
   return () => {
+    if (closed) return;
+    closed = true;
+    es.removeEventListener('snapshot', handleSnapshot);
+    es.removeEventListener('session_deleted', handleDeleted);
+    es.onopen = null;
+    es.onerror = null;
     try {
       es.close();
     } catch {}
