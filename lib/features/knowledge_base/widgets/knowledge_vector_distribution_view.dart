@@ -22,6 +22,28 @@ const double _kVectorPopoverMaxWidth = 342;
 const double _kVectorPopoverScenePadding = 12;
 const double _kVectorPopoverAnchorGap = 14;
 
+String _vectorText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
 class KnowledgeVectorDistributionView extends StatefulWidget {
   const KnowledgeVectorDistributionView({
     super.key,
@@ -80,14 +102,21 @@ class _KnowledgeVectorDistributionViewState
     final points = widget.distribution.points;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     if (points.isEmpty) {
       return Container(
         height: math.max(_kVectorSceneMinHeight, widget.height),
         alignment: Alignment.center,
         decoration: _sceneDecoration(context),
         child: Text(
-          isZh ? '没有可展示的向量点。' : 'No vector points to display.',
+          _vectorText(
+            context,
+            zh: '没有可展示的向量点。',
+            zhHant: '沒有可展示的向量點。',
+            en: 'No vector points to display.',
+            fr: 'Aucun point vectoriel à afficher.',
+            de: 'Keine Vektorpunkte zum Anzeigen.',
+            ja: '表示できるベクトル点がありません。',
+          ),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
@@ -327,10 +356,16 @@ class _VectorSceneStats extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
-    final text = isZh
-        ? '投影 ${distribution.points.length} 点 · ${distribution.originalDimensions} 维'
-        : '${distribution.points.length} points · ${distribution.originalDimensions}D';
+    final text = _vectorText(
+      context,
+      zh: '投影 ${distribution.points.length} 点 · ${distribution.originalDimensions} 维',
+      zhHant:
+          '投影 ${distribution.points.length} 點 · ${distribution.originalDimensions} 維',
+      en: '${distribution.points.length} points · ${distribution.originalDimensions}D',
+      fr: '${distribution.points.length} points · ${distribution.originalDimensions}D',
+      de: '${distribution.points.length} Punkte · ${distribution.originalDimensions}D',
+      ja: '${distribution.points.length} 点 · ${distribution.originalDimensions}次元',
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.78),
@@ -342,7 +377,9 @@ class _VectorSceneStats extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
         child: Text(
-          distribution.hasMore ? '$text · ${isZh ? '已采样' : 'sampled'}' : text,
+          distribution.hasMore
+              ? '$text · ${_vectorText(context, zh: '已采样', zhHant: '已取樣', en: 'sampled', fr: 'échantillonné', de: 'abgetastet', ja: 'サンプル済み')}'
+              : text,
           style: theme.textTheme.labelSmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w800,
@@ -361,22 +398,45 @@ class _VectorLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
     final items = <({String kind, Color color, String label})>[
       (
         kind: KnowledgeVectorPointKind.corpus,
         color: _KnowledgeVectorSceneColors.corpus,
-        label: isZh ? '全量' : 'Corpus',
+        label: _vectorText(
+          context,
+          zh: '全量',
+          zhHant: '全量',
+          en: 'Corpus',
+          fr: 'Corpus',
+          de: 'Korpus',
+          ja: 'コーパス',
+        ),
       ),
       (
         kind: KnowledgeVectorPointKind.match,
         color: _KnowledgeVectorSceneColors.match,
-        label: isZh ? '匹配' : 'Matches',
+        label: _vectorText(
+          context,
+          zh: '匹配',
+          zhHant: '匹配',
+          en: 'Matches',
+          fr: 'Résultats',
+          de: 'Treffer',
+          ja: '一致',
+        ),
       ),
       (
         kind: KnowledgeVectorPointKind.query,
         color: _KnowledgeVectorSceneColors.query,
-        label: isZh ? '查询' : 'Query',
+        label: _vectorText(
+          context,
+          zh: '查询',
+          zhHant: '查詢',
+          en: 'Query',
+          fr: 'Requête',
+          de: 'Abfrage',
+          ja: 'クエリ',
+        ),
       ),
     ].where((item) => visibleKinds.contains(item.kind)).toList(growable: false);
     return Wrap(
@@ -451,7 +511,6 @@ class _VectorViewportControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.78),
@@ -466,7 +525,15 @@ class _VectorViewportControls extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _VectorViewportIconButton(
-              tooltip: isZh ? '缩小' : 'Zoom out',
+              tooltip: _vectorText(
+                context,
+                zh: '缩小',
+                zhHant: '縮小',
+                en: 'Zoom out',
+                fr: 'Zoom arrière',
+                de: 'Verkleinern',
+                ja: 'ズームアウト',
+              ),
               icon: Icons.remove_rounded,
               onPressed: onZoomOut,
             ),
@@ -474,7 +541,7 @@ class _VectorViewportControls extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
-                '${(zoom * 100).round()}% · ${isZh ? '刻度' : 'tick'} ${_formatAxisValue(tickStep)}',
+                '${(zoom * 100).round()}% · ${_vectorText(context, zh: '刻度', zhHant: '刻度', en: 'tick', fr: 'pas', de: 'Tick', ja: '目盛り')} ${_formatAxisValue(tickStep)}',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w800,
@@ -484,13 +551,29 @@ class _VectorViewportControls extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             _VectorViewportIconButton(
-              tooltip: isZh ? '放大' : 'Zoom in',
+              tooltip: _vectorText(
+                context,
+                zh: '放大',
+                zhHant: '放大',
+                en: 'Zoom in',
+                fr: 'Zoom avant',
+                de: 'Vergrößern',
+                ja: 'ズームイン',
+              ),
               icon: Icons.add_rounded,
               onPressed: onZoomIn,
             ),
             const SizedBox(width: 4),
             _VectorViewportIconButton(
-              tooltip: isZh ? '重置视角' : 'Reset view',
+              tooltip: _vectorText(
+                context,
+                zh: '重置视角',
+                zhHant: '重置視角',
+                en: 'Reset view',
+                fr: 'Réinitialiser la vue',
+                de: 'Ansicht zurücksetzen',
+                ja: '視点をリセット',
+              ),
               icon: Icons.center_focus_strong_rounded,
               onPressed: onReset,
             ),
@@ -542,7 +625,6 @@ class _VectorPointPopover extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     final axisColors = _KnowledgeVectorSceneColors.resolve(context);
     final popoverWidth = _resolveVectorPopoverWidth(sceneSize);
     final safeRect = _VectorPopoverSafeRect.resolve(sceneSize);
@@ -636,15 +718,14 @@ class _VectorPointPopover extends StatelessWidget {
                                     _VectorPopoverPill(
                                       color: projection.color,
                                       label: _vectorKindLabel(
+                                        context,
                                         projection.point.kind,
-                                        isZh,
                                       ),
                                     ),
                                     _VectorPopoverPill(
                                       color: colorScheme.outline,
-                                      label: isZh
-                                          ? '投影深度 ${_formatCoordinate(projection.depth)}'
-                                          : 'depth ${_formatCoordinate(projection.depth)}',
+                                      label:
+                                          '${_vectorText(context, zh: '投影深度', zhHant: '投影深度', en: 'depth', fr: 'profondeur', de: 'Tiefe', ja: '投影深度')} ${_formatCoordinate(projection.depth)}',
                                     ),
                                   ],
                                 ),
@@ -652,7 +733,15 @@ class _VectorPointPopover extends StatelessWidget {
                             ),
                           ),
                           Tooltip(
-                            message: isZh ? '关闭详情' : 'Close details',
+                            message: _vectorText(
+                              context,
+                              zh: '关闭详情',
+                              zhHant: '關閉詳情',
+                              en: 'Close details',
+                              fr: 'Fermer les détails',
+                              de: 'Details schließen',
+                              ja: '詳細を閉じる',
+                            ),
                             child: IconButton(
                               onPressed: onClose,
                               icon: const Icon(Icons.close_rounded, size: 18),
@@ -668,7 +757,15 @@ class _VectorPointPopover extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _VectorPopoverSection(
-                        title: isZh ? '空间坐标' : 'Projected Coordinates',
+                        title: _vectorText(
+                          context,
+                          zh: '空间坐标',
+                          zhHant: '空間座標',
+                          en: 'Projected Coordinates',
+                          fr: 'Coordonnées projetées',
+                          de: 'Projizierte Koordinaten',
+                          ja: '投影座標',
+                        ),
                         child: Row(
                           children: [
                             Expanded(
@@ -700,13 +797,29 @@ class _VectorPointPopover extends StatelessWidget {
                       if (score != null || rerankScore != null) ...[
                         const SizedBox(height: 10),
                         _VectorPopoverSection(
-                          title: isZh ? '检索指标' : 'Retrieval Metrics',
+                          title: _vectorText(
+                            context,
+                            zh: '检索指标',
+                            zhHant: '檢索指標',
+                            en: 'Retrieval Metrics',
+                            fr: 'Métriques de recherche',
+                            de: 'Abrufmetriken',
+                            ja: '検索指標',
+                          ),
                           child: Row(
                             children: [
                               if (score != null)
                                 Expanded(
                                   child: _VectorMetricTile(
-                                    label: isZh ? '召回' : 'Score',
+                                    label: _vectorText(
+                                      context,
+                                      zh: '召回',
+                                      zhHant: '召回',
+                                      en: 'Score',
+                                      fr: 'Score',
+                                      de: 'Score',
+                                      ja: 'スコア',
+                                    ),
                                     value: _formatScore(score),
                                     color: projection.color,
                                   ),
@@ -716,7 +829,15 @@ class _VectorPointPopover extends StatelessWidget {
                               if (rerankScore != null)
                                 Expanded(
                                   child: _VectorMetricTile(
-                                    label: isZh ? '重排' : 'Rerank',
+                                    label: _vectorText(
+                                      context,
+                                      zh: '重排',
+                                      zhHant: '重排',
+                                      en: 'Rerank',
+                                      fr: 'Reclassement',
+                                      de: 'Rerank',
+                                      ja: '再ランク',
+                                    ),
                                     value: _formatScore(rerankScore),
                                     color: colorScheme.primary,
                                   ),
@@ -728,7 +849,15 @@ class _VectorPointPopover extends StatelessWidget {
                       if (projection.point.preview.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         _VectorPopoverSection(
-                          title: isZh ? '内容预览' : 'Preview',
+                          title: _vectorText(
+                            context,
+                            zh: '内容预览',
+                            zhHant: '內容預覽',
+                            en: 'Preview',
+                            fr: 'Aperçu',
+                            de: 'Vorschau',
+                            ja: 'プレビュー',
+                          ),
                           child: Text(
                             projection.point.preview,
                             maxLines: 5,
@@ -742,7 +871,15 @@ class _VectorPointPopover extends StatelessWidget {
                       ],
                       const SizedBox(height: 10),
                       _VectorPopoverSection(
-                        title: isZh ? '向量标识' : 'Vector ID',
+                        title: _vectorText(
+                          context,
+                          zh: '向量标识',
+                          zhHant: '向量識別',
+                          en: 'Vector ID',
+                          fr: 'ID du vecteur',
+                          de: 'Vektor-ID',
+                          ja: 'ベクトル ID',
+                        ),
                         child: Text(
                           projection.point.id,
                           maxLines: 2,
@@ -1585,12 +1722,47 @@ String _formatScore(double value) {
   return normalized.toStringAsFixed(4);
 }
 
-String _vectorKindLabel(String kind, bool isZh) {
+String _vectorKindLabel(BuildContext context, String kind) {
   return switch (kind) {
-    KnowledgeVectorPointKind.query => isZh ? '查询向量' : 'Query vector',
-    KnowledgeVectorPointKind.match => isZh ? '命中结果' : 'Matched chunk',
-    KnowledgeVectorPointKind.corpus => isZh ? '全量采样' : 'Corpus sample',
-    _ => kind.trim().isEmpty ? (isZh ? '向量点' : 'Vector point') : kind,
+    KnowledgeVectorPointKind.query => _vectorText(
+      context,
+      zh: '查询向量',
+      zhHant: '查詢向量',
+      en: 'Query vector',
+      fr: 'Vecteur de requête',
+      de: 'Abfragevektor',
+      ja: 'クエリベクトル',
+    ),
+    KnowledgeVectorPointKind.match => _vectorText(
+      context,
+      zh: '命中结果',
+      zhHant: '命中結果',
+      en: 'Matched chunk',
+      fr: 'Fragment trouvé',
+      de: 'Trefferabschnitt',
+      ja: 'ヒットチャンク',
+    ),
+    KnowledgeVectorPointKind.corpus => _vectorText(
+      context,
+      zh: '全量采样',
+      zhHant: '全量取樣',
+      en: 'Corpus sample',
+      fr: 'Échantillon du corpus',
+      de: 'Korpus-Stichprobe',
+      ja: 'コーパスサンプル',
+    ),
+    _ =>
+      kind.trim().isEmpty
+          ? _vectorText(
+              context,
+              zh: '向量点',
+              zhHant: '向量點',
+              en: 'Vector point',
+              fr: 'Point vectoriel',
+              de: 'Vektorpunkt',
+              ja: 'ベクトル点',
+            )
+          : kind,
   };
 }
 
