@@ -1,9 +1,7 @@
 import '../../../shared/util/input_value_parsing.dart';
 
 DateTime? knowledgeDate(Object? value) {
-  final text = '${value ?? ''}'.trim();
-  if (text.isEmpty || text == 'null') return null;
-  return DateTime.tryParse(text)?.toUtc();
+  return utcDateTimeFromValue(value);
 }
 
 Map<String, Object?> knowledgeJsonMap(Object? value) {

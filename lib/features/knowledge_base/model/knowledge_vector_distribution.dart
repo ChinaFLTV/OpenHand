@@ -336,7 +336,5 @@ class KnowledgeVectorProjector {
 }
 
 DateTime? _dateTimeOrNull(Object? value) {
-  final text = '${value ?? ''}'.trim();
-  if (text.isEmpty) return null;
-  return DateTime.tryParse(text);
+  return dateTimeFromValue(value);
 }

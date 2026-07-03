@@ -117,10 +117,8 @@ class InstructionsStore {
       maxItemLength: 64,
       dedupeCaseInsensitive: true,
     );
-    final createdAt =
-        DateTime.tryParse('${row['created_at'] ?? ''}') ?? DateTime.now();
-    final updatedAt =
-        DateTime.tryParse('${row['updated_at'] ?? ''}') ?? createdAt;
+    final createdAt = dateTimeFromValue(row['created_at']) ?? DateTime.now();
+    final updatedAt = dateTimeFromValue(row['updated_at']) ?? createdAt;
     return UserInstructionEntry(
       id: '${row['id'] ?? ''}',
       name: UserInstructionEntry.normalizeName('${row['name'] ?? ''}'),

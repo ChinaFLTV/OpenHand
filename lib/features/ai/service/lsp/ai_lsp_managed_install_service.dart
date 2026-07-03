@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_lsp_backend_catalog.dart';
 import '../../model/ai_lsp_language_settings.dart';
 
@@ -81,7 +82,7 @@ class AiLspManagedInstallManifest {
         installRootPath: '${decoded['install_root_path'] ?? normalizedRoot}'
             .trim(),
         installedAt:
-            DateTime.tryParse('${decoded['installed_at'] ?? ''}')?.toUtc() ??
+            utcDateTimeFromValue(decoded['installed_at']) ??
             DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       );
     } catch (_) {

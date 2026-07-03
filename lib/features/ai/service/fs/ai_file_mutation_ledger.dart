@@ -91,9 +91,7 @@ class FileMutationRecord {
       toolName: '${json['tool_name'] ?? ''}',
       filePath: '${json['path'] ?? ''}',
       kind: kind,
-      createdAt:
-          DateTime.tryParse('${json['ts'] ?? ''}')?.toUtc() ??
-          DateTime.now().toUtc(),
+      createdAt: utcDateTimeFromValue(json['ts']) ?? DateTime.now().toUtc(),
       beforeSha: json['before_sha'] as String?,
       afterSha: json['after_sha'] as String?,
       beforeSize: nonNegativeIntFromValue(json['before_size'], fallback: 0),

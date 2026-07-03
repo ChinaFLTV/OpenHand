@@ -243,12 +243,12 @@ class CronsStore {
             environment: _parseEnv('${row['environment'] ?? ''}'),
             maxRetryDelaySeconds:
                 (row['max_retry_delay_seconds'] as int?) ?? 30,
-            lastRunAt: _parseDateTime('${row['last_run_at'] ?? ''}'),
-            nextRunAt: _parseDateTime('${row['next_run_at'] ?? ''}'),
+            lastRunAt: _parseDateTime(row['last_run_at']),
+            nextRunAt: _parseDateTime(row['next_run_at']),
             lastExitCode: row['last_exit_code'] as int?,
             consecutiveFailures: (row['consecutive_failures'] as int?) ?? 0,
-            createdAt: _parseDateTime('${row['created_at'] ?? ''}'),
-            updatedAt: _parseDateTime('${row['updated_at'] ?? ''}'),
+            createdAt: _parseDateTime(row['created_at']),
+            updatedAt: _parseDateTime(row['updated_at']),
           ),
         );
       } catch (error, stack) {
@@ -441,10 +441,8 @@ class CronsStore {
           CronExecutionRecord(
             id: '${row['id']}'.trim(),
             cronId: '${row['cron_id']}'.trim(),
-            startedAt:
-                DateTime.tryParse('${row['started_at'] ?? ''}') ??
-                DateTime.now(),
-            finishedAt: _parseDateTime('${row['finished_at'] ?? ''}'),
+            startedAt: _parseDateTime(row['started_at']) ?? DateTime.now(),
+            finishedAt: _parseDateTime(row['finished_at']),
             status: '${row['status'] ?? 'unknown'}'.trim(),
             exitCode: row['exit_code'] as int?,
             stdout: '${row['stdout'] ?? ''}'.trim(),
@@ -580,6 +578,6 @@ Map<String, String> _parseEnv(String raw) {
   return keyValueMapFromValue(raw);
 }
 
-DateTime? _parseDateTime(String raw) {
+DateTime? _parseDateTime(Object? raw) {
   return dateTimeFromValue(raw);
 }
