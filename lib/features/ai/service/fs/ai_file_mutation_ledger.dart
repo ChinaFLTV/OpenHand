@@ -496,10 +496,14 @@ class AiFileMutationLedger {
     required String? beforeContent,
     required String? afterContent,
   }) async {
-    if (sessionId.trim().isEmpty || filePath.trim().isEmpty) return null;
+    final normalizedSessionId = nullIfBlank(sessionId);
+    final normalizedFilePath = nullIfBlank(filePath);
+    if (normalizedSessionId == null || normalizedFilePath == null) {
+      return null;
+    }
     await _ensureInitialized();
     try {
-      final sessionDir = _sessionDir(sessionId);
+      final sessionDir = _sessionDir(normalizedSessionId);
       if (!await sessionDir.exists()) await sessionDir.create(recursive: true);
 
       String? beforeSha;
@@ -521,10 +525,10 @@ class AiFileMutationLedger {
           '${DateTime.now().toUtc().millisecondsSinceEpoch}_${_randomSuffix()}';
       final record = FileMutationRecord(
         recordId: recordId,
-        sessionId: sessionId,
+        sessionId: normalizedSessionId,
         toolCallId: toolCallId,
         toolName: toolName,
-        filePath: p.normalize(filePath),
+        filePath: p.normalize(normalizedFilePath),
         kind: kind,
         createdAt: DateTime.now().toUtc(),
         beforeSha: beforeSha,
@@ -532,16 +536,16 @@ class AiFileMutationLedger {
         beforeSize: beforeSize,
         afterSize: afterSize,
       );
-      final ledger = _ledgerFile(sessionId);
+      final ledger = _ledgerFile(normalizedSessionId);
       final line = '${jsonEncode(record.toJson())}\n';
       await ledger.writeAsString(line, mode: FileMode.append, flush: true);
-      _invalidateSessionCache(sessionId);
+      _invalidateSessionCache(normalizedSessionId);
       // 写入后按当前配置即时收紧每文件历史数。autoCleanupDays 在启动时已处理。
       try {
         final cfg = await loadConfig();
         if (cfg.maxVersionsPerFile > 0) {
           await _trimSessionFileVersions(
-            sessionId,
+            normalizedSessionId,
             record.filePath,
             cfg.maxVersionsPerFile,
           );

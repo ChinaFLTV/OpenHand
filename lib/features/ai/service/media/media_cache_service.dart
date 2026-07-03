@@ -17,6 +17,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 
 enum MediaCacheKind { image, video, audio }
 
@@ -154,8 +155,9 @@ class MediaCacheService {
     String? mimeType,
   }) async {
     final uri = _httpUriOrNull(url);
-    if (uri == null || sourcePath.trim().isEmpty) return null;
-    final sourceFile = File(sourcePath);
+    final normalizedSourcePath = nullIfBlank(sourcePath);
+    if (uri == null || normalizedSourcePath == null) return null;
+    final sourceFile = File(normalizedSourcePath);
     if (!_looksUsableFile(sourceFile)) return null;
     final normalizedUrl = uri.toString();
     final cacheKind = kind ?? _kindFromUrl(normalizedUrl);

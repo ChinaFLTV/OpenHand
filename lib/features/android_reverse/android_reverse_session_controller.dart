@@ -1630,13 +1630,14 @@ class AndroidReverseSessionController extends ChangeNotifier {
   }
 
   Future<String?> _resolveLocalExecutable(String name) async {
-    if (Platform.isWindows || name.trim().isEmpty) return null;
+    final executable = nullIfBlank(name);
+    if (Platform.isWindows || executable == null) return null;
     final result = await runTrackedProcessOrFailed(
       '/bin/sh',
       <String>['-lc', 'command -v "\$TOOL_NAME" || true'],
       timeout: const Duration(seconds: 3),
       tag: 'android_reverse.resolve_executable',
-      environment: <String, String>{'TOOL_NAME': name.trim()},
+      environment: <String, String>{'TOOL_NAME': executable},
     );
     if (result.exitCode != 0) return null;
     final path = result.stdout.toString().trim().split('\n').firstOrNull;

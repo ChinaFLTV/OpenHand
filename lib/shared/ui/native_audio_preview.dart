@@ -607,8 +607,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   Future<Duration?> _resolveLocalDurationHint() async {
     if (kIsWeb) return null;
-    final path = widget.source.filePath ?? _tempAudioPath;
-    if (path == null || path.trim().isEmpty) return null;
+    final path =
+        nullIfBlank(widget.source.filePath) ?? nullIfBlank(_tempAudioPath);
+    if (path == null) return null;
     try {
       return await estimateNativeAudioFileDuration(
         path,

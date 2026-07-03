@@ -22,6 +22,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -109,11 +110,12 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
   // ---------------- 嫌疑字段提取 ----------------
 
   Map<String, String>? _tryParseFlatPairs(String? body) {
-    if (body == null || body.trim().isEmpty) return null;
+    final text = nullIfBlank(body);
+    if (text == null) return null;
     final out = <String, String>{};
     // JSON
     try {
-      final v = jsonDecode(body);
+      final v = jsonDecode(text);
       if (v is Map) {
         v.forEach((k, val) {
           if (val is String || val is num || val is bool) {
@@ -131,8 +133,8 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
       );
     }
     // form-urlencoded
-    if (body.contains('=')) {
-      for (final pair in body.split('&')) {
+    if (text.contains('=')) {
+      for (final pair in text.split('&')) {
         final eq = pair.indexOf('=');
         if (eq <= 0) continue;
         try {
