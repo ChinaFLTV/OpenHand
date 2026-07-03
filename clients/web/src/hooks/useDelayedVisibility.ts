@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { normalizeDialogExitDurationMs } from './useDialogMotionSettings';
 import { useReducedMotion } from './useReducedMotion';
-import { normalizeDurationMs } from '../shared/util/number';
 import { useTimeoutController } from './useTimeoutController';
 
 export interface DelayedVisibilityOptions {
@@ -115,18 +114,18 @@ export function useControlledDelayedVisibility(
         setPhase('visible');
         return;
       }
-      const delayMs = reduceMotion
-        ? 0
-        : normalizeDurationMs(enterDelayMs, { fallback: 0, min: 0 });
-      if (delayMs <= 0 || typeof window === 'undefined') {
+
+      const reveal = () => {
         phaseRef.current = 'visible';
         setPhase('visible');
+      };
+
+      if (reduceMotion || typeof window === 'undefined') {
+        reveal();
         return;
       }
-      scheduleTimer(() => {
-        phaseRef.current = 'visible';
-        setPhase('visible');
-      }, delayMs);
+
+      scheduleTimer(reveal, enterDelayMs);
       return;
     }
 
