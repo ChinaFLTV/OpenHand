@@ -108,7 +108,15 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
             width: 32,
             height: 32,
             child: Tooltip(
-              message: isZh ? '关闭详情' : 'Close detail',
+              message: _wrText(
+                context,
+                zh: '关闭详情',
+                zhHant: '關閉詳情',
+                en: 'Close detail',
+                fr: 'Fermer le détail',
+                de: 'Detail schließen',
+                ja: '詳細を閉じる',
+              ),
               child: InkResponse(
                 onTap: widget.onClose,
                 radius: 18,
@@ -145,7 +153,15 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
             width: 32,
             height: 32,
             child: Tooltip(
-              message: isZh ? '重放 / 改包' : 'Resend / Edit',
+              message: _wrText(
+                context,
+                zh: '重放 / 改包',
+                zhHant: '重放 / 改包',
+                en: 'Resend / Edit',
+                fr: 'Renvoyer / modifier',
+                de: 'Erneut senden / bearbeiten',
+                ja: '再送信 / 編集',
+              ),
               child: InkResponse(
                 radius: 18,
                 onTap: () => showWebReverseResendRequestDialog(
@@ -169,12 +185,20 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
             width: 32,
             height: 32,
             child: Tooltip(
-              message: isZh ? '复制为...' : 'Copy as...',
+              message: _wrText(
+                context,
+                zh: '复制为...',
+                zhHant: '複製為...',
+                en: 'Copy as...',
+                fr: 'Copier comme...',
+                de: 'Kopieren als...',
+                ja: '形式を指定してコピー...',
+              ),
               child: AnimatedPopupMenuButton<String>(
                 icon: const Icon(Icons.content_copy_rounded, size: 18),
                 padding: EdgeInsets.zero,
                 splashRadius: 18,
-                onSelected: (kind) => unawaited(_copyAs(kind, isZh)),
+                onSelected: (kind) => unawaited(_copyAs(kind)),
                 itemBuilder: (_) => const [
                   PopupMenuItem(value: 'url', child: Text('URL')),
                   PopupMenuItem(value: 'curl', child: Text('cURL (POSIX)')),
@@ -196,7 +220,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
     );
   }
 
-  Future<void> _copyAs(String kind, bool isZh) async {
+  Future<void> _copyAs(String kind) async {
     final text = switch (kind) {
       'url' => widget.entry.url,
       'curl' => _asCurl(widget.entry, windows: false),
@@ -209,9 +233,17 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
     if (!mounted) return;
     OpenHandSnackBar.showSuccess(
       context,
-      webReverseClipboardSnackMessage(
-        isZh: isZh,
-        base: isZh ? '已复制为 $kind' : 'Copied as $kind',
+      _wrClipboardSnackMessage(
+        context,
+        base: _wrText(
+          context,
+          zh: '已复制为 $kind',
+          zhHant: '已複製為 $kind',
+          en: 'Copied as $kind',
+          fr: 'Copié en $kind',
+          de: 'Als $kind kopiert',
+          ja: '$kind としてコピーしました',
+        ),
         result: copied,
       ),
       duration: const Duration(seconds: 1),
@@ -235,7 +267,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
           children: [
             for (final t in tabs) ...[
               _DetailTabButton(
-                label: _detailTabLabel(t, isZh),
+                label: _detailTabLabel(context, t),
                 active: _tab == t,
                 onTap: () => setState(() => _tab = t),
               ),
@@ -247,14 +279,63 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
     );
   }
 
-  static String _detailTabLabel(_DetailTab t, bool isZh) => switch (t) {
-    _DetailTab.headers => 'Headers',
-    _DetailTab.preview => 'Preview',
-    _DetailTab.response => 'Response',
-    _DetailTab.initiator => 'Initiator',
-    _DetailTab.timing => 'Timing',
-    _DetailTab.messages => 'Messages',
-  };
+  static String _detailTabLabel(BuildContext context, _DetailTab t) =>
+      switch (t) {
+        _DetailTab.headers => _wrText(
+          context,
+          zh: '标头',
+          zhHant: '標頭',
+          en: 'Headers',
+          fr: 'En-têtes',
+          de: 'Header',
+          ja: 'ヘッダー',
+        ),
+        _DetailTab.preview => _wrText(
+          context,
+          zh: '预览',
+          zhHant: '預覽',
+          en: 'Preview',
+          fr: 'Aperçu',
+          de: 'Vorschau',
+          ja: 'プレビュー',
+        ),
+        _DetailTab.response => _wrText(
+          context,
+          zh: '响应',
+          zhHant: '回應',
+          en: 'Response',
+          fr: 'Réponse',
+          de: 'Antwort',
+          ja: 'レスポンス',
+        ),
+        _DetailTab.initiator => _wrText(
+          context,
+          zh: '发起方',
+          zhHant: '發起方',
+          en: 'Initiator',
+          fr: 'Initiateur',
+          de: 'Auslöser',
+          ja: 'イニシエーター',
+        ),
+        _DetailTab.timing => _wrText(
+          context,
+          zh: '耗时',
+          zhHant: '耗時',
+          en: 'Timing',
+          fr: 'Temps',
+          de: 'Timing',
+          ja: 'タイミング',
+        ),
+        _DetailTab.messages => _wrText(
+          context,
+          zh: '消息',
+          zhHant: '訊息',
+          en: 'Messages',
+          fr: 'Messages',
+          de: 'Nachrichten',
+          ja: 'メッセージ',
+        ),
+      };
 
   Widget _buildBody(ThemeData theme, ColorScheme cs, bool isZh) {
     return switch (_tab) {
@@ -338,33 +419,155 @@ class _HeadersTab extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final general = <(String, String)>[
-      ('Request URL', entry.url),
-      ('Request Method', entry.method),
       (
-        'Status Code',
+        _wrText(
+          context,
+          zh: '请求 URL',
+          zhHant: '請求 URL',
+          en: 'Request URL',
+          fr: 'URL de requête',
+          de: 'Anfrage-URL',
+          ja: 'リクエスト URL',
+        ),
+        entry.url,
+      ),
+      (
+        _wrText(
+          context,
+          zh: '请求方法',
+          zhHant: '請求方法',
+          en: 'Request Method',
+          fr: 'Méthode',
+          de: 'Anfragemethode',
+          ja: 'リクエストメソッド',
+        ),
+        entry.method,
+      ),
+      (
+        _wrText(
+          context,
+          zh: '状态码',
+          zhHant: '狀態碼',
+          en: 'Status Code',
+          fr: 'Code d’état',
+          de: 'Statuscode',
+          ja: 'ステータスコード',
+        ),
         entry.statusCode == null
-            ? (entry.failed ? '(${entry.errorText ?? "failed"})' : '(pending)')
+            ? (entry.failed
+                  ? '(${entry.errorText ?? _wrText(context, zh: "失败", zhHant: "失敗", en: "failed", fr: "échec", de: "fehlgeschlagen", ja: "失敗")})'
+                  : _wrText(
+                      context,
+                      zh: '(等待中)',
+                      zhHant: '(等待中)',
+                      en: '(pending)',
+                      fr: '(en attente)',
+                      de: '(ausstehend)',
+                      ja: '(保留中)',
+                    ))
             : '${entry.statusCode} ${entry.statusText ?? ''}'.trim(),
       ),
-      if (entry.remoteAddress != null) ('Remote Address', entry.remoteAddress!),
-      if (entry.protocol != null) ('Protocol', entry.protocol!),
-      ('Resource Type', entry.resourceType),
-      if (entry.fromCache) ('From Cache', 'true'),
+      if (entry.remoteAddress != null)
+        (
+          _wrText(
+            context,
+            zh: '远端地址',
+            zhHant: '遠端位址',
+            en: 'Remote Address',
+            fr: 'Adresse distante',
+            de: 'Remote-Adresse',
+            ja: 'リモートアドレス',
+          ),
+          entry.remoteAddress!,
+        ),
+      if (entry.protocol != null)
+        (
+          _wrText(
+            context,
+            zh: '协议',
+            zhHant: '通訊協定',
+            en: 'Protocol',
+            fr: 'Protocole',
+            de: 'Protokoll',
+            ja: 'プロトコル',
+          ),
+          entry.protocol!,
+        ),
+      (
+        _wrText(
+          context,
+          zh: '资源类型',
+          zhHant: '資源類型',
+          en: 'Resource Type',
+          fr: 'Type de ressource',
+          de: 'Ressourcentyp',
+          ja: 'リソース種別',
+        ),
+        entry.resourceType,
+      ),
+      if (entry.fromCache)
+        (
+          _wrText(
+            context,
+            zh: '来自缓存',
+            zhHant: '來自快取',
+            en: 'From Cache',
+            fr: 'Depuis le cache',
+            de: 'Aus Cache',
+            ja: 'キャッシュから',
+          ),
+          _wrText(
+            context,
+            zh: '是',
+            zhHant: '是',
+            en: 'true',
+            fr: 'oui',
+            de: 'ja',
+            ja: 'はい',
+          ),
+        ),
     ];
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       children: [
-        _HeaderSection(title: 'General', rows: general),
+        _HeaderSection(
+          title: _wrText(
+            context,
+            zh: '常规',
+            zhHant: '一般',
+            en: 'General',
+            fr: 'Général',
+            de: 'Allgemein',
+            ja: '一般',
+          ),
+          rows: general,
+        ),
         const SizedBox(height: 12),
         _HeaderSection(
-          title: 'Response Headers',
+          title: _wrText(
+            context,
+            zh: '响应标头',
+            zhHant: '回應標頭',
+            en: 'Response Headers',
+            fr: 'En-têtes de réponse',
+            de: 'Antwortheader',
+            ja: 'レスポンスヘッダー',
+          ),
           rows: entry.responseHeaders.entries
               .map((e) => (e.key, e.value))
               .toList(growable: false),
         ),
         const SizedBox(height: 12),
         _HeaderSection(
-          title: 'Request Headers',
+          title: _wrText(
+            context,
+            zh: '请求标头',
+            zhHant: '請求標頭',
+            en: 'Request Headers',
+            fr: 'En-têtes de requête',
+            de: 'Anfrageheader',
+            ja: 'リクエストヘッダー',
+          ),
           rows: entry.requestHeaders.entries
               .map((e) => (e.key, e.value))
               .toList(growable: false),
@@ -373,7 +576,15 @@ class _HeadersTab extends StatelessWidget {
             entry.requestPostData!.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(
-            isZh ? '请求体' : 'Request Payload',
+            _wrText(
+              context,
+              zh: '请求体',
+              zhHant: '請求本文',
+              en: 'Request Payload',
+              fr: 'Corps de requête',
+              de: 'Anfrageinhalt',
+              ja: 'リクエスト本文',
+            ),
             style: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w800,
               color: cs.primary,
@@ -417,7 +628,15 @@ class _HeaderSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(6),
             child: Text(
-              '(empty)',
+              _wrText(
+                context,
+                zh: '(空)',
+                zhHant: '(空)',
+                en: '(empty)',
+                fr: '(vide)',
+                de: '(leer)',
+                ja: '(空)',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
@@ -511,9 +730,15 @@ class _BodyTab extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            isZh
-                ? '响应体不可用（可能已被回收，或服务端返回了空 body）。'
-                : 'Response body unavailable (already evicted or empty).',
+            _wrText(
+              context,
+              zh: '响应体不可用（可能已被回收，或服务端返回了空 body）。',
+              zhHant: '回應本文不可用（可能已被回收，或伺服器回傳了空 body）。',
+              en: 'Response body unavailable (already evicted or empty).',
+              fr: 'Corps de réponse indisponible (déjà évincé ou vide).',
+              de: 'Antwortinhalt nicht verfügbar (bereits verworfen oder leer).',
+              ja: 'レスポンス本文は利用できません（回収済み、または空の body の可能性があります）。',
+            ),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: cs.onSurfaceVariant,
@@ -529,16 +754,31 @@ class _BodyTab extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              isZh ? '二进制响应' : 'Binary Response',
+              _wrText(
+                context,
+                zh: '二进制响应',
+                zhHant: '二進位回應',
+                en: 'Binary Response',
+                fr: 'Réponse binaire',
+                de: 'Binäre Antwort',
+                ja: 'バイナリレスポンス',
+              ),
               style: theme.textTheme.labelLarge?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              isZh
-                  ? '类型 ${mimeType ?? "(未知)"} · 大小约 ${text!.length ~/ 4 * 3} 字节（base64）'
-                  : 'Type ${mimeType ?? "unknown"} · ~${text!.length ~/ 4 * 3} bytes (base64)',
+              _wrText(
+                context,
+                zh: '类型 ${mimeType ?? "(未知)"} · 大小约 ${text!.length ~/ 4 * 3} 字节（base64）',
+                zhHant:
+                    '類型 ${mimeType ?? "(未知)"} · 大小約 ${text!.length ~/ 4 * 3} 位元組（base64）',
+                en: 'Type ${mimeType ?? "unknown"} · ~${text!.length ~/ 4 * 3} bytes (base64)',
+                fr: 'Type ${mimeType ?? "inconnu"} · ~${text!.length ~/ 4 * 3} octets (base64)',
+                de: 'Typ ${mimeType ?? "unbekannt"} · ~${text!.length ~/ 4 * 3} Byte (base64)',
+                ja: '種類 ${mimeType ?? "不明"} · 約 ${text!.length ~/ 4 * 3} バイト（base64）',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
@@ -638,14 +878,33 @@ class _InitiatorTab extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          'Initiator',
+          _wrText(
+            context,
+            zh: '发起方',
+            zhHant: '發起方',
+            en: 'Initiator',
+            fr: 'Initiateur',
+            de: 'Auslöser',
+            ja: 'イニシエーター',
+          ),
           style: theme.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w800,
             color: cs.primary,
           ),
         ),
         const SizedBox(height: 6),
-        _MetaRow(label: 'Type', value: type),
+        _MetaRow(
+          label: _wrText(
+            context,
+            zh: '类型',
+            zhHant: '類型',
+            en: 'Type',
+            fr: 'Type',
+            de: 'Typ',
+            ja: '種類',
+          ),
+          value: type,
+        ),
         if (initUrl.isNotEmpty)
           _ClickableSourceRow(
             label: 'URL',
@@ -656,10 +915,29 @@ class _InitiatorTab extends StatelessWidget {
             isZh: isZh,
           ),
         if (initLine != null && initUrl.isEmpty)
-          _MetaRow(label: 'Line', value: '${initLine + 1}'),
+          _MetaRow(
+            label: _wrText(
+              context,
+              zh: '行',
+              zhHant: '行',
+              en: 'Line',
+              fr: 'Ligne',
+              de: 'Zeile',
+              ja: '行',
+            ),
+            value: '${initLine + 1}',
+          ),
         const SizedBox(height: 14),
         Text(
-          isZh ? '调用栈' : 'Call Stack',
+          _wrText(
+            context,
+            zh: '调用栈',
+            zhHant: '呼叫堆疊',
+            en: 'Call Stack',
+            fr: 'Pile d’appels',
+            de: 'Aufrufstack',
+            ja: 'コールスタック',
+          ),
           style: theme.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w800,
             color: cs.primary,
@@ -668,9 +946,15 @@ class _InitiatorTab extends StatelessWidget {
         const SizedBox(height: 6),
         if (stack.isEmpty)
           Text(
-            isZh
-                ? '(无堆栈，可能由解析器或预加载触发)'
-                : '(no stack — parser/preload-triggered)',
+            _wrText(
+              context,
+              zh: '(无堆栈，可能由解析器或预加载触发)',
+              zhHant: '(無堆疊，可能由解析器或預載觸發)',
+              en: '(no stack — parser/preload-triggered)',
+              fr: '(aucune pile — déclenché par parseur/préchargement)',
+              de: '(kein Stack — durch Parser/Vorladen ausgelöst)',
+              ja: '(スタックなし — パーサーまたはプリロードによる可能性)',
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
             ),
@@ -682,7 +966,15 @@ class _InitiatorTab extends StatelessWidget {
         // Request Initiator Chain：重定向链按时间顺序展示，与 Chrome
         // DevTools 同名区段对齐。每一跳显示状态码 + URL + 跳转时间。
         Text(
-          isZh ? '请求发起链 (重定向)' : 'Request Initiator Chain',
+          _wrText(
+            context,
+            zh: '请求发起链（重定向）',
+            zhHant: '請求發起鏈（重新導向）',
+            en: 'Request Initiator Chain',
+            fr: 'Chaîne d’initiateur',
+            de: 'Auslöserkette',
+            ja: 'リクエスト発起チェーン',
+          ),
           style: theme.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w800,
             color: cs.primary,
@@ -691,9 +983,15 @@ class _InitiatorTab extends StatelessWidget {
         const SizedBox(height: 6),
         if (chain.isEmpty)
           Text(
-            isZh
-                ? '(此请求未发生重定向)'
-                : '(no redirect — request reached origin directly)',
+            _wrText(
+              context,
+              zh: '(此请求未发生重定向)',
+              zhHant: '(此請求未發生重新導向)',
+              en: '(no redirect — request reached origin directly)',
+              fr: '(aucune redirection — requête directe)',
+              de: '(keine Weiterleitung — Anfrage ging direkt zum Ursprung)',
+              ja: '(リダイレクトなし — 直接到達)',
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
             ),
@@ -803,7 +1101,15 @@ class _RedirectStepRow extends StatelessWidget {
                 ),
                 Text(
                   isFinal
-                      ? (isZh ? '当前请求 (最终目标)' : 'final destination')
+                      ? _wrText(
+                          context,
+                          zh: '当前请求（最终目标）',
+                          zhHant: '目前請求（最終目標）',
+                          en: 'final destination',
+                          fr: 'destination finale',
+                          de: 'Endziel',
+                          ja: '最終宛先',
+                        )
                       : '${step.statusText ?? ''}  ·  ${_timeOnly(step.at)}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
@@ -863,7 +1169,15 @@ class _ClickableSourceRow extends StatelessWidget {
           ),
           Expanded(
             child: Tooltip(
-              message: isZh ? '在 Sources 中打开' : 'Open in Sources',
+              message: _wrText(
+                context,
+                zh: '在 Sources 中打开',
+                zhHant: '在 Sources 中開啟',
+                en: 'Open in Sources',
+                fr: 'Ouvrir dans Sources',
+                de: 'In Sources öffnen',
+                ja: 'Sources で開く',
+              ),
               child: InkWell(
                 onTap: onTap,
                 borderRadius: BorderRadius.circular(4),
@@ -993,7 +1307,15 @@ class _StackFrame extends StatelessWidget {
     );
     if (!hasJump) return body;
     return Tooltip(
-      message: isZh ? '在 Sources 中打开' : 'Open in Sources',
+      message: _wrText(
+        context,
+        zh: '在 Sources 中打开',
+        zhHant: '在 Sources 中開啟',
+        en: 'Open in Sources',
+        fr: 'Ouvrir dans Sources',
+        de: 'In Sources öffnen',
+        ja: 'Sources で開く',
+      ),
       child: InkWell(
         onTap: () => onJump(url, line, col),
         borderRadius: BorderRadius.circular(6),
@@ -1017,12 +1339,20 @@ class _TimingTab extends StatelessWidget {
     final finishedAt = entry.loadingFinishedAt;
     final ttfb = responseAt?.difference(start).inMilliseconds;
     final total = finishedAt?.difference(start).inMilliseconds;
-    final phases = _computePhases(entry, isZh);
+    final phases = _computePhases(context, entry);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          isZh ? '阶段瀑布 (Resource Timing)' : 'Phase Waterfall',
+          _wrText(
+            context,
+            zh: '阶段瀑布（Resource Timing）',
+            zhHant: '階段瀑布（Resource Timing）',
+            en: 'Phase Waterfall',
+            fr: 'Cascade des phases',
+            de: 'Phasen-Wasserfall',
+            ja: 'フェーズウォーターフォール',
+          ),
           style: theme.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w800,
             color: cs.primary,
@@ -1031,9 +1361,16 @@ class _TimingTab extends StatelessWidget {
         const SizedBox(height: 8),
         if (phases == null)
           Text(
-            isZh
-                ? '(浏览器尚未上报 ResourceTiming — 多见于 service worker / from-cache / data: URL)'
-                : '(no ResourceTiming reported — typical for service-worker / cached / data: URLs)',
+            _wrText(
+              context,
+              zh: '(浏览器尚未上报 ResourceTiming，常见于 service worker / from-cache / data: URL)',
+              zhHant:
+                  '(瀏覽器尚未上報 ResourceTiming，常見於 service worker / from-cache / data: URL)',
+              en: '(no ResourceTiming reported — typical for service-worker / cached / data: URLs)',
+              fr: '(ResourceTiming non reporté — fréquent avec service worker / cache / data: URL)',
+              de: '(kein ResourceTiming gemeldet — typisch bei Service Worker / Cache / data: URL)',
+              ja: '(ResourceTiming が未報告です。service worker / キャッシュ / data: URL でよく発生します)',
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
             ),
@@ -1042,40 +1379,121 @@ class _TimingTab extends StatelessWidget {
           _TimingWaterfall(phases: phases),
         const SizedBox(height: 18),
         Text(
-          isZh ? '汇总' : 'Summary',
+          _wrText(
+            context,
+            zh: '汇总',
+            zhHant: '彙總',
+            en: 'Summary',
+            fr: 'Résumé',
+            de: 'Zusammenfassung',
+            ja: '概要',
+          ),
           style: theme.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w800,
             color: cs.primary,
           ),
         ),
         const SizedBox(height: 6),
-        _MetaRow(label: 'Started', value: _fmt(start)),
         _MetaRow(
-          label: 'Response',
+          label: _wrText(
+            context,
+            zh: '开始',
+            zhHant: '開始',
+            en: 'Started',
+            fr: 'Début',
+            de: 'Gestartet',
+            ja: '開始',
+          ),
+          value: _fmt(start),
+        ),
+        _MetaRow(
+          label: _wrText(
+            context,
+            zh: '响应',
+            zhHant: '回應',
+            en: 'Response',
+            fr: 'Réponse',
+            de: 'Antwort',
+            ja: 'レスポンス',
+          ),
           value: responseAt == null ? '-' : _fmt(responseAt),
         ),
         _MetaRow(
-          label: 'Finished',
+          label: _wrText(
+            context,
+            zh: '完成',
+            zhHant: '完成',
+            en: 'Finished',
+            fr: 'Fin',
+            de: 'Beendet',
+            ja: '完了',
+          ),
           value: finishedAt == null ? '-' : _fmt(finishedAt),
         ),
         const Divider(height: 24),
         _MetaRow(
-          label: isZh ? '首字节时间' : 'TTFB',
+          label: _wrText(
+            context,
+            zh: '首字节时间',
+            zhHant: '首位元組時間',
+            en: 'TTFB',
+            fr: 'TTFB',
+            de: 'TTFB',
+            ja: 'TTFB',
+          ),
           value: ttfb == null ? '-' : '$ttfb ms',
         ),
         _MetaRow(
-          label: isZh ? '总耗时' : 'Total',
+          label: _wrText(
+            context,
+            zh: '总耗时',
+            zhHant: '總耗時',
+            en: 'Total',
+            fr: 'Total',
+            de: 'Gesamt',
+            ja: '合計',
+          ),
           value: total == null ? '-' : '$total ms',
         ),
         if (entry.encodedDataLength != null)
           _MetaRow(
-            label: isZh ? '编码后大小' : 'Encoded',
+            label: _wrText(
+              context,
+              zh: '编码后大小',
+              zhHant: '編碼後大小',
+              en: 'Encoded',
+              fr: 'Encodé',
+              de: 'Kodiert',
+              ja: 'エンコード後',
+            ),
             value: '${entry.encodedDataLength} bytes',
           ),
         if (entry.protocol != null && entry.protocol!.isNotEmpty)
-          _MetaRow(label: 'Protocol', value: entry.protocol!),
+          _MetaRow(
+            label: _wrText(
+              context,
+              zh: '协议',
+              zhHant: '通訊協定',
+              en: 'Protocol',
+              fr: 'Protocole',
+              de: 'Protokoll',
+              ja: 'プロトコル',
+            ),
+            value: entry.protocol!,
+          ),
         if (entry.remoteAddress != null && entry.remoteAddress!.isNotEmpty)
-          _MetaRow(label: 'Remote', value: entry.remoteAddress!),
+          _MetaRow(
+            label: _wrText(
+              context,
+              zh: '远端',
+              zhHant: '遠端',
+              en: 'Remote',
+              fr: 'Distant',
+              de: 'Remote',
+              ja: 'リモート',
+            ),
+            value: entry.remoteAddress!,
+          ),
       ],
     );
   }
@@ -1090,7 +1508,10 @@ class _TimingTab extends StatelessWidget {
   /// Chrome DevTools 的 9 个标准阶段：
   ///   Queueing / Stalled / Proxy / DNS Lookup / Initial Connection /
   ///   SSL / Request Sent / Waiting (TTFB) / Content Download
-  static List<_TimingPhase>? _computePhases(CdpNetworkEntry entry, bool isZh) {
+  static List<_TimingPhase>? _computePhases(
+    BuildContext context,
+    CdpNetworkEntry entry,
+  ) {
     final t = entry.resourceTiming;
     if (t == null || t.isEmpty) return null;
     double? f(String k) {
@@ -1104,8 +1525,7 @@ class _TimingTab extends StatelessWidget {
 
     final phases = <_TimingPhase>[];
     void add(
-      String name,
-      String nameEn,
+      String label,
       double? from,
       double? to,
       Color Function(ColorScheme cs) color,
@@ -1114,13 +1534,7 @@ class _TimingTab extends StatelessWidget {
       final dur = to - from;
       if (dur < 0) return;
       phases.add(
-        _TimingPhase(
-          nameZh: name,
-          nameEn: nameEn,
-          startMs: from,
-          endMs: to,
-          color: color,
-        ),
+        _TimingPhase(label: label, startMs: from, endMs: to, color: color),
       );
     }
 
@@ -1140,38 +1554,86 @@ class _TimingTab extends StatelessWidget {
     final receiveHeadersEnd = f('receiveHeadersEnd');
 
     add(
-      '代理协商',
-      'Proxy',
+      _wrText(
+        context,
+        zh: '代理协商',
+        zhHant: '代理協商',
+        en: 'Proxy',
+        fr: 'Proxy',
+        de: 'Proxy',
+        ja: 'プロキシ',
+      ),
       proxyStart,
       proxyEnd,
       (cs) => cs.tertiary.withValues(alpha: 0.75),
     );
     add(
-      'DNS 解析',
-      'DNS Lookup',
+      _wrText(
+        context,
+        zh: 'DNS 解析',
+        zhHant: 'DNS 解析',
+        en: 'DNS Lookup',
+        fr: 'Résolution DNS',
+        de: 'DNS-Auflösung',
+        ja: 'DNS ルックアップ',
+      ),
       dnsStart,
       dnsEnd,
       (cs) => Colors.indigo.shade400,
     );
     add(
-      '初始连接',
-      'Initial Connection',
+      _wrText(
+        context,
+        zh: '初始连接',
+        zhHant: '初始連線',
+        en: 'Initial Connection',
+        fr: 'Connexion initiale',
+        de: 'Erste Verbindung',
+        ja: '初期接続',
+      ),
       connectStart,
       connectEnd,
       (cs) => Colors.orange.shade400,
     );
-    add('SSL 握手', 'SSL', sslStart, sslEnd, (cs) => Colors.purple.shade400);
     add(
-      '请求发送',
-      'Request Sent',
+      _wrText(
+        context,
+        zh: 'SSL 握手',
+        zhHant: 'SSL 握手',
+        en: 'SSL',
+        fr: 'SSL',
+        de: 'SSL',
+        ja: 'SSL',
+      ),
+      sslStart,
+      sslEnd,
+      (cs) => Colors.purple.shade400,
+    );
+    add(
+      _wrText(
+        context,
+        zh: '请求发送',
+        zhHant: '請求傳送',
+        en: 'Request Sent',
+        fr: 'Requête envoyée',
+        de: 'Anfrage gesendet',
+        ja: 'リクエスト送信',
+      ),
       sendStart,
       sendEnd,
       (cs) => Colors.teal.shade400,
     );
     // Waiting / TTFB：从 sendEnd 到 receiveHeadersEnd（如有 start 用之）。
     add(
-      '等待响应 (TTFB)',
-      'Waiting (TTFB)',
+      _wrText(
+        context,
+        zh: '等待响应（TTFB）',
+        zhHant: '等待回應（TTFB）',
+        en: 'Waiting (TTFB)',
+        fr: 'Attente (TTFB)',
+        de: 'Warten (TTFB)',
+        ja: '待機（TTFB）',
+      ),
       sendEnd,
       receiveHeadersStart ?? receiveHeadersEnd,
       (cs) => Colors.green.shade400,
@@ -1183,8 +1645,15 @@ class _TimingTab extends StatelessWidget {
       final downloadMs = endMs - reqStartMs - 0; // 近似：start = requestWillBeSent
       if (downloadMs > receiveHeadersEnd) {
         add(
-          '内容下载',
-          'Content Download',
+          _wrText(
+            context,
+            zh: '内容下载',
+            zhHant: '內容下載',
+            en: 'Content Download',
+            fr: 'Téléchargement',
+            de: 'Inhalt laden',
+            ja: 'コンテンツダウンロード',
+          ),
           receiveHeadersEnd,
           downloadMs,
           (cs) => Colors.blue.shade400,
@@ -1198,14 +1667,12 @@ class _TimingTab extends StatelessWidget {
 
 class _TimingPhase {
   const _TimingPhase({
-    required this.nameZh,
-    required this.nameEn,
+    required this.label,
     required this.startMs,
     required this.endMs,
     required this.color,
   });
-  final String nameZh;
-  final String nameEn;
+  final String label;
   final double startMs;
   final double endMs;
   final Color Function(ColorScheme cs) color;
@@ -1260,7 +1727,7 @@ class _TimingWaterfall extends StatelessWidget {
                   SizedBox(
                     width: labelW,
                     child: Text(
-                      p.nameZh,
+                      p.label,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: cs.onSurface,
                         fontWeight: FontWeight.w600,
@@ -1481,9 +1948,15 @@ class _MessagesTab extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            isZh
-                ? '尚未抓到 WebSocket 帧。在浏览器中触发动作后此处会实时刷新。'
-                : 'No WebSocket frames yet.',
+            _wrText(
+              context,
+              zh: '尚未抓到 WebSocket 帧。在浏览器中触发动作后此处会实时刷新。',
+              zhHant: '尚未抓到 WebSocket 訊框。在瀏覽器中觸發動作後此處會即時更新。',
+              en: 'No WebSocket frames yet.',
+              fr: 'Aucune trame WebSocket pour le moment.',
+              de: 'Noch keine WebSocket-Frames.',
+              ja: 'WebSocket フレームはまだありません。',
+            ),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: cs.onSurfaceVariant,
@@ -1640,7 +2113,15 @@ class _ImageInlinePreview extends StatelessWidget {
               Icon(Icons.image_rounded, size: 16, color: cs.primary),
               const SizedBox(width: 6),
               Text(
-                isZh ? '点击图片可全屏预览' : 'Tap to open large preview',
+                _wrText(
+                  context,
+                  zh: '点击图片可全屏预览',
+                  zhHant: '點擊圖片可全螢幕預覽',
+                  en: 'Tap to open large preview',
+                  fr: 'Touchez l’image pour l’agrandir',
+                  de: 'Bild antippen für große Vorschau',
+                  ja: '画像をクリックして大きく表示',
+                ),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: cs.onSurfaceVariant,
                 ),
@@ -1756,7 +2237,17 @@ class _MediaInlinePreview extends StatelessWidget {
                   ),
                 ),
                 icon: const Icon(Icons.open_in_full_rounded, size: 16),
-                label: Text(isZh ? '全屏预览' : 'Open large'),
+                label: Text(
+                  _wrText(
+                    context,
+                    zh: '全屏预览',
+                    zhHant: '全螢幕預覽',
+                    en: 'Open large',
+                    fr: 'Agrandir',
+                    de: 'Groß öffnen',
+                    ja: '大きく開く',
+                  ),
+                ),
                 style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                 ),
@@ -1778,10 +2269,16 @@ class _MediaInlinePreview extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Text(
-                  isZh
-                      ? '此请求识别为${kind == MediaPreviewKind.audio ? "音频" : "视频"}流，'
-                            '点击右上方「全屏预览」按钮即可在内嵌播放器中播放'
-                      : 'Detected as ${kind == MediaPreviewKind.audio ? "audio" : "video"} stream — tap "Open large" to play in the embedded player.',
+                  _wrText(
+                    context,
+                    zh: '此请求识别为${kind == MediaPreviewKind.audio ? "音频" : "视频"}流，点击右上方「全屏预览」按钮即可在内嵌播放器中播放',
+                    zhHant:
+                        '此請求識別為${kind == MediaPreviewKind.audio ? "音訊" : "影片"}串流，點擊右上方「全螢幕預覽」即可在內嵌播放器中播放',
+                    en: 'Detected as ${kind == MediaPreviewKind.audio ? "audio" : "video"} stream. Tap "Open large" to play in the embedded player.',
+                    fr: 'Flux ${kind == MediaPreviewKind.audio ? "audio" : "vidéo"} détecté. Cliquez sur « Agrandir » pour lire dans le lecteur intégré.',
+                    de: '${kind == MediaPreviewKind.audio ? "Audio" : "Video"}-Stream erkannt. Mit „Groß öffnen“ im eingebetteten Player abspielen.',
+                    ja: '${kind == MediaPreviewKind.audio ? "音声" : "動画"}ストリームとして検出されました。「大きく開く」で内蔵プレーヤー再生できます。',
+                  ),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
