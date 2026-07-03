@@ -871,10 +871,9 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
   }
 
   List<String> get _audioFormatValues {
-    return _audioFormatOptions
-        .map((option) => option.value)
-        .where((value) => value.trim().isNotEmpty)
-        .toList(growable: false);
+    return trimmedNonEmptyStrings(
+      _audioFormatOptions.map((option) => option.value),
+    );
   }
 
   String _audioFormatLabel(String value) {
