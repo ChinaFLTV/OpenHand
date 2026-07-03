@@ -4,11 +4,18 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'safe_subprocess.dart';
 
 enum OpenHandNotificationLevel { info, success, warning, error, critical }
 
 abstract final class OpenHandNotificationService {
+  static const String _subprocessTag = 'openhand_notification_service';
+  static const Duration _commandLookupTimeout = Duration(seconds: 3);
+  static const Duration _notificationCommandTimeout = Duration(seconds: 5);
+  static const Duration _soundCommandTimeout = Duration(seconds: 6);
+  static const Duration _windowsNotificationTimeout = Duration(seconds: 8);
+
   static bool get supportsVibration => Platform.isAndroid || Platform.isIOS;
 
   static Future<void> showInApp({
@@ -18,6 +25,9 @@ abstract final class OpenHandNotificationService {
     bool playSound = false,
     bool vibrate = false,
   }) async {
+    final message = _inAppMessage(title: title, body: body);
+    if (message == null) return;
+
     final messenger = OpenHandSnackBar.rootMessengerKey.currentState;
     final context = OpenHandSnackBar.rootMessengerKey.currentContext;
     if (messenger == null || context == null) return;
@@ -51,14 +61,12 @@ abstract final class OpenHandNotificationService {
       ),
     };
 
-    final text = body.trim().isEmpty ? title : '$title\n$body';
-
     OpenHandSnackBar.show(
       context,
       messenger,
       OpenHandSnackBar.notification(
         context,
-        message: text,
+        message: message,
         icon: icon,
         tint: foregroundColor,
         backgroundColor: backgroundColor,
@@ -81,13 +89,20 @@ abstract final class OpenHandNotificationService {
     bool playSound = false,
     bool vibrate = false,
   }) async {
+    final payload = _systemPayload(title: title, body: body);
+    if (payload == null) return false;
+
     var shown = false;
     if (Platform.isMacOS) {
-      shown = await _showMacOs(title: title, body: body);
+      shown = await _showMacOs(title: payload.title, body: payload.body);
     } else if (Platform.isLinux) {
-      shown = await _showLinux(title: title, body: body, level: level);
+      shown = await _showLinux(
+        title: payload.title,
+        body: payload.body,
+        level: level,
+      );
     } else if (Platform.isWindows) {
-      shown = await _showWindows(title: title, body: body);
+      shown = await _showWindows(title: payload.title, body: payload.body);
     }
 
     if (shown && playSound) {
@@ -109,7 +124,7 @@ abstract final class OpenHandNotificationService {
     final result = await runProcessWithTimeout('osascript', [
       '-e',
       'display notification "$safeBody" with title "$safeTitle"',
-    ], tag: 'openhand_notification_service');
+    ], tag: _subprocessTag);
     return result?.exitCode == 0;
   }
 
@@ -119,13 +134,7 @@ abstract final class OpenHandNotificationService {
     required OpenHandNotificationLevel level,
   }) async {
     try {
-      final whichResult = await runProcessWithTimeout(
-        'which',
-        const <String>['notify-send'],
-        timeout: const Duration(seconds: 3),
-        tag: 'openhand_notification_service',
-      );
-      if (whichResult == null || whichResult.exitCode != 0) return false;
+      if (!await _commandExists('notify-send')) return false;
       final urgency = switch (level) {
         OpenHandNotificationLevel.critical => 'critical',
         OpenHandNotificationLevel.error => 'critical',
@@ -135,8 +144,8 @@ abstract final class OpenHandNotificationService {
       final result = await runProcessWithTimeout(
         'notify-send',
         <String>['-u', urgency, title, body],
-        timeout: const Duration(seconds: 5),
-        tag: 'openhand_notification_service',
+        timeout: _notificationCommandTimeout,
+        tag: _subprocessTag,
       );
       return result?.exitCode == 0;
     } catch (_) {
@@ -186,8 +195,8 @@ $notifier.Show($toast)
           '-Command',
           script,
         ],
-        timeout: const Duration(seconds: 8),
-        tag: 'openhand_notification_service',
+        timeout: _windowsNotificationTimeout,
+        tag: _subprocessTag,
       );
       return result?.exitCode == 0;
     } catch (_) {
@@ -246,15 +255,15 @@ $notifier.Show($toast)
       final result = await runProcessWithTimeout(
         'afplay',
         [soundPath],
-        timeout: const Duration(seconds: 6),
-        tag: 'openhand_notification_service',
+        timeout: _soundCommandTimeout,
+        tag: _subprocessTag,
       );
       if (result?.exitCode == 0) return true;
     }
     final fallback = await runProcessWithTimeout('osascript', [
       '-e',
       'beep',
-    ], tag: 'openhand_notification_service');
+    ], tag: _subprocessTag);
     return fallback?.exitCode == 0;
   }
 
@@ -271,8 +280,8 @@ $notifier.Show($toast)
         final result = await runProcessWithTimeout(
           'canberra-gtk-play',
           <String>['-i', id],
-          timeout: const Duration(seconds: 5),
-          tag: 'openhand_notification_service',
+          timeout: _notificationCommandTimeout,
+          tag: _subprocessTag,
         );
         if (result?.exitCode == 0) return true;
       }
@@ -280,8 +289,8 @@ $notifier.Show($toast)
         final result = await runProcessWithTimeout(
           'paplay',
           const <String>['/usr/share/sounds/freedesktop/stereo/message.oga'],
-          timeout: const Duration(seconds: 5),
-          tag: 'openhand_notification_service',
+          timeout: _notificationCommandTimeout,
+          tag: _subprocessTag,
         );
         if (result?.exitCode == 0) return true;
       }
@@ -314,8 +323,8 @@ $notifier.Show($toast)
           '-Command',
           command,
         ],
-        timeout: const Duration(seconds: 6),
-        tag: 'openhand_notification_service',
+        timeout: _soundCommandTimeout,
+        tag: _subprocessTag,
       );
       return result?.exitCode == 0;
     } catch (_) {
@@ -328,12 +337,33 @@ $notifier.Show($toast)
       final result = await runProcessWithTimeout(
         'which',
         <String>[command],
-        timeout: const Duration(seconds: 3),
-        tag: 'openhand_notification_service',
+        timeout: _commandLookupTimeout,
+        tag: _subprocessTag,
       );
       return result?.exitCode == 0;
     } catch (_) {
       return false;
     }
+  }
+
+  static String? _inAppMessage({required String title, required String body}) {
+    final normalizedTitle = nullIfBlank(title);
+    final normalizedBody = nullIfBlank(body);
+    if (normalizedTitle == null) return normalizedBody;
+    if (normalizedBody == null) return normalizedTitle;
+    return '$normalizedTitle\n$normalizedBody';
+  }
+
+  static ({String title, String body})? _systemPayload({
+    required String title,
+    required String body,
+  }) {
+    final normalizedTitle = nullIfBlank(title);
+    final normalizedBody = nullIfBlank(body);
+    if (normalizedTitle == null && normalizedBody == null) return null;
+    if (normalizedTitle == null) {
+      return (title: normalizedBody!, body: '');
+    }
+    return (title: normalizedTitle, body: normalizedBody ?? '');
   }
 }
