@@ -1,5 +1,71 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
+String _sourcesText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return _wrText(
+    context,
+    zh: zh,
+    zhHant: zhHant,
+    en: en,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
+String _sourcesStatusLabel(
+  BuildContext context, {
+  required int lineCount,
+  required bool viewingOriginal,
+  required bool prettified,
+}) {
+  final view = viewingOriginal
+      ? _sourcesText(
+          context,
+          zh: '原始源',
+          zhHant: '原始源',
+          en: 'original',
+          fr: 'original',
+          de: 'Original',
+          ja: '元ソース',
+        )
+      : prettified
+      ? _sourcesText(
+          context,
+          zh: '已美化',
+          zhHant: '已美化',
+          en: 'pretty',
+          fr: 'formaté',
+          de: 'formatiert',
+          ja: '整形済み',
+        )
+      : _sourcesText(
+          context,
+          zh: '原样',
+          zhHant: '原樣',
+          en: 'raw',
+          fr: 'brut',
+          de: 'roh',
+          ja: 'そのまま',
+        );
+  return _sourcesText(
+    context,
+    zh: '$lineCount 行 | $view | JavaScript',
+    zhHant: '$lineCount 行 | $view | JavaScript',
+    en: '$lineCount lines | $view | JavaScript',
+    fr: '$lineCount lignes | $view | JavaScript',
+    de: '$lineCount Zeilen | $view | JavaScript',
+    ja: '$lineCount 行 | $view | JavaScript',
+  );
+}
+
 /// Sources tab：列出 page 已 parse 的所有 JS 脚本（来自 CDP `Debugger.scriptParsed`），
 /// 点开任一脚本 → 调 `Debugger.getScriptSource` 拉源码 → 提供"原样 / 美化"切换 +
 /// 行号 + 简易行点击下断点（`Debugger.setBreakpointByUrl`）。
@@ -10,12 +76,10 @@ class _SourcesPanel extends StatefulWidget {
   const _SourcesPanel({
     super.key,
     required this.controller,
-    required this.isZh,
     required this.reduceMotion,
   });
 
   final WebReverseSessionController controller;
-  final bool isZh;
   final bool reduceMotion;
 
   @override
@@ -158,12 +222,19 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   /// Cmd+P 弹窗：模糊匹配脚本 URL（basename 加权），尾随 `:42` 跳目标行；
   /// 选中后等价于 `_selectScript` + `_scrollToLine`。
   Future<void> _showQuickOpen() async {
-    final isZh = widget.isZh;
     final scripts = widget.controller.parsedScripts;
     if (scripts.isEmpty) {
       OpenHandSnackBar.showInfo(
         context,
-        isZh ? '尚未捕获脚本' : 'No scripts yet',
+        _sourcesText(
+          context,
+          zh: '尚未捕获脚本',
+          zhHant: '尚未捕獲腳本',
+          en: 'No scripts yet',
+          fr: 'Aucun script pour le moment',
+          de: 'Noch keine Skripte erfasst',
+          ja: 'スクリプトはまだありません',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -174,7 +245,6 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           builder: (_) => _SourcesQuickOpenDialog(
             controller: widget.controller,
             currentScriptId: _selectedId,
-            isZh: isZh,
           ),
         );
     if (picked == null || !mounted) return;
@@ -198,7 +268,6 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   /// 用户在 chip 上点击启用 LSP：拉起子进程，握手成功后把当前选中脚本
   /// 推给 server。失败时 chip 自动回到禁用状态并 SnackBar 提示。
   Future<void> _toggleLsp() async {
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     if (_lspEnabled) {
       await _lsp.stop();
@@ -226,10 +295,25 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           raw.toLowerCase().contains('not found') ||
           raw.toLowerCase().contains('no such file');
       final friendly = isMissing
-          ? (isZh
-                ? '未检测到 typescript-language-server。请先 `npm i -g typescript typescript-language-server`，或在「LSP 设置」里换成本机已装的 LSP（如 deno-lsp、pyright、vtsls）。'
-                : 'typescript-language-server not installed. Run `npm i -g typescript typescript-language-server`, or switch via LSP Settings.')
-          : (isZh ? 'LSP 启动失败：$raw' : 'LSP failed: $raw');
+          ? _sourcesText(
+              context,
+              zh: '未检测到 typescript-language-server。请先 `npm i -g typescript typescript-language-server`，或在「LSP 设置」里换成本机已装的 LSP（如 deno-lsp、pyright、vtsls）。',
+              zhHant:
+                  '未偵測到 typescript-language-server。請先 `npm i -g typescript typescript-language-server`，或在「LSP 設定」裡換成本機已安裝的 LSP（如 deno-lsp、pyright、vtsls）。',
+              en: 'typescript-language-server not installed. Run `npm i -g typescript typescript-language-server`, or switch via LSP Settings.',
+              fr: 'typescript-language-server est introuvable. Lancez `npm i -g typescript typescript-language-server` ou changez de LSP.',
+              de: 'typescript-language-server nicht gefunden. Führen Sie `npm i -g typescript typescript-language-server` aus oder wählen Sie einen anderen LSP.',
+              ja: 'typescript-language-server が見つかりません。`npm i -g typescript typescript-language-server` を実行するか、LSP 設定で別の LSP を選んでください。',
+            )
+          : _sourcesText(
+              context,
+              zh: 'LSP 启动失败：$raw',
+              zhHant: 'LSP 啟動失敗：$raw',
+              en: 'LSP failed: $raw',
+              fr: 'Échec LSP : $raw',
+              de: 'LSP fehlgeschlagen: $raw',
+              ja: 'LSP 起動に失敗しました: $raw',
+            );
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
@@ -241,7 +325,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     OpenHandSnackBar.showSuccessOn(
       context,
       messenger,
-      isZh ? 'LSP 已就绪' : 'LSP ready',
+      _sourcesText(
+        context,
+        zh: 'LSP 已就绪',
+        zhHant: 'LSP 已就緒',
+        en: 'LSP ready',
+        fr: 'LSP prêt',
+        de: 'LSP bereit',
+        ja: 'LSP 準備完了',
+      ),
       duration: const Duration(seconds: 1),
     );
     await _pushCurrentToLsp();
@@ -287,7 +379,6 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   /// --stdio，可换 deno-lsp / pyright / vtsls 等）。保存后立刻把现有
   /// session stop，按新命令重启；命令落进 session metadata 跨会话保留。
   Future<void> _showLspSettings() async {
-    final isZh = widget.isZh;
     final dashboardState = context
         .findAncestorStateOfType<_WebReverseDashboardDialogState>();
     final cur = dashboardState?.readLspConfig();
@@ -302,7 +393,17 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       final result = await showWebReverseToolDialog<bool>(
         context: context,
         builder: (dialogContext) => buildOpenHandAlertDialog(
-          title: Text(isZh ? 'LSP 设置' : 'LSP settings'),
+          title: Text(
+            _sourcesText(
+              dialogContext,
+              zh: 'LSP 设置',
+              zhHant: 'LSP 設定',
+              en: 'LSP settings',
+              fr: 'Paramètres LSP',
+              de: 'LSP-Einstellungen',
+              ja: 'LSP 設定',
+            ),
+          ),
           content: SizedBox(
             width: 520,
             child: Column(
@@ -310,9 +411,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isZh
-                      ? '选择 LSP 服务器命令；命令需在本机 PATH 中可执行。常见预设：'
-                      : 'Specify LSP server command (must be on PATH). Presets:',
+                  _sourcesText(
+                    dialogContext,
+                    zh: '选择 LSP 服务器命令；命令需在本机 PATH 中可执行。常见预设：',
+                    zhHant: '選擇 LSP 伺服器命令；命令需在本機 PATH 中可執行。常見預設：',
+                    en: 'Specify LSP server command (must be on PATH). Presets:',
+                    fr: 'Indiquez la commande LSP (dans PATH). Préréglages :',
+                    de: 'LSP-Serverbefehl angeben (im PATH). Voreinstellungen:',
+                    ja: 'LSP サーバーコマンドを選択します（PATH 上で実行可能）。プリセット:',
+                  ),
                   style: Theme.of(dialogContext).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 8),
@@ -340,7 +447,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   controller: cmdCtrl,
                   decoration: InputDecoration(
                     isDense: true,
-                    labelText: isZh ? '命令' : 'Command',
+                    labelText: _sourcesText(
+                      dialogContext,
+                      zh: '命令',
+                      zhHant: '命令',
+                      en: 'Command',
+                      fr: 'Commande',
+                      de: 'Befehl',
+                      ja: 'コマンド',
+                    ),
                     border: const OutlineInputBorder(),
                   ),
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
@@ -350,24 +465,60 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   controller: argsCtrl,
                   decoration: InputDecoration(
                     isDense: true,
-                    labelText: isZh ? '参数（空格分隔）' : 'Args (space separated)',
+                    labelText: _sourcesText(
+                      dialogContext,
+                      zh: '参数（空格分隔）',
+                      zhHant: '參數（以空格分隔）',
+                      en: 'Args (space separated)',
+                      fr: 'Arguments (séparés par des espaces)',
+                      de: 'Argumente (leerzeichengetrennt)',
+                      ja: '引数（スペース区切り）',
+                    ),
                     border: const OutlineInputBorder(),
                   ),
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  isZh
-                      ? '保存后会自动重启当前 LSP 会话。安装方法（按需）：\n'
-                            '• typescript-language-server：npm i -g typescript typescript-language-server\n'
-                            '• vtsls：npm i -g @vtsls/language-server\n'
-                            '• deno lsp：brew install deno  → 命令填 deno，参数 lsp\n'
-                            '• pyright：npm i -g pyright  → 命令填 pyright-langserver，参数 --stdio'
-                      : 'Restart applies on save. Install hints:\n'
-                            '• typescript-language-server: npm i -g typescript typescript-language-server\n'
-                            '• vtsls: npm i -g @vtsls/language-server\n'
-                            '• deno lsp: brew install deno → cmd=deno args=lsp\n'
-                            '• pyright: npm i -g pyright → cmd=pyright-langserver args=--stdio',
+                  _sourcesText(
+                    dialogContext,
+                    zh:
+                        '保存后会自动重启当前 LSP 会话。安装方法（按需）：\n'
+                        '• typescript-language-server：npm i -g typescript typescript-language-server\n'
+                        '• vtsls：npm i -g @vtsls/language-server\n'
+                        '• deno lsp：brew install deno  → 命令填 deno，参数 lsp\n'
+                        '• pyright：npm i -g pyright  → 命令填 pyright-langserver，参数 --stdio',
+                    zhHant:
+                        '儲存後會自動重啟目前 LSP 會話。安裝方法（按需）：\n'
+                        '• typescript-language-server：npm i -g typescript typescript-language-server\n'
+                        '• vtsls：npm i -g @vtsls/language-server\n'
+                        '• deno lsp：brew install deno  → 命令填 deno，參數 lsp\n'
+                        '• pyright：npm i -g pyright  → 命令填 pyright-langserver，參數 --stdio',
+                    en:
+                        'Restart applies on save. Install hints:\n'
+                        '• typescript-language-server: npm i -g typescript typescript-language-server\n'
+                        '• vtsls: npm i -g @vtsls/language-server\n'
+                        '• deno lsp: brew install deno → cmd=deno args=lsp\n'
+                        '• pyright: npm i -g pyright → cmd=pyright-langserver args=--stdio',
+                    fr:
+                        'Le LSP redémarre à l’enregistrement. Installation :\n'
+                        '• typescript-language-server: npm i -g typescript typescript-language-server\n'
+                        '• vtsls: npm i -g @vtsls/language-server\n'
+                        '• deno lsp: brew install deno → cmd=deno args=lsp\n'
+                        '• pyright: npm i -g pyright → cmd=pyright-langserver args=--stdio',
+                    de:
+                        'Speichern startet die LSP-Sitzung neu. Installation:\n'
+                        '• typescript-language-server: npm i -g typescript typescript-language-server\n'
+                        '• vtsls: npm i -g @vtsls/language-server\n'
+                        '• deno lsp: brew install deno → cmd=deno args=lsp\n'
+                        '• pyright: npm i -g pyright → cmd=pyright-langserver args=--stdio',
+                    ja:
+                        '保存すると現在の LSP セッションを再起動します。インストール例:\n'
+                        '• typescript-language-server: npm i -g typescript typescript-language-server\n'
+                        '• vtsls: npm i -g @vtsls/language-server\n'
+                        '• deno lsp: brew install deno → cmd=deno args=lsp\n'
+                        '• pyright: npm i -g pyright → cmd=pyright-langserver args=--stdio',
+                  ),
                   style: Theme.of(
                     dialogContext,
                   ).textTheme.bodySmall?.copyWith(fontSize: 10.5),
@@ -377,11 +528,27 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           ),
           actions: [
             OpenHandDialogActionButton.secondary(
-              label: isZh ? '取消' : 'Cancel',
+              label: _sourcesText(
+                dialogContext,
+                zh: '取消',
+                zhHant: '取消',
+                en: 'Cancel',
+                fr: 'Annuler',
+                de: 'Abbrechen',
+                ja: 'キャンセル',
+              ),
               onPressed: () => Navigator.of(dialogContext).pop(false),
             ),
             OpenHandDialogActionButton.primary(
-              label: isZh ? '保存' : 'Save',
+              label: _sourcesText(
+                dialogContext,
+                zh: '保存',
+                zhHant: '儲存',
+                en: 'Save',
+                fr: 'Enregistrer',
+                de: 'Speichern',
+                ja: '保存',
+              ),
               onPressed: () => Navigator.of(dialogContext).pop(true),
             ),
           ],
@@ -404,7 +571,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         if (mounted) {
           OpenHandSnackBar.showInfo(
             context,
-            isZh ? '已保存。点击 LSP 胶囊以新命令重启。' : 'Saved. Tap LSP chip to restart.',
+            _sourcesText(
+              context,
+              zh: '已保存。点击 LSP 胶囊以新命令重启。',
+              zhHant: '已儲存。點擊 LSP 膠囊以新命令重啟。',
+              en: 'Saved. Tap LSP chip to restart.',
+              fr: 'Enregistré. Touchez le badge LSP pour redémarrer.',
+              de: 'Gespeichert. LSP-Chip antippen zum Neustart.',
+              ja: '保存しました。LSP チップをクリックして新しいコマンドで再起動してください。',
+            ),
           );
         }
       }
@@ -519,15 +694,45 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       items: [
         PopupMenuItem(
           value: 'hover',
-          child: Text(widget.isZh ? '查看 hover' : 'Hover'),
+          child: Text(
+            _sourcesText(
+              context,
+              zh: '查看 hover',
+              zhHant: '查看 hover',
+              en: 'Hover',
+              fr: 'Survol',
+              de: 'Hover anzeigen',
+              ja: 'Hover を表示',
+            ),
+          ),
         ),
         PopupMenuItem(
           value: 'def',
-          child: Text(widget.isZh ? '跳转定义' : 'Go to definition'),
+          child: Text(
+            _sourcesText(
+              context,
+              zh: '跳转定义',
+              zhHant: '跳轉定義',
+              en: 'Go to definition',
+              fr: 'Aller à la définition',
+              de: 'Zur Definition',
+              ja: '定義へ移動',
+            ),
+          ),
         ),
         PopupMenuItem(
           value: 'rename',
-          child: Text(widget.isZh ? '重命名…' : 'Rename…'),
+          child: Text(
+            _sourcesText(
+              context,
+              zh: '重命名…',
+              zhHant: '重新命名…',
+              en: 'Rename…',
+              fr: 'Renommer…',
+              de: 'Umbenennen…',
+              ja: '名前を変更…',
+            ),
+          ),
         ),
       ],
     );
@@ -543,7 +748,6 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   }
 
   Future<void> _showHover(int line, int col) async {
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     if (_lastSentUri == null) await _pushCurrentToLsp();
     final uri = _lastSentUri;
@@ -554,15 +758,31 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       OpenHandSnackBar.showInfoOn(
         context,
         messenger,
-        isZh ? '该位置无 hover 信息' : 'No hover info',
+        _sourcesText(
+          context,
+          zh: '该位置无 hover 信息',
+          zhHant: '該位置沒有 hover 資訊',
+          en: 'No hover info',
+          fr: 'Aucune info de survol',
+          de: 'Keine Hover-Info',
+          ja: 'Hover 情報はありません',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
     }
     showOpenHandInfoDialog(
       context: context,
-      title: isZh ? 'LSP Hover' : 'LSP Hover',
-      closeLabel: isZh ? '关闭' : 'Close',
+      title: 'LSP Hover',
+      closeLabel: _sourcesText(
+        context,
+        zh: '关闭',
+        zhHant: '關閉',
+        en: 'Close',
+        fr: 'Fermer',
+        de: 'Schließen',
+        ja: '閉じる',
+      ),
       content: SizedBox(
         width: 560,
         child: SelectableText(
@@ -574,7 +794,6 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   }
 
   Future<void> _gotoDefinition(int line, int col) async {
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     if (_lastSentUri == null) await _pushCurrentToLsp();
     final uri = _lastSentUri;
@@ -585,7 +804,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       OpenHandSnackBar.showInfoOn(
         context,
         messenger,
-        isZh ? '未找到定义' : 'No definition found',
+        _sourcesText(
+          context,
+          zh: '未找到定义',
+          zhHant: '未找到定義',
+          en: 'No definition found',
+          fr: 'Aucune définition trouvée',
+          de: 'Keine Definition gefunden',
+          ja: '定義が見つかりません',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -599,16 +826,21 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       OpenHandSnackBar.showInfoOn(
         context,
         messenger,
-        isZh
-            ? '定义位置：${r.uri} 第 ${r.line + 1} 行'
-            : 'Defined at ${r.uri} L${r.line + 1}',
+        _sourcesText(
+          context,
+          zh: '定义位置：${r.uri} 第 ${r.line + 1} 行',
+          zhHant: '定義位置：${r.uri} 第 ${r.line + 1} 行',
+          en: 'Defined at ${r.uri} L${r.line + 1}',
+          fr: 'Défini dans ${r.uri} ligne ${r.line + 1}',
+          de: 'Definiert in ${r.uri} Zeile ${r.line + 1}',
+          ja: '定義位置: ${r.uri} ${r.line + 1} 行目',
+        ),
         duration: const Duration(seconds: 4),
       );
     }
   }
 
   Future<void> _renameAt(int line, int col) async {
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     if (_lastSentUri == null) await _pushCurrentToLsp();
     final uri = _lastSentUri;
@@ -616,9 +848,33 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     if (!mounted) return;
     final newName = await showOpenHandTextInputDialog(
       context: context,
-      title: isZh ? '重命名为' : 'Rename to',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '确定' : 'OK',
+      title: _sourcesText(
+        context,
+        zh: '重命名为',
+        zhHant: '重新命名為',
+        en: 'Rename to',
+        fr: 'Renommer en',
+        de: 'Umbenennen in',
+        ja: '新しい名前',
+      ),
+      cancelLabel: _sourcesText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _sourcesText(
+        context,
+        zh: '确定',
+        zhHant: '確定',
+        en: 'OK',
+        fr: 'OK',
+        de: 'OK',
+        ja: 'OK',
+      ),
       decoration: const InputDecoration(border: OutlineInputBorder()),
     );
     if (!mounted || newName == null || newName.isEmpty) return;
@@ -628,7 +884,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '重命名失败（LSP 未返回 edit）' : 'Rename failed',
+        _sourcesText(
+          context,
+          zh: '重命名失败（LSP 未返回 edit）',
+          zhHant: '重新命名失敗（LSP 未返回 edit）',
+          en: 'Rename failed',
+          fr: 'Échec du renommage',
+          de: 'Umbenennen fehlgeschlagen',
+          ja: '名前変更に失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -640,14 +904,37 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         : (docChanges is List ? '${docChanges.length} changes' : 'edit');
     showOpenHandInfoDialog(
       context: context,
-      title: isZh ? '重命名结果（仅查看）' : 'Rename result (read-only)',
-      closeLabel: isZh ? '关闭' : 'Close',
+      title: _sourcesText(
+        context,
+        zh: '重命名结果（仅查看）',
+        zhHant: '重新命名結果（僅查看）',
+        en: 'Rename result (read-only)',
+        fr: 'Résultat du renommage (lecture seule)',
+        de: 'Umbenennen-Ergebnis (schreibgeschützt)',
+        ja: '名前変更結果（読み取り専用）',
+      ),
+      closeLabel: _sourcesText(
+        context,
+        zh: '关闭',
+        zhHant: '關閉',
+        en: 'Close',
+        fr: 'Fermer',
+        de: 'Schließen',
+        ja: '閉じる',
+      ),
       content: SizedBox(
         width: 600,
         child: SelectableText(
-          isZh
-              ? '收到 LSP edit：$summary\n\n（当前面板只展示分析结果，未自动改源码；如需落盘请走外部 IDE。）\n\n${const JsonEncoder.withIndent('  ').convert(edit)}'
-              : 'LSP returned edit: $summary\n\n(Read-only preview.)\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
+          _sourcesText(
+            context,
+            zh: '收到 LSP edit：$summary\n\n（当前面板只展示分析结果，未自动改源码；如需落盘请走外部 IDE。）\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
+            zhHant:
+                '收到 LSP edit：$summary\n\n（目前面板只展示分析結果，未自動改源碼；如需落盤請使用外部 IDE。）\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
+            en: 'LSP returned edit: $summary\n\n(Read-only preview.)\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
+            fr: 'Le LSP a retourné un edit : $summary\n\n(Aperçu en lecture seule.)\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
+            de: 'LSP gab ein Edit zurück: $summary\n\n(Nur-Lese-Vorschau.)\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
+            ja: 'LSP edit を受信: $summary\n\n（読み取り専用プレビューです。）\n\n${const JsonEncoder.withIndent('  ').convert(edit)}',
+          ),
           style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
         ),
       ),
@@ -714,7 +1001,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       OpenHandSnackBar.showInfoOn(
         context,
         messenger,
-        widget.isZh ? '未找到对应脚本：$url' : 'No parsed script matches: $url',
+        _sourcesText(
+          context,
+          zh: '未找到对应脚本：$url',
+          zhHant: '未找到對應腳本：$url',
+          en: 'No parsed script matches: $url',
+          fr: 'Aucun script ne correspond : $url',
+          de: 'Kein passendes Skript: $url',
+          ja: '対応するスクリプトが見つかりません: $url',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -740,9 +1035,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         OpenHandSnackBar.showInfoOn(
           context,
           messenger,
-          widget.isZh
-              ? '原始源视图暂不支持下断点，请先返回压缩源'
-              : 'Breakpoint not supported in original-source view',
+          _sourcesText(
+            context,
+            zh: '原始源视图暂不支持下断点，请先返回压缩源',
+            zhHant: '原始源視圖暫不支援設定斷點，請先返回壓縮源',
+            en: 'Breakpoint not supported in original-source view',
+            fr: 'Points d’arrêt non pris en charge dans la source originale',
+            de: 'Breakpoints in Originalquellenansicht nicht unterstützt',
+            ja: '元ソース表示ではブレークポイントを設定できません',
+          ),
           duration: const Duration(seconds: 2),
         );
       }
@@ -764,7 +1065,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          widget.isZh ? '取消断点失败' : 'Remove failed',
+          _sourcesText(
+            context,
+            zh: '取消断点失败',
+            zhHant: '取消斷點失敗',
+            en: 'Remove failed',
+            fr: 'Échec de suppression',
+            de: 'Entfernen fehlgeschlagen',
+            ja: '解除に失敗しました',
+          ),
           duration: const Duration(seconds: 2),
         );
       }
@@ -782,14 +1091,30 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          widget.isZh ? '已下断点' : 'Breakpoint set',
+          _sourcesText(
+            context,
+            zh: '已下断点',
+            zhHant: '已設定斷點',
+            en: 'Breakpoint set',
+            fr: 'Point d’arrêt défini',
+            de: 'Breakpoint gesetzt',
+            ja: 'ブレークポイントを設定しました',
+          ),
           duration: const Duration(seconds: 1),
         );
       } else {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          widget.isZh ? '下断点失败（可能 url 不可达）' : 'Set failed',
+          _sourcesText(
+            context,
+            zh: '下断点失败（可能 url 不可达）',
+            zhHant: '設定斷點失敗（可能 URL 不可達）',
+            en: 'Set failed',
+            fr: 'Échec de définition',
+            de: 'Setzen fehlgeschlagen',
+            ja: '設定に失敗しました',
+          ),
           duration: const Duration(seconds: 2),
         );
       }
@@ -797,14 +1122,11 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   }
 
   Future<void> _showGlobalCodeSearch() async {
-    final isZh = widget.isZh;
     final result =
         await showWebReverseToolDialog<({String scriptId, int line})>(
           context: context,
-          builder: (_) => _SourcesGlobalSearchDialog(
-            controller: widget.controller,
-            isZh: isZh,
-          ),
+          builder: (_) =>
+              _SourcesGlobalSearchDialog(controller: widget.controller),
         );
     if (result == null || !mounted) return;
     await _selectScript(result.scriptId);
@@ -820,7 +1142,6 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     final scripts = widget.controller.parsedScripts;
     final filteredIds =
         scripts.keys
@@ -850,7 +1171,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                         child: TextField(
                           decoration: InputDecoration(
                             isDense: true,
-                            hintText: isZh ? '搜索脚本 URL…' : 'Search script URL…',
+                            hintText: _sourcesText(
+                              context,
+                              zh: '搜索脚本 URL…',
+                              zhHant: '搜尋腳本 URL…',
+                              en: 'Search script URL…',
+                              fr: 'Rechercher une URL de script…',
+                              de: 'Skript-URL suchen…',
+                              ja: 'スクリプト URL を検索…',
+                            ),
                             prefixIcon: const Icon(
                               Icons.search_rounded,
                               size: 16,
@@ -873,9 +1202,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                         width: 38,
                         height: 38,
                         child: IconButton(
-                          tooltip: isZh
-                              ? '跨脚本搜索代码'
-                              : 'Search code across scripts',
+                          tooltip: _sourcesText(
+                            context,
+                            zh: '跨脚本搜索代码',
+                            zhHant: '跨腳本搜尋程式碼',
+                            en: 'Search code across scripts',
+                            fr: 'Rechercher dans les scripts',
+                            de: 'Code über Skripte suchen',
+                            ja: 'スクリプト横断検索',
+                          ),
                           padding: EdgeInsets.zero,
                           iconSize: 18,
                           style: IconButton.styleFrom(
@@ -904,9 +1239,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                           child: Padding(
                             padding: const EdgeInsets.all(20),
                             child: Text(
-                              isZh
-                                  ? '尚未捕获脚本。\n刷新页面或交互后此处会更新。'
-                                  : 'No scripts captured yet.',
+                              _sourcesText(
+                                context,
+                                zh: '尚未捕获脚本。\n刷新页面或交互后此处会更新。',
+                                zhHant: '尚未捕獲腳本。\n重新整理頁面或互動後此處會更新。',
+                                en: 'No scripts captured yet.',
+                                fr: 'Aucun script capturé pour le moment.',
+                                de: 'Noch keine Skripte erfasst.',
+                                ja: 'スクリプトはまだ取得されていません。',
+                              ),
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: cs.onSurfaceVariant,
@@ -960,11 +1301,16 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      isZh
-                          ? '从左侧选择脚本查看源码 / 下断点。\n\n点击任意行的左侧行号即可下断点；'
-                                '命中后浏览器会自动暂停，可在原生 DevTools 中调试。'
-                          : 'Pick a script on the left to view its source.\n\n'
-                                'Click any line number to toggle a breakpoint.',
+                      _sourcesText(
+                        context,
+                        zh: '从左侧选择脚本查看源码 / 下断点。\n\n点击任意行的左侧行号即可下断点；命中后浏览器会自动暂停，可在原生 DevTools 中调试。',
+                        zhHant:
+                            '從左側選擇腳本查看源碼 / 設定斷點。\n\n點擊任意行的左側行號即可設定斷點；命中後瀏覽器會自動暫停，可在原生 DevTools 中偵錯。',
+                        en: 'Pick a script on the left to view its source.\n\nClick any line number to toggle a breakpoint.',
+                        fr: 'Choisissez un script à gauche pour voir sa source.\n\nCliquez un numéro de ligne pour basculer un point d’arrêt.',
+                        de: 'Wählen Sie links ein Skript, um den Quelltext zu sehen.\n\nZeilennummer anklicken, um einen Breakpoint umzuschalten.',
+                        ja: '左側のスクリプトを選択してソースを表示します。\n\n行番号をクリックするとブレークポイントを切り替えます。',
+                      ),
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: cs.onSurfaceVariant,
@@ -973,7 +1319,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     ),
                   ),
                 )
-              : _buildSourceView(theme, cs, isZh),
+              : _buildSourceView(theme, cs),
         ),
       ],
     );
@@ -981,10 +1327,18 @@ class _SourcesPanelState extends State<_SourcesPanel> {
 
   /// Source Map chip：标题写「Map(N)」，点击弹出原始源列表；选中后
   /// 切到原始源视图。N = sources 数。
-  Widget _buildSourceMapChip(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildSourceMapChip(ThemeData theme, ColorScheme cs) {
     final sm = _sourceMap!;
     return AnimatedPopupMenuButton<int>(
-      tooltip: isZh ? '切到原始源' : 'Pick original source',
+      tooltip: _sourcesText(
+        context,
+        zh: '切到原始源',
+        zhHant: '切到原始源',
+        en: 'Pick original source',
+        fr: 'Choisir la source originale',
+        de: 'Originalquelle wählen',
+        ja: '元ソースを選択',
+      ),
       position: PopupMenuPosition.under,
       constraints: const BoxConstraints(minWidth: 300, maxWidth: 560),
       itemBuilder: (ctx) {
@@ -992,9 +1346,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
           PopupMenuItem<int>(
             enabled: false,
             child: Text(
-              isZh
-                  ? '映射来源：${sm.mapUrl.isEmpty ? '<unknown>' : sm.mapUrl}'
-                  : 'From: ${sm.mapUrl.isEmpty ? '<unknown>' : sm.mapUrl}',
+              _sourcesText(
+                context,
+                zh: '映射来源：${sm.mapUrl.isEmpty ? '<unknown>' : sm.mapUrl}',
+                zhHant: '映射來源：${sm.mapUrl.isEmpty ? '<unknown>' : sm.mapUrl}',
+                en: 'From: ${sm.mapUrl.isEmpty ? '<unknown>' : sm.mapUrl}',
+                fr: 'Depuis : ${sm.mapUrl.isEmpty ? '<unknown>' : sm.mapUrl}',
+                de: 'Von: ${sm.mapUrl.isEmpty ? '<unknown>' : sm.mapUrl}',
+                ja: '参照元: ${sm.mapUrl.isEmpty ? '<unknown>' : sm.mapUrl}',
+              ),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
@@ -1038,7 +1398,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       child: Chip(
         avatar: Icon(Icons.alt_route_rounded, size: 14, color: cs.primary),
         label: Text(
-          isZh ? 'Map(${sm.sources.length})' : 'Map(${sm.sources.length})',
+          'Map(${sm.sources.length})',
           style: const TextStyle(fontSize: 12),
         ),
         visualDensity: VisualDensity.compact,
@@ -1048,7 +1408,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     );
   }
 
-  Widget _buildSourceView(ThemeData theme, ColorScheme cs, bool isZh) {
+  Widget _buildSourceView(ThemeData theme, ColorScheme cs) {
     final raw = _source;
     final url = widget.controller.parsedScripts[_selectedId]?.url ?? '';
     if (raw == null) {
@@ -1067,9 +1427,16 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       originalLabel = sm.resolveSource(idx);
       source =
           body ??
-          (isZh
-              ? '// 该原始源未内联到 sourcesContent 中。\n// 可以在终端单独 fetch ${sm.mapUrl} 下载完整映射，\n// 或在浏览器 DevTools Sources 里手动展开。'
-              : '// This original source is not inlined in sourcesContent.\n// Fetch ${sm.mapUrl} manually to inspect.');
+          _sourcesText(
+            context,
+            zh: '// 该原始源未内联到 sourcesContent 中。\n// 可以在终端单独 fetch ${sm.mapUrl} 下载完整映射，\n// 或在浏览器 DevTools Sources 里手动展开。',
+            zhHant:
+                '// 該原始源未內嵌到 sourcesContent 中。\n// 可以在終端單獨 fetch ${sm.mapUrl} 下載完整映射，\n// 或在瀏覽器 DevTools Sources 裡手動展開。',
+            en: '// This original source is not inlined in sourcesContent.\n// Fetch ${sm.mapUrl} manually to inspect.',
+            fr: '// Cette source originale n’est pas intégrée dans sourcesContent.\n// Récupérez ${sm.mapUrl} manuellement pour l’inspecter.',
+            de: '// Diese Originalquelle ist nicht in sourcesContent eingebettet.\n// Rufen Sie ${sm.mapUrl} manuell ab.',
+            ja: '// この元ソースは sourcesContent に埋め込まれていません。\n// ${sm.mapUrl} を手動で取得して確認してください。',
+          );
     } else {
       source = _prettify ? WebReverseSessionController.prettifyJs(raw) : raw;
     }
@@ -1319,7 +1686,12 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '${lines.length} ${isZh ? '行' : 'lines'} | ${_viewingOriginal ? (isZh ? '原始源' : 'original') : (_prettify ? (isZh ? '已美化' : 'pretty') : (isZh ? '原样' : 'raw'))} | JavaScript',
+                      _sourcesStatusLabel(
+                        context,
+                        lineCount: lines.length,
+                        viewingOriginal: _viewingOriginal,
+                        prettified: _prettify,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -1336,11 +1708,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     }
 
     Widget buildDebuggerSideRail({required double width}) {
-      return _DebuggerSideRail(
-        controller: widget.controller,
-        isZh: widget.isZh,
-        width: width,
-      );
+      return _DebuggerSideRail(controller: widget.controller, width: width);
     }
 
     return Column(
@@ -1378,10 +1746,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   ),
                 )
               else if (_sourceMap != null && _sourceMap!.sources.isNotEmpty)
-                SizedBox(
-                  height: 32,
-                  child: _buildSourceMapChip(theme, cs, isZh),
-                ),
+                SizedBox(height: 32, child: _buildSourceMapChip(theme, cs)),
               if (_viewingOriginal) ...[
                 const SizedBox(width: 6),
                 SizedBox(
@@ -1395,7 +1760,17 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                       Icons.subdirectory_arrow_left_rounded,
                       size: 16,
                     ),
-                    label: Text(isZh ? '返回压缩' : 'Back to gen'),
+                    label: Text(
+                      _sourcesText(
+                        context,
+                        zh: '返回压缩',
+                        zhHant: '返回壓縮',
+                        en: 'Back to gen',
+                        fr: 'Retour au généré',
+                        de: 'Zurück zu generiert',
+                        ja: '生成コードへ戻る',
+                      ),
+                    ),
                     style: OutlinedButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -1413,8 +1788,24 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 child: FilterChip(
                   label: Text(
                     _prettify
-                        ? (isZh ? '已美化' : 'Pretty')
-                        : (isZh ? '原样' : 'Raw'),
+                        ? _sourcesText(
+                            context,
+                            zh: '已美化',
+                            zhHant: '已美化',
+                            en: 'Pretty',
+                            fr: 'Formaté',
+                            de: 'Formatiert',
+                            ja: '整形済み',
+                          )
+                        : _sourcesText(
+                            context,
+                            zh: '原样',
+                            zhHant: '原樣',
+                            en: 'Raw',
+                            fr: 'Brut',
+                            de: 'Roh',
+                            ja: 'そのまま',
+                          ),
                   ),
                   selected: _prettify,
                   visualDensity: VisualDensity.compact,
@@ -1444,8 +1835,16 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   ),
                   label: Text(
                     _lspEnabled
-                        ? (isZh ? 'LSP 已开' : 'LSP on')
-                        : (isZh ? 'LSP' : 'LSP'),
+                        ? _sourcesText(
+                            context,
+                            zh: 'LSP 已开',
+                            zhHant: 'LSP 已開',
+                            en: 'LSP on',
+                            fr: 'LSP activé',
+                            de: 'LSP an',
+                            ja: 'LSP オン',
+                          )
+                        : 'LSP',
                   ),
                   selected: _lspEnabled,
                   visualDensity: VisualDensity.compact,
@@ -1458,7 +1857,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 width: 32,
                 height: 32,
                 child: IconButton(
-                  tooltip: isZh ? 'LSP 设置' : 'LSP settings',
+                  tooltip: _sourcesText(
+                    context,
+                    zh: 'LSP 设置',
+                    zhHant: 'LSP 設定',
+                    en: 'LSP settings',
+                    fr: 'Paramètres LSP',
+                    de: 'LSP-Einstellungen',
+                    ja: 'LSP 設定',
+                  ),
                   visualDensity: VisualDensity.compact,
                   iconSize: 16,
                   padding: EdgeInsets.zero,
@@ -1478,15 +1885,33 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                       context,
                       messenger,
                       webReverseClipboardSnackMessage(
-                        isZh: isZh,
-                        base: isZh ? '已复制' : 'Copied',
+                        context: context,
+                        base: _sourcesText(
+                          context,
+                          zh: '已复制',
+                          zhHant: '已複製',
+                          en: 'Copied',
+                          fr: 'Copié',
+                          de: 'Kopiert',
+                          ja: 'コピーしました',
+                        ),
                         result: copied,
                       ),
                       duration: const Duration(seconds: 1),
                     );
                   },
                   icon: const Icon(Icons.copy_rounded, size: 16),
-                  label: Text(isZh ? '复制源码' : 'Copy'),
+                  label: Text(
+                    _sourcesText(
+                      context,
+                      zh: '复制源码',
+                      zhHant: '複製源碼',
+                      en: 'Copy',
+                      fr: 'Copier',
+                      de: 'Kopieren',
+                      ja: 'コピー',
+                    ),
+                  ),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -1501,7 +1926,17 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 child: OutlinedButton.icon(
                   onPressed: widget.controller.resumeDebugger,
                   icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                  label: Text(isZh ? '继续运行' : 'Resume'),
+                  label: Text(
+                    _sourcesText(
+                      context,
+                      zh: '继续运行',
+                      zhHant: '繼續執行',
+                      en: 'Resume',
+                      fr: 'Reprendre',
+                      de: 'Fortsetzen',
+                      ja: '再開',
+                    ),
+                  ),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -1570,13 +2005,9 @@ class _SourcesPanelState extends State<_SourcesPanel> {
 /// 拉取所有 parsedScripts 的源码逐行 grep；命中点列表点击即关闭对话框
 /// 把 (scriptId, line) 返回给 _SourcesPanelState 跳转 + 高亮。
 class _SourcesGlobalSearchDialog extends StatefulWidget {
-  const _SourcesGlobalSearchDialog({
-    required this.controller,
-    required this.isZh,
-  });
+  const _SourcesGlobalSearchDialog({required this.controller});
 
   final WebReverseSessionController controller;
-  final bool isZh;
 
   @override
   State<_SourcesGlobalSearchDialog> createState() =>
@@ -1612,7 +2043,6 @@ class _SourcesGlobalSearchDialogState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     return buildOpenHandToolDialogShell(
       context: context,
       maxWidth: 720,
@@ -1632,9 +2062,15 @@ class _SourcesGlobalSearchDialogState
                     autofocus: true,
                     onSubmitted: (_) => _run(),
                     decoration: InputDecoration(
-                      hintText: isZh
-                          ? '在所有已加载脚本里搜索…'
-                          : 'Search across loaded scripts…',
+                      hintText: _sourcesText(
+                        context,
+                        zh: '在所有已加载脚本里搜索…',
+                        zhHant: '在所有已載入腳本裡搜尋…',
+                        en: 'Search across loaded scripts…',
+                        fr: 'Rechercher dans les scripts chargés…',
+                        de: 'In geladenen Skripten suchen…',
+                        ja: '読み込み済みスクリプトを検索…',
+                      ),
                       border: const OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -1651,8 +2087,24 @@ class _SourcesGlobalSearchDialogState
                   ),
                   label: Text(
                     _searching
-                        ? (isZh ? '搜索中…' : 'Searching…')
-                        : (isZh ? '搜索' : 'Search'),
+                        ? _sourcesText(
+                            context,
+                            zh: '搜索中…',
+                            zhHant: '搜尋中…',
+                            en: 'Searching…',
+                            fr: 'Recherche…',
+                            de: 'Suche…',
+                            ja: '検索中…',
+                          )
+                        : _sourcesText(
+                            context,
+                            zh: '搜索',
+                            zhHant: '搜尋',
+                            en: 'Search',
+                            fr: 'Rechercher',
+                            de: 'Suchen',
+                            ja: '検索',
+                          ),
                   ),
                 ),
               ],
@@ -1665,10 +2117,24 @@ class _SourcesGlobalSearchDialogState
                     padding: const EdgeInsets.all(24),
                     child: Text(
                       _searching
-                          ? (isZh ? '搜索中…' : 'Searching…')
-                          : (isZh
-                                ? '输入关键字后按回车或点击搜索；命中按行展示，点击即跳转。'
-                                : 'Type a query and press Enter; click a hit to jump.'),
+                          ? _sourcesText(
+                              context,
+                              zh: '搜索中…',
+                              zhHant: '搜尋中…',
+                              en: 'Searching…',
+                              fr: 'Recherche…',
+                              de: 'Suche…',
+                              ja: '検索中…',
+                            )
+                          : _sourcesText(
+                              context,
+                              zh: '输入关键字后按回车或点击搜索；命中按行展示，点击即跳转。',
+                              zhHant: '輸入關鍵字後按 Enter 或點擊搜尋；命中按行展示，點擊即跳轉。',
+                              en: 'Type a query and press Enter; click a hit to jump.',
+                              fr: 'Saisissez une requête puis Entrée ; cliquez un résultat pour sauter.',
+                              de: 'Suchbegriff eingeben und Enter drücken; Treffer anklicken zum Springen.',
+                              ja: '検索語を入力して Enter。結果をクリックすると移動します。',
+                            ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -1711,16 +2177,30 @@ class _SourcesGlobalSearchDialogState
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  isZh
-                      ? '命中 ${_hits.length} 条（上限 200）'
-                      : '${_hits.length} hits (cap 200)',
+                  _sourcesText(
+                    context,
+                    zh: '命中 ${_hits.length} 条（上限 200）',
+                    zhHant: '命中 ${_hits.length} 條（上限 200）',
+                    en: '${_hits.length} hits (cap 200)',
+                    fr: '${_hits.length} résultats (max 200)',
+                    de: '${_hits.length} Treffer (max. 200)',
+                    ja: '${_hits.length} 件ヒット（上限 200）',
+                  ),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
                 ),
                 OpenHandDialogActionButton.secondary(
                   onPressed: () => Navigator.of(context).pop(),
-                  label: isZh ? '关闭' : 'Close',
+                  label: _sourcesText(
+                    context,
+                    zh: '关闭',
+                    zhHant: '關閉',
+                    en: 'Close',
+                    fr: 'Fermer',
+                    de: 'Schließen',
+                    ja: '閉じる',
+                  ),
                 ),
               ],
             ),
@@ -1736,13 +2216,8 @@ class _SourcesGlobalSearchDialogState
 /// 刷新；evaluateWatch 内部会按 paused 状态自动切换 evaluateOnCallFrame /
 /// Runtime.evaluate。AnimatedSize 控制展开收起。
 class _DebuggerSideRail extends StatefulWidget {
-  const _DebuggerSideRail({
-    required this.controller,
-    required this.isZh,
-    required this.width,
-  });
+  const _DebuggerSideRail({required this.controller, required this.width});
   final WebReverseSessionController controller;
-  final bool isZh;
   final double width;
   @override
   State<_DebuggerSideRail> createState() => _DebuggerSideRailState();
@@ -1803,7 +2278,6 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     final paused = widget.controller.pausedState;
     final frames = paused?.callFrames ?? const <Map<String, Object?>>[];
     final selFrame = frames.isNotEmpty
@@ -1840,34 +2314,72 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        isZh
-                            ? '已暂停 · ${paused.reason}'
-                            : 'Paused · ${paused.reason}',
+                        _sourcesText(
+                          context,
+                          zh: '已暂停 · ${paused.reason}',
+                          zhHant: '已暫停 · ${paused.reason}',
+                          en: 'Paused · ${paused.reason}',
+                          fr: 'En pause · ${paused.reason}',
+                          de: 'Pausiert · ${paused.reason}',
+                          ja: '一時停止 · ${paused.reason}',
+                        ),
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: cs.onErrorContainer,
                         ),
                       ),
                     ),
                     IconButton(
-                      tooltip: isZh ? '继续' : 'Resume',
+                      tooltip: _sourcesText(
+                        context,
+                        zh: '继续',
+                        zhHant: '繼續',
+                        en: 'Resume',
+                        fr: 'Reprendre',
+                        de: 'Fortsetzen',
+                        ja: '再開',
+                      ),
                       iconSize: 18,
                       onPressed: () => widget.controller.resumeDebugger(),
                       icon: const Icon(Icons.play_arrow_rounded),
                     ),
                     IconButton(
-                      tooltip: isZh ? '单步跳过' : 'Step over',
+                      tooltip: _sourcesText(
+                        context,
+                        zh: '单步跳过',
+                        zhHant: '單步跳過',
+                        en: 'Step over',
+                        fr: 'Pas à pas principal',
+                        de: 'Step over',
+                        ja: 'ステップオーバー',
+                      ),
                       iconSize: 18,
                       onPressed: () => widget.controller.stepOverDebugger(),
                       icon: const Icon(Icons.redo_rounded),
                     ),
                     IconButton(
-                      tooltip: isZh ? '单步进入' : 'Step into',
+                      tooltip: _sourcesText(
+                        context,
+                        zh: '单步进入',
+                        zhHant: '單步進入',
+                        en: 'Step into',
+                        fr: 'Entrer',
+                        de: 'Step into',
+                        ja: 'ステップイン',
+                      ),
                       iconSize: 18,
                       onPressed: () => widget.controller.stepIntoDebugger(),
                       icon: const Icon(Icons.subdirectory_arrow_right_rounded),
                     ),
                     IconButton(
-                      tooltip: isZh ? '单步跳出' : 'Step out',
+                      tooltip: _sourcesText(
+                        context,
+                        zh: '单步跳出',
+                        zhHant: '單步跳出',
+                        en: 'Step out',
+                        fr: 'Sortir',
+                        de: 'Step out',
+                        ja: 'ステップアウト',
+                      ),
                       iconSize: 18,
                       onPressed: () => widget.controller.stepOutDebugger(),
                       icon: const Icon(Icons.subdirectory_arrow_left_rounded),
@@ -1878,7 +2390,15 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
             if (paused != null) ...[
               const SizedBox(height: 10),
               _RailCard(
-                title: isZh ? '调用栈' : 'Call Stack',
+                title: _sourcesText(
+                  context,
+                  zh: '调用栈',
+                  zhHant: '呼叫堆疊',
+                  en: 'Call Stack',
+                  fr: 'Pile d’appels',
+                  de: 'Call Stack',
+                  ja: 'コールスタック',
+                ),
                 icon: Icons.layers_rounded,
                 child: Column(
                   children: [
@@ -1936,7 +2456,15 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
               ),
               const SizedBox(height: 10),
               _RailCard(
-                title: isZh ? '作用域' : 'Scope',
+                title: _sourcesText(
+                  context,
+                  zh: '作用域',
+                  zhHant: '作用域',
+                  en: 'Scope',
+                  fr: 'Portée',
+                  de: 'Scope',
+                  ja: 'スコープ',
+                ),
                 icon: Icons.account_tree_outlined,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1945,7 +2473,6 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                       _ScopeSection(
                         controller: widget.controller,
                         scope: s.cast<String, Object?>(),
-                        isZh: isZh,
                       ),
                   ],
                 ),
@@ -1953,10 +2480,26 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
             ],
             const SizedBox(height: 10),
             _RailCard(
-              title: isZh ? '观察' : 'Watch',
+              title: _sourcesText(
+                context,
+                zh: '观察',
+                zhHant: '觀察',
+                en: 'Watch',
+                fr: 'Surveillance',
+                de: 'Watch',
+                ja: 'ウォッチ',
+              ),
               icon: Icons.visibility_outlined,
               trailing: IconButton(
-                tooltip: isZh ? '全部重算' : 'Re-evaluate',
+                tooltip: _sourcesText(
+                  context,
+                  zh: '全部重算',
+                  zhHant: '全部重算',
+                  en: 'Re-evaluate',
+                  fr: 'Réévaluer',
+                  de: 'Neu auswerten',
+                  ja: '再評価',
+                ),
                 iconSize: 16,
                 onPressed: _evaluateAllWatches,
                 icon: const Icon(Icons.refresh_rounded),
@@ -1972,7 +2515,15 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                           decoration: InputDecoration(
                             isDense: true,
                             border: const OutlineInputBorder(),
-                            hintText: isZh ? '表达式（回车添加）' : 'expression (Enter)',
+                            hintText: _sourcesText(
+                              context,
+                              zh: '表达式（回车添加）',
+                              zhHant: '表達式（Enter 新增）',
+                              en: 'expression (Enter)',
+                              fr: 'expression (Entrée)',
+                              de: 'Ausdruck (Enter)',
+                              ja: '式（Enter で追加）',
+                            ),
                           ),
                           style: const TextStyle(
                             fontFamily: 'monospace',
@@ -2045,9 +2596,16 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
             ),
             const SizedBox(height: 10),
             Text(
-              isZh
-                  ? '更多断点（XHR / EventListener / DOM / CSP / 全局监听器）请打开「Breakpoints」标签页。'
-                  : 'More breakpoint types in the Breakpoints tab.',
+              _sourcesText(
+                context,
+                zh: '更多断点（XHR / EventListener / DOM / CSP / 全局监听器）请打开「Breakpoints」标签页。',
+                zhHant:
+                    '更多斷點（XHR / EventListener / DOM / CSP / 全域監聽器）請打開「Breakpoints」分頁。',
+                en: 'More breakpoint types in the Breakpoints tab.',
+                fr: 'Autres types de points d’arrêt dans l’onglet Breakpoints.',
+                de: 'Weitere Breakpoint-Typen im Tab Breakpoints.',
+                ja: 'その他のブレークポイント種別は Breakpoints タブにあります。',
+              ),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
@@ -2111,14 +2669,9 @@ class _RailCard extends StatelessWidget {
 /// Scope 卡片中单个 scope（local / closure / global）的展开行：第一次展开时
 /// 通过 `Runtime.getProperties` 拉一次属性列表并缓存到 State。
 class _ScopeSection extends StatefulWidget {
-  const _ScopeSection({
-    required this.controller,
-    required this.scope,
-    required this.isZh,
-  });
+  const _ScopeSection({required this.controller, required this.scope});
   final WebReverseSessionController controller;
   final Map<String, Object?> scope;
-  final bool isZh;
   @override
   State<_ScopeSection> createState() => _ScopeSectionState();
 }
@@ -2306,11 +2859,9 @@ class _SourcesQuickOpenDialog extends StatefulWidget {
   const _SourcesQuickOpenDialog({
     required this.controller,
     required this.currentScriptId,
-    required this.isZh,
   });
   final WebReverseSessionController controller;
   final String? currentScriptId;
-  final bool isZh;
   @override
   State<_SourcesQuickOpenDialog> createState() =>
       _SourcesQuickOpenDialogState();
@@ -2428,7 +2979,6 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     return buildOpenHandDialog(
       backgroundColor: cs.surfaceContainerHigh,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -2454,9 +3004,15 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                 autofocus: true,
                 decoration: InputDecoration(
                   isDense: true,
-                  hintText: isZh
-                      ? '快速打开脚本… 末尾加 :42 可跳到指定行'
-                      : 'Go to file… (suffix :42 jumps to line)',
+                  hintText: _sourcesText(
+                    context,
+                    zh: '快速打开脚本… 末尾加 :42 可跳到指定行',
+                    zhHant: '快速打開腳本… 末尾加 :42 可跳到指定行',
+                    en: 'Go to file… (suffix :42 jumps to line)',
+                    fr: 'Ouvrir un fichier… (:42 saute à la ligne)',
+                    de: 'Datei öffnen… (:42 springt zur Zeile)',
+                    ja: 'ファイルを開く…（末尾 :42 で行へ移動）',
+                  ),
                   prefixIcon: const Icon(Icons.flash_on_rounded, size: 16),
                   border: const OutlineInputBorder(),
                   contentPadding: const EdgeInsets.symmetric(
@@ -2477,7 +3033,15 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                   vertical: 4,
                 ),
                 child: Text(
-                  isZh ? '将跳到第 $_gotoLine 行' : 'Will jump to line $_gotoLine',
+                  _sourcesText(
+                    context,
+                    zh: '将跳到第 $_gotoLine 行',
+                    zhHant: '將跳到第 $_gotoLine 行',
+                    en: 'Will jump to line $_gotoLine',
+                    fr: 'Sautera à la ligne $_gotoLine',
+                    de: 'Springt zu Zeile $_gotoLine',
+                    ja: '$_gotoLine 行目へ移動します',
+                  ),
                   style: theme.textTheme.bodySmall?.copyWith(color: cs.primary),
                 ),
               ),
@@ -2486,7 +3050,15 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
               child: _filtered.isEmpty
                   ? Center(
                       child: Text(
-                        isZh ? '无匹配脚本' : 'No matches',
+                        _sourcesText(
+                          context,
+                          zh: '无匹配脚本',
+                          zhHant: '無匹配腳本',
+                          en: 'No matches',
+                          fr: 'Aucun résultat',
+                          de: 'Keine Treffer',
+                          ja: '一致なし',
+                        ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
@@ -2562,9 +3134,15 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               child: Text(
-                isZh
-                    ? '↑/↓ 选择 · Enter 打开 · Esc 关闭'
-                    : '↑/↓ navigate · Enter open · Esc close',
+                _sourcesText(
+                  context,
+                  zh: '↑/↓ 选择 · Enter 打开 · Esc 关闭',
+                  zhHant: '↑/↓ 選擇 · Enter 開啟 · Esc 關閉',
+                  en: '↑/↓ navigate · Enter open · Esc close',
+                  fr: '↑/↓ naviguer · Enter ouvrir · Esc fermer',
+                  de: '↑/↓ navigieren · Enter öffnen · Esc schließen',
+                  ja: '↑/↓ 選択 · Enter 開く · Esc 閉じる',
+                ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   fontSize: 11,
                   color: cs.onSurfaceVariant,

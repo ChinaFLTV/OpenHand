@@ -1225,7 +1225,6 @@ class _WebReverseDashboardDialogState
       _Tab.sources => _SourcesPanel(
         key: _sourcesPanelKey,
         controller: ctrl,
-        isZh: isZh,
         reduceMotion: reduceMotion,
       ),
       _Tab.snippets => _SnippetsBody(
