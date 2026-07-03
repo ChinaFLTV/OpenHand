@@ -1,4 +1,7 @@
-import { normalizeDurationMs } from '../shared/util/number';
+import {
+  MAX_BROWSER_TIMEOUT_MS,
+  normalizeDurationMs,
+} from '../shared/util/number';
 import { isAbortError } from './api_error';
 
 export interface SaveBlobPickerType {
@@ -33,6 +36,7 @@ const DEFAULT_OBJECT_URL_REVOKE_DELAY_MS = 5_000;
 function normalizeRevokeDelayMs(value: number | undefined): number {
   return normalizeDurationMs(value, {
     fallback: DEFAULT_OBJECT_URL_REVOKE_DELAY_MS,
+    max: MAX_BROWSER_TIMEOUT_MS,
   });
 }
 
