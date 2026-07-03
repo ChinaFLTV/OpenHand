@@ -1,3 +1,5 @@
+import { normalizeInteger } from './number';
+
 export interface StringFromUnknownOptions {
   coerce?: boolean;
 }
@@ -52,7 +54,10 @@ export function finiteNumberFromUnknown(value: unknown, fallback = 0): number {
 export function nonNegativeIntegerFromUnknown(value: unknown, fallback = 0): number {
   const parsed = finiteNumberOrNullFromUnknown(value);
   const safeFallback = Number.isFinite(fallback) ? fallback : 0;
-  return Math.max(0, Math.round(parsed ?? safeFallback));
+  return normalizeInteger(parsed, {
+    fallback: safeFallback,
+    min: 0,
+  });
 }
 
 export function integerFromUnknown(value: unknown, fallback = 0): number {
