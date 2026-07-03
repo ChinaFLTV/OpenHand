@@ -5496,10 +5496,28 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   _ProjectToolchainTreeNode _projectToolchainSourceTree({
     required SettingsController settingsController,
-    required bool isZh,
     required String filePath,
     required AiLspBackendResolution? resolution,
   }) {
+    String text({
+      required String zh,
+      String? zhHant,
+      required String en,
+      String? fr,
+      String? de,
+      String? ja,
+    }) {
+      return _localizedText(
+        context,
+        zh: zh,
+        zhHant: zhHant,
+        en: en,
+        fr: fr,
+        de: de,
+        ja: ja,
+      );
+    }
+
     final effectiveFileLanguage = normalizeAiLspLanguage(
       _resolvedLanguageForFile(filePath),
     );
@@ -5516,25 +5534,65 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     );
     final projectNode = switch (projectLanguage) {
       'mixed' => _ProjectToolchainTreeNode(
-        title: isZh ? '项目层' : 'Project layer',
-        description: isZh
-            ? '当前项目处于混合语言模式，不会把整个项目固定到单一语言；这个文件会继续使用 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 的全局映射。'
-            : 'The project is in mixed-language mode, so it does not pin the whole workspace to a single language. This file continues with the global ${_languageMappingEntryLabel(context, effectiveFileLanguage)} mapping.',
+        title: text(
+          zh: '项目层',
+          zhHant: '專案層',
+          en: 'Project layer',
+          fr: 'Couche projet',
+          de: 'Projektebene',
+          ja: 'プロジェクト層',
+        ),
+        description: text(
+          zh: '当前项目处于混合语言模式，不会把整个项目固定到单一语言；这个文件会继续使用 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 的全局映射。',
+          zhHant:
+              '目前專案處於混合語言模式，不會把整個專案固定到單一語言；這個檔案會繼續使用 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 的全域映射。',
+          en: 'The project is in mixed-language mode, so it does not pin the whole workspace to a single language. This file continues with the global ${_languageMappingEntryLabel(context, effectiveFileLanguage)} mapping.',
+          fr: 'Le projet est en mode langage mixte ; il ne fixe donc pas tout l’espace de travail sur un seul langage. Ce fichier continue avec la correspondance globale ${_languageMappingEntryLabel(context, effectiveFileLanguage)}.',
+          de: 'Das Projekt ist im gemischten Sprachmodus und bindet den Arbeitsbereich nicht an eine einzelne Sprache. Diese Datei nutzt weiter die globale Zuordnung ${_languageMappingEntryLabel(context, effectiveFileLanguage)}.',
+          ja: 'プロジェクトは混在言語モードのため、ワークスペース全体を単一言語に固定しません。このファイルは ${_languageMappingEntryLabel(context, effectiveFileLanguage)} のグローバルマッピングを使い続けます。',
+        ),
         tone: _ProjectToolchainTreeNodeTone.info,
         icon: Icons.layers_rounded,
-        badge: isZh ? 'Mixed' : 'Mixed',
+        badge: 'Mixed',
       ),
       _ when !projectOverrideTargetsCurrentFile => _ProjectToolchainTreeNode(
-        title: isZh ? '项目层' : 'Project layer',
-        description: isZh
-            ? '项目层当前只覆盖 ${_languageMappingEntryLabel(context, projectLanguage)}，而这个文件命中的是 ${_languageMappingEntryLabel(context, effectiveFileLanguage)}，所以项目级 SDK / LSP 覆盖不会参与。'
-            : 'The project layer currently targets ${_languageMappingEntryLabel(context, projectLanguage)}, while this file resolves to ${_languageMappingEntryLabel(context, effectiveFileLanguage)}, so project-level SDK / LSP overrides do not participate.',
+        title: text(
+          zh: '项目层',
+          zhHant: '專案層',
+          en: 'Project layer',
+          fr: 'Couche projet',
+          de: 'Projektebene',
+          ja: 'プロジェクト層',
+        ),
+        description: text(
+          zh: '项目层当前只覆盖 ${_languageMappingEntryLabel(context, projectLanguage)}，而这个文件命中的是 ${_languageMappingEntryLabel(context, effectiveFileLanguage)}，所以项目级 SDK / LSP 覆盖不会参与。',
+          zhHant:
+              '專案層目前只覆寫 ${_languageMappingEntryLabel(context, projectLanguage)}，而這個檔案命中的是 ${_languageMappingEntryLabel(context, effectiveFileLanguage)}，因此專案級 SDK / LSP 覆寫不會參與。',
+          en: 'The project layer currently targets ${_languageMappingEntryLabel(context, projectLanguage)}, while this file resolves to ${_languageMappingEntryLabel(context, effectiveFileLanguage)}, so project-level SDK / LSP overrides do not participate.',
+          fr: 'La couche projet cible ${_languageMappingEntryLabel(context, projectLanguage)}, mais ce fichier correspond à ${_languageMappingEntryLabel(context, effectiveFileLanguage)} ; les remplacements SDK / LSP du projet ne participent donc pas.',
+          de: 'Die Projektebene zielt auf ${_languageMappingEntryLabel(context, projectLanguage)}, diese Datei wird aber als ${_languageMappingEntryLabel(context, effectiveFileLanguage)} aufgelöst. Projektweite SDK-/LSP-Überschreibungen greifen daher nicht.',
+          ja: 'プロジェクト層は現在 ${_languageMappingEntryLabel(context, projectLanguage)} のみを対象にしていますが、このファイルは ${_languageMappingEntryLabel(context, effectiveFileLanguage)} に一致するため、プロジェクト単位の SDK / LSP 上書きは使われません。',
+        ),
         tone: _ProjectToolchainTreeNodeTone.muted,
         icon: Icons.layers_rounded,
-        badge: isZh ? '未命中' : 'No Match',
+        badge: text(
+          zh: '未命中',
+          zhHant: '未命中',
+          en: 'No Match',
+          fr: 'Aucune correspondance',
+          de: 'Kein Treffer',
+          ja: '不一致',
+        ),
         children: <_ProjectToolchainTreeNode>[
           _projectToolchainLeafNode(
-            title: isZh ? '项目语言' : 'Project language',
+            title: text(
+              zh: '项目语言',
+              zhHant: '專案語言',
+              en: 'Project language',
+              fr: 'Langage du projet',
+              de: 'Projektsprache',
+              ja: 'プロジェクト言語',
+            ),
             description: _languageMappingEntryLabel(context, projectLanguage),
             tone: _ProjectToolchainTreeNodeTone.muted,
             icon: Icons.flag_rounded,
@@ -5542,48 +5600,103 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         ],
       ),
       _ when projectOverrideSettings.isEmpty => _ProjectToolchainTreeNode(
-        title: isZh ? '项目层' : 'Project layer',
-        description: isZh
-            ? '项目层已命中 ${_languageMappingEntryLabel(context, projectLanguage)}，但当前项目没有额外保存 SDK / LSP 覆盖。'
-            : 'The project layer matched ${_languageMappingEntryLabel(context, projectLanguage)}, but this project does not save an extra SDK / LSP override.',
+        title: text(
+          zh: '项目层',
+          zhHant: '專案層',
+          en: 'Project layer',
+          fr: 'Couche projet',
+          de: 'Projektebene',
+          ja: 'プロジェクト層',
+        ),
+        description: text(
+          zh: '项目层已命中 ${_languageMappingEntryLabel(context, projectLanguage)}，但当前项目没有额外保存 SDK / LSP 覆盖。',
+          zhHant:
+              '專案層已命中 ${_languageMappingEntryLabel(context, projectLanguage)}，但目前專案沒有額外儲存 SDK / LSP 覆寫。',
+          en: 'The project layer matched ${_languageMappingEntryLabel(context, projectLanguage)}, but this project does not save an extra SDK / LSP override.',
+          fr: 'La couche projet correspond à ${_languageMappingEntryLabel(context, projectLanguage)}, mais ce projet n’a pas de remplacement SDK / LSP supplémentaire.',
+          de: 'Die Projektebene hat ${_languageMappingEntryLabel(context, projectLanguage)} getroffen, aber dieses Projekt speichert keine zusätzliche SDK-/LSP-Überschreibung.',
+          ja: 'プロジェクト層は ${_languageMappingEntryLabel(context, projectLanguage)} に一致しましたが、このプロジェクトには追加の SDK / LSP 上書きが保存されていません。',
+        ),
         tone: _ProjectToolchainTreeNodeTone.muted,
         icon: Icons.layers_rounded,
-        badge: isZh ? '跟随全局' : 'Follow Global',
+        badge: text(
+          zh: '跟随全局',
+          zhHant: '跟隨全域',
+          en: 'Follow Global',
+          fr: 'Suit le global',
+          de: 'Folgt global',
+          ja: 'グローバルに従う',
+        ),
         children: <_ProjectToolchainTreeNode>[
           _projectToolchainLeafNode(
             title: 'SDK',
-            description: isZh
-                ? '未覆盖，继续跟随全局配置或系统默认。'
-                : 'Not overridden, so it continues with the global mapping or the system default.',
+            description: text(
+              zh: '未覆盖，继续跟随全局配置或系统默认。',
+              zhHant: '未覆寫，繼續跟隨全域設定或系統預設。',
+              en: 'Not overridden, so it continues with the global mapping or the system default.',
+              fr: 'Aucun remplacement ; continue avec la correspondance globale ou la valeur système.',
+              de: 'Nicht überschrieben; nutzt weiter die globale Zuordnung oder den Systemstandard.',
+              ja: '上書きなし。グローバル設定またはシステム既定値に従います。',
+            ),
             tone: _ProjectToolchainTreeNodeTone.muted,
             icon: Icons.developer_board_rounded,
           ),
           _projectToolchainLeafNode(
             title: 'LSP Root',
-            description: isZh
-                ? '未覆盖，继续跟随全局映射或 PATH 自动探测。'
-                : 'Not overridden, so it continues with the global mapping or PATH auto-detection.',
+            description: text(
+              zh: '未覆盖，继续跟随全局映射或 PATH 自动探测。',
+              zhHant: '未覆寫，繼續跟隨全域映射或 PATH 自動偵測。',
+              en: 'Not overridden, so it continues with the global mapping or PATH auto-detection.',
+              fr: 'Aucun remplacement ; continue avec la correspondance globale ou la détection PATH.',
+              de: 'Nicht überschrieben; nutzt weiter die globale Zuordnung oder automatische PATH-Erkennung.',
+              ja: '上書きなし。グローバルマッピングまたは PATH 自動検出に従います。',
+            ),
             tone: _ProjectToolchainTreeNodeTone.muted,
             icon: Icons.settings_ethernet_rounded,
           ),
         ],
       ),
       _ => _ProjectToolchainTreeNode(
-        title: isZh ? '项目层' : 'Project layer',
-        description: isZh
-            ? '项目层已命中 ${_languageMappingEntryLabel(context, projectLanguage)}，当前文件会优先检查项目级 SDK / LSP 覆盖。'
-            : 'The project layer matched ${_languageMappingEntryLabel(context, projectLanguage)}, so the current file checks the project-level SDK / LSP overrides first.',
+        title: text(
+          zh: '项目层',
+          zhHant: '專案層',
+          en: 'Project layer',
+          fr: 'Couche projet',
+          de: 'Projektebene',
+          ja: 'プロジェクト層',
+        ),
+        description: text(
+          zh: '项目层已命中 ${_languageMappingEntryLabel(context, projectLanguage)}，当前文件会优先检查项目级 SDK / LSP 覆盖。',
+          zhHant:
+              '專案層已命中 ${_languageMappingEntryLabel(context, projectLanguage)}，目前檔案會優先檢查專案級 SDK / LSP 覆寫。',
+          en: 'The project layer matched ${_languageMappingEntryLabel(context, projectLanguage)}, so the current file checks the project-level SDK / LSP overrides first.',
+          fr: 'La couche projet correspond à ${_languageMappingEntryLabel(context, projectLanguage)} ; ce fichier vérifie d’abord les remplacements SDK / LSP du projet.',
+          de: 'Die Projektebene hat ${_languageMappingEntryLabel(context, projectLanguage)} getroffen; diese Datei prüft zuerst projektweite SDK-/LSP-Überschreibungen.',
+          ja: 'プロジェクト層は ${_languageMappingEntryLabel(context, projectLanguage)} に一致したため、現在のファイルはプロジェクト単位の SDK / LSP 上書きを優先して確認します。',
+        ),
         tone: _ProjectToolchainTreeNodeTone.active,
         icon: Icons.layers_rounded,
-        badge: isZh ? '项目覆盖' : 'Project Override',
+        badge: text(
+          zh: '项目覆盖',
+          zhHant: '專案覆寫',
+          en: 'Project Override',
+          fr: 'Remplacement projet',
+          de: 'Projektüberschreibung',
+          ja: 'プロジェクト上書き',
+        ),
         children: <_ProjectToolchainTreeNode>[
           _projectToolchainLeafNode(
             title: 'SDK',
             description: projectOverrideSettings.sdkPath.trim().isNotEmpty
                 ? OpenHandPaths.shortenHomePath(projectOverrideSettings.sdkPath)
-                : (isZh
-                      ? '未覆盖，继续跟随全局配置或系统默认。'
-                      : 'Not overridden, so it continues with the global mapping or the system default.'),
+                : text(
+                    zh: '未覆盖，继续跟随全局配置或系统默认。',
+                    zhHant: '未覆寫，繼續跟隨全域設定或系統預設。',
+                    en: 'Not overridden, so it continues with the global mapping or the system default.',
+                    fr: 'Aucun remplacement ; continue avec la correspondance globale ou la valeur système.',
+                    de: 'Nicht überschrieben; nutzt weiter die globale Zuordnung oder den Systemstandard.',
+                    ja: '上書きなし。グローバル設定またはシステム既定値に従います。',
+                  ),
             tone: projectOverrideSettings.sdkPath.trim().isNotEmpty
                 ? _ProjectToolchainTreeNodeTone.active
                 : _ProjectToolchainTreeNodeTone.muted,
@@ -5595,9 +5708,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 ? OpenHandPaths.shortenHomePath(
                     projectOverrideSettings.rootPath,
                   )
-                : (isZh
-                      ? '未覆盖，继续跟随全局映射或 PATH 自动探测。'
-                      : 'Not overridden, so it continues with the global mapping or PATH auto-detection.'),
+                : text(
+                    zh: '未覆盖，继续跟随全局映射或 PATH 自动探测。',
+                    zhHant: '未覆寫，繼續跟隨全域映射或 PATH 自動偵測。',
+                    en: 'Not overridden, so it continues with the global mapping or PATH auto-detection.',
+                    fr: 'Aucun remplacement ; continue avec la correspondance globale ou la détection PATH.',
+                    de: 'Nicht überschrieben; nutzt weiter die globale Zuordnung oder automatische PATH-Erkennung.',
+                    ja: '上書きなし。グローバルマッピングまたは PATH 自動検出に従います。',
+                  ),
             tone: projectOverrideSettings.rootPath.trim().isNotEmpty
                 ? _ProjectToolchainTreeNodeTone.active
                 : _ProjectToolchainTreeNodeTone.muted,
@@ -5610,30 +5728,82 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final globalBackend = globalSettings.backendId.trim().isNotEmpty
         ? (aiLspBackendById(globalSettings.backendId.trim())?.displayName ??
               globalSettings.backendId.trim())
-        : (isZh
-              ? '未固定，按该语言默认后端自动选择'
-              : 'Not pinned, using the default backend for this language');
+        : text(
+            zh: '未固定，按该语言默认后端自动选择',
+            zhHant: '未固定，依該語言預設後端自動選擇',
+            en: 'Not pinned, using the default backend for this language',
+            fr: 'Non fixé, utilise le backend par défaut pour ce langage',
+            de: 'Nicht fixiert, nutzt das Standard-Backend für diese Sprache',
+            ja: '固定なし。この言語の既定バックエンドを自動選択',
+          );
     final globalNode = globalSettings.isEmpty
         ? _ProjectToolchainTreeNode(
-            title: isZh ? '全局语言映射' : 'Global mapping',
-            description: isZh
-                ? '没有保存 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 的全局映射，后续会继续回退到 PATH / 系统默认。'
-                : 'There is no saved global mapping for ${_languageMappingEntryLabel(context, effectiveFileLanguage)}, so resolution continues to PATH / system defaults.',
+            title: text(
+              zh: '全局语言映射',
+              zhHant: '全域語言映射',
+              en: 'Global mapping',
+              fr: 'Correspondance globale',
+              de: 'Globale Zuordnung',
+              ja: 'グローバル言語マッピング',
+            ),
+            description: text(
+              zh: '没有保存 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 的全局映射，后续会继续回退到 PATH / 系统默认。',
+              zhHant:
+                  '沒有儲存 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 的全域映射，後續會繼續回退到 PATH / 系統預設。',
+              en: 'There is no saved global mapping for ${_languageMappingEntryLabel(context, effectiveFileLanguage)}, so resolution continues to PATH / system defaults.',
+              fr: 'Aucune correspondance globale enregistrée pour ${_languageMappingEntryLabel(context, effectiveFileLanguage)} ; la résolution continue vers PATH / valeurs système.',
+              de: 'Es gibt keine gespeicherte globale Zuordnung für ${_languageMappingEntryLabel(context, effectiveFileLanguage)}; die Auflösung fällt auf PATH / Systemstandards zurück.',
+              ja: '${_languageMappingEntryLabel(context, effectiveFileLanguage)} のグローバルマッピングは保存されていません。以降は PATH / システム既定値へフォールバックします。',
+            ),
             tone: _ProjectToolchainTreeNodeTone.muted,
             icon: Icons.hub_rounded,
-            badge: isZh ? '回退' : 'Fallback',
+            badge: text(
+              zh: '回退',
+              zhHant: '回退',
+              en: 'Fallback',
+              fr: 'Repli',
+              de: 'Fallback',
+              ja: 'フォールバック',
+            ),
           )
         : _ProjectToolchainTreeNode(
-            title: isZh ? '全局语言映射' : 'Global mapping',
-            description: isZh
-                ? '已命中 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 的全局映射。'
-                : 'Matched the global mapping for ${_languageMappingEntryLabel(context, effectiveFileLanguage)}.',
+            title: text(
+              zh: '全局语言映射',
+              zhHant: '全域語言映射',
+              en: 'Global mapping',
+              fr: 'Correspondance globale',
+              de: 'Globale Zuordnung',
+              ja: 'グローバル言語マッピング',
+            ),
+            description: text(
+              zh: '已命中 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 的全局映射。',
+              zhHant:
+                  '已命中 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 的全域映射。',
+              en: 'Matched the global mapping for ${_languageMappingEntryLabel(context, effectiveFileLanguage)}.',
+              fr: 'Correspondance globale trouvée pour ${_languageMappingEntryLabel(context, effectiveFileLanguage)}.',
+              de: 'Globale Zuordnung für ${_languageMappingEntryLabel(context, effectiveFileLanguage)} gefunden.',
+              ja: '${_languageMappingEntryLabel(context, effectiveFileLanguage)} のグローバルマッピングに一致しました。',
+            ),
             tone: _ProjectToolchainTreeNodeTone.info,
             icon: Icons.hub_rounded,
-            badge: isZh ? '已命中' : 'Matched',
+            badge: text(
+              zh: '已命中',
+              zhHant: '已命中',
+              en: 'Matched',
+              fr: 'Correspondance',
+              de: 'Treffer',
+              ja: '一致',
+            ),
             children: <_ProjectToolchainTreeNode>[
               _projectToolchainLeafNode(
-                title: isZh ? '后端' : 'Backend',
+                title: text(
+                  zh: '后端',
+                  zhHant: '後端',
+                  en: 'Backend',
+                  fr: 'Backend',
+                  de: 'Backend',
+                  ja: 'バックエンド',
+                ),
                 description: globalBackend,
                 tone: _ProjectToolchainTreeNodeTone.info,
                 icon: Icons.memory_rounded,
@@ -5642,9 +5812,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 title: 'SDK',
                 description: globalSettings.sdkPath.trim().isNotEmpty
                     ? OpenHandPaths.shortenHomePath(globalSettings.sdkPath)
-                    : (isZh
-                          ? '未配置，继续跟随系统默认。'
-                          : 'Not configured, so it continues with the system default.'),
+                    : text(
+                        zh: '未配置，继续跟随系统默认。',
+                        zhHant: '未設定，繼續跟隨系統預設。',
+                        en: 'Not configured, so it continues with the system default.',
+                        fr: 'Non configuré ; continue avec la valeur système.',
+                        de: 'Nicht konfiguriert; nutzt weiter den Systemstandard.',
+                        ja: '未設定。システム既定値に従います。',
+                      ),
                 tone: globalSettings.sdkPath.trim().isNotEmpty
                     ? _ProjectToolchainTreeNodeTone.info
                     : _ProjectToolchainTreeNodeTone.muted,
@@ -5654,9 +5829,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 title: 'LSP Root',
                 description: globalSettings.rootPath.trim().isNotEmpty
                     ? OpenHandPaths.shortenHomePath(globalSettings.rootPath)
-                    : (isZh
-                          ? '未配置，继续从 PATH 自动探测。'
-                          : 'Not configured, so it continues with PATH auto-detection.'),
+                    : text(
+                        zh: '未配置，继续从 PATH 自动探测。',
+                        zhHant: '未設定，繼續從 PATH 自動偵測。',
+                        en: 'Not configured, so it continues with PATH auto-detection.',
+                        fr: 'Non configuré ; continue avec la détection PATH.',
+                        de: 'Nicht konfiguriert; nutzt weiter automatische PATH-Erkennung.',
+                        ja: '未設定。PATH 自動検出に従います。',
+                      ),
                 tone: globalSettings.rootPath.trim().isNotEmpty
                     ? _ProjectToolchainTreeNodeTone.info
                     : _ProjectToolchainTreeNodeTone.muted,
@@ -5664,7 +5844,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ),
               if (globalSettings.version.trim().isNotEmpty)
                 _projectToolchainLeafNode(
-                  title: isZh ? '版本' : 'Version',
+                  title: text(
+                    zh: '版本',
+                    zhHant: '版本',
+                    en: 'Version',
+                    fr: 'Version',
+                    de: 'Version',
+                    ja: 'バージョン',
+                  ),
                   description: globalSettings.version.trim(),
                   tone: _ProjectToolchainTreeNodeTone.info,
                   icon: Icons.sell_rounded,
@@ -5674,31 +5861,84 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
     final finalNode = switch (resolution) {
       null => _ProjectToolchainTreeNode(
-        title: isZh ? '最终解析' : 'Final resolution',
-        description: isZh
-            ? '正在等待当前文件的后端解析结果。'
-            : 'Waiting for the backend resolution of the current file.',
+        title: text(
+          zh: '最终解析',
+          zhHant: '最終解析',
+          en: 'Final resolution',
+          fr: 'Résolution finale',
+          de: 'Endgültige Auflösung',
+          ja: '最終解決',
+        ),
+        description: text(
+          zh: '正在等待当前文件的后端解析结果。',
+          zhHant: '正在等待目前檔案的後端解析結果。',
+          en: 'Waiting for the backend resolution of the current file.',
+          fr: 'En attente de la résolution du backend du fichier actuel.',
+          de: 'Warte auf die Backend-Auflösung der aktuellen Datei.',
+          ja: '現在のファイルのバックエンド解決結果を待っています。',
+        ),
         tone: _ProjectToolchainTreeNodeTone.info,
         icon: Icons.route_rounded,
-        badge: isZh ? '等待中' : 'Pending',
+        badge: text(
+          zh: '等待中',
+          zhHant: '等待中',
+          en: 'Pending',
+          fr: 'En attente',
+          de: 'Ausstehend',
+          ja: '待機中',
+        ),
       ),
       final resolved when !resolved.isAvailable => _ProjectToolchainTreeNode(
-        title: isZh ? '最终解析' : 'Final resolution',
-        description: isZh
-            ? '在 ${resolved.configuredInstallRoot?.trim().isNotEmpty == true ? OpenHandPaths.shortenHomePath(resolved.configuredInstallRoot!) : 'PATH'} 中未找到 ${resolved.displayName ?? resolved.backendId ?? resolved.executable ?? 'LSP'}。'
-            : '${resolved.displayName ?? resolved.backendId ?? resolved.executable ?? 'LSP'} was not found in ${resolved.configuredInstallRoot?.trim().isNotEmpty == true ? OpenHandPaths.shortenHomePath(resolved.configuredInstallRoot!) : 'PATH'}.',
+        title: text(
+          zh: '最终解析',
+          zhHant: '最終解析',
+          en: 'Final resolution',
+          fr: 'Résolution finale',
+          de: 'Endgültige Auflösung',
+          ja: '最終解決',
+        ),
+        description: text(
+          zh: '在 ${resolved.configuredInstallRoot?.trim().isNotEmpty == true ? OpenHandPaths.shortenHomePath(resolved.configuredInstallRoot!) : 'PATH'} 中未找到 ${resolved.displayName ?? resolved.backendId ?? resolved.executable ?? 'LSP'}。',
+          zhHant:
+              '在 ${resolved.configuredInstallRoot?.trim().isNotEmpty == true ? OpenHandPaths.shortenHomePath(resolved.configuredInstallRoot!) : 'PATH'} 中找不到 ${resolved.displayName ?? resolved.backendId ?? resolved.executable ?? 'LSP'}。',
+          en: '${resolved.displayName ?? resolved.backendId ?? resolved.executable ?? 'LSP'} was not found in ${resolved.configuredInstallRoot?.trim().isNotEmpty == true ? OpenHandPaths.shortenHomePath(resolved.configuredInstallRoot!) : 'PATH'}.',
+          fr: '${resolved.displayName ?? resolved.backendId ?? resolved.executable ?? 'LSP'} est introuvable dans ${resolved.configuredInstallRoot?.trim().isNotEmpty == true ? OpenHandPaths.shortenHomePath(resolved.configuredInstallRoot!) : 'PATH'}.',
+          de: '${resolved.displayName ?? resolved.backendId ?? resolved.executable ?? 'LSP'} wurde in ${resolved.configuredInstallRoot?.trim().isNotEmpty == true ? OpenHandPaths.shortenHomePath(resolved.configuredInstallRoot!) : 'PATH'} nicht gefunden.',
+          ja: '${resolved.configuredInstallRoot?.trim().isNotEmpty == true ? OpenHandPaths.shortenHomePath(resolved.configuredInstallRoot!) : 'PATH'} に ${resolved.displayName ?? resolved.backendId ?? resolved.executable ?? 'LSP'} が見つかりません。',
+        ),
         tone: _ProjectToolchainTreeNodeTone.warning,
         icon: Icons.route_rounded,
-        badge: isZh ? '未找到' : 'Missing',
+        badge: text(
+          zh: '未找到',
+          zhHant: '找不到',
+          en: 'Missing',
+          fr: 'Manquant',
+          de: 'Fehlt',
+          ja: '未検出',
+        ),
         children: <_ProjectToolchainTreeNode>[
           _projectToolchainLeafNode(
-            title: isZh ? '工作区' : 'Workspace',
+            title: text(
+              zh: '工作区',
+              zhHant: '工作區',
+              en: 'Workspace',
+              fr: 'Espace de travail',
+              de: 'Arbeitsbereich',
+              ja: 'ワークスペース',
+            ),
             description: OpenHandPaths.shortenHomePath(resolved.rootPath),
             tone: _ProjectToolchainTreeNodeTone.muted,
             icon: Icons.folder_open_rounded,
           ),
           _projectToolchainLeafNode(
-            title: isZh ? '命令名' : 'Command',
+            title: text(
+              zh: '命令名',
+              zhHant: '命令名稱',
+              en: 'Command',
+              fr: 'Commande',
+              de: 'Befehl',
+              ja: 'コマンド名',
+            ),
             description: resolved.executable ?? 'LSP',
             tone: _ProjectToolchainTreeNodeTone.warning,
             icon: Icons.terminal_rounded,
@@ -5706,36 +5946,97 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         ],
       ),
       final resolved => _ProjectToolchainTreeNode(
-        title: isZh ? '最终解析' : 'Final resolution',
+        title: text(
+          zh: '最终解析',
+          zhHant: '最終解析',
+          en: 'Final resolution',
+          fr: 'Résolution finale',
+          de: 'Endgültige Auflösung',
+          ja: '最終解決',
+        ),
         description: resolved.configuredInstallRoot?.trim().isNotEmpty == true
-            ? (isZh
-                  ? '已从 ${widget.projectLspPath.trim().isNotEmpty && projectOverrideTargetsCurrentFile
+            ? text(
+                zh:
+                    '已从 ${widget.projectLspPath.trim().isNotEmpty && projectOverrideTargetsCurrentFile
                         ? '项目级 LSP 根路径'
                         : globalSettings.rootPath.trim().isNotEmpty
                         ? '全局 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 映射'
-                        : '已配置 LSP 根路径'} 解析到 ${resolved.displayName ?? resolved.backendId ?? 'LSP'}。'
-                  : 'Resolved ${resolved.displayName ?? resolved.backendId ?? 'LSP'} from ${widget.projectLspPath.trim().isNotEmpty && projectOverrideTargetsCurrentFile
+                        : '已配置 LSP 根路径'} 解析到 ${resolved.displayName ?? resolved.backendId ?? 'LSP'}。',
+                zhHant:
+                    '已從 ${widget.projectLspPath.trim().isNotEmpty && projectOverrideTargetsCurrentFile
+                        ? '專案級 LSP 根路徑'
+                        : globalSettings.rootPath.trim().isNotEmpty
+                        ? '全域 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 映射'
+                        : '已設定 LSP 根路徑'} 解析到 ${resolved.displayName ?? resolved.backendId ?? 'LSP'}。',
+                en:
+                    'Resolved ${resolved.displayName ?? resolved.backendId ?? 'LSP'} from ${widget.projectLspPath.trim().isNotEmpty && projectOverrideTargetsCurrentFile
                         ? 'the project LSP root'
                         : globalSettings.rootPath.trim().isNotEmpty
                         ? 'the global ${_languageMappingEntryLabel(context, effectiveFileLanguage)} mapping'
-                        : 'the configured LSP root'}.')
-            : (isZh
-                  ? '已通过 PATH 解析到 ${resolved.displayName ?? resolved.backendId ?? 'LSP'}。'
-                  : 'Resolved ${resolved.displayName ?? resolved.backendId ?? 'LSP'} from PATH.'),
+                        : 'the configured LSP root'}.',
+                fr:
+                    '${resolved.displayName ?? resolved.backendId ?? 'LSP'} résolu depuis ${widget.projectLspPath.trim().isNotEmpty && projectOverrideTargetsCurrentFile
+                        ? 'la racine LSP du projet'
+                        : globalSettings.rootPath.trim().isNotEmpty
+                        ? 'la correspondance globale ${_languageMappingEntryLabel(context, effectiveFileLanguage)}'
+                        : 'la racine LSP configurée'}.',
+                de:
+                    '${resolved.displayName ?? resolved.backendId ?? 'LSP'} aus ${widget.projectLspPath.trim().isNotEmpty && projectOverrideTargetsCurrentFile
+                        ? 'dem Projekt-LSP-Stamm'
+                        : globalSettings.rootPath.trim().isNotEmpty
+                        ? 'der globalen Zuordnung ${_languageMappingEntryLabel(context, effectiveFileLanguage)}'
+                        : 'dem konfigurierten LSP-Stamm'} aufgelöst.',
+                ja:
+                    '${widget.projectLspPath.trim().isNotEmpty && projectOverrideTargetsCurrentFile
+                        ? 'プロジェクト LSP ルート'
+                        : globalSettings.rootPath.trim().isNotEmpty
+                        ? 'グローバル ${_languageMappingEntryLabel(context, effectiveFileLanguage)} マッピング'
+                        : '設定済み LSP ルート'} から ${resolved.displayName ?? resolved.backendId ?? 'LSP'} を解決しました。',
+              )
+            : text(
+                zh: '已通过 PATH 解析到 ${resolved.displayName ?? resolved.backendId ?? 'LSP'}。',
+                zhHant:
+                    '已透過 PATH 解析到 ${resolved.displayName ?? resolved.backendId ?? 'LSP'}。',
+                en: 'Resolved ${resolved.displayName ?? resolved.backendId ?? 'LSP'} from PATH.',
+                fr: '${resolved.displayName ?? resolved.backendId ?? 'LSP'} résolu depuis PATH.',
+                de: '${resolved.displayName ?? resolved.backendId ?? 'LSP'} über PATH aufgelöst.',
+                ja: 'PATH から ${resolved.displayName ?? resolved.backendId ?? 'LSP'} を解決しました。',
+              ),
         tone: _ProjectToolchainTreeNodeTone.success,
         icon: Icons.route_rounded,
         badge: resolved.configuredInstallRoot?.trim().isNotEmpty == true
-            ? (isZh ? '已绑定' : 'Bound')
+            ? text(
+                zh: '已绑定',
+                zhHant: '已綁定',
+                en: 'Bound',
+                fr: 'Lié',
+                de: 'Gebunden',
+                ja: 'バインド済み',
+              )
             : 'PATH',
         children: <_ProjectToolchainTreeNode>[
           _projectToolchainLeafNode(
-            title: isZh ? '工作区' : 'Workspace',
+            title: text(
+              zh: '工作区',
+              zhHant: '工作區',
+              en: 'Workspace',
+              fr: 'Espace de travail',
+              de: 'Arbeitsbereich',
+              ja: 'ワークスペース',
+            ),
             description: OpenHandPaths.shortenHomePath(resolved.rootPath),
             tone: _ProjectToolchainTreeNodeTone.muted,
             icon: Icons.folder_open_rounded,
           ),
           _projectToolchainLeafNode(
-            title: isZh ? '可执行文件' : 'Executable',
+            title: text(
+              zh: '可执行文件',
+              zhHant: '可執行檔',
+              en: 'Executable',
+              fr: 'Exécutable',
+              de: 'Ausführbare Datei',
+              ja: '実行ファイル',
+            ),
             description: OpenHandPaths.shortenHomePath(
               resolved.executablePath?.trim().isNotEmpty == true
                   ? resolved.executablePath!
@@ -5749,13 +6050,33 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     };
 
     return _ProjectToolchainTreeNode(
-      title: isZh ? '当前文件' : 'Current file',
-      description: isZh
-          ? '${p.basename(filePath)} 当前识别为 ${_languageMappingEntryLabel(context, effectiveFileLanguage)}。'
-          : '${p.basename(filePath)} currently resolves as ${_languageMappingEntryLabel(context, effectiveFileLanguage)}.',
+      title: text(
+        zh: '当前文件',
+        zhHant: '目前檔案',
+        en: 'Current file',
+        fr: 'Fichier actuel',
+        de: 'Aktuelle Datei',
+        ja: '現在のファイル',
+      ),
+      description: text(
+        zh: '${p.basename(filePath)} 当前识别为 ${_languageMappingEntryLabel(context, effectiveFileLanguage)}。',
+        zhHant:
+            '${p.basename(filePath)} 目前識別為 ${_languageMappingEntryLabel(context, effectiveFileLanguage)}。',
+        en: '${p.basename(filePath)} currently resolves as ${_languageMappingEntryLabel(context, effectiveFileLanguage)}.',
+        fr: '${p.basename(filePath)} est actuellement résolu comme ${_languageMappingEntryLabel(context, effectiveFileLanguage)}.',
+        de: '${p.basename(filePath)} wird aktuell als ${_languageMappingEntryLabel(context, effectiveFileLanguage)} aufgelöst.',
+        ja: '${p.basename(filePath)} は現在 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} として解決されています。',
+      ),
       tone: _ProjectToolchainTreeNodeTone.active,
       icon: Icons.insert_drive_file_rounded,
-      badge: isZh ? '当前上下文' : 'Current Context',
+      badge: text(
+        zh: '当前上下文',
+        zhHant: '目前上下文',
+        en: 'Current Context',
+        fr: 'Contexte actuel',
+        de: 'Aktueller Kontext',
+        ja: '現在のコンテキスト',
+      ),
       children: <_ProjectToolchainTreeNode>[projectNode, globalNode, finalNode],
     );
   }
@@ -5887,7 +6208,25 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!_projectToolchainBarVisible) {
       return const SizedBox.shrink();
     }
-    final isZh = openHandIsChineseLocale(context);
+    String text({
+      required String zh,
+      String? zhHant,
+      required String en,
+      String? fr,
+      String? de,
+      String? ja,
+    }) {
+      return _localizedText(
+        context,
+        zh: zh,
+        zhHant: zhHant,
+        en: en,
+        fr: fr,
+        de: de,
+        ja: ja,
+      );
+    }
+
     final settingsController = context.watch<SettingsController>();
     final filePath = widget.activeFilePath;
     final resolution = _lspResolutionForFile(filePath);
@@ -5898,35 +6237,71 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         _lspBackendLoadingFiles.contains(filePath) && resolution == null;
     final sdkValue = widget.projectSdkPath.trim().isNotEmpty
         ? OpenHandPaths.shortenHomePath(widget.projectSdkPath)
-        : (isZh
-              ? '跟随全局配置或系统默认'
-              : 'Following the global mapping or system default');
+        : text(
+            zh: '跟随全局配置或系统默认',
+            zhHant: '跟隨全域設定或系統預設',
+            en: 'Following the global mapping or system default',
+            fr: 'Suit la correspondance globale ou la valeur système',
+            de: 'Folgt der globalen Zuordnung oder dem Systemstandard',
+            ja: 'グローバル設定またはシステム既定値に従う',
+          );
     final lspValue = widget.projectLspPath.trim().isNotEmpty
         ? OpenHandPaths.shortenHomePath(widget.projectLspPath)
-        : (isZh
-              ? '跟随全局映射或 PATH 自动探测'
-              : 'Following the global mapping or PATH auto-detection');
+        : text(
+            zh: '跟随全局映射或 PATH 自动探测',
+            zhHant: '跟隨全域映射或 PATH 自動偵測',
+            en: 'Following the global mapping or PATH auto-detection',
+            fr: 'Suit la correspondance globale ou la détection PATH',
+            de: 'Folgt der globalen Zuordnung oder PATH-Erkennung',
+            ja: 'グローバルマッピングまたは PATH 自動検出に従う',
+          );
     final modeValue = projectLanguage == 'mixed'
-        ? (isZh
-              ? '混合语言模式，按文件类型自动选择后端'
-              : 'Mixed-language mode, resolve the backend per file type')
+        ? text(
+            zh: '混合语言模式，按文件类型自动选择后端',
+            zhHant: '混合語言模式，依檔案類型自動選擇後端',
+            en: 'Mixed-language mode, resolve the backend per file type',
+            fr: 'Mode langage mixte, backend résolu par type de fichier',
+            de: 'Gemischter Sprachmodus, Backend pro Dateityp auflösen',
+            ja: '混在言語モード、ファイル種別ごとに後端を解決',
+          )
         : hasProjectOverride
-        ? (isZh
-              ? '项目级 SDK / LSP 覆盖已启用'
-              : 'Project-level SDK / LSP overrides are enabled')
-        : (isZh
-              ? '未设置项目级覆盖，继续使用全局按语言配置'
-              : 'No project override is set, so the global per-language mapping is used');
+        ? text(
+            zh: '项目级 SDK / LSP 覆盖已启用',
+            zhHant: '已啟用專案級 SDK / LSP 覆寫',
+            en: 'Project-level SDK / LSP overrides are enabled',
+            fr: 'Remplacements SDK / LSP activés au niveau projet',
+            de: 'Projektweite SDK-/LSP-Überschreibungen sind aktiv',
+            ja: 'プロジェクト単位の SDK / LSP 上書きが有効',
+          )
+        : text(
+            zh: '未设置项目级覆盖，继续使用全局按语言配置',
+            zhHant: '未設定專案級覆寫，繼續使用全域語言設定',
+            en: 'No project override is set, so the global per-language mapping is used',
+            fr: 'Aucun remplacement projet ; la correspondance globale par langage est utilisée',
+            de: 'Keine Projektüberschreibung; die globale Zuordnung pro Sprache wird verwendet',
+            ja: 'プロジェクト上書きなし。グローバルな言語別設定を使います',
+          );
     final backendValue = resolution == null
-        ? (isZh ? '等待解析' : 'Waiting for resolution')
+        ? text(
+            zh: '等待解析',
+            zhHant: '等待解析',
+            en: 'Waiting for resolution',
+            fr: 'En attente de résolution',
+            de: 'Warte auf Auflösung',
+            ja: '解決待ち',
+          )
         : resolution.isAvailable
         ? (resolution.displayName ?? resolution.backendId ?? 'LSP')
-        : (isZh
-              ? '当前文件没有可用后端'
-              : 'No backend is available for the current file');
+        : text(
+            zh: '当前文件没有可用后端',
+            zhHant: '目前檔案沒有可用後端',
+            en: 'No backend is available for the current file',
+            fr: 'Aucun backend disponible pour le fichier actuel',
+            de: 'Für die aktuelle Datei ist kein Backend verfügbar',
+            ja: '現在のファイルで利用できる後端はありません',
+          );
     final sourceTree = _projectToolchainSourceTree(
       settingsController: settingsController,
-      isZh: isZh,
       filePath: filePath,
       resolution: resolution,
     );
@@ -5952,7 +6327,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 children: [
                   Expanded(
                     child: Text(
-                      isZh ? '项目级 LSP 状态' : 'Project LSP Status',
+                      text(
+                        zh: '项目级 LSP 状态',
+                        zhHant: '專案級 LSP 狀態',
+                        en: 'Project LSP Status',
+                        fr: 'État LSP du projet',
+                        de: 'Projekt-LSP-Status',
+                        ja: 'プロジェクト LSP 状態',
+                      ),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -6006,9 +6388,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      isZh
-                          ? '项目切换或配置变更后，正在重新绑定当前文件的 LSP 后端…'
-                          : 'Rebinding the LSP backend for the current file after the project change or config update…',
+                      text(
+                        zh: '项目切换或配置变更后，正在重新绑定当前文件的 LSP 后端…',
+                        zhHant: '專案切換或設定變更後，正在重新綁定目前檔案的 LSP 後端…',
+                        en: 'Rebinding the LSP backend for the current file after the project change or config update…',
+                        fr: 'Reliaison du backend LSP du fichier actuel après le changement de projet ou de configuration…',
+                        de: 'LSP-Backend der aktuellen Datei wird nach Projekt- oder Konfigurationsänderung neu gebunden…',
+                        ja: 'プロジェクト切替または設定変更後、現在のファイルの LSP 後端を再バインドしています…',
+                      ),
                       style: TextStyle(
                         fontSize: 12,
                         color: colorScheme.onSurfaceVariant,
@@ -6019,7 +6406,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               else ...[
                 _buildProjectToolchainInfoRow(
                   colorScheme: colorScheme,
-                  label: isZh ? '项目语言' : 'Project language',
+                  label: text(
+                    zh: '项目语言',
+                    zhHant: '專案語言',
+                    en: 'Project language',
+                    fr: 'Langage du projet',
+                    de: 'Projektsprache',
+                    ja: 'プロジェクト言語',
+                  ),
                   value: _programmingLanguageLabel(
                     context,
                     widget.projectLanguage,
@@ -6027,7 +6421,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 ),
                 _buildProjectToolchainInfoRow(
                   colorScheme: colorScheme,
-                  label: isZh ? '当前文件语言' : 'Current file',
+                  label: text(
+                    zh: '当前文件语言',
+                    zhHant: '目前檔案語言',
+                    en: 'Current file',
+                    fr: 'Fichier actuel',
+                    de: 'Aktuelle Datei',
+                    ja: '現在のファイル',
+                  ),
                   value: _programmingLanguageLabel(
                     context,
                     effectiveFileLanguage,
@@ -6035,7 +6436,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 ),
                 _buildProjectToolchainInfoRow(
                   colorScheme: colorScheme,
-                  label: isZh ? '模式' : 'Mode',
+                  label: text(
+                    zh: '模式',
+                    zhHant: '模式',
+                    en: 'Mode',
+                    fr: 'Mode',
+                    de: 'Modus',
+                    ja: 'モード',
+                  ),
                   value: modeValue,
                   valueColor: hasProjectOverride
                       ? colorScheme.primary
@@ -6059,7 +6467,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 ),
                 _buildProjectToolchainInfoRow(
                   colorScheme: colorScheme,
-                  label: isZh ? '当前后端' : 'Effective backend',
+                  label: text(
+                    zh: '当前后端',
+                    zhHant: '目前後端',
+                    en: 'Effective backend',
+                    fr: 'Backend actif',
+                    de: 'Aktives Backend',
+                    ja: '有効な後端',
+                  ),
                   value: backendValue,
                   valueColor: resolution?.isAvailable == true
                       ? colorScheme.onSurface
@@ -6070,7 +6485,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 if (resolution?.isAvailable == true)
                   _buildProjectToolchainInfoRow(
                     colorScheme: colorScheme,
-                    label: isZh ? '工作区' : 'Workspace',
+                    label: text(
+                      zh: '工作区',
+                      zhHant: '工作區',
+                      en: 'Workspace',
+                      fr: 'Espace de travail',
+                      de: 'Arbeitsbereich',
+                      ja: 'ワークスペース',
+                    ),
                     value: OpenHandPaths.shortenHomePath(resolution!.rootPath),
                   ),
                 const SizedBox(height: 8),
@@ -6090,7 +6512,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isZh ? '来源树' : 'Source Tree',
+                        text(
+                          zh: '来源树',
+                          zhHant: '來源樹',
+                          en: 'Source Tree',
+                          fr: 'Arbre des sources',
+                          de: 'Quellbaum',
+                          ja: 'ソースツリー',
+                        ),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
