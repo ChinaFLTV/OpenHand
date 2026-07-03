@@ -4024,7 +4024,7 @@ $tail''';
         final descriptors = <String>[];
         for (final raw in attachments) {
           if (raw is! Map) continue;
-          final entry = Map<String, Object?>.from(raw);
+          final entry = stringKeyedMapFromValue(raw);
           final kind = '${entry['kind'] ?? entry['type'] ?? ''}'.trim();
           final path = '${entry['path'] ?? entry['file_path'] ?? ''}'.trim();
           if (path.isEmpty) continue;
@@ -5626,7 +5626,7 @@ $content
                     if (item is! Map) {
                       return const <String, Object?>{'summary': 'invalid edit'};
                     }
-                    final edit = Map<String, Object?>.from(item);
+                    final edit = stringKeyedMapFromValue(item);
                     final oldString = '${edit['old_string'] ?? ''}';
                     final newString = '${edit['new_string'] ?? ''}';
                     return <String, Object?>{
@@ -5721,7 +5721,7 @@ $content
         return decoded;
       }
       if (decoded is Map) {
-        return Map<String, Object?>.from(decoded);
+        return stringKeyedMapFromValue(decoded);
       }
     } catch (_) {
       return const <String, Object?>{};
@@ -6075,7 +6075,7 @@ $content
           if (item is! Map) {
             return null;
           }
-          final toolCall = Map<String, Object?>.from(item);
+          final toolCall = stringKeyedMapFromValue(item);
           final id = '${toolCall['id'] ?? ''}'.trim();
           final name = '${toolCall['name'] ?? ''}'.trim();
           final arguments = '${toolCall['arguments'] ?? ''}';
