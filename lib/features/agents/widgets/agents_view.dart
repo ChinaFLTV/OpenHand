@@ -25,6 +25,7 @@ import '../../memory/index.dart';
 import '../../skills/index.dart';
 import '../agents_controller.dart';
 import '../model/agent_models.dart';
+import '../service/agent_routing_metadata.dart';
 import '../service/agent_runtime_availability.dart';
 
 enum _AgentCardAction {
@@ -59,6 +60,7 @@ const List<String> _agentKpiStatusOptions = <String>[
   'done',
   'paused',
 ];
+const int _agentRoutePreviewKeywordLimit = 10;
 
 String _agentRuntimeBlockingText(
   BuildContext context,
@@ -148,22 +150,10 @@ class AgentsView extends StatelessWidget {
     return FeaturePageShell(
       title: l10n.agentsTitle,
       subtitle: l10n.agentsSubtitle,
-      actions: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        alignment: WrapAlignment.end,
-        children: [
-          OutlinedButton.icon(
-            onPressed: controller.openStorageDirectory,
-            icon: const Icon(Icons.folder_open_rounded),
-            label: Text(l10n.agentsOpenFolder),
-          ),
-          FilledButton.icon(
-            onPressed: () => _handleCreateAgent(context, snapshot.runtime),
-            icon: const Icon(Icons.add_rounded),
-            label: Text(l10n.agentsCreateAgent),
-          ),
-        ],
+      actions: FilledButton.icon(
+        onPressed: () => _handleCreateAgent(context, snapshot.runtime),
+        icon: const Icon(Icons.add_rounded),
+        label: Text(l10n.agentsCreateAgent),
       ),
       successSignal: controller.saveSuccessSignal,
       body: _AgentsBody(snapshot: snapshot),
@@ -2881,6 +2871,11 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           l10n.agentsFieldRouteFrontMatter,
           maxLines: 5,
           fullWidth: true,
+          onChanged: (_) => setState(() {}),
+        ),
+        _FormGridItem(
+          fullWidth: true,
+          child: _AgentRoutePreviewCard(metadata: _routePreview()),
         ),
         _field(
           _welcomeMessage,
@@ -3139,6 +3134,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           _taskLabels,
           l10n.agentsTaskLabelsLabel,
           hint: l10n.agentsCommaSeparatedHint,
+          onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 14),
         Text(l10n.agentsKpi, style: Theme.of(context).textTheme.titleMedium),
@@ -3298,6 +3294,18 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     });
   }
 
+  AgentRoutingMetadata _routePreview() {
+    return AgentRoutingMetadata.fromAgent(
+      AgentProfile(
+        id: widget.initialAgent?.id ?? 'route-preview',
+        name: _name.text.trim().isEmpty ? 'Route Preview' : _name.text.trim(),
+        routeFrontMatter: _routeFrontMatter.text,
+        taskLabels: _commaSeparatedValues(_taskLabels.text),
+        skillNames: _skillNames.toList(growable: false),
+      ),
+    );
+  }
+
   AgentProfile _buildAgent() {
     final now = DateTime.now().toUtc();
     final previous = widget.initialAgent;
@@ -3380,6 +3388,132 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     } catch (_) {
       return const <String, Object?>{};
     }
+  }
+}
+
+class _AgentRoutePreviewCard extends StatelessWidget {
+  const _AgentRoutePreviewCard({required this.metadata});
+
+  final AgentRoutingMetadata metadata;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final hasStructuredRoute = metadata.frontMatter.isNotEmpty;
+    final hasRawRoute = metadata.preview.isNotEmpty;
+    final keywords = metadata.keywords
+        .take(_agentRoutePreviewKeywordLimit)
+        .toList(growable: false);
+    final hasKeywordSignals = keywords.isNotEmpty;
+    final isActive = hasStructuredRoute || hasKeywordSignals;
+    final title = hasStructuredRoute
+        ? openHandLocalizedText(
+            context,
+            zh: '路由预览已解析',
+            en: 'Route preview parsed',
+          )
+        : hasRawRoute
+        ? openHandLocalizedText(
+            context,
+            zh: '路由规则待完善',
+            en: 'Route rule needs refinement',
+          )
+        : hasKeywordSignals
+        ? openHandLocalizedText(
+            context,
+            zh: '已读取路由线索',
+            en: 'Routing signals detected',
+          )
+        : openHandLocalizedText(context, zh: '暂无路由规则', en: 'No route rule yet');
+    final subtitle = hasStructuredRoute
+        ? openHandLocalizedText(
+            context,
+            zh: '字段 ${metadata.frontMatter.length} 个 · 关键词 ${metadata.keywords.length} 个',
+            en: '${metadata.frontMatter.length} field(s) · ${metadata.keywords.length} keyword(s)',
+          )
+        : hasRawRoute
+        ? openHandLocalizedText(
+            context,
+            zh: '未识别到有效字段，请使用 YAML / JSON 的键值结构描述路由。',
+            en: 'No valid fields were detected. Use YAML / JSON key-value routing metadata.',
+          )
+        : hasKeywordSignals
+        ? openHandLocalizedText(
+            context,
+            zh: '技能与任务标签会参与基础分流；补充 front matter 可提升命中精度。',
+            en: 'Skills and task labels can guide routing. Add front matter for better precision.',
+          )
+        : openHandLocalizedText(
+            context,
+            zh: '填写 YAML / JSON front matter 后，智能体会据此参与任务分流。',
+            en: 'Add YAML / JSON front matter so this agent can join task routing.',
+          );
+    return AnimatedContainer(
+      duration: kThemeAnimationDuration,
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isActive
+            ? colors.primaryContainer.withValues(alpha: 0.34)
+            : colors.surfaceContainerHighest.withValues(alpha: 0.66),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isActive
+              ? colors.primary.withValues(alpha: 0.28)
+              : colors.outlineVariant,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            isActive ? Icons.route_rounded : Icons.route_outlined,
+            color: isActive ? colors.primary : colors.onSurfaceVariant,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: isActive ? colors.onPrimaryContainer : null,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: isActive
+                        ? colors.onPrimaryContainer
+                        : colors.onSurfaceVariant,
+                  ),
+                ),
+                if (keywords.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final keyword in keywords)
+                        Chip(
+                          label: Text(keyword),
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
