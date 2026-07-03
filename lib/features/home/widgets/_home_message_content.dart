@@ -3805,8 +3805,9 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
   }
 
   static double? _parseCssLength(String? value, {double? maxWidth}) {
-    if (value == null || value.trim().isEmpty) return null;
-    final match = _cssLengthPattern.firstMatch(value);
+    final text = nullIfBlank(value);
+    if (text == null) return null;
+    final match = _cssLengthPattern.firstMatch(text);
     if (match == null) return null;
     return _parseCssLengthMatch(match, maxWidth: maxWidth);
   }

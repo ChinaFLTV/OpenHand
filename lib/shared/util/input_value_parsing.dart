@@ -374,22 +374,11 @@ bool? optionalBoolFromValue(Object? value) {
 }
 
 int intFromValue(Object? value, {required int fallback}) {
-  if (value is int) return value;
-  if (value is num && value.isFinite) return value.toInt();
-  if (value is String) {
-    return int.tryParse(value.trim()) ?? fallback;
-  }
-  return fallback;
+  return optionalIntFromValue(value) ?? fallback;
 }
 
 double doubleFromValue(Object? value, {required double fallback}) {
-  if (value is double && value.isFinite) return value;
-  if (value is num && value.isFinite) return value.toDouble();
-  if (value is String) {
-    final parsed = double.tryParse(value.trim());
-    return parsed != null && parsed.isFinite ? parsed : fallback;
-  }
-  return fallback;
+  return optionalDoubleFromValue(value) ?? fallback;
 }
 
 double? optionalDoubleFromValue(Object? value) {

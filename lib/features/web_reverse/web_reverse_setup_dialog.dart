@@ -223,7 +223,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
           ? null
           : _triggerCtrl.text.trim(),
       loginMode: _loginMode,
-      proxy: _proxyCtrl.text.trim().isEmpty ? null : _proxyCtrl.text.trim(),
+      proxy: nullIfBlank(_proxyCtrl.text),
       keywords: keywords,
       cdpMcpEnabled: _cdpMcpEnabled,
     );

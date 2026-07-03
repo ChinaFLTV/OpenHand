@@ -1749,7 +1749,7 @@ double? _optionalRatio(Object? raw) {
   if (raw == null) return null;
   final value = switch (raw) {
     num n => n.toDouble(),
-    String s => double.tryParse(s.trim()),
+    String s => optionalDoubleFromValue(s),
     _ => null,
   };
   if (value == null || !value.isFinite) return null;
