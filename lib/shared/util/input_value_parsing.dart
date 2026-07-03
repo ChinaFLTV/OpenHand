@@ -417,6 +417,11 @@ int? optionalIntegralIntFromValue(Object? value) {
   return null;
 }
 
+int? optionalNonNegativeIntegralIntFromValue(Object? value) {
+  final parsed = optionalIntegralIntFromValue(value);
+  return parsed == null || parsed < 0 ? null : parsed;
+}
+
 int? optionalPositiveIntFromValue(Object? value) {
   final parsed = optionalIntFromValue(value);
   return parsed == null || parsed <= 0 ? null : parsed;

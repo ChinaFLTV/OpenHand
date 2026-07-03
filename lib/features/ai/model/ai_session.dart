@@ -1254,8 +1254,7 @@ class AiSessionStatistics {
   }
 
   static int? _readNullableInt(Object? value) {
-    final parsed = optionalIntegralIntFromValue(value);
-    return parsed == null || parsed < 0 ? null : parsed;
+    return optionalNonNegativeIntegralIntFromValue(value);
   }
 
   static double? _readNullableDouble(Object? value) {

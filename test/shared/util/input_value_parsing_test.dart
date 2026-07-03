@@ -65,6 +65,22 @@ void main() {
     });
   });
 
+  group('optionalNonNegativeIntegralIntFromValue', () {
+    test('accepts only non-negative integral values', () {
+      expect(optionalNonNegativeIntegralIntFromValue(2), 2);
+      expect(optionalNonNegativeIntegralIntFromValue(2.0), 2);
+      expect(optionalNonNegativeIntegralIntFromValue('2'), 2);
+      expect(optionalNonNegativeIntegralIntFromValue(0), 0);
+    });
+
+    test('rejects fractional, negative, and non-finite values', () {
+      expect(optionalNonNegativeIntegralIntFromValue(2.5), isNull);
+      expect(optionalNonNegativeIntegralIntFromValue('2.5'), isNull);
+      expect(optionalNonNegativeIntegralIntFromValue(-1), isNull);
+      expect(optionalNonNegativeIntegralIntFromValue(double.nan), isNull);
+    });
+  });
+
   group('dateTimeFromValue', () {
     test('parses DateTime and ISO strings', () {
       final value = DateTime.utc(2026, 7, 3, 9, 30);

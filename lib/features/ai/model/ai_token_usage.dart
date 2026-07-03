@@ -72,8 +72,7 @@ class AiTokenUsage {
   }
 
   static int? _readInt(Object? value) {
-    final parsed = optionalIntegralIntFromValue(value);
-    return parsed == null || parsed < 0 ? null : parsed;
+    return optionalNonNegativeIntegralIntFromValue(value);
   }
 
   static int? _sumNullable(int? left, int? right) {
