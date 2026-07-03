@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/timer_safety.dart';
 import 'throttle_cloud_sync_service.dart';
 
@@ -118,8 +119,11 @@ class ThrottleAutoSyncService {
     final provider = ThrottleCloudSyncProvider.fromStorage(
       _settingsController.aiStreamThrottleCloudSyncProvider,
     );
-    final endpoint = _settingsController.aiStreamThrottleCloudSyncEndpoint;
-    final token = _settingsController.aiStreamThrottleCloudSyncToken;
+    final endpoint =
+        nullIfBlank(_settingsController.aiStreamThrottleCloudSyncEndpoint) ??
+        '';
+    final token =
+        nullIfBlank(_settingsController.aiStreamThrottleCloudSyncToken) ?? '';
     if (!_isProviderReady(provider, endpoint, token)) {
       return;
     }
@@ -131,7 +135,7 @@ class ThrottleAutoSyncService {
         // gistGitHub provider 复用 endpoint 字段保存 gist id（避免再加
         // 一个独立字段）；其它 provider 这个值传了也无害。
         gistId: provider == ThrottleCloudSyncProvider.gistGitHub
-            ? endpoint.trim()
+            ? endpoint
             : '',
       );
       if (!result.ok || result.config == null) return;
@@ -168,8 +172,11 @@ class ThrottleAutoSyncService {
     final provider = ThrottleCloudSyncProvider.fromStorage(
       _settingsController.aiStreamThrottleCloudSyncProvider,
     );
-    final endpoint = _settingsController.aiStreamThrottleCloudSyncEndpoint;
-    final token = _settingsController.aiStreamThrottleCloudSyncToken;
+    final endpoint =
+        nullIfBlank(_settingsController.aiStreamThrottleCloudSyncEndpoint) ??
+        '';
+    final token =
+        nullIfBlank(_settingsController.aiStreamThrottleCloudSyncToken) ?? '';
     if (!_isProviderReady(provider, endpoint, token)) {
       return;
     }
@@ -182,7 +189,7 @@ class ThrottleAutoSyncService {
         config: config,
         updatedAtMs: _settingsController.aiStreamThrottleConfigUpdatedAtMs,
         gistId: provider == ThrottleCloudSyncProvider.gistGitHub
-            ? endpoint.trim()
+            ? endpoint
             : '',
       );
       if (!result.ok) {
@@ -205,12 +212,12 @@ class ThrottleAutoSyncService {
   ) {
     switch (provider) {
       case ThrottleCloudSyncProvider.custom:
-        return endpoint.isNotEmpty;
+        return nullIfBlank(endpoint) != null;
       case ThrottleCloudSyncProvider.iCloud:
         return true;
       case ThrottleCloudSyncProvider.gistGitHub:
         // endpoint 复用为 gist id；token 是 PAT。
-        return endpoint.trim().isNotEmpty && token.trim().isNotEmpty;
+        return nullIfBlank(endpoint) != null && nullIfBlank(token) != null;
       case ThrottleCloudSyncProvider.oauth:
         return false;
     }

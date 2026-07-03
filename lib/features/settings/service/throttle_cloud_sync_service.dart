@@ -38,7 +38,7 @@ enum ThrottleCloudSyncProvider {
   };
 
   static ThrottleCloudSyncProvider fromStorage(String value) {
-    switch (value.trim().toLowerCase()) {
+    switch ((nullIfBlank(value) ?? '').toLowerCase()) {
       case 'icloud':
         return ThrottleCloudSyncProvider.iCloud;
       case 'oauth':
@@ -181,10 +181,11 @@ class ThrottleCloudSyncService {
       case ThrottleCloudSyncProvider.custom:
         break;
     }
-    final url = endpoint.trim();
-    if (url.isEmpty) {
+    final url = nullIfBlank(endpoint);
+    if (url == null) {
       return ThrottleCloudSyncResult.failure('endpoint is required');
     }
+    final bearerToken = nullIfBlank(token);
     final uri = Uri.tryParse(url);
     if (uri == null || uri.scheme != 'https' && uri.scheme != 'http') {
       return ThrottleCloudSyncResult.failure('endpoint must be http(s) URL');
@@ -204,8 +205,8 @@ class ThrottleCloudSyncService {
             uri,
             headers: <String, String>{
               HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
-              if (token.trim().isNotEmpty)
-                HttpHeaders.authorizationHeader: 'Bearer ${token.trim()}',
+              if (bearerToken != null)
+                HttpHeaders.authorizationHeader: 'Bearer $bearerToken',
               'X-OpenHand-Client': 'throttle-sync/1',
             },
             body: utf8.encode(body),
@@ -248,10 +249,11 @@ class ThrottleCloudSyncService {
       case ThrottleCloudSyncProvider.custom:
         break;
     }
-    final url = endpoint.trim();
-    if (url.isEmpty) {
+    final url = nullIfBlank(endpoint);
+    if (url == null) {
       return ThrottleCloudSyncResult.failure('endpoint is required');
     }
+    final bearerToken = nullIfBlank(token);
     final uri = Uri.tryParse(url);
     if (uri == null || uri.scheme != 'https' && uri.scheme != 'http') {
       return ThrottleCloudSyncResult.failure('endpoint must be http(s) URL');
@@ -264,8 +266,8 @@ class ThrottleCloudSyncService {
             uri,
             headers: <String, String>{
               HttpHeaders.acceptHeader: 'application/json',
-              if (token.trim().isNotEmpty)
-                HttpHeaders.authorizationHeader: 'Bearer ${token.trim()}',
+              if (bearerToken != null)
+                HttpHeaders.authorizationHeader: 'Bearer $bearerToken',
               'X-OpenHand-Client': 'throttle-sync/1',
             },
           )
@@ -436,8 +438,8 @@ class ThrottleCloudSyncService {
     required Map<String, Object?> config,
     required int updatedAtMs,
   }) async {
-    final pat = token.trim();
-    if (pat.isEmpty) {
+    final pat = nullIfBlank(token);
+    if (pat == null) {
       return ThrottleCloudSyncResult.failure('GitHub PAT is required');
     }
     final ownsClient = _client == null;
@@ -465,9 +467,9 @@ class ThrottleCloudSyncService {
         'X-GitHub-Api-Version': '2022-11-28',
         'User-Agent': 'OpenHand-throttle-sync/1',
       };
-      final id = gistId.trim();
+      final id = nullIfBlank(gistId);
       final http.Response resp;
-      if (id.isEmpty) {
+      if (id == null) {
         resp = await client
             .post(
               Uri.parse('https://api.github.com/gists'),
@@ -491,7 +493,7 @@ class ThrottleCloudSyncService {
         );
       }
       String createdId = '';
-      if (id.isEmpty) {
+      if (id == null) {
         createdId =
             optionalStringFromValue(
               optionalStringKeyedMapFromJsonText(resp.body)?['id'],
@@ -499,7 +501,7 @@ class ThrottleCloudSyncService {
             '';
       }
       return ThrottleCloudSyncResult.success(
-        message: id.isEmpty
+        message: id == null
             ? 'Created gist ${createdId.isEmpty ? "(id missing)" : createdId}'
             : 'Updated gist ($id)',
       );
@@ -517,12 +519,12 @@ class ThrottleCloudSyncService {
     required String gistId,
     required String token,
   }) async {
-    final id = gistId.trim();
-    if (id.isEmpty) {
+    final id = nullIfBlank(gistId);
+    if (id == null) {
       return ThrottleCloudSyncResult.failure('Gist ID is required');
     }
-    final pat = token.trim();
-    if (pat.isEmpty) {
+    final pat = nullIfBlank(token);
+    if (pat == null) {
       return ThrottleCloudSyncResult.failure('GitHub PAT is required');
     }
     final ownsClient = _client == null;
