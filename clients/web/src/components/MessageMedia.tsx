@@ -13,6 +13,7 @@ import { rollingHash31Base36 } from '../shared/util/hash';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
 import { clampNumber, finiteNumberFromText } from '../shared/util/number';
 import { basenameFromPath } from '../shared/util/path';
+import { strictStringFromUnknown } from '../shared/util/value';
 import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
 import { isAbortError } from '../utils/api_error';
 import {
@@ -244,7 +245,8 @@ function mediaKindFromPath(path: string, hintKind?: string): MediaKind {
 
 function firstNonEmptyString(...values: unknown[]): string | undefined {
   for (const value of values) {
-    if (typeof value === 'string' && value.trim()) return value.trim();
+    const text = strictStringFromUnknown(value);
+    if (text) return text;
   }
   return undefined;
 }

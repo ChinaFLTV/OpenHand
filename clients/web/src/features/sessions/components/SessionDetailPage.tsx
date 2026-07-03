@@ -1538,15 +1538,16 @@ interface EditableAttachmentAsset {
 }
 
 function pushEditableAttachmentAsset(out: EditableAttachmentAsset[], rawPath: unknown, rawName?: unknown, rawMime?: unknown): void {
-  if (typeof rawPath !== 'string') return;
-  const path = rawPath.trim();
+  const path = strictStringFromUnknown(rawPath);
   if (!path || path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
     return;
   }
+  const name = strictStringFromUnknown(rawName);
+  const mime = strictStringFromUnknown(rawMime);
   out.push({
     path,
-    name: typeof rawName === 'string' && rawName.trim() ? rawName.trim() : basenameFromPath(path),
-    mime: typeof rawMime === 'string' && rawMime.trim() ? rawMime.trim() : undefined,
+    name: name || basenameFromPath(path),
+    mime: mime || undefined,
   });
 }
 
@@ -2090,14 +2091,12 @@ const EMPTY_TTS_PLAYBACK: MessageTtsPlaybackViewState = {
 function normalizeTtsPlaybackState(
   playback: MessageTtsPlaybackState | null | undefined,
 ): MessageTtsPlaybackViewState {
+  const messageId = strictStringFromUnknown(playback?.message_id);
+  const provider = strictStringFromUnknown(playback?.provider);
   return {
     playing: Boolean(playback?.playing),
-    messageId: typeof playback?.message_id === 'string' && playback.message_id.trim()
-      ? playback.message_id
-      : null,
-    provider: typeof playback?.provider === 'string' && playback.provider.trim()
-      ? playback.provider
-      : null,
+    messageId: messageId || null,
+    provider: provider || null,
   };
 }
 
