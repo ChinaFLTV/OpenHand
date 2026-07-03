@@ -175,13 +175,29 @@ class _AndroidReverseSetupDialogState
     );
   }
 
-  bool _isZh() => openHandIsChineseLocale(context);
+  String _text({
+    required String zh,
+    required String en,
+    String? zhHant,
+    String? fr,
+    String? de,
+    String? ja,
+  }) {
+    return openHandLocalizedText(
+      context,
+      zh: zh,
+      en: en,
+      zhHant: zhHant,
+      fr: fr,
+      de: de,
+      ja: ja,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = _isZh();
     return buildOpenHandToolDialogShell(
       context: context,
       maxWidth: 620,
@@ -192,11 +208,30 @@ class _AndroidReverseSetupDialogState
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.android_rounded,
-            title: isZh ? '新建 Android 逆向会话' : 'New Android Reverse Session',
-            subtitle: isZh
-                ? '通过 ADB + Frida + jadx 完成 APP 接口逆向与参数还原'
-                : 'Reverse Android APP APIs via ADB + Frida + jadx',
-            closeTooltip: isZh ? '关闭' : 'Close',
+            title: _text(
+              zh: '新建 Android 逆向会话',
+              en: 'New Android Reverse Session',
+              zhHant: '新建 Android 逆向會話',
+              fr: 'Nouvelle session reverse Android',
+              de: 'Neue Android-Reverse-Sitzung',
+              ja: '新規 Android リバースセッション',
+            ),
+            subtitle: _text(
+              zh: '通过 ADB + Frida + jadx 完成 APP 接口逆向与参数还原',
+              en: 'Reverse Android APP APIs via ADB + Frida + jadx',
+              zhHant: '透過 ADB + Frida + jadx 完成 APP 介面逆向與參數還原',
+              fr: 'Reverse des API Android avec ADB + Frida + jadx',
+              de: 'Android-App-APIs mit ADB + Frida + jadx analysieren und Parameter rekonstruieren',
+              ja: 'ADB + Frida + jadx で Android アプリ API とパラメータを解析',
+            ),
+            closeTooltip: _text(
+              zh: '关闭',
+              en: 'Close',
+              zhHant: '關閉',
+              fr: 'Fermer',
+              de: 'Schließen',
+              ja: '閉じる',
+            ),
           ),
           Divider(height: 1, color: cs.outlineVariant),
           Flexible(
@@ -205,16 +240,30 @@ class _AndroidReverseSetupDialogState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _LabelText(isZh ? '逆向目标 *' : 'Objective *'),
+                  _LabelText(
+                    _text(
+                      zh: '逆向目标 *',
+                      en: 'Objective *',
+                      zhHant: '逆向目標 *',
+                      fr: 'Objectif *',
+                      de: 'Ziel *',
+                      ja: '解析目標 *',
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: _objectiveCtrl,
                     maxLines: 3,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: isZh
-                          ? '例：还原微信 APP 的 sign 签名算法'
-                          : 'e.g. reverse the sign algorithm in com.tencent.mm',
+                      hintText: _text(
+                        zh: '例：还原微信 APP 的 sign 签名算法',
+                        en: 'e.g. reverse the sign algorithm in com.tencent.mm',
+                        zhHant: '例：還原微信 APP 的 sign 簽名演算法',
+                        fr: 'ex. reconstruire l’algorithme de signature sign de com.tencent.mm',
+                        de: 'z. B. den sign-Algorithmus in com.tencent.mm rekonstruieren',
+                        ja: '例: com.tencent.mm の sign 署名アルゴリズムを解析',
+                      ),
                       border: const OutlineInputBorder(),
                     ),
                     onChanged: (_) => setState(() {}),
@@ -234,7 +283,16 @@ class _AndroidReverseSetupDialogState
                     },
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(isZh ? '目标包名（可选）' : 'Package name (optional)'),
+                  _LabelText(
+                    _text(
+                      zh: '目标包名（可选）',
+                      en: 'Package name (optional)',
+                      zhHant: '目標套件名稱（可選）',
+                      fr: 'Nom du paquet (facultatif)',
+                      de: 'Paketname (optional)',
+                      ja: '対象パッケージ名（任意）',
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: _packageCtrl,
@@ -246,7 +304,14 @@ class _AndroidReverseSetupDialogState
                   ),
                   const SizedBox(height: 14),
                   _LabelText(
-                    isZh ? 'APK 路径（可选，仅用于静态分析）' : 'APK path (optional)',
+                    _text(
+                      zh: 'APK 路径（可选，仅用于静态分析）',
+                      en: 'APK path (optional)',
+                      zhHant: 'APK 路徑（可選，僅用於靜態分析）',
+                      fr: 'Chemin APK (facultatif)',
+                      de: 'APK-Pfad (optional)',
+                      ja: 'APK パス（任意）',
+                    ),
                   ),
                   const SizedBox(height: 4),
                   TextField(
@@ -259,9 +324,14 @@ class _AndroidReverseSetupDialogState
                   ),
                   const SizedBox(height: 14),
                   _LabelText(
-                    isZh
-                        ? 'ADB 设备序列号（可选，留空自动选唯一在线设备）'
-                        : 'Device serial (optional)',
+                    _text(
+                      zh: 'ADB 设备序列号（可选，留空自动选唯一在线设备）',
+                      en: 'Device serial (optional)',
+                      zhHant: 'ADB 裝置序號（可選，留空自動選唯一在線裝置）',
+                      fr: 'Série de l’appareil (facultatif)',
+                      de: 'Geräteseriennummer (optional)',
+                      ja: 'ADB デバイスシリアル（任意）',
+                    ),
                   ),
                   const SizedBox(height: 4),
                   TextField(
@@ -273,7 +343,16 @@ class _AndroidReverseSetupDialogState
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(isZh ? '分析模式' : 'Analysis mode'),
+                  _LabelText(
+                    _text(
+                      zh: '分析模式',
+                      en: 'Analysis mode',
+                      zhHant: '分析模式',
+                      fr: 'Mode d’analyse',
+                      de: 'Analysemodus',
+                      ja: '解析モード',
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   SegmentedButton<AndroidReverseAnalysisMode>(
                     showSelectedIcon: false,
@@ -281,17 +360,44 @@ class _AndroidReverseSetupDialogState
                       ButtonSegment(
                         value: AndroidReverseAnalysisMode.staticFirst,
                         icon: const Icon(Icons.manage_search_rounded),
-                        label: Text(isZh ? '静态优先' : 'Static'),
+                        label: Text(
+                          _text(
+                            zh: '静态优先',
+                            en: 'Static',
+                            zhHant: '靜態優先',
+                            fr: 'Statique',
+                            de: 'Statisch',
+                            ja: '静的優先',
+                          ),
+                        ),
                       ),
                       ButtonSegment(
                         value: AndroidReverseAnalysisMode.balanced,
                         icon: const Icon(Icons.hub_rounded),
-                        label: Text(isZh ? '均衡' : 'Balanced'),
+                        label: Text(
+                          _text(
+                            zh: '均衡',
+                            en: 'Balanced',
+                            zhHant: '均衡',
+                            fr: 'Équilibré',
+                            de: 'Ausgewogen',
+                            ja: 'バランス',
+                          ),
+                        ),
                       ),
                       ButtonSegment(
                         value: AndroidReverseAnalysisMode.dynamicFirst,
                         icon: const Icon(Icons.play_circle_rounded),
-                        label: Text(isZh ? '动态验证' : 'Dynamic'),
+                        label: Text(
+                          _text(
+                            zh: '动态验证',
+                            en: 'Dynamic',
+                            zhHant: '動態驗證',
+                            fr: 'Dynamique',
+                            de: 'Dynamisch',
+                            ja: '動的検証',
+                          ),
+                        ),
                       ),
                     ],
                     selected: {_analysisMode},
@@ -305,10 +411,22 @@ class _AndroidReverseSetupDialogState
                   const SizedBox(height: 14),
                   _LabelText(
                     _requiresAuthorizationScope
-                        ? (isZh ? '授权范围 *' : 'Authorization scope *')
-                        : (isZh
-                              ? '授权范围（建议填写）'
-                              : 'Authorization scope (recommended)'),
+                        ? _text(
+                            zh: '授权范围 *',
+                            en: 'Authorization scope *',
+                            zhHant: '授權範圍 *',
+                            fr: 'Périmètre autorisé *',
+                            de: 'Autorisierungsumfang *',
+                            ja: '許可範囲 *',
+                          )
+                        : _text(
+                            zh: '授权范围（建议填写）',
+                            en: 'Authorization scope (recommended)',
+                            zhHant: '授權範圍（建議填寫）',
+                            fr: 'Périmètre autorisé (recommandé)',
+                            de: 'Autorisierungsumfang (empfohlen)',
+                            ja: '許可範囲（推奨）',
+                          ),
                   ),
                   const SizedBox(height: 4),
                   TextField(
@@ -317,47 +435,82 @@ class _AndroidReverseSetupDialogState
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: isZh
-                          ? '例：自有测试 APP / CTF / 已获授权的安全研究，不涉及第三方隐私数据'
-                          : 'e.g. owned test app / CTF / authorized research; no third-party private data',
+                      hintText: _text(
+                        zh: '例：自有测试 APP / CTF / 已获授权的安全研究，不涉及第三方隐私数据',
+                        en: 'e.g. owned test app / CTF / authorized research; no third-party private data',
+                        zhHant: '例：自有測試 APP / CTF / 已獲授權的安全研究，不涉及第三方隱私資料',
+                        fr: 'ex. app de test possédée / CTF / recherche autorisée, sans données privées tierces',
+                        de: 'z. B. eigene Test-App / CTF / autorisierte Forschung, keine privaten Daten Dritter',
+                        ja: '例: 所有するテストアプリ / CTF / 許可済み研究、第三者の個人データなし',
+                      ),
                       border: const OutlineInputBorder(),
                       errorText:
                           _requiresAuthorizationScope && !_hasAuthorizationScope
-                          ? (isZh
-                                ? '动态验证或 MCP 通道需要先填写授权范围'
-                                : 'Dynamic verification or MCP requires an authorization scope')
+                          ? _text(
+                              zh: '动态验证或 MCP 通道需要先填写授权范围',
+                              en: 'Dynamic verification or MCP requires an authorization scope',
+                              zhHant: '動態驗證或 MCP 通道需要先填寫授權範圍',
+                              fr: 'La vérification dynamique ou MCP nécessite un périmètre autorisé',
+                              de: 'Dynamische Prüfung oder MCP erfordert einen Autorisierungsumfang',
+                              ja: '動的検証または MCP には許可範囲が必要です',
+                            )
                           : null,
                     ),
                   ),
                   const SizedBox(height: 14),
                   _McpOptInTile(
                     icon: Icons.usb_rounded,
-                    titleZh: 'ADB MCP（可选）',
-                    titleEn: 'ADB MCP (optional)',
-                    descZh: '默认关闭。需先在全局 MCP 配置安装/启用；开启后优先通过 ADB MCP 调用 adb。',
-                    descEn:
-                        'Off by default. Install/enable it in global MCP settings first; then adb uses ADB MCP first.',
-                    isZh: isZh,
+                    title: _text(
+                      zh: 'ADB MCP（可选）',
+                      en: 'ADB MCP (optional)',
+                      zhHant: 'ADB MCP（可選）',
+                      fr: 'ADB MCP (facultatif)',
+                      de: 'ADB MCP (optional)',
+                      ja: 'ADB MCP（任意）',
+                    ),
+                    description: _text(
+                      zh: '默认关闭。需先在全局 MCP 配置安装/启用；开启后优先通过 ADB MCP 调用 adb。',
+                      en: 'Off by default. Install/enable it in global MCP settings first; then adb uses ADB MCP first.',
+                      zhHant: '預設關閉。需先在全域 MCP 配置安裝/啟用；開啟後優先透過 ADB MCP 呼叫 adb。',
+                      fr: 'Désactivé par défaut. Installez/activez-le dans la configuration MCP globale, puis adb utilisera ADB MCP en priorité.',
+                      de: 'Standardmäßig aus. Erst in den globalen MCP-Einstellungen installieren/aktivieren; danach nutzt adb zuerst ADB MCP.',
+                      ja: 'デフォルトはオフです。先にグローバル MCP 設定でインストール/有効化してください。有効化後は adb で ADB MCP を優先します。',
+                    ),
                     enabled: _adbMcpEnabled,
                     onChanged: (v) => setState(() => _adbMcpEnabled = v),
                   ),
                   const SizedBox(height: 10),
                   _McpOptInTile(
                     icon: Icons.bug_report_rounded,
-                    titleZh: 'Frida MCP（可选）',
-                    titleEn: 'Frida MCP (optional)',
-                    descZh: '默认关闭。需先在全局 MCP 配置安装/启用；开启后优先通过 Frida MCP 注入脚本。',
-                    descEn:
-                        'Off by default. Install/enable it in global MCP settings first; then Frida injection uses Frida MCP first.',
-                    isZh: isZh,
+                    title: _text(
+                      zh: 'Frida MCP（可选）',
+                      en: 'Frida MCP (optional)',
+                      zhHant: 'Frida MCP（可選）',
+                      fr: 'Frida MCP (facultatif)',
+                      de: 'Frida MCP (optional)',
+                      ja: 'Frida MCP（任意）',
+                    ),
+                    description: _text(
+                      zh: '默认关闭。需先在全局 MCP 配置安装/启用；开启后优先通过 Frida MCP 注入脚本。',
+                      en: 'Off by default. Install/enable it in global MCP settings first; then Frida injection uses Frida MCP first.',
+                      zhHant: '預設關閉。需先在全域 MCP 配置安裝/啟用；開啟後優先透過 Frida MCP 注入腳本。',
+                      fr: 'Désactivé par défaut. Installez/activez-le dans la configuration MCP globale, puis l’injection Frida utilisera Frida MCP en priorité.',
+                      de: 'Standardmäßig aus. Erst in den globalen MCP-Einstellungen installieren/aktivieren; danach nutzt Frida-Injektion zuerst Frida MCP.',
+                      ja: 'デフォルトはオフです。先にグローバル MCP 設定でインストール/有効化してください。有効化後は Frida 注入で Frida MCP を優先します。',
+                    ),
                     enabled: _fridaMcpEnabled,
                     onChanged: (v) => setState(() => _fridaMcpEnabled = v),
                   ),
                   const SizedBox(height: 14),
                   _LabelText(
-                    isZh
-                        ? '关键字（可选，逗号分隔）'
-                        : 'Keywords (optional, comma-separated)',
+                    _text(
+                      zh: '关键字（可选，逗号分隔）',
+                      en: 'Keywords (optional, comma-separated)',
+                      zhHant: '關鍵字（可選，逗號分隔）',
+                      fr: 'Mots-clés (facultatif, séparés par des virgules)',
+                      de: 'Schlüsselwörter (optional, kommagetrennt)',
+                      ja: 'キーワード（任意、カンマ区切り）',
+                    ),
                   ),
                   const SizedBox(height: 4),
                   TextField(
@@ -369,16 +522,30 @@ class _AndroidReverseSetupDialogState
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _LabelText(isZh ? '备注（可选）' : 'Notes (optional)'),
+                  _LabelText(
+                    _text(
+                      zh: '备注（可选）',
+                      en: 'Notes (optional)',
+                      zhHant: '備註（可選）',
+                      fr: 'Notes (facultatif)',
+                      de: 'Notizen (optional)',
+                      ja: 'メモ（任意）',
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: _notesCtrl,
                     maxLines: 2,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: isZh
-                          ? '例：账号 test@example.com，代理 127.0.0.1:8080'
-                          : 'e.g. test account, proxy 127.0.0.1:8080',
+                      hintText: _text(
+                        zh: '例：账号 test@example.com，代理 127.0.0.1:8080',
+                        en: 'e.g. test account, proxy 127.0.0.1:8080',
+                        zhHant: '例：帳號 test@example.com，代理 127.0.0.1:8080',
+                        fr: 'ex. compte de test, proxy 127.0.0.1:8080',
+                        de: 'z. B. Testkonto, Proxy 127.0.0.1:8080',
+                        ja: '例: テストアカウント、プロキシ 127.0.0.1:8080',
+                      ),
                       border: const OutlineInputBorder(),
                     ),
                   ),
@@ -392,11 +559,25 @@ class _AndroidReverseSetupDialogState
             actions: [
               OpenHandDialogActionButton.secondary(
                 onPressed: () => Navigator.of(context).pop(),
-                label: isZh ? '取消' : 'Cancel',
+                label: _text(
+                  zh: '取消',
+                  en: 'Cancel',
+                  zhHant: '取消',
+                  fr: 'Annuler',
+                  de: 'Abbrechen',
+                  ja: 'キャンセル',
+                ),
               ),
               OpenHandDialogActionButton.primary(
                 onPressed: _canSubmit ? _submit : null,
-                label: isZh ? '创建会话' : 'Create Session',
+                label: _text(
+                  zh: '创建会话',
+                  en: 'Create Session',
+                  zhHant: '建立會話',
+                  fr: 'Créer la session',
+                  de: 'Sitzung erstellen',
+                  ja: 'セッションを作成',
+                ),
               ),
             ],
           ),
@@ -409,21 +590,15 @@ class _AndroidReverseSetupDialogState
 class _McpOptInTile extends StatelessWidget {
   const _McpOptInTile({
     required this.icon,
-    required this.titleZh,
-    required this.titleEn,
-    required this.descZh,
-    required this.descEn,
-    required this.isZh,
+    required this.title,
+    required this.description,
     required this.enabled,
     required this.onChanged,
   });
 
   final IconData icon;
-  final String titleZh;
-  final String titleEn;
-  final String descZh;
-  final String descEn;
-  final bool isZh;
+  final String title;
+  final String description;
   final bool enabled;
   final ValueChanged<bool> onChanged;
 
@@ -462,7 +637,7 @@ class _McpOptInTile extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isZh ? titleZh : titleEn,
+                  title,
                   style: theme.textTheme.labelMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: cs.onSurface,
@@ -470,7 +645,7 @@ class _McpOptInTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  isZh ? descZh : descEn,
+                  description,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
