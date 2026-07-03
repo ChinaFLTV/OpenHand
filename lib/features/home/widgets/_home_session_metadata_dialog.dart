@@ -1233,10 +1233,7 @@ class _SessionMetadataDialog extends StatelessWidget {
 }
 
 Map<String, Object?> _metadataObjectMap(Object? rawValue) {
-  if (rawValue is Map) {
-    return Map<String, Object?>.from(rawValue);
-  }
-  return const <String, Object?>{};
+  return stringKeyedMapFromValue(rawValue);
 }
 
 class _MetadataSection extends StatelessWidget {

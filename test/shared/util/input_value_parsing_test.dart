@@ -49,6 +49,41 @@ void main() {
     });
   });
 
+  group('stringKeyedMapFromValue', () {
+    test('normalizes map keys to strings', () {
+      expect(
+        stringKeyedMapFromValue(<Object?, Object?>{1: 'one', 'two': 2}),
+        <String, Object?>{'1': 'one', 'two': 2},
+      );
+    });
+
+    test('uses an empty map for unsupported values', () {
+      expect(stringKeyedMapFromValue(null), isEmpty);
+      expect(stringKeyedMapFromValue('not a map'), isEmpty);
+    });
+  });
+
+  group('stringKeyedMapListFromValue', () {
+    test('keeps only map entries and normalizes keys', () {
+      expect(
+        stringKeyedMapListFromValue(<Object?>[
+          <Object?, Object?>{1: 'one'},
+          'ignored',
+          <String, Object?>{'two': 2},
+        ]),
+        <Map<String, Object?>>[
+          <String, Object?>{'1': 'one'},
+          <String, Object?>{'two': 2},
+        ],
+      );
+    });
+
+    test('uses an empty list for unsupported values', () {
+      expect(stringKeyedMapListFromValue(null), isEmpty);
+      expect(stringKeyedMapListFromValue('not a list'), isEmpty);
+    });
+  });
+
   group('optionalRoundedIntFromValue', () {
     test('rounds numeric values and numeric strings', () {
       expect(optionalRoundedIntFromValue(2), 2);

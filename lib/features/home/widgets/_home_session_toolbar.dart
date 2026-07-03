@@ -2163,23 +2163,11 @@ int _metadataInt(Object? rawValue) {
 }
 
 List<Map<String, Object?>> _metadataObjectList(Object? rawValue) {
-  if (rawValue is! List) {
-    return const <Map<String, Object?>>[];
-  }
-  return rawValue
-      .whereType<Map>()
-      .map((item) => Map<String, Object?>.from(item))
-      .toList(growable: false);
+  return stringKeyedMapListFromValue(rawValue);
 }
 
 List<String> _metadataStringList(Object? rawValue) {
-  if (rawValue is! List) {
-    return const <String>[];
-  }
-  return rawValue
-      .map((item) => '$item'.trim())
-      .where((item) => item.isNotEmpty)
-      .toList(growable: false);
+  return rawValue is List ? stringListFromValue(rawValue) : const <String>[];
 }
 
 class _RuntimeToolCatalogStatus {
