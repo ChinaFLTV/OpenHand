@@ -442,6 +442,13 @@ class AiAgentTool extends AiTool {
       AgentTaskStatus.canceled => explicitProgress ?? resolved.task!.progress,
       _ => explicitProgress,
     };
+    final resultText = _optionalText(args['result']);
+    if (status == AgentTaskStatus.completed && resultText == null) {
+      return AiToolUtils.invalidResult(
+        _name,
+        'result is required when completing a task.',
+      );
+    }
     final rawExtra = optionalStringKeyedMapFromValueOrJsonText(args['extra']);
     final updated = await controller.updateTaskState(
       resolved.agent!.id,
@@ -449,7 +456,7 @@ class AiAgentTool extends AiTool {
       status: status,
       progress: nextProgress,
       note: _optionalText(args['note']),
-      result: _optionalText(args['result']),
+      result: resultText,
       extra: <String, Object?>{
         if (rawExtra != null) ...rawExtra,
         'updated_by_session_id': context.sessionId,

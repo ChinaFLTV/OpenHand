@@ -128,6 +128,44 @@ void main() {
       expect(agent.activities.first.kind, 'task_completed');
       expect(agent.auditEvents.first.kind, 'task_completed');
     });
+
+    test('complete tool requires a non-empty result', () async {
+      await controller.saveAgent(_agent(enabled: true));
+      final task = await controller.publishTaskWithResult(
+        'agent-1',
+        title: 'Collect missing evidence',
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(),
+      );
+      final result = await runtime.execute(
+        sessionId: 'session-1',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-1',
+          name: 'AgentTaskComplete',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-1',
+            'task_id': task!.id,
+            'result': '   ',
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(result.status, BashToolExecutionStatus.failed);
+      expect(result.resultText, contains('result is required'));
+      expect(
+        controller.taskById('agent-1', task.id)!.status,
+        AgentTaskStatus.running,
+      );
+    });
   });
 }
 
