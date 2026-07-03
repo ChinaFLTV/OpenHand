@@ -253,6 +253,7 @@ class _PluginCard extends StatelessWidget {
       'python' => Icons.code_rounded,
       'pip' => Icons.inventory_2_rounded,
       'playwright' => Icons.theaters_rounded,
+      PluginCatalogIds.hermesAgent => Icons.auto_awesome_rounded,
       'java' => Icons.coffee_rounded,
       'frida' => Icons.bug_report_rounded,
       'mitmproxy' => Icons.lan_rounded,

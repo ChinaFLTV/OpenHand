@@ -19,6 +19,9 @@ const Duration _pluginLifecycleStreamDrainTimeout = Duration(milliseconds: 800);
 const Duration _pluginLifecycleTerminateGrace = Duration(milliseconds: 500);
 const int _pluginLifecycleMaxCapturedLines = 500;
 const int _pluginLifecycleMaxProgressLineChars = 4000;
+const String _hermesAgentNpmPackage = 'hermes-agent';
+const String _hermesAgentPrimaryCommand = 'hermes-agent';
+const String _hermesAgentFallbackCommand = 'hermes';
 
 @visibleForTesting
 String? homebrewStableVersionFromDecoded(Object? decoded) {
@@ -676,6 +679,18 @@ fi
     );
   }
 
+  Future<PluginOperationResult> installHermesAgent({
+    void Function(String line)? onProgress,
+  }) => _installOrUpdateNpmGlobalPackage(
+    packageName: _hermesAgentNpmPackage,
+    label: 'Hermes Agent',
+    verifyCommands: const <String>[
+      _hermesAgentPrimaryCommand,
+      _hermesAgentFallbackCommand,
+    ],
+    onProgress: onProgress,
+  );
+
   Future<PluginOperationResult> _installBrewFormula({
     required String formula,
     required String label,
@@ -846,6 +861,125 @@ fi
       success: false,
       message: 'pip 卸载 $label 失败: ${_processErrorMessage(result)}',
     );
+  }
+
+  Future<PluginOperationResult> _installOrUpdateNpmGlobalPackage({
+    required String packageName,
+    required String label,
+    required List<String> verifyCommands,
+    void Function(String line)? onProgress,
+  }) async {
+    final nodeCheck = await runTrackedProcessOrFailed(
+      'node',
+      ['--version'],
+      timeout: _pluginLifecycleVerifyTimeout,
+      environment: _proxyEnv(),
+      tag: 'plugin_lifecycle.node_check.$packageName',
+    );
+    if (nodeCheck.exitCode != 0) {
+      return PluginOperationResult(
+        success: false,
+        message: '$label 依赖 Node.js，请先安装 Node.js。',
+      );
+    }
+    final npmCheck = await runTrackedProcessOrFailed(
+      'npm',
+      ['--version'],
+      timeout: _pluginLifecycleVerifyTimeout,
+      environment: _proxyEnv(),
+      tag: 'plugin_lifecycle.npm_check.$packageName',
+    );
+    if (npmCheck.exitCode != 0) {
+      return PluginOperationResult(
+        success: false,
+        message: '$label 依赖 npm，请先确认 npm 已随 Node.js 安装并可执行。',
+      );
+    }
+    onProgress?.call('通过 npm 安装/更新 $label…');
+    final result = await _runWithProgress(
+      'npm',
+      ['install', '-g', '$packageName@latest'],
+      onProgress: onProgress,
+      timeout: const Duration(minutes: 6),
+      environment: _proxyEnv(),
+    );
+    if (result.exitCode != 0) {
+      return PluginOperationResult(
+        success: false,
+        message: 'npm 安装 $label 失败: ${_processErrorMessage(result)}',
+      );
+    }
+
+    final verified = await _verifyAnyCommandVersion(verifyCommands);
+    if (verified == null) {
+      return PluginOperationResult(
+        success: false,
+        message: '$label 安装后验证失败：未找到可执行命令。',
+      );
+    }
+    final versionText = verified.version == null ? '' : ' ${verified.version}';
+    onProgress?.call('$label$versionText 已就绪');
+    return PluginOperationResult(
+      success: true,
+      message: '$label$versionText 已安装或更新',
+      newVersion: verified.version,
+    );
+  }
+
+  Future<PluginOperationResult> _uninstallNpmGlobalPackage({
+    required String packageName,
+    required String label,
+    void Function(String line)? onProgress,
+  }) async {
+    final npmCheck = await runTrackedProcessOrFailed(
+      'npm',
+      ['--version'],
+      timeout: _pluginLifecycleVerifyTimeout,
+      environment: _proxyEnv(),
+      tag: 'plugin_lifecycle.npm_check.$packageName',
+    );
+    if (npmCheck.exitCode != 0) {
+      return PluginOperationResult(
+        success: false,
+        message: '未检测到 npm，无法安全卸载 $label。',
+      );
+    }
+    onProgress?.call('通过 npm 卸载 $label…');
+    final result = await _runWithProgress(
+      'npm',
+      ['uninstall', '-g', packageName],
+      onProgress: onProgress,
+      timeout: const Duration(minutes: 4),
+      environment: _proxyEnv(),
+    );
+    if (result.exitCode == 0) {
+      onProgress?.call('$label 已卸载');
+      return PluginOperationResult(success: true, message: '$label 已卸载');
+    }
+    return PluginOperationResult(
+      success: false,
+      message: 'npm 卸载 $label 失败: ${_processErrorMessage(result)}',
+    );
+  }
+
+  Future<({String command, String? version})?> _verifyAnyCommandVersion(
+    List<String> commands,
+  ) async {
+    for (final command in commands) {
+      final result = await runTrackedProcessOrFailed(
+        command,
+        ['--version'],
+        timeout: _pluginLifecycleVerifyTimeout,
+        environment: _proxyEnv(),
+        tag: 'plugin_lifecycle.verify.$command',
+      );
+      if (result.exitCode != 0) continue;
+      return (
+        command: command,
+        version: _extractFirstSemver('${result.stdout}\n${result.stderr}'),
+      );
+    }
+    return null;
   }
 
   String _androidReverseToolRoot() {
@@ -1668,6 +1802,18 @@ exit 4
     );
   }
 
+  Future<PluginOperationResult> updateHermesAgent({
+    void Function(String line)? onProgress,
+  }) => _installOrUpdateNpmGlobalPackage(
+    packageName: _hermesAgentNpmPackage,
+    label: 'Hermes Agent',
+    verifyCommands: const <String>[
+      _hermesAgentPrimaryCommand,
+      _hermesAgentFallbackCommand,
+    ],
+    onProgress: onProgress,
+  );
+
   Future<PluginOperationResult> updateJava({
     void Function(String line)? onProgress,
   }) => _updateBrewFormula(
@@ -1965,6 +2111,14 @@ exit 4
       message: '卸载失败: ${result.stderr}',
     );
   }
+
+  Future<PluginOperationResult> uninstallHermesAgent({
+    void Function(String line)? onProgress,
+  }) => _uninstallNpmGlobalPackage(
+    packageName: _hermesAgentNpmPackage,
+    label: 'Hermes Agent',
+    onProgress: onProgress,
+  );
 
   Future<PluginOperationResult> uninstallJava({
     void Function(String line)? onProgress,

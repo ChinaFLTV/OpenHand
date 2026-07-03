@@ -98,6 +98,7 @@ class PluginServiceController extends ManagedChangeNotifier {
     for (final id in const <String>[
       'nodejs',
       'playwright',
+      PluginCatalogIds.hermesAgent,
       'python',
       'pip',
       'java',
@@ -142,6 +143,7 @@ class PluginServiceController extends ManagedChangeNotifier {
       final refreshed = await switch (pluginId) {
         'nodejs' => _scanner.scanNodeJs(),
         'playwright' => _scanner.scanPlaywright(),
+        PluginCatalogIds.hermesAgent => _scanner.scanHermesAgent(),
         'python' => _scanner.scanPython(),
         'pip' => _scanner.scanPip(),
         'java' => _scanner.scanJava(),
@@ -160,9 +162,14 @@ class PluginServiceController extends ManagedChangeNotifier {
       if (refreshed == null) return null;
       final merged = pluginId == 'nodejs'
           ? refreshed.copyWith(
-              dependents: pluginById('playwright')?.isInstalled == true
-                  ? const ['playwright']
-                  : const [],
+              dependents: <String>[
+                if (pluginById(PluginCatalogIds.playwright)?.isInstalled ==
+                    true)
+                  PluginCatalogIds.playwright,
+                if (pluginById(PluginCatalogIds.hermesAgent)?.isInstalled ==
+                    true)
+                  PluginCatalogIds.hermesAgent,
+              ],
             )
           : refreshed;
       _plugins = [
@@ -219,6 +226,9 @@ class PluginServiceController extends ManagedChangeNotifier {
       final result = switch (pluginId) {
         'nodejs' => await _lifecycle.installNodeJs(onProgress: _addLog),
         'playwright' => await _lifecycle.installPlaywright(onProgress: _addLog),
+        PluginCatalogIds.hermesAgent => await _lifecycle.installHermesAgent(
+          onProgress: _addLog,
+        ),
         'python' => await _lifecycle.installPython(onProgress: _addLog),
         'pip' => await _lifecycle.installPip(onProgress: _addLog),
         'java' => await _lifecycle.installJava(onProgress: _addLog),
@@ -272,6 +282,9 @@ class PluginServiceController extends ManagedChangeNotifier {
       final result = switch (pluginId) {
         'nodejs' => await _lifecycle.updateNodeJs(onProgress: _addLog),
         'playwright' => await _lifecycle.updatePlaywright(onProgress: _addLog),
+        PluginCatalogIds.hermesAgent => await _lifecycle.updateHermesAgent(
+          onProgress: _addLog,
+        ),
         'python' => await _lifecycle.updatePython(onProgress: _addLog),
         'pip' => await _lifecycle.updatePip(onProgress: _addLog),
         'java' => await _lifecycle.updateJava(onProgress: _addLog),
@@ -346,6 +359,9 @@ class PluginServiceController extends ManagedChangeNotifier {
           onProgress: _addLog,
         ),
         'playwright' => await _lifecycle.uninstallPlaywright(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.hermesAgent => await _lifecycle.uninstallHermesAgent(
           onProgress: _addLog,
         ),
         'python' => await _lifecycle.uninstallPython(onProgress: _addLog),

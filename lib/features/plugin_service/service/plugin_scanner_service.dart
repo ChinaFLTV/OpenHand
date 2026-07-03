@@ -60,6 +60,9 @@ Map<String, Object?>? qdrantInspectMetadataFromDecoded(Object? decoded) {
 class PluginScannerService {
   PluginScannerService();
 
+  static const String hermesAgentPackageName = 'hermes-agent';
+  static const String hermesAgentCommand = 'hermes-agent';
+  static const String hermesAgentAltCommand = 'hermes';
   static const String qdrantContainerName = 'openhand-qdrant';
   static const String qdrantImageName = 'qdrant/qdrant';
   static const String qdrantDefaultTag = 'latest';
@@ -513,6 +516,7 @@ class PluginScannerService {
     return switch (id) {
       'nodejs' => _nodeNotInstalled,
       'playwright' => _playwrightNotInstalled,
+      PluginCatalogIds.hermesAgent => _hermesAgentNotInstalled,
       'python' => _pythonNotInstalled,
       'pip' => _pipNotInstalled,
       'java' => _javaNotInstalled,
@@ -820,6 +824,24 @@ class PluginScannerService {
       silentLog('PluginScanner', 'scanPlaywright', e);
     }
     return _playwrightNotInstalled;
+  }
+
+  Future<PluginInfo> scanHermesAgent() async {
+    try {
+      return _scanCommandPlugin(
+        id: PluginCatalogIds.hermesAgent,
+        name: 'Hermes Agent',
+        description: 'Hermes Agent 运行时，用于智能体编排、自我学习与技能沉淀',
+        commands: const <String>[hermesAgentCommand, hermesAgentAltCommand],
+        versionArgs: const <String>['--version'],
+        versionParser: _extractLooseVersion,
+        latestNpmPackage: hermesAgentPackageName,
+        dependencies: const <String>[PluginCatalogIds.nodejs],
+      );
+    } catch (e) {
+      silentLog('PluginScanner', 'scanHermesAgent', e);
+    }
+    return _hermesAgentNotInstalled;
   }
 
   Future<PluginInfo> scanJava() async {
@@ -1249,7 +1271,7 @@ class PluginScannerService {
     name: 'Node.js',
     description: 'JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链',
     status: PluginStatus.notInstalled,
-    dependents: ['playwright'],
+    dependents: [PluginCatalogIds.playwright, PluginCatalogIds.hermesAgent],
   );
 
   static const _playwrightNotInstalled = PluginInfo(
@@ -1258,6 +1280,14 @@ class PluginScannerService {
     description: '浏览器自动化测试框架，支持 Chromium / Firefox / WebKit',
     status: PluginStatus.notInstalled,
     dependencies: ['nodejs'],
+  );
+
+  static const _hermesAgentNotInstalled = PluginInfo(
+    id: PluginCatalogIds.hermesAgent,
+    name: 'Hermes Agent',
+    description: 'Hermes Agent 运行时，用于智能体编排、自我学习与技能沉淀',
+    status: PluginStatus.notInstalled,
+    dependencies: [PluginCatalogIds.nodejs],
   );
 
   static const _pythonNotInstalled = PluginInfo(
@@ -1364,6 +1394,7 @@ class PluginScannerService {
   static List<PluginInfo> knownPluginPlaceholders() => const <PluginInfo>[
     _nodeNotInstalled,
     _playwrightNotInstalled,
+    _hermesAgentNotInstalled,
     _pythonNotInstalled,
     _pipNotInstalled,
     _javaNotInstalled,
@@ -1382,6 +1413,7 @@ class PluginScannerService {
   Future<List<PluginInfo>> scanAll() async {
     final nodeFuture = scanNodeJs();
     final playwrightFuture = scanPlaywright();
+    final hermesAgentFuture = scanHermesAgent();
     final javaFuture = scanJava();
     final fridaFuture = scanFrida();
     final mitmproxyFuture = scanMitmproxy();
@@ -1395,6 +1427,7 @@ class PluginScannerService {
     final pythonRuntimeFuture = _resolvePythonRuntime();
     final nodeJs = await nodeFuture;
     final playwright = await playwrightFuture;
+    final hermesAgent = await hermesAgentFuture;
     final java = await javaFuture;
     final frida = await fridaFuture;
     final mitmproxy = await mitmproxyFuture;
@@ -1421,7 +1454,10 @@ class PluginScannerService {
       pip = _pipNotInstalled;
     }
     final updatedNodeJs = nodeJs.copyWith(
-      dependents: playwright.isInstalled ? const ['playwright'] : const [],
+      dependents: <String>[
+        if (playwright.isInstalled) PluginCatalogIds.playwright,
+        if (hermesAgent.isInstalled) PluginCatalogIds.hermesAgent,
+      ],
     );
     final updatedDocker = docker.copyWith(
       dependents: qdrant.isInstalled ? const ['qdrant'] : const [],
@@ -1435,6 +1471,7 @@ class PluginScannerService {
     return [
       updatedNodeJs,
       playwright,
+      hermesAgent,
       python,
       pip,
       updatedJava,

@@ -376,6 +376,11 @@ class _NavigationPaneState extends State<_NavigationPane> {
               ),
             ),
             NavigationDrawerDestination(
+              icon: const Icon(Icons.smart_toy_outlined),
+              selectedIcon: const Icon(Icons.smart_toy_rounded),
+              label: Text(_localizedText(context, zh: '智能体', en: 'Agents')),
+            ),
+            NavigationDrawerDestination(
               icon: const Icon(Icons.settings_outlined),
               selectedIcon: const Icon(Icons.settings_rounded),
               label: Text(l10n.settings),

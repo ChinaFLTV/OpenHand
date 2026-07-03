@@ -390,7 +390,8 @@ extension on AppSection {
       AppSection.messageGateway => 6,
       AppSection.pluginService => 7,
       AppSection.knowledgeBase => 8,
-      AppSection.settings => 9,
+      AppSection.agents => 9,
+      AppSection.settings => 10,
     };
   }
 }
@@ -406,7 +407,8 @@ AppSection _sectionFromDrawerIndex(int index) {
     6 => AppSection.messageGateway,
     7 => AppSection.pluginService,
     8 => AppSection.knowledgeBase,
-    9 => AppSection.settings,
+    9 => AppSection.agents,
+    10 => AppSection.settings,
     _ => AppSection.workspace,
   };
 }

@@ -89,6 +89,7 @@ import '../../shared/util/tool_name_normalization.dart';
 import '../../shared/util/unified_diff.dart'
     show unifiedDiffLines, unifiedDiffLinesFromText;
 import '../../shared/util/xml_escape.dart';
+import '../agents/index.dart';
 import '../ai/index.dart';
 import '../android_reverse/index.dart';
 import '../crons/index.dart';
@@ -7870,6 +7871,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       case OpenHandSlashCommandKind.mcp:
         _activateSlashCommandSection(AppSection.mcp);
         return;
+      case OpenHandSlashCommandKind.agents:
+        _activateSlashCommandSection(AppSection.agents);
+        return;
       case OpenHandSlashCommandKind.crons:
         _activateSlashCommandSection(AppSection.crons);
         return;
@@ -7911,6 +7915,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         zh: '知识库',
         en: 'Knowledge Base',
       ),
+      AppSection.agents => _localizedText(context, zh: '智能体', en: 'Agents'),
       AppSection.settings => _localizedText(context, zh: '设置', en: 'Settings'),
       AppSection.hardnessSession => _localizedText(
         context,
@@ -7955,6 +7960,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       '/skills',
       '/memory',
       '/mcp',
+      '/agents',
     ].join('\n');
     final detail = _localizedText(
       context,
@@ -9616,6 +9622,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.pluginService => const PluginServiceView(),
       AppSection.knowledgeBase => KnowledgeBaseView(
         onOpenPlugins: () => _selectSection(AppSection.pluginService),
+      ),
+      AppSection.agents => AgentsView(
+        onOpenPlugins: () => _selectSection(AppSection.pluginService),
+        onOpenCrons: () => _selectSection(AppSection.crons),
+        onOpenSettings: () => _selectSection(AppSection.settings),
+        onCreateThreadRequested: _createSessionFromDialog,
       ),
       AppSection.settings => Provider<ToolSearchReplayDispatcher>.value(
         value: _toolSearchReplayDispatcher,

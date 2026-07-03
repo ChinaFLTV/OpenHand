@@ -24,6 +24,14 @@ enum PluginStatus {
   error,
 }
 
+class PluginCatalogIds {
+  const PluginCatalogIds._();
+
+  static const String nodejs = 'nodejs';
+  static const String playwright = 'playwright';
+  static const String hermesAgent = 'hermes_agent';
+}
+
 class PluginInfo {
   const PluginInfo({
     required this.id,

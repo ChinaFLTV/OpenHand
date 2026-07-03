@@ -9,6 +9,7 @@ enum OpenHandSlashCommandKind {
   skills,
   memory,
   mcp,
+  agents,
   crons,
 }
 
@@ -43,6 +44,7 @@ OpenHandSlashCommand? parseOpenHandSlashCommand(String rawInput) {
     '/skills' => OpenHandSlashCommandKind.skills,
     '/memory' => OpenHandSlashCommandKind.memory,
     '/mcp' => OpenHandSlashCommandKind.mcp,
+    '/agents' || '/agent' => OpenHandSlashCommandKind.agents,
     '/crons' || '/cron' => OpenHandSlashCommandKind.crons,
     _ => null,
   };

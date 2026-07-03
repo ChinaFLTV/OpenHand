@@ -134,6 +134,8 @@ class TemplateRuntimeDependencyRegistry {
     'anything_analyzer',
   ];
 
+  static const List<String> hermesTalkerPluginIds = <String>['hermes_agent'];
+
   static const List<String> webReverseMcpKeywords = <String>[
     'cdp',
     'chrome',
@@ -327,6 +329,20 @@ class TemplateRuntimeDependencyRegistry {
     ],
   );
 
+  static const TemplateRuntimeDependencySpec hermesTalker =
+      TemplateRuntimeDependencySpec(
+        templateId: AiPromptTemplatePolicies.hermesTalkerTemplateId,
+        labelZh: 'Hermes Talker',
+        labelEn: 'Hermes Talker',
+        pluginIds: hermesTalkerPluginIds,
+        mcpKeywords: <String>[],
+        toolSearchFallbackQuery: 'select:memory,skill,agent,hermes',
+        mcpCapabilities: <TemplateRuntimeMcpCapabilitySpec>[],
+      );
+
+  static const List<TemplateRuntimeDependencySpec> runtimeSpecs =
+      <TemplateRuntimeDependencySpec>[webReverse, androidReverse, hermesTalker];
+
   static const List<TemplateRuntimeDependencySpec> reverseEngineeringSpecs =
       <TemplateRuntimeDependencySpec>[webReverse, androidReverse];
 
@@ -340,7 +356,7 @@ class TemplateRuntimeDependencyRegistry {
   }
 
   static List<TemplateRuntimeDependencySpec> specsForPlugin(String pluginId) {
-    return reverseEngineeringSpecs
+    return runtimeSpecs
         .where((spec) => spec.matchesPlugin(pluginId))
         .toList(growable: false);
   }
