@@ -561,7 +561,7 @@ String _documentText(Object document) {
     return jsonEncode(document);
   }
   if (document is Map) {
-    final map = Map<String, Object?>.from(document);
+    final map = stringKeyedMapFromValue(document);
     final text = map['text'];
     if (text is String && text.trim().isNotEmpty) return text;
     return jsonEncode(map);

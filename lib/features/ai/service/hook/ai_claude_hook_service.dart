@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
 
 const String aiHookSystemRemindersMetadataKey = 'hook_system_reminders';
@@ -431,7 +432,7 @@ class AiClaudeHookService {
     if (hookSpecificOutput is! Map) {
       return null;
     }
-    final outputMap = Map<String, Object?>.from(hookSpecificOutput);
+    final outputMap = stringKeyedMapFromValue(hookSpecificOutput);
     final nestedDecision = '${outputMap['decision'] ?? ''}'.trim();
     if (nestedDecision.toLowerCase() == 'block') {
       return _firstNonEmptyString(<Object?>[
@@ -468,7 +469,7 @@ class AiClaudeHookService {
     if (hookSpecificOutput is! Map) {
       return null;
     }
-    final outputMap = Map<String, Object?>.from(hookSpecificOutput);
+    final outputMap = stringKeyedMapFromValue(hookSpecificOutput);
     return _firstNonEmptyString(<Object?>[
       outputMap['additionalContext'],
       outputMap['message'],

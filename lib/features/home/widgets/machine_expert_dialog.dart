@@ -400,7 +400,9 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
           'try\ntell application "$appName" to get count of $countSubject of window $winIdxStr\nend try',
         );
         if (countData.isNotEmpty) {
-          final parsed = int.tryParse(countData.first.trim().split(' ').last);
+          final parsed = optionalIntFromValue(
+            countData.first.trim().split(' ').last,
+          );
           if (parsed != null && parsed > 0) {
             mockCount = parsed;
           }
