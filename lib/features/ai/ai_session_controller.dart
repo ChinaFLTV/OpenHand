@@ -345,9 +345,9 @@ class AiSessionController extends ChangeNotifier {
   /// 手动压缩拒绝阈值——percentLeft 高于该值（即 prompt 占比很低）时
   /// 拒绝触发，避免「0% 占比下也强行压缩」。
   static const int _manualCompactionRefusePercentLeftAbove = 85;
-  static const int _initialMessageHydrationWindowSize = 12;
-  static const int _initialMessageHydrationCharacterBudget = 24000;
-  static const int _olderMessageHydrationBatchSize = 24;
+  static const int _initialMessageHydrationWindowSize = 10;
+  static const int _initialMessageHydrationCharacterBudget = 16000;
+  static const int _olderMessageHydrationBatchSize = 18;
 
   static Duration _mediaGenerationTimeoutFor(AiCreationRequest request) {
     switch (request.mode) {
