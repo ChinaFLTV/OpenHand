@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import 'web_fetch_engine.dart';
 import 'web_fetch_scrapling_bridge.dart';
@@ -298,7 +299,7 @@ class WebFetchExaEngine extends WebFetchEngine {
             url: stringOf(r['url']).isEmpty ? req.url : stringOf(r['url']),
             title: stringOf(r['title']),
             content: text,
-            publishedAt: DateTime.tryParse(stringOf(r['publishedDate'])),
+            publishedAt: dateTimeFromValue(r['publishedDate']),
           );
         })
         .where((c) => c.content.isNotEmpty)

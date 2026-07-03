@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import 'web_fetch_engine.dart';
 
@@ -130,7 +131,7 @@ class WebFetchBaiduEngine extends WebFetchEngine {
             ? req.url
             : stringOf(hit['title']),
         content: content,
-        publishedAt: DateTime.tryParse(stringOf(hit['date'])),
+        publishedAt: dateTimeFromValue(hit['date']),
       ),
     ];
   }
@@ -219,7 +220,7 @@ class WebFetchBochaEngine extends WebFetchEngine {
         url: req.url,
         title: stringOf(hit['name']).isEmpty ? req.url : stringOf(hit['name']),
         content: content,
-        publishedAt: DateTime.tryParse(stringOf(hit['datePublished'])),
+        publishedAt: dateTimeFromValue(hit['datePublished']),
       ),
     ];
   }

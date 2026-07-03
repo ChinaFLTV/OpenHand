@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../web_engine/web_engine_http_exception.dart';
 import 'web_search_engine.dart';
@@ -105,7 +106,7 @@ class WebSearchExaEngine extends WebSearchEngine {
             url: stringOf(r['url']),
             snippet: text.isEmpty ? stringOf(r['snippet']) : text,
             score: webSearchScoreFromValue(r['score']),
-            publishedAt: DateTime.tryParse(stringOf(r['publishedDate'])),
+            publishedAt: dateTimeFromValue(r['publishedDate']),
             source: 'exa',
           );
         })
@@ -200,7 +201,7 @@ class WebSearchBochaEngine extends WebSearchEngine {
             snippet: stringOf(r['summary']).isEmpty
                 ? stringOf(r['snippet'])
                 : stringOf(r['summary']),
-            publishedAt: DateTime.tryParse(stringOf(r['datePublished'])),
+            publishedAt: dateTimeFromValue(r['datePublished']),
             source: 'bocha',
           );
         })
@@ -250,7 +251,7 @@ class WebSearchBaiduEngine extends WebSearchEngine {
             title: stringOf(r['title']),
             url: stringOf(r['url']),
             snippet: stringOf(r['content']),
-            publishedAt: DateTime.tryParse(stringOf(r['date'])),
+            publishedAt: dateTimeFromValue(r['date']),
             source: 'baidu',
           );
         })
