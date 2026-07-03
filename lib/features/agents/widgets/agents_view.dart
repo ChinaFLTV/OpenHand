@@ -773,11 +773,14 @@ Future<void> _showAgentClusterDialog(BuildContext context, AgentProfile agent) {
                   ),
                   title: Text(worker.name.isEmpty ? worker.id : worker.name),
                   subtitle: Text(
-                    l10n.agentsWorkerSubtitle(
-                      _agentWorkerStatusLabel(l10n, worker.status),
-                      worker.executedTaskCount,
-                      worker.priority,
-                    ),
+                    [
+                      l10n.agentsWorkerSubtitle(
+                        _agentWorkerStatusLabel(l10n, worker.status),
+                        worker.executedTaskCount,
+                        worker.priority,
+                      ),
+                      _agentWorkerCurrentTaskLabel(l10n, agent, worker),
+                    ].where((item) => item.trim().isNotEmpty).join(' · '),
                   ),
                   trailing: Text('${(worker.busyScore * 100).round()}%'),
                 ),
@@ -825,6 +828,7 @@ Future<void> _showAgentTasksDialog(BuildContext context, AgentProfile agent) {
                         [
                           _agentTaskStatusLabel(l10n, task.status),
                           '${(task.progress * 100).round()}%',
+                          _agentTaskAssignedWorkerLabel(l10n, task),
                           task.description,
                         ].where((item) => item.trim().isNotEmpty).join(' · '),
                       ),
@@ -1988,6 +1992,41 @@ String _agentExecutionModeLabel(
     AgentExecutionMode.normal => l10n.agentExecutionModeNormal,
     AgentExecutionMode.fullAccess => l10n.agentExecutionModeFullAccess,
   };
+}
+
+String _agentWorkerCurrentTaskLabel(
+  AppLocalizations l10n,
+  AgentProfile agent,
+  AgentWorker worker,
+) {
+  final taskId = worker.currentTaskId.trim();
+  if (taskId.isEmpty) return '';
+  final task = _agentTaskById(agent, taskId);
+  final title = task?.title.trim().isNotEmpty == true ? task!.title : taskId;
+  return _agentInlineText(l10n, zh: '当前任务 $title', en: 'Current task $title');
+}
+
+String _agentTaskAssignedWorkerLabel(AppLocalizations l10n, AgentTask task) {
+  final workerName = '${task.extra['assigned_worker_name'] ?? ''}'.trim();
+  final workerId = '${task.extra['assigned_worker_id'] ?? ''}'.trim();
+  final label = workerName.isNotEmpty ? workerName : workerId;
+  if (label.isEmpty) return '';
+  return _agentInlineText(l10n, zh: 'Worker $label', en: 'Worker $label');
+}
+
+AgentTask? _agentTaskById(AgentProfile agent, String taskId) {
+  for (final task in agent.tasks) {
+    if (task.id == taskId) return task;
+  }
+  return null;
+}
+
+String _agentInlineText(
+  AppLocalizations l10n, {
+  required String zh,
+  required String en,
+}) {
+  return l10n.localeName.toLowerCase().startsWith('zh') ? zh : en;
 }
 
 String _agentActivityTitle(AppLocalizations l10n, AgentActivityEvent event) {
