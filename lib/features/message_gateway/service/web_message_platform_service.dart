@@ -5355,10 +5355,10 @@ class WebMessagePlatformService {
   bool _nonEmptyList(Object? value) => value is List && value.isNotEmpty;
 
   bool _boolishWebValue(Object? value) {
-    if (value is bool) return value;
+    final parsed = optionalBoolFromValue(value);
+    if (parsed != null) return parsed;
     if (value is num) return value != 0;
-    final text = '$value'.trim().toLowerCase();
-    return text == '1' || text == 'true' || text == 'yes';
+    return false;
   }
 
   int _intFromWebValue(Object? value, int fallback) {
@@ -7072,8 +7072,9 @@ class WebMessagePlatformService {
 }
 
 bool _truthy(String? raw) {
-  final value = raw?.trim().toLowerCase() ?? '';
-  return value == '1' || value == 'true' || value == 'yes' || value == 'tail';
+  final parsed = optionalBoolFromValue(raw);
+  if (parsed != null) return parsed;
+  return raw?.trim().toLowerCase() == 'tail';
 }
 
 class _RequestObservation {
