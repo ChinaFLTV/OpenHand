@@ -8603,6 +8603,7 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.knowledgeRead:
       case AiBuiltinToolKind.agentList:
       case AiBuiltinToolKind.agentDetail:
+      case AiBuiltinToolKind.agentActivityLog:
       case AiBuiltinToolKind.agentTaskTrack:
       case AiBuiltinToolKind.agentTaskProgress:
       case AiBuiltinToolKind.agentTaskResult:

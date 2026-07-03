@@ -56,6 +56,9 @@ void main() {
       final track = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentTaskTrack,
       )!;
+      final activity = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentActivityLog,
+      )!;
       final audit = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentAuditRecord,
       )!;
@@ -92,6 +95,8 @@ void main() {
         contains('state.needs_polling is true'),
       );
       expect(track.definition.description, contains('operational summary'));
+      expect(activity.definition.description, contains('history stream'));
+      expect(activity.definition.description, contains('audit trail'));
       expect(
         audit.definition.description,
         contains('Record an auditable digital employee capability event'),
@@ -237,6 +242,31 @@ void main() {
           auditParameters['properties'] as Map<String, Object?>;
       expect(auditProperties['tool_name'], isA<Map<String, Object?>>());
       expect(auditProperties['metadata'], isA<Map<String, Object?>>());
+
+      final activityParameters = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentActivityLog,
+      )!.definition.parameters;
+      expect(
+        _schemaAnyOfAllowsRequired(activityParameters, 'agent_id'),
+        isTrue,
+      );
+      expect(
+        _schemaAnyOfAllowsRequired(activityParameters, 'agent_name'),
+        isTrue,
+      );
+      expect(_schemaAnyOfAllowsRequired(activityParameters, 'agent'), isTrue);
+      final activityProperties =
+          activityParameters['properties'] as Map<String, Object?>;
+      expect(
+        activityProperties['include_activities'],
+        isA<Map<String, Object?>>(),
+      );
+      expect(activityProperties['include_audit'], isA<Map<String, Object?>>());
+      expect(activityProperties['task_id'], isA<Map<String, Object?>>());
+      expect(activityProperties['worker_id'], isA<Map<String, Object?>>());
+      expect(activityProperties['tool_name'], isA<Map<String, Object?>>());
+      final limitSchema = activityProperties['limit'] as Map<String, Object?>;
+      expect(limitSchema['maximum'], 100);
     });
 
     test('hides agent tools until at least one agent is enabled', () async {
@@ -269,6 +299,10 @@ void main() {
         AiBuiltinToolKind.agentAuditRecord,
       );
       expect(
+        catalog.find('AgentActivityLog')?.builtinKind,
+        AiBuiltinToolKind.agentActivityLog,
+      );
+      expect(
         catalog.find('AgentApprovalRequest')?.builtinKind,
         AiBuiltinToolKind.agentApprovalRequest,
       );
@@ -296,6 +330,7 @@ void main() {
       expect(catalog.find('AgentList'), isNull);
       expect(catalog.find('AgentTaskPublish'), isNull);
       expect(catalog.find('AgentAuditRecord'), isNull);
+      expect(catalog.find('AgentActivityLog'), isNull);
       expect(catalog.find('AgentApprovalRequest'), isNull);
       expect(catalog.find('AgentKpiUpsert'), isNull);
       expect(catalog.find('AgentResourceUpdate'), isNull);
@@ -327,6 +362,7 @@ void main() {
         );
         expect(catalog.find('AgentTaskPublish'), isNull);
         expect(catalog.find('AgentAuditRecord'), isNull);
+        expect(catalog.find('AgentActivityLog'), isNull);
         expect(catalog.find('AgentApprovalRequest'), isNull);
         expect(catalog.find('AgentKpiUpsert'), isNull);
         expect(catalog.find('AgentResourceUpdate'), isNull);
@@ -349,6 +385,7 @@ void main() {
         expect(catalog.find('AgentList'), isNull);
         expect(catalog.find('AgentTaskPublish'), isNull);
         expect(catalog.find('AgentAuditRecord'), isNull);
+        expect(catalog.find('AgentActivityLog'), isNull);
         expect(catalog.find('AgentApprovalRequest'), isNull);
         expect(catalog.find('AgentKpiUpsert'), isNull);
         expect(catalog.find('AgentResourceUpdate'), isNull);
@@ -621,6 +658,110 @@ void main() {
       expect(toolCounts['finops-duizhang-expert'], 1);
       expect(agent.auditEvents.first.kind, 'skill_call');
       expect(agent.activities.first.kind, 'audit_recorded');
+    });
+
+    test('activity log tool filters history and audit events', () async {
+      await controller.saveAgent(
+        _agent(enabled: true).copyWith(
+          activities: <AgentActivityEvent>[
+            AgentActivityEvent(
+              id: 'act-1',
+              kind: 'task_assigned',
+              title: 'task_assigned',
+              content: 'Collect evidence',
+              createdAt: DateTime.utc(2026, 7, 4, 1),
+              metadata: const <String, Object?>{
+                'task_id': 'task-123',
+                'worker_id': 'worker-1',
+                'tool_name': 'SkillRunner',
+              },
+            ),
+            AgentActivityEvent(
+              id: 'act-2',
+              kind: 'resource_updated',
+              title: 'resource_updated',
+              createdAt: DateTime.utc(2026, 7, 4),
+              metadata: const <String, Object?>{'task_id': 'other-task'},
+            ),
+          ],
+          auditEvents: <AgentAuditEvent>[
+            AgentAuditEvent(
+              id: 'audit-1',
+              kind: 'skill_call',
+              summary: 'skill_call: collect evidence',
+              toolName: 'SkillRunner',
+              tokenUsage: 128,
+              requestCount: 2,
+              createdAt: DateTime.utc(2026, 7, 4, 1),
+              metadata: const <String, Object?>{
+                'task_id': 'task-123',
+                'worker_id': 'worker-1',
+              },
+            ),
+            AgentAuditEvent(
+              id: 'audit-2',
+              kind: 'mcp_call',
+              summary: 'mcp_call: unmatched',
+              toolName: 'McpTool',
+              tokenUsage: 32,
+              requestCount: 1,
+              createdAt: DateTime.utc(2026, 7, 4),
+              metadata: const <String, Object?>{'task_id': 'other-task'},
+            ),
+          ],
+        ),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(),
+      );
+      final result = await runtime.execute(
+        sessionId: 'session-activity',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-activity',
+          name: 'AgentActivityLog',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-1',
+            'task_id': 'task-123',
+            'worker_id': 'worker-1',
+            'tool_name': 'SkillRunner',
+            'limit': 5,
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+      final activities = payload['activities'] as List<Object?>;
+      final auditEvents = payload['audit_events'] as List<Object?>;
+      final activity = activities.single as Map<String, Object?>;
+      final audit = auditEvents.single as Map<String, Object?>;
+      final filters = payload['filters'] as Map<String, Object?>;
+      final activitySummary =
+          payload['activity_summary'] as Map<String, Object?>;
+      final auditSummary = payload['audit_summary'] as Map<String, Object?>;
+      final toolCounts = auditSummary['tool_counts'] as Map<String, Object?>;
+
+      expect(filters['task_id'], 'task-123');
+      expect(activity['id'], 'act-1');
+      expect(activity['kind'], 'task_assigned');
+      expect(audit['id'], 'audit-1');
+      expect(audit['tool_name'], 'SkillRunner');
+      expect(activitySummary['event_count'], 1);
+      expect(auditSummary['event_count'], 1);
+      expect(auditSummary['request_count'], 2);
+      expect(auditSummary['token_usage'], 128);
+      expect(toolCounts['SkillRunner'], 1);
+      expect(result.metadata['action'], 'activity_log');
+      expect(result.metadata['activity_count'], 1);
+      expect(result.metadata['audit_count'], 1);
     });
 
     test('cluster configure tool updates scale settings and workers', () async {

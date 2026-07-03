@@ -216,6 +216,7 @@ enum AiBuiltinToolKind {
   knowledgeRead,
   agentList,
   agentDetail,
+  agentActivityLog,
   agentAuditRecord,
   agentApprovalRequest,
   agentKpiUpsert,
@@ -482,6 +483,7 @@ class AiToolRuntimeService {
     if (normalized.isEmpty) return false;
     return normalized == 'agentlist' ||
         normalized == 'agentdetail' ||
+        normalized.startsWith('agentactivity') ||
         normalized.startsWith('agentaudit') ||
         normalized.startsWith('agentapproval') ||
         normalized.startsWith('agentkpi') ||
@@ -510,6 +512,7 @@ class AiToolRuntimeService {
     return switch (kind) {
       AiBuiltinToolKind.agentList ||
       AiBuiltinToolKind.agentDetail ||
+      AiBuiltinToolKind.agentActivityLog ||
       AiBuiltinToolKind.agentAuditRecord ||
       AiBuiltinToolKind.agentApprovalRequest ||
       AiBuiltinToolKind.agentKpiUpsert ||
@@ -1954,6 +1957,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.knowledgeRead => 'KnowledgeRead',
       AiBuiltinToolKind.agentList => 'AgentList',
       AiBuiltinToolKind.agentDetail => 'AgentDetail',
+      AiBuiltinToolKind.agentActivityLog => 'AgentActivityLog',
       AiBuiltinToolKind.agentAuditRecord => 'AgentAuditRecord',
       AiBuiltinToolKind.agentApprovalRequest => 'AgentApprovalRequest',
       AiBuiltinToolKind.agentKpiUpsert => 'AgentKpiUpsert',
@@ -3597,6 +3601,68 @@ class AiToolRuntimeService {
             'type': 'boolean',
             'description':
                 'When true, include the full rendered digital employee system prompt. Use sparingly.',
+          },
+        },
+        'anyOf': _agentToolAgentSelectorAnyOf,
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentActivityLog,
+      name: 'AgentActivityLog',
+      description:
+          'Read one digital employee history stream with recent activities, audit events, capability/tool usage summary, task or worker filters, and lightweight counts. Use this when the user asks for historical activity, logs, audit trail, capability usage, or task/worker execution evidence.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{
+            'type': 'string',
+            'description': 'Agent id or exact display name.',
+          },
+          'include_disabled': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'When true, allow inspecting a stopped/disabled agent history.',
+          },
+          'include_activities': <String, Object?>{
+            'type': 'boolean',
+            'description': 'Defaults to true.',
+          },
+          'include_audit': <String, Object?>{
+            'type': 'boolean',
+            'description': 'Defaults to true.',
+          },
+          'kind': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Optional activity/audit kind filter such as task_assigned, skill_call, approval_requested, or resource_updated.',
+          },
+          'activity_kind': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for kind.',
+          },
+          'tool_name': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Optional audited skill, MCP, builtin tool, or capability name filter.',
+          },
+          'tool': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for tool_name.',
+          },
+          'task_id': <String, Object?>{'type': 'string'},
+          'id': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for task_id.',
+          },
+          'worker_id': <String, Object?>{'type': 'string'},
+          'limit': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1,
+            'maximum': 100,
+            'description': 'Maximum records per stream. Defaults to 30.',
           },
         },
         'anyOf': _agentToolAgentSelectorAnyOf,

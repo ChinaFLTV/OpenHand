@@ -80,6 +80,7 @@ const Set<AiBuiltinToolKind> _agentCoordinationBuiltinToolKinds =
     <AiBuiltinToolKind>{
       AiBuiltinToolKind.agentList,
       AiBuiltinToolKind.agentDetail,
+      AiBuiltinToolKind.agentActivityLog,
       AiBuiltinToolKind.agentAuditRecord,
       AiBuiltinToolKind.agentApprovalRequest,
       AiBuiltinToolKind.agentKpiUpsert,

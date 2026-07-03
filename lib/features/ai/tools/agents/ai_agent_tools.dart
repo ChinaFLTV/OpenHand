@@ -44,6 +44,7 @@ const Set<String> _agentRetryPolicyValues = <String>{'bounded_retry', 'none'};
 enum _AgentToolOperation {
   list,
   detail,
+  activityLog,
   recordAudit,
   requestApproval,
   upsertKpi,
@@ -90,6 +91,13 @@ class AiAgentTool extends AiTool {
         kind: AiBuiltinToolKind.agentDetail,
         name: 'AgentDetail',
         operation: _AgentToolOperation.detail,
+        agentsControllerProvider: agentsControllerProvider,
+        promptRenderer: renderer,
+      ),
+      AiAgentTool._(
+        kind: AiBuiltinToolKind.agentActivityLog,
+        name: 'AgentActivityLog',
+        operation: _AgentToolOperation.activityLog,
         agentsControllerProvider: agentsControllerProvider,
         promptRenderer: renderer,
       ),
@@ -245,6 +253,11 @@ class AiAgentTool extends AiTool {
       return switch (_operation) {
         _AgentToolOperation.list => _list(controller, context, stopwatch),
         _AgentToolOperation.detail => await _detail(
+          controller,
+          context,
+          stopwatch,
+        ),
+        _AgentToolOperation.activityLog => _activityLog(
           controller,
           context,
           stopwatch,
@@ -412,6 +425,100 @@ class AiAgentTool extends AiTool {
       metadata: <String, Object?>{
         'action': 'detail',
         'agent_id': resolution.agent!.id,
+      },
+    );
+  }
+
+  AiToolExecutionResult _activityLog(
+    AgentsController controller,
+    AiToolExecutionContext context,
+    Stopwatch stopwatch,
+  ) {
+    final args = context.decodedArguments;
+    final includeDisabled = boolFromValue(args['include_disabled']);
+    final resolution = _resolveAgent(
+      controller,
+      args,
+      includeDisabled: includeDisabled,
+    );
+    if (resolution.error != null) return resolution.error!;
+    final agent = resolution.agent!;
+    final limit = clampedIntFromValue(
+      args['limit'],
+      fallback: 30,
+      min: 1,
+      max: 100,
+    );
+    final includeActivities = boolFromValue(
+      args['include_activities'],
+      defaultValue: true,
+    );
+    final includeAudit = boolFromValue(
+      args['include_audit'],
+      defaultValue: true,
+    );
+    final kind = _optionalText(args['kind'] ?? args['activity_kind']);
+    final toolName = _optionalText(args['tool_name'] ?? args['tool']);
+    final taskId = _optionalText(args['task_id'] ?? args['id']);
+    final workerId = _optionalText(args['worker_id']);
+
+    final activities = includeActivities
+        ? agent.activities
+              .where(
+                (event) => _activityMatches(
+                  event,
+                  kind: kind,
+                  toolName: toolName,
+                  taskId: taskId,
+                  workerId: workerId,
+                ),
+              )
+              .take(limit)
+              .toList(growable: false)
+        : const <AgentActivityEvent>[];
+    final auditEvents = includeAudit
+        ? agent.auditEvents
+              .where(
+                (event) => _auditMatches(
+                  event,
+                  kind: kind,
+                  toolName: toolName,
+                  taskId: taskId,
+                  workerId: workerId,
+                ),
+              )
+              .take(limit)
+              .toList(growable: false)
+        : const <AgentAuditEvent>[];
+    final payload = <String, Object?>{
+      'agent': _agentSummaryJson(agent),
+      'filters': <String, Object?>{
+        'include_disabled': includeDisabled,
+        'include_activities': includeActivities,
+        'include_audit': includeAudit,
+        'limit': limit,
+        if (kind != null) 'kind': kind,
+        if (toolName != null) 'tool_name': toolName,
+        if (taskId != null) 'task_id': taskId,
+        if (workerId != null) 'worker_id': workerId,
+      },
+      'activities': activities
+          .map(_activityEventSummaryJson)
+          .toList(growable: false),
+      'audit_events': auditEvents
+          .map(_auditEventSummaryJson)
+          .toList(growable: false),
+      'activity_summary': _activitySummaryJson(activities),
+      'audit_summary': _auditSummaryJson(auditEvents),
+    };
+    return _success(
+      payload,
+      stopwatch,
+      metadata: <String, Object?>{
+        'action': 'activity_log',
+        'agent_id': agent.id,
+        'activity_count': activities.length,
+        'audit_count': auditEvents.length,
       },
     );
   }
@@ -1696,15 +1803,109 @@ Map<String, Object?> _auditSummaryJson(List<AgentAuditEvent> events) {
   };
 }
 
+Map<String, Object?> _activitySummaryJson(List<AgentActivityEvent> events) {
+  final kindCounts = <String, int>{};
+  for (final event in events) {
+    final kind = event.kind.trim();
+    if (kind.isEmpty) continue;
+    kindCounts[kind] = (kindCounts[kind] ?? 0) + 1;
+  }
+  return <String, Object?>{
+    'event_count': events.length,
+    if (kindCounts.isNotEmpty) 'kind_counts': kindCounts,
+    'recent_events': events
+        .take(5)
+        .map(_activityEventSummaryJson)
+        .toList(growable: false),
+  };
+}
+
+Map<String, Object?> _activityEventSummaryJson(AgentActivityEvent event) {
+  return <String, Object?>{
+    'id': event.id,
+    'kind': event.kind,
+    'title': event.title,
+    'content': event.content,
+    'created_at': _iso(event.createdAt),
+    'metadata': event.metadata,
+  };
+}
+
 Map<String, Object?> _auditEventSummaryJson(AgentAuditEvent event) {
   return <String, Object?>{
+    'id': event.id,
     'kind': event.kind,
     'summary': event.summary,
     'tool_name': event.toolName,
     'request_count': event.requestCount,
     'token_usage': event.tokenUsage,
     'created_at': _iso(event.createdAt),
+    'metadata': event.metadata,
   };
+}
+
+bool _activityMatches(
+  AgentActivityEvent event, {
+  required String? kind,
+  required String? toolName,
+  required String? taskId,
+  required String? workerId,
+}) {
+  if (!_matchesText(event.kind, kind)) return false;
+  if (!_matchesMetadata(event.metadata, 'task_id', taskId)) return false;
+  if (!_matchesMetadata(event.metadata, 'worker_id', workerId)) return false;
+  if (toolName != null &&
+      !_matchesAnyText(toolName, <String>[
+        '${event.metadata['tool_name'] ?? ''}',
+        '${event.metadata['tool'] ?? ''}',
+        '${event.metadata['recorded_by'] ?? ''}',
+      ])) {
+    return false;
+  }
+  return true;
+}
+
+bool _auditMatches(
+  AgentAuditEvent event, {
+  required String? kind,
+  required String? toolName,
+  required String? taskId,
+  required String? workerId,
+}) {
+  if (!_matchesText(event.kind, kind)) return false;
+  if (!_matchesMetadata(event.metadata, 'task_id', taskId)) return false;
+  if (!_matchesMetadata(event.metadata, 'worker_id', workerId)) return false;
+  if (toolName != null &&
+      !_matchesAnyText(toolName, <String>[
+        event.toolName,
+        '${event.metadata['tool_name'] ?? ''}',
+        '${event.metadata['tool'] ?? ''}',
+        '${event.metadata['recorded_by'] ?? ''}',
+      ])) {
+    return false;
+  }
+  return true;
+}
+
+bool _matchesMetadata(
+  Map<String, Object?> metadata,
+  String key,
+  String? expected,
+) {
+  if (expected == null) return true;
+  return _matchesText('${metadata[key] ?? ''}', expected);
+}
+
+bool _matchesAnyText(String expected, Iterable<String> candidates) {
+  for (final candidate in candidates) {
+    if (_matchesText(candidate, expected)) return true;
+  }
+  return false;
+}
+
+bool _matchesText(String actual, String? expected) {
+  if (expected == null) return true;
+  return actual.trim().toLowerCase() == expected.trim().toLowerCase();
 }
 
 Map<String, Object?> _resourceUsageSummaryJson(AgentResourceUsage usage) {
