@@ -310,10 +310,7 @@ class AiToolUtils {
       if (schemaType == 'boolean') {
         final decoded = _tryDecodeJson(trimmed);
         if (decoded is bool) return decoded;
-        final normalized = trimmed.toLowerCase();
-        if (normalized == 'true' || normalized == 'false') {
-          return normalized == 'true';
-        }
+        return optionalBoolFromValue(trimmed) ?? stripped;
       }
       return stripped;
     }
