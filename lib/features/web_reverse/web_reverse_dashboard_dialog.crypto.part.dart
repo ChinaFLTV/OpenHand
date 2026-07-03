@@ -143,7 +143,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
   String _tsToIso(String s) {
     final raw = s.trim();
     if (raw.isEmpty) return '';
-    final n = int.tryParse(raw);
+    final n = optionalIntFromValue(raw);
     if (n == null) return '! not a number';
     final ms = raw.length <= 10 ? n * 1000 : n;
     try {

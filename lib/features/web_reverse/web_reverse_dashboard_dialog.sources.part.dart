@@ -2353,8 +2353,8 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
     final colonIdx = raw.lastIndexOf(':');
     if (colonIdx > 0 && colonIdx < raw.length - 1) {
       final tail = raw.substring(colonIdx + 1).trim();
-      final n = int.tryParse(tail);
-      if (n != null && n > 0) {
+      final n = optionalPositiveIntFromValue(tail);
+      if (n != null) {
         line = n;
         raw = raw.substring(0, colonIdx);
       }

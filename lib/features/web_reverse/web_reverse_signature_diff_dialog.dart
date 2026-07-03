@@ -25,6 +25,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -757,7 +758,7 @@ _FieldStat _classify(String name, List<String> values) {
   final asInts = <int>[];
   var allInt = true;
   for (final v in values) {
-    final n = int.tryParse(v);
+    final n = optionalIntFromValue(v);
     if (n == null) {
       allInt = false;
       break;
