@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -2516,6 +2517,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final rule = _settings.readerRuleForSourceType(sourceType);
     final selectedProfile = _selectedReaderProfile(
       models: readerModels,
@@ -2550,7 +2552,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
             children: [
               Expanded(
                 child: Text(
-                  ReaderFileType.label(sourceType, isZh: isZh),
+                  ReaderFileType.label(sourceType, l10n),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -2635,9 +2637,9 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                           if (readerModels.isEmpty)
                             KnowledgeDialogNotice(
                               icon: Icons.info_outline_rounded,
-                              message: isZh
-                                  ? '没有可读取 ${ReaderFileType.label(sourceType, isZh: isZh)} 的 reader 模型。'
-                                  : 'No reader model can read ${ReaderFileType.label(sourceType, isZh: isZh)}.',
+                              message: l10n.knowledgeReaderNoModelForType(
+                                ReaderFileType.label(sourceType, l10n),
+                              ),
                             )
                           else ...[
                             OpenHandModelSelectorField(
@@ -2692,7 +2694,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                                   DropdownMenuItem(
                                     value: item,
                                     child: Text(
-                                      ReaderFileType.label(item, isZh: isZh),
+                                      ReaderFileType.label(item, l10n),
                                     ),
                                   ),
                               ],

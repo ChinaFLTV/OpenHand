@@ -544,6 +544,24 @@ abstract class AppLocalizations {
   /// **'正在取消…'**
   String get exportProgressCancelling;
 
+  /// No description provided for @readerFileTypeText.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'纯文本'**
+  String get readerFileTypeText;
+
+  /// No description provided for @readerFileTypeCode.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'代码'**
+  String get readerFileTypeCode;
+
+  /// Knowledge base reader rule warning shown when no model supports a source file type.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'没有可读取 {type} 的 reader 模型。'**
+  String knowledgeReaderNoModelForType(Object type);
+
   /// No description provided for @previewSectionTitle.
   ///
   /// In zh_Hans, this message translates to:

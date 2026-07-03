@@ -81,6 +81,15 @@
   "@exportProgressCancelling": {
     "description": "Status text shown while a running export is being cancelled."
   },
+  "readerFileTypeText": "純文字",
+  "readerFileTypeCode": "程式碼",
+  "knowledgeReaderNoModelForType": "沒有可讀取 {type} 的 reader 模型。",
+  "@knowledgeReaderNoModelForType": {
+    "description": "Knowledge base reader rule warning shown when no model supports a source file type.",
+    "placeholders": {
+      "type": {}
+    }
+  },
   "previewSectionTitle": "設計方向",
   "previewSectionBody": "遵循 Material 3 Expressive 設計理念，強調層次、留白、圓角、柔和光感與清晰的資訊節奏。",
   "threadPrimary": "OpenHand",

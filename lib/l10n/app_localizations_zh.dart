@@ -231,6 +231,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get exportProgressCancelling => '正在取消…';
 
   @override
+  String get readerFileTypeText => '纯文本';
+
+  @override
+  String get readerFileTypeCode => '代码';
+
+  @override
+  String knowledgeReaderNoModelForType(Object type) {
+    return '没有可读取 $type 的 reader 模型。';
+  }
+
+  @override
   String get previewSectionTitle => '设计方向';
 
   @override
@@ -9959,6 +9970,17 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get exportProgressCancelling => '正在取消…';
 
   @override
+  String get readerFileTypeText => '纯文本';
+
+  @override
+  String get readerFileTypeCode => '代码';
+
+  @override
+  String knowledgeReaderNoModelForType(Object type) {
+    return '没有可读取 $type 的 reader 模型。';
+  }
+
+  @override
   String get previewSectionTitle => '设计方向';
 
   @override
@@ -19684,6 +19706,17 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get exportProgressCancelling => '正在取消…';
+
+  @override
+  String get readerFileTypeText => '純文字';
+
+  @override
+  String get readerFileTypeCode => '程式碼';
+
+  @override
+  String knowledgeReaderNoModelForType(Object type) {
+    return '沒有可讀取 $type 的 reader 模型。';
+  }
 
   @override
   String get previewSectionTitle => '設計方向';

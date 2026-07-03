@@ -239,6 +239,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exportProgressCancelling => 'Cancelling…';
 
   @override
+  String get readerFileTypeText => 'Plain text';
+
+  @override
+  String get readerFileTypeCode => 'Code';
+
+  @override
+  String knowledgeReaderNoModelForType(Object type) {
+    return 'No reader model can read $type.';
+  }
+
+  @override
   String get previewSectionTitle => 'Design Direction';
 
   @override

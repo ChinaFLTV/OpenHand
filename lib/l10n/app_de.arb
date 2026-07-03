@@ -81,6 +81,15 @@
   "@exportProgressCancelling": {
     "description": "Status text shown while a running export is being cancelled."
   },
+  "readerFileTypeText": "Nur Text",
+  "readerFileTypeCode": "Code",
+  "knowledgeReaderNoModelForType": "Kein Reader-Modell kann {type} lesen.",
+  "@knowledgeReaderNoModelForType": {
+    "description": "Knowledge base reader rule warning shown when no model supports a source file type.",
+    "placeholders": {
+      "type": {}
+    }
+  },
   "previewSectionTitle": "Designrichtung",
   "previewSectionBody": "Entwickelt nach Material 3 Expressive mit geschichteten Flächen, großzügigen Abständen, runden Formen, weichem Licht und klarem Informationsrhythmus.",
   "threadPrimary": "OpenHand",

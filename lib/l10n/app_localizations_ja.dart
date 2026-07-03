@@ -232,6 +232,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get exportProgressCancelling => 'キャンセル中…';
 
   @override
+  String get readerFileTypeText => 'プレーンテキスト';
+
+  @override
+  String get readerFileTypeCode => 'コード';
+
+  @override
+  String knowledgeReaderNoModelForType(Object type) {
+    return '$type を読み取れる reader モデルがありません。';
+  }
+
+  @override
   String get previewSectionTitle => 'デザイン方針';
 
   @override

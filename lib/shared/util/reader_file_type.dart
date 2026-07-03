@@ -1,3 +1,5 @@
+import '../../l10n/app_localizations.dart';
+
 class ReaderFileType {
   const ReaderFileType._();
 
@@ -137,10 +139,10 @@ class ReaderFileType {
     return textLikeSourceTypes.contains(normalize(value));
   }
 
-  static String label(String value, {required bool isZh}) {
+  static String label(String value, AppLocalizations l10n) {
     return switch (normalize(value)) {
       markdown => 'Markdown',
-      text => isZh ? '纯文本' : 'Text',
+      text => l10n.readerFileTypeText,
       html => 'HTML',
       json => 'JSON',
       jsonl => 'JSONL',
@@ -149,7 +151,7 @@ class ReaderFileType {
       xml => 'XML',
       csv => 'CSV',
       tsv => 'TSV',
-      code => isZh ? '代码' : 'Code',
+      code => l10n.readerFileTypeCode,
       latex => 'LaTeX',
       rtf => 'RTF',
       docx => 'Word DOCX',

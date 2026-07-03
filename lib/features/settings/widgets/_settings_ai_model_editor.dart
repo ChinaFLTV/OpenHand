@@ -3252,6 +3252,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   }) {
     final theme = Theme.of(context);
     final zh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3282,7 +3283,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           children: [
             for (final value in values)
               FilterChip(
-                label: Text(ReaderFileType.label(value, isZh: zh)),
+                label: Text(ReaderFileType.label(value, l10n)),
                 selected: selected.contains(value),
                 onSelected: (checked) {
                   final next = <String>{...selected};

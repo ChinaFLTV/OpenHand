@@ -81,6 +81,15 @@
   "@exportProgressCancelling": {
     "description": "Status text shown while a running export is being cancelled."
   },
+  "readerFileTypeText": "プレーンテキスト",
+  "readerFileTypeCode": "コード",
+  "knowledgeReaderNoModelForType": "{type} を読み取れる reader モデルがありません。",
+  "@knowledgeReaderNoModelForType": {
+    "description": "Knowledge base reader rule warning shown when no model supports a source file type.",
+    "placeholders": {
+      "type": {}
+    }
+  },
   "previewSectionTitle": "デザイン方針",
   "previewSectionBody": "Material 3 Expressive の考え方に基づき、レイヤー構造、広い余白、丸みのある形、柔らかな光感、明確な情報リズムを重視しています。",
   "threadPrimary": "OpenHand",
