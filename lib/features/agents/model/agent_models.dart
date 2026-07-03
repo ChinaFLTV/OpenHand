@@ -587,6 +587,32 @@ class AgentWorker {
   final DateTime? updatedAt;
   final Map<String, Object?> extra;
 
+  AgentWorker copyWith({
+    String? id,
+    String? name,
+    AgentWorkerStatus? status,
+    int? executedTaskCount,
+    double? busyScore,
+    int? priority,
+    String? currentTaskId,
+    List<String>? labels,
+    DateTime? updatedAt,
+    Map<String, Object?>? extra,
+  }) {
+    return AgentWorker(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      status: status ?? this.status,
+      executedTaskCount: executedTaskCount ?? this.executedTaskCount,
+      busyScore: busyScore ?? this.busyScore,
+      priority: priority ?? this.priority,
+      currentTaskId: currentTaskId ?? this.currentTaskId,
+      labels: labels ?? this.labels,
+      updatedAt: updatedAt ?? this.updatedAt,
+      extra: extra ?? this.extra,
+    );
+  }
+
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'id': id,

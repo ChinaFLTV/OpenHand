@@ -236,7 +236,7 @@ class AgentsController extends ManagedChangeNotifier {
         updatedAt: now,
       );
       createdTask = task;
-      return agent.copyWith(
+      final queued = agent.copyWith(
         tasks: <AgentTask>[task, ...agent.tasks],
         activities: _prependActivity(
           agent.activities,
@@ -267,6 +267,16 @@ class AgentsController extends ManagedChangeNotifier {
           ),
         ),
       );
+      final dispatched = _dispatchReadyTasksForAgent(
+        queued,
+        now,
+        auditToolName: auditToolName,
+      );
+      createdTask = dispatched.tasks.firstWhere(
+        (item) => item.id == task.id,
+        orElse: () => task,
+      );
+      return dispatched;
     });
     return changed ? createdTask : null;
   }
@@ -295,7 +305,9 @@ class AgentsController extends ManagedChangeNotifier {
             if (task.id != normalizedTaskId) return task;
             found = true;
             final nextProgress = progress == null
-                ? task.progress
+                ? status == AgentTaskStatus.completed
+                      ? 1.0
+                      : task.progress
                 : progress.clamp(0, 1).toDouble();
             updatedTask = task.copyWith(
               status: status,
@@ -311,8 +323,17 @@ class AgentsController extends ManagedChangeNotifier {
           })
           .toList(growable: false);
       if (!found || updatedTask == null) return agent;
-      return agent.copyWith(
+      final nextWorkers = status == null || !_taskStatusReleasesWorker(status)
+          ? agent.workers
+          : _releaseWorkersForTask(
+              agent.workers,
+              updatedTask!,
+              now,
+              countExecution: _taskStatusCountsExecution(status),
+            );
+      final updated = agent.copyWith(
         tasks: tasks,
+        workers: nextWorkers,
         activities: _prependActivity(
           agent.activities,
           AgentActivityEvent(
@@ -346,6 +367,18 @@ class AgentsController extends ManagedChangeNotifier {
           ),
         ),
       );
+      final next = status == AgentTaskStatus.ready
+          ? _dispatchReadyTasksForAgent(
+              updated,
+              now,
+              auditToolName: auditToolName,
+            )
+          : updated;
+      updatedTask = next.tasks.firstWhere(
+        (task) => task.id == normalizedTaskId,
+        orElse: () => updatedTask!,
+      );
+      return next;
     }).then((changed) => changed ? updatedTask : null);
   }
 
@@ -459,5 +492,194 @@ class AgentsController extends ManagedChangeNotifier {
     AgentAuditEvent event,
   ) {
     return <AgentAuditEvent>[event, ...existing].take(_maxAuditEvents).toList();
+  }
+
+  AgentProfile _dispatchReadyTasksForAgent(
+    AgentProfile agent,
+    DateTime now, {
+    required String auditToolName,
+  }) {
+    if (!agent.enabled || agent.lifecycleState != AgentLifecycleState.running) {
+      return agent;
+    }
+    final workers = List<AgentWorker>.from(agent.workers);
+    if (workers.isEmpty) return agent;
+    final tasks = <AgentTask>[];
+    final activities = List<AgentActivityEvent>.from(agent.activities);
+    final auditEvents = List<AgentAuditEvent>.from(agent.auditEvents);
+    var changed = false;
+    for (final task in agent.tasks) {
+      if (task.status != AgentTaskStatus.ready) {
+        tasks.add(task);
+        continue;
+      }
+      final workerIndex = _selectWorkerIndex(workers, agent);
+      if (workerIndex < 0) {
+        tasks.add(task);
+        continue;
+      }
+      final worker = workers[workerIndex];
+      final workerName = worker.name.trim().isEmpty ? worker.id : worker.name;
+      final assigned = task.copyWith(
+        status: AgentTaskStatus.running,
+        progress: task.progress <= 0 ? 0.05 : task.progress,
+        updatedAt: now,
+        extra: <String, Object?>{
+          ...task.extra,
+          'assigned_worker_id': worker.id,
+          'assigned_worker_name': workerName,
+          'assigned_at': now.toIso8601String(),
+        },
+      );
+      tasks.add(assigned);
+      workers[workerIndex] = worker.copyWith(
+        status: AgentWorkerStatus.busy,
+        busyScore: 1,
+        currentTaskId: task.id,
+        updatedAt: now,
+        extra: <String, Object?>{
+          ...worker.extra,
+          'last_assigned_task_id': task.id,
+          'last_assigned_at': now.toIso8601String(),
+        },
+      );
+      activities.insert(
+        0,
+        AgentActivityEvent(
+          id: _uuid.v4(),
+          kind: 'task_assigned',
+          title: 'task_assigned',
+          content: assigned.title,
+          createdAt: now,
+          metadata: <String, Object?>{
+            'task_id': assigned.id,
+            'worker_id': worker.id,
+          },
+        ),
+      );
+      auditEvents.insert(
+        0,
+        AgentAuditEvent(
+          id: _uuid.v4(),
+          kind: 'task_assigned',
+          summary: 'task_assigned: ${assigned.title}',
+          toolName: auditToolName,
+          requestCount: 1,
+          createdAt: now,
+          metadata: <String, Object?>{
+            'task_id': assigned.id,
+            'worker_id': worker.id,
+            'scheduler_policy': agent.scaleSettings.schedulerPolicy,
+          },
+        ),
+      );
+      changed = true;
+    }
+    if (!changed) return agent;
+    return agent.copyWith(
+      tasks: tasks,
+      workers: workers,
+      activities: activities.take(_maxActivityEvents).toList(growable: false),
+      auditEvents: auditEvents.take(_maxAuditEvents).toList(growable: false),
+    );
+  }
+
+  int _selectWorkerIndex(List<AgentWorker> workers, AgentProfile agent) {
+    var selected = -1;
+    for (var i = 0; i < workers.length; i++) {
+      final worker = workers[i];
+      if (!_workerAcceptsTask(worker)) continue;
+      if (selected < 0 ||
+          _workerRanksBefore(
+            worker,
+            workers[selected],
+            agent.scaleSettings.schedulerPolicy,
+          )) {
+        selected = i;
+      }
+    }
+    return selected;
+  }
+
+  bool _workerAcceptsTask(AgentWorker worker) {
+    return worker.status == AgentWorkerStatus.idle &&
+        worker.currentTaskId.trim().isEmpty;
+  }
+
+  bool _workerRanksBefore(
+    AgentWorker candidate,
+    AgentWorker current,
+    String schedulerPolicy,
+  ) {
+    final normalizedPolicy = schedulerPolicy.trim().toLowerCase();
+    if (normalizedPolicy.contains('priority') &&
+        candidate.priority != current.priority) {
+      return candidate.priority > current.priority;
+    }
+    if (candidate.busyScore != current.busyScore) {
+      return candidate.busyScore < current.busyScore;
+    }
+    if (candidate.executedTaskCount != current.executedTaskCount) {
+      return candidate.executedTaskCount < current.executedTaskCount;
+    }
+    return candidate.id.compareTo(current.id) < 0;
+  }
+
+  List<AgentWorker> _releaseWorkersForTask(
+    List<AgentWorker> workers,
+    AgentTask task,
+    DateTime now, {
+    required bool countExecution,
+  }) {
+    final assignedWorkerId = '${task.extra['assigned_worker_id'] ?? ''}'.trim();
+    return workers
+        .map((worker) {
+          final ownsTask =
+              worker.currentTaskId == task.id ||
+              (assignedWorkerId.isNotEmpty && worker.id == assignedWorkerId);
+          if (!ownsTask) return worker;
+          return worker.copyWith(
+            status: AgentWorkerStatus.idle,
+            busyScore: 0,
+            currentTaskId: '',
+            executedTaskCount: countExecution
+                ? worker.executedTaskCount + 1
+                : worker.executedTaskCount,
+            updatedAt: now,
+            extra: <String, Object?>{
+              ...worker.extra,
+              'last_finished_task_id': task.id,
+              'last_finished_status': task.status.storageValue,
+              'last_finished_at': now.toIso8601String(),
+            },
+          );
+        })
+        .toList(growable: false);
+  }
+
+  bool _taskStatusReleasesWorker(AgentTaskStatus status) {
+    return switch (status) {
+      AgentTaskStatus.waitingApproval ||
+      AgentTaskStatus.paused ||
+      AgentTaskStatus.completed ||
+      AgentTaskStatus.failed ||
+      AgentTaskStatus.canceled => true,
+      AgentTaskStatus.backlog ||
+      AgentTaskStatus.ready ||
+      AgentTaskStatus.running => false,
+    };
+  }
+
+  bool _taskStatusCountsExecution(AgentTaskStatus status) {
+    return switch (status) {
+      AgentTaskStatus.completed ||
+      AgentTaskStatus.failed ||
+      AgentTaskStatus.canceled => true,
+      AgentTaskStatus.backlog ||
+      AgentTaskStatus.ready ||
+      AgentTaskStatus.running ||
+      AgentTaskStatus.waitingApproval ||
+      AgentTaskStatus.paused => false,
+    };
   }
 }

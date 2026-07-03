@@ -1995,6 +1995,10 @@ String _agentActivityTitle(AppLocalizations l10n, AgentActivityEvent event) {
     'agent_started' => l10n.agentsActivityAgentStarted,
     'agent_stopped' => l10n.agentsActivityAgentStopped,
     'task_published' => l10n.agentsActivityTaskPublished,
+    'task_assigned' =>
+      l10n.localeName.toLowerCase().startsWith('zh')
+          ? '任务已分配'
+          : 'Task assigned',
     'task_updated' => l10n.agentsActivityTaskUpdated,
     'task_canceled' => l10n.agentsActivityTaskCanceled,
     'task_paused' => l10n.agentsActivityTaskPaused,
@@ -2010,6 +2014,7 @@ String _agentActivitySubtitle(AppLocalizations l10n, AgentActivityEvent event) {
   return switch (event.kind) {
     'agent_started' ||
     'agent_stopped' ||
+    'task_assigned' ||
     'task_updated' ||
     'task_canceled' ||
     'task_paused' ||
