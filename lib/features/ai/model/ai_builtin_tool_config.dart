@@ -488,6 +488,7 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.agentKpiUpsert:
       case AiBuiltinToolKind.agentResourceUpdate:
       case AiBuiltinToolKind.agentClusterConfigure:
+      case AiBuiltinToolKind.agentClusterStatus:
       case AiBuiltinToolKind.agentTaskList:
       case AiBuiltinToolKind.agentTaskPublish:
       case AiBuiltinToolKind.agentTaskTrack:

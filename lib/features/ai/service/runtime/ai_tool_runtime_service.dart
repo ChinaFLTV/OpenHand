@@ -223,6 +223,7 @@ enum AiBuiltinToolKind {
   agentKpiUpsert,
   agentResourceUpdate,
   agentClusterConfigure,
+  agentClusterStatus,
   agentTaskList,
   agentTaskPublish,
   agentTaskTrack,
@@ -521,6 +522,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.agentKpiUpsert ||
       AiBuiltinToolKind.agentResourceUpdate ||
       AiBuiltinToolKind.agentClusterConfigure ||
+      AiBuiltinToolKind.agentClusterStatus ||
       AiBuiltinToolKind.agentTaskList ||
       AiBuiltinToolKind.agentTaskPublish ||
       AiBuiltinToolKind.agentTaskTrack ||
@@ -1968,6 +1970,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.agentKpiUpsert => 'AgentKpiUpsert',
       AiBuiltinToolKind.agentResourceUpdate => 'AgentResourceUpdate',
       AiBuiltinToolKind.agentClusterConfigure => 'AgentClusterConfigure',
+      AiBuiltinToolKind.agentClusterStatus => 'AgentClusterStatus',
       AiBuiltinToolKind.agentTaskList => 'AgentTaskList',
       AiBuiltinToolKind.agentTaskPublish => 'AgentTaskPublish',
       AiBuiltinToolKind.agentTaskTrack => 'AgentTaskTrack',
@@ -3985,6 +3988,50 @@ class AiToolRuntimeService {
             'type': 'array',
             'items': <String, Object?>{'type': 'string'},
             'description': 'Alias for tags.',
+          },
+        },
+        'anyOf': _agentToolAgentSelectorAnyOf,
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentClusterStatus,
+      name: 'AgentClusterStatus',
+      description:
+          'Read one digital employee worker cluster status: scale settings, queue pressure, worker idle/busy state, executed task counts, busy score, priority, current task, and recent cluster events. Use before delegating, polling, scaling, or explaining worker capacity.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{
+            'type': 'string',
+            'description': 'Agent id or exact display name.',
+          },
+          'include_disabled': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'When true, allow inspecting a stopped/disabled agent cluster.',
+          },
+          'worker_id': <String, Object?>{
+            'type': 'string',
+            'description': 'Optional worker id filter.',
+          },
+          'include_tasks': <String, Object?>{
+            'type': 'boolean',
+            'description': 'Defaults to true.',
+          },
+          'include_audit': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'Defaults to true. Includes recent cluster activity and audit events.',
+          },
+          'limit': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1,
+            'maximum': 100,
+            'description':
+                'Maximum recent records per status section. Defaults to 20.',
           },
         },
         'anyOf': _agentToolAgentSelectorAnyOf,

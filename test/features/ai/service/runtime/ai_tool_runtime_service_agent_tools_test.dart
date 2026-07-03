@@ -77,6 +77,9 @@ void main() {
       final cluster = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentClusterConfigure,
       )!;
+      final clusterStatus = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentClusterStatus,
+      )!;
       final taskList = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentTaskList,
       )!;
@@ -139,6 +142,11 @@ void main() {
         contains('Configure one enabled digital employee worker cluster'),
       );
       expect(cluster.definition.description, contains('Omitted fields keep'));
+      expect(
+        clusterStatus.definition.description,
+        contains('Read one digital employee worker cluster status'),
+      );
+      expect(clusterStatus.definition.description, contains('queue pressure'));
       expect(
         taskList.definition.description,
         contains('List tasks from one digital employee task desk'),
@@ -248,6 +256,28 @@ void main() {
       final removalSchema =
           clusterProperties['worker_removal_policy'] as Map<String, Object?>;
       expect(removalSchema['enum'], contains('newest_first'));
+
+      final clusterStatusParameters = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentClusterStatus,
+      )!.definition.parameters;
+      expect(
+        _schemaAnyOfAllowsRequired(clusterStatusParameters, 'agent_id'),
+        isTrue,
+      );
+      final clusterStatusProperties =
+          clusterStatusParameters['properties'] as Map<String, Object?>;
+      expect(clusterStatusProperties['worker_id'], isA<Map<String, Object?>>());
+      expect(
+        clusterStatusProperties['include_tasks'],
+        isA<Map<String, Object?>>(),
+      );
+      expect(
+        clusterStatusProperties['include_audit'],
+        isA<Map<String, Object?>>(),
+      );
+      final clusterStatusLimit =
+          clusterStatusProperties['limit'] as Map<String, Object?>;
+      expect(clusterStatusLimit['maximum'], 100);
 
       final taskListParameters = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentTaskList,
@@ -371,6 +401,10 @@ void main() {
         AiBuiltinToolKind.agentClusterConfigure,
       );
       expect(
+        catalog.find('AgentClusterStatus')?.builtinKind,
+        AiBuiltinToolKind.agentClusterStatus,
+      );
+      expect(
         catalog.find('AgentTaskList')?.builtinKind,
         AiBuiltinToolKind.agentTaskList,
       );
@@ -392,6 +426,7 @@ void main() {
       expect(catalog.find('AgentKpiUpsert'), isNull);
       expect(catalog.find('AgentResourceUpdate'), isNull);
       expect(catalog.find('AgentClusterConfigure'), isNull);
+      expect(catalog.find('AgentClusterStatus'), isNull);
       expect(catalog.find('AgentTaskList'), isNull);
       expect(catalog.find('AgentTaskComplete'), isNull);
     });
@@ -402,7 +437,11 @@ void main() {
         await controller.saveAgent(
           _agent(
             enabled: true,
-            builtinToolNames: const <String>['AgentList', 'agent_task_track'],
+            builtinToolNames: const <String>[
+              'AgentList',
+              'agent_task_track',
+              'agent_cluster_status',
+            ],
           ),
         );
 
@@ -417,6 +456,10 @@ void main() {
         expect(
           catalog.find('AgentTaskTrack')?.builtinKind,
           AiBuiltinToolKind.agentTaskTrack,
+        );
+        expect(
+          catalog.find('AgentClusterStatus')?.builtinKind,
+          AiBuiltinToolKind.agentClusterStatus,
         );
         expect(catalog.find('AgentTaskPublish'), isNull);
         expect(catalog.find('AgentAuditRecord'), isNull);
@@ -451,6 +494,7 @@ void main() {
         expect(catalog.find('AgentKpiUpsert'), isNull);
         expect(catalog.find('AgentResourceUpdate'), isNull);
         expect(catalog.find('AgentClusterConfigure'), isNull);
+        expect(catalog.find('AgentClusterStatus'), isNull);
         expect(catalog.find('AgentTaskList'), isNull);
         expect(catalog.find('AgentTaskResult'), isNull);
         expect(catalog.find('Bash'), isNotNull);
@@ -1169,6 +1213,103 @@ void main() {
       expect(agent.auditEvents.first.kind, 'cluster_updated');
       expect(agent.auditEvents.first.toolName, 'AgentClusterConfigure');
     });
+
+    test(
+      'cluster status tool reports worker capacity without mutation',
+      () async {
+        await controller.saveAgent(_agent(enabled: true));
+        await controller.saveScaleSettings(
+          'agent-1',
+          const AgentScaleSettings(maxWorkers: 2),
+        );
+        final firstTask = await controller.publishTaskWithResult(
+          'agent-1',
+          title: 'Prepare first report',
+        );
+        final secondTask = await controller.publishTaskWithResult(
+          'agent-1',
+          title: 'Prepare second report',
+        );
+        final thirdTask = await controller.publishTaskWithResult(
+          'agent-1',
+          title: 'Prepare queued report',
+        );
+        expect(firstTask, isNotNull);
+        expect(secondTask, isNotNull);
+        expect(thirdTask, isNotNull);
+
+        final beforeAgent = controller.agentById('agent-1')!;
+        final beforeActivityCount = beforeAgent.activities.length;
+        final beforeAuditCount = beforeAgent.auditEvents.length;
+        final busyWorker = beforeAgent.workers.firstWhere(
+          (worker) => worker.status == AgentWorkerStatus.busy,
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        final result = await runtime.execute(
+          sessionId: 'session-cluster-status',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-cluster-status',
+            name: 'AgentClusterStatus',
+            arguments: jsonEncode(<String, Object?>{
+              'agent_id': 'agent-1',
+              'limit': 10,
+            }),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
+
+        final afterAgent = controller.agentById('agent-1')!;
+        final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+        final settings = payload['scale_settings'] as Map<String, Object?>;
+        final capacity = payload['worker_capacity'] as Map<String, Object?>;
+        final pressure = payload['queue_pressure'] as Map<String, Object?>;
+        final workers = payload['workers'] as List<Object?>;
+        final firstWorker = workers.first as Map<String, Object?>;
+        final workerTask = firstWorker['current_task'] as Map<String, Object?>;
+        final auditSummary =
+            payload['cluster_audit_summary'] as Map<String, Object?>;
+        final auditEvents =
+            payload['recent_cluster_audit_events'] as List<Object?>;
+        final tasks = payload['tasks'] as List<Object?>;
+
+        expect(result.status, BashToolExecutionStatus.success);
+        expect(settings['min_workers'], 1);
+        expect(settings['max_workers'], 2);
+        expect(capacity['total'], 2);
+        expect(capacity['busy'], 2);
+        expect(capacity['idle'], 0);
+        expect(pressure['ready_tasks'], 1);
+        expect(pressure['queued_tasks'], 1);
+        expect(pressure['running_tasks'], 2);
+        expect(pressure['workers_saturated'], isTrue);
+        expect(pressure['can_scale_out'], isFalse);
+        expect(workers, hasLength(2));
+        expect(firstWorker['status'], 'busy');
+        expect(firstWorker['executed_task_count'], 0);
+        expect(firstWorker['busy_score'], 1);
+        expect(workerTask['status'], 'running');
+        expect(tasks, hasLength(3));
+        expect(auditSummary['event_count'], greaterThanOrEqualTo(3));
+        expect(auditEvents, isNotEmpty);
+        expect(result.metadata['action'], 'cluster_status');
+        expect(result.metadata['worker_count'], 2);
+        expect(afterAgent.activities, hasLength(beforeActivityCount));
+        expect(afterAgent.auditEvents, hasLength(beforeAuditCount));
+        expect(
+          afterAgent.workers.any((worker) => worker.id == busyWorker.id),
+          isTrue,
+        );
+      },
+    );
 
     test('publish tool routes to the best matching enabled agent', () async {
       await controller.saveAgent(

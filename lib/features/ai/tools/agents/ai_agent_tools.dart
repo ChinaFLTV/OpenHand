@@ -51,6 +51,7 @@ enum _AgentToolOperation {
   upsertKpi,
   updateResource,
   configureCluster,
+  clusterStatus,
   listTasks,
   publishTask,
   trackTask,
@@ -142,6 +143,13 @@ class AiAgentTool extends AiTool {
         kind: AiBuiltinToolKind.agentClusterConfigure,
         name: 'AgentClusterConfigure',
         operation: _AgentToolOperation.configureCluster,
+        agentsControllerProvider: agentsControllerProvider,
+        promptRenderer: renderer,
+      ),
+      AiAgentTool._(
+        kind: AiBuiltinToolKind.agentClusterStatus,
+        name: 'AgentClusterStatus',
+        operation: _AgentToolOperation.clusterStatus,
         agentsControllerProvider: agentsControllerProvider,
         promptRenderer: renderer,
       ),
@@ -304,6 +312,11 @@ class AiAgentTool extends AiTool {
           stopwatch,
         ),
         _AgentToolOperation.configureCluster => await _configureCluster(
+          controller,
+          context,
+          stopwatch,
+        ),
+        _AgentToolOperation.clusterStatus => _clusterStatus(
           controller,
           context,
           stopwatch,
@@ -545,6 +558,109 @@ class AiAgentTool extends AiTool {
         'agent_id': agent.id,
         'activity_count': activities.length,
         'audit_count': auditEvents.length,
+      },
+    );
+  }
+
+  AiToolExecutionResult _clusterStatus(
+    AgentsController controller,
+    AiToolExecutionContext context,
+    Stopwatch stopwatch,
+  ) {
+    final args = context.decodedArguments;
+    final includeDisabled = boolFromValue(args['include_disabled']);
+    final resolution = _resolveAgent(
+      controller,
+      args,
+      includeDisabled: includeDisabled,
+    );
+    if (resolution.error != null) return resolution.error!;
+    final agent = resolution.agent!;
+    final workerId = _optionalText(args['worker_id']);
+    final includeTasks = boolFromValue(
+      args['include_tasks'],
+      defaultValue: true,
+    );
+    final includeAudit = boolFromValue(
+      args['include_audit'],
+      defaultValue: true,
+    );
+    final limit = clampedIntFromValue(
+      args['limit'],
+      fallback: 20,
+      min: 1,
+      max: 100,
+    );
+    final workers = agent.workers
+        .where((worker) => _workerMatches(worker, workerId))
+        .toList(growable: false);
+    final tasks = includeTasks
+        ? agent.tasks
+              .where((task) => _clusterTaskMatches(task, workerId: workerId))
+              .take(limit)
+              .toList(growable: false)
+        : const <AgentTask>[];
+    final clusterActivities = includeAudit
+        ? agent.activities
+              .where(_isClusterActivity)
+              .where(
+                (event) =>
+                    _matchesMetadata(event.metadata, 'worker_id', workerId),
+              )
+              .take(limit)
+              .toList(growable: false)
+        : const <AgentActivityEvent>[];
+    final clusterAuditEvents = includeAudit
+        ? agent.auditEvents
+              .where(_isClusterAuditEvent)
+              .where(
+                (event) =>
+                    _matchesMetadata(event.metadata, 'worker_id', workerId),
+              )
+              .take(limit)
+              .toList(growable: false)
+        : const <AgentAuditEvent>[];
+
+    return _success(
+      <String, Object?>{
+        'agent': _agentSummaryJson(agent),
+        'filters': <String, Object?>{
+          'include_disabled': includeDisabled,
+          'include_tasks': includeTasks,
+          'include_audit': includeAudit,
+          'limit': limit,
+          if (workerId != null) 'worker_id': workerId,
+        },
+        'scale_settings': agent.scaleSettings.toJson(),
+        'worker_capacity': _workerCapacityJsonForAgent(agent),
+        'queue_pressure': _queuePressureJson(agent),
+        'workers': workers
+            .map((worker) => _workerStatusJson(agent, worker))
+            .toList(growable: false),
+        if (workerId != null) 'worker': _workerSummaryById(agent, workerId),
+        if (includeTasks)
+          'tasks': tasks
+              .map((task) => _taskJson(task, agent: agent))
+              .toList(growable: false),
+        if (includeTasks) 'task_metrics': _taskMetricsForTasksJson(tasks),
+        if (includeAudit)
+          'recent_cluster_activities': clusterActivities
+              .map(_activityEventSummaryJson)
+              .toList(growable: false),
+        if (includeAudit)
+          'recent_cluster_audit_events': clusterAuditEvents
+              .map(_auditEventSummaryJson)
+              .toList(growable: false),
+        if (includeAudit)
+          'cluster_activity_summary': _activitySummaryJson(clusterActivities),
+        if (includeAudit)
+          'cluster_audit_summary': _auditSummaryJson(clusterAuditEvents),
+      },
+      stopwatch,
+      metadata: <String, Object?>{
+        'action': 'cluster_status',
+        'agent_id': agent.id,
+        'worker_count': workers.length,
       },
     );
   }
@@ -2051,6 +2167,59 @@ Map<String, Object?> _workerCapacityJsonForAgent(AgentProfile agent) {
   };
 }
 
+Map<String, Object?> _queuePressureJson(AgentProfile agent) {
+  final backlog = agent.tasks
+      .where((task) => task.status == AgentTaskStatus.backlog)
+      .length;
+  final ready = agent.tasks
+      .where((task) => task.status == AgentTaskStatus.ready)
+      .length;
+  final running = agent.tasks
+      .where((task) => task.status == AgentTaskStatus.running)
+      .length;
+  final blocked = agent.tasks
+      .where(
+        (task) =>
+            task.status == AgentTaskStatus.waitingApproval ||
+            task.status == AgentTaskStatus.paused,
+      )
+      .length;
+  final idleWorkers = agent.workers
+      .where((worker) => worker.status == AgentWorkerStatus.idle)
+      .length;
+  final busyWorkers = agent.workers
+      .where((worker) => worker.status == AgentWorkerStatus.busy)
+      .length;
+  final canScaleOut = agent.workers.length < agent.scaleSettings.maxWorkers;
+  final workersSaturated = agent.workers.isNotEmpty && idleWorkers == 0;
+  final scaleOutRecommended =
+      ready > idleWorkers &&
+      canScaleOut &&
+      (agent.workers.isEmpty ||
+          agent.workerUtilization >= agent.scaleSettings.scaleOutThreshold);
+  final canScaleIn =
+      agent.workers.length > agent.scaleSettings.minWorkers &&
+      ready == 0 &&
+      running == 0 &&
+      agent.workerUtilization <= agent.scaleSettings.scaleInThreshold;
+  return <String, Object?>{
+    'backlog_tasks': backlog,
+    'ready_tasks': ready,
+    'queued_tasks': backlog + ready,
+    'running_tasks': running,
+    'blocked_tasks': blocked,
+    'pending_approvals': agent.pendingApprovalCount,
+    'idle_workers': idleWorkers,
+    'busy_workers': busyWorkers,
+    'workers_saturated': workersSaturated,
+    'can_scale_out': canScaleOut,
+    'scale_out_recommended': scaleOutRecommended,
+    'can_scale_in': canScaleIn,
+    'scale_out_threshold': agent.scaleSettings.scaleOutThreshold,
+    'scale_in_threshold': agent.scaleSettings.scaleInThreshold,
+  };
+}
+
 Map<String, Object?>? _workerSummaryById(AgentProfile agent, String workerId) {
   for (final worker in agent.workers) {
     if (!_matchesText(worker.id, workerId)) continue;
@@ -2067,6 +2236,88 @@ Map<String, Object?>? _workerSummaryById(AgentProfile agent, String workerId) {
     };
   }
   return null;
+}
+
+Map<String, Object?> _workerStatusJson(AgentProfile agent, AgentWorker worker) {
+  final currentTask = _workerCurrentTask(agent, worker);
+  final assignedTasks = agent.tasks
+      .where((task) => _taskAssignedToWorker(task, worker.id))
+      .take(10)
+      .map((task) => _taskJson(task, agent: agent))
+      .toList(growable: false);
+  return <String, Object?>{
+    'id': worker.id,
+    'name': worker.name,
+    'status': worker.status.storageValue,
+    'idle': worker.status == AgentWorkerStatus.idle,
+    'executed_task_count': worker.executedTaskCount,
+    'busy_score': worker.busyScore,
+    'priority': worker.priority,
+    'current_task_id': worker.currentTaskId,
+    'labels': worker.labels,
+    'updated_at': _iso(worker.updatedAt),
+    'extra': worker.extra,
+    if (currentTask != null)
+      'current_task': _taskJson(currentTask, agent: agent),
+    if (assignedTasks.isNotEmpty) 'assigned_tasks': assignedTasks,
+  };
+}
+
+AgentTask? _workerCurrentTask(AgentProfile agent, AgentWorker worker) {
+  final currentTaskId = worker.currentTaskId.trim();
+  if (currentTaskId.isNotEmpty) {
+    for (final task in agent.tasks) {
+      if (task.id == currentTaskId) return task;
+    }
+  }
+  for (final task in agent.tasks) {
+    if (task.status == AgentTaskStatus.running &&
+        _taskAssignedToWorker(task, worker.id)) {
+      return task;
+    }
+  }
+  return null;
+}
+
+bool _workerMatches(AgentWorker worker, String? workerId) {
+  if (workerId == null) return true;
+  return _matchesText(worker.id, workerId);
+}
+
+bool _clusterTaskMatches(AgentTask task, {required String? workerId}) {
+  if (workerId != null && !_taskAssignedToWorker(task, workerId)) {
+    return false;
+  }
+  return task.status == AgentTaskStatus.backlog ||
+      task.status == AgentTaskStatus.ready ||
+      task.status == AgentTaskStatus.running ||
+      task.status == AgentTaskStatus.waitingApproval ||
+      task.status == AgentTaskStatus.paused;
+}
+
+bool _taskAssignedToWorker(AgentTask task, String workerId) {
+  return _matchesText('${task.extra['assigned_worker_id'] ?? ''}', workerId);
+}
+
+bool _isClusterActivity(AgentActivityEvent event) {
+  return _isClusterEventKind(event.kind);
+}
+
+bool _isClusterAuditEvent(AgentAuditEvent event) {
+  return _isClusterEventKind(event.kind);
+}
+
+bool _isClusterEventKind(String kind) {
+  final normalized = kind.trim().toLowerCase();
+  return normalized == 'cluster_updated' ||
+      normalized == 'worker_scaled_out' ||
+      normalized == 'worker_scaled_in' ||
+      normalized == 'task_assigned' ||
+      normalized == 'task_completed' ||
+      normalized == 'task_canceled' ||
+      normalized == 'task_paused' ||
+      normalized == 'task_resumed' ||
+      normalized == 'task_terminated';
 }
 
 List<AgentAuditEvent> _auditEventsForTask(
