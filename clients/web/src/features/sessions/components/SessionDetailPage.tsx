@@ -187,6 +187,7 @@ const SSE_PHASE_GUARD_INTERVAL_MS = 2500;
 // 单次 phase guard 请求的硬超时，避免网络层异常导致兜底轮询永久挂起。
 const SESSION_PHASE_POLL_TIMEOUT_MS = 15_000;
 const TTS_PLAYBACK_POLL_INTERVAL_MS = 1000;
+const TTS_PLAYBACK_POLL_TIMEOUT_MS = 10_000;
 
 // SSE 连续失败 N 次以上才彻底切到 polling，避免短暂网络抖动造成体验切换。
 const SSE_FAIL_THRESHOLD = 3;
@@ -2429,27 +2430,28 @@ export function SessionDetailPage() {
     void stopMessageTtsPlayback().catch(() => undefined);
   }, []);
 
-  useEffect(() => {
-    if (!ttsPlayback.playing) return;
-    let disposed = false;
-    const poll = async () => {
+  useAsyncPolling(
+    async (isActive, signal) => {
       try {
-        const result = await fetchMessageTtsPlayback();
-        if (!disposed) applyTtsPlayback(result.playback);
+        const result = await fetchMessageTtsPlayback({ signal });
+        if (isActive()) applyTtsPlayback(result.playback);
       } catch (e) {
-        if (disposed) return;
+        if (!isActive()) return;
         if (handleAuthError(e)) return;
         setTtsPlayback(EMPTY_TTS_PLAYBACK);
       }
-    };
-    const interval = window.setInterval(poll, TTS_PLAYBACK_POLL_INTERVAL_MS);
-    const initial = window.setTimeout(poll, TTS_PLAYBACK_POLL_INTERVAL_MS);
-    return () => {
-      disposed = true;
-      window.clearInterval(interval);
-      window.clearTimeout(initial);
-    };
-  }, [applyTtsPlayback, ttsPlayback.playing]);
+    },
+    {
+      enabled: ttsPlayback.playing,
+      immediate: false,
+      intervalMs: TTS_PLAYBACK_POLL_INTERVAL_MS,
+      taskTimeoutMs: TTS_PLAYBACK_POLL_TIMEOUT_MS,
+      onError: (e) => {
+        if (handleAuthError(e)) return;
+        setTtsPlayback(EMPTY_TTS_PLAYBACK);
+      },
+    },
+  );
 
   useEffect(
     () => () => {

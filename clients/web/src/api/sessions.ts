@@ -696,12 +696,15 @@ export interface MessageTtsPlaybackState {
   provider?: string | null;
 }
 
-export async function fetchMessageTtsPlayback(): Promise<{
+export async function fetchMessageTtsPlayback(
+  options: ApiRequestSignalOptions = {},
+): Promise<{
   ok: boolean;
   playback: MessageTtsPlaybackState;
 }> {
   return apiRequest<{ ok: boolean; playback: MessageTtsPlaybackState }>(
     '/api/tts/playback',
+    options,
   );
 }
 
