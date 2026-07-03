@@ -4118,13 +4118,8 @@ class WebMessagePlatformService {
 
   int? _nullableThrottleRate(Object? raw) {
     if (raw == null) return null;
-    if (raw is int) return raw;
-    if (raw is num && raw.isFinite) return raw.round();
-    if (raw is String) {
-      final trimmed = raw.trim();
-      if (trimmed.isEmpty) return null;
-      return int.tryParse(trimmed);
-    }
+    if (raw is num) return optionalRoundedIntFromValue(raw);
+    if (raw is String) return optionalIntFromValue(raw);
     return null;
   }
 
@@ -6934,8 +6929,10 @@ class WebMessagePlatformService {
     );
     if (ps != null && ps.exitCode == 0) {
       final parts = '${ps.stdout}'.trim().split(RegExp(r'\s+'));
-      if (parts.isNotEmpty) cpuPercent = double.tryParse(parts[0]);
-      if (parts.length > 1) threadCount = int.tryParse(parts[1]);
+      if (parts.isNotEmpty) cpuPercent = optionalDoubleFromValue(parts[0]);
+      if (parts.length > 1) {
+        threadCount = optionalNonNegativeIntFromValue(parts[1]);
+      }
     }
     final lsof = await runProcessWithTimeout(
       'lsof',
@@ -6968,12 +6965,14 @@ class WebMessagePlatformService {
       final status = await File('/proc/self/status').readAsLines();
       for (final line in status) {
         if (line.startsWith('Threads:')) {
-          threadCount = int.tryParse(line.split(RegExp(r'\s+')).last);
+          threadCount = optionalNonNegativeIntFromValue(
+            line.split(RegExp(r'\s+')).last,
+          );
         }
         if (line.startsWith('VmSwap:')) {
           final parts = line.split(RegExp(r'\s+'));
           if (parts.length > 1) {
-            swapBytes = (int.tryParse(parts[1]) ?? 0) * 1024;
+            swapBytes = (optionalNonNegativeIntFromValue(parts[1]) ?? 0) * 1024;
           }
         }
       }
@@ -7029,8 +7028,8 @@ class WebMessagePlatformService {
           .trim()
           .split(RegExp(r'\s+'));
       if (processFields.length <= 12) return null;
-      final userTicks = int.tryParse(processFields[11]);
-      final systemTicks = int.tryParse(processFields[12]);
+      final userTicks = optionalNonNegativeIntFromValue(processFields[11]);
+      final systemTicks = optionalNonNegativeIntFromValue(processFields[12]);
       if (userTicks == null || systemTicks == null) return null;
 
       final statLines = await File('/proc/stat').readAsLines();
@@ -7041,7 +7040,7 @@ class WebMessagePlatformService {
       if (cpuLine.isEmpty) return null;
       var totalTicks = 0;
       for (final part in cpuLine.trim().split(RegExp(r'\s+')).skip(1)) {
-        totalTicks += int.tryParse(part) ?? 0;
+        totalTicks += optionalNonNegativeIntFromValue(part) ?? 0;
       }
       if (totalTicks <= 0) return null;
       return _LinuxCpuSample(

@@ -28,7 +28,7 @@ class _LinuxCpuSample {
 int? _parseMacSwapBytes(String value) {
   final match = RegExp(r'used\s*=\s*([0-9.]+)([MG]?)').firstMatch(value);
   if (match == null) return null;
-  final number = double.tryParse(match.group(1) ?? '');
+  final number = optionalDoubleFromValue(match.group(1));
   if (number == null) return null;
   final unit = match.group(2) ?? '';
   final multiplier = unit == 'G'
