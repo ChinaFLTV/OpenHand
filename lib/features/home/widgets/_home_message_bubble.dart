@@ -3922,15 +3922,7 @@ const List<(Color, Color, Color)> _kGeneratedAudioPalettes =
     ];
 
 String _normalizeAudioDisplayText(String value, {required String fallback}) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) return fallback;
-  return trimmed
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .replaceAll(
-        RegExp(r'\.(mp3|wav|m4a|aac|ogg|opus|flac)$', caseSensitive: false),
-        '',
-      )
-      .trim();
+  return normalizeNativeAudioText(value, fallback: fallback);
 }
 
 String _deriveGeneratedAudioArtist(String detail) {
@@ -3939,37 +3931,27 @@ String _deriveGeneratedAudioArtist(String detail) {
     return 'OpenHand 音频';
   }
   final leaf = _prettyGeneratedAudioLeaf(basename);
-  final segments = leaf
-      .split(RegExp(r'[-_]+'))
-      .map((part) => part.trim())
-      .where((part) => part.isNotEmpty)
-      .toList(growable: false);
+  final segments = splitTrimmedNonEmpty(leaf, separator: RegExp(r'[-_]+'));
   if (segments.length >= 2 && segments.first.length <= 28) {
     return segments.first;
   }
-  return _looksLikeGeneratedAudioName(leaf) ? 'AI 音频' : 'OpenHand 音频';
+  return looksLikeGeneratedNativeAudioName(leaf) ? 'AI 音频' : 'OpenHand 音频';
 }
 
 String _deriveGeneratedAudioAlbum(String detail) {
   final basename = p.basename(detail).trim();
   final leaf = _prettyGeneratedAudioLeaf(basename.isEmpty ? detail : basename);
-  if (_looksLikeGeneratedAudioName(leaf)) return '生成音频';
+  if (looksLikeGeneratedNativeAudioName(leaf)) return '生成音频';
   if (leaf.length <= 32) return leaf;
   return '音频专辑';
 }
 
 String _prettyGeneratedAudioLeaf(String detail) {
   final normalized = _normalizeAudioDisplayText(detail, fallback: detail);
-  if (_looksLikeGeneratedAudioName(normalized)) {
+  if (looksLikeGeneratedNativeAudioName(normalized)) {
     return '生成音频';
   }
   return normalized;
-}
-
-bool _looksLikeGeneratedAudioName(String value) {
-  final normalized = value.trim().toLowerCase();
-  return RegExp(r'^audio[_-]?\d+$').hasMatch(normalized) ||
-      RegExp(r'^audio[_-]').hasMatch(normalized);
 }
 
 NativeAudioPreviewSource _nativeAudioPreviewSourceFor(

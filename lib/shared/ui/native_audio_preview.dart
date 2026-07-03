@@ -2032,6 +2032,10 @@ String _prettyNativeAudioLeaf(String detail) {
 }
 
 bool _looksLikeGeneratedAudioName(String value) {
+  return looksLikeGeneratedNativeAudioName(value);
+}
+
+bool looksLikeGeneratedNativeAudioName(String value) {
   final normalized = value.trim().toLowerCase();
   return RegExp(r'^audio[_-]?\d+$').hasMatch(normalized) ||
       RegExp(r'^audio[_-]').hasMatch(normalized);
