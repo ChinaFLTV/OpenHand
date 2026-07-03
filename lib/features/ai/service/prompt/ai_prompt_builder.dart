@@ -137,6 +137,12 @@ class AiPromptBuilder {
   static const int _compressionResourceManifestMaxItems = 40;
   static const int _dynamicToolCatalogPreviewLimit = 12;
   static const int _dynamicToolCatalogPreviewLineMaxChars = 160;
+  static const String _runtimeContextEnvelopeStart =
+      '<openhand_runtime_context>';
+  static const String _runtimeContextEnvelopeEnd =
+      '</openhand_runtime_context>';
+  static const String _runtimeContextEnvelopeIntro =
+      'OpenHand runtime context for this turn; follow it unless higher-priority instructions conflict.';
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
     required AiSession session,
@@ -585,25 +591,28 @@ class AiPromptBuilder {
     ];
     final volatileTailTurns = <AiChatTurn>[
       if (includeDynamicSessionState)
-        _jsonSystemSectionTurn(
+        _jsonRuntimeContextSectionTurn(
           AiPromptSectionHeaders.dynamicSessionState,
           dynamicSessionState,
         ),
       if (focusContext.isNotEmpty)
-        _systemSectionTurn(AiPromptSectionHeaders.focusContext, focusContext),
+        _runtimeContextSectionTurn(
+          AiPromptSectionHeaders.focusContext,
+          focusContext,
+        ),
       if (planModeReminder != null && planModeReminder.isNotEmpty)
-        _systemSectionTurn(
+        _runtimeContextSectionTurn(
           AiPromptSectionHeaders.planModeReminder,
           planModeReminder,
         ),
       if (goalModeReminder != null && goalModeReminder.isNotEmpty)
-        _systemSectionTurn(
+        _runtimeContextSectionTurn(
           AiPromptSectionHeaders.systemReminder,
           goalModeReminder,
         ),
       // Hook system reminder（从用户消息的 <system-reminder> 中提取，每轮不同）
       // 保留在 prompt 最尾部。
-      ...latestUserSystemTurns,
+      ...latestUserSystemTurns.map(_runtimeContextTurnFromSystemTurn),
     ];
     // ─────────────────────────────────────────────────────────────
     // Cache-friendly unified assembly:
@@ -757,15 +766,40 @@ class AiPromptBuilder {
   }
 
   AiChatTurn _systemSectionTurn(String header, String content) {
-    final body = content.trimRight();
     return AiChatTurn(
       role: AiChatRole.system,
-      content: body.isEmpty ? header : '$header\n\n$body',
+      content: _sectionText(header, content),
+    );
+  }
+
+  AiChatTurn _runtimeContextSectionTurn(String header, String content) {
+    return _runtimeContextTurn(_sectionText(header, content));
+  }
+
+  AiChatTurn _runtimeContextTurnFromSystemTurn(AiChatTurn turn) {
+    return _runtimeContextTurn(turn.content);
+  }
+
+  AiChatTurn _runtimeContextTurn(String content) {
+    final body = content.trimRight();
+    return AiChatTurn(
+      role: AiChatRole.user,
+      content:
+          '$_runtimeContextEnvelopeStart\n$_runtimeContextEnvelopeIntro\n\n$body\n$_runtimeContextEnvelopeEnd',
     );
   }
 
   AiChatTurn _jsonSystemSectionTurn(String header, Object? value) {
     return _systemSectionTurn(header, _jsonCodeBlock(value));
+  }
+
+  AiChatTurn _jsonRuntimeContextSectionTurn(String header, Object? value) {
+    return _runtimeContextSectionTurn(header, _jsonCodeBlock(value));
+  }
+
+  String _sectionText(String header, String content) {
+    final body = content.trimRight();
+    return body.isEmpty ? header : '$header\n\n$body';
   }
 
   bool _shouldIncludeDynamicSessionState(
@@ -782,6 +816,7 @@ class AiPromptBuilder {
       'rehydration' ||
       'web_reverse_runtime' ||
       'android_reverse_runtime' ||
+      'goal' ||
       'todos' ||
       'plan' ||
       'skipped_user_instruction_ids' => true,

@@ -173,6 +173,16 @@ class AiRequestBlueprint {
   final Map<String, Object?> body;
 }
 
+class _ProtocolSystemPartition {
+  const _ProtocolSystemPartition({
+    required this.leadingSystemContent,
+    required this.conversationTurns,
+  });
+
+  final String leadingSystemContent;
+  final List<AiChatTurn> conversationTurns;
+}
+
 enum AiPromptCacheAffinityKind {
   none('none'),
   grokConversationHeader('grok_conversation_header'),
@@ -542,6 +552,13 @@ class AiPromptCacheAffinity {
 abstract class AiProtocolAdapter {
   const AiProtocolAdapter();
 
+  static const String _runtimeContextEnvelopeStart =
+      '<openhand_runtime_context>';
+  static const String _runtimeContextEnvelopeEnd =
+      '</openhand_runtime_context>';
+  static const String _runtimeContextEnvelopeIntro =
+      'OpenHand runtime context for this turn; follow it unless higher-priority instructions conflict.';
+
   static const AiEndpointRouter _endpointRouter = AiEndpointRouter();
 
   AiProtocolType get protocolType;
@@ -628,6 +645,44 @@ abstract class AiProtocolAdapter {
     final profileOverride = _profileInlineImageSupport(model);
     if (profileOverride != null) return profileOverride;
     return false;
+  }
+
+  _ProtocolSystemPartition _partitionLeadingSystemTurns(
+    List<AiChatTurn> messages,
+  ) {
+    final leadingSystemContent = <String>[];
+    final conversationTurns = <AiChatTurn>[];
+    var sawConversationTurn = false;
+    for (final turn in messages) {
+      if (!sawConversationTurn && turn.role == AiChatRole.system) {
+        final content = turn.content.trim();
+        if (content.isNotEmpty) {
+          leadingSystemContent.add(content);
+        }
+        continue;
+      }
+      if (turn.role == AiChatRole.system) {
+        final content = turn.content.trim();
+        if (content.isNotEmpty) {
+          conversationTurns.add(_runtimeSystemTurnAsUserContext(content));
+        }
+        continue;
+      }
+      sawConversationTurn = true;
+      conversationTurns.add(turn);
+    }
+    return _ProtocolSystemPartition(
+      leadingSystemContent: leadingSystemContent.join('\n\n'),
+      conversationTurns: conversationTurns,
+    );
+  }
+
+  AiChatTurn _runtimeSystemTurnAsUserContext(String content) {
+    return AiChatTurn(
+      role: AiChatRole.user,
+      content:
+          '$_runtimeContextEnvelopeStart\n$_runtimeContextEnvelopeIntro\n\n$content\n$_runtimeContextEnvelopeEnd',
+    );
   }
 
   AiTokenUsage? parseUsage(String rawResponse) {
@@ -1354,39 +1409,16 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     bool stream = false,
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
-    // 2026-05-30 — 按"是否位于 history 之前"拆分 system 消息：
-    // - stable prefix system（出现在第一条非 system 消息之前）：[0]-[5]、
-    //   [3s]、restored contexts 等会话内字节稳定的块 → 加 cache_control。
-    // - volatile tail system（出现在第一条非 system 消息之后）：[3d] /
-    //   [5.5] / System / Plan Mode / Output Format / hook system-reminder
-    //   等每轮可能变化的块 → 不加缓存，避免 cache_write 每轮触发并击穿
-    //   整段 system 缓存。
-    var firstNonSystemIndex = -1;
-    for (var i = 0; i < messages.length; i++) {
-      if (messages[i].role != AiChatRole.system) {
-        firstNonSystemIndex = i;
-        break;
-      }
-    }
-    final preUserSystemContent = <String>[];
-    final postUserSystemContent = <String>[];
-    for (var i = 0; i < messages.length; i++) {
-      if (messages[i].role != AiChatRole.system) continue;
-      final content = messages[i].content.trim();
-      if (content.isEmpty) continue;
-      if (firstNonSystemIndex < 0 || i < firstNonSystemIndex) {
-        preUserSystemContent.add(content);
-      } else {
-        postUserSystemContent.add(content);
-      }
-    }
-    final stableSystemContent = preUserSystemContent.join('\n\n');
-    final volatileSystemContent = postUserSystemContent.join('\n\n');
-
-    final nonSystemMessages = messages
-        .where((item) => item.role != AiChatRole.system)
-        .toList();
-    final requestMessages = await _mapClaudeMessages(nonSystemMessages);
+    // Only the contiguous leading system block is eligible for Claude's
+    // top-level `system` field and cache_control marker. Runtime system turns
+    // that appear after conversation history stay at their original position
+    // as user-side runtime context so per-turn state does not rewrite the
+    // cached request prefix.
+    final systemPartition = _partitionLeadingSystemTurns(messages);
+    final stableSystemContent = systemPartition.leadingSystemContent;
+    final requestMessages = await _mapClaudeMessages(
+      systemPartition.conversationTurns,
+    );
     final effectiveMaxTokens = model.maxTokens ?? 1024;
     final cacheEnabled = inputCacheConfig?.isEffectivelyEnabled ?? false;
     // Claude prompt caching: total cache_control markers <= 4 across system +
@@ -1398,27 +1430,19 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
         : 0;
 
     Object? systemPayload;
-    if (stableSystemContent.isNotEmpty || volatileSystemContent.isNotEmpty) {
+    if (stableSystemContent.isNotEmpty) {
       final blocks = <Map<String, Object?>>[];
-      if (stableSystemContent.isNotEmpty) {
-        if (cacheEnabled && remainingBreakpoints > 0) {
-          blocks.add(<String, Object?>{
-            'type': 'text',
-            'text': stableSystemContent,
-            'cache_control': <String, Object?>{'type': 'ephemeral'},
-          });
-          remainingBreakpoints -= 1;
-        } else {
-          blocks.add(<String, Object?>{
-            'type': 'text',
-            'text': stableSystemContent,
-          });
-        }
-      }
-      if (volatileSystemContent.isNotEmpty) {
+      if (cacheEnabled && remainingBreakpoints > 0) {
         blocks.add(<String, Object?>{
           'type': 'text',
-          'text': volatileSystemContent,
+          'text': stableSystemContent,
+          'cache_control': <String, Object?>{'type': 'ephemeral'},
+        });
+        remainingBreakpoints -= 1;
+      } else {
+        blocks.add(<String, Object?>{
+          'type': 'text',
+          'text': stableSystemContent,
         });
       }
       systemPayload = blocks.length == 1 && !cacheEnabled
@@ -1660,7 +1684,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
             'input': parsedArgs,
           });
         }
-        result.add(<String, Object?>{
+        _appendClaudeMessage(result, <String, Object?>{
           'role': 'assistant',
           'content': contentBlocks,
         });
@@ -1688,7 +1712,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
             result.last['content'] = <Map<String, Object?>>[toolResultBlock];
           }
         } else {
-          result.add(<String, Object?>{
+          _appendClaudeMessage(result, <String, Object?>{
             'role': 'user',
             'content': <Map<String, Object?>>[toolResultBlock],
           });
@@ -1696,11 +1720,58 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       } else {
         // Regular user/assistant text message.
         final mapped = await _mapClaudeMessage(turn);
-        result.add(mapped);
+        _appendClaudeMessage(result, mapped);
       }
     }
 
     return result;
+  }
+
+  void _appendClaudeMessage(
+    List<Map<String, Object?>> result,
+    Map<String, Object?> message,
+  ) {
+    if (result.isEmpty || result.last['role'] != message['role']) {
+      result.add(message);
+      return;
+    }
+    result.last['content'] = _mergeClaudeMessageContent(
+      result.last['content'],
+      message['content'],
+    );
+  }
+
+  Object? _mergeClaudeMessageContent(Object? current, Object? next) {
+    if (current is String && next is String) {
+      final currentText = current.trim();
+      final nextText = next.trim();
+      if (currentText.isEmpty) return nextText;
+      if (nextText.isEmpty) return currentText;
+      return '$currentText\n\n$nextText';
+    }
+    final blocks = <Map<String, Object?>>[];
+    void addContent(Object? value) {
+      if (value is String) {
+        final text = value.trim();
+        if (text.isNotEmpty) {
+          blocks.add(<String, Object?>{'type': 'text', 'text': text});
+        }
+        return;
+      }
+      if (value is List) {
+        for (final item in value) {
+          if (item is Map<String, Object?>) {
+            blocks.add(item);
+          } else if (item is Map) {
+            blocks.add(Map<String, Object?>.from(item));
+          }
+        }
+      }
+    }
+
+    addContent(current);
+    addContent(next);
+    return blocks;
   }
 
   Future<Map<String, Object?>> _mapClaudeMessage(AiChatTurn item) async {
@@ -1894,15 +1965,11 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
     bool stream = false,
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
-    final systemContent = messages
-        .where((item) => item.role == AiChatRole.system)
-        .map((item) => item.content.trim())
-        .where((item) => item.isNotEmpty)
-        .join('\n\n');
-    final nonSystemMessages = messages
-        .where((item) => item.role != AiChatRole.system)
-        .toList();
-    final requestContents = await _mapGeminiMessages(nonSystemMessages);
+    final systemPartition = _partitionLeadingSystemTurns(messages);
+    final systemContent = systemPartition.leadingSystemContent;
+    final requestContents = await _mapGeminiMessages(
+      systemPartition.conversationTurns,
+    );
 
     /// Determine effective response modalities:
     /// 1. If the caller explicitly requests modalities (e.g. from creation mode),
@@ -1993,7 +2060,10 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
             },
           });
         }
-        result.add(<String, Object?>{'role': 'model', 'parts': parts});
+        _appendGeminiContent(result, <String, Object?>{
+          'role': 'model',
+          'parts': parts,
+        });
       } else if (turn.role == AiChatRole.tool) {
         // Tool result → functionResponse part.
         // Gemini requires the function name, not the call ID.
@@ -2020,17 +2090,34 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
             result.last['parts'] = <Map<String, Object?>>[responseBlock];
           }
         } else {
-          result.add(<String, Object?>{
+          _appendGeminiContent(result, <String, Object?>{
             'role': 'user',
             'parts': <Map<String, Object?>>[responseBlock],
           });
         }
       } else {
-        result.add(await _mapGeminiMessage(turn));
+        _appendGeminiContent(result, await _mapGeminiMessage(turn));
       }
     }
 
     return result;
+  }
+
+  void _appendGeminiContent(
+    List<Map<String, Object?>> result,
+    Map<String, Object?> content,
+  ) {
+    if (result.isEmpty || result.last['role'] != content['role']) {
+      result.add(content);
+      return;
+    }
+    final previousParts = result.last['parts'];
+    final nextParts = content['parts'];
+    if (previousParts is List && nextParts is List) {
+      previousParts.addAll(nextParts);
+      return;
+    }
+    result.add(content);
   }
 
   Future<Map<String, Object?>> _mapGeminiMessage(AiChatTurn item) async {
