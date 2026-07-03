@@ -783,10 +783,10 @@ bool? _profileInlineImageSupport(AiModelConfig model) {
 }
 
 List<AiToolDefinition> _stableToolDefinitions(List<AiToolDefinition> tools) {
-  if (tools.length <= 1) {
-    return tools;
+  final sorted = tools.map(_stableToolDefinition).toList(growable: false);
+  if (sorted.length <= 1) {
+    return sorted;
   }
-  final sorted = List<AiToolDefinition>.from(tools);
   sorted.sort((a, b) {
     final byName = _normalizeToolNameForRequest(
       a.name,
@@ -795,6 +795,45 @@ List<AiToolDefinition> _stableToolDefinitions(List<AiToolDefinition> tools) {
     return a.name.compareTo(b.name);
   });
   return sorted;
+}
+
+AiToolDefinition _stableToolDefinition(AiToolDefinition tool) {
+  return AiToolDefinition(
+    name: tool.name,
+    description: tool.description,
+    parameters: _stableJsonObject(tool.parameters),
+  );
+}
+
+Map<String, Object?> _stableJsonObject(Map<String, Object?> value) {
+  return Map<String, Object?>.unmodifiable(
+    _stableJsonValue(value) as Map<String, Object?>,
+  );
+}
+
+Object? _stableJsonValue(Object? value, {String? key}) {
+  if (value is Map) {
+    final entries = <MapEntry<String, Object?>>[];
+    for (final entry in value.entries) {
+      entries.add(
+        MapEntry<String, Object?>(
+          '${entry.key}',
+          _stableJsonValue(entry.value, key: '${entry.key}'),
+        ),
+      );
+    }
+    entries.sort((left, right) => left.key.compareTo(right.key));
+    return Map<String, Object?>.fromEntries(entries);
+  }
+  if (value is List) {
+    if (key == 'required' && value.every((item) => item is String)) {
+      final requiredNames = value.cast<String>().toList(growable: false)
+        ..sort();
+      return List<String>.unmodifiable(requiredNames);
+    }
+    return value.map((item) => _stableJsonValue(item)).toList(growable: false);
+  }
+  return value;
 }
 
 String _normalizeToolNameForRequest(String value) {

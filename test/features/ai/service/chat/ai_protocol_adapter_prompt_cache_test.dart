@@ -127,6 +127,60 @@ void main() {
       expect(encodedContents, contains('<openhand_runtime_context>'));
     },
   );
+
+  test('protocol tool schemas are canonicalized for cache stability', () async {
+    final adapters = <AiProtocolAdapter>[
+      const OpenAiProtocolAdapter(AiProtocolType.openai),
+      const ClaudeProtocolAdapter(),
+      const GeminiProtocolAdapter(),
+    ];
+    for (final adapter in adapters) {
+      final first = await adapter.buildBody(
+        _model(adapter.protocolType),
+        const <AiChatTurn>[
+          AiChatTurn(role: AiChatRole.system, content: stableSystem),
+          AiChatTurn(role: AiChatRole.user, content: '测试工具 schema 排序'),
+        ],
+        tools: <AiToolDefinition>[
+          _schemaTool(
+            properties: <String, Object?>{
+              'alpha': const <String, Object?>{'type': 'string'},
+              'zeta': const <String, Object?>{
+                'description': 'Tail field',
+                'type': 'string',
+              },
+            },
+            required: const <String>['zeta', 'alpha'],
+          ),
+        ],
+      );
+      final second = await adapter.buildBody(
+        _model(adapter.protocolType),
+        const <AiChatTurn>[
+          AiChatTurn(role: AiChatRole.system, content: stableSystem),
+          AiChatTurn(role: AiChatRole.user, content: '测试工具 schema 排序'),
+        ],
+        tools: <AiToolDefinition>[
+          _schemaTool(
+            properties: <String, Object?>{
+              'zeta': const <String, Object?>{
+                'type': 'string',
+                'description': 'Tail field',
+              },
+              'alpha': const <String, Object?>{'type': 'string'},
+            },
+            required: const <String>['alpha', 'zeta'],
+          ),
+        ],
+      );
+
+      expect(
+        jsonEncode(first),
+        jsonEncode(second),
+        reason: adapter.protocolType.storageValue,
+      );
+    }
+  });
 }
 
 AiModelConfig _model(AiProtocolType protocolType) {
@@ -146,5 +200,20 @@ AiModelConfig _model(AiProtocolType protocolType) {
     },
     protocolType: protocolType,
     maxTokens: 1024,
+  );
+}
+
+AiToolDefinition _schemaTool({
+  required Map<String, Object?> properties,
+  required List<String> required,
+}) {
+  return AiToolDefinition(
+    name: 'SchemaProbe',
+    description: 'Schema order probe.',
+    parameters: <String, Object?>{
+      'type': 'object',
+      'required': required,
+      'properties': properties,
+    },
   );
 }
