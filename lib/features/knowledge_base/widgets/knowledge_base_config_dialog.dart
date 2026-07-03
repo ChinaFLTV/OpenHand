@@ -2484,13 +2484,10 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
           const SizedBox(height: 7),
           Text(
             ready
-                ? [
-                        selectedConfig?.providerLabel,
-                        profile.displayName ?? _settings.modelId,
-                      ]
-                      .whereType<String>()
-                      .where((item) => item.trim().isNotEmpty)
-                      .join(' / ')
+                ? trimmedNonEmptyStrings(<Object?>[
+                    selectedConfig?.providerLabel,
+                    profile.displayName ?? _settings.modelId,
+                  ]).join(' / ')
                 : _kbConfigText(
                     context,
                     zh: '请选择已启用嵌入生成的模型配置。',
@@ -2851,10 +2848,10 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            [selectedConfig?.providerLabel, _settings.modelId]
-                                .whereType<String>()
-                                .where((item) => item.trim().isNotEmpty)
-                                .join(' / '),
+                            trimmedNonEmptyStrings(<Object?>[
+                              selectedConfig?.providerLabel,
+                              _settings.modelId,
+                            ]).join(' / '),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
