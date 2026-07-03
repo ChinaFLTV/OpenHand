@@ -109,6 +109,68 @@ void main() {
       },
     );
 
+    test('publish tool routes to the best matching enabled agent', () async {
+      await controller.saveAgent(
+        _agent(
+          id: 'finance-agent',
+          name: 'Finance Agent',
+          enabled: true,
+          routeFrontMatter: '''
+keywords:
+  - invoice
+  - reconciliation
+domains: finance, cloud billing
+''',
+          taskLabels: const <String>['finance'],
+        ),
+      );
+      await controller.saveAgent(
+        _agent(
+          id: 'release-agent',
+          name: 'Release Agent',
+          enabled: true,
+          routeFrontMatter: 'keywords: deploy, rollback, release',
+          taskLabels: const <String>['release'],
+        ),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(),
+      );
+      final result = await runtime.execute(
+        sessionId: 'session-1',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-1',
+          name: 'AgentTaskPublish',
+          arguments: jsonEncode(<String, Object?>{
+            'title': 'Reconcile cloud invoice',
+            'description':
+                'Check the finance invoice and reconciliation evidence.',
+            'labels': <String>['finance'],
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      final financeAgent = controller.agentById('finance-agent')!;
+      final releaseAgent = controller.agentById('release-agent')!;
+      expect(financeAgent.tasks, hasLength(1));
+      expect(releaseAgent.tasks, isEmpty);
+      expect(financeAgent.tasks.single.title, 'Reconcile cloud invoice');
+      expect(financeAgent.tasks.single.extra['agent_route_score'], isPositive);
+      expect(
+        financeAgent.tasks.single.extra['agent_route_reason'],
+        contains('invoice'),
+      );
+    });
+
     test('complete tool writes task result and releases worker', () async {
       await controller.saveAgent(_agent(enabled: true));
       final task = await controller.publishTaskWithResult(
@@ -222,14 +284,20 @@ AiSessionRuntimeContext _runtimeContext() {
 }
 
 AgentProfile _agent({
+  String id = 'agent-1',
+  String name = 'Ops Agent',
   required bool enabled,
   List<String> builtinToolNames = const <String>[],
+  String routeFrontMatter = '',
+  List<String> taskLabels = const <String>[],
 }) {
   return AgentProfile(
-    id: 'agent-1',
-    name: 'Ops Agent',
+    id: id,
+    name: name,
     enabled: enabled,
     builtinToolNames: builtinToolNames,
+    routeFrontMatter: routeFrontMatter,
+    taskLabels: taskLabels,
     lifecycleState: enabled
         ? AgentLifecycleState.running
         : AgentLifecycleState.stopped,

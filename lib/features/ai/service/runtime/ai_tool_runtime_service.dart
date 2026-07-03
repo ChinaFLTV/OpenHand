@@ -3561,7 +3561,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.agentTaskPublish,
       name: 'AgentTaskPublish',
       description:
-          'Publish a concrete task to an enabled digital employee. The task should stay inside the agent responsibility boundary; if the boundary is unclear, ask the mentor/user instead of publishing.',
+          'Publish a concrete task to an enabled digital employee. Prefer an explicit agent id/name after AgentList or AgentDetail; when omitted, OpenHand routes by task title, description, labels, and the agents route metadata. If the boundary is unclear, ask the mentor/user instead of publishing.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -3569,7 +3569,8 @@ class AiToolRuntimeService {
           'agent_name': <String, Object?>{'type': 'string'},
           'agent': <String, Object?>{
             'type': 'string',
-            'description': 'Agent id or exact display name.',
+            'description':
+                'Agent id or exact display name. Optional when the task context clearly matches one enabled agent route.',
           },
           'title': <String, Object?>{
             'type': 'string',
@@ -3600,17 +3601,6 @@ class AiToolRuntimeService {
           },
         },
         'required': <String>['title'],
-        'anyOf': <Object?>[
-          <String, Object?>{
-            'required': <String>['agent_id'],
-          },
-          <String, Object?>{
-            'required': <String>['agent_name'],
-          },
-          <String, Object?>{
-            'required': <String>['agent'],
-          },
-        ],
         'additionalProperties': false,
       },
     ),

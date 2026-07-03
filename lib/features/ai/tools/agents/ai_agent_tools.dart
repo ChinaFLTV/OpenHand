@@ -319,8 +319,6 @@ class AiAgentTool extends AiTool {
     Stopwatch stopwatch,
   ) async {
     final args = context.decodedArguments;
-    final resolution = _resolveAgent(controller, args);
-    if (resolution.error != null) return resolution.error!;
     final title = '${args['title'] ?? ''}'.trim();
     if (title.isEmpty) {
       return AiToolUtils.invalidResult(_name, 'title is required.');
@@ -329,6 +327,13 @@ class AiAgentTool extends AiTool {
     final labels = stringListFromValueOrJsonText(
       args['labels'] ?? args['tags'],
     );
+    final resolution = _resolvePublishAgent(
+      controller,
+      args,
+      title: title,
+      labels: labels,
+    );
+    if (resolution.error != null) return resolution.error!;
     final promptSnapshot = await _promptRenderer.render(
       agent: resolution.agent!,
       taskContext: <String, Object?>{
@@ -352,6 +357,10 @@ class AiAgentTool extends AiTool {
         if (rawExtra != null) ...rawExtra,
         if (labels.isNotEmpty) 'labels': labels,
         'published_by_session_id': context.sessionId,
+        if (resolution.routeReason != null)
+          'agent_route_reason': resolution.routeReason,
+        if (resolution.routeScore != null)
+          'agent_route_score': resolution.routeScore,
         'agent_prompt_snapshot': promptSnapshot.metadataJson(),
         'agent_system_prompt': promptSnapshot.renderedPrompt,
       },
@@ -552,6 +561,123 @@ class AiAgentTool extends AiTool {
     );
   }
 
+  _AgentResolution _resolvePublishAgent(
+    AgentsController controller,
+    Map<String, Object?> args, {
+    required String title,
+    required List<String> labels,
+  }) {
+    final identifier =
+        '${args['agent_id'] ?? args['agent_name'] ?? args['agent'] ?? ''}'
+            .trim();
+    if (identifier.isNotEmpty) return _resolveAgent(controller, args);
+
+    final candidates = controller.enabledAgents;
+    if (candidates.length == 1) {
+      return _AgentResolution.agent(
+        candidates.single,
+        routeReason: 'single_enabled_agent',
+        routeScore: 0,
+      );
+    }
+    final routed = _routeAgentForTask(
+      candidates,
+      title: title,
+      description: '${args['description'] ?? ''}',
+      content: '${args['content'] ?? ''}',
+      note: '${args['note'] ?? ''}',
+      labels: labels,
+    );
+    if (routed != null) {
+      return _AgentResolution.agent(
+        routed.agent,
+        routeReason: routed.reason,
+        routeScore: routed.score,
+      );
+    }
+    return _AgentResolution.error(
+      AiToolUtils.invalidResult(
+        _name,
+        'agent_id, agent_name, or a routable task context is required. Use AgentList or AgentDetail before publishing when multiple agents are enabled.',
+      ),
+    );
+  }
+
+  _AgentRouteMatch? _routeAgentForTask(
+    List<AgentProfile> agents, {
+    required String title,
+    required String description,
+    required String content,
+    required String note,
+    required List<String> labels,
+  }) {
+    _AgentRouteMatch? best;
+    var tied = false;
+    for (final agent in agents) {
+      final match = _scoreAgentRoute(
+        agent,
+        title: title,
+        description: description,
+        content: content,
+        note: note,
+        labels: labels,
+      );
+      if (match == null) continue;
+      if (best == null || match.score > best.score) {
+        best = match;
+        tied = false;
+      } else if (match.score == best.score) {
+        tied = true;
+      }
+    }
+    if (best == null || best.score < 4 || tied) return null;
+    return best;
+  }
+
+  _AgentRouteMatch? _scoreAgentRoute(
+    AgentProfile agent, {
+    required String title,
+    required String description,
+    required String content,
+    required String note,
+    required List<String> labels,
+  }) {
+    final routing = AgentRoutingMetadata.fromAgent(agent);
+    final taskText = _normalizeRouteText(
+      <String>[title, description, content, note, ...labels].join(' '),
+    );
+    if (taskText.isEmpty) return null;
+
+    var score = 0;
+    final reasons = <String>[];
+    void addSignal(String label, Iterable<String> values, int weight) {
+      for (final value in values) {
+        final normalized = _normalizeRouteText(value);
+        if (normalized.isEmpty) continue;
+        if (taskText.contains(normalized)) {
+          score += weight;
+          reasons.add('$label:$value');
+        }
+      }
+    }
+
+    addSignal('agent', <String>[agent.name], 10);
+    addSignal('routing', routing.keywords, 8);
+    addSignal('label', agent.taskLabels, 7);
+    addSignal('skill', agent.skillNames, 6);
+    addSignal('role', <String>[agent.position, agent.department], 4);
+    addSignal('profile', <String>[
+      agent.introduction,
+      agent.responsibilityBoundary,
+    ], 2);
+    if (score <= 0) return null;
+    return _AgentRouteMatch(
+      agent: agent,
+      score: score,
+      reason: reasons.take(6).join(', '),
+    );
+  }
+
   _TaskResolution _resolveTask(
     AgentsController controller,
     Map<String, Object?> args,
@@ -605,10 +731,23 @@ class AiAgentTool extends AiTool {
 }
 
 class _AgentResolution {
-  const _AgentResolution({this.agent, this.error});
+  const _AgentResolution({
+    this.agent,
+    this.error,
+    this.routeReason,
+    this.routeScore,
+  });
 
-  factory _AgentResolution.agent(AgentProfile agent) {
-    return _AgentResolution(agent: agent);
+  factory _AgentResolution.agent(
+    AgentProfile agent, {
+    String? routeReason,
+    int? routeScore,
+  }) {
+    return _AgentResolution(
+      agent: agent,
+      routeReason: routeReason,
+      routeScore: routeScore,
+    );
   }
 
   factory _AgentResolution.error(AiToolExecutionResult error) {
@@ -617,6 +756,8 @@ class _AgentResolution {
 
   final AgentProfile? agent;
   final AiToolExecutionResult? error;
+  final String? routeReason;
+  final int? routeScore;
 }
 
 class _TaskResolution {
@@ -629,6 +770,18 @@ class _TaskResolution {
   final AgentProfile? agent;
   final AgentTask? task;
   final AiToolExecutionResult? error;
+}
+
+class _AgentRouteMatch {
+  const _AgentRouteMatch({
+    required this.agent,
+    required this.score,
+    required this.reason,
+  });
+
+  final AgentProfile agent;
+  final int score;
+  final String reason;
 }
 
 Map<String, Object?> _agentSummaryJson(AgentProfile agent) {
@@ -755,4 +908,8 @@ double? _optionalRatio(Object? raw) {
   };
   if (value == null || !value.isFinite) return null;
   return value.clamp(0, 1).toDouble();
+}
+
+String _normalizeRouteText(String value) {
+  return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 }
