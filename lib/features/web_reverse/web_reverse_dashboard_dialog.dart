@@ -1240,7 +1240,6 @@ class _WebReverseDashboardDialogState
       _Tab.crons => _CronsBody(controller: ctrl, onPersist: persistCrons),
       _Tab.breakpoints => _BreakpointsBody(
         controller: ctrl,
-        isZh: isZh,
         onPersist: persistBreakpoints,
         onJumpToSource: (url, line) {
           if (_tab != _Tab.sources) setState(() => _tab = _Tab.sources);
