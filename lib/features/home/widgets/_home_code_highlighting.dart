@@ -304,10 +304,7 @@ bool _looksLikeInlineDiffCodeBlock({
 }) {
   final trimmed = content.trim();
   if (trimmed.isEmpty) return false;
-  final lines = const LineSplitter()
-      .convert(trimmed)
-      .where((line) => line.trim().isNotEmpty)
-      .toList(growable: false);
+  final lines = trimRightNonEmptyLines(const LineSplitter().convert(trimmed));
   if (lines.length < 2) return false;
 
   var additions = 0;
@@ -411,9 +408,9 @@ List<_CodexDiffLine> _codexDiffLinesFromUnifiedLines(Iterable<String> diff) {
     }
     final hunkMatch = _inlineDiffHunkHeaderPattern.firstMatch(rawLine);
     if (hunkMatch != null) {
-      final hunkOldStart = int.tryParse(hunkMatch.group(1) ?? '') ?? oldLine;
+      final hunkOldStart = optionalIntFromValue(hunkMatch.group(1)) ?? oldLine;
       final hunkNewStart =
-          int.tryParse(hunkMatch.group(3) ?? '') ?? hunkOldStart;
+          optionalIntFromValue(hunkMatch.group(3)) ?? hunkOldStart;
       if (sawHunk) {
         final folded = hunkOldStart - oldLine;
         if (folded > 0) {

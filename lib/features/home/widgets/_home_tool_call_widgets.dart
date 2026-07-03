@@ -2478,12 +2478,10 @@ bool _looksLikeYamlContent(String content) {
 }
 
 bool _looksLikeTomlContent(String content) {
-  final lines = const LineSplitter()
-      .convert(content)
-      .map((line) => line.trim())
-      .where((line) => line.isNotEmpty && !line.startsWith('#'))
-      .take(12)
-      .toList(growable: false);
+  final lines = splitTrimmedNonEmpty(
+    content,
+    separator: '\n',
+  ).where((line) => !line.startsWith('#')).take(12).toList(growable: false);
   if (lines.isEmpty) {
     return false;
   }
@@ -2604,11 +2602,7 @@ String _toolArgumentsPreview(AiSessionMessage message) {
     }
   }
   final preview = rawArguments.isEmpty ? '{}' : rawArguments;
-  final firstLine = const LineSplitter()
-      .convert(preview)
-      .map((line) => line.trim())
-      .firstWhere((line) => line.isNotEmpty, orElse: () => '{}');
-  return firstLine;
+  return splitTrimmedNonEmpty(preview, separator: '\n').firstOrNull ?? '{}';
 }
 
 /// Best-effort parse of top-level argument key/value previews from a
