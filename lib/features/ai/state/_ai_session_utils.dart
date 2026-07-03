@@ -182,10 +182,7 @@ bool _isMeaningfulAutoTitle(String value) {
     return normalized.characters.length >=
         AiSessionController._minimumMeaningfulTitleCharacters;
   }
-  final words = trimmed
-      .split(RegExp(r'\s+'))
-      .where((item) => item.trim().isNotEmpty)
-      .length;
+  final words = splitTrimmedNonEmpty(trimmed, separator: RegExp(r'\s+')).length;
   if (words >= AiSessionController._minimumMeaningfulLatinTitleWords) {
     return true;
   }

@@ -3630,10 +3630,7 @@ class AiSessionController extends ChangeNotifier {
     Iterable<String> messageIds, {
     String? sessionId,
   }) async {
-    final normalizedMessageIds = messageIds
-        .map((messageId) => messageId.trim())
-        .where((messageId) => messageId.isNotEmpty)
-        .toSet();
+    final normalizedMessageIds = trimmedNonEmptyStrings(messageIds).toSet();
     if (normalizedMessageIds.isEmpty) {
       return false;
     }
@@ -8877,22 +8874,18 @@ class AiSessionController extends ChangeNotifier {
   }
 
   List<String> _stableRuntimeToolNames(AiResolvedToolCatalog toolCatalog) {
-    final names = toolCatalog.definitions
-        .map((tool) => tool.name.trim())
-        .where((name) => name.isNotEmpty)
-        .toSet()
-        .toList(growable: false);
+    final names = trimmedNonEmptyStrings(
+      toolCatalog.definitions.map((tool) => tool.name),
+    ).toSet().toList(growable: false);
     names.sort(_compareRuntimeMetadataText);
     return List<String>.unmodifiable(names);
   }
 
   List<String> _stableRuntimeToolNotices(List<String> notices) {
     if (notices.isEmpty) return const <String>[];
-    final normalized = notices
-        .map((notice) => notice.trim())
-        .where((notice) => notice.isNotEmpty)
-        .toSet()
-        .toList(growable: false);
+    final normalized = trimmedNonEmptyStrings(
+      notices,
+    ).toSet().toList(growable: false);
     normalized.sort(_compareRuntimeMetadataText);
     return List<String>.unmodifiable(normalized);
   }
@@ -10565,10 +10558,9 @@ $tail''';
     AiModelConfig model,
   ) {
     var updatedSession = session;
-    final expectedToolCallIds = toolCalls
-        .map((toolCall) => toolCall.id.trim())
-        .where((toolCallId) => toolCallId.isNotEmpty)
-        .toSet();
+    final expectedToolCallIds = trimmedNonEmptyStrings(
+      toolCalls.map((toolCall) => toolCall.id),
+    ).toSet();
     final expectedToolCallIndexes = <int>{};
     for (var index = 0; index < toolCalls.length; index++) {
       expectedToolCallIndexes.add(index);
