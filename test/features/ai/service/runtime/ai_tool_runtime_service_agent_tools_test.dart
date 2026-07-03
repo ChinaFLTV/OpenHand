@@ -56,6 +56,9 @@ void main() {
       final track = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentTaskTrack,
       )!;
+      final approval = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentApprovalRequest,
+      )!;
       final result = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentTaskResult,
       )!;
@@ -77,6 +80,14 @@ void main() {
         contains('state.needs_polling is true'),
       );
       expect(track.definition.description, contains('operational summary'));
+      expect(
+        approval.definition.description,
+        contains('Create an auditable approval request'),
+      );
+      expect(
+        approval.definition.description,
+        contains('needs mentor/user permission'),
+      );
       expect(
         result.definition.description,
         contains('terminal, requires attention'),
@@ -110,6 +121,7 @@ void main() {
       }
 
       for (final kind in const <AiBuiltinToolKind>[
+        AiBuiltinToolKind.agentApprovalRequest,
         AiBuiltinToolKind.agentTaskPublish,
         AiBuiltinToolKind.agentTaskCancel,
         AiBuiltinToolKind.agentTaskPause,
@@ -131,6 +143,13 @@ void main() {
       );
       expect(completeRequired, contains('result'));
       expect(completeRequired, isNot(contains('task_id')));
+
+      final approvalRequired = _directRequiredFields(
+        AiToolRuntimeService.builtinToolDefault(
+          AiBuiltinToolKind.agentApprovalRequest,
+        )!.definition.parameters,
+      );
+      expect(approvalRequired, contains('title'));
     });
 
     test('hides agent tools until at least one agent is enabled', () async {
@@ -159,6 +178,10 @@ void main() {
         AiBuiltinToolKind.agentTaskPublish,
       );
       expect(
+        catalog.find('AgentApprovalRequest')?.builtinKind,
+        AiBuiltinToolKind.agentApprovalRequest,
+      );
+      expect(
         catalog.find('AgentTaskComplete')?.builtinKind,
         AiBuiltinToolKind.agentTaskComplete,
       );
@@ -169,6 +192,7 @@ void main() {
       );
       expect(catalog.find('AgentList'), isNull);
       expect(catalog.find('AgentTaskPublish'), isNull);
+      expect(catalog.find('AgentApprovalRequest'), isNull);
       expect(catalog.find('AgentTaskComplete'), isNull);
     });
 
@@ -195,6 +219,7 @@ void main() {
           AiBuiltinToolKind.agentTaskTrack,
         );
         expect(catalog.find('AgentTaskPublish'), isNull);
+        expect(catalog.find('AgentApprovalRequest'), isNull);
         expect(catalog.find('AgentTaskComplete'), isNull);
       },
     );
@@ -212,10 +237,67 @@ void main() {
 
         expect(catalog.find('AgentList'), isNull);
         expect(catalog.find('AgentTaskPublish'), isNull);
+        expect(catalog.find('AgentApprovalRequest'), isNull);
         expect(catalog.find('AgentTaskResult'), isNull);
         expect(catalog.find('Bash'), isNotNull);
       },
     );
+
+    test('approval request tool records pending approval and audit', () async {
+      await controller.saveAgent(_agent(enabled: true));
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(),
+      );
+      final result = await runtime.execute(
+        sessionId: 'session-approval',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-approval',
+          name: 'AgentApprovalRequest',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-1',
+            'title': 'Access production logs',
+            'reason': 'Need mentor approval before reading sensitive logs.',
+            'requested_action': 'read /var/log/prod/app.log',
+            'labels': <String>['ops', 'prod'],
+            'extra': <String, Object?>{'risk': 'sensitive_data'},
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+      final approval = payload['approval'] as Map<String, Object?>;
+      final approvalExtra = approval['extra'] as Map<String, Object?>;
+      final agentSummary = payload['agent'] as Map<String, Object?>;
+      final storedAgent = controller.agentById('agent-1')!;
+      final storedApproval = storedAgent.approvals.single;
+
+      expect(approval['id'], storedApproval.id);
+      expect(approval['status'], 'pending');
+      expect(approval['requested_action'], 'read /var/log/prod/app.log');
+      expect(approvalExtra['requested_by_session_id'], 'session-approval');
+      expect(approvalExtra['risk'], 'sensitive_data');
+      expect(approvalExtra['labels'], <String>['ops', 'prod']);
+      expect(payload['pending_approvals'], 1);
+      expect(agentSummary['id'], 'agent-1');
+      expect(storedApproval.title, 'Access production logs');
+      expect(storedApproval.reason, contains('mentor approval'));
+      expect(storedAgent.activities.first.kind, 'approval_requested');
+      expect(storedAgent.auditEvents.first.kind, 'approval_requested');
+      expect(storedAgent.auditEvents.first.toolName, 'AgentApprovalRequest');
+      expect(
+        storedAgent.auditEvents.first.metadata['approval_id'],
+        storedApproval.id,
+      );
+    });
 
     test('publish tool routes to the best matching enabled agent', () async {
       await controller.saveAgent(

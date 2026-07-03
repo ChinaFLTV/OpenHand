@@ -28,6 +28,7 @@ const List<String> _agentTaskBlockedTools = <String>[
 enum _AgentToolOperation {
   list,
   detail,
+  requestApproval,
   publishTask,
   trackTask,
   progressTask,
@@ -69,6 +70,13 @@ class AiAgentTool extends AiTool {
         kind: AiBuiltinToolKind.agentDetail,
         name: 'AgentDetail',
         operation: _AgentToolOperation.detail,
+        agentsControllerProvider: agentsControllerProvider,
+        promptRenderer: renderer,
+      ),
+      AiAgentTool._(
+        kind: AiBuiltinToolKind.agentApprovalRequest,
+        name: 'AgentApprovalRequest',
+        operation: _AgentToolOperation.requestApproval,
         agentsControllerProvider: agentsControllerProvider,
         promptRenderer: renderer,
       ),
@@ -154,6 +162,7 @@ class AiAgentTool extends AiTool {
   bool get isDestructive {
     return switch (_operation) {
       _AgentToolOperation.publishTask ||
+      _AgentToolOperation.requestApproval ||
       _AgentToolOperation.cancelTask ||
       _AgentToolOperation.pauseTask ||
       _AgentToolOperation.terminateTask ||
@@ -184,6 +193,11 @@ class AiAgentTool extends AiTool {
       return switch (_operation) {
         _AgentToolOperation.list => _list(controller, context, stopwatch),
         _AgentToolOperation.detail => await _detail(
+          controller,
+          context,
+          stopwatch,
+        ),
+        _AgentToolOperation.requestApproval => await _requestApproval(
           controller,
           context,
           stopwatch,
@@ -326,6 +340,65 @@ class AiAgentTool extends AiTool {
       metadata: <String, Object?>{
         'action': 'detail',
         'agent_id': resolution.agent!.id,
+      },
+    );
+  }
+
+  Future<AiToolExecutionResult> _requestApproval(
+    AgentsController controller,
+    AiToolExecutionContext context,
+    Stopwatch stopwatch,
+  ) async {
+    final args = context.decodedArguments;
+    final title = '${args['title'] ?? ''}'.trim();
+    if (title.isEmpty) {
+      return AiToolUtils.invalidResult(_name, 'title is required.');
+    }
+    final labels = stringListFromValueOrJsonText(
+      args['labels'] ?? args['tags'],
+    );
+    final resolution = _resolveApprovalAgent(
+      controller,
+      args,
+      title: title,
+      labels: labels,
+    );
+    if (resolution.error != null) return resolution.error!;
+    final rawExtra = optionalStringKeyedMapFromValueOrJsonText(args['extra']);
+    final approval = await controller.requestApproval(
+      resolution.agent!.id,
+      title: title,
+      reason: '${args['reason'] ?? ''}'.trim(),
+      requestedAction: '${args['requested_action'] ?? ''}'.trim(),
+      extra: <String, Object?>{
+        if (rawExtra != null) ...rawExtra,
+        if (labels.isNotEmpty) 'labels': labels,
+        'requested_by_session_id': context.sessionId,
+        if (resolution.routeReason != null)
+          'agent_route_reason': resolution.routeReason,
+        if (resolution.routeScore != null)
+          'agent_route_score': resolution.routeScore,
+      },
+      auditToolName: _name,
+    );
+    if (approval == null) {
+      return AiToolUtils.invalidResult(
+        _name,
+        'Failed to request approval. The agent may have been disabled or removed.',
+      );
+    }
+    final currentAgent = controller.agentById(resolution.agent!.id);
+    return _success(
+      <String, Object?>{
+        'agent': _agentSummaryJson(currentAgent ?? resolution.agent!),
+        'approval': approval.toJson(),
+        'pending_approvals': currentAgent?.pendingApprovalCount ?? 1,
+      },
+      stopwatch,
+      metadata: <String, Object?>{
+        'action': 'request_approval',
+        'agent_id': resolution.agent!.id,
+        'approval_id': approval.id,
       },
     );
   }
@@ -610,6 +683,48 @@ class AiAgentTool extends AiTool {
       AiToolUtils.invalidResult(
         _name,
         'No enabled agent matched "$identifier".',
+      ),
+    );
+  }
+
+  _AgentResolution _resolveApprovalAgent(
+    AgentsController controller,
+    Map<String, Object?> args, {
+    required String title,
+    required List<String> labels,
+  }) {
+    final identifier =
+        '${args['agent_id'] ?? args['agent_name'] ?? args['agent'] ?? ''}'
+            .trim();
+    if (identifier.isNotEmpty) return _resolveAgent(controller, args);
+
+    final candidates = controller.enabledAgents;
+    if (candidates.length == 1) {
+      return _AgentResolution.agent(
+        candidates.single,
+        routeReason: 'single_enabled_agent',
+        routeScore: 0,
+      );
+    }
+    final routed = _routeAgentForTask(
+      candidates,
+      title: title,
+      description: '${args['reason'] ?? ''}',
+      content: '${args['requested_action'] ?? ''}',
+      note: '',
+      labels: labels,
+    );
+    if (routed != null) {
+      return _AgentResolution.agent(
+        routed.agent,
+        routeReason: routed.reason,
+        routeScore: routed.score,
+      );
+    }
+    return _AgentResolution.error(
+      AiToolUtils.invalidResult(
+        _name,
+        'agent_id, agent_name, or a routable approval context is required. Use AgentList or AgentDetail before requesting approval when multiple agents are enabled.',
       ),
     );
   }

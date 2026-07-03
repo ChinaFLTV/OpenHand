@@ -216,6 +216,7 @@ enum AiBuiltinToolKind {
   knowledgeRead,
   agentList,
   agentDetail,
+  agentApprovalRequest,
   agentTaskPublish,
   agentTaskTrack,
   agentTaskProgress,
@@ -352,6 +353,7 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.notebookEdit,
         AiBuiltinToolKind.deleteFile,
         AiBuiltinToolKind.skillManager,
+        AiBuiltinToolKind.agentApprovalRequest,
         AiBuiltinToolKind.agentTaskPublish,
         AiBuiltinToolKind.agentTaskCancel,
         AiBuiltinToolKind.agentTaskPause,
@@ -472,6 +474,7 @@ class AiToolRuntimeService {
     if (normalized.isEmpty) return false;
     return normalized == 'agentlist' ||
         normalized == 'agentdetail' ||
+        normalized.startsWith('agentapproval') ||
         normalized.startsWith('agenttask');
   }
 
@@ -495,6 +498,7 @@ class AiToolRuntimeService {
     return switch (kind) {
       AiBuiltinToolKind.agentList ||
       AiBuiltinToolKind.agentDetail ||
+      AiBuiltinToolKind.agentApprovalRequest ||
       AiBuiltinToolKind.agentTaskPublish ||
       AiBuiltinToolKind.agentTaskTrack ||
       AiBuiltinToolKind.agentTaskProgress ||
@@ -1391,6 +1395,7 @@ class AiToolRuntimeService {
     }
     if (_isAgentBuiltinKind(kind)) {
       return kind == AiBuiltinToolKind.agentTaskPublish ||
+          kind == AiBuiltinToolKind.agentApprovalRequest ||
           kind == AiBuiltinToolKind.agentTaskCancel ||
           kind == AiBuiltinToolKind.agentTaskPause ||
           kind == AiBuiltinToolKind.agentTaskTerminate ||
@@ -1929,6 +1934,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.knowledgeRead => 'KnowledgeRead',
       AiBuiltinToolKind.agentList => 'AgentList',
       AiBuiltinToolKind.agentDetail => 'AgentDetail',
+      AiBuiltinToolKind.agentApprovalRequest => 'AgentApprovalRequest',
       AiBuiltinToolKind.agentTaskPublish => 'AgentTaskPublish',
       AiBuiltinToolKind.agentTaskTrack => 'AgentTaskTrack',
       AiBuiltinToolKind.agentTaskProgress => 'AgentTaskProgress',
@@ -3570,6 +3576,49 @@ class AiToolRuntimeService {
           },
         },
         'anyOf': _agentToolAgentSelectorAnyOf,
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentApprovalRequest,
+      name: 'AgentApprovalRequest',
+      description:
+          'Create an auditable approval request for an enabled digital employee when a task or capability use needs mentor/user permission. Prefer an explicit agent id/name after AgentList or AgentDetail; when omitted, OpenHand routes by approval context and route metadata. Do not use this for ordinary status updates or work that does not need approval.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Agent id or exact display name. Optional when the approval context clearly matches one enabled agent route.',
+          },
+          'title': <String, Object?>{
+            'type': 'string',
+            'description': 'Short approval title.',
+          },
+          'reason': <String, Object?>{
+            'type': 'string',
+            'description': 'Why approval is required.',
+          },
+          'requested_action': <String, Object?>{
+            'type': 'string',
+            'description':
+                'The exact action, permission, tool use, path, or external operation being requested.',
+          },
+          'labels': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+          },
+          'tags': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+            'description': 'Alias for labels.',
+          },
+          'extra': _agentToolExtraSchema,
+        },
+        'required': <String>['title'],
         'additionalProperties': false,
       },
     ),
