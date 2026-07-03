@@ -593,15 +593,9 @@ class AiToolRuntimeService {
       final baseTool = toolByKind[cfg.kind];
       if (baseTool == null) continue;
       // Apply overrides.
-      final overrideName = cfg.displayName?.trim().isNotEmpty == true
-          ? cfg.displayName!
-          : null;
-      final overrideDesc = cfg.promptOverride?.trim().isNotEmpty == true
-          ? cfg.promptOverride!
-          : null;
-      final overrideSummary = cfg.summary?.trim().isNotEmpty == true
-          ? cfg.summary!
-          : null;
+      final overrideName = nullIfBlank(cfg.displayName);
+      final overrideDesc = nullIfBlank(cfg.promptOverride);
+      final overrideSummary = nullIfBlank(cfg.summary);
       final needsOverride =
           overrideName != null ||
           overrideDesc != null ||
@@ -695,17 +689,18 @@ class AiToolRuntimeService {
       try {
         final catalog = await _mcpToolService.discoverTools(server);
         if (catalog.status != McpToolCatalogStatus.ready) {
-          final errorMessage = catalog.errorMessage?.trim() ?? '';
-          if (errorMessage.isNotEmpty) {
+          final errorMessage = nullIfBlank(catalog.errorMessage);
+          if (errorMessage != null) {
             notices.add('MCP ${server.name}: $errorMessage');
           }
           continue;
         }
-        if (catalog.warningMessage?.trim().isNotEmpty ?? false) {
-          notices.add('MCP ${server.name}: ${catalog.warningMessage!.trim()}');
+        final warningMessage = nullIfBlank(catalog.warningMessage);
+        if (warningMessage != null) {
+          notices.add('MCP ${server.name}: $warningMessage');
         }
-        final serverInstructions = catalog.serverInstructions.trim();
-        if (serverInstructions.isNotEmpty) {
+        final serverInstructions = nullIfBlank(catalog.serverInstructions);
+        if (serverInstructions != null) {
           mcpServerInstructionsByName[server.name] = serverInstructions;
         }
         for (final mcpTool in _sortedMcpTools(catalog.tools)) {
@@ -785,17 +780,18 @@ class AiToolRuntimeService {
         continue;
       }
       if (catalog.status != McpToolCatalogStatus.ready) {
-        final errorMessage = catalog.errorMessage?.trim() ?? '';
-        if (errorMessage.isNotEmpty) {
+        final errorMessage = nullIfBlank(catalog.errorMessage);
+        if (errorMessage != null) {
           notices.add('MCP ${server.name}: $errorMessage');
         }
         continue;
       }
-      if (catalog.warningMessage?.trim().isNotEmpty ?? false) {
-        notices.add('MCP ${server.name}: ${catalog.warningMessage!.trim()}');
+      final warningMessage = nullIfBlank(catalog.warningMessage);
+      if (warningMessage != null) {
+        notices.add('MCP ${server.name}: $warningMessage');
       }
-      final serverInstructions = catalog.serverInstructions.trim();
-      if (serverInstructions.isNotEmpty) {
+      final serverInstructions = nullIfBlank(catalog.serverInstructions);
+      if (serverInstructions != null) {
         mcpServerInstructionsByName[server.name] = serverInstructions;
       }
       for (final mcpTool in _sortedMcpTools(catalog.tools)) {
@@ -1279,7 +1275,7 @@ class AiToolRuntimeService {
     required int budgetChars,
     String persistedPath = '',
   }) {
-    final recovery = persistedPath.trim().isEmpty
+    final recovery = nullIfBlank(persistedPath) == null
         ? 'Full output was not persisted; rerun a narrower command, add '
               'filters, or use file offsets if exact omitted content is '
               'needed.'
@@ -1295,17 +1291,18 @@ class AiToolRuntimeService {
     required String toolCallId,
     required String content,
   }) async {
-    if (toolCallId.trim().isEmpty || content.isEmpty) {
+    final normalizedToolCallId = nullIfBlank(toolCallId);
+    if (normalizedToolCallId == null || content.isEmpty) {
       return null;
     }
     final directoryPath = _toolOutputDirectoryPath(sessionId);
-    if (directoryPath.trim().isEmpty) {
+    if (nullIfBlank(directoryPath) == null) {
       return null;
     }
     final file = File(
       p.join(
         directoryPath,
-        '${_safeToolOutputStorageIdentifier(toolCallId, 'tool_result')}.txt',
+        '${_safeToolOutputStorageIdentifier(normalizedToolCallId, 'tool_result')}.txt',
       ),
     );
     try {
@@ -1415,8 +1412,10 @@ class AiToolRuntimeService {
     final registeredTool = _toolRegistry.getTool(kind);
     if (registeredTool?.isDestructive == true) return true;
     if (kind == AiBuiltinToolKind.memory) {
-      final action = '${decodedArguments['action'] ?? ''}'.trim().toLowerCase();
-      return action.isNotEmpty && action != 'list';
+      final action = optionalLowercaseStringFromValue(
+        decodedArguments['action'],
+      );
+      return action != null && action != 'list';
     }
     if (_isAgentBuiltinKind(kind)) {
       return kind == AiBuiltinToolKind.agentTaskPublish ||
@@ -1462,13 +1461,17 @@ class AiToolRuntimeService {
     }
     final paths = <String>[];
     final singlePath = meta['file_mutation_path'];
-    if (singlePath is String && singlePath.trim().isNotEmpty) {
-      paths.add(singlePath.trim());
+    final normalizedSinglePath = singlePath is String
+        ? nullIfBlank(singlePath)
+        : null;
+    if (normalizedSinglePath != null) {
+      paths.add(normalizedSinglePath);
     }
     final multiPaths = meta['file_mutation_paths'];
     if (multiPaths is List) {
-      for (final p in multiPaths) {
-        if (p is String && p.trim().isNotEmpty) paths.add(p.trim());
+      for (final item in multiPaths) {
+        final path = item is String ? nullIfBlank(item) : null;
+        if (path != null) paths.add(path);
       }
     }
     if (paths.isEmpty) return result;
@@ -2030,9 +2033,8 @@ class AiToolRuntimeService {
     required Map<String, Object?> decodedArguments,
     required AiClaudeHookInvocationResult hookResult,
   }) {
-    final blockReason = hookResult.blockReason?.trim().isNotEmpty == true
-        ? hookResult.blockReason!.trim()
-        : 'Blocked by hook.';
+    final blockReason =
+        nullIfBlank(hookResult.blockReason) ?? 'Blocked by hook.';
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.failed,
       command: toolName,
@@ -2103,14 +2105,14 @@ class AiToolRuntimeService {
   ) async {
     final linkedPaths = RegExp(r'\[[^\]]+\]\(([^)]+)\)', multiLine: true)
         .allMatches(manifestContent)
-        .map((match) => match.group(1) ?? '')
-        .where((value) {
-          final trimmed = value.trim();
-          return trimmed.isNotEmpty &&
-              !trimmed.startsWith('http://') &&
-              !trimmed.startsWith('https://') &&
-              !trimmed.startsWith('#');
-        })
+        .map((match) => nullIfBlank(match.group(1)))
+        .whereType<String>()
+        .where(
+          (value) =>
+              !value.startsWith('http://') &&
+              !value.startsWith('https://') &&
+              !value.startsWith('#'),
+        )
         .toSet();
     if (linkedPaths.isEmpty) {
       return '';
@@ -2193,10 +2195,14 @@ class AiToolRuntimeService {
     required Set<String> takenNames,
   }) {
     final name = _safeToolName('mcp__${server.name}', tool.id, takenNames);
+    final description = nullIfBlank(tool.description);
+    final displayName = nullIfBlank(tool.name);
+    final toolId = nullIfBlank(tool.id) ?? tool.id;
     final descriptionParts = <String>[
       'MCP tool from server "${server.name}".',
-      if (tool.description.trim().isNotEmpty) tool.description.trim(),
-      if (tool.name.trim() != tool.id.trim()) 'Display name: ${tool.name}.',
+      if (description != null) description,
+      if (displayName != null && displayName != toolId)
+        'Display name: $displayName.',
     ];
     return AiResolvedTool(
       name: name,
@@ -2219,11 +2225,15 @@ class AiToolRuntimeService {
   static const int _skillCatalogDescriptionCap = 512;
 
   AiResolvedTool _buildSkillTool(LocalSkill skill, Set<String> takenNames) {
-    final token = p.basename(skill.relativeDirectoryPath.trim()).isEmpty
+    final relativeDirectoryPath = nullIfBlank(skill.relativeDirectoryPath);
+    final directoryToken = relativeDirectoryPath == null
+        ? ''
+        : p.basename(relativeDirectoryPath);
+    final token = nullIfBlank(directoryToken) == null
         ? skill.name
-        : p.basename(skill.relativeDirectoryPath.trim());
+        : directoryToken;
     final name = _safeToolName('skill', token, takenNames);
-    final rawSummary = skill.description.trim();
+    final rawSummary = nullIfBlank(skill.description) ?? '';
     final summary = rawSummary.length > _skillCatalogDescriptionCap
         ? '${rawSummary.substring(0, _skillCatalogDescriptionCap - 1).trimRight()}…'
         : rawSummary;
