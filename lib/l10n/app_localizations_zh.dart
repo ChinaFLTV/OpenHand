@@ -406,6 +406,48 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpStdioDialogRefresh => '刷新';
 
   @override
+  String get settingsScraplingRuntimeActionInstall => '安装';
+
+  @override
+  String get settingsScraplingRuntimeActionUninstall => '卸载';
+
+  @override
+  String settingsScraplingRuntimeCommand(Object action) {
+    return '$action Scrapling 运行时';
+  }
+
+  @override
+  String get settingsScraplingRuntimeInstallTitle => '安装 Scrapling 运行时';
+
+  @override
+  String get settingsScraplingRuntimeUninstallTitle => '卸载 Scrapling 运行时';
+
+  @override
+  String get settingsScraplingRuntimeInstalling => '安装中…';
+
+  @override
+  String get settingsScraplingRuntimeUninstalling => '卸载中…';
+
+  @override
+  String get settingsScraplingRuntimeInstalled => '安装完成';
+
+  @override
+  String get settingsScraplingRuntimeUninstalled => '卸载完成';
+
+  @override
+  String get settingsScraplingRuntimeFailed => '执行失败';
+
+  @override
+  String get settingsScraplingRuntimeCertificateDiagnosis =>
+      '诊断：当前环境的 Python / pip 无法验证 PyPI 证书链。请检查系统 CA 证书、代理拦截证书，或为 Python 配置可用的证书文件。';
+
+  @override
+  String get settingsScraplingRuntimeCopiedAllLogs => '已复制全部日志';
+
+  @override
+  String get settingsScraplingRuntimeCopyLogs => '复制日志';
+
+  @override
   String get mcpStdioDialogProcessStatus => '进程状态';
 
   @override
@@ -10092,6 +10134,48 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get mcpStdioDialogRefresh => '刷新';
 
   @override
+  String get settingsScraplingRuntimeActionInstall => '安装';
+
+  @override
+  String get settingsScraplingRuntimeActionUninstall => '卸载';
+
+  @override
+  String settingsScraplingRuntimeCommand(Object action) {
+    return '$action Scrapling 运行时';
+  }
+
+  @override
+  String get settingsScraplingRuntimeInstallTitle => '安装 Scrapling 运行时';
+
+  @override
+  String get settingsScraplingRuntimeUninstallTitle => '卸载 Scrapling 运行时';
+
+  @override
+  String get settingsScraplingRuntimeInstalling => '安装中…';
+
+  @override
+  String get settingsScraplingRuntimeUninstalling => '卸载中…';
+
+  @override
+  String get settingsScraplingRuntimeInstalled => '安装完成';
+
+  @override
+  String get settingsScraplingRuntimeUninstalled => '卸载完成';
+
+  @override
+  String get settingsScraplingRuntimeFailed => '执行失败';
+
+  @override
+  String get settingsScraplingRuntimeCertificateDiagnosis =>
+      '诊断：当前环境的 Python / pip 无法验证 PyPI 证书链。请检查系统 CA 证书、代理拦截证书，或为 Python 配置可用的证书文件。';
+
+  @override
+  String get settingsScraplingRuntimeCopiedAllLogs => '已复制全部日志';
+
+  @override
+  String get settingsScraplingRuntimeCopyLogs => '复制日志';
+
+  @override
   String get mcpStdioDialogProcessStatus => '进程状态';
 
   @override
@@ -19775,6 +19859,48 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mcpStdioDialogRefresh => '重新整理';
+
+  @override
+  String get settingsScraplingRuntimeActionInstall => '安裝';
+
+  @override
+  String get settingsScraplingRuntimeActionUninstall => '卸載';
+
+  @override
+  String settingsScraplingRuntimeCommand(Object action) {
+    return '$action Scrapling 執行階段';
+  }
+
+  @override
+  String get settingsScraplingRuntimeInstallTitle => '安裝 Scrapling 執行階段';
+
+  @override
+  String get settingsScraplingRuntimeUninstallTitle => '卸載 Scrapling 執行階段';
+
+  @override
+  String get settingsScraplingRuntimeInstalling => '安裝中…';
+
+  @override
+  String get settingsScraplingRuntimeUninstalling => '卸載中…';
+
+  @override
+  String get settingsScraplingRuntimeInstalled => '安裝完成';
+
+  @override
+  String get settingsScraplingRuntimeUninstalled => '卸載完成';
+
+  @override
+  String get settingsScraplingRuntimeFailed => '執行失敗';
+
+  @override
+  String get settingsScraplingRuntimeCertificateDiagnosis =>
+      '診斷：目前環境的 Python / pip 無法驗證 PyPI 憑證鏈。請檢查系統 CA 憑證、代理攔截憑證，或為 Python 設定可用的憑證檔案。';
+
+  @override
+  String get settingsScraplingRuntimeCopiedAllLogs => '已複製全部日誌';
+
+  @override
+  String get settingsScraplingRuntimeCopyLogs => '複製日誌';
 
   @override
   String get mcpStdioDialogProcessStatus => '行程狀態';

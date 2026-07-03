@@ -856,6 +856,84 @@ abstract class AppLocalizations {
   /// **'刷新'**
   String get mcpStdioDialogRefresh;
 
+  /// No description provided for @settingsScraplingRuntimeActionInstall.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安装'**
+  String get settingsScraplingRuntimeActionInstall;
+
+  /// No description provided for @settingsScraplingRuntimeActionUninstall.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'卸载'**
+  String get settingsScraplingRuntimeActionUninstall;
+
+  /// Settings Scrapling runtime dialog command log line.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{action} Scrapling 运行时'**
+  String settingsScraplingRuntimeCommand(Object action);
+
+  /// No description provided for @settingsScraplingRuntimeInstallTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安装 Scrapling 运行时'**
+  String get settingsScraplingRuntimeInstallTitle;
+
+  /// No description provided for @settingsScraplingRuntimeUninstallTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'卸载 Scrapling 运行时'**
+  String get settingsScraplingRuntimeUninstallTitle;
+
+  /// No description provided for @settingsScraplingRuntimeInstalling.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安装中…'**
+  String get settingsScraplingRuntimeInstalling;
+
+  /// No description provided for @settingsScraplingRuntimeUninstalling.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'卸载中…'**
+  String get settingsScraplingRuntimeUninstalling;
+
+  /// No description provided for @settingsScraplingRuntimeInstalled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安装完成'**
+  String get settingsScraplingRuntimeInstalled;
+
+  /// No description provided for @settingsScraplingRuntimeUninstalled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'卸载完成'**
+  String get settingsScraplingRuntimeUninstalled;
+
+  /// No description provided for @settingsScraplingRuntimeFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行失败'**
+  String get settingsScraplingRuntimeFailed;
+
+  /// No description provided for @settingsScraplingRuntimeCertificateDiagnosis.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'诊断：当前环境的 Python / pip 无法验证 PyPI 证书链。请检查系统 CA 证书、代理拦截证书，或为 Python 配置可用的证书文件。'**
+  String get settingsScraplingRuntimeCertificateDiagnosis;
+
+  /// No description provided for @settingsScraplingRuntimeCopiedAllLogs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制全部日志'**
+  String get settingsScraplingRuntimeCopiedAllLogs;
+
+  /// No description provided for @settingsScraplingRuntimeCopyLogs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制日志'**
+  String get settingsScraplingRuntimeCopyLogs;
+
   /// No description provided for @mcpStdioDialogProcessStatus.
   ///
   /// In zh_Hans, this message translates to:

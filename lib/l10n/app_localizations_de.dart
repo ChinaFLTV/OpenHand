@@ -422,6 +422,50 @@ class AppLocalizationsDe extends AppLocalizations {
   String get mcpStdioDialogRefresh => 'Aktualisieren';
 
   @override
+  String get settingsScraplingRuntimeActionInstall => 'Installieren';
+
+  @override
+  String get settingsScraplingRuntimeActionUninstall => 'Deinstallieren';
+
+  @override
+  String settingsScraplingRuntimeCommand(Object action) {
+    return '$action Scrapling-Laufzeit';
+  }
+
+  @override
+  String get settingsScraplingRuntimeInstallTitle =>
+      'Scrapling-Laufzeit installieren';
+
+  @override
+  String get settingsScraplingRuntimeUninstallTitle =>
+      'Scrapling-Laufzeit deinstallieren';
+
+  @override
+  String get settingsScraplingRuntimeInstalling => 'Installation läuft…';
+
+  @override
+  String get settingsScraplingRuntimeUninstalling => 'Deinstallation läuft…';
+
+  @override
+  String get settingsScraplingRuntimeInstalled => 'Installiert';
+
+  @override
+  String get settingsScraplingRuntimeUninstalled => 'Deinstalliert';
+
+  @override
+  String get settingsScraplingRuntimeFailed => 'Fehlgeschlagen';
+
+  @override
+  String get settingsScraplingRuntimeCertificateDiagnosis =>
+      'Diagnose: Python / pip in der aktuellen Umgebung kann die PyPI-Zertifikatskette nicht validieren. Prüfe die CA-Zertifikate des Systems, Proxy-Abfangzertifikate oder konfiguriere eine gültige Zertifikatsdatei für Python.';
+
+  @override
+  String get settingsScraplingRuntimeCopiedAllLogs => 'Alle Protokolle kopiert';
+
+  @override
+  String get settingsScraplingRuntimeCopyLogs => 'Protokolle kopieren';
+
+  @override
   String get mcpStdioDialogProcessStatus => 'Prozessstatus';
 
   @override

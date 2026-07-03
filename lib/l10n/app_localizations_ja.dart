@@ -409,6 +409,49 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mcpStdioDialogRefresh => '更新';
 
   @override
+  String get settingsScraplingRuntimeActionInstall => 'インストール';
+
+  @override
+  String get settingsScraplingRuntimeActionUninstall => 'アンインストール';
+
+  @override
+  String settingsScraplingRuntimeCommand(Object action) {
+    return '$action Scrapling ランタイム';
+  }
+
+  @override
+  String get settingsScraplingRuntimeInstallTitle => 'Scrapling ランタイムをインストール';
+
+  @override
+  String get settingsScraplingRuntimeUninstallTitle =>
+      'Scrapling ランタイムをアンインストール';
+
+  @override
+  String get settingsScraplingRuntimeInstalling => 'インストール中…';
+
+  @override
+  String get settingsScraplingRuntimeUninstalling => 'アンインストール中…';
+
+  @override
+  String get settingsScraplingRuntimeInstalled => 'インストール済み';
+
+  @override
+  String get settingsScraplingRuntimeUninstalled => 'アンインストール済み';
+
+  @override
+  String get settingsScraplingRuntimeFailed => '実行に失敗しました';
+
+  @override
+  String get settingsScraplingRuntimeCertificateDiagnosis =>
+      '診断: 現在の環境の Python / pip は PyPI の証明書チェーンを検証できません。システムの CA 証明書、プロキシの傍受証明書を確認するか、Python に有効な証明書ファイルを設定してください。';
+
+  @override
+  String get settingsScraplingRuntimeCopiedAllLogs => 'すべてのログをコピーしました';
+
+  @override
+  String get settingsScraplingRuntimeCopyLogs => 'ログをコピー';
+
+  @override
   String get mcpStdioDialogProcessStatus => 'プロセス状態';
 
   @override

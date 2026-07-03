@@ -178,6 +178,25 @@
     }
   },
   "mcpStdioDialogRefresh": "更新",
+  "settingsScraplingRuntimeActionInstall": "インストール",
+  "settingsScraplingRuntimeActionUninstall": "アンインストール",
+  "settingsScraplingRuntimeCommand": "{action} Scrapling ランタイム",
+  "@settingsScraplingRuntimeCommand": {
+    "description": "Settings Scrapling runtime dialog command log line.",
+    "placeholders": {
+      "action": {}
+    }
+  },
+  "settingsScraplingRuntimeInstallTitle": "Scrapling ランタイムをインストール",
+  "settingsScraplingRuntimeUninstallTitle": "Scrapling ランタイムをアンインストール",
+  "settingsScraplingRuntimeInstalling": "インストール中…",
+  "settingsScraplingRuntimeUninstalling": "アンインストール中…",
+  "settingsScraplingRuntimeInstalled": "インストール済み",
+  "settingsScraplingRuntimeUninstalled": "アンインストール済み",
+  "settingsScraplingRuntimeFailed": "実行に失敗しました",
+  "settingsScraplingRuntimeCertificateDiagnosis": "診断: 現在の環境の Python / pip は PyPI の証明書チェーンを検証できません。システムの CA 証明書、プロキシの傍受証明書を確認するか、Python に有効な証明書ファイルを設定してください。",
+  "settingsScraplingRuntimeCopiedAllLogs": "すべてのログをコピーしました",
+  "settingsScraplingRuntimeCopyLogs": "ログをコピー",
   "mcpStdioDialogProcessStatus": "プロセス状態",
   "mcpStdioDialogServiceConfig": "サービス設定",
   "mcpStdioDialogType": "種類",

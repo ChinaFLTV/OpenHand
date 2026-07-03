@@ -91,13 +91,14 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
   }
 
   Future<void> _start() async {
+    if (!mounted) return;
     final runtime = context.read<AiSessionController>().toolRuntimeService;
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final actionLabel = widget.action == _ScraplingRuntimeAction.install
-        ? (isZh ? '安装' : 'Install')
-        : (isZh ? '卸载' : 'Uninstall');
+        ? l10n.settingsScraplingRuntimeActionInstall
+        : l10n.settingsScraplingRuntimeActionUninstall;
     _append(
-      '> $actionLabel Scrapling runtime',
+      '> ${l10n.settingsScraplingRuntimeCommand(actionLabel)}',
       level: _ScraplingRuntimeLogLevel.command,
     );
     _append('');
@@ -162,11 +163,11 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final installing = widget.action == _ScraplingRuntimeAction.install;
     final title = installing
-        ? (isZh ? '安装 Scrapling 运行时' : 'Install Scrapling Runtime')
-        : (isZh ? '卸载 Scrapling 运行时' : 'Uninstall Scrapling Runtime');
+        ? l10n.settingsScraplingRuntimeInstallTitle
+        : l10n.settingsScraplingRuntimeUninstallTitle;
     final statusColor = _running
         ? colorScheme.primary
         : _success
@@ -174,13 +175,13 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
         : colorScheme.error;
     final statusLabel = _running
         ? (installing
-              ? (isZh ? '安装中...' : 'Installing...')
-              : (isZh ? '卸载中...' : 'Uninstalling...'))
+              ? l10n.settingsScraplingRuntimeInstalling
+              : l10n.settingsScraplingRuntimeUninstalling)
         : _success
         ? (installing
-              ? (isZh ? '安装完成' : 'Installed')
-              : (isZh ? '卸载完成' : 'Uninstalled'))
-        : (isZh ? '执行失败' : 'Failed');
+              ? l10n.settingsScraplingRuntimeInstalled
+              : l10n.settingsScraplingRuntimeUninstalled)
+        : l10n.settingsScraplingRuntimeFailed;
 
     return buildOpenHandAlertDialog(
       title: Row(
@@ -245,9 +246,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
                   )) ...[
                     const SizedBox(height: 6),
                     Text(
-                      isZh
-                          ? '诊断：当前环境的 Python / pip 无法验证 PyPI 证书链。请检查系统 CA 证书、代理拦截证书，或为 Python 配置可用的证书文件。'
-                          : 'Diagnosis: Python / pip in the current environment cannot validate the PyPI certificate chain. Check system CA certificates, proxy interception certificates, or configure a valid certificate file for Python.',
+                      l10n.settingsScraplingRuntimeCertificateDiagnosis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -323,17 +322,17 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
             if (!context.mounted) return;
             OpenHandSnackBar.showSuccess(
               context,
-              isZh ? '已复制全部日志' : 'Copied all logs',
+              l10n.settingsScraplingRuntimeCopiedAllLogs,
               duration: const Duration(milliseconds: 1400),
             );
           },
-          label: isZh ? '复制日志' : 'Copy Logs',
+          label: l10n.settingsScraplingRuntimeCopyLogs,
         ),
         OpenHandDialogActionButton.primary(
           onPressed: _running
               ? null
               : () => Navigator.of(context).pop(_success),
-          label: isZh ? '关闭' : 'Close',
+          label: l10n.commonClose,
         ),
       ],
     );

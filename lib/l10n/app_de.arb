@@ -178,6 +178,25 @@
     }
   },
   "mcpStdioDialogRefresh": "Aktualisieren",
+  "settingsScraplingRuntimeActionInstall": "Installieren",
+  "settingsScraplingRuntimeActionUninstall": "Deinstallieren",
+  "settingsScraplingRuntimeCommand": "{action} Scrapling-Laufzeit",
+  "@settingsScraplingRuntimeCommand": {
+    "description": "Settings Scrapling runtime dialog command log line.",
+    "placeholders": {
+      "action": {}
+    }
+  },
+  "settingsScraplingRuntimeInstallTitle": "Scrapling-Laufzeit installieren",
+  "settingsScraplingRuntimeUninstallTitle": "Scrapling-Laufzeit deinstallieren",
+  "settingsScraplingRuntimeInstalling": "Installation läuft…",
+  "settingsScraplingRuntimeUninstalling": "Deinstallation läuft…",
+  "settingsScraplingRuntimeInstalled": "Installiert",
+  "settingsScraplingRuntimeUninstalled": "Deinstalliert",
+  "settingsScraplingRuntimeFailed": "Fehlgeschlagen",
+  "settingsScraplingRuntimeCertificateDiagnosis": "Diagnose: Python / pip in der aktuellen Umgebung kann die PyPI-Zertifikatskette nicht validieren. Prüfe die CA-Zertifikate des Systems, Proxy-Abfangzertifikate oder konfiguriere eine gültige Zertifikatsdatei für Python.",
+  "settingsScraplingRuntimeCopiedAllLogs": "Alle Protokolle kopiert",
+  "settingsScraplingRuntimeCopyLogs": "Protokolle kopieren",
   "mcpStdioDialogProcessStatus": "Prozessstatus",
   "mcpStdioDialogServiceConfig": "Dienstkonfiguration",
   "mcpStdioDialogType": "Typ",

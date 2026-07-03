@@ -178,6 +178,25 @@
     }
   },
   "mcpStdioDialogRefresh": "重新整理",
+  "settingsScraplingRuntimeActionInstall": "安裝",
+  "settingsScraplingRuntimeActionUninstall": "卸載",
+  "settingsScraplingRuntimeCommand": "{action} Scrapling 執行階段",
+  "@settingsScraplingRuntimeCommand": {
+    "description": "Settings Scrapling runtime dialog command log line.",
+    "placeholders": {
+      "action": {}
+    }
+  },
+  "settingsScraplingRuntimeInstallTitle": "安裝 Scrapling 執行階段",
+  "settingsScraplingRuntimeUninstallTitle": "卸載 Scrapling 執行階段",
+  "settingsScraplingRuntimeInstalling": "安裝中…",
+  "settingsScraplingRuntimeUninstalling": "卸載中…",
+  "settingsScraplingRuntimeInstalled": "安裝完成",
+  "settingsScraplingRuntimeUninstalled": "卸載完成",
+  "settingsScraplingRuntimeFailed": "執行失敗",
+  "settingsScraplingRuntimeCertificateDiagnosis": "診斷：目前環境的 Python / pip 無法驗證 PyPI 憑證鏈。請檢查系統 CA 憑證、代理攔截憑證，或為 Python 設定可用的憑證檔案。",
+  "settingsScraplingRuntimeCopiedAllLogs": "已複製全部日誌",
+  "settingsScraplingRuntimeCopyLogs": "複製日誌",
   "mcpStdioDialogProcessStatus": "行程狀態",
   "mcpStdioDialogServiceConfig": "服務設定",
   "mcpStdioDialogType": "類型",

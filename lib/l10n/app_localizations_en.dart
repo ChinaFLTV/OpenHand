@@ -420,6 +420,50 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mcpStdioDialogRefresh => 'Refresh';
 
   @override
+  String get settingsScraplingRuntimeActionInstall => 'Install';
+
+  @override
+  String get settingsScraplingRuntimeActionUninstall => 'Uninstall';
+
+  @override
+  String settingsScraplingRuntimeCommand(Object action) {
+    return '$action Scrapling runtime';
+  }
+
+  @override
+  String get settingsScraplingRuntimeInstallTitle =>
+      'Install Scrapling Runtime';
+
+  @override
+  String get settingsScraplingRuntimeUninstallTitle =>
+      'Uninstall Scrapling Runtime';
+
+  @override
+  String get settingsScraplingRuntimeInstalling => 'Installing…';
+
+  @override
+  String get settingsScraplingRuntimeUninstalling => 'Uninstalling…';
+
+  @override
+  String get settingsScraplingRuntimeInstalled => 'Installed';
+
+  @override
+  String get settingsScraplingRuntimeUninstalled => 'Uninstalled';
+
+  @override
+  String get settingsScraplingRuntimeFailed => 'Failed';
+
+  @override
+  String get settingsScraplingRuntimeCertificateDiagnosis =>
+      'Diagnosis: Python / pip in the current environment cannot validate the PyPI certificate chain. Check system CA certificates, proxy interception certificates, or configure a valid certificate file for Python.';
+
+  @override
+  String get settingsScraplingRuntimeCopiedAllLogs => 'Copied all logs';
+
+  @override
+  String get settingsScraplingRuntimeCopyLogs => 'Copy Logs';
+
+  @override
   String get mcpStdioDialogProcessStatus => 'Process Status';
 
   @override
