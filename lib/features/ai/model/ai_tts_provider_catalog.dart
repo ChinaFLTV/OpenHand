@@ -1,3 +1,4 @@
+import '../../../shared/util/input_value_parsing.dart';
 import 'ai_model_config.dart';
 import 'ai_tts_settings.dart';
 
@@ -9,8 +10,8 @@ class AiTtsCatalogOption {
   final String? enLabel;
 
   String labelForLocale({required bool chinese}) {
-    final english = enLabel?.trim();
-    if (!chinese && english != null && english.isNotEmpty) return english;
+    final english = nullIfBlank(enLabel);
+    if (!chinese && english != null) return english;
     return label;
   }
 }
@@ -42,6 +43,11 @@ class AiTtsProviderCatalogs {
   static const String minimaxDefaultVoice = 'female-shaonv';
   static const String doubaoDefaultVoice = 'zh_female_vv_uranus_bigtts';
   static const String mimoDefaultVoice = '冰糖';
+  static const String stepFunDefaultFormat = 'mp3';
+  static const String _mimoPresetModelId = 'mimo-v2.5-tts';
+  static const String _stepAudio25ModelPrefix = 'stepaudio-2.5-tts';
+  static const String _stepTtsModelPrefix = 'step-tts';
+  static const String _stepTtsMiniModelPrefix = 'step-tts-mini';
 
   static AiTtsProviderCatalog of(AiTtsProvider provider) {
     return _catalogs[provider]!;
@@ -136,7 +142,7 @@ class AiTtsProviderCatalogs {
       return supported ? normalized : stepFunDefaultVoice;
     }
     if (usesQwenSpeech(protocol: protocol, modelId: modelId)) {
-      final normalized = voice?.trim() ?? '';
+      final normalized = _trimmedVoice(voice);
       final options = voiceOptionsForAiModel(
         protocol: protocol,
         modelId: modelId,
@@ -144,14 +150,14 @@ class AiTtsProviderCatalogs {
       final supported = options.any((option) => option.value == normalized);
       return supported ? normalized : qwenDefaultVoice;
     }
-    final normalized = voice?.trim() ?? '';
+    final normalized = _trimmedVoice(voice);
     return normalized.isEmpty
         ? defaultVoiceForAiModel(protocol: protocol, modelId: modelId)
         : normalized;
   }
 
   static String normalizeStepFunVoice(String? voice) {
-    final normalized = voice?.trim() ?? '';
+    final normalized = _trimmedVoice(voice);
     if (normalized.isEmpty || isOpenAiPresetVoice(normalized)) {
       return stepFunDefaultVoice;
     }
@@ -159,9 +165,9 @@ class AiTtsProviderCatalogs {
   }
 
   static String normalizeStepFunResponseFormat(Object? raw) {
-    final format = '${raw ?? ''}'.trim().toLowerCase();
+    final format = _normalizedLookupValue(raw);
     if (stepFunSupportedFormats.contains(format)) return format;
-    return 'mp3';
+    return stepFunDefaultFormat;
   }
 
   static bool usesStepFunSpeech({
@@ -182,7 +188,7 @@ class AiTtsProviderCatalogs {
     required AiProtocolType protocol,
     required String modelId,
   }) {
-    final normalized = modelId.trim().toLowerCase();
+    final normalized = _normalizedLookupValue(modelId);
     return protocol == AiProtocolType.minimax ||
         normalized.startsWith('speech-') ||
         normalized.startsWith('minimax/speech-') ||
@@ -204,18 +210,18 @@ class AiTtsProviderCatalogs {
   }
 
   static bool isStepFunTtsModel(String modelId) {
-    final normalized = modelId.trim().toLowerCase();
+    final normalized = _normalizedLookupValue(modelId);
     if (normalized.isEmpty) return false;
-    return normalized.startsWith('step-tts') ||
+    return normalized.startsWith(_stepTtsModelPrefix) ||
         (normalized.startsWith('stepaudio-') && normalized.contains('tts'));
   }
 
   static bool isStepAudio25TtsModel(String modelId) {
-    return modelId.trim().toLowerCase().startsWith('stepaudio-2.5-tts');
+    return _normalizedLookupValue(modelId).startsWith(_stepAudio25ModelPrefix);
   }
 
   static bool isQwenTtsModel(String modelId) {
-    final normalized = modelId.trim().toLowerCase();
+    final normalized = _normalizedLookupValue(modelId);
     if (normalized.isEmpty) return false;
     return normalized.startsWith('qwen-tts') ||
         normalized.startsWith('qwen2-tts') ||
@@ -224,7 +230,7 @@ class AiTtsProviderCatalogs {
   }
 
   static bool isSeedTtsModel(String modelId) {
-    final normalized = modelId.trim().toLowerCase();
+    final normalized = _normalizedLookupValue(modelId);
     return normalized.startsWith('seed-tts') ||
         normalized.startsWith('doubao-tts') ||
         normalized.contains('seed-tts') ||
@@ -232,22 +238,22 @@ class AiTtsProviderCatalogs {
   }
 
   static bool isMimoTtsModel(String modelId) {
-    final normalized = modelId.trim().toLowerCase();
-    return normalized.startsWith('mimo-v2.5-tts');
+    final normalized = _normalizedLookupValue(modelId);
+    return normalized.startsWith(_mimoPresetModelId);
   }
 
   static bool _isStepTtsMiniModel(String modelId) {
-    return modelId.trim().toLowerCase().startsWith('step-tts-mini');
+    return _normalizedLookupValue(modelId).startsWith(_stepTtsMiniModelPrefix);
   }
 
   static bool _isStepTtsClassicModel(String modelId) {
-    final normalized = modelId.trim().toLowerCase();
-    return normalized.startsWith('step-tts') &&
-        !normalized.startsWith('step-tts-mini');
+    final normalized = _normalizedLookupValue(modelId);
+    return normalized.startsWith(_stepTtsModelPrefix) &&
+        !normalized.startsWith(_stepTtsMiniModelPrefix);
   }
 
   static bool isOpenAiPresetVoice(String voice) {
-    return _openAiPresetVoices.contains(voice.trim().toLowerCase());
+    return _openAiPresetVoices.contains(_normalizedLookupValue(voice));
   }
 
   static const Set<String> stepFunSupportedFormats = <String>{
@@ -745,7 +751,7 @@ class AiTtsProviderCatalogs {
           voiceOptions: _mimoVoices,
           languageOptions: _mimoLanguages,
           modelOptions: <AiTtsCatalogOption>[
-            AiTtsCatalogOption('mimo-v2.5-tts', 'MiMo V2.5 TTS'),
+            AiTtsCatalogOption(_mimoPresetModelId, 'MiMo V2.5 TTS'),
             AiTtsCatalogOption(
               'mimo-v2.5-tts-voicedesign',
               'MiMo V2.5 TTS Voice Design',
@@ -769,7 +775,7 @@ class AiTtsProviderCatalogs {
       };
 
   static List<AiTtsCatalogOption> _qwenVoiceOptionsForModel(String modelId) {
-    final normalized = modelId.trim().toLowerCase();
+    final normalized = _normalizedLookupValue(modelId);
     if (normalized.contains('cosyvoice')) return _qwenCosyVoices;
     if (normalized.startsWith('qwen-tts') &&
         !normalized.startsWith('qwen3-tts')) {
@@ -781,11 +787,17 @@ class AiTtsProviderCatalogs {
   static List<AiTtsCatalogOption> _mimoPresetVoiceOptionsForModel(
     String modelId,
   ) {
-    final normalized = modelId.trim().toLowerCase();
-    if (normalized.isNotEmpty && normalized != 'mimo-v2.5-tts') {
+    final normalized = _normalizedLookupValue(modelId);
+    if (normalized.isNotEmpty && normalized != _mimoPresetModelId) {
       return const <AiTtsCatalogOption>[];
     }
     return _mimoVoices;
+  }
+
+  static String _trimmedVoice(String? voice) => nullIfBlank(voice) ?? '';
+
+  static String _normalizedLookupValue(Object? value) {
+    return (optionalStringFromValue(value) ?? '').toLowerCase();
   }
 
   static List<AiTtsCatalogOption> _uniqueOptions(
