@@ -23,6 +23,7 @@ import {
   isTranscriptScrollActive,
   subscribeTranscriptScrollActivity,
 } from '../shared/ui/transcript_scroll_activity';
+import { clampNumber } from '../shared/util/number';
 
 const DURATION_MS = 520;
 const MAX_SEGMENTS = 24;
@@ -39,10 +40,6 @@ interface FadeSegment {
   startedAt: number;
 }
 
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
-}
-
 function easeOutBack(t: number): number {
   const c1 = 1.70158;
   const c3 = c1 + 1;
@@ -50,8 +47,8 @@ function easeOutBack(t: number): number {
 }
 
 function segmentAlpha(now: number, segment: FadeSegment): number {
-  const progress = clamp01((now - segment.startedAt) / DURATION_MS);
-  return clamp01(easeOutBack(progress));
+  const progress = clampNumber((now - segment.startedAt) / DURATION_MS, 0, 1);
+  return clampNumber(easeOutBack(progress), 0, 1);
 }
 
 function buildMask(
@@ -61,13 +58,13 @@ function buildMask(
   now: number,
 ): string {
   const stops: string[] = ['rgba(0,0,0,1) 0%'];
-  let previousFraction = clamp01(stableLength / Math.max(1, total));
+  let previousFraction = clampNumber(stableLength / Math.max(1, total), 0, 1);
   let previousAlpha = 1;
   if (previousFraction > 0) {
     stops.push(`rgba(0,0,0,1) ${(previousFraction * 100).toFixed(1)}%`);
   }
   for (const segment of segments) {
-    const fraction = clamp01(segment.boundary / Math.max(1, total));
+    const fraction = clampNumber(segment.boundary / Math.max(1, total), 0, 1);
     const alpha = segmentAlpha(now, segment);
     if (fraction <= previousFraction + 0.0001) {
       previousAlpha = alpha;
@@ -332,7 +329,10 @@ export function useStreamingReveal(
   // 组件卸载时取消 rAF
   useEffect(() => {
     return () => {
-      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
   }, []);
 
