@@ -587,8 +587,8 @@ class KnowledgeRetrievalService {
       r'(?:最近|近|last|past)\s*(\d{1,4})\s*(?:天|日|days?)',
     ).firstMatch(normalized);
     if (recentDaysMatch == null) return null;
-    final days = int.tryParse(recentDaysMatch.group(1)!);
-    if (days == null || days <= 0 || days > 3650) return null;
+    final days = optionalPositiveIntFromValue(recentDaysMatch.group(1));
+    if (days == null || days > 3650) return null;
     return (start: now.subtract(Duration(days: days)), end: now.add(_oneDay));
   }
 

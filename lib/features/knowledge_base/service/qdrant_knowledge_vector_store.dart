@@ -295,8 +295,8 @@ Object qdrantPointIdForStableId(String value) {
     throw const FormatException('Qdrant point id cannot be empty.');
   }
   if (Uuid.isValidUUID(fromString: normalized)) return normalized;
-  final unsigned = int.tryParse(normalized);
-  if (unsigned != null && unsigned >= 0) return unsigned;
+  final unsigned = optionalNonNegativeIntFromValue(normalized);
+  if (unsigned != null) return unsigned;
   return _qdrantPointUuid.v5(
     Namespace.url.value,
     'openhand:qdrant-point:$normalized',

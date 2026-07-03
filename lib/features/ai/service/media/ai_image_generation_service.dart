@@ -1235,11 +1235,9 @@ class AiImageGenerationService {
     if (trimmed == null || trimmed.isEmpty) return null;
     final match = RegExp(r'^(\d{2,5})x(\d{2,5})$').firstMatch(trimmed);
     if (match == null) return null;
-    final width = int.tryParse(match.group(1)!);
-    final height = int.tryParse(match.group(2)!);
-    if (width == null || height == null || width <= 0 || height <= 0) {
-      return null;
-    }
+    final width = optionalPositiveIntFromValue(match.group(1));
+    final height = optionalPositiveIntFromValue(match.group(2));
+    if (width == null || height == null) return null;
     return _PixelSize(width: width, height: height);
   }
 
@@ -2087,8 +2085,8 @@ class AiImageGenerationService {
     if (raw == null) return null;
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return null;
-    final seconds = int.tryParse(trimmed);
-    if (seconds != null && seconds >= 0) {
+    final seconds = optionalNonNegativeIntFromValue(trimmed);
+    if (seconds != null) {
       // Cap at 30s so a hostile/misconfigured server cannot block the
       // media task for the full deadline window.
       return Duration(seconds: math.min(seconds, 30));
