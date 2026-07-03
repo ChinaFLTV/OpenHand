@@ -4006,10 +4006,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       final raw = read.text!;
       final decoded = jsonDecode(raw);
       if (decoded is! List) throw const FormatException('not a list');
-      final steps = decoded
-          .whereType<Map>()
-          .map((m) => Map<String, Object?>.from(m))
-          .toList(growable: false);
+      final steps = stringKeyedMapListFromValue(decoded);
       widget.controller.setRecorderSteps(steps);
       if (!mounted) return;
       OpenHandSnackBar.showSuccessOn(

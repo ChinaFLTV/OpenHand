@@ -321,9 +321,8 @@ class _WebReverseDashboardDialogState
         final rules = rulesRaw
             .whereType<Map>()
             .map(
-              (m) => WebReverseInterceptRule.fromJson(
-                Map<String, Object?>.from(m),
-              ),
+              (m) =>
+                  WebReverseInterceptRule.fromJson(stringKeyedMapFromValue(m)),
             )
             .toList(growable: false);
         if (rules.isNotEmpty) widget.controller.setInterceptRules(rules);
@@ -333,9 +332,7 @@ class _WebReverseDashboardDialogState
       if (snipRaw is List) {
         final snips = snipRaw
             .whereType<Map>()
-            .map(
-              (m) => WebReverseSnippet.fromJson(Map<String, Object?>.from(m)),
-            )
+            .map((m) => WebReverseSnippet.fromJson(stringKeyedMapFromValue(m)))
             .where((s) => s.id.isNotEmpty)
             .toList(growable: false);
         if (snips.isNotEmpty) widget.controller.replaceSnippets(snips);
@@ -345,7 +342,7 @@ class _WebReverseDashboardDialogState
       if (hookRaw is List) {
         final hooks = hookRaw
             .whereType<Map>()
-            .map((m) => WebReverseHook.fromJson(Map<String, Object?>.from(m)))
+            .map((m) => WebReverseHook.fromJson(stringKeyedMapFromValue(m)))
             .where((h) => h.id.isNotEmpty)
             .toList(growable: false);
         if (hooks.isNotEmpty) unawaited(widget.controller.replaceHooks(hooks));
@@ -355,7 +352,7 @@ class _WebReverseDashboardDialogState
       if (cronRaw is List) {
         final crons = cronRaw
             .whereType<Map>()
-            .map((m) => WebReverseCron.fromJson(Map<String, Object?>.from(m)))
+            .map((m) => WebReverseCron.fromJson(stringKeyedMapFromValue(m)))
             .where((c) => c.id.isNotEmpty)
             .toList(growable: false);
         if (crons.isNotEmpty) unawaited(widget.controller.replaceCrons(crons));

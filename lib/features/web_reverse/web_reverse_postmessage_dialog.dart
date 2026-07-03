@@ -20,6 +20,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -254,7 +255,7 @@ class _PmDialogState extends State<_PmDialog> {
         for (final m in parsed) {
           if (m is Map) {
             try {
-              _records.add(_PmRecord.fromJson(Map<String, Object?>.from(m)));
+              _records.add(_PmRecord.fromJson(stringKeyedMapFromValue(m)));
             } catch (e, st) {
               silentLog('web_reverse_pm', 'parseRow', e, st);
             }

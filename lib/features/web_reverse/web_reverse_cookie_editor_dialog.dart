@@ -14,6 +14,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -86,16 +87,12 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
         return;
       }
       final list = (r['cookies'] as List?) ?? const [];
-      _all =
-          list
-              .whereType<Map>()
-              .map((m) => _CookieRow(Map<String, Object?>.from(m)))
-              .toList()
-            ..sort((a, b) {
-              final d = a.domain.compareTo(b.domain);
-              if (d != 0) return d;
-              return a.name.compareTo(b.name);
-            });
+      _all = stringKeyedMapListFromValue(list).map(_CookieRow.new).toList()
+        ..sort((a, b) {
+          final d = a.domain.compareTo(b.domain);
+          if (d != 0) return d;
+          return a.name.compareTo(b.name);
+        });
       setState(
         () => _status =
             loc1?.webReverseCookieEditorCookieCount(_all.length) ??
