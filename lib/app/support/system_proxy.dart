@@ -131,12 +131,7 @@ class SystemProxyResolver {
     final noProxy = env['NO_PROXY'] ?? env['no_proxy'] ?? '';
     _noProxyHosts
       ..clear()
-      ..addAll(
-        noProxy
-            .split(',')
-            .map((s) => s.trim().toLowerCase())
-            .where((s) => s.isNotEmpty),
-      );
+      ..addAll(splitTrimmedNonEmpty(noProxy).map((s) => s.toLowerCase()));
   }
 
   Future<void> _resolveFromMacScutil() async {

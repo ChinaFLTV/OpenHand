@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:yaml/yaml.dart';
 
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/agent_models.dart';
 
 class AgentRoutingMetadata {
@@ -151,11 +152,7 @@ List<String> _stringsFromValue(Object? raw) {
         .where((value) => value.trim().isNotEmpty)
         .toList(growable: false);
   }
-  return '$raw'
-      .split(',')
-      .map((value) => value.trim())
-      .where((value) => value.isNotEmpty)
-      .toList(growable: false);
+  return splitTrimmedNonEmpty('$raw');
 }
 
 List<String> _dedupe(List<String> values) {

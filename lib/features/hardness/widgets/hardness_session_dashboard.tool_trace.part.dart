@@ -71,7 +71,7 @@ class _HeApiToolCallMeta {
     var workingDirectory = '';
 
     if (statusLine != null) {
-      final parts = statusLine.split('|').map((s) => s.trim()).toList();
+      final parts = splitTrimmed(statusLine, separator: '|');
       for (final part in parts) {
         if (part.startsWith('status:')) {
           status = _heNormalizeToolStatus(
