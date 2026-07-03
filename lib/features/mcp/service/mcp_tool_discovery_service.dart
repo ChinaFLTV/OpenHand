@@ -15,9 +15,9 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../ai/index.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
-import '../model/mcp_stdio_mirror_mode.dart';
 import '../model/mcp_tool.dart';
 import 'mcp_stdio_io_utils.dart';
+import 'mcp_stdio_mirror_policy.dart';
 import 'mcp_stdio_process_manager.dart';
 
 abstract class McpToolDiscoveryService {
@@ -2037,59 +2037,6 @@ Map<String, String> mcpStdioIsolatedCacheEnv() {
   }
 }
 
-/// 设置页「stdio 镜像源模式」实时同步过来的运行时变量。
-/// `null` 表示未注入（首次启动 boot 阶段或未启用 MCP），按 auto 走 locale。
-McpStdioMirrorMode? mcpStdioMirrorModeOverride;
-
-/// 镜像源决策最终命中的来源。UI 用它渲染「当前生效」状态行；
-enum McpMirrorEffectiveSource {
-  /// 环境变量 OPENHAND_MCP_MIRROR=on/1/true
-  envOn,
-
-  /// 环境变量 OPENHAND_MCP_MIRROR=off/0/false
-  envOff,
-
-  /// 设置项 = 强制开启
-  settingForceOn,
-
-  /// 设置项 = 强制关闭
-  settingForceOff,
-
-  /// 设置项 = auto，且 locale 是 zh*（注入）
-  autoLocaleZh,
-
-  /// 设置项 = auto，且 locale 不是 zh*（不注入）
-  autoLocaleOther;
-
-  bool get injects =>
-      this == envOn || this == settingForceOn || this == autoLocaleZh;
-}
-
-/// 计算镜像源决策最终命中的来源。供 UI、日志、测试三方共用。
-McpMirrorEffectiveSource resolveMcpMirrorEffectiveSource() {
-  final override = (Platform.environment['OPENHAND_MCP_MIRROR'] ?? '')
-      .trim()
-      .toLowerCase();
-  if (override == 'on' || override == '1' || override == 'true') {
-    return McpMirrorEffectiveSource.envOn;
-  }
-  if (override == 'off' || override == '0' || override == 'false') {
-    return McpMirrorEffectiveSource.envOff;
-  }
-  switch (mcpStdioMirrorModeOverride) {
-    case McpStdioMirrorMode.forceOn:
-      return McpMirrorEffectiveSource.settingForceOn;
-    case McpStdioMirrorMode.forceOff:
-      return McpMirrorEffectiveSource.settingForceOff;
-    case McpStdioMirrorMode.auto:
-    case null:
-      final locale = Platform.localeName.toLowerCase();
-      return locale.startsWith('zh')
-          ? McpMirrorEffectiveSource.autoLocaleZh
-          : McpMirrorEffectiveSource.autoLocaleOther;
-  }
-}
-
 /// 是否给 stdio MCP 注入中国镜像源。
 /// 决策表（自上而下，命中即返回）：
 ///   1. `OPENHAND_MCP_MIRROR=on/off` 环境变量 → 最高优先级，便于临时调试
@@ -2097,8 +2044,7 @@ McpMirrorEffectiveSource resolveMcpMirrorEffectiveSource() {
 ///   3. auto / 未设置 → 看系统 locale 是否 zh*
 /// 让中国大陆用户开箱即用，又给海外/已配企业镜像/手动覆盖三种诉求都留口子。
 bool _shouldInjectChinaMirror() {
-  final source = resolveMcpMirrorEffectiveSource();
-  return source.injects;
+  return shouldInjectMcpChinaMirror();
 }
 
 /// stdio MCP 隔离包缓存根目录：~/.openhand/mcp/package-cache。
