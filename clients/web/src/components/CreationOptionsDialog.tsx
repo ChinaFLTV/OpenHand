@@ -2,7 +2,7 @@
 import { useRef, useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { normalizeInteger } from '../shared/util/number';
+import { normalizeInteger, strictPositiveIntegerFromText } from '../shared/util/number';
 import {
   DIALOG_OVERLAY_EDGE_SHEET_CLASS,
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
@@ -82,13 +82,6 @@ function modeTitle(mode: string): string {
 function trimToUndefined(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function positiveIntFromText(value: string): number | undefined {
-  const trimmed = value.trim();
-  if (!/^[1-9]\d*$/.test(trimmed)) return undefined;
-  const parsed = Number.parseInt(trimmed, 10);
-  return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
 
 interface ChipGroupProps<T extends string | number> {
@@ -261,7 +254,10 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
     negativePrompt: mode === 'image' || mode === 'video' ? trimToUndefined(negativePrompt) : undefined,
     promptEnhance: mode === 'image' || mode === 'video' ? promptEnhance : undefined,
     watermark: mode === 'image' || mode === 'video' ? watermark : undefined,
-    seed: mode === 'image' || mode === 'video' ? positiveIntFromText(seed) : undefined,
+    seed:
+      mode === 'image' || mode === 'video'
+        ? strictPositiveIntegerFromText(seed) ?? undefined
+        : undefined,
     resolution: mode === 'video' ? resolution : undefined,
     frameRate: mode === 'video' ? frameRate : undefined,
     numFrames: mode === 'video' ? numFrames : undefined,

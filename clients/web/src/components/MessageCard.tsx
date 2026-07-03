@@ -44,6 +44,7 @@ import { useDelayedFalse } from '../hooks/useDelayedFalse';
 import { useTimeoutController } from '../hooks/useTimeoutController';
 import { boundedFnv1aHashBase36 } from '../shared/util/hash';
 import { knowledgeBaseResultsUsedByAnswer } from '../shared/util/knowledge';
+import { strictPositiveIntegerFromUnknown } from '../shared/util/number';
 import {
   booleanFromUnknown,
   finiteNumberOrNullFromUnknown,
@@ -522,19 +523,7 @@ function nonEmptyString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-const STRICT_POSITIVE_INTEGER_RE = /^[1-9]\d*$/;
 const STRICT_POSITIVE_NUMBER_RE = /^(?:[1-9]\d*(?:\.\d+)?|0?\.\d+)$/;
-
-function positiveIntegerFromOption(value: unknown): number | null {
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value) || value <= 0) return null;
-    return Math.round(value);
-  }
-  const text = nonEmptyString(value);
-  if (!STRICT_POSITIVE_INTEGER_RE.test(text)) return null;
-  const parsed = Number.parseInt(text, 10);
-  return Number.isSafeInteger(parsed) ? parsed : null;
-}
 
 function positiveNumberFromOption(value: unknown): number | null {
   if (typeof value === 'number') {
@@ -1462,14 +1451,14 @@ function creationOptionDetail(options: Record<string, unknown> | null): string {
   const resolution = nonEmptyString(options['resolution']);
   const mode = nonEmptyString(options['mode']);
   const voice = nonEmptyString(options['voice']);
-  const duration = positiveIntegerFromOption(options['duration_seconds']);
-  const count = positiveIntegerFromOption(options['count']);
-  const frameRate = positiveIntegerFromOption(options['frame_rate']);
-  const numFrames = positiveIntegerFromOption(options['num_frames']);
-  const seed = positiveIntegerFromOption(options['seed']);
+  const duration = strictPositiveIntegerFromUnknown(options['duration_seconds']);
+  const count = strictPositiveIntegerFromUnknown(options['count']);
+  const frameRate = strictPositiveIntegerFromUnknown(options['frame_rate']);
+  const numFrames = strictPositiveIntegerFromUnknown(options['num_frames']);
+  const seed = strictPositiveIntegerFromUnknown(options['seed']);
   const speed = positiveNumberFromOption(options['speed']);
-  const sampleRate = positiveIntegerFromOption(options['sample_rate']);
-  const bitrate = positiveIntegerFromOption(options['bitrate']);
+  const sampleRate = strictPositiveIntegerFromUnknown(options['sample_rate']);
+  const bitrate = strictPositiveIntegerFromUnknown(options['bitrate']);
   if (aspectRatio) parts.push(aspectRatio);
   else if (size) parts.push(size);
   if (duration != null) parts.push(`${duration}s`);
@@ -1518,7 +1507,7 @@ function attachmentChips(meta: Record<string, unknown>): MessageContextChip[] {
     }
   }
   if (counts.size === 0) {
-    const count = positiveIntegerFromOption(meta['attachment_count']);
+    const count = strictPositiveIntegerFromUnknown(meta['attachment_count']);
     if (count != null) counts.set('binary', count);
   }
   const order: AttachmentKind[] = ['image', 'text', 'spreadsheet', 'pdf', 'binary'];

@@ -12,6 +12,8 @@ export interface NormalizeIntegerOptions {
   zeroDisables?: boolean;
 }
 
+const STRICT_POSITIVE_INTEGER_RE = /^[1-9]\d*$/;
+
 export const MAX_BROWSER_TIMEOUT_MS = 2_147_483_647;
 
 export function finiteNumberOr(
@@ -54,4 +56,19 @@ export function normalizeDurationMs(
   }: NormalizeDurationMsOptions,
 ): number {
   return normalizeInteger(value, { fallback, min, max, zeroDisables });
+}
+
+export function strictPositiveIntegerFromText(value: string): number | null {
+  const trimmed = value.trim();
+  if (!STRICT_POSITIVE_INTEGER_RE.test(trimmed)) return null;
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+export function strictPositiveIntegerFromUnknown(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) && value > 0 ? value : null;
+  }
+  if (typeof value !== 'string') return null;
+  return strictPositiveIntegerFromText(value);
 }

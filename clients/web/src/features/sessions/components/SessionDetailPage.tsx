@@ -81,6 +81,7 @@ import CacheHitTrendChart, { type CacheHitDisplayMode } from './CacheHitTrendCha
 import { notifyIfHidden } from '../../../services/pwa';
 import { readBrowserStorage, removeBrowserStorage, writeBrowserStorage } from '../../../shared/util/browser_storage';
 import { knowledgeBaseResultsUsedByAnswer } from '../../../shared/util/knowledge';
+import { strictPositiveIntegerFromText } from '../../../shared/util/number';
 import { basenameFromPath } from '../../../shared/util/path';
 import {
   clearTranscriptScrollActivity,
@@ -165,15 +166,6 @@ function resolveDefaultTitleModelKey(models: ApiMetaModel[], currentKey: string)
 
 function nonEmptyString(value: unknown): string {
   return stringFromUnknown(value);
-}
-
-const STRICT_POSITIVE_INTEGER_RE = /^[1-9]\d*$/;
-
-function strictPositiveIntegerFromText(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (!STRICT_POSITIVE_INTEGER_RE.test(trimmed)) return null;
-  const value = Number.parseInt(trimmed, 10);
-  return Number.isSafeInteger(value) ? value : null;
 }
 
 const LOAD_OLDER_RENDER_SETTLE_MS = 160;

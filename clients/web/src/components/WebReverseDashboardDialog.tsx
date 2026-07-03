@@ -17,6 +17,7 @@ import {
 } from './DialogFrame';
 import { t } from '../i18n';
 import type { SessionSummary } from '../api/sessions';
+import { strictPositiveIntegerFromUnknown } from '../shared/util/number';
 
 export interface WebReverseDashboardDialogProps {
   session: SessionSummary;
@@ -67,13 +68,6 @@ function stringFromUnknown(raw: unknown): string {
   return typeof raw === 'string' ? raw.trim() : '';
 }
 
-function numberFromUnknown(raw: unknown): number | null {
-  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
-  if (typeof raw !== 'string') return null;
-  const parsed = Number.parseInt(raw.trim(), 10);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 function booleanFromUnknown(raw: unknown): boolean | null {
   if (typeof raw === 'boolean') return raw;
   if (typeof raw !== 'string') return null;
@@ -115,9 +109,13 @@ function runtimeSummaryFromMetadata(
     availability?.['tool_search_deferred_cdp_mcp_names'],
   );
   const toolCount =
-    numberFromUnknown(bridge?.['tool_count']) ??
-    numberFromUnknown(availability?.['current_turn_callable_count']) ??
-    numberFromUnknown(availability?.['tool_search_deferred_cdp_mcp_count']);
+    strictPositiveIntegerFromUnknown(bridge?.['tool_count']) ??
+    strictPositiveIntegerFromUnknown(
+      availability?.['current_turn_callable_count'],
+    ) ??
+    strictPositiveIntegerFromUnknown(
+      availability?.['tool_search_deferred_cdp_mcp_count'],
+    );
   const currentCallable =
     booleanFromUnknown(
       availability?.['live_cdp_actions_current_turn_callable'],
@@ -125,7 +123,9 @@ function runtimeSummaryFromMetadata(
     booleanFromUnknown(availability?.['current_turn_callable']) === true;
   const hasDeferredCdpTools =
     deferredToolNames.length > 0 ||
-    (numberFromUnknown(availability?.['tool_search_deferred_cdp_mcp_count']) ??
+    (strictPositiveIntegerFromUnknown(
+      availability?.['tool_search_deferred_cdp_mcp_count'],
+    ) ??
       0) > 0;
   const route =
     currentCallable
@@ -137,8 +137,8 @@ function runtimeSummaryFromMetadata(
           : '离线工件模式';
   const rawBridgeStatus = stringFromUnknown(bridge?.['status']);
   const port =
-    numberFromUnknown(currentCdpRuntime?.['cdp_port']) ??
-    numberFromUnknown(bridge?.['cdp_port']);
+    strictPositiveIntegerFromUnknown(currentCdpRuntime?.['cdp_port']) ??
+    strictPositiveIntegerFromUnknown(bridge?.['cdp_port']);
   const bridgeReady =
     booleanFromUnknown(bridge?.['live_actions_callable']) === true ||
     rawBridgeStatus === 'ready';
