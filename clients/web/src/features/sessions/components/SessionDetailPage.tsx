@@ -167,6 +167,15 @@ function nonEmptyString(value: unknown): string {
   return stringFromUnknown(value);
 }
 
+const STRICT_POSITIVE_INTEGER_RE = /^[1-9]\d*$/;
+
+function strictPositiveIntegerFromText(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!STRICT_POSITIVE_INTEGER_RE.test(trimmed)) return null;
+  const value = Number.parseInt(trimmed, 10);
+  return Number.isSafeInteger(value) ? value : null;
+}
+
 const LOAD_OLDER_RENDER_SETTLE_MS = 160;
 const AUTO_FOLLOW_NEAR_BOTTOM_PX = 64;
 const AUTO_FOLLOW_SCROLL_TOP_EPSILON_PX = 0.05;
@@ -6797,23 +6806,18 @@ function GoalStartOptionsDialog({
     ? `${selectedModel.label || selectedModel.model_id}${selectedModel.provider ? ` · ${selectedModel.provider}` : ''}`
     : t('composer.modelEmpty', '主控制台未配置模型');
 
-  const parsePositiveInt = (raw: string): number | null => {
-    const value = Number.parseInt(raw.trim(), 10);
-    return Number.isFinite(value) && value > 0 ? value : null;
-  };
-
   const submit = (event?: Event) => {
     event?.preventDefault();
     if (!selectedModel) {
       setError(t('composer.error.modelMissing', '请选择模型'));
       return;
     }
-    const turns = turnLimitEnabled ? parsePositiveInt(turnLimit) : null;
+    const turns = turnLimitEnabled ? strictPositiveIntegerFromText(turnLimit) : null;
     if (turnLimitEnabled && (turns == null || turns > GOAL_HARD_MAX_AUTO_TURNS)) {
       setError(t('goal.start.turnLimit.invalid', '轮次限制请输入 1 到 60 的正整数'));
       return;
     }
-    const budget = tokenBudgetEnabled ? parsePositiveInt(tokenBudget) : null;
+    const budget = tokenBudgetEnabled ? strictPositiveIntegerFromText(tokenBudget) : null;
     if (tokenBudgetEnabled && budget == null) {
       setError(t('goal.start.tokenBudget.invalid', 'Token 预算请输入正整数'));
       return;
