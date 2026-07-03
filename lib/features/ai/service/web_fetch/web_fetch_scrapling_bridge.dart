@@ -9,6 +9,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../web_engine/web_engine_http_exception.dart';
 import 'web_fetch_value_parsing.dart';
@@ -315,7 +316,7 @@ class WebFetchScraplingBridge {
             try {
               final decoded = jsonDecode(line);
               if (decoded is! Map) return;
-              json = Map<String, Object?>.from(decoded);
+              json = stringKeyedMapFromValue(decoded);
             } catch (_) {
               return;
             }

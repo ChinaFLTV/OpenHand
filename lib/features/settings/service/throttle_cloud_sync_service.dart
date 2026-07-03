@@ -281,10 +281,10 @@ class ThrottleCloudSyncService {
       if (decoded is Map) {
         final inner = decoded['config'];
         if (inner is Map) {
-          cfg = Map<String, Object?>.from(inner);
+          cfg = stringKeyedMapFromValue(inner);
         } else {
           // 兼容裸格式：整体即配置文档
-          cfg = Map<String, Object?>.from(decoded);
+          cfg = stringKeyedMapFromValue(decoded);
         }
         updatedAtMs = _readUpdatedAtMs(decoded, cfg);
       }
@@ -395,9 +395,9 @@ class ThrottleCloudSyncService {
       if (decoded is Map) {
         final inner = decoded['config'];
         if (inner is Map) {
-          cfg = Map<String, Object?>.from(inner);
+          cfg = stringKeyedMapFromValue(inner);
         } else {
-          cfg = Map<String, Object?>.from(decoded);
+          cfg = stringKeyedMapFromValue(decoded);
         }
         updatedAtMs = _readUpdatedAtMs(decoded, cfg);
       }

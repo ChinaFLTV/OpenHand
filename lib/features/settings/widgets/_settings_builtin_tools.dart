@@ -436,14 +436,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
     final schemaText = _schemaOverrideController.text.trim();
     Map<String, Object?>? schemaOverride;
     if (schemaText.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(schemaText);
-        if (decoded is Map) {
-          schemaOverride = Map<String, Object?>.from(decoded);
-        }
-      } catch (_) {
-        // Invalid JSON — keep null.
-      }
+      schemaOverride = optionalStringKeyedMapFromJsonText(schemaText);
     }
     final priority = clampedIntFromText(
       _priorityController.text,

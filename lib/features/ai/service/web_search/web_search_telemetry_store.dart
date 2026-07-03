@@ -128,9 +128,8 @@ class WebSearchCallLog {
         ? perEngineRaw
               .whereType<Map>()
               .map(
-                (e) => WebSearchPerEngineLog.fromJson(
-                  Map<String, Object?>.from(e),
-                ),
+                (e) =>
+                    WebSearchPerEngineLog.fromJson(stringKeyedMapFromValue(e)),
               )
               .toList(growable: false)
         : const <WebSearchPerEngineLog>[];

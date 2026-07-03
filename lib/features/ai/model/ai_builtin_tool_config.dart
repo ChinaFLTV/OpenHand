@@ -374,7 +374,7 @@ class AiBuiltinToolConfig {
       try {
         final decoded = jsonDecode(rawSchema);
         if (decoded is Map) {
-          schemaOverride = Map<String, Object?>.from(decoded);
+          schemaOverride = stringKeyedMapFromValue(decoded);
         }
       } catch (error, stack) {
         silentLog(

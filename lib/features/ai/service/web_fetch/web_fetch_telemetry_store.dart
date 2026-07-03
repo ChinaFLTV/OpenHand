@@ -118,7 +118,7 @@ class WebFetchCallLog {
               .whereType<Map>()
               .map(
                 (e) =>
-                    WebFetchPerEngineLog.fromJson(Map<String, Object?>.from(e)),
+                    WebFetchPerEngineLog.fromJson(stringKeyedMapFromValue(e)),
               )
               .toList(growable: false)
         : const <WebFetchPerEngineLog>[];
