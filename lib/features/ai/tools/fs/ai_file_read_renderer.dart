@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../ai_tool_utils.dart';
 import 'ai_read_tool.dart';
 
@@ -164,7 +165,7 @@ class AiFileReadRenderer {
       return '';
     }
     if (decoded is! Map) return '';
-    final notebook = Map<String, Object?>.from(decoded);
+    final notebook = stringKeyedMapFromValue(decoded);
     final rawCells = notebook['cells'];
     if (rawCells is! List || rawCells.isEmpty) return '';
     final buffer = StringBuffer();
@@ -307,7 +308,7 @@ class AiFileReadRenderer {
 
   Map<String, Object?>? _asMap(Object? value) {
     if (value is Map<String, Object?>) return value;
-    if (value is Map) return Map<String, Object?>.from(value);
+    if (value is Map) return stringKeyedMapFromValue(value);
     return null;
   }
 

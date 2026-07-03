@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/fs/ai_file_history_service.dart';
 import '../../service/fs/ai_file_mutation_ledger.dart';
 import '../../service/fs/ai_file_tracker_service.dart';
@@ -127,7 +128,7 @@ class AiNotebookEditTool extends AiTool {
         'Notebook JSON root is invalid.',
       );
     }
-    final notebook = Map<String, Object?>.from(decoded);
+    final notebook = stringKeyedMapFromValue(decoded);
     final rawCells = notebook['cells'];
     if (rawCells is! List) {
       return AiToolUtils.invalidResult(
@@ -137,9 +138,8 @@ class AiNotebookEditTool extends AiTool {
     }
     final cells = rawCells
         .map(
-          (item) => item is Map
-              ? Map<String, Object?>.from(item)
-              : <String, Object?>{},
+          (item) =>
+              item is Map ? stringKeyedMapFromValue(item) : <String, Object?>{},
         )
         .toList(growable: true);
     final index = cellId.isEmpty

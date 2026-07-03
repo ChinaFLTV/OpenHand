@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/fs/ai_file_history_service.dart';
 import '../../service/fs/ai_file_mutation_ledger.dart';
 import '../../service/fs/ai_file_tracker_service.dart';
@@ -72,7 +73,7 @@ class AiApplyFileDiffsTool extends AiTool {
           'diffs[$i] must be an object with file_path + hunks.',
         );
       }
-      final entry = Map<String, Object?>.from(raw);
+      final entry = stringKeyedMapFromValue(raw);
       final rawPath = '${entry['file_path'] ?? ''}'.trim();
       if (rawPath.isEmpty) {
         return AiToolUtils.invalidResult(
@@ -142,7 +143,7 @@ class AiApplyFileDiffsTool extends AiTool {
             'diffs[$i].hunks[$hunkIndex] must be an object.',
           );
         }
-        final hunk = Map<String, Object?>.from(rawHunk);
+        final hunk = stringKeyedMapFromValue(rawHunk);
         final oldString = '${hunk['old_string'] ?? ''}';
         final newString = '${hunk['new_string'] ?? ''}';
         final replaceAll = AiToolUtils.readBool(hunk['replace_all']) == true;

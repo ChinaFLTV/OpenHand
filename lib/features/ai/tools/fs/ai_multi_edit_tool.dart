@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/fs/ai_file_history_service.dart';
 import '../../service/fs/ai_file_mutation_ledger.dart';
 import '../../service/fs/ai_file_tracker_service.dart';
@@ -46,7 +47,7 @@ class AiMultiEditTool extends AiTool {
           'edits[$editIndex] must be an object.',
         );
       }
-      final edit = Map<String, Object?>.from(rawEdit);
+      final edit = stringKeyedMapFromValue(rawEdit);
       final payloadSizeValidation =
           AiToolUtils.validateGeneratedTextPayloadSize(
             toolName: 'MultiEdit',
@@ -135,7 +136,7 @@ class AiMultiEditTool extends AiTool {
           'edits[$editIndex] must be an object.',
         );
       }
-      final edit = Map<String, Object?>.from(rawEdit);
+      final edit = stringKeyedMapFromValue(rawEdit);
       final oldString = '${edit['old_string'] ?? ''}';
       final newString = '${edit['new_string'] ?? ''}';
       final replaceAll = AiToolUtils.readBool(edit['replace_all']) == true;
