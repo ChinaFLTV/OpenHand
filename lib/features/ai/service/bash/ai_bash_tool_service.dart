@@ -6,6 +6,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../runtime/ai_tool_execution_registry.dart';
@@ -425,7 +426,7 @@ class _PersistentBashExecution {
       final exitCodeText = normalizedLine
           .substring(stdoutExitMarker.length)
           .trim();
-      _exitCode = int.tryParse(exitCodeText) ?? -1;
+      _exitCode = intFromValue(exitCodeText, fallback: -1);
       _awaitingPwdLine = true;
       return;
     }
