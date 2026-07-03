@@ -223,9 +223,7 @@ String webPromptExcerpt(String input, int maxChars) {
   if (maxChars <= 0) return '';
   final seenLines = <String>{};
   final lines = <String>[];
-  for (final rawLine in input.trim().split(RegExp(r'\r?\n'))) {
-    final line = rawLine.replaceAll(_webQualityWhitespacePattern, ' ').trim();
-    if (line.length < 2) continue;
+  for (final line in _webQualityNormalizedLines(input, minLength: 2)) {
     if (seenLines.add(line.toLowerCase())) lines.add(line);
   }
   final cleaned = lines.isEmpty
@@ -245,11 +243,7 @@ double webContentQualityScore(String content) {
     score -= (200 - capped.length).clamp(0, 160) * 0.5;
   }
 
-  final lines = capped
-      .split(RegExp(r'\r?\n'))
-      .map((line) => line.replaceAll(_webQualityWhitespacePattern, ' ').trim())
-      .where((line) => line.length >= 3)
-      .toList(growable: false);
+  final lines = _webQualityNormalizedLines(capped, minLength: 3);
   if (lines.length >= 6) {
     final uniqueLineRatio = lines.toSet().length / lines.length;
     score -= (1 - uniqueLineRatio) * 160;
@@ -294,4 +288,20 @@ double webContentQualityScore(String content) {
   score -= math.min(boilerplateHits, 4) * 35;
 
   return score;
+}
+
+List<String> _webQualityNormalizedLines(
+  String input, {
+  required int minLength,
+}) {
+  return input
+      .trim()
+      .split(RegExp(r'\r?\n'))
+      .map(_normalizeWebQualityWhitespace)
+      .where((line) => line.length >= minLength)
+      .toList(growable: false);
+}
+
+String _normalizeWebQualityWhitespace(String input) {
+  return input.replaceAll(_webQualityWhitespacePattern, ' ').trim();
 }
