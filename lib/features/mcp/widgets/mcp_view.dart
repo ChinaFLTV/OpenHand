@@ -49,6 +49,7 @@ const double _mcpToolDebugMenuMaxHeight = 360;
 const double _mcpToolDebugMenuItemInset = 8;
 const double _mcpToolDebugMenuItemRadius = 10;
 const Duration _mcpForceProbeResetDelay = Duration(milliseconds: 200);
+const Duration _mcpToolPreviewExpandDuration = Duration(milliseconds: 220);
 
 class McpView extends StatefulWidget {
   const McpView({super.key});
@@ -4387,7 +4388,7 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                   turns: _expanded ? 0.5 : 0.0,
                   duration: MediaQuery.disableAnimationsOf(context)
                       ? Duration.zero
-                      : const Duration(milliseconds: 220),
+                      : _mcpToolPreviewExpandDuration,
                   curve: Curves.easeOutCubic,
                   child: const Icon(Icons.expand_more_rounded),
                 ),
@@ -4418,7 +4419,7 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
           AnimatedSize(
             duration: MediaQuery.disableAnimationsOf(context)
                 ? Duration.zero
-                : const Duration(milliseconds: 220),
+                : _mcpToolPreviewExpandDuration,
             curve: Curves.easeOutCubic,
             alignment: Alignment.topLeft,
             child: Align(
