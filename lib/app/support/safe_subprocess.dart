@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../features/ai/service/runtime/ai_tool_execution_registry.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'silent_log.dart';
 import 'url_validation.dart';
@@ -331,7 +332,7 @@ Future<int> killAllDirectChildren() async {
 Set<int> _parseChildPids(Object? stdout, {required int parentPid}) {
   return '$stdout'
       .split(RegExp(r'\s+'))
-      .map((part) => int.tryParse(part.trim()))
+      .map(optionalIntFromValue)
       .whereType<int>()
       .where((childPid) => childPid > 0 && childPid != parentPid)
       .toSet();

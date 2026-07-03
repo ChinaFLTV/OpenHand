@@ -2587,7 +2587,7 @@ class _StdioSession {
       if (name != 'content-length') {
         continue;
       }
-      return int.tryParse(line.substring(separatorIndex + 1).trim());
+      return optionalIntFromValue(line.substring(separatorIndex + 1));
     }
     return null;
   }

@@ -679,7 +679,7 @@ class McpStdioProcessManager extends ChangeNotifier {
           tag: 'mcp_stdio.ps_rss',
         );
         if (result.exitCode == 0) {
-          final rssKb = int.tryParse(result.stdout.toString().trim());
+          final rssKb = optionalIntFromValue(result.stdout);
           if (rssKb != null) {
             info['内存 (RSS)'] = formatByteSize(rssKb * 1024);
           }

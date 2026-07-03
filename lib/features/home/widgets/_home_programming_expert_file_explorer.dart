@@ -5549,8 +5549,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   void _goToLine(String input) {
-    final lineNum = int.tryParse(input.trim());
-    if (lineNum == null || lineNum < 1) return;
+    final lineNum = optionalPositiveIntFromValue(input);
+    if (lineNum == null) return;
     final controller = _textControllers[widget.activeFilePath];
     if (controller == null) return;
     final targetLine = lineNum.clamp(1, controller.lineCount);

@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart'
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
+import '../../shared/util/input_value_parsing.dart';
 import '../model/app_proxy_settings.dart';
 import 'safe_subprocess.dart';
 import 'silent_log.dart';
@@ -80,7 +81,7 @@ class SystemProxyResolver {
     final idx = raw.lastIndexOf(':');
     if (idx <= 0 || idx == raw.length - 1) return null;
     final host = raw.substring(0, idx).trim();
-    final port = int.tryParse(raw.substring(idx + 1).trim());
+    final port = optionalIntFromValue(raw.substring(idx + 1));
     if (host.isEmpty || port == null || port < 1 || port > 65535) return null;
     return (host: host, port: port);
   }

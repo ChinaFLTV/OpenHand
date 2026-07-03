@@ -14,6 +14,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 import '../../ai/index.dart';
 
@@ -348,7 +349,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
           'try\ntell application "iTerm" to get count of tabs of window $winIdxStr\nend try',
         );
         final tabCount = tabCountData.isNotEmpty
-            ? (int.tryParse(tabCountData.first.trim()) ?? 0)
+            ? (optionalIntFromValue(tabCountData.first) ?? 0)
             : 0;
         for (var t = 1; t <= tabCount; t++) {
           final sessionNames = await _fetchMacOSAppleScript(

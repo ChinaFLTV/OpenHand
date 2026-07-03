@@ -79,9 +79,9 @@ class _HeApiToolCallMeta {
           );
         } else if (part.endsWith('ms')) {
           final digits = part.replaceAll(RegExp(r'[^0-9]'), '');
-          durationMs = int.tryParse(digits) ?? 0;
+          durationMs = intFromValue(digits, fallback: 0);
         } else if (part.startsWith('exit:')) {
-          exitCode = int.tryParse(part.substring('exit:'.length).trim());
+          exitCode = optionalIntFromValue(part.substring('exit:'.length));
         } else if (part.startsWith('cmd:')) {
           command = part.substring('cmd:'.length).trim();
         } else if (part.startsWith('cwd:')) {

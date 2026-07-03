@@ -13,6 +13,7 @@ import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/ansi_text.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/structured_text_format.dart';
 import '../../shared/util/timer_safety.dart';
@@ -1644,7 +1645,7 @@ fi
   }
 
   int? _networkProxyPort() {
-    final value = int.tryParse(_networkProxyPortCtrl.text.trim());
+    final value = optionalIntFromValue(_networkProxyPortCtrl.text);
     if (value == null || value < _kMinTcpPort || value > _kMaxTcpPort) {
       return null;
     }
@@ -3259,8 +3260,8 @@ fi
   }
 
   Future<void> _addForward() async {
-    final local = int.tryParse(_forwardLocalCtrl.text.trim());
-    final remote = int.tryParse(_forwardRemoteCtrl.text.trim());
+    final local = optionalIntFromValue(_forwardLocalCtrl.text);
+    final remote = optionalIntFromValue(_forwardRemoteCtrl.text);
     if (!_isValidTcpPort(local) || !_isValidTcpPort(remote)) {
       _setDeviceActionMessage(
         zh: '端口转发失败：本地端口和设备端口必须在 $_kMinTcpPort-$_kMaxTcpPort 范围内。',
@@ -3275,7 +3276,7 @@ fi
 
   Future<void> _removeForwardFromRow(String row) async {
     final match = RegExp(r'tcp:(\d+)').firstMatch(row);
-    final local = int.tryParse(match?.group(1) ?? '');
+    final local = optionalIntFromValue(match?.group(1));
     if (local == null) return;
     await _runDeviceAction(
       () => _ctrl.removeForwardDetailed(local, serial: _targetSerial),
@@ -3283,8 +3284,8 @@ fi
   }
 
   Future<void> _addReverse() async {
-    final devicePort = int.tryParse(_reverseDeviceCtrl.text.trim());
-    final hostPort = int.tryParse(_reverseHostCtrl.text.trim());
+    final devicePort = optionalIntFromValue(_reverseDeviceCtrl.text);
+    final hostPort = optionalIntFromValue(_reverseHostCtrl.text);
     if (!_isValidTcpPort(devicePort) || !_isValidTcpPort(hostPort)) {
       _setDeviceActionMessage(
         zh: '反向映射失败：设备端口和主机端口必须在 $_kMinTcpPort-$_kMaxTcpPort 范围内。',
