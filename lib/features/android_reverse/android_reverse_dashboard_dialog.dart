@@ -104,6 +104,141 @@ String _arText(
   );
 }
 
+String _androidToolchainInstallHint(
+  BuildContext context,
+  AndroidReverseToolchainProbe probe,
+) {
+  return switch (probe.id) {
+    'adb' => _arText(
+      context,
+      zh: '安装 Android SDK Platform Tools，并把 adb 加入 PATH。',
+      zhHant: '安裝 Android SDK Platform Tools，並將 adb 加入 PATH。',
+      en: 'Install Android SDK Platform Tools and add adb to PATH.',
+      fr: 'Installez Android SDK Platform Tools et ajoutez adb au PATH.',
+      de: 'Installiere Android SDK Platform Tools und füge adb zum PATH hinzu.',
+      ja: 'Android SDK Platform Tools をインストールし、adb を PATH に追加してください。',
+    ),
+    'aapt' => _arText(
+      context,
+      zh: '在 Android SDK Manager 安装 Build Tools。',
+      zhHant: '在 Android SDK Manager 安裝 Build Tools。',
+      en: 'Install Android SDK Build Tools.',
+      fr: 'Installez Android SDK Build Tools.',
+      de: 'Installiere Android SDK Build Tools.',
+      ja: 'Android SDK Build Tools をインストールしてください。',
+    ),
+    'apksigner' => _arText(
+      context,
+      zh: '在 Android SDK Manager 安装 Build Tools，用于 APK 签名证书检查。',
+      zhHant: '在 Android SDK Manager 安裝 Build Tools，用於 APK 簽章憑證檢查。',
+      en: 'Install Android SDK Build Tools for APK signing certificate checks.',
+      fr: 'Installez Android SDK Build Tools pour vérifier les certificats de signature APK.',
+      de: 'Installiere Android SDK Build Tools für Prüfungen von APK-Signaturzertifikaten.',
+      ja: 'APK 署名証明書の確認用に Android SDK Build Tools をインストールしてください。',
+    ),
+    'keytool' => _arText(
+      context,
+      zh: '安装 JDK，并把 keytool 加入 PATH，用于证书查看。',
+      zhHant: '安裝 JDK，並將 keytool 加入 PATH，用於憑證查看。',
+      en: 'Install a JDK and add keytool to PATH for certificate checks.',
+      fr: 'Installez un JDK et ajoutez keytool au PATH pour vérifier les certificats.',
+      de: 'Installiere ein JDK und füge keytool für Zertifikatsprüfungen zum PATH hinzu.',
+      ja: '証明書確認用に JDK をインストールし、keytool を PATH に追加してください。',
+    ),
+    'strings' => _arText(
+      context,
+      zh: '安装系统开发者工具或 binutils，用于 dex/so/assets 字符串扫描。',
+      zhHant: '安裝系統開發者工具或 binutils，用於 dex/so/assets 字串掃描。',
+      en: 'Install system developer tools or binutils for dex/so/assets string scans.',
+      fr: 'Installez les outils développeur système ou binutils pour scanner les chaînes dex/so/assets.',
+      de: 'Installiere System-Entwicklertools oder binutils für dex/so/assets-Stringscans.',
+      ja: 'dex/so/assets の文字列スキャン用にシステム開発者ツールまたは binutils をインストールしてください。',
+    ),
+    'readelf' => _arText(
+      context,
+      zh: '安装 binutils / LLVM / Android NDK，用于 so 符号与段信息分析。',
+      zhHant: '安裝 binutils / LLVM / Android NDK，用於 so 符號與區段資訊分析。',
+      en: 'Install binutils, LLVM, or Android NDK for native symbol analysis.',
+      fr: 'Installez binutils, LLVM ou Android NDK pour analyser les symboles natifs.',
+      de: 'Installiere binutils, LLVM oder Android NDK für native Symbolanalysen.',
+      ja: 'ネイティブシンボル解析用に binutils、LLVM、または Android NDK をインストールしてください。',
+    ),
+    'apktool' => _arText(
+      context,
+      zh: '可通过 Homebrew 安装：brew install apktool。',
+      zhHant: '可透過 Homebrew 安裝：brew install apktool。',
+      en: 'Install with Homebrew: brew install apktool.',
+      fr: 'Installez avec Homebrew : brew install apktool.',
+      de: 'Mit Homebrew installieren: brew install apktool.',
+      ja: 'Homebrew でインストールできます: brew install apktool。',
+    ),
+    'jadx' => _arText(
+      context,
+      zh: '可通过 Homebrew 安装：brew install jadx。',
+      zhHant: '可透過 Homebrew 安裝：brew install jadx。',
+      en: 'Install with Homebrew: brew install jadx.',
+      fr: 'Installez avec Homebrew : brew install jadx.',
+      de: 'Mit Homebrew installieren: brew install jadx.',
+      ja: 'Homebrew でインストールできます: brew install jadx。',
+    ),
+    'frida' => _arText(
+      context,
+      zh: '安装 frida-tools，并按设备架构准备 frida-server。',
+      zhHant: '安裝 frida-tools，並依裝置架構準備 frida-server。',
+      en: 'Install frida-tools and prepare frida-server for the device ABI.',
+      fr: 'Installez frida-tools et préparez frida-server pour l’ABI de l’appareil.',
+      de: 'Installiere frida-tools und bereite frida-server für die Geräte-ABI vor.',
+      ja: 'frida-tools をインストールし、デバイス ABI に合う frida-server を準備してください。',
+    ),
+    'mitmproxy' => _arText(
+      context,
+      zh: '可通过 Homebrew 安装：brew install mitmproxy。',
+      zhHant: '可透過 Homebrew 安裝：brew install mitmproxy。',
+      en: 'Install with Homebrew: brew install mitmproxy.',
+      fr: 'Installez avec Homebrew : brew install mitmproxy.',
+      de: 'Mit Homebrew installieren: brew install mitmproxy.',
+      ja: 'Homebrew でインストールできます: brew install mitmproxy。',
+    ),
+    'radare2' => _arText(
+      context,
+      zh: '可通过 Homebrew 安装：brew install radare2。',
+      zhHant: '可透過 Homebrew 安裝：brew install radare2。',
+      en: 'Install with Homebrew: brew install radare2.',
+      fr: 'Installez avec Homebrew : brew install radare2.',
+      de: 'Mit Homebrew installieren: brew install radare2.',
+      ja: 'Homebrew でインストールできます: brew install radare2。',
+    ),
+    'blutter' => _arText(
+      context,
+      zh: '可在插件板块直接安装 blutter，或按项目说明安装并加入 PATH。',
+      zhHant: '可在外掛板塊直接安裝 blutter，或依專案說明安裝並加入 PATH。',
+      en: 'Install blutter from the Plugins tab, or from its project instructions and add it to PATH.',
+      fr: 'Installez blutter depuis l’onglet Plugins ou suivez le projet puis ajoutez-le au PATH.',
+      de: 'Installiere blutter im Plugin-Tab oder nach Projektanleitung und füge es zum PATH hinzu.',
+      ja: 'プラグインタブから blutter をインストールするか、プロジェクト手順に従って PATH に追加してください。',
+    ),
+    'doldrums' => _arText(
+      context,
+      zh: '可在插件板块直接安装 Doldrums，或按项目说明安装并加入 PATH。',
+      zhHant: '可在外掛板塊直接安裝 Doldrums，或依專案說明安裝並加入 PATH。',
+      en: 'Install Doldrums from the Plugins tab, or from its project instructions and add it to PATH.',
+      fr: 'Installez Doldrums depuis l’onglet Plugins ou suivez le projet puis ajoutez-le au PATH.',
+      de: 'Installiere Doldrums im Plugin-Tab oder nach Projektanleitung und füge es zum PATH hinzu.',
+      ja: 'プラグインタブから Doldrums をインストールするか、プロジェクト手順に従って PATH に追加してください。',
+    ),
+    'anything_analyzer' => _arText(
+      context,
+      zh: '可在插件板块直接安装 Anything Analyzer，并在 MCP 面板启用对应 server。',
+      zhHant: '可在外掛板塊直接安裝 Anything Analyzer，並在 MCP 面板啟用對應 server。',
+      en: 'Install Anything Analyzer from the Plugins tab and enable the corresponding server in the MCP panel.',
+      fr: 'Installez Anything Analyzer depuis l’onglet Plugins et activez le serveur correspondant dans MCP.',
+      de: 'Installiere Anything Analyzer im Plugin-Tab und aktiviere den passenden Server im MCP-Panel.',
+      ja: 'プラグインタブから Anything Analyzer をインストールし、MCP パネルで対応 server を有効化してください。',
+    ),
+    _ => _arText(context, zh: probe.installHintZh, en: probe.installHintEn),
+  };
+}
+
 Future<void> showAndroidReverseDashboardDialog(
   BuildContext context, {
   required AndroidReverseSessionController controller,
@@ -4034,7 +4169,12 @@ fi
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               SelectableText(
-                                ok ? row.displayValue : row.installHint(isZh),
+                                ok
+                                    ? row.displayValue
+                                    : _androidToolchainInstallHint(
+                                        context,
+                                        row.probe,
+                                      ),
                                 style: TextStyle(
                                   fontFamily: ok ? 'monospace' : null,
                                   fontSize: 12,
@@ -4058,7 +4198,7 @@ fi
                               icon: const Icon(Icons.copy_rounded),
                               tooltip: isZh ? '复制诊断' : 'Copy diagnostic',
                               onPressed: () => _copyText(
-                                '${row.probe.label}\n${row.displayValue}\n${row.installHint(isZh)}',
+                                '${row.probe.label}\n${row.displayValue}\n${_androidToolchainInstallHint(context, row.probe)}',
                               ),
                             ),
                             const SizedBox(width: _kDashboardTrailingActionGap),
@@ -5172,7 +5312,9 @@ fi
           ),
           const SizedBox(height: 6),
           SelectableText(
-            ok ? row.displayValue : row.installHint(isZh),
+            ok
+                ? row.displayValue
+                : _androidToolchainInstallHint(context, row.probe),
             maxLines: 2,
             style: TextStyle(
               fontFamily: ok ? 'monospace' : null,
@@ -8078,7 +8220,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                         label: isZh ? '安装' : 'Install',
                         value:
                             _commandText(probe.installCommand) ??
-                            (isZh ? probe.installHintZh : probe.installHintEn),
+                            _androidToolchainInstallHint(context, probe),
                         monospace:
                             probe.installCommand?.trim().isNotEmpty ?? false,
                       ),
