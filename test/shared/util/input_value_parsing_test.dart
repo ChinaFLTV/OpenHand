@@ -49,6 +49,22 @@ void main() {
     });
   });
 
+  group('optionalRoundedIntFromValue', () {
+    test('rounds numeric values and numeric strings', () {
+      expect(optionalRoundedIntFromValue(2), 2);
+      expect(optionalRoundedIntFromValue(2.6), 3);
+      expect(optionalRoundedIntFromValue('2.4'), 2);
+      expect(optionalRoundedIntFromValue('-1.6'), -2);
+    });
+
+    test('rejects blank, unsupported, and non-finite values', () {
+      expect(optionalRoundedIntFromValue(''), isNull);
+      expect(optionalRoundedIntFromValue('NaN'), isNull);
+      expect(optionalRoundedIntFromValue(double.infinity), isNull);
+      expect(optionalRoundedIntFromValue(<String>[]), isNull);
+    });
+  });
+
   group('dateTimeFromValue', () {
     test('parses DateTime and ISO strings', () {
       final value = DateTime.utc(2026, 7, 3, 9, 30);

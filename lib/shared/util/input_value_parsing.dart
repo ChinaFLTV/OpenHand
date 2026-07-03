@@ -385,6 +385,17 @@ int? optionalIntFromValue(Object? value) {
   return null;
 }
 
+int? optionalRoundedIntFromValue(Object? value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.isFinite ? value.round() : null;
+  if (value is String) {
+    final parsed = optionalDoubleFromValue(value);
+    return parsed?.round();
+  }
+  return null;
+}
+
 int? optionalIntegralIntFromValue(Object? value) {
   if (value == null) return null;
   if (value is int) return value;

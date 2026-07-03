@@ -6139,39 +6139,23 @@ class _GoalMessageViewData {
   }
 
   static String _readString(Object? value) {
-    final text = '${value ?? ''}'.trim();
-    if (text.isEmpty || text == 'null') {
-      return '';
-    }
-    return text;
+    final text = stringFromValue(value);
+    return text == 'null' ? '' : text;
   }
 
   static int? _readInt(Object? value) {
-    if (value is int) {
-      return value;
-    }
-    if (value is num) {
-      return value.round();
-    }
-    return int.tryParse(_readString(value));
+    return optionalRoundedIntFromValue(value);
   }
 
   static double? _readDouble(Object? value) {
-    if (value is num) {
-      return value.toDouble();
-    }
-    return double.tryParse(_readString(value));
+    return optionalDoubleFromValue(value);
   }
 
   static List<String> _readStringList(Object? value) {
-    if (value is! List) {
-      return const <String>[];
-    }
-    return value
-        .map(_readString)
-        .where((item) => item.isNotEmpty)
-        .take(aiSessionGoalEvaluationMaxEvidenceItems)
-        .toList(growable: false);
+    return stringListFromValue(
+      value,
+      ignoreLiteralNull: true,
+    ).take(aiSessionGoalEvaluationMaxEvidenceItems).toList(growable: false);
   }
 
   String chipLabel(BuildContext context) {
