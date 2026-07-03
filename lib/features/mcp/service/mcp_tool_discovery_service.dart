@@ -17,6 +17,7 @@ import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
 import '../model/mcp_stdio_mirror_mode.dart';
 import '../model/mcp_tool.dart';
+import 'mcp_stdio_io_utils.dart';
 import 'mcp_stdio_process_manager.dart';
 
 abstract class McpToolDiscoveryService {
@@ -2362,8 +2363,7 @@ class _StdioSession {
   final void Function(String line)? onStderrLine;
   final Map<String, Completer<Map<String, Object?>?>> _pendingResponses =
       <String, Completer<Map<String, Object?>?>>{};
-  final Map<String, Map<String, Object?>> _bufferedResponses =
-      <String, Map<String, Object?>>{};
+  final McpStdioWriteQueue _stdinWriteQueue = McpStdioWriteQueue();
   String instructions = '';
   late final StreamSubscription<List<int>> _stdoutSubscription;
   late final StreamSubscription<String> _stderrSubscription;
@@ -2375,6 +2375,7 @@ class _StdioSession {
   }) async {
     final requestIdText = '${payload['id']}';
     final completer = Completer<Map<String, Object?>?>();
+    observeMcpStdioPendingFuture(completer.future);
     _pendingResponses[requestIdText] = completer;
     try {
       await _write(payload);
@@ -2382,12 +2383,13 @@ class _StdioSession {
       _pendingResponses.remove(requestIdText);
       rethrow;
     }
-    final bufferedResponse = _bufferedResponses.remove(requestIdText);
-    if (bufferedResponse != null && !completer.isCompleted) {
-      completer.complete(bufferedResponse);
-    }
     try {
       return await completer.future.timeout(timeout ?? _requestTimeout);
+    } on TimeoutException catch (error, stack) {
+      if (!completer.isCompleted) {
+        completer.completeError(error, stack);
+      }
+      rethrow;
     } finally {
       _pendingResponses.remove(requestIdText);
     }
@@ -2429,9 +2431,7 @@ class _StdioSession {
         final pendingResponse = _pendingResponses.remove(messageIdText);
         if (pendingResponse != null && !pendingResponse.isCompleted) {
           pendingResponse.complete(message);
-          continue;
         }
-        _bufferedResponses[messageIdText] = message;
       }
     }
   }
@@ -2634,25 +2634,29 @@ class _StdioSession {
         'Cannot write to a closing stdio session.',
       );
     }
-    _appendTrace(
-      'stdin:write:${payload['method'] ?? 'unknown'}:${payload['id'] ?? ''}',
-    );
-    // MCP stdio 传输使用 JSON-line 模式：每条消息为一行完整 JSON + 换行符。
-    // 不发送 Content-Length header——Playwright 等主流 MCP 服务使用 JSON-line
-    // 解析，Content-Length header 会干扰其消息边界检测导致后续消息丢失。
-    final body = utf8.encode(jsonEncode(payload));
-    try {
-      _process.stdin.add(body);
-      _process.stdin.add(const [0x0A]);
-      await _process.stdin.flush();
-    } on StateError catch (error, stack) {
-      // 「Bad state: StreamSink is bound to a stream」或 stdin 已关闭时
-      // 转为 McpToolDiscoveryException，让上层统一处理。
-      silentLog('mcp.stdio', 'write.stdin', error, stack);
-      throw McpToolDiscoveryException(
-        'Tool scan failed because stdin became unavailable: $error',
+    await _stdinWriteQueue.run(() async {
+      if (_closeFuture != null) {
+        throw const McpToolDiscoveryException(
+          'Cannot write to a closing stdio session.',
+        );
+      }
+      _appendTrace(
+        'stdin:write:${payload['method'] ?? 'unknown'}:${payload['id'] ?? ''}',
       );
-    }
+      // MCP stdio 传输使用 JSON-line 模式：每条消息为一行完整 JSON + 换行符。
+      // 不发送 Content-Length header——Playwright 等主流 MCP 服务使用 JSON-line
+      // 解析，Content-Length header 会干扰其消息边界检测导致后续消息丢失。
+      try {
+        await writeMcpJsonLineToStdin(_process.stdin, payload);
+      } on StateError catch (error, stack) {
+        if (!isExpectedMcpStdioSinkStateError(error)) {
+          silentLog('mcp.stdio', 'write.stdin', error, stack);
+        }
+        throw McpToolDiscoveryException(
+          'Tool scan failed because stdin became unavailable: $error',
+        );
+      }
+    });
   }
 
   Future<void> close() {
@@ -2660,20 +2664,19 @@ class _StdioSession {
   }
 
   Future<void> _closeOnce() async {
-    // 先 fail 所有 pending responses，避免 stdin.close 阻塞期间
-    // 上层 timeout 触发后再次调 close 形成死锁。
+    await _stdinWriteQueue.drain(
+      DefaultMcpToolDiscoveryService._stdioShutdownTimeout,
+    );
+    // 关闭前释放 pending responses，避免上层仍在等待已经不可达的响应。
     _failPendingResponses(
       McpToolDiscoveryException(_closedUnexpectedlyMessage()),
     );
-    try {
-      await _process.stdin.close();
-    } on StateError catch (error, stack) {
-      // 「Bad state: StreamSink is bound to a stream」—— stdin 正在被
-      // addStream 占用（flush 未完成），直接跳过 close 走 kill 路径。
-      silentLog('mcp.stdio', 'close.stdin.stateError', error, stack);
-    } catch (error, stack) {
-      silentLog('mcp.stdio', 'close.stdin', error, stack);
-    }
+    await closeMcpStdioSinkQuietly(
+      stdin: _process.stdin,
+      timeout: DefaultMcpToolDiscoveryService._stdioShutdownTimeout,
+      logTag: 'mcp.stdio',
+      logWhere: 'close.stdin',
+    );
     await _waitForExitOrKill();
     await _cancelSubscription(_stdoutSubscription, 'close.stdout');
     await _cancelSubscription(_stderrSubscription, 'close.stderr');

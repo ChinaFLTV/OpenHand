@@ -12,6 +12,7 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/version_compare.dart';
 import '../model/mcp_server.dart';
+import 'mcp_stdio_io_utils.dart';
 import 'mcp_tool_discovery_service.dart';
 
 @visibleForTesting
@@ -94,6 +95,9 @@ class McpStdioProcessManager extends ChangeNotifier {
   static final McpStdioProcessManager instance = McpStdioProcessManager._();
 
   static const int _maxLogLines = 2000;
+  static const Duration _stdinCloseTimeout = Duration(milliseconds: 400);
+  static const Duration _gracefulStopTimeout = Duration(seconds: 3);
+  static const Duration _forceStopTimeout = Duration(seconds: 2);
 
   final Map<String, _ManagedProcess> _processes = {};
 
@@ -250,34 +254,30 @@ class McpStdioProcessManager extends ChangeNotifier {
     _appendLog(serverName, '\n[${_timestamp()}] 正在停止进程…', isStderr: false);
 
     try {
-      // 先尝试优雅关闭 stdin
-      try {
-        managed.process!.stdin.close();
-      } catch (error, stack) {
-        silentLog(
-          'mcp_stdio_process_manager',
-          'close stdin $serverName',
-          error,
-          stack,
-        );
-      }
+      await managed.responseRouter?.drainWrites(_stdinCloseTimeout);
+      await closeMcpStdioSinkQuietly(
+        stdin: managed.process!.stdin,
+        timeout: _stdinCloseTimeout,
+        logTag: 'mcp_stdio_process_manager',
+        logWhere: 'close stdin $serverName',
+      );
 
       // 等待进程退出
       final exited = await managed.process!.exitCode
-          .timeout(const Duration(seconds: 3))
+          .timeout(_gracefulStopTimeout)
           .then((_) => true)
           .catchError((_) => false);
 
       if (!exited) {
         managed.process!.kill();
-        await managed.process!.exitCode
-            .timeout(const Duration(seconds: 2))
-            .catchError((_) {
-              if (!Platform.isWindows) {
-                managed.process!.kill(ProcessSignal.sigkill);
-              }
-              return -1;
-            });
+        await managed.process!.exitCode.timeout(_forceStopTimeout).catchError((
+          _,
+        ) {
+          if (!Platform.isWindows) {
+            managed.process!.kill(ProcessSignal.sigkill);
+          }
+          return -1;
+        });
       }
     } catch (e) {
       _appendLog(serverName, '[${_timestamp()}] 停止异常: $e', isStderr: true);
@@ -526,8 +526,7 @@ class McpStdioProcessManager extends ChangeNotifier {
       final managed = _processes[serverName];
       if (managed == null || !managed.info.isRunning) return;
 
-      // 构造 MCP initialize 请求（JSON-RPC 2.0）
-      final initRequest = jsonEncode({
+      await writeMcpJsonLineToStdin(process.stdin, {
         'jsonrpc': '2.0',
         'id': 1,
         'method': 'initialize',
@@ -538,13 +537,6 @@ class McpStdioProcessManager extends ChangeNotifier {
         },
       });
 
-      // 使用 JSON-line 模式发送（与 discovery service 保持一致）。
-      // Playwright 等主流 MCP 服务使用 JSON-line 解析，
-      // Content-Length header 会干扰其消息边界检测。
-      process.stdin.add(utf8.encode(initRequest));
-      process.stdin.add(const [0x0A]);
-      await process.stdin.flush();
-
       // 等待 stdout 中出现响应（最多 90 秒，npx 首次运行需要下载包）
       final gotResponse = await responseCompleter.future.timeout(
         const Duration(seconds: 90),
@@ -554,14 +546,10 @@ class McpStdioProcessManager extends ChangeNotifier {
       if (gotResponse) {
         _appendLog(serverName, '[${_timestamp()}] ✓ MCP 握手成功', isStderr: false);
 
-        // 发送 initialized 通知（JSON-line 模式）
-        final notification = jsonEncode({
+        await writeMcpJsonLineToStdin(process.stdin, {
           'jsonrpc': '2.0',
           'method': 'notifications/initialized',
         });
-        process.stdin.add(utf8.encode(notification));
-        process.stdin.add(const [0x0A]);
-        await process.stdin.flush();
         _appendLog(
           serverName,
           '[${_timestamp()}] ✓ 服务已就绪，可正常使用',
@@ -734,12 +722,10 @@ class ManagedStdioSession {
   }) async {
     final requestIdText = '${payload['id']}';
     final completer = Completer<Map<String, Object?>?>();
+    observeMcpStdioPendingFuture(completer.future);
     _responseRouter.register(requestIdText, completer);
     try {
-      final body = utf8.encode(jsonEncode(payload));
-      _process.stdin.add(body);
-      _process.stdin.add(const [0x0A]);
-      await _process.stdin.flush();
+      await _responseRouter.writeRequest(_process.stdin, payload);
     } on StateError catch (e) {
       _responseRouter.unregister(requestIdText);
       throw McpToolDiscoveryException(
@@ -751,11 +737,16 @@ class ManagedStdioSession {
     }
     try {
       return await completer.future.timeout(timeout ?? _requestTimeout);
-    } on TimeoutException {
-      _responseRouter.unregister(requestIdText);
-      throw const McpToolDiscoveryException(
+    } on TimeoutException catch (_, stack) {
+      const error = McpToolDiscoveryException(
         'Tool scan timed out waiting for response from managed stdio process.',
       );
+      if (!completer.isCompleted) {
+        completer.completeError(error, stack);
+      }
+      throw error;
+    } finally {
+      _responseRouter.unregister(requestIdText);
     }
   }
 }
@@ -766,6 +757,7 @@ class ManagedStdioSession {
 class _ManagedResponseRouter {
   final Map<String, Completer<Map<String, Object?>?>> _pending = {};
   final StringBuffer _lineBuffer = StringBuffer();
+  final McpStdioWriteQueue _writeQueue = McpStdioWriteQueue();
 
   void register(String id, Completer<Map<String, Object?>?> completer) {
     _pending[id] = completer;
@@ -773,6 +765,17 @@ class _ManagedResponseRouter {
 
   void unregister(String id) {
     _pending.remove(id);
+    if (_pending.isEmpty) {
+      _lineBuffer.clear();
+    }
+  }
+
+  Future<void> writeRequest(IOSink stdin, Map<String, Object?> payload) {
+    return _writeQueue.run(() => writeMcpJsonLineToStdin(stdin, payload));
+  }
+
+  Future<void> drainWrites(Duration timeout) {
+    return _writeQueue.drain(timeout);
   }
 
   /// 将 stdout 数据喂入路由器。数据可能跨多个 chunk 到达，
