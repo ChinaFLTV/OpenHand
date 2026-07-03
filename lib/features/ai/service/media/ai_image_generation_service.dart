@@ -288,8 +288,8 @@ class AiImageGenerationService {
         '${model.protocolType.storageValue}.',
       );
     }
-    final trimmedPrompt = prompt.trim();
-    if (trimmedPrompt.isEmpty) {
+    final trimmedPrompt = nullIfBlank(prompt);
+    if (trimmedPrompt == null) {
       throw const AiMediaGenerationException(
         'Refusing to call the image endpoint with an empty prompt.',
       );
@@ -442,8 +442,8 @@ class AiImageGenerationService {
         '${model.protocolType.storageValue}.',
       );
     }
-    final trimmedPrompt = prompt.trim();
-    if (trimmedPrompt.isEmpty) {
+    final trimmedPrompt = nullIfBlank(prompt);
+    if (trimmedPrompt == null) {
       throw AiMediaGenerationException(
         'Refusing to call the ${kind.storageValue} endpoint with an empty prompt.',
       );
@@ -480,7 +480,7 @@ class AiImageGenerationService {
       endpointHeaders: endpoint.headers,
     );
     if (!model.customHeaders.keys.any(
-      (key) => key.trim().toLowerCase() == 'accept',
+      (key) => lowercaseStringFromValue(key) == 'accept',
     )) {
       headers['accept'] = _acceptHeaderFor(kind);
     }
@@ -490,7 +490,7 @@ class AiImageGenerationService {
     // overridden the header.
     if (kind.isVideo && model.protocolType == AiProtocolType.qwen) {
       final hasOverride = model.customHeaders.keys.any(
-        (key) => key.trim().toLowerCase() == 'x-dashscope-async',
+        (key) => lowercaseStringFromValue(key) == 'x-dashscope-async',
       );
       if (!hasOverride) {
         headers['x-dashscope-async'] = 'enable';
@@ -651,7 +651,7 @@ class AiImageGenerationService {
     required String modelId,
     String? fallbackPath,
   }) {
-    if (model.normalizedBaseUrl.trim().isEmpty) {
+    if (nullIfBlank(model.normalizedBaseUrl) == null) {
       throw const AiMediaGenerationException('Missing base URL.');
     }
     final family = _familyForKind(kind);
@@ -760,7 +760,7 @@ class AiImageGenerationService {
     headers.forEach((key, value) {
       // Let MultipartRequest set its own boundary-aware Content-Type;
       // forward auth/accept/custom headers verbatim.
-      if (key.trim().toLowerCase() == 'content-type') return;
+      if (lowercaseStringFromValue(key) == 'content-type') return;
       request.headers[key] = value;
     });
     body.forEach((key, value) {
@@ -807,12 +807,6 @@ class AiImageGenerationService {
         protocol: protocol,
       ),
     };
-  }
-
-  void _putString(Map<String, Object?> body, String key, String? value) {
-    final trimmed = value?.trim();
-    if (trimmed == null || trimmed.isEmpty) return;
-    body[key] = trimmed;
   }
 
   void _putBool(Map<String, Object?> body, String key, bool? value) {
@@ -889,21 +883,21 @@ class AiImageGenerationService {
       _putPositiveInt(body, 'seed', options.seed);
       _putPositiveInt(body, 'steps', _stepsFromQuality(options.quality));
       _putPositiveDouble(body, 'cfg_scale', _doubleFromStyle(options.style));
-      _putString(body, 'negative_prompt', options.negativePrompt);
+      putIfNotBlank(body, 'negative_prompt', options.negativePrompt);
       _putBool(body, 'text_mode', options.promptEnhance);
       body.remove('aspect_ratio');
       body.remove('quality');
       body.remove('style');
     } else if (protocol == AiProtocolType.openai) {
-      final lowerModel = modelId.trim().toLowerCase();
+      final lowerModel = lowercaseStringFromValue(modelId);
       if (lowerModel.startsWith('gpt-image')) {
-        _putString(body, 'output_format', options.outputFormat);
-        _putString(body, 'background', options.background);
+        putIfNotBlank(body, 'output_format', options.outputFormat);
+        putIfNotBlank(body, 'background', options.background);
       }
     } else {
-      _putString(body, 'output_format', options.outputFormat);
-      _putString(body, 'background', options.background);
-      _putString(body, 'negative_prompt', options.negativePrompt);
+      putIfNotBlank(body, 'output_format', options.outputFormat);
+      putIfNotBlank(body, 'background', options.background);
+      putIfNotBlank(body, 'negative_prompt', options.negativePrompt);
       _putPositiveInt(body, 'seed', options.seed);
       _putBool(body, 'prompt_extend', options.promptEnhance);
       _putBool(body, 'prompt_optimizer', options.promptEnhance);
@@ -968,7 +962,7 @@ class AiImageGenerationService {
         if (options.durationSeconds != null) {
           parameters['duration'] = options.durationSeconds;
         }
-        _putString(parameters, 'negative_prompt', options.negativePrompt);
+        putIfNotBlank(parameters, 'negative_prompt', options.negativePrompt);
         _putPositiveInt(parameters, 'seed', options.seed);
         _putBool(parameters, 'prompt_extend', options.promptEnhance);
         _putBool(parameters, 'watermark', options.watermark);
@@ -994,10 +988,9 @@ class AiImageGenerationService {
         }
         // grok2api documents resolution_name (480p|720p) and preset
         // (fun|normal|spicy|custom) — surface via quality/style if set.
-        final resolutionName = options.resolution?.trim().isNotEmpty == true
-            ? options.resolution!.trim()
-            : options.quality;
-        _putString(body, 'resolution_name', resolutionName);
+        final resolutionName =
+            nullIfBlank(options.resolution) ?? options.quality;
+        putIfNotBlank(body, 'resolution_name', resolutionName);
         if (options.style != null) {
           body['preset'] = options.style;
         }
@@ -1050,16 +1043,16 @@ class AiImageGenerationService {
         }
         if (options.quality != null) body['quality'] = options.quality;
         if (options.style != null) body['style'] = options.style;
-        _putString(body, 'negative_prompt', options.negativePrompt);
+        putIfNotBlank(body, 'negative_prompt', options.negativePrompt);
         _putPositiveInt(body, 'seed', options.seed);
         _putBool(body, 'prompt_extend', options.promptEnhance);
         _putBool(body, 'prompt_optimizer', options.promptEnhance);
         _putBool(body, 'watermark', options.watermark);
-        _putString(body, 'resolution', options.resolution);
+        putIfNotBlank(body, 'resolution', options.resolution);
         _putPositiveInt(body, 'frame_rate', options.frameRate);
         _putPositiveInt(body, 'fps', options.frameRate);
         _putPositiveInt(body, 'num_frames', options.numFrames);
-        _putString(body, 'mode', options.mode);
+        putIfNotBlank(body, 'mode', options.mode);
         return body;
     }
   }
@@ -1067,10 +1060,11 @@ class AiImageGenerationService {
   /// Maps an aspect ratio to a concrete `WxH` video size for providers that
   /// only accept absolute resolutions (OpenAI Sora, DashScope wan).
   String? _videoSizeFromAspectRatio(String? ratio, {String? resolution}) {
-    if (ratio == null) return null;
-    final preset = resolution?.trim().toLowerCase();
-    if (preset == null || preset.isEmpty || preset == '720p') {
-      switch (ratio.trim()) {
+    final normalizedRatio = nullIfBlank(ratio);
+    if (normalizedRatio == null) return null;
+    final preset = optionalLowercaseStringFromValue(resolution);
+    if (preset == null || preset == '720p') {
+      switch (normalizedRatio) {
         case '1:1':
           return '1024x1024';
         case '16:9':
@@ -1089,7 +1083,7 @@ class AiImageGenerationService {
       '1080p' => 1080,
       _ => 720,
     };
-    switch (ratio.trim()) {
+    switch (normalizedRatio) {
       case '1:1':
         final side = height == 480 ? 512 : (height == 1080 ? 1536 : 1024);
         return '${side}x$side';
@@ -1112,8 +1106,9 @@ class AiImageGenerationService {
   }
 
   String? _agnesImageSizeFromAspectRatio(String? ratio) {
-    if (ratio == null) return null;
-    switch (ratio.trim()) {
+    final normalizedRatio = nullIfBlank(ratio);
+    if (normalizedRatio == null) return null;
+    switch (normalizedRatio) {
       case '1:1':
         return '1024x1024';
       case '16:9':
@@ -1157,12 +1152,10 @@ class AiImageGenerationService {
       ),
       'frame_rate': frameRate,
     };
-    _putString(body, 'negative_prompt', options.negativePrompt);
+    putIfNotBlank(body, 'negative_prompt', options.negativePrompt);
     _putPositiveInt(body, 'seed', options.seed);
-    final mode = (options.mode?.trim().isNotEmpty == true
-        ? options.mode!.trim()
-        : options.style?.trim());
-    if (mode != null && mode.isNotEmpty && referenceImageDataUrls.length <= 1) {
+    final mode = nullIfBlank(options.mode) ?? nullIfBlank(options.style);
+    if (mode != null && referenceImageDataUrls.length <= 1) {
       body['mode'] = mode;
     }
     if (referenceImageDataUrls.length == 1) {
@@ -1170,7 +1163,7 @@ class AiImageGenerationService {
     } else if (referenceImageDataUrls.length > 1) {
       body['extra_body'] = <String, Object?>{
         'image': referenceImageDataUrls,
-        'mode': mode?.isNotEmpty == true ? mode : 'keyframes',
+        'mode': mode ?? 'keyframes',
       };
     }
     return body;
@@ -1185,7 +1178,7 @@ class AiImageGenerationService {
     String? ratio, {
     String? resolution,
   }) {
-    final preset = resolution?.trim().toLowerCase();
+    final preset = optionalLowercaseStringFromValue(resolution);
     _PixelSize scale(int width720, int height720) {
       final multiplier = switch (preset) {
         '480p' => 2 / 3,
@@ -1197,7 +1190,7 @@ class AiImageGenerationService {
       return _PixelSize(width: math.max(8, width), height: math.max(8, height));
     }
 
-    switch (ratio?.trim()) {
+    switch (nullIfBlank(ratio)) {
       case '1:1':
         return scale(1024, 1024);
       case '16:9':
@@ -1231,8 +1224,8 @@ class AiImageGenerationService {
   }
 
   _PixelSize? _parsePixelSize(String? raw) {
-    final trimmed = raw?.trim();
-    if (trimmed == null || trimmed.isEmpty) return null;
+    final trimmed = nullIfBlank(raw);
+    if (trimmed == null) return null;
     final match = RegExp(r'^(\d{2,5})x(\d{2,5})$').firstMatch(trimmed);
     if (match == null) return null;
     final width = optionalPositiveIntFromValue(match.group(1));
@@ -1249,11 +1242,9 @@ class AiImageGenerationService {
     final dataUrls = <String>[];
     for (final part in referenceImages) {
       if (part.kind != AiChatContentPartKind.imageFile) continue;
-      final filePath = (part.filePath ?? '').trim();
-      if (filePath.isEmpty) continue;
-      final mimeType = (part.mimeType?.trim().isNotEmpty == true
-          ? part.mimeType!.trim()
-          : _mimeFromUrl(filePath));
+      final filePath = nullIfBlank(part.filePath);
+      if (filePath == null) continue;
+      final mimeType = nullIfBlank(part.mimeType) ?? _mimeFromUrl(filePath);
       final bytes = await _readReferenceImageBytes(filePath, kind);
       if (bytes.isEmpty) {
         throw AiMediaGenerationException(
@@ -1284,7 +1275,7 @@ class AiImageGenerationService {
   }
 
   static bool _isAgnesModel(String modelId) {
-    return modelId.trim().toLowerCase().startsWith('agnes-');
+    return lowercaseStringFromValue(modelId).startsWith('agnes-');
   }
 
   Map<String, Object?> _buildAudioBody({
@@ -1293,14 +1284,8 @@ class AiImageGenerationService {
     required AiCreationOptions options,
     required AiProtocolType protocol,
   }) {
-    final voice = options.voice?.trim().isNotEmpty == true
-        ? options.voice!.trim()
-        : options.style?.trim().isNotEmpty == true
-        ? options.style!.trim()
-        : null;
-    final format = options.outputFormat?.trim().isNotEmpty == true
-        ? options.outputFormat!.trim()
-        : 'mp3';
+    final voice = nullIfBlank(options.voice) ?? nullIfBlank(options.style);
+    final format = nullIfBlank(options.outputFormat) ?? 'mp3';
     switch (protocol) {
       case AiProtocolType.openai:
       case AiProtocolType.glm:
@@ -1410,8 +1395,9 @@ class AiImageGenerationService {
   }
 
   String? _sizeFromAspectRatio(String? ratio) {
-    if (ratio == null) return null;
-    switch (ratio.trim()) {
+    final normalizedRatio = nullIfBlank(ratio);
+    if (normalizedRatio == null) return null;
+    switch (normalizedRatio) {
       case '1:1':
         return '1024x1024';
       case '16:9':
@@ -1508,10 +1494,10 @@ class AiImageGenerationService {
       // Some providers (DALL·E, Qwen) return a `revised_prompt` that is
       // more descriptive than the original. Prefer it for alt text when
       // available, but fall back to the caller-supplied text.
-      final revisedPrompt = '${map['revised_prompt'] ?? ''}'.trim();
-      final effectiveAlt = revisedPrompt.isNotEmpty ? revisedPrompt : altText;
-      final b64 = '${map['b64_json'] ?? ''}'.trim();
-      if (b64.isNotEmpty) {
+      final effectiveAlt =
+          optionalStringFromValue(map['revised_prompt']) ?? altText;
+      final b64 = optionalStringFromValue(map['b64_json']);
+      if (b64 != null) {
         final md = await saveInlineMediaToMarkdown(
           AiInlineMedia(mimeType: 'image/png', base64Data: b64),
           label: effectiveAlt,
@@ -1523,8 +1509,8 @@ class AiImageGenerationService {
         }
         continue;
       }
-      final url = '${map['url'] ?? ''}'.trim();
-      if (url.isNotEmpty) {
+      final url = optionalStringFromValue(map['url']);
+      if (url != null) {
         final bytes = await _downloadBytes(url);
         if (bytes != null && bytes.isNotEmpty) {
           final md = await saveInlineMediaToMarkdown(
@@ -1564,10 +1550,10 @@ class AiImageGenerationService {
     final buffer = StringBuffer();
     for (final entry in entries) {
       final effectiveLabel = sanitizeMarkdownAltText(
-        entry.label?.trim().isNotEmpty == true ? entry.label! : label,
+        nullIfBlank(entry.label) ?? label,
       );
-      final base64Data = entry.base64Data?.trim();
-      if (base64Data != null && base64Data.isNotEmpty) {
+      final base64Data = nullIfBlank(entry.base64Data);
+      if (base64Data != null) {
         final md = await saveInlineMediaToMarkdown(
           AiInlineMedia(
             mimeType: entry.mimeType ?? _defaultMimeFor(kind),
@@ -1582,8 +1568,8 @@ class AiImageGenerationService {
         }
         continue;
       }
-      final url = entry.url?.trim();
-      if (url != null && url.isNotEmpty) {
+      final url = nullIfBlank(entry.url);
+      if (url != null) {
         if (buffer.isNotEmpty) buffer.writeln();
         buffer.writeln();
         buffer.write('[$effectiveLabel]($url)');
@@ -1601,8 +1587,8 @@ class AiImageGenerationService {
     void collect(Object? value, {String? label, String? mimeType}) {
       if (value == null) return;
       if (value is String) {
-        final trimmed = value.trim();
-        if (trimmed.isEmpty) return;
+        final trimmed = nullIfBlank(value);
+        if (trimmed == null) return;
         if (_looksLikeUrl(trimmed) || trimmed.startsWith('file:')) {
           entries.add(
             _MediaPayloadEntry(url: trimmed, label: label, mimeType: mimeType),
@@ -1633,8 +1619,8 @@ class AiImageGenerationService {
         'transcript',
         'name',
         'title',
-      ])?.trim();
-      final nextLabel = nestedLabel?.isNotEmpty == true ? nestedLabel : label;
+      ]);
+      final nextLabel = nestedLabel ?? label;
       final nextMimeType = _firstTextValue(map, const <String>[
         'mime_type',
         'mimeType',
@@ -1642,22 +1628,14 @@ class AiImageGenerationService {
         'contentType',
         'media_type',
         'mediaType',
-      ])?.trim();
-      final effectiveMimeType = nextMimeType?.isNotEmpty == true
-          ? nextMimeType
-          : mimeType;
+      ]);
+      final effectiveMimeType = nextMimeType ?? mimeType;
 
       for (final key in _urlKeysFor(kind)) {
-        final candidate = map[key];
-        if (candidate is String && candidate.trim().isNotEmpty) {
-          collect(candidate, label: nextLabel, mimeType: effectiveMimeType);
-        }
+        collect(map[key], label: nextLabel, mimeType: effectiveMimeType);
       }
       for (final key in _base64KeysFor(kind)) {
-        final candidate = map[key];
-        if (candidate is String && candidate.trim().isNotEmpty) {
-          collect(candidate, label: nextLabel, mimeType: effectiveMimeType);
-        }
+        collect(map[key], label: nextLabel, mimeType: effectiveMimeType);
       }
       for (final key in const <String>[
         'data',
@@ -1758,8 +1736,9 @@ class AiImageGenerationService {
   String? _firstTextValue(Map<String, Object?> map, List<String> keys) {
     for (final key in keys) {
       final value = map[key];
-      if (value is String && value.trim().isNotEmpty) {
-        return value;
+      if (value is String) {
+        final normalized = nullIfBlank(value);
+        if (normalized != null) return normalized;
       }
     }
     return null;
@@ -1772,8 +1751,8 @@ class AiImageGenerationService {
   }
 
   bool _looksLikeBase64(String value) {
-    final normalized = value.trim();
-    if (normalized.length < 32) return false;
+    final normalized = nullIfBlank(value);
+    if (normalized == null || normalized.length < 32) return false;
     return RegExp(r'^[A-Za-z0-9+/=\r\n]+$').hasMatch(normalized);
   }
 
@@ -1877,15 +1856,15 @@ class AiImageGenerationService {
           final fileId = _findFirstString(decoded, const <String>[
             'file_id',
             'fileId',
-          ])?.trim();
-          if (fileId != null && fileId.isNotEmpty) {
+          ]);
+          if (fileId != null) {
             final downloadUrl = await _resolveMiniMaxFileUrl(
               initialUrl: initialUrl,
               fileId: fileId,
               requestHeaders: requestHeaders,
               effectiveTimeout: effectiveTimeout,
             );
-            if (downloadUrl != null && downloadUrl.isNotEmpty) {
+            if (downloadUrl != null) {
               final safeLabel = sanitizeMarkdownAltText(label);
               return _PolledMediaResult(
                 markdown: '[$safeLabel]($downloadUrl)',
@@ -2047,7 +2026,7 @@ class AiImageGenerationService {
           'fileUrl',
           'url',
         ]);
-        return url?.trim();
+        return nullIfBlank(url);
       }
     } catch (error, stack) {
       silentLog(
@@ -2082,9 +2061,8 @@ class AiImageGenerationService {
   /// Returns null when the value is missing/invalid so callers can fall back
   /// to local exponential backoff.
   static Duration? _parseRetryAfter(String? raw) {
-    if (raw == null) return null;
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return null;
+    final trimmed = nullIfBlank(raw);
+    if (trimmed == null) return null;
     final seconds = optionalNonNegativeIntFromValue(trimmed);
     if (seconds != null) {
       // Cap at 30s so a hostile/misconfigured server cannot block the
@@ -2121,13 +2099,12 @@ class AiImageGenerationService {
       'task_url',
       'taskUrl',
     ]);
-    if (explicitUrl != null && explicitUrl.trim().isNotEmpty) {
-      final trimmedUrl = explicitUrl.trim();
-      final parsed = Uri.tryParse(trimmedUrl);
+    if (explicitUrl != null) {
+      final parsed = Uri.tryParse(explicitUrl);
       if (parsed != null && parsed.hasScheme) {
-        return trimmedUrl;
+        return explicitUrl;
       }
-      return Uri.parse(initialUrl).resolve(trimmedUrl).toString();
+      return Uri.parse(initialUrl).resolve(explicitUrl).toString();
     }
     if (kind.isVideo && _usesAgnesMediaApi(protocol, modelId)) {
       final videoId = _findFirstString(payload, const <String>[
@@ -2136,8 +2113,8 @@ class AiImageGenerationService {
         'task_id',
         'taskId',
         'id',
-      ])?.trim();
-      if (videoId == null || videoId.isEmpty) return null;
+      ]);
+      if (videoId == null) return null;
       final uri = Uri.parse(initialUrl);
       return uri
           .replace(
@@ -2157,8 +2134,8 @@ class AiImageGenerationService {
       'jobId',
       'operation_id',
       'operationId',
-    ])?.trim();
-    if (id == null || id.isEmpty) return null;
+    ]);
+    if (id == null) return null;
     final uri = Uri.parse(initialUrl);
     return switch (protocol) {
       // GLM CogVideoX: status lives under `/api/paas/v4/async-result/{id}`.
@@ -2218,8 +2195,9 @@ class AiImageGenerationService {
   String? _findFirstString(Map<String, Object?> map, List<String> keys) {
     for (final key in keys) {
       final value = map[key];
-      if (value is String && value.trim().isNotEmpty) {
-        return value;
+      if (value is String) {
+        final normalized = nullIfBlank(value);
+        if (normalized != null) return normalized;
       }
     }
     for (final value in map.values) {
@@ -2240,7 +2218,7 @@ class AiImageGenerationService {
       'job_status',
       'jobStatus',
     ]);
-    return (status ?? '').trim().toLowerCase();
+    return optionalLowercaseStringFromValue(status) ?? '';
   }
 
   bool _isTerminalFailureStatus(String status) {
@@ -2271,16 +2249,26 @@ class AiImageGenerationService {
     if (bytes.isEmpty) return '';
     return saveInlineMediaToMarkdown(
       AiInlineMedia(
-        mimeType: mimeType.trim().isNotEmpty ? mimeType : _defaultMimeFor(kind),
+        mimeType: nullIfBlank(mimeType) ?? _defaultMimeFor(kind),
         base64Data: base64Encode(bytes),
       ),
       label: label,
     );
   }
 
+  String? _headerValue(Map<String, String> headers, String name) {
+    final normalizedName = lowercaseStringFromValue(name);
+    for (final entry in headers.entries) {
+      if (lowercaseStringFromValue(entry.key) == normalizedName) {
+        return nullIfBlank(entry.value);
+      }
+    }
+    return null;
+  }
+
   String _responseContentType(Map<String, String> headers) {
-    final raw = headers['content-type'] ?? headers['Content-Type'] ?? '';
-    return raw.split(';').first.trim().toLowerCase();
+    final raw = _headerValue(headers, 'content-type') ?? '';
+    return lowercaseStringFromValue(raw.split(';').first);
   }
 
   bool _isBinaryMediaContentType(String contentType, _GeneratedMediaKind kind) {
@@ -2323,7 +2311,10 @@ class AiImageGenerationService {
   String _mimeFromUrl(String url) {
     // Parse the URL path to avoid false positives from query parameters
     // or unrelated path segments (e.g. "image.png.backup?format=webp").
-    final path = Uri.tryParse(url)?.path.toLowerCase() ?? url.toLowerCase();
+    final parsedPath = Uri.tryParse(url)?.path;
+    final path = parsedPath != null
+        ? lowercaseStringFromValue(parsedPath)
+        : lowercaseStringFromValue(url);
     if (path.endsWith('.png')) return 'image/png';
     if (path.endsWith('.webp')) return 'image/webp';
     if (path.endsWith('.gif')) return 'image/gif';
@@ -2336,13 +2327,16 @@ class AiImageGenerationService {
       final decoded = jsonDecode(body);
       if (decoded is Map<String, Object?>) {
         final error = decoded['error'];
-        if (error is String && error.trim().isNotEmpty) return error.trim();
-        if (error is Map<String, Object?>) {
-          final message = '${error['message'] ?? ''}'.trim();
-          if (message.isNotEmpty) return message;
+        if (error is String) {
+          final errorText = nullIfBlank(error);
+          if (errorText != null) return errorText;
         }
-        final message = '${decoded['message'] ?? ''}'.trim();
-        if (message.isNotEmpty) return message;
+        if (error is Map<String, Object?>) {
+          final message = optionalStringFromValue(error['message']);
+          if (message != null) return message;
+        }
+        final message = optionalStringFromValue(decoded['message']);
+        if (message != null) return message;
       }
     } catch (error, stack) {
       silentLog(
@@ -2352,7 +2346,7 @@ class AiImageGenerationService {
         stack,
       );
     }
-    return body.trim().isEmpty ? 'Unknown error' : body.trim();
+    return nullIfBlank(body) ?? 'Unknown error';
   }
 
   void dispose() {
