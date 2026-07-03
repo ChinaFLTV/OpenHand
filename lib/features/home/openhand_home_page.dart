@@ -292,6 +292,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   static const Duration _queuedGuidanceStopSettlePollInterval = Duration(
     milliseconds: 60,
   );
+  static const Duration _queuedMessageDispatchDebounce = Duration(
+    milliseconds: 600,
+  );
   static const Duration _composerClipboardReadTimeout = Duration(seconds: 2);
   int _composerTransitionMeasurePassesRemaining = 0;
   bool _composerTransitionMeasureQueued = false;
@@ -1793,7 +1796,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _processingQueueInProgress = true;
     try {
       // Add a small delay to debounce execution in case the AI phase is settling
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(_queuedMessageDispatchDebounce);
       if (!mounted || _submittingSessionId != null) return;
 
       var dispatchedQueuedMessage = false;
