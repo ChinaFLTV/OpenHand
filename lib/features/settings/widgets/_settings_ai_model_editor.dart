@@ -1525,7 +1525,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                             ),
                             const SizedBox(height: 20),
                             Text(
-                              '高级接口配置',
+                              _localizedText(
+                                context,
+                                zh: '高级接口配置',
+                                zhHant: '進階介面設定',
+                                en: 'Advanced API Configuration',
+                                fr: 'Configuration API avancée',
+                                de: 'Erweiterte API-Konfiguration',
+                                ja: '高度な API 設定',
+                              ),
                               style: Theme.of(context).textTheme.titleSmall,
                             ),
                             const SizedBox(height: 12),
@@ -1535,8 +1543,16 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 final dialectDropdown =
                                     DropdownButtonFormField<AiApiDialect>(
                                       initialValue: _apiDialect,
-                                      decoration: const InputDecoration(
-                                        labelText: 'API 方言',
+                                      decoration: InputDecoration(
+                                        labelText: _localizedText(
+                                          context,
+                                          zh: 'API 方言',
+                                          zhHant: 'API 方言',
+                                          en: 'API Dialect',
+                                          fr: 'Dialecte API',
+                                          de: 'API-Dialekt',
+                                          ja: 'API ダイアレクト',
+                                        ),
                                       ),
                                       items: AiApiDialect.values
                                           .map(
@@ -1561,8 +1577,16 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 final providerKindDropdown =
                                     DropdownButtonFormField<AiProviderKind>(
                                       initialValue: _providerKind,
-                                      decoration: const InputDecoration(
-                                        labelText: '服务商类型',
+                                      decoration: InputDecoration(
+                                        labelText: _localizedText(
+                                          context,
+                                          zh: '服务商类型',
+                                          zhHant: '服務商類型',
+                                          en: 'Provider Type',
+                                          fr: 'Type de fournisseur',
+                                          de: 'Anbietertyp',
+                                          ja: 'プロバイダー種別',
+                                        ),
                                       ),
                                       items: AiProviderKind.values
                                           .map(
@@ -1610,16 +1634,32 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                             TextField(
                               controller: _responsesModelIdController,
                               enabled: !_isSaving,
-                              decoration: const InputDecoration(
-                                labelText: 'Responses 模型 ID（可选）',
+                              decoration: InputDecoration(
+                                labelText: _localizedText(
+                                  context,
+                                  zh: 'Responses 模型 ID（可选）',
+                                  zhHant: 'Responses 模型 ID（選填）',
+                                  en: 'Responses Model ID (optional)',
+                                  fr: 'ID du modèle Responses (facultatif)',
+                                  de: 'Responses-Modell-ID (optional)',
+                                  ja: 'Responses モデル ID（任意）',
+                                ),
                               ),
                             ),
                             const SizedBox(height: 12),
                             TextField(
                               controller: _embeddingModelIdController,
                               enabled: !_isSaving,
-                              decoration: const InputDecoration(
-                                labelText: 'Embeddings 模型 ID（可选）',
+                              decoration: InputDecoration(
+                                labelText: _localizedText(
+                                  context,
+                                  zh: 'Embeddings 模型 ID（可选）',
+                                  zhHant: 'Embeddings 模型 ID（選填）',
+                                  en: 'Embeddings Model ID (optional)',
+                                  fr: 'ID du modèle Embeddings (facultatif)',
+                                  de: 'Embeddings-Modell-ID (optional)',
+                                  ja: 'Embeddings モデル ID（任意）',
+                                ),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -1629,15 +1669,31 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 final moderationField = TextField(
                                   controller: _moderationModelIdController,
                                   enabled: !_isSaving,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Moderations 模型 ID（可选）',
+                                  decoration: InputDecoration(
+                                    labelText: _localizedText(
+                                      context,
+                                      zh: 'Moderations 模型 ID（可选）',
+                                      zhHant: 'Moderations 模型 ID（選填）',
+                                      en: 'Moderations Model ID (optional)',
+                                      fr: 'ID du modèle Moderations (facultatif)',
+                                      de: 'Moderations-Modell-ID (optional)',
+                                      ja: 'Moderations モデル ID（任意）',
+                                    ),
                                   ),
                                 );
                                 final rerankField = TextField(
                                   controller: _rerankModelIdController,
                                   enabled: !_isSaving,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Rerank 模型 ID（可选）',
+                                  decoration: InputDecoration(
+                                    labelText: _localizedText(
+                                      context,
+                                      zh: 'Rerank 模型 ID（可选）',
+                                      zhHant: 'Rerank 模型 ID（選填）',
+                                      en: 'Rerank Model ID (optional)',
+                                      fr: 'ID du modèle Rerank (facultatif)',
+                                      de: 'Rerank-Modell-ID (optional)',
+                                      ja: 'Rerank モデル ID（任意）',
+                                    ),
                                   ),
                                 );
                                 if (stacked) {
@@ -1667,15 +1723,31 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 final imageField = TextField(
                                   controller: _imageModelIdController,
                                   enabled: !_isSaving,
-                                  decoration: const InputDecoration(
-                                    labelText: '图像模型 ID（可选）',
+                                  decoration: InputDecoration(
+                                    labelText: _localizedText(
+                                      context,
+                                      zh: '图像模型 ID（可选）',
+                                      zhHant: '影像模型 ID（選填）',
+                                      en: 'Image Model ID (optional)',
+                                      fr: 'ID du modèle image (facultatif)',
+                                      de: 'Bildmodell-ID (optional)',
+                                      ja: '画像モデル ID（任意）',
+                                    ),
                                   ),
                                 );
                                 final videoField = TextField(
                                   controller: _videoModelIdController,
                                   enabled: !_isSaving,
-                                  decoration: const InputDecoration(
-                                    labelText: '视频模型 ID（可选）',
+                                  decoration: InputDecoration(
+                                    labelText: _localizedText(
+                                      context,
+                                      zh: '视频模型 ID（可选）',
+                                      zhHant: '影片模型 ID（選填）',
+                                      en: 'Video Model ID (optional)',
+                                      fr: 'ID du modèle vidéo (facultatif)',
+                                      de: 'Videomodell-ID (optional)',
+                                      ja: '動画モデル ID（任意）',
+                                    ),
                                   ),
                                 );
                                 if (stacked) {
@@ -1705,15 +1777,31 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 final speechField = TextField(
                                   controller: _speechModelIdController,
                                   enabled: !_isSaving,
-                                  decoration: const InputDecoration(
-                                    labelText: '语音模型 ID（可选）',
+                                  decoration: InputDecoration(
+                                    labelText: _localizedText(
+                                      context,
+                                      zh: '语音模型 ID（可选）',
+                                      zhHant: '語音模型 ID（選填）',
+                                      en: 'Speech Model ID (optional)',
+                                      fr: 'ID du modèle vocal (facultatif)',
+                                      de: 'Sprachmodell-ID (optional)',
+                                      ja: '音声モデル ID（任意）',
+                                    ),
                                   ),
                                 );
                                 final voiceField = TextField(
                                   controller: _defaultVoiceController,
                                   enabled: !_isSaving,
-                                  decoration: const InputDecoration(
-                                    labelText: '默认 Voice（可选）',
+                                  decoration: InputDecoration(
+                                    labelText: _localizedText(
+                                      context,
+                                      zh: '默认 Voice（可选）',
+                                      zhHant: '預設 Voice（選填）',
+                                      en: 'Default Voice (optional)',
+                                      fr: 'Voix par défaut (facultatif)',
+                                      de: 'Standard-Voice (optional)',
+                                      ja: 'デフォルト Voice（任意）',
+                                    ),
                                   ),
                                 );
                                 if (stacked) {
@@ -1743,15 +1831,31 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 final transcriptionField = TextField(
                                   controller: _transcriptionModelIdController,
                                   enabled: !_isSaving,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Transcription 模型 ID（可选）',
+                                  decoration: InputDecoration(
+                                    labelText: _localizedText(
+                                      context,
+                                      zh: 'Transcription 模型 ID（可选）',
+                                      zhHant: 'Transcription 模型 ID（選填）',
+                                      en: 'Transcription Model ID (optional)',
+                                      fr: 'ID du modèle Transcription (facultatif)',
+                                      de: 'Transcription-Modell-ID (optional)',
+                                      ja: 'Transcription モデル ID（任意）',
+                                    ),
                                   ),
                                 );
                                 final translationField = TextField(
                                   controller: _translationModelIdController,
                                   enabled: !_isSaving,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Translation 模型 ID（可选）',
+                                  decoration: InputDecoration(
+                                    labelText: _localizedText(
+                                      context,
+                                      zh: 'Translation 模型 ID（可选）',
+                                      zhHant: 'Translation 模型 ID（選填）',
+                                      en: 'Translation Model ID (optional)',
+                                      fr: 'ID du modèle Translation (facultatif)',
+                                      de: 'Translation-Modell-ID (optional)',
+                                      ja: 'Translation モデル ID（任意）',
+                                    ),
                                   ),
                                 );
                                 if (stacked) {
@@ -1781,22 +1885,46 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 final realtimeTransportField = TextField(
                                   controller: _realtimeTransportController,
                                   enabled: !_isSaving,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Realtime Transport（可选）',
+                                  decoration: InputDecoration(
+                                    labelText: _localizedText(
+                                      context,
+                                      zh: 'Realtime Transport（可选）',
+                                      zhHant: 'Realtime Transport（選填）',
+                                      en: 'Realtime Transport (optional)',
+                                      fr: 'Transport Realtime (facultatif)',
+                                      de: 'Realtime-Transport (optional)',
+                                      ja: 'Realtime Transport（任意）',
+                                    ),
                                   ),
                                 );
                                 final realtimeUrlField = TextField(
                                   controller: _realtimeUrlOverrideController,
                                   enabled: !_isSaving,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Realtime URL Override（可选）',
+                                  decoration: InputDecoration(
+                                    labelText: _localizedText(
+                                      context,
+                                      zh: 'Realtime URL Override（可选）',
+                                      zhHant: 'Realtime URL Override（選填）',
+                                      en: 'Realtime URL Override (optional)',
+                                      fr: 'URL Realtime personnalisée (facultatif)',
+                                      de: 'Realtime-URL-Override (optional)',
+                                      ja: 'Realtime URL Override（任意）',
+                                    ),
                                   ),
                                 );
                                 final realtimeModelField = TextField(
                                   controller: _realtimeModelIdController,
                                   enabled: !_isSaving,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Realtime 模型 ID（可选）',
+                                  decoration: InputDecoration(
+                                    labelText: _localizedText(
+                                      context,
+                                      zh: 'Realtime 模型 ID（可选）',
+                                      zhHant: 'Realtime 模型 ID（選填）',
+                                      en: 'Realtime Model ID (optional)',
+                                      fr: 'ID du modèle Realtime (facultatif)',
+                                      de: 'Realtime-Modell-ID (optional)',
+                                      ja: 'Realtime モデル ID（任意）',
+                                    ),
                                   ),
                                 );
                                 if (stacked) {
@@ -1833,10 +1961,26 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               enabled: !_isSaving,
                               minLines: 4,
                               maxLines: 8,
-                              decoration: const InputDecoration(
-                                labelText: 'Endpoint Overrides JSON（可选）',
-                                helperText:
-                                    '按 family 自定义 path/url/method/transport/headers/query_defaults。',
+                              decoration: InputDecoration(
+                                labelText: _localizedText(
+                                  context,
+                                  zh: 'Endpoint Overrides JSON（可选）',
+                                  zhHant: 'Endpoint Overrides JSON（選填）',
+                                  en: 'Endpoint Overrides JSON (optional)',
+                                  fr: 'JSON de surcharge des endpoints (facultatif)',
+                                  de: 'Endpoint-Overrides JSON (optional)',
+                                  ja: 'Endpoint Overrides JSON（任意）',
+                                ),
+                                helperText: _localizedText(
+                                  context,
+                                  zh: '按 family 自定义 path/url/method/transport/headers/query_defaults。',
+                                  zhHant:
+                                      '依 family 自訂 path/url/method/transport/headers/query_defaults。',
+                                  en: 'Customize path/url/method/transport/headers/query_defaults by family.',
+                                  fr: 'Personnalisez path/url/method/transport/headers/query_defaults par family.',
+                                  de: 'path/url/method/transport/headers/query_defaults je family anpassen.',
+                                  ja: 'family ごとに path/url/method/transport/headers/query_defaults をカスタマイズします。',
+                                ),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -1845,10 +1989,26 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               enabled: !_isSaving,
                               minLines: 4,
                               maxLines: 8,
-                              decoration: const InputDecoration(
-                                labelText: 'Operation Extras JSON（可选）',
-                                helperText:
-                                    '放置 responses/realtime/视频等操作的 provider-specific 扩展参数。',
+                              decoration: InputDecoration(
+                                labelText: _localizedText(
+                                  context,
+                                  zh: 'Operation Extras JSON（可选）',
+                                  zhHant: 'Operation Extras JSON（選填）',
+                                  en: 'Operation Extras JSON (optional)',
+                                  fr: 'JSON des extras d’opération (facultatif)',
+                                  de: 'Operation-Extras JSON (optional)',
+                                  ja: 'Operation Extras JSON（任意）',
+                                ),
+                                helperText: _localizedText(
+                                  context,
+                                  zh: '放置 responses/realtime/视频等操作的 provider-specific 扩展参数。',
+                                  zhHant:
+                                      '放置 responses/realtime/影片等操作的 provider-specific 擴充參數。',
+                                  en: 'Provider-specific extras for responses/realtime/video operations.',
+                                  fr: 'Extras propres au fournisseur pour responses/realtime/vidéo.',
+                                  de: 'Anbieterspezifische Extras für responses/realtime/video.',
+                                  ja: 'responses/realtime/動画などの provider-specific 拡張パラメータです。',
+                                ),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -1884,7 +2044,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 }
 
                                 final realtimeDropdown = dropdown(
-                                  label: 'Realtime 能力状态',
+                                  label: _localizedText(
+                                    context,
+                                    zh: 'Realtime 能力状态',
+                                    zhHant: 'Realtime 能力狀態',
+                                    en: 'Realtime Capability',
+                                    fr: 'Capacité Realtime',
+                                    de: 'Realtime-Fähigkeit',
+                                    ja: 'Realtime 機能状態',
+                                  ),
                                   value: _realtimeCapabilityStatus,
                                   onChanged: (value) {
                                     if (value == null) return;
@@ -1894,7 +2062,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   },
                                 );
                                 final filesDropdown = dropdown(
-                                  label: 'Files 能力状态',
+                                  label: _localizedText(
+                                    context,
+                                    zh: 'Files 能力状态',
+                                    zhHant: 'Files 能力狀態',
+                                    en: 'Files Capability',
+                                    fr: 'Capacité fichiers',
+                                    de: 'Files-Fähigkeit',
+                                    ja: 'Files 機能状態',
+                                  ),
                                   value: _filesCapabilityStatus,
                                   onChanged: (value) {
                                     if (value == null) return;
@@ -1904,7 +2080,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   },
                                 );
                                 final fineTunesDropdown = dropdown(
-                                  label: 'Fine-tunes 能力状态',
+                                  label: _localizedText(
+                                    context,
+                                    zh: 'Fine-tunes 能力状态',
+                                    zhHant: 'Fine-tunes 能力狀態',
+                                    en: 'Fine-tunes Capability',
+                                    fr: 'Capacité fine-tunes',
+                                    de: 'Fine-tunes-Fähigkeit',
+                                    ja: 'Fine-tunes 機能状態',
+                                  ),
                                   value: _fineTunesCapabilityStatus,
                                   onChanged: (value) {
                                     if (value == null) return;
