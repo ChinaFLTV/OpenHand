@@ -77,9 +77,9 @@ class FileMutationRecord {
     Map<String, Object?> json, {
     required String sessionId,
   }) {
-    final id = json['id'] as String?;
-    if (id == null || id.isEmpty) return null;
-    final kindName = '${json['kind'] ?? 'modify'}';
+    final id = optionalStringFromValue(json['id']);
+    if (id == null) return null;
+    final kindName = stringFromValue(json['kind'], fallback: 'modify');
     final kind = FileMutationKind.values.firstWhere(
       (k) => k.name == kindName,
       orElse: () => FileMutationKind.modify,
@@ -87,13 +87,13 @@ class FileMutationRecord {
     return FileMutationRecord(
       recordId: id,
       sessionId: sessionId,
-      toolCallId: '${json['tool_call_id'] ?? ''}',
-      toolName: '${json['tool_name'] ?? ''}',
-      filePath: '${json['path'] ?? ''}',
+      toolCallId: stringFromValue(json['tool_call_id']),
+      toolName: stringFromValue(json['tool_name']),
+      filePath: stringFromValue(json['path']),
       kind: kind,
       createdAt: utcDateTimeFromValue(json['ts']) ?? DateTime.now().toUtc(),
-      beforeSha: json['before_sha'] as String?,
-      afterSha: json['after_sha'] as String?,
+      beforeSha: optionalStringFromValue(json['before_sha']),
+      afterSha: optionalStringFromValue(json['after_sha']),
       beforeSize: nonNegativeIntFromValue(json['before_size'], fallback: 0),
       afterSize: nonNegativeIntFromValue(json['after_size'], fallback: 0),
     );
@@ -375,8 +375,9 @@ class AiFileMutationLedger {
       final f = _configFile();
       if (await f.exists()) {
         final raw = await f.readAsString();
-        if (raw.trim().isNotEmpty) {
-          final decoded = jsonDecode(raw);
+        final text = nullIfBlank(raw);
+        if (text != null) {
+          final decoded = jsonDecode(text);
           if (decoded is Map) {
             _cachedConfig = LedgerConfig.fromJson(
               stringKeyedMapFromValue(decoded),
@@ -501,6 +502,8 @@ class AiFileMutationLedger {
     if (normalizedSessionId == null || normalizedFilePath == null) {
       return null;
     }
+    final normalizedToolCallId = nullIfBlank(toolCallId) ?? '';
+    final normalizedToolName = nullIfBlank(toolName) ?? '';
     await _ensureInitialized();
     try {
       final sessionDir = _sessionDir(normalizedSessionId);
@@ -526,8 +529,8 @@ class AiFileMutationLedger {
       final record = FileMutationRecord(
         recordId: recordId,
         sessionId: normalizedSessionId,
-        toolCallId: toolCallId,
-        toolName: toolName,
+        toolCallId: normalizedToolCallId,
+        toolName: normalizedToolName,
         filePath: p.normalize(normalizedFilePath),
         kind: kind,
         createdAt: DateTime.now().toUtc(),
@@ -561,27 +564,28 @@ class AiFileMutationLedger {
   }
 
   Future<List<FileMutationRecord>> recordsForSession(String sessionId) async {
-    if (sessionId.trim().isEmpty) return const <FileMutationRecord>[];
-    final cached = _recordsCache[sessionId];
+    final normalizedSessionId = nullIfBlank(sessionId);
+    if (normalizedSessionId == null) return const <FileMutationRecord>[];
+    final cached = _recordsCache[normalizedSessionId];
     if (cached != null) return cached;
     await _ensureInitialized();
-    final ledger = _ledgerFile(sessionId);
+    final ledger = _ledgerFile(normalizedSessionId);
     final records = <FileMutationRecord>[];
     try {
       if (!await ledger.exists()) {
-        _recordsCache[sessionId] = const <FileMutationRecord>[];
+        _recordsCache[normalizedSessionId] = const <FileMutationRecord>[];
         return const <FileMutationRecord>[];
       }
       final lines = await ledger.readAsLines();
       for (final raw in lines) {
-        final trimmed = raw.trim();
-        if (trimmed.isEmpty) continue;
+        final trimmed = nullIfBlank(raw);
+        if (trimmed == null) continue;
         try {
           final decoded = jsonDecode(trimmed);
           if (decoded is! Map) continue;
           final record = FileMutationRecord.tryFromJson(
             stringKeyedMapFromValue(decoded),
-            sessionId: sessionId,
+            sessionId: normalizedSessionId,
           );
           if (record != null) records.add(record);
         } catch (error, stack) {
@@ -602,7 +606,7 @@ class AiFileMutationLedger {
     }
     records.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     final immutable = List<FileMutationRecord>.unmodifiable(records);
-    _recordsCache[sessionId] = immutable;
+    _recordsCache[normalizedSessionId] = immutable;
     return immutable;
   }
 
@@ -610,11 +614,12 @@ class AiFileMutationLedger {
     required String sessionId,
     required String toolCallId,
   }) async {
-    if (toolCallId.trim().isEmpty) return const <FileMutationView>[];
+    final normalizedToolCallId = nullIfBlank(toolCallId);
+    if (normalizedToolCallId == null) return const <FileMutationView>[];
     final all = await recordsForSession(sessionId);
     final undone = await _loadUndoneSet(sessionId);
     final matching = all
-        .where((record) => record.toolCallId == toolCallId)
+        .where((record) => record.toolCallId == normalizedToolCallId)
         .toList(growable: false);
     if (matching.isEmpty) return const <FileMutationView>[];
     final undoStates = _buildUndoStates(all, undone);
@@ -1312,11 +1317,12 @@ class AiFileMutationLedger {
         return <String>{};
       }
       final raw = await state.readAsString();
-      if (raw.trim().isEmpty) {
+      final text = nullIfBlank(raw);
+      if (text == null) {
         _undoneCache[sessionId] = const <String>{};
         return <String>{};
       }
-      final parsed = jsonDecode(raw);
+      final parsed = jsonDecode(text);
       if (parsed is Map<String, Object?>) {
         final list = parsed['undone'];
         if (list is List) {
@@ -1396,7 +1402,8 @@ class AiFileMutationLedger {
     required String expectedSha,
     required int expectedSize,
   }) async {
-    if (!_sha256HexPattern.hasMatch(expectedSha) || filePath.trim().isEmpty) {
+    if (!_sha256HexPattern.hasMatch(expectedSha) ||
+        nullIfBlank(filePath) == null) {
       return null;
     }
     try {
@@ -1436,8 +1443,8 @@ class AiFileMutationLedger {
     if (_legacyBlobRecoveryMisses.contains(sha)) return null;
     try {
       final index = await _legacyBlobIndex();
-      final path = index[sha];
-      if (path == null || path.isEmpty) {
+      final path = nullIfBlank(index[sha]);
+      if (path == null) {
         _legacyBlobRecoveryMisses.add(sha);
         return null;
       }
@@ -1553,7 +1560,7 @@ class AiFileMutationLedger {
   }
 
   String _safeSessionId(String raw) {
-    final trimmed = raw.trim();
+    final trimmed = nullIfBlank(raw) ?? '';
     return trimmed.replaceAll(RegExp(r'[^a-zA-Z0-9_\-.]'), '_');
   }
 
@@ -1591,8 +1598,11 @@ class AiFileMutationLedger {
         ? await listSessionIds()
         : sessionIds.toList();
     final kindSet = kinds?.toSet();
-    final toolSet = toolNames?.map((s) => s.toLowerCase()).toSet();
-    final pathNeedle = pathContains?.trim().toLowerCase();
+    final toolSet = toolNames
+        ?.map(optionalLowercaseStringFromValue)
+        .whereType<String>()
+        .toSet();
+    final pathNeedle = optionalLowercaseStringFromValue(pathContains);
     final out = <FileMutationView>[];
     for (final sid in ids) {
       if (out.length >= limit) break;
@@ -1606,12 +1616,11 @@ class AiFileMutationLedger {
         if (kindSet != null && !kindSet.contains(r.kind)) continue;
         if (toolSet != null &&
             toolSet.isNotEmpty &&
-            !toolSet.contains(r.toolName.toLowerCase())) {
+            !toolSet.contains(lowercaseStringFromValue(r.toolName))) {
           continue;
         }
         if (pathNeedle != null &&
-            pathNeedle.isNotEmpty &&
-            !r.filePath.toLowerCase().contains(pathNeedle)) {
+            !lowercaseStringFromValue(r.filePath).contains(pathNeedle)) {
           continue;
         }
         if (since != null && r.createdAt.isBefore(since)) continue;
@@ -1717,16 +1726,17 @@ class AiFileMutationLedger {
       silentLog('ai_file_mutation_ledger', 'importBundle parse', error, stack);
       return 0;
     }
-    if ('${parsed['kind'] ?? ''}' != 'openhand.file_mutation_ledger.bundle') {
+    if (optionalStringFromValue(parsed['kind']) !=
+        'openhand.file_mutation_ledger.bundle') {
       return 0;
     }
     // 1) 先恢复 blob — 之后的 record 才有指向。
     final blobMap = parsed['blobs_b64'];
     if (blobMap is Map) {
       for (final entry in blobMap.entries) {
-        final sha = '${entry.key}';
-        final raw = '${entry.value}';
-        if (sha.isEmpty || raw.isEmpty) continue;
+        final sha = optionalStringFromValue(entry.key);
+        final raw = optionalStringFromValue(entry.value);
+        if (sha == null || raw == null) continue;
         try {
           final content = utf8.decode(base64Decode(raw));
           // sha 一致性轻校验：不强制（容许导出方使用不同算法/截断）。
@@ -1746,8 +1756,8 @@ class AiFileMutationLedger {
     if (sessions is! List) return imported;
     for (final sessionEntry in sessions) {
       if (sessionEntry is! Map<String, Object?>) continue;
-      final sid = '${sessionEntry['session_id'] ?? ''}'.trim();
-      if (sid.isEmpty) continue;
+      final sid = optionalStringFromValue(sessionEntry['session_id']);
+      if (sid == null) continue;
       final records = sessionEntry['records'];
       if (records is! List) continue;
       try {
@@ -1776,8 +1786,8 @@ class AiFileMutationLedger {
         }
         for (final raw in records) {
           if (raw is! Map<String, Object?>) continue;
-          final id = '${raw['id'] ?? ''}'.trim();
-          if (id.isEmpty || existingIds.contains(id)) continue;
+          final id = optionalStringFromValue(raw['id']);
+          if (id == null || existingIds.contains(id)) continue;
           buffer.writeln(jsonEncode(raw));
           existingIds.add(id);
           imported += 1;
