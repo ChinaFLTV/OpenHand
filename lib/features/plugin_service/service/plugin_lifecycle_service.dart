@@ -79,6 +79,49 @@ String hermesAgentNpmFailureMessage({
   return lines.join('\n');
 }
 
+@visibleForTesting
+String pluginLifecycleManagedToolchainCommandScript(
+  String executable,
+  List<String> arguments,
+) {
+  final command = _pluginShellQuote(executable);
+  final args = arguments.map(_pluginShellQuote).join(' ');
+  final invocation = args.isEmpty ? command : '$command $args';
+  return '''
+${_pluginLifecycleManagedToolchainShellPrefix()}
+if ! command -v $command >/dev/null 2>&1; then
+  printf '%s not found\\n' $command >&2
+  exit 127
+fi
+exec $invocation
+''';
+}
+
+@visibleForTesting
+String pluginLifecycleExecutableAvailabilityScript(String executable) {
+  final command = _pluginShellQuote(executable);
+  return '''
+command -v $command >/dev/null 2>&1
+''';
+}
+
+String _pluginLifecycleManagedToolchainShellPrefix() {
+  final home = Platform.environment['HOME'] ?? '';
+  return '''
+export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
+[ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
+if command -v fnm >/dev/null 2>&1; then
+  eval "\$(fnm env)"
+fi
+export VOLTA_HOME="\${VOLTA_HOME:-$home/.volta}"
+export PYENV_ROOT="\${PYENV_ROOT:-$home/.pyenv}"
+export PATH="\$PYENV_ROOT/bin:/opt/homebrew/bin:/usr/local/bin:\$VOLTA_HOME/bin:\$PATH"
+if command -v pyenv >/dev/null 2>&1; then
+  eval "\$(pyenv init -)"
+fi
+''';
+}
+
 /// 插件生命周期操作结果。
 class PluginOperationResult {
   const PluginOperationResult({
@@ -156,12 +199,51 @@ class PluginLifecycleService {
     return env;
   }
 
+  Future<ProcessResult> _runManagedToolchainCommand(
+    String executable,
+    List<String> arguments, {
+    Duration timeout = _pluginLifecycleVerifyTimeout,
+    String? tag,
+    Map<String, String>? environment,
+  }) {
+    return runTrackedProcessOrFailed(
+      _pickShell(),
+      [
+        '-c',
+        pluginLifecycleManagedToolchainCommandScript(executable, arguments),
+      ],
+      timeout: timeout,
+      tag: tag ?? 'plugin_lifecycle.command.$executable',
+      environment: environment ?? _proxyEnv(),
+    );
+  }
+
+  Future<_SimpleProcessResult> _runManagedToolchainCommandWithProgress(
+    String executable,
+    List<String> arguments, {
+    void Function(String line)? onProgress,
+    Duration timeout = _pluginLifecycleDefaultTimeout,
+    Map<String, String>? environment,
+  }) {
+    return _runWithProgress(
+      _pickShell(),
+      [
+        '-c',
+        pluginLifecycleManagedToolchainCommandScript(executable, arguments),
+      ],
+      onProgress: onProgress,
+      timeout: timeout,
+      environment: environment ?? _proxyEnv(),
+    );
+  }
+
   Future<bool> _isExecutableAvailable(String executable) async {
     final result = await runTrackedProcessOrFailed(
-      'which',
-      [executable],
+      _pickShell(),
+      ['-c', pluginLifecycleExecutableAvailabilityScript(executable)],
       timeout: _pluginLifecycleProbeTimeout,
-      tag: 'plugin_lifecycle.which.$executable',
+      tag: 'plugin_lifecycle.command_probe.$executable',
+      environment: _proxyEnv(),
     );
     return result.exitCode == 0;
   }
@@ -952,10 +1034,9 @@ fi
     void Function(String line)? onProgress,
   }) async {
     final environment = _npmGlobalPackageEnv();
-    final nodeCheck = await runTrackedProcessOrFailed(
+    final nodeCheck = await _runManagedToolchainCommand(
       'node',
       ['--version'],
-      timeout: _pluginLifecycleVerifyTimeout,
       environment: environment,
       tag: 'plugin_lifecycle.node_check.$packageName',
     );
@@ -965,10 +1046,9 @@ fi
         message: '$label 依赖 Node.js，请先安装 Node.js。',
       );
     }
-    final npmCheck = await runTrackedProcessOrFailed(
+    final npmCheck = await _runManagedToolchainCommand(
       'npm',
       ['--version'],
-      timeout: _pluginLifecycleVerifyTimeout,
       environment: environment,
       tag: 'plugin_lifecycle.npm_check.$packageName',
     );
@@ -980,7 +1060,7 @@ fi
     }
     final preexisting = await _verifyAnyCommandVersion(verifyCommands);
     onProgress?.call('通过 npm 安装/更新 $label…');
-    var result = await _runWithProgress(
+    var result = await _runManagedToolchainCommandWithProgress(
       'npm',
       ['install', '-g', '$packageName@latest'],
       onProgress: onProgress,
@@ -996,7 +1076,7 @@ fi
       if (tlsBundle != null) {
         tlsRetryAttempted = true;
         onProgress?.call('检测到 PyPI TLS 证书校验失败，使用 CA bundle 重试：$tlsBundle');
-        result = await _runWithProgress(
+        result = await _runManagedToolchainCommandWithProgress(
           'npm',
           ['install', '-g', '$packageName@latest'],
           onProgress: onProgress,
@@ -1053,10 +1133,9 @@ fi
     void Function(String line)? onProgress,
   }) async {
     final environment = _npmGlobalPackageEnv();
-    final npmCheck = await runTrackedProcessOrFailed(
+    final npmCheck = await _runManagedToolchainCommand(
       'npm',
       ['--version'],
-      timeout: _pluginLifecycleVerifyTimeout,
       environment: environment,
       tag: 'plugin_lifecycle.npm_check.$packageName',
     );
@@ -1074,7 +1153,7 @@ fi
       );
     }
     onProgress?.call('通过 npm 卸载 $label…');
-    final result = await _runWithProgress(
+    final result = await _runManagedToolchainCommandWithProgress(
       'npm',
       ['uninstall', '-g', packageName],
       onProgress: onProgress,
@@ -1100,10 +1179,9 @@ fi
     List<String> commands,
   ) async {
     for (final command in commands) {
-      final result = await runTrackedProcessOrFailed(
+      final result = await _runManagedToolchainCommand(
         command,
         ['--version'],
-        timeout: _pluginLifecycleVerifyTimeout,
         environment: _proxyEnv(),
         tag: 'plugin_lifecycle.verify.$command',
       );
@@ -1135,7 +1213,7 @@ fi
   Future<String?> _probeCertifiBundle() async {
     for (final executable in const <String>['python3', 'python']) {
       try {
-        final result = await runTrackedProcessOrFailed(
+        final result = await _runManagedToolchainCommand(
           executable,
           const <String>['-c', 'import certifi; print(certifi.where())'],
           timeout: const Duration(seconds: 2),
@@ -1164,7 +1242,7 @@ fi
     void Function(String line)? onProgress,
   }) async {
     onProgress?.call('清理未完成的 $label npm 安装…');
-    final cleanup = await _runWithProgress(
+    final cleanup = await _runManagedToolchainCommandWithProgress(
       'npm',
       ['uninstall', '-g', packageName],
       onProgress: onProgress,

@@ -1,8 +1,39 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/plugin_service/model/plugin_info.dart';
 import 'package:openhand/features/plugin_service/service/plugin_lifecycle_service.dart';
 
 void main() {
+  group('Managed toolchain command probes', () {
+    test('downgrades a missing executable to a shell preflight miss', () async {
+      if (Platform.isWindows) return;
+
+      const missingCommand = '__openhand_missing_command_for_test__';
+      final result = await Process.run('/bin/sh', [
+        '-c',
+        pluginLifecycleManagedToolchainCommandScript(missingCommand, const [
+          '--version',
+        ]),
+      ]);
+
+      expect(result.exitCode, 127);
+      expect(result.stderr.toString(), contains('$missingCommand not found'));
+    });
+
+    test('shell-quotes executable names and arguments', () {
+      final script = pluginLifecycleManagedToolchainCommandScript(
+        "hermes'agent",
+        const <String>['--flag', 'value with spaces'],
+      );
+
+      expect(script, contains("'hermes'\"'\"'agent'"));
+      expect(script, contains("'value with spaces'"));
+      expect(script, contains('command -v'));
+      expect(script, contains('exec'));
+    });
+  });
+
   group('Hermes Agent npm failure diagnostics', () {
     test('prioritizes PyPI TLS failures over missing distribution noise', () {
       const output = '''
