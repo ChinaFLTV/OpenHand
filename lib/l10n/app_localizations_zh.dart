@@ -357,6 +357,162 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpStdioMirrorModeReconnectDone => '已触发重拉，下一次调用会用新镜像源重新启动进程。';
 
   @override
+  String mcpStdioDialogLogsTitle(Object name) {
+    return '$name 日志';
+  }
+
+  @override
+  String mcpStdioDialogRuntimeDetailsTitle(Object name) {
+    return '$name 运行时详情';
+  }
+
+  @override
+  String mcpStdioDialogRunningPid(Object pid) {
+    return '运行中 · PID $pid';
+  }
+
+  @override
+  String get mcpStdioDialogStopped => '已停止';
+
+  @override
+  String get mcpStdioDialogAutoScroll => '自动滚动';
+
+  @override
+  String get mcpStdioDialogCopyLogs => '复制日志';
+
+  @override
+  String get mcpStdioDialogClearLogs => '清除日志';
+
+  @override
+  String get mcpStdioDialogCopiedToClipboard => '已复制到剪贴板';
+
+  @override
+  String get mcpStdioDialogNoLogOutput => '暂无日志输出';
+
+  @override
+  String mcpStdioDialogLineCount(int count) {
+    return '$count 行';
+  }
+
+  @override
+  String mcpStdioDialogUptime(Object uptime) {
+    return '运行 $uptime';
+  }
+
+  @override
+  String get mcpStdioDialogRefresh => '刷新';
+
+  @override
+  String get mcpStdioDialogProcessStatus => '进程状态';
+
+  @override
+  String get mcpStdioDialogServiceConfig => '服务配置';
+
+  @override
+  String get mcpStdioDialogType => '类型';
+
+  @override
+  String get mcpStdioDialogCommand => '命令';
+
+  @override
+  String get mcpStdioDialogArgs => '参数';
+
+  @override
+  String get mcpStdioDialogEnabled => '已启用';
+
+  @override
+  String get mcpStdioDialogYes => '是';
+
+  @override
+  String get mcpStdioDialogNo => '否';
+
+  @override
+  String get mcpStdioDialogEnvironment => '环境信息';
+
+  @override
+  String get mcpStdioDialogError => '错误信息';
+
+  @override
+  String get mcpStdioDialogDepsTitle => '依赖管理';
+
+  @override
+  String get mcpStdioDialogNoDepsToManage => '此服务非包管理器类型（npx / uvx），无需管理依赖。';
+
+  @override
+  String mcpStdioDialogInstalledVersion(Object version) {
+    return '已安装 v$version';
+  }
+
+  @override
+  String get mcpStdioDialogUnknownVersion => '?';
+
+  @override
+  String get mcpStdioDialogNotGloballyInstalled => '未全局安装';
+
+  @override
+  String get mcpStdioDialogInstall => '安装';
+
+  @override
+  String get mcpStdioDialogUpdate => '更新';
+
+  @override
+  String get mcpStdioDialogUninstall => '卸载';
+
+  @override
+  String mcpStdioDialogLatestVersion(Object version) {
+    return '最新版本: $version';
+  }
+
+  @override
+  String get mcpStdioDialogUpdateAvailableSuffix => '（可更新）';
+
+  @override
+  String get mcpStdioDialogOperationTimeout => '[timeout] 操作超时，已终止进程';
+
+  @override
+  String mcpStdioDialogOperationCompleted(
+    Object time,
+    Object action,
+    int exitCode,
+  ) {
+    return '[$time] ✓ $action 完成 (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationFailed(
+    Object time,
+    Object action,
+    int exitCode,
+  ) {
+    return '[$time] ✗ $action 失败 (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationFailedPlain(Object action, int exitCode) {
+    return '$action 失败 (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationException(Object time, Object error) {
+    return '[$time] ✗ 异常: $error';
+  }
+
+  @override
+  String mcpStdioDialogWarmCache(Object time) {
+    return '[$time] 预热隔离缓存…';
+  }
+
+  @override
+  String mcpStdioDialogWarmCacheDone(Object time) {
+    return '[$time] ✓ 缓存预热完成';
+  }
+
+  @override
+  String mcpStdioDialogWarmCacheSkipped(Object time, Object error) {
+    return '[$time] 缓存预热跳过: $error';
+  }
+
+  @override
   String get mcpAutoProbeConcurrencyLabel => 'MCP 检查/拉取并发数';
 
   @override
@@ -9884,6 +10040,162 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get mcpStdioMirrorModeReconnectDone => '已触发重拉，下一次调用会用新镜像源重新启动进程。';
 
   @override
+  String mcpStdioDialogLogsTitle(Object name) {
+    return '$name 日志';
+  }
+
+  @override
+  String mcpStdioDialogRuntimeDetailsTitle(Object name) {
+    return '$name 运行时详情';
+  }
+
+  @override
+  String mcpStdioDialogRunningPid(Object pid) {
+    return '运行中 · PID $pid';
+  }
+
+  @override
+  String get mcpStdioDialogStopped => '已停止';
+
+  @override
+  String get mcpStdioDialogAutoScroll => '自动滚动';
+
+  @override
+  String get mcpStdioDialogCopyLogs => '复制日志';
+
+  @override
+  String get mcpStdioDialogClearLogs => '清除日志';
+
+  @override
+  String get mcpStdioDialogCopiedToClipboard => '已复制到剪贴板';
+
+  @override
+  String get mcpStdioDialogNoLogOutput => '暂无日志输出';
+
+  @override
+  String mcpStdioDialogLineCount(int count) {
+    return '$count 行';
+  }
+
+  @override
+  String mcpStdioDialogUptime(Object uptime) {
+    return '运行 $uptime';
+  }
+
+  @override
+  String get mcpStdioDialogRefresh => '刷新';
+
+  @override
+  String get mcpStdioDialogProcessStatus => '进程状态';
+
+  @override
+  String get mcpStdioDialogServiceConfig => '服务配置';
+
+  @override
+  String get mcpStdioDialogType => '类型';
+
+  @override
+  String get mcpStdioDialogCommand => '命令';
+
+  @override
+  String get mcpStdioDialogArgs => '参数';
+
+  @override
+  String get mcpStdioDialogEnabled => '已启用';
+
+  @override
+  String get mcpStdioDialogYes => '是';
+
+  @override
+  String get mcpStdioDialogNo => '否';
+
+  @override
+  String get mcpStdioDialogEnvironment => '环境信息';
+
+  @override
+  String get mcpStdioDialogError => '错误信息';
+
+  @override
+  String get mcpStdioDialogDepsTitle => '依赖管理';
+
+  @override
+  String get mcpStdioDialogNoDepsToManage => '此服务非包管理器类型（npx / uvx），无需管理依赖。';
+
+  @override
+  String mcpStdioDialogInstalledVersion(Object version) {
+    return '已安装 v$version';
+  }
+
+  @override
+  String get mcpStdioDialogUnknownVersion => '?';
+
+  @override
+  String get mcpStdioDialogNotGloballyInstalled => '未全局安装';
+
+  @override
+  String get mcpStdioDialogInstall => '安装';
+
+  @override
+  String get mcpStdioDialogUpdate => '更新';
+
+  @override
+  String get mcpStdioDialogUninstall => '卸载';
+
+  @override
+  String mcpStdioDialogLatestVersion(Object version) {
+    return '最新版本: $version';
+  }
+
+  @override
+  String get mcpStdioDialogUpdateAvailableSuffix => '（可更新）';
+
+  @override
+  String get mcpStdioDialogOperationTimeout => '[timeout] 操作超时，已终止进程';
+
+  @override
+  String mcpStdioDialogOperationCompleted(
+    Object time,
+    Object action,
+    int exitCode,
+  ) {
+    return '[$time] ✓ $action 完成 (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationFailed(
+    Object time,
+    Object action,
+    int exitCode,
+  ) {
+    return '[$time] ✗ $action 失败 (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationFailedPlain(Object action, int exitCode) {
+    return '$action 失败 (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationException(Object time, Object error) {
+    return '[$time] ✗ 异常: $error';
+  }
+
+  @override
+  String mcpStdioDialogWarmCache(Object time) {
+    return '[$time] 预热隔离缓存…';
+  }
+
+  @override
+  String mcpStdioDialogWarmCacheDone(Object time) {
+    return '[$time] ✓ 缓存预热完成';
+  }
+
+  @override
+  String mcpStdioDialogWarmCacheSkipped(Object time, Object error) {
+    return '[$time] 缓存预热跳过: $error';
+  }
+
+  @override
   String get mcpAutoProbeConcurrencyLabel => 'MCP 检查/拉取并发数';
 
   @override
@@ -19408,6 +19720,162 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mcpStdioMirrorModeReconnectDone => '已觸發重拉，下次呼叫會用新鏡像源重新啟動進程。';
+
+  @override
+  String mcpStdioDialogLogsTitle(Object name) {
+    return '$name 日誌';
+  }
+
+  @override
+  String mcpStdioDialogRuntimeDetailsTitle(Object name) {
+    return '$name 執行階段詳情';
+  }
+
+  @override
+  String mcpStdioDialogRunningPid(Object pid) {
+    return '執行中 · PID $pid';
+  }
+
+  @override
+  String get mcpStdioDialogStopped => '已停止';
+
+  @override
+  String get mcpStdioDialogAutoScroll => '自動捲動';
+
+  @override
+  String get mcpStdioDialogCopyLogs => '複製日誌';
+
+  @override
+  String get mcpStdioDialogClearLogs => '清除日誌';
+
+  @override
+  String get mcpStdioDialogCopiedToClipboard => '已複製到剪貼簿';
+
+  @override
+  String get mcpStdioDialogNoLogOutput => '尚無日誌輸出';
+
+  @override
+  String mcpStdioDialogLineCount(int count) {
+    return '$count 行';
+  }
+
+  @override
+  String mcpStdioDialogUptime(Object uptime) {
+    return '執行 $uptime';
+  }
+
+  @override
+  String get mcpStdioDialogRefresh => '重新整理';
+
+  @override
+  String get mcpStdioDialogProcessStatus => '行程狀態';
+
+  @override
+  String get mcpStdioDialogServiceConfig => '服務設定';
+
+  @override
+  String get mcpStdioDialogType => '類型';
+
+  @override
+  String get mcpStdioDialogCommand => '命令';
+
+  @override
+  String get mcpStdioDialogArgs => '參數';
+
+  @override
+  String get mcpStdioDialogEnabled => '已啟用';
+
+  @override
+  String get mcpStdioDialogYes => '是';
+
+  @override
+  String get mcpStdioDialogNo => '否';
+
+  @override
+  String get mcpStdioDialogEnvironment => '環境資訊';
+
+  @override
+  String get mcpStdioDialogError => '錯誤資訊';
+
+  @override
+  String get mcpStdioDialogDepsTitle => '依賴管理';
+
+  @override
+  String get mcpStdioDialogNoDepsToManage => '此服務不是套件管理器類型（npx / uvx），無需管理依賴。';
+
+  @override
+  String mcpStdioDialogInstalledVersion(Object version) {
+    return '已安裝 v$version';
+  }
+
+  @override
+  String get mcpStdioDialogUnknownVersion => '?';
+
+  @override
+  String get mcpStdioDialogNotGloballyInstalled => '未全域安裝';
+
+  @override
+  String get mcpStdioDialogInstall => '安裝';
+
+  @override
+  String get mcpStdioDialogUpdate => '更新';
+
+  @override
+  String get mcpStdioDialogUninstall => '解除安裝';
+
+  @override
+  String mcpStdioDialogLatestVersion(Object version) {
+    return '最新版本: $version';
+  }
+
+  @override
+  String get mcpStdioDialogUpdateAvailableSuffix => '（可更新）';
+
+  @override
+  String get mcpStdioDialogOperationTimeout => '[timeout] 操作逾時，已終止行程';
+
+  @override
+  String mcpStdioDialogOperationCompleted(
+    Object time,
+    Object action,
+    int exitCode,
+  ) {
+    return '[$time] ✓ $action 完成 (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationFailed(
+    Object time,
+    Object action,
+    int exitCode,
+  ) {
+    return '[$time] ✗ $action 失敗 (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationFailedPlain(Object action, int exitCode) {
+    return '$action 失敗 (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationException(Object time, Object error) {
+    return '[$time] ✗ 例外: $error';
+  }
+
+  @override
+  String mcpStdioDialogWarmCache(Object time) {
+    return '[$time] 預熱隔離快取…';
+  }
+
+  @override
+  String mcpStdioDialogWarmCacheDone(Object time) {
+    return '[$time] ✓ 快取預熱完成';
+  }
+
+  @override
+  String mcpStdioDialogWarmCacheSkipped(Object time, Object error) {
+    return '[$time] 快取預熱略過: $error';
+  }
 
   @override
   String get mcpAutoProbeConcurrencyLabel => 'MCP 檢查/拉取並行數';

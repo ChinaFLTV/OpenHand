@@ -778,6 +778,254 @@ abstract class AppLocalizations {
   /// **'已触发重拉，下一次调用会用新镜像源重新启动进程。'**
   String get mcpStdioMirrorModeReconnectDone;
 
+  /// MCP STDIO dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{name} 日志'**
+  String mcpStdioDialogLogsTitle(Object name);
+
+  /// MCP STDIO dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{name} 运行时详情'**
+  String mcpStdioDialogRuntimeDetailsTitle(Object name);
+
+  /// MCP STDIO dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行中 · PID {pid}'**
+  String mcpStdioDialogRunningPid(Object pid);
+
+  /// No description provided for @mcpStdioDialogStopped.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已停止'**
+  String get mcpStdioDialogStopped;
+
+  /// No description provided for @mcpStdioDialogAutoScroll.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动滚动'**
+  String get mcpStdioDialogAutoScroll;
+
+  /// No description provided for @mcpStdioDialogCopyLogs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制日志'**
+  String get mcpStdioDialogCopyLogs;
+
+  /// No description provided for @mcpStdioDialogClearLogs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清除日志'**
+  String get mcpStdioDialogClearLogs;
+
+  /// No description provided for @mcpStdioDialogCopiedToClipboard.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制到剪贴板'**
+  String get mcpStdioDialogCopiedToClipboard;
+
+  /// No description provided for @mcpStdioDialogNoLogOutput.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无日志输出'**
+  String get mcpStdioDialogNoLogOutput;
+
+  /// MCP STDIO dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{count} 行'**
+  String mcpStdioDialogLineCount(int count);
+
+  /// MCP STDIO dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行 {uptime}'**
+  String mcpStdioDialogUptime(Object uptime);
+
+  /// No description provided for @mcpStdioDialogRefresh.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新'**
+  String get mcpStdioDialogRefresh;
+
+  /// No description provided for @mcpStdioDialogProcessStatus.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'进程状态'**
+  String get mcpStdioDialogProcessStatus;
+
+  /// No description provided for @mcpStdioDialogServiceConfig.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'服务配置'**
+  String get mcpStdioDialogServiceConfig;
+
+  /// No description provided for @mcpStdioDialogType.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'类型'**
+  String get mcpStdioDialogType;
+
+  /// No description provided for @mcpStdioDialogCommand.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'命令'**
+  String get mcpStdioDialogCommand;
+
+  /// No description provided for @mcpStdioDialogArgs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'参数'**
+  String get mcpStdioDialogArgs;
+
+  /// No description provided for @mcpStdioDialogEnabled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已启用'**
+  String get mcpStdioDialogEnabled;
+
+  /// No description provided for @mcpStdioDialogYes.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'是'**
+  String get mcpStdioDialogYes;
+
+  /// No description provided for @mcpStdioDialogNo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'否'**
+  String get mcpStdioDialogNo;
+
+  /// No description provided for @mcpStdioDialogEnvironment.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'环境信息'**
+  String get mcpStdioDialogEnvironment;
+
+  /// No description provided for @mcpStdioDialogError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'错误信息'**
+  String get mcpStdioDialogError;
+
+  /// No description provided for @mcpStdioDialogDepsTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'依赖管理'**
+  String get mcpStdioDialogDepsTitle;
+
+  /// No description provided for @mcpStdioDialogNoDepsToManage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'此服务非包管理器类型（npx / uvx），无需管理依赖。'**
+  String get mcpStdioDialogNoDepsToManage;
+
+  /// MCP STDIO dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已安装 v{version}'**
+  String mcpStdioDialogInstalledVersion(Object version);
+
+  /// No description provided for @mcpStdioDialogUnknownVersion.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'?'**
+  String get mcpStdioDialogUnknownVersion;
+
+  /// No description provided for @mcpStdioDialogNotGloballyInstalled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未全局安装'**
+  String get mcpStdioDialogNotGloballyInstalled;
+
+  /// No description provided for @mcpStdioDialogInstall.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安装'**
+  String get mcpStdioDialogInstall;
+
+  /// No description provided for @mcpStdioDialogUpdate.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'更新'**
+  String get mcpStdioDialogUpdate;
+
+  /// No description provided for @mcpStdioDialogUninstall.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'卸载'**
+  String get mcpStdioDialogUninstall;
+
+  /// MCP STDIO dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最新版本: {version}'**
+  String mcpStdioDialogLatestVersion(Object version);
+
+  /// No description provided for @mcpStdioDialogUpdateAvailableSuffix.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'（可更新）'**
+  String get mcpStdioDialogUpdateAvailableSuffix;
+
+  /// No description provided for @mcpStdioDialogOperationTimeout.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[timeout] 操作超时，已终止进程'**
+  String get mcpStdioDialogOperationTimeout;
+
+  /// MCP STDIO dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[{time}] ✓ {action} 完成 (exit code: {exitCode})'**
+  String mcpStdioDialogOperationCompleted(
+    Object time,
+    Object action,
+    int exitCode,
+  );
+
+  /// MCP STDIO dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[{time}] ✗ {action} 失败 (exit code: {exitCode})'**
+  String mcpStdioDialogOperationFailed(
+    Object time,
+    Object action,
+    int exitCode,
+  );
+
+  /// MCP STDIO dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{action} 失败 (exit code: {exitCode})'**
+  String mcpStdioDialogOperationFailedPlain(Object action, int exitCode);
+
+  /// MCP STDIO dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[{time}] ✗ 异常: {error}'**
+  String mcpStdioDialogOperationException(Object time, Object error);
+
+  /// MCP STDIO dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[{time}] 预热隔离缓存…'**
+  String mcpStdioDialogWarmCache(Object time);
+
+  /// MCP STDIO dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[{time}] ✓ 缓存预热完成'**
+  String mcpStdioDialogWarmCacheDone(Object time);
+
+  /// MCP STDIO dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[{time}] 缓存预热跳过: {error}'**
+  String mcpStdioDialogWarmCacheSkipped(Object time, Object error);
+
   /// No description provided for @mcpAutoProbeConcurrencyLabel.
   ///
   /// In zh_Hans, this message translates to:

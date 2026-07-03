@@ -360,6 +360,164 @@ class AppLocalizationsJa extends AppLocalizations {
       '再接続をトリガーしました。次回呼び出し時に新しいミラーでプロセスを再起動します。';
 
   @override
+  String mcpStdioDialogLogsTitle(Object name) {
+    return '$name ログ';
+  }
+
+  @override
+  String mcpStdioDialogRuntimeDetailsTitle(Object name) {
+    return '$name ランタイム詳細';
+  }
+
+  @override
+  String mcpStdioDialogRunningPid(Object pid) {
+    return '実行中 · PID $pid';
+  }
+
+  @override
+  String get mcpStdioDialogStopped => '停止済み';
+
+  @override
+  String get mcpStdioDialogAutoScroll => '自動スクロール';
+
+  @override
+  String get mcpStdioDialogCopyLogs => 'ログをコピー';
+
+  @override
+  String get mcpStdioDialogClearLogs => 'ログを消去';
+
+  @override
+  String get mcpStdioDialogCopiedToClipboard => 'クリップボードにコピーしました';
+
+  @override
+  String get mcpStdioDialogNoLogOutput => 'ログ出力はまだありません';
+
+  @override
+  String mcpStdioDialogLineCount(int count) {
+    return '$count 行';
+  }
+
+  @override
+  String mcpStdioDialogUptime(Object uptime) {
+    return '稼働 $uptime';
+  }
+
+  @override
+  String get mcpStdioDialogRefresh => '更新';
+
+  @override
+  String get mcpStdioDialogProcessStatus => 'プロセス状態';
+
+  @override
+  String get mcpStdioDialogServiceConfig => 'サービス設定';
+
+  @override
+  String get mcpStdioDialogType => '種類';
+
+  @override
+  String get mcpStdioDialogCommand => 'コマンド';
+
+  @override
+  String get mcpStdioDialogArgs => '引数';
+
+  @override
+  String get mcpStdioDialogEnabled => '有効';
+
+  @override
+  String get mcpStdioDialogYes => 'はい';
+
+  @override
+  String get mcpStdioDialogNo => 'いいえ';
+
+  @override
+  String get mcpStdioDialogEnvironment => '環境情報';
+
+  @override
+  String get mcpStdioDialogError => 'エラー情報';
+
+  @override
+  String get mcpStdioDialogDepsTitle => '依存関係管理';
+
+  @override
+  String get mcpStdioDialogNoDepsToManage =>
+      'このサービスはパッケージ管理型（npx / uvx）ではないため、管理する依存関係はありません。';
+
+  @override
+  String mcpStdioDialogInstalledVersion(Object version) {
+    return 'インストール済み v$version';
+  }
+
+  @override
+  String get mcpStdioDialogUnknownVersion => '?';
+
+  @override
+  String get mcpStdioDialogNotGloballyInstalled => 'グローバル未インストール';
+
+  @override
+  String get mcpStdioDialogInstall => 'インストール';
+
+  @override
+  String get mcpStdioDialogUpdate => '更新';
+
+  @override
+  String get mcpStdioDialogUninstall => 'アンインストール';
+
+  @override
+  String mcpStdioDialogLatestVersion(Object version) {
+    return '最新バージョン: $version';
+  }
+
+  @override
+  String get mcpStdioDialogUpdateAvailableSuffix => '（更新可能）';
+
+  @override
+  String get mcpStdioDialogOperationTimeout =>
+      '[timeout] 操作がタイムアウトしたため、プロセスを終了しました';
+
+  @override
+  String mcpStdioDialogOperationCompleted(
+    Object time,
+    Object action,
+    int exitCode,
+  ) {
+    return '[$time] ✓ $action 完了 (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationFailed(
+    Object time,
+    Object action,
+    int exitCode,
+  ) {
+    return '[$time] ✗ $action 失敗 (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationFailedPlain(Object action, int exitCode) {
+    return '$action 失敗 (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationException(Object time, Object error) {
+    return '[$time] ✗ 例外: $error';
+  }
+
+  @override
+  String mcpStdioDialogWarmCache(Object time) {
+    return '[$time] 分離キャッシュを事前準備中…';
+  }
+
+  @override
+  String mcpStdioDialogWarmCacheDone(Object time) {
+    return '[$time] ✓ キャッシュ準備完了';
+  }
+
+  @override
+  String mcpStdioDialogWarmCacheSkipped(Object time, Object error) {
+    return '[$time] キャッシュ準備をスキップ: $error';
+  }
+
+  @override
   String get mcpAutoProbeConcurrencyLabel => 'MCP チェック/取得の並列数';
 
   @override

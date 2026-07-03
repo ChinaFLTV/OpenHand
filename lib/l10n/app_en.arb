@@ -130,6 +130,145 @@
   },
   "mcpStdioMirrorModeReconnectAction": "Reconnect enabled servers with new setting",
   "mcpStdioMirrorModeReconnectDone": "Reconnect triggered. Next call will respawn the process with the new mirror.",
+  "mcpStdioDialogLogsTitle": "{name} Logs",
+  "@mcpStdioDialogLogsTitle": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "mcpStdioDialogRuntimeDetailsTitle": "{name} Runtime Details",
+  "@mcpStdioDialogRuntimeDetailsTitle": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "mcpStdioDialogRunningPid": "Running · PID {pid}",
+  "@mcpStdioDialogRunningPid": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "pid": {}
+    }
+  },
+  "mcpStdioDialogStopped": "Stopped",
+  "mcpStdioDialogAutoScroll": "Auto-scroll",
+  "mcpStdioDialogCopyLogs": "Copy logs",
+  "mcpStdioDialogClearLogs": "Clear logs",
+  "mcpStdioDialogCopiedToClipboard": "Copied to clipboard",
+  "mcpStdioDialogNoLogOutput": "No log output yet",
+  "mcpStdioDialogLineCount": "{count} lines",
+  "@mcpStdioDialogLineCount": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpStdioDialogUptime": "Up {uptime}",
+  "@mcpStdioDialogUptime": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "uptime": {}
+    }
+  },
+  "mcpStdioDialogRefresh": "Refresh",
+  "mcpStdioDialogProcessStatus": "Process Status",
+  "mcpStdioDialogServiceConfig": "Service Config",
+  "mcpStdioDialogType": "Type",
+  "mcpStdioDialogCommand": "Command",
+  "mcpStdioDialogArgs": "Args",
+  "mcpStdioDialogEnabled": "Enabled",
+  "mcpStdioDialogYes": "Yes",
+  "mcpStdioDialogNo": "No",
+  "mcpStdioDialogEnvironment": "Environment",
+  "mcpStdioDialogError": "Error",
+  "mcpStdioDialogDepsTitle": "Dependency Management",
+  "mcpStdioDialogNoDepsToManage": "This service is not package-manager-based (npx / uvx). No deps to manage.",
+  "mcpStdioDialogInstalledVersion": "Installed v{version}",
+  "@mcpStdioDialogInstalledVersion": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "mcpStdioDialogUnknownVersion": "?",
+  "mcpStdioDialogNotGloballyInstalled": "Not globally installed",
+  "mcpStdioDialogInstall": "Install",
+  "mcpStdioDialogUpdate": "Update",
+  "mcpStdioDialogUninstall": "Uninstall",
+  "mcpStdioDialogLatestVersion": "Latest: {version}",
+  "@mcpStdioDialogLatestVersion": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "mcpStdioDialogUpdateAvailableSuffix": " (update available)",
+  "mcpStdioDialogOperationTimeout": "[timeout] Operation timed out; process terminated",
+  "mcpStdioDialogOperationCompleted": "[{time}] ✓ {action} completed (exit code: {exitCode})",
+  "@mcpStdioDialogOperationCompleted": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {},
+      "action": {},
+      "exitCode": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpStdioDialogOperationFailed": "[{time}] ✗ {action} failed (exit code: {exitCode})",
+  "@mcpStdioDialogOperationFailed": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {},
+      "action": {},
+      "exitCode": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpStdioDialogOperationFailedPlain": "{action} failed (exit code: {exitCode})",
+  "@mcpStdioDialogOperationFailedPlain": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "action": {},
+      "exitCode": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpStdioDialogOperationException": "[{time}] ✗ Exception: {error}",
+  "@mcpStdioDialogOperationException": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {},
+      "error": {}
+    }
+  },
+  "mcpStdioDialogWarmCache": "[{time}] Warming isolated cache…",
+  "@mcpStdioDialogWarmCache": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpStdioDialogWarmCacheDone": "[{time}] ✓ Cache warmed",
+  "@mcpStdioDialogWarmCacheDone": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpStdioDialogWarmCacheSkipped": "[{time}] Cache warm skipped: {error}",
+  "@mcpStdioDialogWarmCacheSkipped": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {},
+      "error": {}
+    }
+  },
   "mcpAutoProbeConcurrencyLabel": "MCP check/fetch concurrency",
   "mcpAutoProbeConcurrencyBody": "Maximum number of MCP services checked or fetched in parallel. Default 5; lowering reduces resource pressure, raising speeds up many servers.",
   "mcpAutoProbeConcurrencySave": "Save concurrency",

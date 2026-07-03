@@ -6,11 +6,11 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
-import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/mcp_server.dart';
 import '../service/mcp_stdio_process_manager.dart';
@@ -81,7 +81,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final info = McpStdioProcessManager.instance.infoFor(widget.server.name);
     final logs = info.logs;
 
@@ -121,17 +121,15 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${widget.server.name} ${isZh ? "日志" : "Logs"}',
+                        l10n.mcpStdioDialogLogsTitle(widget.server.name),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       Text(
                         info.isRunning
-                            ? (isZh
-                                  ? '运行中 · PID ${info.pid}'
-                                  : 'Running · PID ${info.pid}')
-                            : (isZh ? '已停止' : 'Stopped'),
+                            ? l10n.mcpStdioDialogRunningPid('${info.pid}')
+                            : l10n.mcpStdioDialogStopped,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                           fontFamily: 'monospace',
@@ -146,7 +144,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                   spacing: 4,
                   children: [
                     Tooltip(
-                      message: isZh ? '自动滚动' : 'Auto-scroll',
+                      message: l10n.mcpStdioDialogAutoScroll,
                       child: SizedBox(
                         width: 36,
                         height: 36,
@@ -164,7 +162,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                       ),
                     ),
                     Tooltip(
-                      message: isZh ? '复制日志' : 'Copy logs',
+                      message: l10n.mcpStdioDialogCopyLogs,
                       child: SizedBox(
                         width: 36,
                         height: 36,
@@ -177,7 +175,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                                   );
                                   OpenHandSnackBar.showSuccess(
                                     context,
-                                    isZh ? '已复制到剪贴板' : 'Copied to clipboard',
+                                    l10n.mcpStdioDialogCopiedToClipboard,
                                   );
                                 },
                           icon: const Icon(Icons.copy_rounded, size: 18),
@@ -185,7 +183,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                       ),
                     ),
                     Tooltip(
-                      message: isZh ? '清除日志' : 'Clear logs',
+                      message: l10n.mcpStdioDialogClearLogs,
                       child: SizedBox(
                         width: 36,
                         height: 36,
@@ -231,7 +229,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
               child: logs.isEmpty
                   ? Center(
                       child: Text(
-                        isZh ? '暂无日志输出' : 'No log output yet',
+                        l10n.mcpStdioDialogNoLogOutput,
                         style: const TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 12,
@@ -293,7 +291,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  isZh ? '${logs.length} 行' : '${logs.length} lines',
+                  l10n.mcpStdioDialogLineCount(logs.length),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -301,9 +299,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                 const Spacer(),
                 if (info.uptime != null)
                   Text(
-                    isZh
-                        ? '运行 ${_formatUptime(info.uptime!)}'
-                        : 'Up ${_formatUptime(info.uptime!)}',
+                    l10n.mcpStdioDialogUptime(_formatUptime(info.uptime!)),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -473,7 +469,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final processInfo = McpStdioProcessManager.instance.infoFor(
       widget.server.name,
     );
@@ -512,7 +508,9 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${widget.server.name} ${isZh ? "运行时详情" : "Runtime Details"}',
+                        l10n.mcpStdioDialogRuntimeDetailsTitle(
+                          widget.server.name,
+                        ),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -535,7 +533,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
                   spacing: 4,
                   children: [
                     Tooltip(
-                      message: isZh ? '刷新' : 'Refresh',
+                      message: l10n.mcpStdioDialogRefresh,
                       child: SizedBox(
                         width: 36,
                         height: 36,
@@ -567,7 +565,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
                     children: [
                       // 进程状态
                       _InfoSection(
-                        title: isZh ? '进程状态' : 'Process Status',
+                        title: l10n.mcpStdioDialogProcessStatus,
                         icon: Icons.memory_rounded,
                         color: processInfo.isRunning
                             ? const Color(0xFF16A34A)
@@ -580,31 +578,34 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
                       const SizedBox(height: 16),
                       // 服务配置
                       _InfoSection(
-                        title: isZh ? '服务配置' : 'Service Config',
+                        title: l10n.mcpStdioDialogServiceConfig,
                         icon: Icons.settings_rounded,
                         children: [
-                          _InfoRow(label: isZh ? '类型' : 'Type', value: 'STDIO'),
                           _InfoRow(
-                            label: isZh ? '命令' : 'Command',
+                            label: l10n.mcpStdioDialogType,
+                            value: 'STDIO',
+                          ),
+                          _InfoRow(
+                            label: l10n.mcpStdioDialogCommand,
                             value: widget.server.command,
                           ),
                           if (widget.server.args.isNotEmpty)
                             _InfoRow(
-                              label: isZh ? '参数' : 'Args',
+                              label: l10n.mcpStdioDialogArgs,
                               value: widget.server.args.join(' '),
                             ),
                           _InfoRow(
-                            label: isZh ? '已启用' : 'Enabled',
+                            label: l10n.mcpStdioDialogEnabled,
                             value: widget.server.enabled
-                                ? (isZh ? '是' : 'Yes')
-                                : (isZh ? '否' : 'No'),
+                                ? l10n.mcpStdioDialogYes
+                                : l10n.mcpStdioDialogNo,
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
                       // 环境信息
                       _InfoSection(
-                        title: isZh ? '环境信息' : 'Environment',
+                        title: l10n.mcpStdioDialogEnvironment,
                         icon: Icons.computer_rounded,
                         children: [
                           for (final entry in _runtimeInfo.entries.skip(5))
@@ -614,7 +615,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
                       if (processInfo.errorMessage != null) ...[
                         const SizedBox(height: 16),
                         _InfoSection(
-                          title: isZh ? '错误信息' : 'Error',
+                          title: l10n.mcpStdioDialogError,
                           icon: Icons.error_outline_rounded,
                           color: theme.colorScheme.error,
                           children: [
@@ -765,6 +766,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   String? _installedVersion;
   String? _latestVersion;
   String? _error;
+  AppLocalizations get _l10n => AppLocalizations.of(context)!;
 
   String get _packageName {
     // 从命令配置中提取包名，兼容两种输入习惯：
@@ -909,6 +911,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     String executable,
     List<String> args,
   ) async {
+    final l10n = _l10n;
     setState(() {
       _operating = true;
       _error = null;
@@ -926,32 +929,37 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
         tag: 'mcp_stdio_dialogs',
         onStdoutLine: _addLog,
         onStderrLine: _addLog,
-        onTimeout: () => _addLog('[timeout] 操作超时，已终止进程'),
+        onTimeout: () => _addLog(l10n.mcpStdioDialogOperationTimeout),
       );
       final exitCode = result.exitCode;
       _addLog('');
       if (exitCode == 0) {
-        _addLog('[${_ts()}] ✓ $action 完成 (exit code: 0)');
+        _addLog(l10n.mcpStdioDialogOperationCompleted(_ts(), action, 0));
         await _checkDepsStatus();
       } else {
-        _addLog('[${_ts()}] ✗ $action 失败 (exit code: $exitCode)');
-        _error = '$action 失败 (exit code: $exitCode)';
+        _addLog(l10n.mcpStdioDialogOperationFailed(_ts(), action, exitCode));
+        _error = l10n.mcpStdioDialogOperationFailedPlain(action, exitCode);
       }
     } catch (e) {
-      _addLog('[${_ts()}] ✗ 异常: $e');
+      _addLog(l10n.mcpStdioDialogOperationException(_ts(), '$e'));
       _error = '$e';
     }
     if (mounted) setState(() => _operating = false);
   }
 
   Future<void> _installDeps() async {
+    final l10n = _l10n;
     final cleanPkg = _cleanPackageName;
     if (cleanPkg.isEmpty) return;
     if (_isNpxService) {
-      await _runPackageOperation('安装', 'npm', ['install', '-g', cleanPkg]);
+      await _runPackageOperation(l10n.mcpStdioDialogInstall, 'npm', [
+        'install',
+        '-g',
+        cleanPkg,
+      ]);
       // 同时预热隔离缓存
       _addLog('');
-      _addLog('[${_ts()}] 预热隔离缓存…');
+      _addLog(l10n.mcpStdioDialogWarmCache(_ts()));
       final cacheRoot = mcpStdioIsolatedCacheRoot();
       try {
         await runTrackedProcessOrFailed(
@@ -964,31 +972,53 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
           timeout: const Duration(seconds: 30),
           tag: 'mcp_stdio.npm_cache_add',
         );
-        _addLog('[${_ts()}] ✓ 缓存预热完成');
+        _addLog(l10n.mcpStdioDialogWarmCacheDone(_ts()));
       } catch (e) {
-        _addLog('[${_ts()}] 缓存预热跳过: $e');
+        _addLog(l10n.mcpStdioDialogWarmCacheSkipped(_ts(), '$e'));
       }
     } else if (_isUvxService) {
-      await _runPackageOperation('安装', 'uv', ['tool', 'install', cleanPkg]);
+      await _runPackageOperation(l10n.mcpStdioDialogInstall, 'uv', [
+        'tool',
+        'install',
+        cleanPkg,
+      ]);
     }
     if (mounted) setState(() {});
   }
 
   Future<void> _updateDeps() {
+    final l10n = _l10n;
     final cleanPkg = _cleanPackageName;
     if (_isNpxService) {
-      return _runPackageOperation('更新', 'npm', ['update', '-g', cleanPkg]);
+      return _runPackageOperation(l10n.mcpStdioDialogUpdate, 'npm', [
+        'update',
+        '-g',
+        cleanPkg,
+      ]);
     } else {
-      return _runPackageOperation('更新', 'uv', ['tool', 'upgrade', cleanPkg]);
+      return _runPackageOperation(l10n.mcpStdioDialogUpdate, 'uv', [
+        'tool',
+        'upgrade',
+        cleanPkg,
+      ]);
     }
   }
 
   Future<void> _uninstallDeps() {
+    final l10n = _l10n;
     final cleanPkg = _cleanPackageName;
     if (_isNpxService) {
-      return _runPackageOperation('卸载', 'npm', ['uninstall', '-g', cleanPkg]);
+      return _runPackageOperation(l10n.mcpStdioDialogUninstall, 'npm', [
+        'uninstall',
+        '-g',
+        cleanPkg,
+      ]);
     } else {
-      return _runPackageOperation('卸载', 'uv', ['tool', 'uninstall', cleanPkg]);
+      return _runPackageOperation(l10n.mcpStdioDialogUninstall, 'uv', [
+        'tool',
+        'uninstall',
+        cleanPkg,
+      ]);
     }
   }
 
@@ -999,7 +1029,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final cleanPkg = _cleanPackageName;
     final hasUpdate =
         _packageInstalled &&
@@ -1041,7 +1071,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isZh ? '依赖管理' : 'Dependency Management',
+                        l10n.mcpStdioDialogDepsTitle,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -1085,9 +1115,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                   )
                 : !_isPackageManagerService || cleanPkg.isEmpty
                 ? Text(
-                    isZh
-                        ? '此服务非包管理器类型（npx / uvx），无需管理依赖。'
-                        : 'This service is not package-manager-based (npx / uvx). No deps to manage.',
+                    l10n.mcpStdioDialogNoDepsToManage,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -1110,8 +1138,11 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                           Expanded(
                             child: Text(
                               _packageInstalled
-                                  ? '${isZh ? "已安装" : "Installed"} v${_installedVersion ?? "?"}'
-                                  : (isZh ? '未全局安装' : 'Not globally installed'),
+                                  ? l10n.mcpStdioDialogInstalledVersion(
+                                      _installedVersion ??
+                                          l10n.mcpStdioDialogUnknownVersion,
+                                    )
+                                  : l10n.mcpStdioDialogNotGloballyInstalled,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -1125,7 +1156,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                                 Icons.download_rounded,
                                 size: 18,
                               ),
-                              label: Text(isZh ? '安装' : 'Install'),
+                              label: Text(l10n.mcpStdioDialogInstall),
                             )
                           else ...[
                             if (hasUpdate)
@@ -1137,11 +1168,11 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                                     Icons.system_update_alt_rounded,
                                     size: 18,
                                   ),
-                                  label: Text(isZh ? '更新' : 'Update'),
+                                  label: Text(l10n.mcpStdioDialogUpdate),
                                 ),
                               ),
                             IconButton.filledTonal(
-                              tooltip: isZh ? '卸载' : 'Uninstall',
+                              tooltip: l10n.mcpStdioDialogUninstall,
                               onPressed: _operating ? null : _uninstallDeps,
                               style: IconButton.styleFrom(
                                 foregroundColor: theme.colorScheme.error,
@@ -1157,8 +1188,10 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                       if (_latestVersion != null) ...[
                         const SizedBox(height: 6),
                         Text(
-                          '${isZh ? "最新版本" : "Latest"}: $_latestVersion'
-                          '${hasUpdate ? (isZh ? " (可更新)" : " (update available)") : ""}',
+                          l10n.mcpStdioDialogLatestVersion(_latestVersion!) +
+                              (hasUpdate
+                                  ? l10n.mcpStdioDialogUpdateAvailableSuffix
+                                  : ''),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: hasUpdate
                                 ? OpenHandStatusColors.warning

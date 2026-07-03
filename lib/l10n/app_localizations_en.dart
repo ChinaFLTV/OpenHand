@@ -371,6 +371,164 @@ class AppLocalizationsEn extends AppLocalizations {
       'Reconnect triggered. Next call will respawn the process with the new mirror.';
 
   @override
+  String mcpStdioDialogLogsTitle(Object name) {
+    return '$name Logs';
+  }
+
+  @override
+  String mcpStdioDialogRuntimeDetailsTitle(Object name) {
+    return '$name Runtime Details';
+  }
+
+  @override
+  String mcpStdioDialogRunningPid(Object pid) {
+    return 'Running · PID $pid';
+  }
+
+  @override
+  String get mcpStdioDialogStopped => 'Stopped';
+
+  @override
+  String get mcpStdioDialogAutoScroll => 'Auto-scroll';
+
+  @override
+  String get mcpStdioDialogCopyLogs => 'Copy logs';
+
+  @override
+  String get mcpStdioDialogClearLogs => 'Clear logs';
+
+  @override
+  String get mcpStdioDialogCopiedToClipboard => 'Copied to clipboard';
+
+  @override
+  String get mcpStdioDialogNoLogOutput => 'No log output yet';
+
+  @override
+  String mcpStdioDialogLineCount(int count) {
+    return '$count lines';
+  }
+
+  @override
+  String mcpStdioDialogUptime(Object uptime) {
+    return 'Up $uptime';
+  }
+
+  @override
+  String get mcpStdioDialogRefresh => 'Refresh';
+
+  @override
+  String get mcpStdioDialogProcessStatus => 'Process Status';
+
+  @override
+  String get mcpStdioDialogServiceConfig => 'Service Config';
+
+  @override
+  String get mcpStdioDialogType => 'Type';
+
+  @override
+  String get mcpStdioDialogCommand => 'Command';
+
+  @override
+  String get mcpStdioDialogArgs => 'Args';
+
+  @override
+  String get mcpStdioDialogEnabled => 'Enabled';
+
+  @override
+  String get mcpStdioDialogYes => 'Yes';
+
+  @override
+  String get mcpStdioDialogNo => 'No';
+
+  @override
+  String get mcpStdioDialogEnvironment => 'Environment';
+
+  @override
+  String get mcpStdioDialogError => 'Error';
+
+  @override
+  String get mcpStdioDialogDepsTitle => 'Dependency Management';
+
+  @override
+  String get mcpStdioDialogNoDepsToManage =>
+      'This service is not package-manager-based (npx / uvx). No deps to manage.';
+
+  @override
+  String mcpStdioDialogInstalledVersion(Object version) {
+    return 'Installed v$version';
+  }
+
+  @override
+  String get mcpStdioDialogUnknownVersion => '?';
+
+  @override
+  String get mcpStdioDialogNotGloballyInstalled => 'Not globally installed';
+
+  @override
+  String get mcpStdioDialogInstall => 'Install';
+
+  @override
+  String get mcpStdioDialogUpdate => 'Update';
+
+  @override
+  String get mcpStdioDialogUninstall => 'Uninstall';
+
+  @override
+  String mcpStdioDialogLatestVersion(Object version) {
+    return 'Latest: $version';
+  }
+
+  @override
+  String get mcpStdioDialogUpdateAvailableSuffix => ' (update available)';
+
+  @override
+  String get mcpStdioDialogOperationTimeout =>
+      '[timeout] Operation timed out; process terminated';
+
+  @override
+  String mcpStdioDialogOperationCompleted(
+    Object time,
+    Object action,
+    int exitCode,
+  ) {
+    return '[$time] ✓ $action completed (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationFailed(
+    Object time,
+    Object action,
+    int exitCode,
+  ) {
+    return '[$time] ✗ $action failed (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationFailedPlain(Object action, int exitCode) {
+    return '$action failed (exit code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationException(Object time, Object error) {
+    return '[$time] ✗ Exception: $error';
+  }
+
+  @override
+  String mcpStdioDialogWarmCache(Object time) {
+    return '[$time] Warming isolated cache…';
+  }
+
+  @override
+  String mcpStdioDialogWarmCacheDone(Object time) {
+    return '[$time] ✓ Cache warmed';
+  }
+
+  @override
+  String mcpStdioDialogWarmCacheSkipped(Object time, Object error) {
+    return '[$time] Cache warm skipped: $error';
+  }
+
+  @override
   String get mcpAutoProbeConcurrencyLabel => 'MCP check/fetch concurrency';
 
   @override

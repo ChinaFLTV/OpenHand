@@ -373,6 +373,164 @@ class AppLocalizationsDe extends AppLocalizations {
       'Reconnect ausgelöst. Beim nächsten Aufruf wird der Prozess mit dem neuen Mirror neu gestartet.';
 
   @override
+  String mcpStdioDialogLogsTitle(Object name) {
+    return '$name-Logs';
+  }
+
+  @override
+  String mcpStdioDialogRuntimeDetailsTitle(Object name) {
+    return '$name-Runtime-Details';
+  }
+
+  @override
+  String mcpStdioDialogRunningPid(Object pid) {
+    return 'Läuft · PID $pid';
+  }
+
+  @override
+  String get mcpStdioDialogStopped => 'Gestoppt';
+
+  @override
+  String get mcpStdioDialogAutoScroll => 'Automatisch scrollen';
+
+  @override
+  String get mcpStdioDialogCopyLogs => 'Logs kopieren';
+
+  @override
+  String get mcpStdioDialogClearLogs => 'Logs leeren';
+
+  @override
+  String get mcpStdioDialogCopiedToClipboard => 'In die Zwischenablage kopiert';
+
+  @override
+  String get mcpStdioDialogNoLogOutput => 'Noch keine Log-Ausgabe';
+
+  @override
+  String mcpStdioDialogLineCount(int count) {
+    return '$count Zeilen';
+  }
+
+  @override
+  String mcpStdioDialogUptime(Object uptime) {
+    return 'Läuft seit $uptime';
+  }
+
+  @override
+  String get mcpStdioDialogRefresh => 'Aktualisieren';
+
+  @override
+  String get mcpStdioDialogProcessStatus => 'Prozessstatus';
+
+  @override
+  String get mcpStdioDialogServiceConfig => 'Dienstkonfiguration';
+
+  @override
+  String get mcpStdioDialogType => 'Typ';
+
+  @override
+  String get mcpStdioDialogCommand => 'Befehl';
+
+  @override
+  String get mcpStdioDialogArgs => 'Argumente';
+
+  @override
+  String get mcpStdioDialogEnabled => 'Aktiviert';
+
+  @override
+  String get mcpStdioDialogYes => 'Ja';
+
+  @override
+  String get mcpStdioDialogNo => 'Nein';
+
+  @override
+  String get mcpStdioDialogEnvironment => 'Umgebung';
+
+  @override
+  String get mcpStdioDialogError => 'Fehler';
+
+  @override
+  String get mcpStdioDialogDepsTitle => 'Abhängigkeitsverwaltung';
+
+  @override
+  String get mcpStdioDialogNoDepsToManage =>
+      'Dieser Dienst basiert nicht auf einem Paketmanager (npx / uvx). Keine Abhängigkeiten zu verwalten.';
+
+  @override
+  String mcpStdioDialogInstalledVersion(Object version) {
+    return 'Installiert v$version';
+  }
+
+  @override
+  String get mcpStdioDialogUnknownVersion => '?';
+
+  @override
+  String get mcpStdioDialogNotGloballyInstalled => 'Nicht global installiert';
+
+  @override
+  String get mcpStdioDialogInstall => 'Installieren';
+
+  @override
+  String get mcpStdioDialogUpdate => 'Aktualisieren';
+
+  @override
+  String get mcpStdioDialogUninstall => 'Deinstallieren';
+
+  @override
+  String mcpStdioDialogLatestVersion(Object version) {
+    return 'Neueste Version: $version';
+  }
+
+  @override
+  String get mcpStdioDialogUpdateAvailableSuffix => ' (Update verfügbar)';
+
+  @override
+  String get mcpStdioDialogOperationTimeout =>
+      '[timeout] Vorgang überschritten; Prozess beendet';
+
+  @override
+  String mcpStdioDialogOperationCompleted(
+    Object time,
+    Object action,
+    int exitCode,
+  ) {
+    return '[$time] ✓ $action abgeschlossen (Exit-Code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationFailed(
+    Object time,
+    Object action,
+    int exitCode,
+  ) {
+    return '[$time] ✗ $action fehlgeschlagen (Exit-Code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationFailedPlain(Object action, int exitCode) {
+    return '$action fehlgeschlagen (Exit-Code: $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationException(Object time, Object error) {
+    return '[$time] ✗ Ausnahme: $error';
+  }
+
+  @override
+  String mcpStdioDialogWarmCache(Object time) {
+    return '[$time] Isolierten Cache vorwärmen…';
+  }
+
+  @override
+  String mcpStdioDialogWarmCacheDone(Object time) {
+    return '[$time] ✓ Cache vorgewärmt';
+  }
+
+  @override
+  String mcpStdioDialogWarmCacheSkipped(Object time, Object error) {
+    return '[$time] Cache-Vorwärmen übersprungen: $error';
+  }
+
+  @override
   String get mcpAutoProbeConcurrencyLabel => 'MCP Check/Fetch Parallelität';
 
   @override

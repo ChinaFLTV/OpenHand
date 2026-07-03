@@ -130,6 +130,145 @@
   },
   "mcpStdioMirrorModeReconnectAction": "按新設定重拉已啟用的 server",
   "mcpStdioMirrorModeReconnectDone": "已觸發重拉，下次呼叫會用新鏡像源重新啟動進程。",
+  "mcpStdioDialogLogsTitle": "{name} 日誌",
+  "@mcpStdioDialogLogsTitle": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "mcpStdioDialogRuntimeDetailsTitle": "{name} 執行階段詳情",
+  "@mcpStdioDialogRuntimeDetailsTitle": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "mcpStdioDialogRunningPid": "執行中 · PID {pid}",
+  "@mcpStdioDialogRunningPid": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "pid": {}
+    }
+  },
+  "mcpStdioDialogStopped": "已停止",
+  "mcpStdioDialogAutoScroll": "自動捲動",
+  "mcpStdioDialogCopyLogs": "複製日誌",
+  "mcpStdioDialogClearLogs": "清除日誌",
+  "mcpStdioDialogCopiedToClipboard": "已複製到剪貼簿",
+  "mcpStdioDialogNoLogOutput": "尚無日誌輸出",
+  "mcpStdioDialogLineCount": "{count} 行",
+  "@mcpStdioDialogLineCount": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpStdioDialogUptime": "執行 {uptime}",
+  "@mcpStdioDialogUptime": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "uptime": {}
+    }
+  },
+  "mcpStdioDialogRefresh": "重新整理",
+  "mcpStdioDialogProcessStatus": "行程狀態",
+  "mcpStdioDialogServiceConfig": "服務設定",
+  "mcpStdioDialogType": "類型",
+  "mcpStdioDialogCommand": "命令",
+  "mcpStdioDialogArgs": "參數",
+  "mcpStdioDialogEnabled": "已啟用",
+  "mcpStdioDialogYes": "是",
+  "mcpStdioDialogNo": "否",
+  "mcpStdioDialogEnvironment": "環境資訊",
+  "mcpStdioDialogError": "錯誤資訊",
+  "mcpStdioDialogDepsTitle": "依賴管理",
+  "mcpStdioDialogNoDepsToManage": "此服務不是套件管理器類型（npx / uvx），無需管理依賴。",
+  "mcpStdioDialogInstalledVersion": "已安裝 v{version}",
+  "@mcpStdioDialogInstalledVersion": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "mcpStdioDialogUnknownVersion": "?",
+  "mcpStdioDialogNotGloballyInstalled": "未全域安裝",
+  "mcpStdioDialogInstall": "安裝",
+  "mcpStdioDialogUpdate": "更新",
+  "mcpStdioDialogUninstall": "解除安裝",
+  "mcpStdioDialogLatestVersion": "最新版本: {version}",
+  "@mcpStdioDialogLatestVersion": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "mcpStdioDialogUpdateAvailableSuffix": "（可更新）",
+  "mcpStdioDialogOperationTimeout": "[timeout] 操作逾時，已終止行程",
+  "mcpStdioDialogOperationCompleted": "[{time}] ✓ {action} 完成 (exit code: {exitCode})",
+  "@mcpStdioDialogOperationCompleted": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {},
+      "action": {},
+      "exitCode": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpStdioDialogOperationFailed": "[{time}] ✗ {action} 失敗 (exit code: {exitCode})",
+  "@mcpStdioDialogOperationFailed": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {},
+      "action": {},
+      "exitCode": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpStdioDialogOperationFailedPlain": "{action} 失敗 (exit code: {exitCode})",
+  "@mcpStdioDialogOperationFailedPlain": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "action": {},
+      "exitCode": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpStdioDialogOperationException": "[{time}] ✗ 例外: {error}",
+  "@mcpStdioDialogOperationException": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {},
+      "error": {}
+    }
+  },
+  "mcpStdioDialogWarmCache": "[{time}] 預熱隔離快取…",
+  "@mcpStdioDialogWarmCache": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpStdioDialogWarmCacheDone": "[{time}] ✓ 快取預熱完成",
+  "@mcpStdioDialogWarmCacheDone": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpStdioDialogWarmCacheSkipped": "[{time}] 快取預熱略過: {error}",
+  "@mcpStdioDialogWarmCacheSkipped": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {},
+      "error": {}
+    }
+  },
   "mcpAutoProbeConcurrencyLabel": "MCP 檢查/拉取並行數",
   "mcpAutoProbeConcurrencyBody": "同時執行 MCP 健康檢查或 Tools 拉取的服務數量上限。預設 5；調低可減少資源占用，調高可加速大量服務的批量刷新。",
   "mcpAutoProbeConcurrencySave": "儲存並行數",

@@ -372,6 +372,164 @@ class AppLocalizationsFr extends AppLocalizations {
       'Reconnexion déclenchée. Le prochain appel relancera le processus avec le nouveau miroir.';
 
   @override
+  String mcpStdioDialogLogsTitle(Object name) {
+    return 'Logs $name';
+  }
+
+  @override
+  String mcpStdioDialogRuntimeDetailsTitle(Object name) {
+    return 'Détails d’exécution $name';
+  }
+
+  @override
+  String mcpStdioDialogRunningPid(Object pid) {
+    return 'En cours · PID $pid';
+  }
+
+  @override
+  String get mcpStdioDialogStopped => 'Arrêté';
+
+  @override
+  String get mcpStdioDialogAutoScroll => 'Défilement auto';
+
+  @override
+  String get mcpStdioDialogCopyLogs => 'Copier les logs';
+
+  @override
+  String get mcpStdioDialogClearLogs => 'Effacer les logs';
+
+  @override
+  String get mcpStdioDialogCopiedToClipboard => 'Copié dans le presse-papiers';
+
+  @override
+  String get mcpStdioDialogNoLogOutput => 'Aucune sortie de log';
+
+  @override
+  String mcpStdioDialogLineCount(int count) {
+    return '$count lignes';
+  }
+
+  @override
+  String mcpStdioDialogUptime(Object uptime) {
+    return 'Actif depuis $uptime';
+  }
+
+  @override
+  String get mcpStdioDialogRefresh => 'Actualiser';
+
+  @override
+  String get mcpStdioDialogProcessStatus => 'État du processus';
+
+  @override
+  String get mcpStdioDialogServiceConfig => 'Configuration du service';
+
+  @override
+  String get mcpStdioDialogType => 'Type';
+
+  @override
+  String get mcpStdioDialogCommand => 'Commande';
+
+  @override
+  String get mcpStdioDialogArgs => 'Arguments';
+
+  @override
+  String get mcpStdioDialogEnabled => 'Activé';
+
+  @override
+  String get mcpStdioDialogYes => 'Oui';
+
+  @override
+  String get mcpStdioDialogNo => 'Non';
+
+  @override
+  String get mcpStdioDialogEnvironment => 'Environnement';
+
+  @override
+  String get mcpStdioDialogError => 'Erreur';
+
+  @override
+  String get mcpStdioDialogDepsTitle => 'Gestion des dépendances';
+
+  @override
+  String get mcpStdioDialogNoDepsToManage =>
+      'Ce service n’utilise pas de gestionnaire de paquets (npx / uvx). Aucune dépendance à gérer.';
+
+  @override
+  String mcpStdioDialogInstalledVersion(Object version) {
+    return 'Installé v$version';
+  }
+
+  @override
+  String get mcpStdioDialogUnknownVersion => '?';
+
+  @override
+  String get mcpStdioDialogNotGloballyInstalled => 'Non installé globalement';
+
+  @override
+  String get mcpStdioDialogInstall => 'Installer';
+
+  @override
+  String get mcpStdioDialogUpdate => 'Mettre à jour';
+
+  @override
+  String get mcpStdioDialogUninstall => 'Désinstaller';
+
+  @override
+  String mcpStdioDialogLatestVersion(Object version) {
+    return 'Dernière version : $version';
+  }
+
+  @override
+  String get mcpStdioDialogUpdateAvailableSuffix => ' (mise à jour disponible)';
+
+  @override
+  String get mcpStdioDialogOperationTimeout =>
+      '[timeout] Opération expirée ; processus terminé';
+
+  @override
+  String mcpStdioDialogOperationCompleted(
+    Object time,
+    Object action,
+    int exitCode,
+  ) {
+    return '[$time] ✓ $action terminé (code de sortie : $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationFailed(
+    Object time,
+    Object action,
+    int exitCode,
+  ) {
+    return '[$time] ✗ Échec de $action (code de sortie : $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationFailedPlain(Object action, int exitCode) {
+    return 'Échec de $action (code de sortie : $exitCode)';
+  }
+
+  @override
+  String mcpStdioDialogOperationException(Object time, Object error) {
+    return '[$time] ✗ Exception : $error';
+  }
+
+  @override
+  String mcpStdioDialogWarmCache(Object time) {
+    return '[$time] Préparation du cache isolé…';
+  }
+
+  @override
+  String mcpStdioDialogWarmCacheDone(Object time) {
+    return '[$time] ✓ Cache préparé';
+  }
+
+  @override
+  String mcpStdioDialogWarmCacheSkipped(Object time, Object error) {
+    return '[$time] Préparation du cache ignorée : $error';
+  }
+
+  @override
   String get mcpAutoProbeConcurrencyLabel => 'Parallélisme MCP check/fetch';
 
   @override

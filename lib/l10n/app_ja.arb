@@ -130,6 +130,145 @@
   },
   "mcpStdioMirrorModeReconnectAction": "新しい設定で有効 server を再接続",
   "mcpStdioMirrorModeReconnectDone": "再接続をトリガーしました。次回呼び出し時に新しいミラーでプロセスを再起動します。",
+  "mcpStdioDialogLogsTitle": "{name} ログ",
+  "@mcpStdioDialogLogsTitle": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "mcpStdioDialogRuntimeDetailsTitle": "{name} ランタイム詳細",
+  "@mcpStdioDialogRuntimeDetailsTitle": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "mcpStdioDialogRunningPid": "実行中 · PID {pid}",
+  "@mcpStdioDialogRunningPid": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "pid": {}
+    }
+  },
+  "mcpStdioDialogStopped": "停止済み",
+  "mcpStdioDialogAutoScroll": "自動スクロール",
+  "mcpStdioDialogCopyLogs": "ログをコピー",
+  "mcpStdioDialogClearLogs": "ログを消去",
+  "mcpStdioDialogCopiedToClipboard": "クリップボードにコピーしました",
+  "mcpStdioDialogNoLogOutput": "ログ出力はまだありません",
+  "mcpStdioDialogLineCount": "{count} 行",
+  "@mcpStdioDialogLineCount": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpStdioDialogUptime": "稼働 {uptime}",
+  "@mcpStdioDialogUptime": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "uptime": {}
+    }
+  },
+  "mcpStdioDialogRefresh": "更新",
+  "mcpStdioDialogProcessStatus": "プロセス状態",
+  "mcpStdioDialogServiceConfig": "サービス設定",
+  "mcpStdioDialogType": "種類",
+  "mcpStdioDialogCommand": "コマンド",
+  "mcpStdioDialogArgs": "引数",
+  "mcpStdioDialogEnabled": "有効",
+  "mcpStdioDialogYes": "はい",
+  "mcpStdioDialogNo": "いいえ",
+  "mcpStdioDialogEnvironment": "環境情報",
+  "mcpStdioDialogError": "エラー情報",
+  "mcpStdioDialogDepsTitle": "依存関係管理",
+  "mcpStdioDialogNoDepsToManage": "このサービスはパッケージ管理型（npx / uvx）ではないため、管理する依存関係はありません。",
+  "mcpStdioDialogInstalledVersion": "インストール済み v{version}",
+  "@mcpStdioDialogInstalledVersion": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "mcpStdioDialogUnknownVersion": "?",
+  "mcpStdioDialogNotGloballyInstalled": "グローバル未インストール",
+  "mcpStdioDialogInstall": "インストール",
+  "mcpStdioDialogUpdate": "更新",
+  "mcpStdioDialogUninstall": "アンインストール",
+  "mcpStdioDialogLatestVersion": "最新バージョン: {version}",
+  "@mcpStdioDialogLatestVersion": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "mcpStdioDialogUpdateAvailableSuffix": "（更新可能）",
+  "mcpStdioDialogOperationTimeout": "[timeout] 操作がタイムアウトしたため、プロセスを終了しました",
+  "mcpStdioDialogOperationCompleted": "[{time}] ✓ {action} 完了 (exit code: {exitCode})",
+  "@mcpStdioDialogOperationCompleted": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {},
+      "action": {},
+      "exitCode": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpStdioDialogOperationFailed": "[{time}] ✗ {action} 失敗 (exit code: {exitCode})",
+  "@mcpStdioDialogOperationFailed": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {},
+      "action": {},
+      "exitCode": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpStdioDialogOperationFailedPlain": "{action} 失敗 (exit code: {exitCode})",
+  "@mcpStdioDialogOperationFailedPlain": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "action": {},
+      "exitCode": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpStdioDialogOperationException": "[{time}] ✗ 例外: {error}",
+  "@mcpStdioDialogOperationException": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {},
+      "error": {}
+    }
+  },
+  "mcpStdioDialogWarmCache": "[{time}] 分離キャッシュを事前準備中…",
+  "@mcpStdioDialogWarmCache": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpStdioDialogWarmCacheDone": "[{time}] ✓ キャッシュ準備完了",
+  "@mcpStdioDialogWarmCacheDone": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpStdioDialogWarmCacheSkipped": "[{time}] キャッシュ準備をスキップ: {error}",
+  "@mcpStdioDialogWarmCacheSkipped": {
+    "description": "MCP STDIO dialog localized UI text.",
+    "placeholders": {
+      "time": {},
+      "error": {}
+    }
+  },
   "mcpAutoProbeConcurrencyLabel": "MCP チェック/取得の並列数",
   "mcpAutoProbeConcurrencyBody": "MCP ヘルスチェックまたは Tools 取得を同時に実行するサービス数の上限です。既定は 5。下げるとリソース使用量を抑え、上げると多数のサービス更新を速くできます。",
   "mcpAutoProbeConcurrencySave": "並列数を保存",
