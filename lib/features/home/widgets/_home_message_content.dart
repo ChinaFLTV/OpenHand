@@ -3485,7 +3485,7 @@ String _decodeBasicHtmlEntities(String value) {
   return decoded.replaceAllMapped(_htmlPreviewNumericEntityPattern, (match) {
     final raw = match.group(1) ?? '';
     final isHex = raw.startsWith('x') || raw.startsWith('X');
-    final codePoint = int.tryParse(
+    final codePoint = optionalIntFromText(
       isHex ? raw.substring(1) : raw,
       radix: isHex ? 16 : 10,
     );
@@ -3694,7 +3694,7 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
     if (_flexSizingPattern.hasMatch(style)) return true;
     final widthMatch = _widthPercentPattern.firstMatch(style);
     if (widthMatch == null) return false;
-    final percent = double.tryParse(widthMatch.group(1) ?? '');
+    final percent = optionalDoubleFromValue(widthMatch.group(1));
     return percent != null && percent > 0 && percent < 99;
   }
 
@@ -3737,13 +3737,13 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
     final template = _styleValue(tree, _cssGridTemplateColumns);
     final autoFit = _autoFitMinmaxPattern.firstMatch(template);
     if (autoFit != null) {
-      final minWidth = double.tryParse(autoFit.group(1) ?? '') ?? maxWidth;
+      final minWidth = optionalDoubleFromValue(autoFit.group(1)) ?? maxWidth;
       final columns = ((maxWidth + gap) / (minWidth + gap)).floor();
       return columns.clamp(1, childCount).toInt();
     }
     final repeat = _repeatColumnPattern.firstMatch(template);
     if (repeat != null) {
-      return (int.tryParse(repeat.group(1) ?? '') ?? childCount)
+      return (optionalIntFromValue(repeat.group(1)) ?? childCount)
           .clamp(1, childCount)
           .toInt();
     }
@@ -3812,7 +3812,7 @@ class _OpenHandHtmlWidgetFactory extends WidgetFactory {
   }
 
   static double? _parseCssLengthMatch(RegExpMatch match, {double? maxWidth}) {
-    final raw = double.tryParse(match.group(1) ?? '');
+    final raw = optionalDoubleFromValue(match.group(1));
     if (raw == null) return null;
     final unit = match.group(2)?.toLowerCase();
     switch (unit) {
@@ -5809,10 +5809,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       callback: (args) {
         if (args.isEmpty) return;
         final raw = args.first;
-        final value = raw is num
-            ? raw.toDouble()
-            : double.tryParse(raw.toString());
-        if (value == null || !value.isFinite) return;
+        final value = optionalDoubleFromValue(raw);
+        if (value == null) return;
         _onContentSizeChanged(Size(0, value));
       },
     );
