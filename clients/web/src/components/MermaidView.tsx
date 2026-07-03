@@ -17,7 +17,8 @@ import { saveBlobWithPicker } from '../utils/save_blob';
 import { copyTextToClipboard, copyBlobToClipboard } from '../utils/clipboard';
 import { isAbortError } from '../utils/api_error';
 import { showSnackbar } from './Snackbar';
-import { finiteNumberFromText } from '../shared/util/number';
+import { clampNumber, finiteNumberFromText } from '../shared/util/number';
+import { strictStringFromUnknown } from '../shared/util/value';
 
 interface MermaidViewProps {
   source: string;
@@ -45,13 +46,17 @@ const MERMAID_TOUCH_DRAG_CANCEL_DISTANCE_PX = 8;
 const MERMAID_WHEEL_ZOOM_SENSITIVITY = 0.0025;
 
 function clampMermaidScale(value: number): number {
-  if (!Number.isFinite(value)) return 1;
-  return Math.min(MERMAID_VIEW_MAX_SCALE, Math.max(MERMAID_VIEW_MIN_SCALE, value));
+  return clampNumber(
+    Number.isFinite(value) ? value : 1,
+    MERMAID_VIEW_MIN_SCALE,
+    MERMAID_VIEW_MAX_SCALE,
+  );
 }
 
 function mermaidDatasetNumber(value: string | undefined, fallback: number): number {
-  if (value == null || value.trim().length === 0) return fallback;
-  return finiteNumberFromText(value) ?? fallback;
+  const text = strictStringFromUnknown(value);
+  if (!text) return fallback;
+  return finiteNumberFromText(text) ?? fallback;
 }
 
 function svgMarkupOf(value: unknown): string | null {
@@ -84,16 +89,13 @@ function extractMermaidSvg(result: unknown): string | null {
 }
 
 function formatMermaidError(err: unknown): string {
-  if (err instanceof Error && err.message.trim().length > 0) {
-    return err.message.trim();
-  }
+  const errorMessage = strictStringFromUnknown(err instanceof Error ? err.message : null);
+  if (errorMessage) return errorMessage;
   if (err != null && typeof err === 'object') {
     const record = err as Record<string, unknown>;
     for (const key of ['str', 'message', 'hash']) {
-      const value = record[key];
-      if (typeof value === 'string' && value.trim().length > 0) {
-        return value.trim();
-      }
+      const text = strictStringFromUnknown(record[key]);
+      if (text) return text;
     }
     try {
       const serialized = JSON.stringify(record, null, 2);

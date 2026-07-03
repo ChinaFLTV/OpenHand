@@ -4,15 +4,19 @@
 // 设计：
 // - 不修改任何 CSS scroll 行为；仅返回 `{ pulled, refreshing }` 让调用方
 //   渲染顶部进度指示。
-// - 拉动 < activationDistance 时只显示松手刷新提示；松手后归零。
+// - 拉动 < activationDistance 时只显示下拉提示；松手后归零。
 // - 拉动 ≥ activationDistance 时调用 onRefresh()，期间 refreshing=true，
 //   pulled 锁在阈值不再随手指变化，避免抖动。
 // - 防止同一手势重复触发：refreshing 期间忽略后续 touch。
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { RefObject } from 'preact';
+import { clampNumber } from '../shared/util/number';
 
 const MIN_PULL_DELTA_PX = 12;
+const DEFAULT_ACTIVATION_DISTANCE_PX = 80;
+const DEFAULT_MAX_DISTANCE_PX = 140;
+const MIN_ACTIVATION_DISTANCE_PX = 1;
 const PULL_TO_REFRESH_INTERACTIVE_SELECTOR = [
   'button',
   'a',
@@ -48,7 +52,22 @@ export function usePullToRefresh<E extends HTMLElement>(
   ref: RefObject<E>,
   opts: PullToRefreshOptions,
 ): PullToRefreshState {
-  const { onRefresh, activationDistance = 80, maxDistance = 140, enabled = true } = opts;
+  const {
+    onRefresh,
+    activationDistance = DEFAULT_ACTIVATION_DISTANCE_PX,
+    maxDistance = DEFAULT_MAX_DISTANCE_PX,
+    enabled = true,
+  } = opts;
+  const safeActivationDistance = clampNumber(
+    activationDistance,
+    MIN_ACTIVATION_DISTANCE_PX,
+    Number.MAX_SAFE_INTEGER,
+  );
+  const safeMaxDistance = clampNumber(
+    maxDistance,
+    safeActivationDistance,
+    Number.MAX_SAFE_INTEGER,
+  );
   const [pulled, setPulled] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef<number | null>(null);
@@ -104,21 +123,21 @@ export function usePullToRefresh<E extends HTMLElement>(
         updatePulled(0);
         return;
       }
-      // 引入阻尼，越拉越慢，最大不过 maxDistance。
-      updatePulled(Math.min(maxDistance, Math.pow(dy - MIN_PULL_DELTA_PX, 0.85)));
+      // 引入阻尼，越拉越慢，最大不过 safeMaxDistance。
+      updatePulled(clampNumber(Math.pow(dy - MIN_PULL_DELTA_PX, 0.85), 0, safeMaxDistance));
     };
 
     const finishPull = async () => {
       if (!tracking.current) return;
       tracking.current = false;
       activePointerId.current = null;
-      const reached = pulledRef.current >= activationDistance;
+      const reached = pulledRef.current >= safeActivationDistance;
       startY.current = null;
       if (!reached) {
         updatePulled(0);
         return;
       }
-      updatePulled(activationDistance);
+      updatePulled(safeActivationDistance);
       setRefreshing(true);
       try {
         await onRefresh();
@@ -182,7 +201,7 @@ export function usePullToRefresh<E extends HTMLElement>(
       el.removeEventListener('pointerup', onPointerEnd);
       el.removeEventListener('pointercancel', onPointerEnd);
     };
-  }, [ref, onRefresh, activationDistance, maxDistance, enabled, refreshing]);
+  }, [ref, onRefresh, safeActivationDistance, safeMaxDistance, enabled, refreshing]);
 
-  return { pulled, refreshing, willRelease: pulled >= activationDistance };
+  return { pulled, refreshing, willRelease: pulled >= safeActivationDistance };
 }

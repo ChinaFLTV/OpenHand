@@ -1,6 +1,7 @@
 import type { ComponentChildren, JSX } from 'preact';
 import { useEffect } from 'preact/hooks';
 import { clampNumber, normalizeInteger } from '../shared/util/number';
+import { strictStringFromUnknown } from '../shared/util/value';
 import { OverlayPortal } from './OverlayPortal';
 
 type DialogPanelAnimation = 'pop' | 'slideUp' | 'none';
@@ -108,9 +109,7 @@ function createDialogOverlayStyle({
   zIndex = DIALOG_OVERLAY_BASE_Z_INDEX,
 }: DialogOverlayStyleOptions = {}): JSX.CSSProperties {
   const resolvedBackground =
-    typeof background === 'string' && background.trim()
-      ? background
-      : DIALOG_OVERLAY_DEFAULT_BACKGROUND;
+    strictStringFromUnknown(background) || DIALOG_OVERLAY_DEFAULT_BACKGROUND;
   const safeBlurPx = clampNumber(blurPx, 0, DIALOG_OVERLAY_MAX_BLUR_PX);
   const safeZIndex = normalizeInteger(zIndex, {
     fallback: DIALOG_OVERLAY_BASE_Z_INDEX,
@@ -127,7 +126,7 @@ function createDialogOverlayStyle({
 const DIALOG_OVERLAY_DEFAULT_STYLE = createDialogOverlayStyle();
 
 function stringStyleValueOr(value: string | undefined, fallback: string): string {
-  return typeof value === 'string' && value.trim() ? value : fallback;
+  return strictStringFromUnknown(value) || fallback;
 }
 
 function assignStringStyleValue<K extends keyof JSX.CSSProperties>(
@@ -135,8 +134,9 @@ function assignStringStyleValue<K extends keyof JSX.CSSProperties>(
   key: K,
   value: string | undefined,
 ): void {
-  if (typeof value !== 'string' || !value.trim()) return;
-  style[key] = value as JSX.CSSProperties[K];
+  const resolved = strictStringFromUnknown(value);
+  if (!resolved) return;
+  style[key] = resolved as JSX.CSSProperties[K];
 }
 
 function createDialogPanelSurfaceStyle({

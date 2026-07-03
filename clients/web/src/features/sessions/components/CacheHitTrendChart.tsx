@@ -33,6 +33,9 @@ const CACHE_LINE_COLOR = '#2E7D32';
 const CACHE_TREND_ENTRANCE_DURATION_MS = 560;
 const CACHE_TREND_HOVER_IN_DURATION_MS = 240;
 const CACHE_TREND_HOVER_OUT_DURATION_MS = 200;
+const CACHE_TOOLTIP_WIDTH_PX = 132;
+const CACHE_TOOLTIP_HEIGHT_PX = 46;
+const CACHE_TOOLTIP_OFFSET_PX = 12;
 
 function isExtremeIdleExpiryMiss(p: TrendPoint): boolean {
   const gap = p.idleGapSeconds ?? 0;
@@ -70,9 +73,9 @@ function viewportZoomAround(
   if (v.totalPoints <= 1) return v;
   const maxSpan = v.totalPoints - 1;
   const minSpan = Math.max(1, Math.min(MIN_VISIBLE_POINTS - 1, v.totalPoints - 1));
-  const safeScale = scale <= 0 ? 1 : scale;
+  const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
   const span = vpSpan(v);
-  const nextSpan = Math.max(minSpan, Math.min(maxSpan, span / safeScale));
+  const nextSpan = clampNumber(span / safeScale, minSpan, maxSpan);
   const normalizedAnchor =
     span <= 0 ? 0 : clampNumber((anchor - v.start) / span, 0, 1);
   let nextStart = anchor - normalizedAnchor * nextSpan;
@@ -83,7 +86,7 @@ function viewportZoomAround(
   }
   if (nextEnd > maxSpan) {
     const overflow = nextEnd - maxSpan;
-    nextStart = Math.max(0, Math.min(maxSpan - nextSpan, nextStart - overflow));
+    nextStart = clampNumber(nextStart - overflow, 0, Math.max(0, maxSpan - nextSpan));
     nextEnd = maxSpan;
   }
   return { start: nextStart, end: nextEnd, totalPoints: v.totalPoints };
@@ -674,18 +677,20 @@ export default function CacheHitTrendChart({
               const ratio = point.hitRatio;
               const cy = point.y;
               const cx = point.x;
-              const tooltipH = 46;
-              const tooltipW = 132;
-              const showAbove = cy - tooltipH - 12 >= PAD_TOP;
+              const tooltipH = CACHE_TOOLTIP_HEIGHT_PX;
+              const tooltipW = CACHE_TOOLTIP_WIDTH_PX;
+              const showAbove = cy - tooltipH - CACHE_TOOLTIP_OFFSET_PX >= PAD_TOP;
               const tooltipTop = showAbove
-                ? cy - tooltipH - 12
-                : Math.min(
-                    PAD_TOP + chartH - tooltipH,
-                    Math.max(PAD_TOP, cy + 12),
+                ? cy - tooltipH - CACHE_TOOLTIP_OFFSET_PX
+                : clampNumber(
+                    cy + CACHE_TOOLTIP_OFFSET_PX,
+                    PAD_TOP,
+                    Math.max(PAD_TOP, PAD_TOP + chartH - tooltipH),
                   );
-              const tooltipLeft = Math.max(
+              const tooltipLeft = clampNumber(
+                cx - tooltipW / 2,
                 PAD_LEFT,
-                Math.min(PAD_LEFT + chartW - tooltipW, cx - tooltipW / 2),
+                Math.max(PAD_LEFT, PAD_LEFT + chartW - tooltipW),
               );
               const tipColor =
                 ratio >= 0.95

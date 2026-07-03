@@ -7,6 +7,10 @@
 // - 刷新中：旋转动画 + "正在刷新…"
 
 import { t } from '../i18n';
+import { clampNumber } from '../shared/util/number';
+
+const PULL_INDICATOR_MIN_HEIGHT_PX = 8;
+const PULL_INDICATOR_MAX_HEIGHT_PX = 180;
 
 export interface PullIndicatorProps {
   pulled: number;
@@ -22,8 +26,15 @@ export function PullIndicator({
   willRelease,
   activationDistance,
 }: PullIndicatorProps) {
-  if (pulled <= 0 && !refreshing) return null;
-  const progress = refreshing ? 1 : Math.min(1, pulled / activationDistance);
+  const safePulled = clampNumber(pulled, 0, Number.MAX_SAFE_INTEGER);
+  const safeActivationDistance = clampNumber(activationDistance, 1, Number.MAX_SAFE_INTEGER);
+  const indicatorHeight = clampNumber(
+    safePulled,
+    PULL_INDICATOR_MIN_HEIGHT_PX,
+    PULL_INDICATOR_MAX_HEIGHT_PX,
+  );
+  if (safePulled <= 0 && !refreshing) return null;
+  const progress = refreshing ? 1 : clampNumber(safePulled / safeActivationDistance, 0, 1);
   const label = refreshing
     ? t('common.pull.refreshing', '正在刷新…')
     : willRelease
@@ -33,7 +44,7 @@ export function PullIndicator({
     <div
       class="flex items-center justify-center gap-2 text-xs select-none pointer-events-none"
       style={{
-        height: `${Math.max(8, pulled)}px`,
+        height: `${indicatorHeight}px`,
         color: 'var(--m3-on-surface-variant)',
         transition: refreshing ? 'height 200ms ease-out' : 'none',
       }}
