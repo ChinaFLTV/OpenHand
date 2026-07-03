@@ -512,7 +512,7 @@ class DocxKnowledgeDocumentParser extends KnowledgeDocumentParser {
         document.rootElement.children.whereType<xml.XmlElement>();
     for (final child in children) {
       if (_isElement(child, 'p')) {
-        final paragraph = _ooxmlText(child).trim();
+        final paragraph = _trimmedOoxmlText(child);
         if (paragraph.isNotEmpty) buffer.writeln('$paragraph\n');
       } else if (_isElement(child, 'tbl')) {
         final table = _wordTableToMarkdown(child);
@@ -743,7 +743,7 @@ List<String> _xlsxSharedStrings(Archive archive) {
   return _elements(
     doc.rootElement,
     'si',
-  ).map(_ooxmlText).map((value) => value.trim()).toList(growable: false);
+  ).map(_trimmedOoxmlText).toList(growable: false);
 }
 
 List<String> _xlsxSheetNames(Archive archive) {
@@ -788,7 +788,7 @@ List<List<String>> _xlsxRows(xml.XmlDocument doc, List<String> sharedStrings) {
 
 String _xlsxCellValue(xml.XmlElement cell, List<String> sharedStrings) {
   final type = cell.getAttribute('t');
-  if (type == 'inlineStr') return _ooxmlText(cell).trim();
+  if (type == 'inlineStr') return _trimmedOoxmlText(cell);
   final value = _firstElement(cell, 'v')?.innerText.trim() ?? '';
   if (type == 's') {
     final index = optionalNonNegativeIntFromValue(value);
@@ -823,8 +823,7 @@ String _wordTableToMarkdown(xml.XmlElement table) {
     final cells = row.children
         .whereType<xml.XmlElement>()
         .where((child) => _isElement(child, 'tc'))
-        .map(_ooxmlText)
-        .map((value) => value.trim())
+        .map(_trimmedOoxmlText)
         .toList(growable: false);
     if (cells.any((cell) => cell.isNotEmpty)) rows.add(cells);
   }
@@ -890,6 +889,8 @@ String _ooxmlText(xml.XmlElement element) {
   }
   return buffer.toString();
 }
+
+String _trimmedOoxmlText(xml.XmlElement element) => _ooxmlText(element).trim();
 
 Iterable<xml.XmlElement> _elements(xml.XmlElement element, String localName) {
   return element.descendants.whereType<xml.XmlElement>().where(
