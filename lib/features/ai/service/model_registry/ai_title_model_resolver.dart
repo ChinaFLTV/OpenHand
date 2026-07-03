@@ -1,3 +1,4 @@
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_model_config.dart';
 
 class AiTitleModelResolver {
@@ -47,8 +48,8 @@ class AiTitleModelResolver {
       return global;
     }
     for (final model in models) {
-      final active = model.modelId.trim();
-      if (active.isEmpty) continue;
+      final active = nullIfBlank(model.modelId);
+      if (active == null) continue;
       final candidate = model.copyWith(modelId: active);
       if (supportsTextTitleGeneration(candidate)) {
         return candidate;
@@ -58,8 +59,8 @@ class AiTitleModelResolver {
   }
 
   static bool supportsTextTitleGeneration(AiModelConfig model) {
-    final modelId = model.modelId.trim();
-    if (modelId.isEmpty) {
+    final modelId = nullIfBlank(model.modelId);
+    if (modelId == null) {
       return false;
     }
     final profile = model.profileFor(modelId);
@@ -69,8 +70,8 @@ class AiTitleModelResolver {
     }
 
     final architecture = profile.architecture;
-    final modality = architecture?.modality?.trim().toLowerCase() ?? '';
-    if (modality.isNotEmpty) {
+    final modality = optionalLowercaseStringFromValue(architecture?.modality);
+    if (modality != null) {
       if (modality.contains('text')) {
         return true;
       }
@@ -81,8 +82,8 @@ class AiTitleModelResolver {
 
     final outputModalities =
         architecture?.outputModalities
-            .map((item) => item.trim().toLowerCase())
-            .where((item) => item.isNotEmpty)
+            .map(optionalLowercaseStringFromValue)
+            .whereType<String>()
             .toList(growable: false) ??
         const <String>[];
     if (outputModalities.isNotEmpty) {
@@ -92,8 +93,8 @@ class AiTitleModelResolver {
   }
 
   static AiModelConfig normalizeProviderTitleDefaults(AiModelConfig model) {
-    final activeModelId = model.modelId.trim();
-    final defaultTitleModelId = model.defaultTitleModelId.trim();
+    final activeModelId = nullIfBlank(model.modelId) ?? '';
+    final defaultTitleModelId = nullIfBlank(model.defaultTitleModelId) ?? '';
     return model.copyWith(
       modelId: activeModelId,
       defaultTitleModelId: defaultTitleModelId,
@@ -115,8 +116,8 @@ class AiTitleModelResolver {
       final visibleModelIds = next.allModelIds.toSet();
       final profiles = <String, AiModelProfile>{};
       for (final entry in next.modelProfiles.entries) {
-        final modelId = entry.key.trim();
-        if (modelId.isEmpty) continue;
+        final modelId = nullIfBlank(entry.key);
+        if (modelId == null) continue;
         var profile = entry.value;
         if (profile.isGlobalDefaultTitleModel) {
           if (!visibleModelIds.contains(modelId) || hasProfileGlobalDefault) {
@@ -152,8 +153,8 @@ class AiTitleModelResolver {
     List<AiModelConfig> models,
     String providerId,
   ) {
-    final normalizedProviderId = providerId.trim();
-    if (normalizedProviderId.isEmpty) return null;
+    final normalizedProviderId = nullIfBlank(providerId);
+    if (normalizedProviderId == null) return null;
     for (final model in models) {
       if (model.id == normalizedProviderId) {
         return model;
@@ -163,8 +164,8 @@ class AiTitleModelResolver {
   }
 
   static AiModelConfig? _providerDefaultTitleModel(AiModelConfig provider) {
-    final modelId = provider.defaultTitleModelId.trim();
-    if (modelId.isEmpty) return null;
+    final modelId = nullIfBlank(provider.defaultTitleModelId);
+    if (modelId == null) return null;
     return provider.copyWith(
       modelId: modelId,
       availableModelIds: AiModelConfig.normalizeModelIds(<String>[
@@ -212,10 +213,10 @@ class AiTitleModelResolver {
       if (!provider.isGlobalDefaultTitleModel) {
         continue;
       }
-      final modelId = provider.defaultTitleModelId.trim().isNotEmpty
-          ? provider.defaultTitleModelId.trim()
-          : provider.modelId.trim();
-      if (modelId.isEmpty) return null;
+      final modelId =
+          nullIfBlank(provider.defaultTitleModelId) ??
+          nullIfBlank(provider.modelId);
+      if (modelId == null) return null;
       final candidate = provider.copyWith(
         modelId: modelId,
         availableModelIds: AiModelConfig.normalizeModelIds(<String>[
@@ -229,7 +230,9 @@ class AiTitleModelResolver {
   }
 
   static String _candidateKey(AiModelConfig model) {
-    return '${model.id.trim()}::${model.modelId.trim()}';
+    final providerId = nullIfBlank(model.id) ?? '';
+    final modelId = nullIfBlank(model.modelId) ?? '';
+    return '$providerId::$modelId';
   }
 
   static const Set<String> _nonTextModalityMarkers = <String>{
