@@ -179,15 +179,24 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
   const previewSize = useMemo(() => fitSize(ratio, 720, 420), [ratio]);
 
   useEffect(() => {
+    let cancelled = false;
     const image = new Image();
     image.decoding = 'async';
     image.onload = () => {
+      if (cancelled) return;
       imageRef.current = image;
       setNaturalSize({ width: image.naturalWidth || 1, height: image.naturalHeight || 1 });
       setError(null);
     };
-    image.onerror = () => setError(t('imageEditor.loadFailed', '无法加载所选图片'));
+    image.onerror = () => {
+      if (!cancelled) setError(t('imageEditor.loadFailed', '无法加载所选图片'));
+    };
     image.src = input.dataUrl;
+    return () => {
+      cancelled = true;
+      image.onload = null;
+      image.onerror = null;
+    };
   }, [input.dataUrl]);
 
   useEffect(() => {
