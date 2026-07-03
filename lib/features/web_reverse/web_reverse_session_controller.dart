@@ -8171,7 +8171,7 @@ WebReverseThrottlePreset _matchNetworkPreset({
 }
 
 int _objectAsNonNegativeInt(Object? value) {
-  final parsed = value is num ? value.round() : int.tryParse('$value') ?? 0;
+  final parsed = optionalRoundedIntFromValue(value) ?? 0;
   return _nonNegativeInt(parsed);
 }
 

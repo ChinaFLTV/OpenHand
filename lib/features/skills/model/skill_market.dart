@@ -375,21 +375,11 @@ String? _readNullableString(Object? value) {
 }
 
 int _readInt(Object? value) {
-  if (value is int) {
-    return value;
-  }
-  if (value is num && value.isFinite) {
-    return value.round();
-  }
-  return int.tryParse('$value') ?? 0;
+  return optionalRoundedIntFromValue(value) ?? 0;
 }
 
 double _readDouble(Object? value) {
-  if (value is num && value.isFinite) {
-    return value.toDouble();
-  }
-  final parsed = double.tryParse('$value');
-  return parsed != null && parsed.isFinite ? parsed : 0;
+  return doubleFromValue(value, fallback: 0);
 }
 
 bool _readBool(Object? value) {

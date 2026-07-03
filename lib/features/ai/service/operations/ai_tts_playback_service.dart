@@ -1998,10 +1998,7 @@ class AiTtsPlaybackService {
     required int fallback,
   }) {
     final value = settings.extra[key];
-    if (value is int) return value;
-    if (value is num) return value.isFinite ? value.round() : fallback;
-    if (value is String) return int.tryParse(value.trim()) ?? fallback;
-    return fallback;
+    return optionalRoundedIntFromValue(value) ?? fallback;
   }
 
   static bool _extraBool(AiTtsProviderSettings settings, String key) {

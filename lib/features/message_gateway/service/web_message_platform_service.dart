@@ -5362,10 +5362,7 @@ class WebMessagePlatformService {
   }
 
   int _intFromWebValue(Object? value, int fallback) {
-    if (value is int) return value;
-    if (value is num && value.isFinite) return value.round();
-    if (value is String) return int.tryParse(value.trim()) ?? fallback;
-    return fallback;
+    return optionalRoundedIntFromValue(value) ?? fallback;
   }
 
   bool _isMultimediaConversationMode(String mode) {
