@@ -1814,7 +1814,7 @@ void _processClaudeStreamEvent(
   required void Function() cancelSubscription,
   required void Function(String) setFinishReason,
 }) {
-  final type = '${decoded['type'] ?? ''}'.trim();
+  final type = stringFromValue(decoded['type']);
 
   switch (type) {
     case 'message_start':
@@ -1845,21 +1845,21 @@ void _processClaudeStreamEvent(
       // Track tool_use blocks so we capture the tool id and name.
       final contentBlock = decoded['content_block'];
       if (contentBlock is Map<String, Object?>) {
-        final blockType = '${contentBlock['type'] ?? ''}'.trim();
+        final blockType = stringFromValue(contentBlock['type']);
         if (blockType == 'tool_use') {
           final index = _readInt(decoded['index']) ?? toolCalls.length;
           final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
-          final id = '${contentBlock['id'] ?? ''}'.trim();
-          if (id.isNotEmpty) entry.id = id;
-          final name = '${contentBlock['name'] ?? ''}'.trim();
-          if (name.isNotEmpty) entry.name = name;
+          final id = optionalStringFromValue(contentBlock['id']);
+          if (id != null) entry.id = id;
+          final name = optionalStringFromValue(contentBlock['name']);
+          if (name != null) entry.name = name;
         }
       }
 
     case 'content_block_delta':
       final delta = decoded['delta'];
       if (delta is! Map<String, Object?>) break;
-      final deltaType = '${delta['type'] ?? ''}'.trim();
+      final deltaType = stringFromValue(delta['type']);
       if (deltaType == 'text_delta') {
         final text = '${delta['text'] ?? ''}';
         if (text.isNotEmpty) {
@@ -1901,8 +1901,8 @@ void _processClaudeStreamEvent(
       // Final usage and stop_reason.
       final deltaPayload = decoded['delta'];
       if (deltaPayload is Map<String, Object?>) {
-        final stopReason = '${deltaPayload['stop_reason'] ?? ''}'.trim();
-        if (stopReason.isNotEmpty) {
+        final stopReason = optionalStringFromValue(deltaPayload['stop_reason']);
+        if (stopReason != null) {
           setFinishReason(stopReason);
         }
       }
@@ -1984,8 +1984,10 @@ void _processGeminiStreamEvent(
   for (final candidate in candidates) {
     if (candidate is! Map<String, Object?>) continue;
     // Capture finishReason from Gemini (e.g. "STOP", "MAX_TOKENS").
-    final geminiFinishReason = '${candidate['finishReason'] ?? ''}'.trim();
-    if (geminiFinishReason.isNotEmpty) {
+    final geminiFinishReason = optionalStringFromValue(
+      candidate['finishReason'],
+    );
+    if (geminiFinishReason != null) {
       // Normalize Gemini's "MAX_TOKENS" to "length" for consistency.
       final normalized = geminiFinishReason.toUpperCase() == 'MAX_TOKENS'
           ? 'length'
@@ -2001,8 +2003,8 @@ void _processGeminiStreamEvent(
       if (part is! Map<String, Object?>) continue;
 
       // Text delta.
-      final text = '${part['text'] ?? ''}'.trim();
-      if (text.isNotEmpty) {
+      final text = optionalStringFromValue(part['text']);
+      if (text != null) {
         textBuffer.write(text);
         emitEvent(AiChatStreamEvent.textDelta(text));
         continue;
@@ -2022,8 +2024,8 @@ void _processGeminiStreamEvent(
       // Function call (tool use).
       final functionCall = part['functionCall'];
       if (functionCall is Map<String, Object?>) {
-        final name = '${functionCall['name'] ?? ''}'.trim();
-        if (name.isNotEmpty) {
+        final name = optionalStringFromValue(functionCall['name']);
+        if (name != null) {
           final index = toolCalls.length;
           final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
           entry.id = 'gemini-tc-$index';
@@ -2229,8 +2231,9 @@ Future<http.StreamedResponse> _sendHttpRequestWithRedirects({
     }
     if (redirectCount >= _maxAiChatRedirects) {
       final responseBody = await response.stream.bytesToString();
+      final responseText = nullIfBlank(responseBody);
       throw AiChatException(
-        'Too many redirects (${_maxAiChatRedirects + 1})${responseBody.trim().isEmpty ? '' : ': ${responseBody.trim()}'}',
+        'Too many redirects (${_maxAiChatRedirects + 1})${responseText == null ? '' : ': $responseText'}',
       );
     }
 
