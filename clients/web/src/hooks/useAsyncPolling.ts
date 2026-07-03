@@ -1,5 +1,8 @@
 import { useEffect } from 'preact/hooks';
-import { normalizeDurationMs } from '../shared/util/number';
+import {
+  MAX_BROWSER_TIMEOUT_MS,
+  normalizeDurationMs,
+} from '../shared/util/number';
 import {
   isOperationAbortedError,
   runWithAbortableTimeout,
@@ -36,6 +39,7 @@ function normalizeIntervalMs(value: number): number {
   return normalizeDurationMs(value, {
     fallback: MIN_POLL_INTERVAL_MS,
     min: MIN_POLL_INTERVAL_MS,
+    max: MAX_BROWSER_TIMEOUT_MS,
   });
 }
 
