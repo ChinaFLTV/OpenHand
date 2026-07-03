@@ -739,20 +739,19 @@ abstract class AiProtocolAdapter {
   Future<String> parseAssistantMessage(String rawResponse);
 
   String extractErrorMessage(String rawResponse) {
-    final trimmed = rawResponse.trim();
+    final trimmed = nullIfBlank(rawResponse) ?? '';
     // Try JSON error first.
     try {
       final decoded = jsonDecode(trimmed);
       if (decoded is Map<String, Object?>) {
         final error = decoded['error'];
-        if (error is String && error.trim().isNotEmpty) {
-          return error.trim();
+        if (error is String) {
+          final errorText = nullIfBlank(error);
+          if (errorText != null) return errorText;
         }
         if (error is Map<String, Object?>) {
-          final message = '${error['message'] ?? ''}'.trim();
-          if (message.isNotEmpty) {
-            return message;
-          }
+          final message = optionalStringFromValue(error['message']);
+          if (message != null) return message;
         }
       }
     } catch (_) {
@@ -1283,13 +1282,13 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   }
 
   static String _boundedRepairSummary(String value) {
-    final trimmed = value.trim();
+    final trimmed = nullIfBlank(value) ?? '';
     if (trimmed.length <= _toolSequenceRepairSummaryMaxChars) return trimmed;
     return '${trimmed.substring(0, _toolSequenceRepairSummaryMaxChars)}\n$_toolExchangeRepairTruncatedTag';
   }
 
   static String _trimmedField(Map<String, Object?> map, String key) {
-    return '${map[key] ?? ''}'.trim();
+    return stringFromValue(map[key]);
   }
 
   static Map<String, Object?>? _mapFromObject(Object? value) {
@@ -1442,9 +1441,9 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
             return null;
           }
           final functionMap = stringKeyedMapFromValue(function);
-          final id = '${toolCallMap['id'] ?? ''}'.trim();
-          final name = '${functionMap['name'] ?? ''}'.trim();
-          if (id.isEmpty || name.isEmpty) {
+          final id = optionalStringFromValue(toolCallMap['id']);
+          final name = optionalStringFromValue(functionMap['name']);
+          if (id == null || name == null) {
             return null;
           }
           // Some OpenAI-compatible providers return `arguments` already as a
@@ -2766,23 +2765,27 @@ Future<String> _extractOpenAiContentWithMediaSafe(Object? rawContent) async {
 /// Extracts text and non-text content parts (images, audio) from OpenAI-compatible
 /// (images, audio) that some OpenAI-compatible APIs return in assistants.
 Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
-  if (rawContent is String && rawContent.trim().isNotEmpty) {
-    return rawContent.trim();
+  if (rawContent is String) {
+    final text = nullIfBlank(rawContent);
+    if (text != null) return text;
   }
   if (rawContent is List<dynamic>) {
     final buffer = StringBuffer();
     for (final item in rawContent) {
-      if (item is String && item.trim().isNotEmpty) {
+      final itemText = item is String ? nullIfBlank(item) : null;
+      if (itemText != null) {
         if (buffer.isNotEmpty) buffer.writeln();
-        buffer.write(item.trim());
+        buffer.write(itemText);
         continue;
       }
       if (item is! Map<String, Object?>) continue;
-      final type = '${item['type'] ?? ''}'.trim();
+      final type = stringFromValue(item['type']);
       // Text block.
       if (type == 'text' || type.isEmpty) {
-        final text = '${item['text'] ?? item['content'] ?? ''}'.trim();
-        if (text.isNotEmpty) {
+        final text =
+            optionalStringFromValue(item['text']) ??
+            optionalStringFromValue(item['content']);
+        if (text != null) {
           if (buffer.isNotEmpty) buffer.writeln();
           buffer.write(text);
         }
@@ -2792,7 +2795,10 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
       if (type == 'image_url') {
         final imageUrl = item['image_url'];
         if (imageUrl is Map<String, Object?>) {
-          final url = '${imageUrl['url'] ?? ''}'.trim();
+          final url = optionalStringFromValue(imageUrl['url']);
+          if (url == null) {
+            continue;
+          }
           if (url.startsWith('data:')) {
             // data:image/png;base64,...
             final commaIndex = url.indexOf(',');
@@ -2810,7 +2816,7 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
                 buffer.write(md);
               }
             }
-          } else if (url.isNotEmpty) {
+          } else {
             // Remote URL — render directly as markdown image.
             if (buffer.isNotEmpty) buffer.writeln();
             buffer.writeln();
@@ -2839,11 +2845,13 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
       if (type == 'audio') {
         final audioData = item['audio'];
         if (audioData is Map<String, Object?>) {
-          final data = '${audioData['data'] ?? ''}'.trim();
-          if (data.isNotEmpty) {
+          final data = optionalStringFromValue(audioData['data']);
+          if (data != null) {
             final md = await saveInlineMediaToMarkdown(
               AiInlineMedia(mimeType: 'audio/mp3', base64Data: data),
-              label: '${audioData['transcript'] ?? 'AI Audio Response'}',
+              label:
+                  optionalStringFromValue(audioData['transcript']) ??
+                  'AI Audio Response',
             );
             if (md.isNotEmpty) {
               if (buffer.isNotEmpty) buffer.writeln();
@@ -2851,16 +2859,17 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
               buffer.write(md);
             }
           }
-          final url = '${audioData['url'] ?? audioData['audio_url'] ?? ''}'
-              .trim();
-          if (url.isNotEmpty) {
+          final url =
+              optionalStringFromValue(audioData['url']) ??
+              optionalStringFromValue(audioData['audio_url']);
+          if (url != null) {
             if (buffer.isNotEmpty) buffer.writeln();
             buffer.writeln();
             buffer.write('[AI Audio Response]($url)');
           }
           // Include transcript as text if present.
-          final transcript = '${audioData['transcript'] ?? ''}'.trim();
-          if (transcript.isNotEmpty) {
+          final transcript = optionalStringFromValue(audioData['transcript']);
+          if (transcript != null) {
             if (buffer.isNotEmpty) buffer.writeln();
             buffer.write(transcript);
           }
@@ -2882,7 +2891,8 @@ Future<String> _markdownFromOpenAiMediaPayload(
   required String fallbackLabel,
 }) async {
   if (payload is String) {
-    final trimmed = payload.trim();
+    final trimmed = nullIfBlank(payload);
+    if (trimmed == null) return '';
     if (trimmed.startsWith('data:')) {
       final commaIndex = trimmed.indexOf(',');
       if (commaIndex > 0) {
@@ -2904,26 +2914,32 @@ Future<String> _markdownFromOpenAiMediaPayload(
     return '';
   }
   if (payload is! Map<String, Object?>) return '';
-  final data = '${payload['data'] ?? payload['base64'] ?? ''}'.trim();
+  final data =
+      optionalStringFromValue(payload['data']) ??
+      optionalStringFromValue(payload['base64']);
   final mimeType =
-      '${payload['mime_type'] ?? payload['mimeType'] ?? fallbackMimeType}'
-          .trim();
-  final label = '${payload['transcript'] ?? payload['title'] ?? fallbackLabel}'
-      .trim();
-  if (data.isNotEmpty) {
+      optionalStringFromValue(payload['mime_type']) ??
+      optionalStringFromValue(payload['mimeType']) ??
+      fallbackMimeType;
+  final label =
+      optionalStringFromValue(payload['transcript']) ??
+      optionalStringFromValue(payload['title']) ??
+      fallbackLabel;
+  if (data != null) {
     return saveInlineMediaToMarkdown(
       AiInlineMedia(
-        mimeType: mimeType.isEmpty ? fallbackMimeType : mimeType,
+        mimeType: nullIfBlank(mimeType) ?? fallbackMimeType,
         base64Data: data,
       ),
-      label: label.isEmpty ? fallbackLabel : label,
+      label: nullIfBlank(label) ?? fallbackLabel,
     );
   }
   final url =
-      '${payload['url'] ?? payload['video_url'] ?? payload['audio_url'] ?? ''}'
-          .trim();
-  if (url.isNotEmpty) {
-    return '[${sanitizeMarkdownAltText(label.isEmpty ? fallbackLabel : label)}]($url)';
+      optionalStringFromValue(payload['url']) ??
+      optionalStringFromValue(payload['video_url']) ??
+      optionalStringFromValue(payload['audio_url']);
+  if (url != null) {
+    return '[${sanitizeMarkdownAltText(nullIfBlank(label) ?? fallbackLabel)}]($url)';
   }
   return '';
 }
@@ -2933,10 +2949,8 @@ int? _readInt(Object? value) {
 }
 
 bool _containsAny(String value, List<String> candidates) {
-  final normalized = value.trim().toLowerCase();
-  if (normalized.isEmpty) {
-    return false;
-  }
+  final normalized = optionalLowercaseStringFromValue(value);
+  if (normalized == null) return false;
   for (final candidate in candidates) {
     if (normalized.contains(candidate.toLowerCase())) {
       return true;
