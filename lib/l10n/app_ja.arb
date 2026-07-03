@@ -7498,5 +7498,45 @@
   "mediaPreviewNoSource": "メディアソースを利用できません。",
   "@mediaPreviewNoSource": {
     "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorDistributionTitle": "ベクトル分布",
+  "@knowledgeVectorDistributionTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorDistributionLoading": "ベクトルをサンプリングして投影しています。",
+  "@knowledgeVectorDistributionLoading": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorDistributionEmpty": "現在の collection には表示できるベクトルがありません。",
+  "@knowledgeVectorDistributionEmpty": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorProjectionSection": "投影",
+  "@knowledgeVectorProjectionSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorAlgorithm": "アルゴリズム",
+  "@knowledgeVectorAlgorithm": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorOriginalDimensions": "元の次元",
+  "@knowledgeVectorOriginalDimensions": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorVisiblePoints": "表示点数",
+  "@knowledgeVectorVisiblePoints": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorSampled": "サンプリング",
+  "@knowledgeVectorSampled": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorDurationMs": "所要時間 (ms)",
+  "@knowledgeVectorDurationMs": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorResample": "再サンプリング",
+  "@knowledgeVectorResample": {
+    "description": "OpenHand localized UI text."
   }
 }

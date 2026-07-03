@@ -8863,6 +8863,36 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mediaPreviewNoSource => '媒体来源不可用。';
+
+  @override
+  String get knowledgeVectorDistributionTitle => '向量分布';
+
+  @override
+  String get knowledgeVectorDistributionLoading => '正在采样并投影向量。';
+
+  @override
+  String get knowledgeVectorDistributionEmpty => '当前 collection 没有可展示的向量。';
+
+  @override
+  String get knowledgeVectorProjectionSection => '投影说明';
+
+  @override
+  String get knowledgeVectorAlgorithm => '算法';
+
+  @override
+  String get knowledgeVectorOriginalDimensions => '原始维度';
+
+  @override
+  String get knowledgeVectorVisiblePoints => '展示点数';
+
+  @override
+  String get knowledgeVectorSampled => '是否采样';
+
+  @override
+  String get knowledgeVectorDurationMs => '耗时毫秒';
+
+  @override
+  String get knowledgeVectorResample => '重新采样';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -17724,6 +17754,36 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get mediaPreviewNoSource => '媒体来源不可用。';
+
+  @override
+  String get knowledgeVectorDistributionTitle => '向量分布';
+
+  @override
+  String get knowledgeVectorDistributionLoading => '正在采样并投影向量。';
+
+  @override
+  String get knowledgeVectorDistributionEmpty => '当前 collection 没有可展示的向量。';
+
+  @override
+  String get knowledgeVectorProjectionSection => '投影说明';
+
+  @override
+  String get knowledgeVectorAlgorithm => '算法';
+
+  @override
+  String get knowledgeVectorOriginalDimensions => '原始维度';
+
+  @override
+  String get knowledgeVectorVisiblePoints => '展示点数';
+
+  @override
+  String get knowledgeVectorSampled => '是否采样';
+
+  @override
+  String get knowledgeVectorDurationMs => '耗时毫秒';
+
+  @override
+  String get knowledgeVectorResample => '重新采样';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -26581,4 +26641,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mediaPreviewNoSource => '媒體來源不可用。';
+
+  @override
+  String get knowledgeVectorDistributionTitle => '向量分布';
+
+  @override
+  String get knowledgeVectorDistributionLoading => '正在取樣並投影向量。';
+
+  @override
+  String get knowledgeVectorDistributionEmpty => '目前 collection 沒有可展示的向量。';
+
+  @override
+  String get knowledgeVectorProjectionSection => '投影說明';
+
+  @override
+  String get knowledgeVectorAlgorithm => '演算法';
+
+  @override
+  String get knowledgeVectorOriginalDimensions => '原始維度';
+
+  @override
+  String get knowledgeVectorVisiblePoints => '展示點數';
+
+  @override
+  String get knowledgeVectorSampled => '是否取樣';
+
+  @override
+  String get knowledgeVectorDurationMs => '耗時毫秒';
+
+  @override
+  String get knowledgeVectorResample => '重新取樣';
 }

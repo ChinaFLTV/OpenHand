@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
-import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import '../model/knowledge_vector_distribution.dart';
 import 'knowledge_dialog_widgets.dart';
@@ -34,9 +34,9 @@ class _KnowledgeVectorDistributionDialogState
 
   @override
   Widget build(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     return buildOpenHandAlertDialog(
-      title: Text(isZh ? '向量分布' : 'Vector Distribution'),
+      title: Text(l10n.knowledgeVectorDistributionTitle),
       content: buildOpenHandDialogConstrainedContent(
         width: 960,
         maxHeight: MediaQuery.sizeOf(context).height * 0.82,
@@ -52,11 +52,7 @@ class _KnowledgeVectorDistributionDialogState
                     children: [
                       const CircularProgressIndicator(),
                       const SizedBox(height: 14),
-                      Text(
-                        isZh
-                            ? '正在采样并投影向量。'
-                            : 'Sampling and projecting vectors.',
-                      ),
+                      Text(l10n.knowledgeVectorDistributionLoading),
                     ],
                   ),
                 ),
@@ -73,9 +69,7 @@ class _KnowledgeVectorDistributionDialogState
             if (distribution == null || distribution.isEmpty) {
               return KnowledgeDialogNotice(
                 icon: Icons.info_outline_rounded,
-                message: isZh
-                    ? '当前 collection 没有可展示的向量。'
-                    : 'The current collection has no vectors to display.',
+                message: l10n.knowledgeVectorDistributionEmpty,
               );
             }
             return SingleChildScrollView(
@@ -88,19 +82,19 @@ class _KnowledgeVectorDistributionDialogState
                   ),
                   const SizedBox(height: 12),
                   KnowledgeDialogSection(
-                    title: isZh ? '投影说明' : 'Projection',
+                    title: l10n.knowledgeVectorProjectionSection,
                     icon: Icons.account_tree_outlined,
                     margin: EdgeInsets.zero,
                     child: KnowledgeDialogKeyValueList(
                       rows: {
-                        isZh ? '算法' : 'Algorithm': distribution.algorithm,
-                        isZh ? '原始维度' : 'Original dimensions':
+                        l10n.knowledgeVectorAlgorithm: distribution.algorithm,
+                        l10n.knowledgeVectorOriginalDimensions:
                             distribution.originalDimensions,
-                        isZh ? '展示点数' : 'Visible points':
+                        l10n.knowledgeVectorVisiblePoints:
                             distribution.points.length,
-                        isZh ? '是否采样' : 'Sampled': distribution.hasMore,
+                        l10n.knowledgeVectorSampled: distribution.hasMore,
                         if (distribution.durationMs != null)
-                          isZh ? '耗时毫秒' : 'Duration ms':
+                          l10n.knowledgeVectorDurationMs:
                               distribution.durationMs,
                       },
                     ),
@@ -119,11 +113,11 @@ class _KnowledgeVectorDistributionDialogState
             });
           },
           icon: Icons.refresh_rounded,
-          label: isZh ? '重新采样' : 'Resample',
+          label: l10n.knowledgeVectorResample,
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          label: isZh ? '关闭' : 'Close',
+          label: l10n.commonClose,
         ),
       ],
     );

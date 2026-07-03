@@ -9182,4 +9182,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mediaPreviewNoSource => 'Media source is unavailable.';
+
+  @override
+  String get knowledgeVectorDistributionTitle => 'Vector Distribution';
+
+  @override
+  String get knowledgeVectorDistributionLoading =>
+      'Sampling and projecting vectors.';
+
+  @override
+  String get knowledgeVectorDistributionEmpty =>
+      'The current collection has no vectors to display.';
+
+  @override
+  String get knowledgeVectorProjectionSection => 'Projection';
+
+  @override
+  String get knowledgeVectorAlgorithm => 'Algorithm';
+
+  @override
+  String get knowledgeVectorOriginalDimensions => 'Original dimensions';
+
+  @override
+  String get knowledgeVectorVisiblePoints => 'Visible points';
+
+  @override
+  String get knowledgeVectorSampled => 'Sampled';
+
+  @override
+  String get knowledgeVectorDurationMs => 'Duration ms';
+
+  @override
+  String get knowledgeVectorResample => 'Resample';
 }

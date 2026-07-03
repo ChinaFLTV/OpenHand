@@ -7498,5 +7498,45 @@
   "mediaPreviewNoSource": "La source média est indisponible.",
   "@mediaPreviewNoSource": {
     "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorDistributionTitle": "Distribution des vecteurs",
+  "@knowledgeVectorDistributionTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorDistributionLoading": "Échantillonnage et projection des vecteurs.",
+  "@knowledgeVectorDistributionLoading": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorDistributionEmpty": "La collection actuelle n’a aucun vecteur à afficher.",
+  "@knowledgeVectorDistributionEmpty": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorProjectionSection": "Projection",
+  "@knowledgeVectorProjectionSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorAlgorithm": "Algorithme",
+  "@knowledgeVectorAlgorithm": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorOriginalDimensions": "Dimensions originales",
+  "@knowledgeVectorOriginalDimensions": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorVisiblePoints": "Points visibles",
+  "@knowledgeVectorVisiblePoints": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorSampled": "Échantillonné",
+  "@knowledgeVectorSampled": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorDurationMs": "Durée (ms)",
+  "@knowledgeVectorDurationMs": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorResample": "Rééchantillonner",
+  "@knowledgeVectorResample": {
+    "description": "OpenHand localized UI text."
   }
 }

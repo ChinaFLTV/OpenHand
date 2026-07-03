@@ -9273,4 +9273,36 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get mediaPreviewNoSource => 'Medienquelle ist nicht verfügbar.';
+
+  @override
+  String get knowledgeVectorDistributionTitle => 'Vektorverteilung';
+
+  @override
+  String get knowledgeVectorDistributionLoading =>
+      'Vektoren werden abgetastet und projiziert.';
+
+  @override
+  String get knowledgeVectorDistributionEmpty =>
+      'Die aktuelle Collection enthält keine anzeigbaren Vektoren.';
+
+  @override
+  String get knowledgeVectorProjectionSection => 'Projektion';
+
+  @override
+  String get knowledgeVectorAlgorithm => 'Algorithmus';
+
+  @override
+  String get knowledgeVectorOriginalDimensions => 'Ursprüngliche Dimensionen';
+
+  @override
+  String get knowledgeVectorVisiblePoints => 'Sichtbare Punkte';
+
+  @override
+  String get knowledgeVectorSampled => 'Abgetastet';
+
+  @override
+  String get knowledgeVectorDurationMs => 'Dauer (ms)';
+
+  @override
+  String get knowledgeVectorResample => 'Neu abtasten';
 }

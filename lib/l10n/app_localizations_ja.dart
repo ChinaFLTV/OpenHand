@@ -8964,4 +8964,35 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get mediaPreviewNoSource => 'メディアソースを利用できません。';
+
+  @override
+  String get knowledgeVectorDistributionTitle => 'ベクトル分布';
+
+  @override
+  String get knowledgeVectorDistributionLoading => 'ベクトルをサンプリングして投影しています。';
+
+  @override
+  String get knowledgeVectorDistributionEmpty =>
+      '現在の collection には表示できるベクトルがありません。';
+
+  @override
+  String get knowledgeVectorProjectionSection => '投影';
+
+  @override
+  String get knowledgeVectorAlgorithm => 'アルゴリズム';
+
+  @override
+  String get knowledgeVectorOriginalDimensions => '元の次元';
+
+  @override
+  String get knowledgeVectorVisiblePoints => '表示点数';
+
+  @override
+  String get knowledgeVectorSampled => 'サンプリング';
+
+  @override
+  String get knowledgeVectorDurationMs => '所要時間 (ms)';
+
+  @override
+  String get knowledgeVectorResample => '再サンプリング';
 }

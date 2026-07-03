@@ -7500,5 +7500,45 @@
   "mediaPreviewNoSource": "媒體來源不可用。",
   "@mediaPreviewNoSource": {
     "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorDistributionTitle": "向量分布",
+  "@knowledgeVectorDistributionTitle": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorDistributionLoading": "正在取樣並投影向量。",
+  "@knowledgeVectorDistributionLoading": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorDistributionEmpty": "目前 collection 沒有可展示的向量。",
+  "@knowledgeVectorDistributionEmpty": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorProjectionSection": "投影說明",
+  "@knowledgeVectorProjectionSection": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorAlgorithm": "演算法",
+  "@knowledgeVectorAlgorithm": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorOriginalDimensions": "原始維度",
+  "@knowledgeVectorOriginalDimensions": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorVisiblePoints": "展示點數",
+  "@knowledgeVectorVisiblePoints": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorSampled": "是否取樣",
+  "@knowledgeVectorSampled": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorDurationMs": "耗時毫秒",
+  "@knowledgeVectorDurationMs": {
+    "description": "OpenHand localized UI text."
+  },
+  "knowledgeVectorResample": "重新取樣",
+  "@knowledgeVectorResample": {
+    "description": "OpenHand localized UI text."
   }
 }

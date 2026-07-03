@@ -16324,6 +16324,66 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'媒体来源不可用。'**
   String get mediaPreviewNoSource;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'向量分布'**
+  String get knowledgeVectorDistributionTitle;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在采样并投影向量。'**
+  String get knowledgeVectorDistributionLoading;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前 collection 没有可展示的向量。'**
+  String get knowledgeVectorDistributionEmpty;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'投影说明'**
+  String get knowledgeVectorProjectionSection;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'算法'**
+  String get knowledgeVectorAlgorithm;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'原始维度'**
+  String get knowledgeVectorOriginalDimensions;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'展示点数'**
+  String get knowledgeVectorVisiblePoints;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'是否采样'**
+  String get knowledgeVectorSampled;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'耗时毫秒'**
+  String get knowledgeVectorDurationMs;
+
+  /// OpenHand localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重新采样'**
+  String get knowledgeVectorResample;
 }
 
 class _AppLocalizationsDelegate

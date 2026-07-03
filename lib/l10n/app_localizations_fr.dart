@@ -9308,4 +9308,36 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get mediaPreviewNoSource => 'La source média est indisponible.';
+
+  @override
+  String get knowledgeVectorDistributionTitle => 'Distribution des vecteurs';
+
+  @override
+  String get knowledgeVectorDistributionLoading =>
+      'Échantillonnage et projection des vecteurs.';
+
+  @override
+  String get knowledgeVectorDistributionEmpty =>
+      'La collection actuelle n’a aucun vecteur à afficher.';
+
+  @override
+  String get knowledgeVectorProjectionSection => 'Projection';
+
+  @override
+  String get knowledgeVectorAlgorithm => 'Algorithme';
+
+  @override
+  String get knowledgeVectorOriginalDimensions => 'Dimensions originales';
+
+  @override
+  String get knowledgeVectorVisiblePoints => 'Points visibles';
+
+  @override
+  String get knowledgeVectorSampled => 'Échantillonné';
+
+  @override
+  String get knowledgeVectorDurationMs => 'Durée (ms)';
+
+  @override
+  String get knowledgeVectorResample => 'Rééchantillonner';
 }
