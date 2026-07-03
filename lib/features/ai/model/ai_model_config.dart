@@ -59,15 +59,19 @@ class AiModelLinksMetadata {
   const AiModelLinksMetadata({this.details});
 
   factory AiModelLinksMetadata.fromJson(Map<String, Object?> json) {
-    return AiModelLinksMetadata(details: json['details'] as String?);
+    return AiModelLinksMetadata(
+      details: optionalStringFromValue(json['details']),
+    );
   }
 
   final String? details;
 
-  bool get isEmpty => details == null || details!.trim().isEmpty;
+  bool get isEmpty => nullIfBlank(details) == null;
 
   Map<String, Object?> toJson() {
-    return <String, Object?>{if (details != null) 'details': details};
+    final json = <String, Object?>{};
+    putIfNotBlank(json, 'details', details);
+    return json;
   }
 }
 
@@ -1206,13 +1210,7 @@ class AiModelConfig {
   static const String _officialWebsiteUrlJsonKey = 'official_website_url';
 
   static List<String> normalizeModelIds(Iterable<String> values) {
-    final normalized = <String>{};
-    for (final value in values) {
-      final trimmed = value.trim();
-      if (trimmed.isNotEmpty) {
-        normalized.add(trimmed);
-      }
-    }
+    final normalized = trimmedNonEmptyStrings(values).toSet();
     final sorted = normalized.toList()..sort();
     return sorted.toList(growable: false);
   }
@@ -1574,34 +1572,26 @@ class AiModelConfig {
   }
 
   String? capabilityStatusFor(AiApiFamily family) {
-    final status = capabilityOverrides[family]?.trim();
-    return status == null || status.isEmpty ? null : status;
+    return nullIfBlank(capabilityOverrides[family]);
   }
 
   /// Short display label for the provider.
   /// Prefers the user-defined [name]; falls back to the base URL host;
   /// falls back to the protocol type.
   String get providerLabel {
-    final trimmedName = name.trim();
-    if (trimmedName.isNotEmpty) return trimmedName;
-    final host = Uri.tryParse(normalizedBaseUrl)?.host ?? normalizedBaseUrl;
-    if (host.isEmpty) {
-      return protocolType.storageValue.toUpperCase();
-    }
-    return host;
+    final trimmedName = nullIfBlank(name);
+    if (trimmedName != null) return trimmedName;
+    final host = nullIfBlank(Uri.tryParse(normalizedBaseUrl)?.host);
+    return host ?? protocolType.storageValue.toUpperCase();
   }
 
   String get displayName {
-    final trimmedModelId = modelId.trim();
-    if (trimmedModelId.isNotEmpty) {
-      return trimmedModelId;
-    }
-    return protocolType.storageValue.toUpperCase();
+    return nullIfBlank(modelId) ?? protocolType.storageValue.toUpperCase();
   }
 
   String get maskedToken {
-    final trimmedToken = token.trim();
-    if (trimmedToken.isEmpty) {
+    final trimmedToken = nullIfBlank(token);
+    if (trimmedToken == null) {
       return '';
     }
     if (trimmedToken.length <= 8) {
@@ -1614,11 +1604,12 @@ class AiModelConfig {
   /// Returns a deduplicated, sorted list merging [availableModelIds] and
   /// the current [modelId] (if non-empty).
   List<String> get allModelIds {
-    final trimmedModelId = modelId.trim();
+    final normalizedModelId = nullIfBlank(modelId);
+    final normalizedTitleModelId = nullIfBlank(defaultTitleModelId);
     return normalizeModelIds(<String>[
       ...availableModelIds,
-      if (trimmedModelId.isNotEmpty) trimmedModelId,
-      if (defaultTitleModelId.trim().isNotEmpty) defaultTitleModelId.trim(),
+      if (normalizedModelId != null) normalizedModelId,
+      if (normalizedTitleModelId != null) normalizedTitleModelId,
     ]);
   }
 
@@ -1703,11 +1694,12 @@ class AiModelConfig {
     final endpointOverridesJson = aiEndpointOverridesToJson(endpointOverrides);
     final capabilityOverridesJson = <String, Object?>{};
     for (final entry in capabilityOverrides.entries) {
-      final value = entry.value.trim();
-      if (value.isNotEmpty) {
+      final value = nullIfBlank(entry.value);
+      if (value != null) {
         capabilityOverridesJson[entry.key.storageValue] = value;
       }
     }
+    final normalizedDefaultTitleModelId = nullIfBlank(defaultTitleModelId);
     return <String, Object?>{
       'id': id,
       'name': name,
@@ -1725,8 +1717,8 @@ class AiModelConfig {
         _explicitPromptCacheEnabledJsonKey: effectiveExplicitPromptCacheEnabled,
       'max_context_tokens': maxContextTokens,
       'available_model_ids': normalizeModelIds(availableModelIds),
-      if (defaultTitleModelId.trim().isNotEmpty)
-        'default_title_model_id': defaultTitleModelId.trim(),
+      if (normalizedDefaultTitleModelId != null)
+        'default_title_model_id': normalizedDefaultTitleModelId,
       if (isGlobalDefaultTitleModel) 'is_global_default_title_model': true,
       'custom_headers': customHeaders,
       'request_method': requestMethod,
@@ -1746,18 +1738,16 @@ class AiModelConfig {
   }
 
   static String _normalizeBaseUrl(String value) {
-    final trimmedValue = value.trim();
-    if (trimmedValue.isEmpty) {
-      return '';
-    }
+    final trimmedValue = nullIfBlank(value);
+    if (trimmedValue == null) return '';
     return trimmedValue.endsWith('/')
         ? trimmedValue.substring(0, trimmedValue.length - 1)
         : trimmedValue;
   }
 
   static Uri? _parseOfficialWebsiteUri(String value) {
-    final trimmedValue = value.trim();
-    if (trimmedValue.isEmpty ||
+    final trimmedValue = nullIfBlank(value);
+    if (trimmedValue == null ||
         _officialWebsiteWhitespacePattern.hasMatch(trimmedValue)) {
       return null;
     }
@@ -1769,7 +1759,7 @@ class AiModelConfig {
     if (scheme != 'http' && scheme != 'https') {
       return null;
     }
-    if (uri.host.trim().isEmpty || uri.userInfo.trim().isNotEmpty) {
+    if (nullIfBlank(uri.host) == null || nullIfBlank(uri.userInfo) != null) {
       return null;
     }
     return uri.scheme == scheme ? uri : uri.replace(scheme: scheme);
@@ -1785,7 +1775,9 @@ class AiModelConfig {
       'website_url',
       'official_url',
     ]) {
-      final normalized = _normalizeOfficialWebsiteUrl('${json[key] ?? ''}');
+      final normalized = _normalizeOfficialWebsiteUrl(
+        stringFromValue(json[key]),
+      );
       if (normalized.isNotEmpty) {
         return normalized;
       }
@@ -1821,23 +1813,15 @@ class AiModelConfig {
       return const <String>[];
     }
     if (value is List) {
-      return normalizeModelIds(<String>[
-        for (final item in value)
-          if ('$item'.trim().isNotEmpty) '$item'.trim(),
-      ]);
+      return normalizeModelIds(trimmedNonEmptyStrings(value));
     }
     if (value is String) {
-      final trimmed = value.trim();
-      if (trimmed.isEmpty) {
-        return const <String>[];
-      }
+      final trimmed = nullIfBlank(value);
+      if (trimmed == null) return const <String>[];
       try {
         final decoded = jsonDecode(trimmed);
         if (decoded is List) {
-          return normalizeModelIds(<String>[
-            for (final item in decoded)
-              if ('$item'.trim().isNotEmpty) '$item'.trim(),
-          ]);
+          return normalizeModelIds(trimmedNonEmptyStrings(decoded));
         }
       } catch (_) {
         // Not valid JSON — ignore.
@@ -1862,10 +1846,8 @@ class AiModelConfig {
       return result;
     }
     if (value is String) {
-      final trimmed = value.trim();
-      if (trimmed.isEmpty) {
-        return const <String, String>{};
-      }
+      final trimmed = nullIfBlank(value);
+      if (trimmed == null) return const <String, String>{};
       try {
         final decoded = jsonDecode(trimmed);
         if (decoded is Map) {
@@ -1883,7 +1865,7 @@ class AiModelConfig {
   }
 
   static String _parseRequestMethod(Object? value) {
-    final raw = '${value ?? ''}'.trim().toUpperCase();
+    final raw = stringFromValue(value).toUpperCase();
     if (raw.isEmpty) return 'POST';
     return raw;
   }
@@ -1894,8 +1876,8 @@ class AiModelConfig {
     if (value is Map) {
       map = stringKeyedMapFromValue(value);
     } else if (value is String) {
-      final trimmed = value.trim();
-      if (trimmed.isEmpty) return const <String, AiModelProfile>{};
+      final trimmed = nullIfBlank(value);
+      if (trimmed == null) return const <String, AiModelProfile>{};
       try {
         final decoded = jsonDecode(trimmed);
         if (decoded is Map) {
@@ -1936,8 +1918,8 @@ class AiModelConfig {
       return Map<String, Object?>.of(stringKeyedMapFromValue(value));
     }
     if (value is String) {
-      final trimmed = value.trim();
-      if (trimmed.isEmpty) return const <String, Object?>{};
+      final trimmed = nullIfBlank(value);
+      if (trimmed == null) return const <String, Object?>{};
       try {
         final decoded = jsonDecode(trimmed);
         if (decoded is Map) {
