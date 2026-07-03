@@ -121,12 +121,19 @@ export function useAsyncPolling(
     };
 
     if (typeof window === 'undefined') {
+      let immediateController: AbortController | null = null;
       if (immediate) {
         const controller = new AbortController();
-        void runTask(() => !stopped && !controller.signal.aborted, controller.signal);
+        immediateController = controller;
+        void runTask(
+          () => !stopped && !controller.signal.aborted,
+          controller.signal,
+        );
       }
       return () => {
         stopped = true;
+        immediateController?.abort();
+        immediateController = null;
       };
     }
 
