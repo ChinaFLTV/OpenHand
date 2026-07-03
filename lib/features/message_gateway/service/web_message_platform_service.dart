@@ -2765,8 +2765,7 @@ class WebMessagePlatformService {
     }
 
     if (hasFullAccess) {
-      final raw = body['full_access_permission'];
-      final enabled = raw == true || raw == 'true' || raw == 1 || raw == '1';
+      final enabled = boolFromValue(body['full_access_permission']);
       final updatedPermission = await _sessionController
           .updateSessionFullAccessPermission(session.id, enabled);
       ok = ok && updatedPermission;
@@ -3271,8 +3270,8 @@ class WebMessagePlatformService {
       });
     }
     final allowQueuedGoalInterruption =
-        body['allow_queued_goal_interruption'] == true ||
-        body['allowQueuedGoalInterruption'] == true;
+        boolFromValue(body['allow_queued_goal_interruption']) ||
+        boolFromValue(body['allowQueuedGoalInterruption']);
     if (session.hasActiveGoal && !allowQueuedGoalInterruption) {
       await _deleteMaterializedAttachments(attachments);
       return _json(HttpStatus.conflict, <String, Object?>{
@@ -3809,7 +3808,7 @@ class WebMessagePlatformService {
     final body = await _readJsonBody(request);
     final rawHasPending =
         body['has_pending'] ?? body['hasPending'] ?? body['pending'];
-    final hasPendingQueue = rawHasPending == true || rawHasPending == 'true';
+    final hasPendingQueue = boolFromValue(rawHasPending);
     _setQueuedGoalInterruption(
       auth: auth,
       sessionId: session.id,
