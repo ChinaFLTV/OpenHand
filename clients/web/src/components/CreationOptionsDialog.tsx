@@ -85,8 +85,10 @@ function trimToUndefined(value: string): string | undefined {
 }
 
 function positiveIntFromText(value: string): number | undefined {
-  const parsed = Number.parseInt(value.trim(), 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  const trimmed = value.trim();
+  if (!/^[1-9]\d*$/.test(trimmed)) return undefined;
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
 
 interface ChipGroupProps<T extends string | number> {
