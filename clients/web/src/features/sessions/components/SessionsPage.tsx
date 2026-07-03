@@ -40,6 +40,7 @@ import { BusyWaitDialog } from '../../../components/BusyWaitDialog';
 import { AnimatedTitleText } from '../../../components/AnimatedTitleText';
 
 const DEFAULT_PAGE_SIZE = 10;
+const PULL_REFRESH_MIN_VISIBLE_MS = 180;
 
 function formatTimestamp(iso: string): string {
   try {
@@ -333,7 +334,9 @@ export function SessionsPage() {
     onRefresh: async () => {
       await new Promise<void>((resolve) => {
         // refresh() 内部用 abort + Promise，调用即触发；用 setTimeout 给一个最小可见时长。
-        void refresh(page).finally(() => setTimeout(resolve, 180));
+        void refresh(page).finally(() =>
+          setTimeout(resolve, PULL_REFRESH_MIN_VISIBLE_MS),
+        );
       });
     },
     activationDistance: 80,

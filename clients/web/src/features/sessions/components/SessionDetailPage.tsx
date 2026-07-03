@@ -177,6 +177,8 @@ const AUTO_FOLLOW_SETTLE_STABLE_FRAMES = 4;
 const AUTO_FOLLOW_SETTLE_EPSILON_PX = 0.75;
 const COMPOSER_LAYOUT_TRANSITION_GUARD_MS = 440;
 const KNOWLEDGE_USAGE_PREVIEW_MAX_CHARS = 420;
+const COMPOSER_INSTRUCTION_HOVER_PREVIEW_DELAY_MS = 480;
+const COMPOSER_EDIT_FOCUS_DELAY_MS = 0;
 
 // 助手回复期间的轮询间隔。仅作为 SSE 失败时的兜底；正常路径走 SSE 实时推送。
 const POLL_INTERVAL_MS = 1500;
@@ -1462,7 +1464,7 @@ function ComposerInstructionsStrip({ entries, skipped, disabled, onToggle, onRes
     hoverTimerRef.current = window.setTimeout(() => {
       hoverTimerRef.current = null;
       setHoverEntry({ entry, rect: target.getBoundingClientRect() });
-    }, 480);
+    }, COMPOSER_INSTRUCTION_HOVER_PREVIEW_DELAY_MS);
   }
 
   return (
@@ -3171,7 +3173,10 @@ export function SessionDetailPage() {
     setAttachmentPreviews([]);
     void restoreSelectedSkillForEdit(m);
     void restoreAttachmentsForEdit(m);
-    window.setTimeout(() => composerTextareaRef.current?.focus(), 0);
+    window.setTimeout(
+      () => composerTextareaRef.current?.focus(),
+      COMPOSER_EDIT_FOCUS_DELAY_MS,
+    );
     scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
   });
   const handleAuditMessage = useCallback((m: SessionMessage) => {
