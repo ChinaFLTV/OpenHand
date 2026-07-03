@@ -327,10 +327,7 @@ class McpKeywordIndexService {
     if (raw == null) return null;
     if (raw is String) return raw.trim().isEmpty ? null : raw;
     if (raw is List) {
-      final joined = raw
-          .whereType<String>()
-          .where((e) => e.trim().isNotEmpty)
-          .join(' ');
+      final joined = trimmedNonEmptyStrings(raw.whereType<String>()).join(' ');
       return joined.isEmpty ? null : joined;
     }
     return null;

@@ -267,12 +267,14 @@ class AiCodebaseSearchTool extends AiTool {
     };
 
     // Split on non-alphanumeric characters (keeping CJK, underscores)
-    final words = query
-        .replaceAll(RegExp(r'[^\w\u4e00-\u9fff]+'), ' ')
-        .split(RegExp(r'\s+'))
-        .map((w) => w.trim())
-        .where((w) => w.length >= 2 && !stopWords.contains(w.toLowerCase()))
-        .toList(growable: false);
+    final words =
+        trimmedNonEmptyStrings(
+              query
+                  .replaceAll(RegExp(r'[^\w\u4e00-\u9fff]+'), ' ')
+                  .split(RegExp(r'\s+')),
+            )
+            .where((w) => w.length >= 2 && !stopWords.contains(w.toLowerCase()))
+            .toList(growable: false);
 
     // Also extract camelCase/snake_case fragments
     final fragments = <String>[];

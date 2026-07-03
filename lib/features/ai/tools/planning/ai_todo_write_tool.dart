@@ -39,11 +39,9 @@ class AiTodoWriteTool extends AiTool {
       );
     }
     final normalizedTodos = <Map<String, Object?>>[];
-    final providedIds = todos
-        .whereType<Map>()
-        .map((todo) => '${todo['id'] ?? ''}'.trim())
-        .where((id) => id.isNotEmpty)
-        .toSet();
+    final providedIds = trimmedNonEmptyStrings(
+      todos.whereType<Map>().map((todo) => todo['id']),
+    ).toSet();
     final seenIds = <String>{};
     var inProgressCount = 0;
     for (var todoIndex = 0; todoIndex < todos.length; todoIndex++) {
