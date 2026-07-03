@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../shared/util/input_value_parsing.dart';
+
 abstract final class OpenHandPaths {
   static const String defaultSkillsDirectoryLabel = '~/.openhand/skills';
   static const String defaultLspDirectoryLabel = '~/.openhand/lsp';
@@ -20,22 +22,19 @@ abstract final class OpenHandPaths {
   static const String defaultRootDirectoryLabel = '~/.openhand';
 
   static String homeDirectoryPath() {
-    final home = Platform.environment['HOME'];
-    if (home != null && home.trim().isNotEmpty) {
+    final home = nullIfBlank(Platform.environment['HOME']);
+    if (home != null) {
       return _normalizeHomePath(home);
     }
 
-    final userProfile = Platform.environment['USERPROFILE'];
-    if (userProfile != null && userProfile.trim().isNotEmpty) {
+    final userProfile = nullIfBlank(Platform.environment['USERPROFILE']);
+    if (userProfile != null) {
       return _normalizeHomePath(userProfile);
     }
 
-    final homeDrive = Platform.environment['HOMEDRIVE'];
-    final homePath = Platform.environment['HOMEPATH'];
-    if (homeDrive != null &&
-        homePath != null &&
-        homeDrive.isNotEmpty &&
-        homePath.isNotEmpty) {
+    final homeDrive = nullIfBlank(Platform.environment['HOMEDRIVE']);
+    final homePath = nullIfBlank(Platform.environment['HOMEPATH']);
+    if (homeDrive != null && homePath != null) {
       return _normalizeHomePath('$homeDrive$homePath');
     }
 
@@ -133,25 +132,22 @@ abstract final class OpenHandPaths {
   }
 
   static String normalizeOptionalPath(String? rawPath) {
-    if (rawPath == null || rawPath.trim().isEmpty) {
+    final trimmed = nullIfBlank(rawPath);
+    if (trimmed == null) {
       return '';
     }
-    final trimmed = rawPath.trim();
-    if (trimmed == '~') {
-      return homeDirectoryPath();
-    }
-    if (trimmed.startsWith('~/') || trimmed.startsWith(r'~\')) {
-      return p.normalize(p.join(homeDirectoryPath(), trimmed.substring(2)));
-    }
-    return p.normalize(trimmed);
+    return _normalizeExpandedPath(trimmed);
   }
 
   static String normalizePath(String? rawPath, {required String defaultPath}) {
-    if (rawPath == null || rawPath.trim().isEmpty) {
+    final trimmed = nullIfBlank(rawPath);
+    if (trimmed == null) {
       return defaultPath;
     }
+    return _normalizeExpandedPath(trimmed);
+  }
 
-    final trimmed = rawPath.trim();
+  static String _normalizeExpandedPath(String trimmed) {
     if (trimmed == '~') {
       return homeDirectoryPath();
     }

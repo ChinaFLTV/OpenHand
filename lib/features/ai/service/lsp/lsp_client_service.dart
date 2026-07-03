@@ -468,9 +468,10 @@ class AiLspClientService {
         rootPath: rootPath,
       );
     }
-    final configuredRoot = configuredSettings?.rootPath.trim() ?? '';
-    final configuredSdk = configuredSettings?.sdkPath.trim() ?? '';
-    if (configuredRoot.isNotEmpty) {
+    final configuredRoot = nullIfBlank(configuredSettings?.rootPath);
+    final configuredSdk = nullIfBlank(configuredSettings?.sdkPath);
+    final configuredVersion = nullIfBlank(configuredSettings?.version);
+    if (configuredRoot != null) {
       final configuredExecutablePath = _resolveExecutablePathFromConfiguredRoot(
         executable: candidate.executable,
         configuredRoot: configuredRoot,
@@ -485,8 +486,8 @@ class AiLspClientService {
           executable: candidate.executable,
           executablePath: configuredExecutablePath,
           configuredInstallRoot: configuredRoot,
-          configuredVersion: configuredSettings?.version.trim(),
-          configuredSdkPath: configuredSdk.isNotEmpty ? configuredSdk : null,
+          configuredVersion: configuredVersion,
+          configuredSdkPath: configuredSdk,
           arguments: candidate.arguments,
         );
       }
@@ -498,8 +499,8 @@ class AiLspClientService {
         displayName: candidate.displayName,
         executable: candidate.executable,
         configuredInstallRoot: configuredRoot,
-        configuredVersion: configuredSettings?.version.trim(),
-        configuredSdkPath: configuredSdk.isNotEmpty ? configuredSdk : null,
+        configuredVersion: configuredVersion,
+        configuredSdkPath: configuredSdk,
         arguments: candidate.arguments,
       );
     }
@@ -512,7 +513,8 @@ class AiLspClientService {
         backendId: candidate.id,
         displayName: candidate.displayName,
         executable: candidate.executable,
-        configuredSdkPath: configuredSdk.isNotEmpty ? configuredSdk : null,
+        configuredVersion: configuredVersion,
+        configuredSdkPath: configuredSdk,
         arguments: candidate.arguments,
       );
     }
@@ -524,9 +526,9 @@ class AiLspClientService {
       displayName: candidate.displayName,
       executable: candidate.executable,
       executablePath: executablePath,
-      configuredInstallRoot: configuredSettings?.rootPath.trim(),
-      configuredVersion: configuredSettings?.version.trim(),
-      configuredSdkPath: configuredSdk.isNotEmpty ? configuredSdk : null,
+      configuredInstallRoot: configuredRoot,
+      configuredVersion: configuredVersion,
+      configuredSdkPath: configuredSdk,
       arguments: candidate.arguments,
     );
   }
@@ -580,18 +582,10 @@ class AiLspClientService {
     AiLspLanguageSettings override,
   ) {
     return AiLspLanguageSettings(
-      backendId: override.backendId.trim().isNotEmpty
-          ? override.backendId.trim()
-          : base.backendId,
-      rootPath: override.rootPath.trim().isNotEmpty
-          ? override.rootPath.trim()
-          : base.rootPath,
-      sdkPath: override.sdkPath.trim().isNotEmpty
-          ? override.sdkPath.trim()
-          : base.sdkPath,
-      version: override.version.trim().isNotEmpty
-          ? override.version.trim()
-          : base.version,
+      backendId: nullIfBlank(override.backendId) ?? base.backendId,
+      rootPath: nullIfBlank(override.rootPath) ?? base.rootPath,
+      sdkPath: nullIfBlank(override.sdkPath) ?? base.sdkPath,
+      version: nullIfBlank(override.version) ?? base.version,
     );
   }
 
@@ -869,8 +863,8 @@ class AiLspClientService {
     required String query,
     String? language,
   }) async {
-    final trimmedQuery = query.trim();
-    if (trimmedQuery.isEmpty) {
+    final trimmedQuery = nullIfBlank(query);
+    if (trimmedQuery == null) {
       return const <AiLspWorkspaceSymbol>[];
     }
     final backend = await resolveBackendForFile(
@@ -1130,8 +1124,8 @@ class AiLspClientService {
     String? preferredBackendId,
   }) {
     final normalized = normalizeAiLspLanguage(language);
-    final trimmedPreferredBackendId = preferredBackendId?.trim() ?? '';
-    if (trimmedPreferredBackendId.isNotEmpty) {
+    final trimmedPreferredBackendId = nullIfBlank(preferredBackendId);
+    if (trimmedPreferredBackendId != null) {
       final preferred = aiLspBackendById(trimmedPreferredBackendId);
       if (preferred != null && preferred.languages.contains(normalized)) {
         return preferred;
@@ -1148,8 +1142,8 @@ class AiLspClientService {
     required String executable,
     required String configuredRoot,
   }) {
-    final trimmedRoot = configuredRoot.trim();
-    if (trimmedRoot.isEmpty) {
+    final trimmedRoot = nullIfBlank(configuredRoot);
+    if (trimmedRoot == null) {
       return null;
     }
 
@@ -1504,11 +1498,14 @@ class AiLspClientService {
     if (raw is! Map<String, Object?>) {
       return null;
     }
-    final command = raw['command']?.toString();
-    if (command == null || command.trim().isEmpty) {
+    final command = nullIfBlank(raw['command']?.toString());
+    if (command == null) {
       return null;
     }
-    final title = raw['title']?.toString() ?? fallbackTitle ?? command;
+    final title =
+        nullIfBlank(raw['title']?.toString()) ??
+        nullIfBlank(fallbackTitle) ??
+        command;
     final arguments = raw['arguments'] is List
         ? List<Object?>.unmodifiable(raw['arguments'] as List)
         : const <Object?>[];
@@ -1519,9 +1516,9 @@ class AiLspClientService {
     if (raw is! Map<String, Object?>) {
       return null;
     }
-    final title = raw['title']?.toString();
+    final title = nullIfBlank(raw['title']?.toString());
     final directCommand = _parseCommand(raw, fallbackTitle: title);
-    if (title == null || title.trim().isEmpty) {
+    if (title == null) {
       return directCommand == null
           ? null
           : AiLspCodeAction(title: directCommand.title, command: directCommand);
@@ -1961,7 +1958,7 @@ class _AiLspSession {
     bool isRetrigger = false,
   }) async {
     touch();
-    final trimmedTriggerCharacter = triggerCharacter?.trim();
+    final trimmedTriggerCharacter = nullIfBlank(triggerCharacter);
     return _sendRequest('textDocument/completion', <String, Object?>{
       'textDocument': <String, Object?>{'uri': Uri.file(filePath).toString()},
       'position': <String, Object?>{
@@ -1969,12 +1966,10 @@ class _AiLspSession {
         'character': character - 1,
       },
       'context': <String, Object?>{
-        'triggerKind':
-            trimmedTriggerCharacter == null || trimmedTriggerCharacter.isEmpty
+        'triggerKind': trimmedTriggerCharacter == null
             ? 1
             : (isRetrigger ? 3 : 2),
-        if (trimmedTriggerCharacter != null &&
-            trimmedTriggerCharacter.isNotEmpty)
+        if (trimmedTriggerCharacter != null)
           'triggerCharacter': trimmedTriggerCharacter,
       },
     });
@@ -1988,7 +1983,7 @@ class _AiLspSession {
     bool isRetrigger = false,
   }) async {
     touch();
-    final trimmedTriggerCharacter = triggerCharacter?.trim();
+    final trimmedTriggerCharacter = nullIfBlank(triggerCharacter);
     return _sendRequest('textDocument/signatureHelp', <String, Object?>{
       'textDocument': <String, Object?>{'uri': Uri.file(filePath).toString()},
       'position': <String, Object?>{
@@ -1996,12 +1991,10 @@ class _AiLspSession {
         'character': character - 1,
       },
       'context': <String, Object?>{
-        'triggerKind':
-            trimmedTriggerCharacter == null || trimmedTriggerCharacter.isEmpty
+        'triggerKind': trimmedTriggerCharacter == null
             ? 1
             : (isRetrigger ? 3 : 2),
-        if (trimmedTriggerCharacter != null &&
-            trimmedTriggerCharacter.isNotEmpty)
+        if (trimmedTriggerCharacter != null)
           'triggerCharacter': trimmedTriggerCharacter,
         'isRetrigger': isRetrigger,
       },

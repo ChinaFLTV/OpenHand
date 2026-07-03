@@ -245,8 +245,8 @@ Future<String?> _resolveProcessGroupLauncher() {
         timeout: const Duration(seconds: 2),
         tag: 'safe_subprocess.setsid_probe',
       );
-      final path = (result.stdout as String).trim();
-      if (path.isNotEmpty && File(path).existsSync()) return path;
+      final path = nullIfBlank(result.stdout as String);
+      if (path != null && File(path).existsSync()) return path;
     } catch (error, stack) {
       silentLog('safe_subprocess', 'resolve setsid', error, stack);
     }
@@ -550,7 +550,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   }
 
   void handleLine(ProcessLogLineHandler? handler, String line) {
-    if (handler == null || line.trim().isEmpty) return;
+    if (handler == null || nullIfBlank(line) == null) return;
     try {
       handler(line);
     } catch (error, stack) {
@@ -917,14 +917,14 @@ Future<bool> revealLocalPathInSystemFileManager(
 }
 
 Uri? _safeHttpUrlArgument(String value) {
-  final target = value.trim();
-  if (target.isEmpty || target.startsWith('-')) return null;
+  final target = nullIfBlank(value);
+  if (target == null || target.startsWith('-')) return null;
   return tryParseValidHttpUrl(target);
 }
 
 String? _safeLocalPathArgument(String value) {
-  final target = value.trim();
-  if (target.isEmpty || target.startsWith('-')) return null;
+  final target = nullIfBlank(value);
+  if (target == null || target.startsWith('-')) return null;
   final looksLikeUri = RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*:').hasMatch(target);
   if (looksLikeUri && !(Platform.isWindows && _isWindowsDrivePath(target))) {
     return null;

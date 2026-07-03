@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../web_engine/web_engine_concurrency.dart';
@@ -384,8 +385,8 @@ class WebSearchOrchestrator {
   }
 
   int _textQualityScore(String? value) {
-    final text = value?.trim() ?? '';
-    if (text.isEmpty) return 0;
+    final text = nullIfBlank(value);
+    if (text == null) return 0;
     return text.length.clamp(0, 4000);
   }
 
@@ -410,9 +411,11 @@ class WebSearchOrchestrator {
   }
 
   String _normalizeUrl(String raw) {
-    final trimmed = raw.trim();
+    final trimmed = nullIfBlank(raw) ?? '';
     final uri = Uri.tryParse(trimmed);
-    if (uri == null || uri.host.trim().isEmpty) return trimmed.toLowerCase();
+    if (uri == null || nullIfBlank(uri.host) == null) {
+      return trimmed.toLowerCase();
+    }
     final host = _normalizeHost(uri.host);
     final path = uri.path.endsWith('/') && uri.path.length > 1
         ? uri.path.substring(0, uri.path.length - 1)
