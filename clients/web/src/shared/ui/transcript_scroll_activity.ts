@@ -1,5 +1,10 @@
+import { normalizeDurationMs } from '../util/number';
+
 export const TRANSCRIPT_SCROLL_ACTIVITY_ATTR = 'data-transcript-scroll-active';
 export const TRANSCRIPT_SCROLL_ACTIVITY_SETTLE_MS = 360;
+const TRANSCRIPT_SCROLL_ACTIVITY_MIN_MS = 80;
+const TRANSCRIPT_SCROLL_ACTIVITY_MAX_MS = 2_000;
+const TRANSCRIPT_SCROLL_ACTIVITY_MAX_WAIT_MS = 3_000;
 
 let active = false;
 let settleTimer: number | null = null;
@@ -36,7 +41,11 @@ export function markTranscriptScrollActivity(
   if (settleTimer != null) {
     window.clearTimeout(settleTimer);
   }
-  const safeDuration = Math.max(80, Math.min(2000, durationMs));
+  const safeDuration = normalizeDurationMs(durationMs, {
+    fallback: TRANSCRIPT_SCROLL_ACTIVITY_SETTLE_MS,
+    min: TRANSCRIPT_SCROLL_ACTIVITY_MIN_MS,
+    max: TRANSCRIPT_SCROLL_ACTIVITY_MAX_MS,
+  });
   settleTimer = window.setTimeout(() => {
     settleTimer = null;
     setRootActivity(false);
@@ -60,6 +69,10 @@ export function subscribeTranscriptScrollActivity(
   };
 }
 
+function nowMs(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
 export function scheduleAfterTranscriptScrollSettles(task: () => void): () => void {
   if (typeof window === 'undefined') {
     task();
@@ -67,12 +80,21 @@ export function scheduleAfterTranscriptScrollSettles(task: () => void): () => vo
   }
   let cancelled = false;
   let timer: number | null = null;
+  const startedAt = nowMs();
 
   const run = () => {
     timer = null;
     if (cancelled) return;
-    if (isTranscriptScrollActive()) {
-      timer = window.setTimeout(run, TRANSCRIPT_SCROLL_ACTIVITY_SETTLE_MS);
+    const elapsedMs = nowMs() - startedAt;
+    if (
+      isTranscriptScrollActive() &&
+      elapsedMs < TRANSCRIPT_SCROLL_ACTIVITY_MAX_WAIT_MS
+    ) {
+      const remainingMs = TRANSCRIPT_SCROLL_ACTIVITY_MAX_WAIT_MS - elapsedMs;
+      timer = window.setTimeout(
+        run,
+        Math.min(TRANSCRIPT_SCROLL_ACTIVITY_SETTLE_MS, remainingMs),
+      );
       return;
     }
     task();
