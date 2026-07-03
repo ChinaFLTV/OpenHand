@@ -67,6 +67,7 @@ export function FilesPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const reqIdRef = useRef(0);
   const detailSectionRef = useRef<HTMLElement | null>(null);
+  const detailScrollFrameRef = useRef<number | null>(null);
 
   const refresh = async () => {
     setListLoading(true);
@@ -92,6 +93,13 @@ export function FilesPage() {
     setPathInput(path);
   }, [path, query, typeFilter]);
 
+  useEffect(() => () => {
+    if (detailScrollFrameRef.current != null) {
+      window.cancelAnimationFrame(detailScrollFrameRef.current);
+      detailScrollFrameRef.current = null;
+    }
+  }, []);
+
   const onOpenItem = (item: WorkspaceItem) => {
     if (item.type === 'directory') {
       setPath(item.path);
@@ -101,7 +109,11 @@ export function FilesPage() {
     setSelected(item);
     void loadContent(item);
     if (typeof window !== 'undefined' && !window.matchMedia('(min-width: 1024px)').matches) {
-      requestAnimationFrame(() => {
+      if (detailScrollFrameRef.current != null) {
+        window.cancelAnimationFrame(detailScrollFrameRef.current);
+      }
+      detailScrollFrameRef.current = window.requestAnimationFrame(() => {
+        detailScrollFrameRef.current = null;
         detailSectionRef.current?.scrollIntoView({
           behavior: reduceMotion ? 'auto' : 'smooth',
           block: 'start',
