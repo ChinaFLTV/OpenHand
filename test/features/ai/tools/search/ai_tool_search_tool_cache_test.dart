@@ -81,6 +81,23 @@ void main() {
       'Read_File',
     ]);
   });
+
+  test('ToolSearch deferred snapshot stores names in stable order', () {
+    final alpha = _tool('AlphaTool');
+    final beta = _tool('BetaTool');
+    final tool = AiToolSearchTool();
+
+    tool.setDeferredToolSnapshot(<String, AiToolDefinition>{
+      beta.name: beta,
+      alpha.name: alpha,
+    });
+
+    expect(tool.deferredToolNames, <String>['AlphaTool', 'BetaTool']);
+    expect(tool.deferredToolDefinitions.keys.toList(), <String>[
+      'AlphaTool',
+      'BetaTool',
+    ]);
+  });
 }
 
 Future<AiToolExecutionResult> _executeToolSearch({

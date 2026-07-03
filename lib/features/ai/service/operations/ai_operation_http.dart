@@ -105,7 +105,9 @@ final class AiOperationHttp {
     final map = stringKeyedMap(raw);
     if (map.isEmpty) return const <String, String>{};
     final result = <String, String>{};
-    for (final entry in map.entries) {
+    final entries = map.entries.toList(growable: false)
+      ..sort((left, right) => left.key.compareTo(right.key));
+    for (final entry in entries) {
       final key = entry.key.trim();
       final value = '${entry.value ?? ''}'.trim();
       if (key.isEmpty || value.isEmpty) continue;
@@ -123,7 +125,7 @@ final class AiOperationHttp {
     final merged = <String, Object?>{};
     for (final key in <String>[extrasGlobalKey, family.storageValue]) {
       final raw = extras[key];
-      final map = stringKeyedMap(raw);
+      final map = _stableJsonMap(raw);
       if (map.isNotEmpty) {
         merged.addAll(map);
       }
@@ -138,15 +140,17 @@ final class AiOperationHttp {
   ) {
     final extras = extrasForFamily(model, family);
     if (extras.isEmpty) return body;
-    final extraBody = stringKeyedMap(extras[extrasBodyKey]);
+    final extraBody = _stableJsonMap(extras[extrasBodyKey]);
     final directExtras = <String, Object?>{};
-    for (final entry in extras.entries) {
+    final directEntries = extras.entries.toList(growable: false)
+      ..sort((left, right) => left.key.compareTo(right.key));
+    for (final entry in directEntries) {
       if (entry.key == extrasBodyKey ||
           entry.key == extrasQueryKey ||
           entry.key == extrasHeadersKey) {
         continue;
       }
-      directExtras[entry.key] = entry.value;
+      directExtras[entry.key] = _stableJsonValue(entry.value);
     }
     if (extraBody.isEmpty && directExtras.isEmpty) return body;
     return <String, Object?>{...body, ...directExtras, ...extraBody};
@@ -163,6 +167,26 @@ final class AiOperationHttp {
     return uri.replace(
       queryParameters: <String, String>{...uri.queryParameters, ...query},
     );
+  }
+
+  static Map<String, Object?> _stableJsonMap(Object? raw) {
+    final map = stringKeyedMap(raw);
+    if (map.isEmpty) return const <String, Object?>{};
+    final entries = map.entries.toList(growable: false)
+      ..sort((left, right) => left.key.compareTo(right.key));
+    return Map<String, Object?>.unmodifiable(<String, Object?>{
+      for (final entry in entries) entry.key: _stableJsonValue(entry.value),
+    });
+  }
+
+  static Object? _stableJsonValue(Object? value) {
+    if (value is Map) {
+      return _stableJsonMap(value);
+    }
+    if (value is List) {
+      return List<Object?>.unmodifiable(value.map(_stableJsonValue));
+    }
+    return value;
   }
 
   static String extractErrorMessage(String body) {

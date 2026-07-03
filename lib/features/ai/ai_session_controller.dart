@@ -3604,10 +3604,7 @@ class AiSessionController extends ChangeNotifier {
             executionApprovedForSend: executionApprovedForSend,
             recoveryInspectionRequired: recoveryInspectionRequired,
           );
-    final toolNames = effectiveCatalog.definitions
-        .map((tool) => tool.name.trim())
-        .where((name) => name.isNotEmpty)
-        .toList(growable: false);
+    final toolNames = _stableRuntimeToolNames(effectiveCatalog);
     return AiRuntimeToolPreview(
       sessionMode: session.mode,
       fullAccessPermission: session.fullAccessPermission,
@@ -3615,7 +3612,7 @@ class AiSessionController extends ChangeNotifier {
       planRecoveryInspectionRequired: recoveryInspectionRequired,
       planExecutionApproved: executionApprovedForSend,
       toolNames: toolNames,
-      notices: effectiveCatalog.notices,
+      notices: _stableRuntimeToolNotices(effectiveCatalog.notices),
       gateReason: AiPlanModeToolGate.gateReason(
         isPlanMode: session.mode == AiSessionMode.plan,
         awaitingPlanApproval: session.awaitingPlanApproval,
@@ -8831,10 +8828,8 @@ class AiSessionController extends ChangeNotifier {
     required bool executionApprovedForSend,
     required bool recoveryInspectionRequired,
   }) {
-    final toolNames = toolCatalog.definitions
-        .map((tool) => tool.name.trim())
-        .where((name) => name.isNotEmpty)
-        .toList(growable: false);
+    final toolNames = _stableRuntimeToolNames(toolCatalog);
+    final toolNotices = _stableRuntimeToolNotices(toolCatalog.notices);
     final exitPlanModeAvailable = AiPlanModeToolGate.hasExitPlanModeTool(
       toolNames,
     );
@@ -8854,7 +8849,7 @@ class AiSessionController extends ChangeNotifier {
       'plan_mode_planning_tool_names': AiPlanModeToolGate.planningToolNames,
       'plan_mode_exit_plan_mode_available': exitPlanModeAvailable,
       'runtime_tool_catalog_stale': false,
-      'runtime_tool_catalog_notices': toolCatalog.notices,
+      'runtime_tool_catalog_notices': toolNotices,
       'runtime_tool_gate_reason': AiPlanModeToolGate.gateReason(
         isPlanMode: session.mode == AiSessionMode.plan,
         awaitingPlanApproval: session.awaitingPlanApproval,
@@ -8865,6 +8860,35 @@ class AiSessionController extends ChangeNotifier {
       'plan_mode_execution_approved_for_send': executionApprovedForSend,
       'plan_mode_recovery_inspection_required': recoveryInspectionRequired,
     };
+  }
+
+  List<String> _stableRuntimeToolNames(AiResolvedToolCatalog toolCatalog) {
+    final names = toolCatalog.definitions
+        .map((tool) => tool.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    names.sort(_compareRuntimeMetadataText);
+    return List<String>.unmodifiable(names);
+  }
+
+  List<String> _stableRuntimeToolNotices(List<String> notices) {
+    if (notices.isEmpty) return const <String>[];
+    final normalized = notices
+        .map((notice) => notice.trim())
+        .where((notice) => notice.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    normalized.sort(_compareRuntimeMetadataText);
+    return List<String>.unmodifiable(normalized);
+  }
+
+  int _compareRuntimeMetadataText(String left, String right) {
+    final normalizedLeft = left.toLowerCase();
+    final normalizedRight = right.toLowerCase();
+    final normalizedCompare = normalizedLeft.compareTo(normalizedRight);
+    if (normalizedCompare != 0) return normalizedCompare;
+    return left.compareTo(right);
   }
 
   Map<String, Object?> _markRuntimeToolCatalogMetadataStale({
@@ -12253,24 +12277,7 @@ $tail''';
   }
 
   Map<String, String> _redactTelemetryHeaders(Map<String, String> headers) {
-    const sensitiveNames = <String>{
-      'authorization',
-      'cookie',
-      'proxy-authorization',
-      'x-api-key',
-      'api-key',
-      'openai-api-key',
-      'anthropic-api-key',
-    };
-    return headers.map((name, value) {
-      final lowerName = name.toLowerCase();
-      final isSensitive =
-          sensitiveNames.contains(lowerName) ||
-          lowerName.contains('token') ||
-          lowerName.contains('secret') ||
-          lowerName.contains('credential');
-      return MapEntry(name, isSensitive ? '[redacted]' : value);
-    });
+    return _stableTelemetryStringMap(headers, redactSensitive: true);
   }
 
   bool _isSensitiveTelemetryKey(String key) {
@@ -12284,6 +12291,33 @@ $tail''';
         normalized.contains('secret') ||
         normalized.contains('password') ||
         normalized.contains('credential');
+  }
+
+  Map<String, String> _stableTelemetryStringMap(
+    Map<String, String> values, {
+    required bool redactSensitive,
+  }) {
+    if (values.isEmpty) return const <String, String>{};
+    final entries = values.entries.toList(growable: false)
+      ..sort((left, right) => _compareRuntimeMetadataText(left.key, right.key));
+    final result = <String, String>{};
+    for (final entry in entries) {
+      result[entry.key] = redactSensitive && _isSensitiveTelemetryKey(entry.key)
+          ? '[redacted]'
+          : entry.value;
+    }
+    return result;
+  }
+
+  List<MapEntry<String, Object?>> _sortedTelemetryMapEntries(Map value) {
+    if (value.isEmpty) return const <MapEntry<String, Object?>>[];
+    final entries = value.entries
+        .map((entry) => MapEntry<String, Object?>('${entry.key}', entry.value))
+        .toList(growable: false);
+    entries.sort(
+      (left, right) => _compareRuntimeMetadataText(left.key, right.key),
+    );
+    return entries;
   }
 
   Object? _sanitizeTelemetryValue(Object? value, int maxChars, {String? key}) {
@@ -12301,8 +12335,8 @@ $tail''';
     }
     if (value is Map) {
       final sanitized = <String, Object?>{};
-      for (final entry in value.entries) {
-        final entryKey = '${entry.key}';
+      for (final entry in _sortedTelemetryMapEntries(value)) {
+        final entryKey = entry.key;
         sanitized[entryKey] = _sanitizeTelemetryValue(
           entry.value,
           maxChars,
@@ -12403,7 +12437,10 @@ $tail''';
   ) {
     Map<String, String> env;
     try {
-      env = Map<String, String>.from(Platform.environment);
+      env = _stableTelemetryStringMap(
+        Platform.environment,
+        redactSensitive: true,
+      );
     } catch (error, stack) {
       silentLog(
         'ai_session_controller',
@@ -12819,7 +12856,10 @@ $tail''';
       AiPromptCacheAffinity.grokConversationHeader,
       AiPromptCacheAffinity.openRouterSessionHeader,
     }.map((item) => item.toLowerCase()).toSet();
-    for (final key in headers?.keys ?? const Iterable<String>.empty()) {
+    final headerKeys =
+        headers?.keys.toList(growable: false) ?? const <String>[];
+    headerKeys.sort(_compareRuntimeMetadataText);
+    for (final key in headerKeys) {
       final normalized = key.toLowerCase();
       if (trackedHeaders.contains(normalized)) {
         paths.add('headers.$normalized');
@@ -12831,6 +12871,7 @@ $tail''';
     if (body.containsKey(AiPromptCacheAffinity.openAiPromptCacheKeyBodyField)) {
       paths.add('body.${AiPromptCacheAffinity.openAiPromptCacheKeyBodyField}');
     }
+    paths.sort(_compareRuntimeMetadataText);
     return <String, Object?>{
       'request_cache_affinity_marker_count': paths.length,
       if (paths.isNotEmpty)
@@ -12842,8 +12883,8 @@ $tail''';
     final paths = <String>[];
     void visit(Object? value, String path) {
       if (value is Map) {
-        for (final entry in value.entries) {
-          final key = '${entry.key}';
+        for (final entry in _sortedTelemetryMapEntries(value)) {
+          final key = entry.key;
           final childPath = path.isEmpty ? key : '$path.$key';
           if (key == 'cache_control') {
             paths.add(path.isEmpty ? key : path);
@@ -12861,6 +12902,7 @@ $tail''';
     }
 
     visit(body, '');
+    paths.sort(_compareRuntimeMetadataText);
     return <String, Object?>{
       'request_cache_control_marker_count': paths.length,
       if (paths.isNotEmpty)

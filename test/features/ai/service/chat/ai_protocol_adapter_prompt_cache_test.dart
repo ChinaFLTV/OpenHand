@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/features/ai/model/ai_api_family.dart';
 import 'package:openhand/features/ai/model/ai_input_cache_runtime_config.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
@@ -180,6 +181,62 @@ void main() {
         reason: adapter.protocolType.storageValue,
       );
     }
+  });
+
+  test('operation extras are canonicalized before request encoding', () async {
+    const adapter = OpenAiProtocolAdapter(AiProtocolType.openai);
+    const messages = <AiChatTurn>[
+      AiChatTurn(role: AiChatRole.system, content: stableSystem),
+      AiChatTurn(role: AiChatRole.user, content: '测试额外请求参数排序'),
+    ];
+    final first = await adapter.buildChatRequest(
+      model: _model(AiProtocolType.openai).copyWith(
+        operationExtras: <String, Object?>{
+          'global': <String, Object?>{
+            'top_z': <String, Object?>{'zeta': 2, 'alpha': 1},
+            'query': <String, Object?>{'z': '9', 'a': '1'},
+            'headers': <String, Object?>{'X-Z': '9', 'X-A': '1'},
+            'body': <String, Object?>{
+              'extra_z': <String, Object?>{'zeta': 2, 'alpha': 1},
+              'extra_a': <Object?>[
+                <String, Object?>{'zeta': 2, 'alpha': 1},
+              ],
+            },
+          },
+          AiApiFamily.chatCompletions.storageValue: <String, Object?>{
+            'top_a': <String, Object?>{'zeta': 2, 'alpha': 1},
+          },
+        },
+      ),
+      messages: messages,
+    );
+    final second = await adapter.buildChatRequest(
+      model: _model(AiProtocolType.openai).copyWith(
+        operationExtras: <String, Object?>{
+          AiApiFamily.chatCompletions.storageValue: <String, Object?>{
+            'top_a': <String, Object?>{'alpha': 1, 'zeta': 2},
+          },
+          'global': <String, Object?>{
+            'body': <String, Object?>{
+              'extra_a': <Object?>[
+                <String, Object?>{'alpha': 1, 'zeta': 2},
+              ],
+              'extra_z': <String, Object?>{'alpha': 1, 'zeta': 2},
+            },
+            'headers': <String, Object?>{'X-A': '1', 'X-Z': '9'},
+            'query': <String, Object?>{'a': '1', 'z': '9'},
+            'top_z': <String, Object?>{'alpha': 1, 'zeta': 2},
+          },
+        },
+      ),
+      messages: messages,
+    );
+
+    expect(first.url, second.url);
+    expect(jsonEncode(first.headers), jsonEncode(second.headers));
+    expect(jsonEncode(first.body), jsonEncode(second.body));
+    expect(first.body.keys.last, 'messages');
+    expect(jsonEncode(first.body['extra_z']), '{"alpha":1,"zeta":2}');
   });
 }
 

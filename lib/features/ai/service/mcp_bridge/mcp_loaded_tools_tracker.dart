@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:flutter/foundation.dart';
 
 /// 描述一次成功的 `ToolSearch` 加载，用于触发 transcript 顶部的 SnackBar 提示。
@@ -75,7 +77,7 @@ class McpLoadedToolsTracker {
   List<String> namesForSession(String sessionId) {
     final names = _loadedBySession[sessionId];
     if (names == null || names.isEmpty) return const <String>[];
-    final sorted = names.toList()..sort();
+    final sorted = _sortedToolNames(names);
     return List<String>.unmodifiable(sorted);
   }
 
@@ -93,7 +95,7 @@ class McpLoadedToolsTracker {
   Set<String> rawSetForSession(String sessionId) {
     final names = _loadedBySession[sessionId];
     if (names == null || names.isEmpty) return const <String>{};
-    return Set<String>.unmodifiable(names);
+    return Set<String>.unmodifiable(_sortedToolNames(names));
   }
 
   /// 吸收 ToolSearch 工具结果中 `tool_search_loaded_names` 元数据，更新累计
@@ -107,24 +109,27 @@ class McpLoadedToolsTracker {
     if (loadedNamesRaw is! List || loadedNamesRaw.isEmpty) {
       return const <String>[];
     }
-    final bucket = _loadedBySession.putIfAbsent(sessionId, () => <String>{});
+    final bucket = _loadedBySession.putIfAbsent(
+      sessionId,
+      () => SplayTreeSet<String>(),
+    );
     final addedNames = <String>[];
     for (final entry in loadedNamesRaw) {
-      if (entry is String && entry.isNotEmpty) {
-        if (bucket.add(entry)) {
-          addedNames.add(entry);
+      if (entry is String) {
+        final name = entry.trim();
+        if (name.isNotEmpty && bucket.add(name)) {
+          addedNames.add(name);
         }
       }
     }
     if (addedNames.isEmpty) return const <String>[];
     _revision += 1;
-    final totalDeferred = totalDeferredRaw is int
-        ? totalDeferredRaw
-        : (totalDeferredRaw is num
-              ? totalDeferredRaw.toInt()
-              : addedNames.length);
+    final totalDeferred = _nonNegativeIntFromMetadata(
+      totalDeferredRaw,
+      fallback: addedNames.length,
+    );
     final query = queryRaw is String ? queryRaw.trim() : '';
-    final sortedAdded = List<String>.from(addedNames)..sort();
+    final sortedAdded = _sortedToolNames(addedNames);
     _historyBySession
         .putIfAbsent(sessionId, () => <AiToolSearchLoadHistoryEntry>[])
         .add(
@@ -137,12 +142,12 @@ class McpLoadedToolsTracker {
         );
     _signal.value = AiToolSearchLoadedEvent(
       sessionId: sessionId,
-      loadedNames: List<String>.unmodifiable(addedNames),
+      loadedNames: List<String>.unmodifiable(sortedAdded),
       totalDeferred: totalDeferred,
-      query: queryRaw is String ? queryRaw : '',
+      query: query,
       revision: _revision,
     );
-    return List<String>.unmodifiable(addedNames);
+    return List<String>.unmodifiable(sortedAdded);
   }
 
   /// 清空指定会话的已加载缓存与历史时间线。返回被清除的工具数量。
@@ -154,5 +159,29 @@ class McpLoadedToolsTracker {
 
   void dispose() {
     _signal.dispose();
+  }
+
+  static List<String> _sortedToolNames(Iterable<String> names) {
+    final sorted = names
+        .map((name) => name.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    sorted.sort();
+    return sorted;
+  }
+
+  static int _nonNegativeIntFromMetadata(
+    Object? value, {
+    required int fallback,
+  }) {
+    if (value is int) {
+      return value < 0 ? fallback : value;
+    }
+    if (value is num && value.isFinite) {
+      final parsed = value.toInt();
+      return parsed < 0 ? fallback : parsed;
+    }
+    return fallback;
   }
 }

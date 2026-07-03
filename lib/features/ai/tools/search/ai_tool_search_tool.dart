@@ -44,10 +44,14 @@ class AiToolSearchTool extends AiTool {
   void setDeferredToolSnapshot(
     Map<String, AiToolDefinition> definitionsByName,
   ) {
+    final entries = definitionsByName.entries.toList(growable: false)
+      ..sort((left, right) => _compareToolNames(left.key, right.key));
     deferredToolDefinitions = Map<String, AiToolDefinition>.unmodifiable(
-      definitionsByName,
+      Map<String, AiToolDefinition>.fromEntries(entries),
     );
-    deferredToolNames = List<String>.unmodifiable(definitionsByName.keys);
+    deferredToolNames = List<String>.unmodifiable(
+      entries.map((entry) => entry.key),
+    );
   }
 
   void clearDeferredToolSnapshot() {
