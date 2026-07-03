@@ -254,10 +254,7 @@ class McpStore {
       } else {
         value['command'] = server.command.trim();
         if (server.args.isNotEmpty) {
-          value['args'] = server.args
-              .map((item) => item.trim())
-              .where((item) => item.isNotEmpty)
-              .toList(growable: false);
+          value['args'] = stringListFromValue(server.args);
         }
       }
       if (server.headers.isNotEmpty) {

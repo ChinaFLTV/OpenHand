@@ -1235,10 +1235,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       r'[^。！？.!?]*(返回|输出|结果|returns?|output|response|result)[^。！？.!?]*[。！？.!?]?',
       caseSensitive: false,
     ).allMatches(normalized);
-    final sentences = sentenceMatch
-        .map((match) => match.group(0)?.trim() ?? '')
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
+    final sentences = stringListFromValue(
+      sentenceMatch.map((match) => match.group(0)).toList(growable: false),
+    );
     if (sentences.isNotEmpty) {
       return sentences.join('\n');
     }
@@ -2737,10 +2736,9 @@ Map<String, String> _mergeRequestHeaders({
 }
 
 Set<String> _sensitiveHeaderNames(Map<String, String> headers) {
-  return headers.keys
-      .map((item) => item.trim().toLowerCase())
-      .where((item) => item.isNotEmpty)
-      .toSet();
+  return stringListFromValue(
+    headers.keys.toList(growable: false),
+  ).map((item) => item.toLowerCase()).toSet();
 }
 
 void _setHeaderIgnoreCase(

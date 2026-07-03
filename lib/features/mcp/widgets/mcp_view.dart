@@ -6533,10 +6533,7 @@ String _schemaType(Object? schema) {
     return typeValue.trim();
   }
   if (typeValue is List) {
-    final values = typeValue
-        .map((item) => '$item'.trim())
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
+    final values = stringListFromValue(typeValue);
     if (values.isNotEmpty) {
       return values.join(' | ');
     }
