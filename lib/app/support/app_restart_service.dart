@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
+import '../../shared/util/input_value_parsing.dart';
 import 'safe_subprocess.dart';
 import 'silent_log.dart';
 
@@ -93,8 +94,11 @@ class AppRestartService {
        _isMacOS = isMacOS ?? Platform.isMacOS,
        _isWindows = isWindows ?? Platform.isWindows,
        _isLinux = isLinux ?? Platform.isLinux,
-       _relaunchDelay = relaunchDelay,
-       _exitRequestTimeout = exitRequestTimeout;
+       _relaunchDelay = _nonNegativeDuration(relaunchDelay),
+       _exitRequestTimeout = _positiveDuration(
+         exitRequestTimeout,
+         fallback: _kExitRequestTimeout,
+       );
 
   static final AppRestartService instance = AppRestartService();
 
@@ -112,10 +116,11 @@ class AppRestartService {
   final Duration _exitRequestTimeout;
 
   Future<AppRelaunchTicket> prepareRelaunch() async {
-    final executablePath = p.normalize(_executablePathProvider());
-    if (executablePath.trim().isEmpty) {
+    final rawExecutablePath = nullIfBlank(_executablePathProvider());
+    if (rawExecutablePath == null) {
       throw const AppRestartException(AppRestartFailure.missingExecutable);
     }
+    final executablePath = p.normalize(rawExecutablePath);
 
     final tempDir = _tempDirectoryProvider();
     if (!await tempDir.exists()) {
@@ -313,4 +318,12 @@ class AppRestartService {
       silentLog('app_restart', 'delete ${file.path}', error, stack);
     }
   }
+}
+
+Duration _nonNegativeDuration(Duration duration) {
+  return duration < Duration.zero ? Duration.zero : duration;
+}
+
+Duration _positiveDuration(Duration duration, {required Duration fallback}) {
+  return duration > Duration.zero ? duration : fallback;
 }
