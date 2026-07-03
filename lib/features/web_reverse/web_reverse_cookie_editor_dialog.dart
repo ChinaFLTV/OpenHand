@@ -455,7 +455,7 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
       if (_secure) 'secure': true,
       if (_sameSite.isNotEmpty) 'sameSite': _sameSite,
     };
-    final exp = double.tryParse(_expires.text.trim());
+    final exp = optionalDoubleFromValue(_expires.text);
     if (exp != null) out['expires'] = exp;
     Navigator.of(context).pop(out);
   }

@@ -13,6 +13,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -87,8 +88,9 @@ class _InputSimDialogState extends State<_InputSimDialog>
 
   Future<void> _runMouseClick() async {
     final loc0 = AppLocalizations.of(context);
-    final x = double.tryParse(_mouseX.text.trim()) ?? 0;
-    final y = double.tryParse(_mouseY.text.trim()) ?? 0;
+    final point = _mousePoint;
+    final x = point.x;
+    final y = point.y;
     setState(() {
       _busy = true;
       _status =
@@ -133,8 +135,9 @@ class _InputSimDialogState extends State<_InputSimDialog>
   }
 
   Future<void> _runWheel(double dy) async {
-    final x = double.tryParse(_mouseX.text.trim()) ?? 0;
-    final y = double.tryParse(_mouseY.text.trim()) ?? 0;
+    final point = _mousePoint;
+    final x = point.x;
+    final y = point.y;
     setState(() => _busy = true);
     try {
       await widget.controller.dispatchMouseEvent(
@@ -191,6 +194,11 @@ class _InputSimDialogState extends State<_InputSimDialog>
     });
     await _snack(loc1?.webReverseInputSimDispatched ?? 'Dispatched');
   }
+
+  ({double x, double y}) get _mousePoint => (
+    x: doubleFromValue(_mouseX.text, fallback: 0),
+    y: doubleFromValue(_mouseY.text, fallback: 0),
+  );
 
   Future<void> _runInsertText() async {
     final loc0 = AppLocalizations.of(context);

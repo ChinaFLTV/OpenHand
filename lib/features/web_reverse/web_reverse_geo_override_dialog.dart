@@ -17,6 +17,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -53,6 +54,11 @@ const List<_GeoPreset> _presets = <_GeoPreset>[
   _GeoPreset('Moscow', 55.7558, 37.6173, 'Europe/Moscow', 'ru-RU'),
 ];
 const double _kGeoOverrideDialogMaxWidth = 760;
+const double _kMinLatitude = -90;
+const double _kMaxLatitude = 90;
+const double _kMinLongitude = -180;
+const double _kMaxLongitude = 180;
+const double _kDefaultGeolocationAccuracy = 50;
 
 Future<void> showWebReverseGeoOverrideDialog(
   BuildContext context, {
@@ -123,11 +129,17 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
     final errors = <String>[];
     try {
       if (_enableGeo) {
-        final lat = double.tryParse(_latCtl.text.trim());
-        final lng = double.tryParse(_lngCtl.text.trim());
-        final acc = double.tryParse(_accCtl.text.trim()) ?? 50;
+        final lat = optionalDoubleFromValue(_latCtl.text);
+        final lng = optionalDoubleFromValue(_lngCtl.text);
+        final acc =
+            optionalNonNegativeDoubleFromValue(_accCtl.text) ??
+            _kDefaultGeolocationAccuracy;
         if (lat == null || lng == null) {
           errors.add('lat/lng 解析失败');
+        } else if (lat < _kMinLatitude || lat > _kMaxLatitude) {
+          errors.add('latitude 需在 $_kMinLatitude-$_kMaxLatitude 之间');
+        } else if (lng < _kMinLongitude || lng > _kMaxLongitude) {
+          errors.add('longitude 需在 $_kMinLongitude-$_kMaxLongitude 之间');
         } else {
           final r = await _callCdp('Emulation.setGeolocationOverride', {
             'latitude': lat,

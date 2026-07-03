@@ -107,7 +107,8 @@ class _CronsBodyState extends State<_CronsBody> {
           updatedAt: null,
         ),
       );
-      final iv = int.tryParse(_intervalCtrl.text) ?? cur.intervalSeconds;
+      final iv =
+          optionalIntFromValue(_intervalCtrl.text) ?? cur.intervalSeconds;
       _dirty =
           cur.name != _nameCtrl.text ||
           cur.code != _codeCtrl.text ||
@@ -171,7 +172,7 @@ class _CronsBodyState extends State<_CronsBody> {
   Future<bool> _save() async {
     final id = _selectedId;
     if (id == null) return false;
-    final iv = int.tryParse(_intervalCtrl.text);
+    final iv = optionalIntFromValue(_intervalCtrl.text);
     if (iv == null ||
         iv < WebReverseSessionController.minCronIntervalSeconds ||
         iv > WebReverseSessionController.maxCronIntervalSeconds) {
