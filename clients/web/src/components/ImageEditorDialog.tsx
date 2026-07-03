@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t } from '../i18n';
-import { clampNumber } from '../shared/util/number';
+import { clampNumber, finiteNumberFromText } from '../shared/util/number';
 import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
 import {
   DIALOG_OVERLAY_MEDIA_Z_INDEX,
@@ -462,7 +462,18 @@ function EditorSlider({ label, value, min, max, step, onChange }: {
   return (
     <label class="oh-image-editor-slider">
       <span>{label}</span>
-      <input type="range" min={min} max={max} step={step} value={value} onInput={(e) => onChange(Number((e.currentTarget as HTMLInputElement).value))} />
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onInput={(event) => {
+          const next = finiteNumberFromText((event.currentTarget as HTMLInputElement).value);
+          if (next == null) return;
+          onChange(clampNumber(next, min, max));
+        }}
+      />
       <output>{value.toFixed(step >= 1 ? 0 : 2)}</output>
     </label>
   );

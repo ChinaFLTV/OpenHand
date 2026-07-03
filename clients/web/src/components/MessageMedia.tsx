@@ -11,7 +11,7 @@ import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { rollingHash31Base36 } from '../shared/util/hash';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
-import { clampNumber } from '../shared/util/number';
+import { clampNumber, finiteNumberFromText } from '../shared/util/number';
 import { basenameFromPath } from '../shared/util/path';
 import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
 import { isAbortError } from '../utils/api_error';
@@ -1035,8 +1035,8 @@ function MessageAudioResultCard({ item, url, onPreview }: MessageAudioResultCard
   }, [error, syncFromElement]);
 
   const handleProgressInput = useCallback((event: JSX.TargetedEvent<HTMLInputElement, Event>) => {
-    const value = Number(event.currentTarget.value);
-    if (!Number.isFinite(value)) return;
+    const value = finiteNumberFromText(event.currentTarget.value);
+    if (value == null) return;
     seekTo(value);
   }, [seekTo]);
 
