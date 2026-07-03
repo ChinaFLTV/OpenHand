@@ -527,10 +527,10 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           _HeMetadataEntryRow(
                             label: entry.$1,
                             value: entry.$2.isUrlMode
-                                ? 'URL/API · ${_heDescribeAiModelConfig(aiModels, entry.$2.aiModelConfigId, isZh: isZh, urlModeModelId: entry.$2.urlModeModelId)}'
+                                ? 'URL/API · ${_heDescribeAiModelConfig(context, aiModels, entry.$2.aiModelConfigId, urlModeModelId: entry.$2.urlModeModelId)}'
                                 : entry.$2.isConfigured
-                                ? '${entry.$2.cliName} · ${describeHardnessCliModel(findHardnessCliByName(entry.$2.cliName), entry.$2.modelId, isZh: isZh)}'
-                                : (isZh ? '未配置' : 'Not configured'),
+                                ? '${entry.$2.cliName} · ${_heDescribeHardnessCliModel(context, findHardnessCliByName(entry.$2.cliName), entry.$2.modelId)}'
+                                : _heHardnessNotConfiguredText(context),
                           ),
                       ],
                     ),

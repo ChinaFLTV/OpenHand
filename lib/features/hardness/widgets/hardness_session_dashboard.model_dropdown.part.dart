@@ -1,14 +1,9 @@
 part of 'hardness_session_dashboard.dart';
 
 class _HeModelDropdown extends StatelessWidget {
-  const _HeModelDropdown({
-    required this.roleConfig,
-    required this.isZh,
-    required this.onChanged,
-  });
+  const _HeModelDropdown({required this.roleConfig, required this.onChanged});
 
   final HardnessRoleConfig roleConfig;
-  final bool isZh;
   final ValueChanged<HardnessRoleConfig> onChanged;
 
   @override
@@ -26,7 +21,15 @@ class _HeModelDropdown extends StatelessWidget {
         key: ValueKey<String>('he-model-text-${roleConfig.cliName}'),
         initialValue: roleConfig.modelId,
         decoration: InputDecoration(
-          labelText: isZh ? '模型' : 'Model',
+          labelText: _heHardnessText(
+            context,
+            zh: '模型',
+            zhHant: '模型',
+            en: 'Model',
+            fr: 'Modèle',
+            de: 'Modell',
+            ja: 'モデル',
+          ),
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 12,
@@ -46,7 +49,7 @@ class _HeModelDropdown extends StatelessWidget {
         DropdownMenuItem<String>(
           value: configuredModelId,
           child: Text(
-            describeHardnessCliModel(cli, configuredModelId, isZh: isZh),
+            _heDescribeHardnessCliModel(context, cli, configuredModelId),
             style: theme.textTheme.bodySmall,
             overflow: TextOverflow.ellipsis,
           ),
@@ -59,7 +62,15 @@ class _HeModelDropdown extends StatelessWidget {
           ? configuredModelId
           : (models.contains(configuredModelId) ? configuredModelId : null),
       decoration: InputDecoration(
-        labelText: isZh ? '模型' : 'Model',
+        labelText: _heHardnessText(
+          context,
+          zh: '模型',
+          zhHant: '模型',
+          en: 'Model',
+          fr: 'Modèle',
+          de: 'Modell',
+          ja: 'モデル',
+        ),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
@@ -73,7 +84,7 @@ class _HeModelDropdown extends StatelessWidget {
           return DropdownMenuItem(
             value: m,
             child: Text(
-              describeHardnessCliModel(cli, m, isZh: isZh),
+              _heDescribeHardnessCliModel(context, cli, m),
               style: theme.textTheme.bodySmall,
               overflow: TextOverflow.ellipsis,
             ),
@@ -96,7 +107,6 @@ class _HeUrlModelField extends StatelessWidget {
   const _HeUrlModelField({
     required this.settingsModels,
     required this.roleConfig,
-    required this.isZh,
     required this.hasConfiguredAiModelConfig,
     required this.hasMatchingAiModelConfig,
     required this.onChanged,
@@ -104,7 +114,6 @@ class _HeUrlModelField extends StatelessWidget {
 
   final List<AiModelConfig> settingsModels;
   final HardnessRoleConfig roleConfig;
-  final bool isZh;
   final bool hasConfiguredAiModelConfig;
   final bool hasMatchingAiModelConfig;
   final ValueChanged<HardnessRoleConfig> onChanged;
@@ -156,15 +165,35 @@ class _HeUrlModelField extends StatelessWidget {
             },
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: isZh ? 'API 模型' : 'API Model',
+          labelText: _heHardnessText(
+            context,
+            zh: 'API 模型',
+            zhHant: 'API 模型',
+            en: 'API Model',
+            fr: 'Modèle API',
+            de: 'API-Modell',
+            ja: 'API モデル',
+          ),
           helperText: settingsModels.isEmpty
-              ? (isZh
-                    ? '请先在设置中配置 API 模型提供商。'
-                    : 'Configure API model providers in Settings first.')
+              ? _heHardnessText(
+                  context,
+                  zh: '请先在设置中配置 API 模型提供商。',
+                  zhHant: '請先在設定中設定 API 模型提供者。',
+                  en: 'Configure API model providers in Settings first.',
+                  fr: 'Configurez d’abord les fournisseurs de modèles API dans les paramètres.',
+                  de: 'Konfiguriere zuerst API-Modellanbieter in den Einstellungen.',
+                  ja: '先に設定で API モデルプロバイダーを設定してください。',
+                )
               : (hasConfiguredAiModelConfig && !hasMatchingAiModelConfig)
-              ? (isZh
-                    ? '当前配置已删除，请重新选择。'
-                    : 'Current config was deleted. Choose another.')
+              ? _heHardnessText(
+                  context,
+                  zh: '当前配置已删除，请重新选择。',
+                  zhHant: '目前設定已刪除，請重新選擇。',
+                  en: 'Current config was deleted. Choose another.',
+                  fr: 'La configuration actuelle a été supprimée. Choisissez-en une autre.',
+                  de: 'Die aktuelle Konfiguration wurde gelöscht. Wähle eine andere.',
+                  ja: '現在の設定は削除済みです。別の設定を選択してください。',
+                )
               : null,
           helperMaxLines: 2,
           isDense: true,
@@ -184,7 +213,16 @@ class _HeUrlModelField extends StatelessWidget {
           ),
         ),
         child: Text(
-          label ?? (isZh ? '选择模型…' : 'Select model…'),
+          label ??
+              _heHardnessText(
+                context,
+                zh: '选择模型…',
+                zhHant: '選擇模型…',
+                en: 'Select model…',
+                fr: 'Sélectionner un modèle…',
+                de: 'Modell auswählen…',
+                ja: 'モデルを選択…',
+              ),
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 13,

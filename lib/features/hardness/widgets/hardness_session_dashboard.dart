@@ -162,15 +162,99 @@ String _heAiModelConfigLabel(AiModelConfig config) {
   return '$label ($protocolLabel)';
 }
 
+String _heHardnessText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
+String _heHardnessPhaseLabel(BuildContext context, HardnessPhase phase) {
+  return switch (phase) {
+    HardnessPhase.metaCollection => _heHardnessText(
+      context,
+      zh: '元数据采集',
+      zhHant: '元資料採集',
+      en: 'Meta Collection',
+      fr: 'Collecte des métadonnées',
+      de: 'Metadaten-Erfassung',
+      ja: 'メタデータ収集',
+    ),
+    HardnessPhase.reading => _heHardnessText(
+      context,
+      zh: '调查',
+      zhHant: '調查',
+      en: 'Reading',
+      fr: 'Investigation',
+      de: 'Analyse',
+      ja: '調査',
+    ),
+    HardnessPhase.planning => _heHardnessText(
+      context,
+      zh: '规划',
+      zhHant: '規劃',
+      en: 'Planning',
+      fr: 'Planification',
+      de: 'Planung',
+      ja: '計画',
+    ),
+    HardnessPhase.implementing => _heHardnessText(
+      context,
+      zh: '实施',
+      zhHant: '實施',
+      en: 'Implementing',
+      fr: 'Implémentation',
+      de: 'Umsetzung',
+      ja: '実装',
+    ),
+    HardnessPhase.reviewing => _heHardnessText(
+      context,
+      zh: '验收',
+      zhHant: '驗收',
+      en: 'Reviewing',
+      fr: 'Revue',
+      de: 'Prüfung',
+      ja: 'レビュー',
+    ),
+  };
+}
+
+String _heHardnessNotConfiguredText(BuildContext context) {
+  return _heHardnessText(
+    context,
+    zh: '未配置',
+    zhHant: '未設定',
+    en: 'Not configured',
+    fr: 'Non configuré',
+    de: 'Nicht konfiguriert',
+    ja: '未設定',
+  );
+}
+
 String _heDescribeAiModelConfig(
+  BuildContext context,
   List<AiModelConfig> settingsModels,
   String? configId, {
-  required bool isZh,
   String? urlModeModelId,
 }) {
   final trimmedConfigId = configId?.trim() ?? '';
   if (trimmedConfigId.isEmpty) {
-    return isZh ? '未配置' : 'Not configured';
+    return _heHardnessNotConfiguredText(context);
   }
 
   final matchedConfig = settingsModels
@@ -184,9 +268,47 @@ String _heDescribeAiModelConfig(
     return _heAiModelConfigLabel(matchedConfig);
   }
 
-  return isZh
-      ? '已删除配置 · $trimmedConfigId'
-      : 'Deleted config · $trimmedConfigId';
+  return _heHardnessText(
+    context,
+    zh: '已删除配置 · $trimmedConfigId',
+    zhHant: '已刪除設定 · $trimmedConfigId',
+    en: 'Deleted config · $trimmedConfigId',
+    fr: 'Configuration supprimée · $trimmedConfigId',
+    de: 'Gelöschte Konfiguration · $trimmedConfigId',
+    ja: '削除済み設定 · $trimmedConfigId',
+  );
+}
+
+String _heDescribeHardnessCliModel(
+  BuildContext context,
+  HardnessCli? cli,
+  String modelId,
+) {
+  final normalizedModel = modelId.trim();
+  if (normalizedModel == kHardnessGeminiDefaultModelId ||
+      (cli != null && isHardnessCliDefaultModel(cli, normalizedModel))) {
+    return _heHardnessText(
+      context,
+      zh: 'Gemini CLI 默认（自动）',
+      zhHant: 'Gemini CLI 預設（自動）',
+      en: 'Gemini CLI default (auto)',
+      fr: 'Gemini CLI par défaut (auto)',
+      de: 'Gemini CLI-Standard (automatisch)',
+      ja: 'Gemini CLI デフォルト（自動）',
+    );
+  }
+  if (normalizedModel.isEmpty) {
+    return _heHardnessText(
+      context,
+      zh: '默认',
+      zhHant: '預設',
+      en: 'Default',
+      fr: 'Par défaut',
+      de: 'Standard',
+      ja: 'デフォルト',
+    );
+  }
+  return normalizedModel;
 }
 
 String? _hePreferredAiModelConfigId({
@@ -1905,7 +2027,6 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: _HePhaseActionBar(
-                                isZh: widget.isZh,
                                 onCopyLog: () => _copyLog(context, log),
                                 onReExecute: () => _reExecutePhase(phaseIndex),
                                 onDelete: () =>

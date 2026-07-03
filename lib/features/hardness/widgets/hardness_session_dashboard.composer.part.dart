@@ -832,7 +832,15 @@ class _HePendingPhaseEditor extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            isZh ? '更改执行配置' : 'Change Execution Config',
+            _heHardnessText(
+              context,
+              zh: '更改执行配置',
+              zhHant: '變更執行設定',
+              en: 'Change Execution Config',
+              fr: 'Modifier la configuration d’exécution',
+              de: 'Ausführungskonfiguration ändern',
+              ja: '実行設定を変更',
+            ),
             style: theme.textTheme.labelMedium?.copyWith(
               fontWeight: FontWeight.w700,
               color: colorScheme.primary,
@@ -882,7 +890,6 @@ class _HePendingPhaseEditor extends StatelessWidget {
             _HeUrlModelField(
               settingsModels: settingsModels,
               roleConfig: roleConfig,
-              isZh: isZh,
               hasConfiguredAiModelConfig: hasConfiguredAiModelConfig,
               hasMatchingAiModelConfig: hasMatchingAiModelConfig,
               onChanged: onChanged,
@@ -933,7 +940,6 @@ class _HePendingPhaseEditor extends StatelessWidget {
                 Expanded(
                   child: _HeModelDropdown(
                     roleConfig: roleConfig,
-                    isZh: isZh,
                     onChanged: onChanged,
                   ),
                 ),

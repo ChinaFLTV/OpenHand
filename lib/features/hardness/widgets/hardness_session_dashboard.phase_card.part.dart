@@ -165,21 +165,84 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     };
   }
 
-  String _statusText() {
-    final isZh = widget.isZh;
+  String _statusText(BuildContext context) {
     // Completed reviewing phases with FAIL verdict show distinct text.
     if (widget.log.status == HardnessPhaseStatus.completed &&
         widget.log.reviewVerdictFail) {
-      return isZh ? '验收未通过' : 'Review Failed';
+      return _heHardnessText(
+        context,
+        zh: '验收未通过',
+        zhHant: '驗收未通過',
+        en: 'Review Failed',
+        fr: 'Revue échouée',
+        de: 'Prüfung fehlgeschlagen',
+        ja: 'レビュー不合格',
+      );
     }
     return switch (widget.log.status) {
-      HardnessPhaseStatus.pending => isZh ? '等待中' : 'Pending',
-      HardnessPhaseStatus.paused => isZh ? '暂停中' : 'Paused',
-      HardnessPhaseStatus.running => isZh ? '运行中' : 'Running',
-      HardnessPhaseStatus.completed => isZh ? '执行完成' : 'Completed',
-      HardnessPhaseStatus.failed => isZh ? '执行失败' : 'Failed',
-      HardnessPhaseStatus.cancelled => isZh ? '执行中止' : 'Cancelled',
-      HardnessPhaseStatus.skipped => isZh ? '已跳过' : 'Skipped',
+      HardnessPhaseStatus.pending => _heHardnessText(
+        context,
+        zh: '等待中',
+        zhHant: '等待中',
+        en: 'Pending',
+        fr: 'En attente',
+        de: 'Ausstehend',
+        ja: '待機中',
+      ),
+      HardnessPhaseStatus.paused => _heHardnessText(
+        context,
+        zh: '暂停中',
+        zhHant: '暫停中',
+        en: 'Paused',
+        fr: 'En pause',
+        de: 'Pausiert',
+        ja: '一時停止中',
+      ),
+      HardnessPhaseStatus.running => _heHardnessText(
+        context,
+        zh: '运行中',
+        zhHant: '執行中',
+        en: 'Running',
+        fr: 'En cours',
+        de: 'Wird ausgeführt',
+        ja: '実行中',
+      ),
+      HardnessPhaseStatus.completed => _heHardnessText(
+        context,
+        zh: '执行完成',
+        zhHant: '執行完成',
+        en: 'Completed',
+        fr: 'Terminé',
+        de: 'Abgeschlossen',
+        ja: '完了',
+      ),
+      HardnessPhaseStatus.failed => _heHardnessText(
+        context,
+        zh: '执行失败',
+        zhHant: '執行失敗',
+        en: 'Failed',
+        fr: 'Échec',
+        de: 'Fehlgeschlagen',
+        ja: '失敗',
+      ),
+      HardnessPhaseStatus.cancelled => _heHardnessText(
+        context,
+        zh: '执行中止',
+        zhHant: '執行中止',
+        en: 'Cancelled',
+        fr: 'Annulé',
+        de: 'Abgebrochen',
+        ja: '中止',
+      ),
+      HardnessPhaseStatus.skipped => _heHardnessText(
+        context,
+        zh: '已跳过',
+        zhHant: '已跳過',
+        en: 'Skipped',
+        fr: 'Ignoré',
+        de: 'Übersprungen',
+        ja: 'スキップ済み',
+      ),
     };
   }
 
@@ -211,9 +274,18 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     final textColor = palette.text;
 
     final phaseIcon = _phaseIcons[log.phase] ?? Icons.timelapse_rounded;
-    final phaseName = isZh ? log.phase.displayNameZh : log.phase.displayNameEn;
+    final phaseName = _heHardnessPhaseLabel(context, log.phase);
     final roleConfig = _roleConfig();
     final collapsedPreviewLine = _collapsedPreviewLine(log.lines);
+    final exitCodeLabel = _heHardnessText(
+      context,
+      zh: '退出码',
+      zhHant: '結束碼',
+      en: 'Exit',
+      fr: 'Code de sortie',
+      de: 'Exit-Code',
+      ja: '終了コード',
+    );
 
     // Animate color & border transitions when status changes (e.g. pending →
     // running → completed). AnimatedContainer handles backgroundColor and
@@ -250,7 +322,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
               log: log,
               phaseName: phaseName,
               phaseIcon: phaseIcon,
-              statusText: _statusText(),
+              statusText: _statusText(context),
               statusIcon: _statusIcon,
               textColor: textColor,
               expanded: widget.expanded,
@@ -280,19 +352,19 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                     _HeChip(
                       icon: Icons.layers_rounded,
                       label: _heDescribeAiModelConfig(
+                        context,
                         aiModels,
                         roleConfig.aiModelConfigId,
-                        isZh: isZh,
                         urlModeModelId: roleConfig.urlModeModelId,
                       ),
                     ),
                   if (!roleConfig.isUrlMode && roleConfig.modelId.isNotEmpty)
                     _HeChip(
                       icon: Icons.layers_rounded,
-                      label: describeHardnessCliModel(
+                      label: _heDescribeHardnessCliModel(
+                        context,
                         findHardnessCliByName(roleConfig.cliName),
                         roleConfig.modelId,
-                        isZh: isZh,
                       ),
                     ),
                   if (log.exitCode != null)
@@ -300,18 +372,33 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                       icon: log.exitCode == 0
                           ? Icons.check_circle_outline_rounded
                           : Icons.flag_outlined,
-                      label: '${isZh ? '退出码' : 'Exit'}: ${log.exitCode}',
+                      label: '$exitCodeLabel: ${log.exitCode}',
                     ),
                   if (log.savedLogPath != null)
                     _HeChip(
                       icon: Icons.save_outlined,
-                      label: isZh ? '已保存日志' : 'Log saved',
+                      label: _heHardnessText(
+                        context,
+                        zh: '已保存日志',
+                        zhHant: '已儲存日誌',
+                        en: 'Log saved',
+                        fr: 'Journal enregistré',
+                        de: 'Log gespeichert',
+                        ja: 'ログ保存済み',
+                      ),
                     ),
                   if (log.changedFiles.isNotEmpty)
                     _HeChip(
                       icon: Icons.difference_rounded,
-                      label:
-                          '${log.changedFiles.length} ${isZh ? '个文件变动' : 'files changed'}',
+                      label: _heHardnessText(
+                        context,
+                        zh: '${log.changedFiles.length} 个文件变动',
+                        zhHant: '${log.changedFiles.length} 個檔案變更',
+                        en: '${log.changedFiles.length} files changed',
+                        fr: '${log.changedFiles.length} fichiers modifiés',
+                        de: '${log.changedFiles.length} Dateien geändert',
+                        ja: '${log.changedFiles.length} 件のファイル変更',
+                      ),
                     ),
                 ],
               ),
@@ -464,9 +551,15 @@ class _HePhaseExpandedBody extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  isZh
-                      ? '本阶段执行失败，请检查上方日志以了解详情。'
-                      : 'This phase failed. Review the log above for details.',
+                  _heHardnessText(
+                    context,
+                    zh: '本阶段执行失败，请检查上方日志以了解详情。',
+                    zhHant: '本階段執行失敗，請檢查上方日誌了解詳情。',
+                    en: 'This phase failed. Review the log above for details.',
+                    fr: 'Cette phase a échoué. Consultez le journal ci-dessus pour plus de détails.',
+                    de: 'Diese Phase ist fehlgeschlagen. Details stehen im obigen Log.',
+                    ja: 'このフェーズは失敗しました。詳細は上のログを確認してください。',
+                  ),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.error,
                   ),
@@ -487,13 +580,11 @@ class _HePhaseExpandedBody extends StatelessWidget {
 
 class _HePhaseActionBar extends StatelessWidget {
   const _HePhaseActionBar({
-    required this.isZh,
     required this.onCopyLog,
     required this.onReExecute,
     required this.onDelete,
   });
 
-  final bool isZh;
   final VoidCallback onCopyLog;
   final VoidCallback onReExecute;
   final VoidCallback onDelete;
@@ -517,19 +608,49 @@ class _HePhaseActionBar extends StatelessWidget {
           onPressed: onCopyLog,
           style: buttonStyle,
           icon: const Icon(Icons.content_copy_outlined, size: 16),
-          label: Text(isZh ? '复制' : 'Copy'),
+          label: Text(
+            _heHardnessText(
+              context,
+              zh: '复制',
+              zhHant: '複製',
+              en: 'Copy',
+              fr: 'Copier',
+              de: 'Kopieren',
+              ja: 'コピー',
+            ),
+          ),
         ),
         OutlinedButton.icon(
           onPressed: onReExecute,
           style: buttonStyle,
           icon: const Icon(Icons.replay_rounded, size: 16),
-          label: Text(isZh ? '重新执行' : 'Re-execute'),
+          label: Text(
+            _heHardnessText(
+              context,
+              zh: '重新执行',
+              zhHant: '重新執行',
+              en: 'Re-execute',
+              fr: 'Relancer',
+              de: 'Erneut ausführen',
+              ja: '再実行',
+            ),
+          ),
         ),
         OutlinedButton.icon(
           onPressed: onDelete,
           style: buttonStyle,
           icon: const Icon(Icons.delete_outline_rounded, size: 16),
-          label: Text(isZh ? '删除' : 'Delete'),
+          label: Text(
+            _heHardnessText(
+              context,
+              zh: '删除',
+              zhHant: '刪除',
+              en: 'Delete',
+              fr: 'Supprimer',
+              de: 'Löschen',
+              ja: '削除',
+            ),
+          ),
         ),
       ],
     );
