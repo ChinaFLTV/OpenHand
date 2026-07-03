@@ -196,7 +196,7 @@ const SSE_FAIL_THRESHOLD = 3;
 const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
 const ATTACHMENT_MAX_COUNT = 20;
 const ATTACHMENT_RESTORE_TIMEOUT_MS = 30_000;
-const COMPOSER_CHIP_EXIT_MS = 190;
+const COMPOSER_ITEM_EXIT_MS = 190;
 const QUEUE_SEND_SETTLE_MS = 600;
 const COMPOSER_COLLAPSED_STORAGE_KEY = 'openhand.web.composer_collapsed';
 const DEFAULT_COMPOSER_MODES = ['normal', 'image', 'video', 'audio', 'deep_research'];
@@ -2535,34 +2535,45 @@ export function SessionDetailPage() {
     }
   }
 
-  function runAfterComposerChipExit(key: string, action: () => void): void {
-    if (composerChipIsExiting(key)) return;
+  function runAfterTrackedExit(
+    id: string,
+    isExiting: (id: string) => boolean,
+    setExitingIds: (updater: (ids: string[]) => string[]) => void,
+    timersRef: { current: number[] },
+    action: () => void,
+  ): void {
+    if (isExiting(id)) return;
     if (reduceMotion || typeof window === 'undefined') {
       action();
       return;
     }
-    setExitingComposerChipKeys((keys) => (keys.includes(key) ? keys : [...keys, key]));
+    setExitingIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
     const timer = window.setTimeout(() => {
       action();
-      setExitingComposerChipKeys((keys) => keys.filter((item) => item !== key));
-      composerChipExitTimersRef.current = composerChipExitTimersRef.current.filter((item) => item !== timer);
-    }, COMPOSER_CHIP_EXIT_MS);
-    composerChipExitTimersRef.current.push(timer);
+      setExitingIds((ids) => ids.filter((item) => item !== id));
+      timersRef.current = timersRef.current.filter((item) => item !== timer);
+    }, COMPOSER_ITEM_EXIT_MS);
+    timersRef.current.push(timer);
+  }
+
+  function runAfterComposerChipExit(key: string, action: () => void): void {
+    runAfterTrackedExit(
+      key,
+      composerChipIsExiting,
+      setExitingComposerChipKeys,
+      composerChipExitTimersRef,
+      action,
+    );
   }
 
   function runAfterQueuedMessageExit(id: string, action: () => void): void {
-    if (queuedMessageIsExiting(id)) return;
-    if (reduceMotion || typeof window === 'undefined') {
-      action();
-      return;
-    }
-    setExitingQueuedMessageIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
-    const timer = window.setTimeout(() => {
-      action();
-      setExitingQueuedMessageIds((ids) => ids.filter((item) => item !== id));
-      queuedMessageExitTimersRef.current = queuedMessageExitTimersRef.current.filter((item) => item !== timer);
-    }, COMPOSER_CHIP_EXIT_MS);
-    queuedMessageExitTimersRef.current.push(timer);
+    runAfterTrackedExit(
+      id,
+      queuedMessageIsExiting,
+      setExitingQueuedMessageIds,
+      queuedMessageExitTimersRef,
+      action,
+    );
   }
 
   const setAutoFollowEnabled = (value: boolean) => {
