@@ -32,6 +32,57 @@ void main() {
       expect(script, contains('command -v'));
       expect(script, contains('exec'));
     });
+
+    test('falls back to npm global bin when command is not on PATH', () async {
+      if (Platform.isWindows) return;
+
+      final temp = Directory.systemTemp.createTempSync(
+        'openhand_plugin_lifecycle_',
+      );
+      try {
+        final pyenvBin = Directory('${temp.path}/pyenv/bin')
+          ..createSync(recursive: true);
+        final npmPrefixBin = Directory('${temp.path}/npm-prefix/bin')
+          ..createSync(recursive: true);
+        final npm = File('${pyenvBin.path}/npm');
+        npm.writeAsStringSync('''
+#!/bin/sh
+if [ "\$1" = "prefix" ] && [ "\$2" = "-g" ]; then
+  printf '%s\\n' '${temp.path}/npm-prefix'
+  exit 0
+fi
+exit 1
+''');
+        final command = File('${npmPrefixBin.path}/openhand-hermes-test');
+        command.writeAsStringSync('''
+#!/bin/sh
+printf 'openhand-hermes-test 1.2.3\\n'
+''');
+        await Process.run('/bin/chmod', ['+x', npm.path, command.path]);
+
+        final result = await Process.run(
+          '/bin/sh',
+          [
+            '-c',
+            pluginLifecycleManagedToolchainCommandScript(
+              'openhand-hermes-test',
+              const <String>['--version'],
+            ),
+          ],
+          environment: <String, String>{
+            'PATH': '/usr/bin:/bin',
+            'PYENV_ROOT': '${temp.path}/pyenv',
+            'VOLTA_HOME': '${temp.path}/volta',
+          },
+          includeParentEnvironment: false,
+        );
+
+        expect(result.exitCode, 0);
+        expect(result.stdout.toString(), contains('1.2.3'));
+      } finally {
+        temp.deleteSync(recursive: true);
+      }
+    });
   });
 
   group('Hermes Agent npm failure diagnostics', () {

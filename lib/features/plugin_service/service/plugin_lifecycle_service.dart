@@ -90,6 +90,14 @@ String pluginLifecycleManagedToolchainCommandScript(
   return '''
 ${_pluginLifecycleManagedToolchainShellPrefix()}
 if ! command -v $command >/dev/null 2>&1; then
+  if command -v npm >/dev/null 2>&1; then
+    npm_prefix="\$(npm prefix -g 2>/dev/null || true)"
+    if [ -n "\$npm_prefix" ]; then
+      export PATH="\$npm_prefix/bin:\$PATH"
+    fi
+  fi
+fi
+if ! command -v $command >/dev/null 2>&1; then
   printf '%s not found\\n' $command >&2
   exit 127
 fi
