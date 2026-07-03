@@ -6135,7 +6135,7 @@ class _GoalMessageViewData {
     if (value is! Map) {
       return null;
     }
-    return Map<String, Object?>.from(value);
+    return stringKeyedMapFromValue(value);
   }
 
   static String _readString(Object? value) {
@@ -6974,12 +6974,7 @@ Map<String, Object?> _knowledgeBaseMetadataEnvelope(
 List<Map<String, Object?>> _knowledgeBaseResultMaps(
   Map<String, Object?> metadata,
 ) {
-  final results = metadata['results'];
-  if (results is! List) return const <Map<String, Object?>>[];
-  return results
-      .whereType<Map>()
-      .map((item) => Map<String, Object?>.from(item))
-      .toList(growable: false);
+  return stringKeyedMapListFromValue(metadata['results']);
 }
 
 Map<String, Object?>? _knowledgeBaseMetadataUsedByAnswer(

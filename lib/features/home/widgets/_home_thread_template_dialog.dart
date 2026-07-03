@@ -199,14 +199,11 @@ Widget _buildProgrammingExpertConfigSection(
   final colorScheme = theme.colorScheme;
   final isZh = openHandIsChineseLocale(context);
   final sectionTitle = isZh ? '编程专家配置' : 'Programming Expert Config';
-  final rawConfig = session.metadata['programming_expert_config'];
-
-  final Map<String, Object?> configMap;
-  if (rawConfig is Map<String, Object?>) {
-    configMap = rawConfig;
-  } else if (rawConfig is Map) {
-    configMap = Map<String, Object?>.from(rawConfig);
-  } else {
+  final configMap = _threadTemplateMetadataMap(
+    session,
+    'programming_expert_config',
+  );
+  if (configMap == null) {
     return _MetadataSection(
       title: sectionTitle,
       children: [
@@ -260,14 +257,8 @@ Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
   final sectionTitle = isZh
       ? 'Harness Engineering 配置'
       : 'Harness Engineering Config';
-  final rawConfig = session.metadata['hardness_config'];
-
-  final Map<String, Object?> configMap;
-  if (rawConfig is Map<String, Object?>) {
-    configMap = rawConfig;
-  } else if (rawConfig is Map) {
-    configMap = Map<String, Object?>.from(rawConfig);
-  } else {
+  final configMap = _threadTemplateMetadataMap(session, 'hardness_config');
+  if (configMap == null) {
     return _MetadataSection(
       title: sectionTitle,
       children: [
@@ -287,7 +278,7 @@ Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
     final raw = configMap[key];
     if (raw is Map<String, Object?>) return HardnessRoleConfig.fromJson(raw);
     if (raw is Map) {
-      return HardnessRoleConfig.fromJson(Map<String, Object?>.from(raw));
+      return HardnessRoleConfig.fromJson(stringKeyedMapFromValue(raw));
     }
     return null;
   }
@@ -347,6 +338,14 @@ Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
         ),
     ],
   );
+}
+
+Map<String, Object?>? _threadTemplateMetadataMap(
+  AiSession session,
+  String key,
+) {
+  final rawValue = session.metadata[key];
+  return rawValue is Map ? stringKeyedMapFromValue(rawValue) : null;
 }
 
 String _localizedText(
