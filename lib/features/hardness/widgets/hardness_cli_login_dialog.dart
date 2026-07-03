@@ -7,12 +7,12 @@ import 'package:flutter/services.dart';
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
-import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../service/hardness_cli_catalog.dart';
 
@@ -56,6 +56,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
   List<String> get _loginArgs => _cli.loginArgs ?? const <String>[];
   String get _commandPreview =>
       formatHardnessCliCommandPreview(_executable, _loginArgs);
+  AppLocalizations get _l10n => AppLocalizations.of(context)!;
 
   @override
   void initState() {
@@ -95,7 +96,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
 
       void onStreamError(Object error) {
         if (!mounted) return;
-        _appendOutput('[stream error: $error]\n');
+        _appendOutput('${_l10n.hardnessCliLoginStreamError('$error')}\n');
       }
 
       _stdoutSubscription = process.stdout
@@ -113,11 +114,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
       // hint so the user is not left staring at a blank screen.
       _noOutputTimer = startSafeTimer(_noOutputHintDelay, () {
         if (!mounted || _output.isNotEmpty || _finished) return;
-        _appendOutput(
-          '[提示] CLI 尚未产生输出。可能正在初始化，或需要在外部浏览器中完成授权。\n'
-          '[Hint] CLI has not produced output yet. It may be initialising, '
-          'or waiting for browser-based authorisation.\n',
-        );
+        _appendOutput(_l10n.hardnessCliLoginNoOutputHint);
       });
 
       final exitCode = await process.exitCode;
@@ -140,12 +137,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
           _output.contains('Not logged in') ||
           (_output.contains('Please run /login') && exitCode != 0)) {
         _appendOutput('\n');
-        _appendOutput(
-          '[提示] 该 CLI 可能需要真实终端 (TTY) 才能完成交互式登录。\n'
-          '请点击下方「在终端中打开」按钮，在系统终端中完成登录流程。\n'
-          '[Hint] This CLI may require a real terminal (TTY) for interactive login.\n'
-          'Use the "Open in Terminal" button below to complete login in the system terminal.\n',
-        );
+        _appendOutput(_l10n.hardnessCliLoginTtyRequiredHint);
       }
 
       if (!mounted) return;
@@ -163,7 +155,9 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
       setState(() {
         _starting = false;
         _finished = true;
-        _errorMessage = '无法启动进程 / Failed to start process: ${error.message}';
+        _errorMessage = _l10n.hardnessCliLoginFailedToStartProcess(
+          error.message,
+        );
       });
       _errorPulse.value = _errorPulse.value + 1;
     } catch (error) {
@@ -293,7 +287,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
       }
     } catch (e) {
       if (!mounted) return;
-      _appendOutput('[Error opening terminal: $e]\n');
+      _appendOutput('${_l10n.hardnessCliLoginOpenTerminalError('$e')}\n');
     }
   }
 
@@ -313,19 +307,19 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final statusText = _errorMessage != null
-        ? (isZh ? '启动失败' : 'Failed to launch')
+        ? l10n.hardnessCliLoginStatusFailed
         : _starting
-        ? (isZh ? '正在启动登录流程...' : 'Starting login flow...')
+        ? l10n.hardnessCliLoginStatusStarting
         : _finished
-        ? (isZh
-              ? '流程已结束${_exitCode != null ? ' · 退出码 $_exitCode' : ''}'
-              : 'Process finished${_exitCode != null ? ' · exit $_exitCode' : ''}')
-        : (isZh ? '等待 CLI 交互...' : 'Waiting for CLI interaction...');
+        ? (_exitCode == null
+              ? l10n.hardnessCliLoginStatusFinished
+              : l10n.hardnessCliLoginStatusFinishedWithExit(_exitCode!))
+        : l10n.hardnessCliLoginStatusWaiting;
 
     return buildOpenHandAlertDialog(
-      title: Text(isZh ? '${_cli.name} 登录' : '${_cli.name} Login'),
+      title: Text(l10n.hardnessCliLoginTitle(_cli.name)),
       content: SizedBox(
         width: 860,
         height: 620,
@@ -335,9 +329,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  isZh
-                      ? '该弹窗会在应用内启动交互式 CLI 登录流程。过程中 CLI 可能会自动打开外部浏览器，请根据提示完成授权。'
-                      : 'This dialog runs the CLI login flow in-app. The CLI may open your browser externally during authentication.',
+                  l10n.hardnessCliLoginDescription,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     height: 1.5,
@@ -369,7 +361,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
                         const SizedBox(width: 8),
                         IconButton(
                           onPressed: _copyCommand,
-                          tooltip: isZh ? '复制命令' : 'Copy command',
+                          tooltip: l10n.hardnessCliLoginCopyCommandTooltip,
                           icon: const Icon(
                             Icons.content_copy_rounded,
                             size: 18,
@@ -431,9 +423,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
                           child: SelectableText(
                             _errorMessage ??
                                 (_output.isEmpty
-                                    ? (isZh
-                                          ? '等待 CLI 输出...'
-                                          : 'Waiting for CLI output...')
+                                    ? l10n.hardnessCliLoginEmptyOutput
                                     : _output),
                             style: theme.textTheme.bodySmall?.copyWith(
                               fontFamily: 'monospace',
@@ -459,10 +449,8 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
                             !_starting && !_finished && _errorMessage == null,
                         onSubmitted: (_) => _sendLine(),
                         decoration: InputDecoration(
-                          labelText: isZh ? '发送输入' : 'Send input',
-                          hintText: isZh
-                              ? '输入内容后回车；留空可直接发送回车'
-                              : 'Type a reply and press Enter; leave empty to send Enter',
+                          labelText: l10n.hardnessCliLoginInputLabel,
+                          hintText: l10n.hardnessCliLoginInputHint,
                           border: const OutlineInputBorder(),
                         ),
                       ),
@@ -474,7 +462,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
                           ? _sendLine
                           : null,
                       icon: const Icon(Icons.keyboard_return_rounded, size: 18),
-                      label: Text(isZh ? '发送' : 'Send'),
+                      label: Text(l10n.hardnessCliLoginSend),
                     ),
                   ],
                 ),
@@ -489,7 +477,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
                           ? () => _sendControlCode(27)
                           : null,
                       icon: const Icon(Icons.keyboard_hide_rounded, size: 16),
-                      label: Text(isZh ? '发送 Esc' : 'Send Esc'),
+                      label: Text(l10n.hardnessCliLoginSendEsc),
                     ),
                     OutlinedButton.icon(
                       onPressed:
@@ -502,7 +490,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
                     OutlinedButton.icon(
                       onPressed: _openInTerminal,
                       icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                      label: Text(isZh ? '在终端中打开' : 'Open in Terminal'),
+                      label: Text(l10n.hardnessCliLoginOpenInTerminal),
                     ),
                   ],
                 ),
@@ -536,7 +524,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: _closeDialog,
-          label: isZh ? '关闭' : 'Close',
+          label: l10n.commonClose,
         ),
       ],
     );

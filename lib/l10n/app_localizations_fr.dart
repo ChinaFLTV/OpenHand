@@ -536,6 +536,223 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get hardnessCliLoginNoOutputHint =>
+      '[Indice] La CLI n’a pas encore produit de sortie. Elle peut être en cours d’initialisation ou attendre une autorisation dans le navigateur.\n';
+
+  @override
+  String get hardnessCliLoginTtyRequiredHint =>
+      '[Indice] Cette CLI peut nécessiter un vrai terminal (TTY) pour la connexion interactive.\nUtilisez le bouton « Ouvrir dans le terminal » ci-dessous pour terminer la connexion dans le terminal système.\n';
+
+  @override
+  String hardnessCliLoginStreamError(Object error) {
+    return '[Erreur de flux : $error]';
+  }
+
+  @override
+  String hardnessCliLoginFailedToStartProcess(Object message) {
+    return 'Impossible de démarrer le processus : $message';
+  }
+
+  @override
+  String hardnessCliLoginOpenTerminalError(Object error) {
+    return '[Erreur lors de l’ouverture du terminal : $error]';
+  }
+
+  @override
+  String get hardnessCliLoginStatusFailed => 'Échec du lancement';
+
+  @override
+  String get hardnessCliLoginStatusStarting =>
+      'Démarrage du flux de connexion...';
+
+  @override
+  String get hardnessCliLoginStatusFinished => 'Processus terminé';
+
+  @override
+  String hardnessCliLoginStatusFinishedWithExit(int exitCode) {
+    return 'Processus terminé · code $exitCode';
+  }
+
+  @override
+  String get hardnessCliLoginStatusWaiting =>
+      'En attente d’interaction avec la CLI...';
+
+  @override
+  String hardnessCliLoginTitle(Object name) {
+    return 'Connexion $name';
+  }
+
+  @override
+  String get hardnessCliLoginDescription =>
+      'Cette fenêtre exécute le flux de connexion CLI dans l’application. La CLI peut ouvrir votre navigateur externe pendant l’authentification.';
+
+  @override
+  String get hardnessCliLoginCopyCommandTooltip => 'Copier la commande';
+
+  @override
+  String get hardnessCliLoginEmptyOutput => 'En attente de sortie CLI...';
+
+  @override
+  String get hardnessCliLoginInputLabel => 'Envoyer une saisie';
+
+  @override
+  String get hardnessCliLoginInputHint =>
+      'Saisissez une réponse puis appuyez sur Entrée ; laissez vide pour envoyer Entrée';
+
+  @override
+  String get hardnessCliLoginSend => 'Envoyer';
+
+  @override
+  String get hardnessCliLoginSendEsc => 'Envoyer Esc';
+
+  @override
+  String get hardnessCliLoginOpenInTerminal => 'Ouvrir dans le terminal';
+
+  @override
+  String get hardnessCliInstallLogSuccess => '✓ Installation réussie';
+
+  @override
+  String hardnessCliInstallLogSuccessWithPath(Object path) {
+    return '✓ Installation réussie (chemin : $path)';
+  }
+
+  @override
+  String hardnessCliInstallLogFailureExitCode(int exitCode) {
+    return '✗ Échec de l’installation (code de sortie : $exitCode)';
+  }
+
+  @override
+  String hardnessCliInstallLogStartProcessFailed(Object message) {
+    return '✗ Impossible de démarrer le processus d’installation : $message';
+  }
+
+  @override
+  String hardnessCliInstallLogGenericError(Object error) {
+    return '✗ Erreur : $error';
+  }
+
+  @override
+  String get hardnessCliInstallHintInstallNode =>
+      '  → Installez d’abord Node.js : https://nodejs.org';
+
+  @override
+  String get hardnessCliInstallHintRetryAdminButton =>
+      '  → Cliquez sur le bouton « Réessayer en administrateur » ci-dessous';
+
+  @override
+  String hardnessCliInstallHintTrySudo(Object command) {
+    return '  → Essayez : sudo $command';
+  }
+
+  @override
+  String get hardnessCliInstallHintCheckNetworkDocs =>
+      '  → Vérifiez la connexion réseau ou consultez la documentation officielle';
+
+  @override
+  String get hardnessCliInstallHintInstallPipx =>
+      '  → Installez d’abord pipx : https://pipx.pypa.io/stable/installation/';
+
+  @override
+  String get hardnessCliInstallHintUsePipInstallUserAider =>
+      '    Ou utilisez : pip install --user aider-chat';
+
+  @override
+  String get hardnessCliInstallHintHomebrewNoSudo =>
+      '  → Homebrew ne devrait généralement pas être installé avec sudo ; vérifiez les permissions du dossier';
+
+  @override
+  String get hardnessCliInstallHintHomebrewFix =>
+      '  → Correction suggérée : https://docs.brew.sh/FAQ#why-does-homebrew-say-sudo-is-not-allowed';
+
+  @override
+  String get hardnessCliInstallHintInstallPython =>
+      '  → Installez d’abord Python : https://www.python.org';
+
+  @override
+  String hardnessCliInstallHintPipInstallUser(Object packageName) {
+    return '  → Essayez : pip install --user $packageName';
+  }
+
+  @override
+  String hardnessCliInstallHintOfficialDocs(Object url) {
+    return '  → Documentation officielle : $url';
+  }
+
+  @override
+  String get hardnessCliInstallLogCancelled => '⚠ Installation annulée';
+
+  @override
+  String get hardnessCliInstallWindowsAdminManual =>
+      'Exécutez manuellement dans PowerShell avec les droits administrateur :';
+
+  @override
+  String hardnessCliInstallAdminCommand(Object command) {
+    return '> [Admin] $command';
+  }
+
+  @override
+  String get hardnessCliInstallAdminTimeout =>
+      '✗ La fenêtre d’autorisation administrateur a expiré ou n’a pas démarré ; le sous-processus osascript a été arrêté de force';
+
+  @override
+  String get hardnessCliInstallUserCancelledAuth => '⚠ Autorisation annulée';
+
+  @override
+  String get hardnessCliInstallAdminPermissionFailed =>
+      '✗ Impossible d’obtenir les droits administrateur';
+
+  @override
+  String hardnessCliInstallPathMissingWarning(Object executable) {
+    return '⚠ Installation terminée, mais $executable est introuvable dans le PATH actuel';
+  }
+
+  @override
+  String get hardnessCliInstallRestartPathHint =>
+      '  → Essayez de redémarrer OpenHand ou de le lancer depuis un terminal pour charger le nouveau PATH';
+
+  @override
+  String get hardnessCliInstallTimeoutManual =>
+      '✗ Installation expirée (plus de 5 minutes). Exécutez manuellement :';
+
+  @override
+  String hardnessCliInstallOsascriptStartFailed(Object message) {
+    return '✗ Impossible de démarrer osascript : $message';
+  }
+
+  @override
+  String get hardnessCliInstallLinuxSudoManual =>
+      'Exécutez manuellement dans un terminal (droits root requis) :';
+
+  @override
+  String get hardnessCliInstallStatusInstalling => 'Installation...';
+
+  @override
+  String get hardnessCliInstallStatusSuccess => 'Installation réussie';
+
+  @override
+  String get hardnessCliInstallStatusCancelled => 'Annulé';
+
+  @override
+  String get hardnessCliInstallStatusFailed => 'Échec de l’installation';
+
+  @override
+  String hardnessCliInstallTitle(Object name) {
+    return 'Installer $name';
+  }
+
+  @override
+  String get hardnessCliInstallCopyDocUrl => 'Copier l’URL de la doc';
+
+  @override
+  String get hardnessCliInstallCancel => 'Annuler l’installation';
+
+  @override
+  String get hardnessCliInstallRetryAdmin => 'Réessayer en admin';
+
+  @override
+  String get hardnessCliInstallDoneContinue => 'Terminé, continuer';
+
+  @override
   String get settingsToolSearchReplayCancelWindowLabel =>
       'Fenêtre d’annulation du replay';
 

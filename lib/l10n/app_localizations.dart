@@ -1040,6 +1040,336 @@ abstract class AppLocalizations {
   /// **'重置为默认值（{defaultCap}）'**
   String settingsHardnessToolSearchHistoryCapResetTooltip(int defaultCap);
 
+  /// Hardness CLI login dialog terminal hint when no output arrives.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[提示] CLI 尚未产生输出。可能正在初始化，或需要在外部浏览器中完成授权。\n'**
+  String get hardnessCliLoginNoOutputHint;
+
+  /// Hardness CLI login dialog terminal hint when a TTY may be required.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[提示] 该 CLI 可能需要真实终端 (TTY) 才能完成交互式登录。\n请点击下方“在终端中打开”按钮，在系统终端中完成登录流程。\n'**
+  String get hardnessCliLoginTtyRequiredHint;
+
+  /// Hardness CLI login dialog stream error log line.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[流错误：{error}]'**
+  String hardnessCliLoginStreamError(Object error);
+
+  /// Hardness CLI login dialog process startup failure.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无法启动进程：{message}'**
+  String hardnessCliLoginFailedToStartProcess(Object message);
+
+  /// Hardness CLI login dialog open-terminal failure log line.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[无法打开终端：{error}]'**
+  String hardnessCliLoginOpenTerminalError(Object error);
+
+  /// Hardness CLI login dialog status label.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启动失败'**
+  String get hardnessCliLoginStatusFailed;
+
+  /// Hardness CLI login dialog status label.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在启动登录流程...'**
+  String get hardnessCliLoginStatusStarting;
+
+  /// Hardness CLI login dialog status label without exit code.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'流程已结束'**
+  String get hardnessCliLoginStatusFinished;
+
+  /// Hardness CLI login dialog status label with exit code.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'流程已结束 · 退出码 {exitCode}'**
+  String hardnessCliLoginStatusFinishedWithExit(int exitCode);
+
+  /// Hardness CLI login dialog status label.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'等待 CLI 交互...'**
+  String get hardnessCliLoginStatusWaiting;
+
+  /// Hardness CLI login dialog title.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{name} 登录'**
+  String hardnessCliLoginTitle(Object name);
+
+  /// Hardness CLI login dialog description.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'该弹窗会在应用内启动交互式 CLI 登录流程。过程中 CLI 可能会自动打开外部浏览器，请根据提示完成授权。'**
+  String get hardnessCliLoginDescription;
+
+  /// Hardness CLI login dialog copy-command tooltip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制命令'**
+  String get hardnessCliLoginCopyCommandTooltip;
+
+  /// Hardness CLI login dialog empty terminal placeholder.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'等待 CLI 输出...'**
+  String get hardnessCliLoginEmptyOutput;
+
+  /// Hardness CLI login dialog stdin input label.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发送输入'**
+  String get hardnessCliLoginInputLabel;
+
+  /// Hardness CLI login dialog stdin input hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入内容后回车；留空可直接发送回车'**
+  String get hardnessCliLoginInputHint;
+
+  /// Hardness CLI login dialog send button.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发送'**
+  String get hardnessCliLoginSend;
+
+  /// Hardness CLI login dialog send-Esc button.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发送 Esc'**
+  String get hardnessCliLoginSendEsc;
+
+  /// Hardness CLI login dialog open-in-terminal button.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'在终端中打开'**
+  String get hardnessCliLoginOpenInTerminal;
+
+  /// Hardness CLI install dialog success log line.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'✓ 安装成功'**
+  String get hardnessCliInstallLogSuccess;
+
+  /// Hardness CLI install dialog success log line with path.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'✓ 安装成功（路径：{path}）'**
+  String hardnessCliInstallLogSuccessWithPath(Object path);
+
+  /// Hardness CLI install dialog failure log line with exit code.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'✗ 安装失败（退出码：{exitCode}）'**
+  String hardnessCliInstallLogFailureExitCode(int exitCode);
+
+  /// Hardness CLI install dialog process startup failure log line.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'✗ 无法启动安装进程：{message}'**
+  String hardnessCliInstallLogStartProcessFailed(Object message);
+
+  /// Hardness CLI install dialog generic error log line.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'✗ 发生错误：{error}'**
+  String hardnessCliInstallLogGenericError(Object error);
+
+  /// Hardness CLI install dialog Node.js missing hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'  → 请先安装 Node.js：https://nodejs.org'**
+  String get hardnessCliInstallHintInstallNode;
+
+  /// Hardness CLI install dialog admin retry hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'  → 点击下方“以管理员权限重试”按钮'**
+  String get hardnessCliInstallHintRetryAdminButton;
+
+  /// Hardness CLI install dialog sudo retry hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'  → 尝试：sudo {command}'**
+  String hardnessCliInstallHintTrySudo(Object command);
+
+  /// Hardness CLI install dialog network/docs hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'  → 请检查网络连接或查阅官方文档'**
+  String get hardnessCliInstallHintCheckNetworkDocs;
+
+  /// Hardness CLI install dialog pipx missing hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'  → 请先安装 pipx：https://pipx.pypa.io/stable/installation/'**
+  String get hardnessCliInstallHintInstallPipx;
+
+  /// Hardness CLI install dialog pip fallback hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'    或使用：pip install --user aider-chat'**
+  String get hardnessCliInstallHintUsePipInstallUserAider;
+
+  /// Hardness CLI install dialog Homebrew permission hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'  → Homebrew 通常不应以 sudo 安装，请检查目录权限'**
+  String get hardnessCliInstallHintHomebrewNoSudo;
+
+  /// Hardness CLI install dialog Homebrew fix link hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'  → 修复建议：https://docs.brew.sh/FAQ#why-does-homebrew-say-sudo-is-not-allowed'**
+  String get hardnessCliInstallHintHomebrewFix;
+
+  /// Hardness CLI install dialog Python missing hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'  → 请先安装 Python：https://www.python.org'**
+  String get hardnessCliInstallHintInstallPython;
+
+  /// Hardness CLI install dialog pip user install hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'  → 尝试：pip install --user {packageName}'**
+  String hardnessCliInstallHintPipInstallUser(Object packageName);
+
+  /// Hardness CLI install dialog official docs hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'  → 官方文档：{url}'**
+  String hardnessCliInstallHintOfficialDocs(Object url);
+
+  /// Hardness CLI install dialog cancellation log line.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'⚠ 安装已被取消'**
+  String get hardnessCliInstallLogCancelled;
+
+  /// Hardness CLI install dialog Windows admin manual-run hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请在管理员权限的 PowerShell 中手动执行：'**
+  String get hardnessCliInstallWindowsAdminManual;
+
+  /// Hardness CLI install dialog elevated command log line.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'> [管理员] {command}'**
+  String hardnessCliInstallAdminCommand(Object command);
+
+  /// Hardness CLI install dialog admin authorization timeout log line.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'✗ 管理员授权对话框超时或启动失败，已强制结束 osascript 子进程'**
+  String get hardnessCliInstallAdminTimeout;
+
+  /// Hardness CLI install dialog user-cancelled authorization log line.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'⚠ 用户已取消授权'**
+  String get hardnessCliInstallUserCancelledAuth;
+
+  /// Hardness CLI install dialog admin privilege failure log line.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'✗ 无法获取管理员权限'**
+  String get hardnessCliInstallAdminPermissionFailed;
+
+  /// Hardness CLI install dialog PATH warning log line.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'⚠ 安装完成，但未在当前 PATH 中检测到 {executable}'**
+  String hardnessCliInstallPathMissingWarning(Object executable);
+
+  /// Hardness CLI install dialog restart/PATH hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'  → 请尝试重新启动 OpenHand 或从终端启动以加载新 PATH'**
+  String get hardnessCliInstallRestartPathHint;
+
+  /// Hardness CLI install dialog timeout manual-run hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'✗ 安装超时（超过 5 分钟），请手动运行：'**
+  String get hardnessCliInstallTimeoutManual;
+
+  /// Hardness CLI install dialog osascript startup failure log line.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'✗ 无法启动 osascript：{message}'**
+  String hardnessCliInstallOsascriptStartFailed(Object message);
+
+  /// Hardness CLI install dialog Linux sudo manual-run hint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请在终端手动执行（需要 root 权限）：'**
+  String get hardnessCliInstallLinuxSudoManual;
+
+  /// Hardness CLI install dialog status label.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安装中...'**
+  String get hardnessCliInstallStatusInstalling;
+
+  /// Hardness CLI install dialog status label.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安装成功'**
+  String get hardnessCliInstallStatusSuccess;
+
+  /// Hardness CLI install dialog status label.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已取消'**
+  String get hardnessCliInstallStatusCancelled;
+
+  /// Hardness CLI install dialog status label.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安装失败'**
+  String get hardnessCliInstallStatusFailed;
+
+  /// Hardness CLI install dialog title.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安装 {name}'**
+  String hardnessCliInstallTitle(Object name);
+
+  /// Hardness CLI install dialog copy docs URL button.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制文档链接'**
+  String get hardnessCliInstallCopyDocUrl;
+
+  /// Hardness CLI install dialog cancel button.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消安装'**
+  String get hardnessCliInstallCancel;
+
+  /// Hardness CLI install dialog retry with admin button.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'以管理员权限重试'**
+  String get hardnessCliInstallRetryAdmin;
+
+  /// Hardness CLI install dialog done/continue button.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'完成，继续'**
+  String get hardnessCliInstallDoneContinue;
+
   /// No description provided for @settingsToolSearchReplayCancelWindowLabel.
   ///
   /// In zh_Hans, this message translates to:

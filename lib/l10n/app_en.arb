@@ -239,6 +239,278 @@
       }
     }
   },
+  "hardnessCliLoginNoOutputHint": "[Hint] CLI has not produced output yet. It may be initializing, or waiting for browser-based authorization.\n",
+  "@hardnessCliLoginNoOutputHint": {
+    "description": "Hardness CLI login dialog terminal hint when no output arrives."
+  },
+  "hardnessCliLoginTtyRequiredHint": "[Hint] This CLI may require a real terminal (TTY) for interactive login.\nUse the \"Open in Terminal\" button below to complete login in the system terminal.\n",
+  "@hardnessCliLoginTtyRequiredHint": {
+    "description": "Hardness CLI login dialog terminal hint when a TTY may be required."
+  },
+  "hardnessCliLoginStreamError": "[Stream error: {error}]",
+  "@hardnessCliLoginStreamError": {
+    "description": "Hardness CLI login dialog stream error log line.",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "hardnessCliLoginFailedToStartProcess": "Failed to start process: {message}",
+  "@hardnessCliLoginFailedToStartProcess": {
+    "description": "Hardness CLI login dialog process startup failure.",
+    "placeholders": {
+      "message": {}
+    }
+  },
+  "hardnessCliLoginOpenTerminalError": "[Error opening terminal: {error}]",
+  "@hardnessCliLoginOpenTerminalError": {
+    "description": "Hardness CLI login dialog open-terminal failure log line.",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "hardnessCliLoginStatusFailed": "Failed to launch",
+  "@hardnessCliLoginStatusFailed": {
+    "description": "Hardness CLI login dialog status label."
+  },
+  "hardnessCliLoginStatusStarting": "Starting login flow...",
+  "@hardnessCliLoginStatusStarting": {
+    "description": "Hardness CLI login dialog status label."
+  },
+  "hardnessCliLoginStatusFinished": "Process finished",
+  "@hardnessCliLoginStatusFinished": {
+    "description": "Hardness CLI login dialog status label without exit code."
+  },
+  "hardnessCliLoginStatusFinishedWithExit": "Process finished · exit {exitCode}",
+  "@hardnessCliLoginStatusFinishedWithExit": {
+    "description": "Hardness CLI login dialog status label with exit code.",
+    "placeholders": {
+      "exitCode": {
+        "type": "int"
+      }
+    }
+  },
+  "hardnessCliLoginStatusWaiting": "Waiting for CLI interaction...",
+  "@hardnessCliLoginStatusWaiting": {
+    "description": "Hardness CLI login dialog status label."
+  },
+  "hardnessCliLoginTitle": "{name} Login",
+  "@hardnessCliLoginTitle": {
+    "description": "Hardness CLI login dialog title.",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "hardnessCliLoginDescription": "This dialog runs the CLI login flow in-app. The CLI may open your browser externally during authentication.",
+  "@hardnessCliLoginDescription": {
+    "description": "Hardness CLI login dialog description."
+  },
+  "hardnessCliLoginCopyCommandTooltip": "Copy command",
+  "@hardnessCliLoginCopyCommandTooltip": {
+    "description": "Hardness CLI login dialog copy-command tooltip."
+  },
+  "hardnessCliLoginEmptyOutput": "Waiting for CLI output...",
+  "@hardnessCliLoginEmptyOutput": {
+    "description": "Hardness CLI login dialog empty terminal placeholder."
+  },
+  "hardnessCliLoginInputLabel": "Send input",
+  "@hardnessCliLoginInputLabel": {
+    "description": "Hardness CLI login dialog stdin input label."
+  },
+  "hardnessCliLoginInputHint": "Type a reply and press Enter; leave empty to send Enter",
+  "@hardnessCliLoginInputHint": {
+    "description": "Hardness CLI login dialog stdin input hint."
+  },
+  "hardnessCliLoginSend": "Send",
+  "@hardnessCliLoginSend": {
+    "description": "Hardness CLI login dialog send button."
+  },
+  "hardnessCliLoginSendEsc": "Send Esc",
+  "@hardnessCliLoginSendEsc": {
+    "description": "Hardness CLI login dialog send-Esc button."
+  },
+  "hardnessCliLoginOpenInTerminal": "Open in Terminal",
+  "@hardnessCliLoginOpenInTerminal": {
+    "description": "Hardness CLI login dialog open-in-terminal button."
+  },
+  "hardnessCliInstallLogSuccess": "✓ Installed successfully",
+  "@hardnessCliInstallLogSuccess": {
+    "description": "Hardness CLI install dialog success log line."
+  },
+  "hardnessCliInstallLogSuccessWithPath": "✓ Installed successfully (path: {path})",
+  "@hardnessCliInstallLogSuccessWithPath": {
+    "description": "Hardness CLI install dialog success log line with path.",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "hardnessCliInstallLogFailureExitCode": "✗ Installation failed (exit code: {exitCode})",
+  "@hardnessCliInstallLogFailureExitCode": {
+    "description": "Hardness CLI install dialog failure log line with exit code.",
+    "placeholders": {
+      "exitCode": {
+        "type": "int"
+      }
+    }
+  },
+  "hardnessCliInstallLogStartProcessFailed": "✗ Failed to start install process: {message}",
+  "@hardnessCliInstallLogStartProcessFailed": {
+    "description": "Hardness CLI install dialog process startup failure log line.",
+    "placeholders": {
+      "message": {}
+    }
+  },
+  "hardnessCliInstallLogGenericError": "✗ Error: {error}",
+  "@hardnessCliInstallLogGenericError": {
+    "description": "Hardness CLI install dialog generic error log line.",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "hardnessCliInstallHintInstallNode": "  → Install Node.js first: https://nodejs.org",
+  "@hardnessCliInstallHintInstallNode": {
+    "description": "Hardness CLI install dialog Node.js missing hint."
+  },
+  "hardnessCliInstallHintRetryAdminButton": "  → Click the \"Retry with Admin\" button below",
+  "@hardnessCliInstallHintRetryAdminButton": {
+    "description": "Hardness CLI install dialog admin retry hint."
+  },
+  "hardnessCliInstallHintTrySudo": "  → Try: sudo {command}",
+  "@hardnessCliInstallHintTrySudo": {
+    "description": "Hardness CLI install dialog sudo retry hint.",
+    "placeholders": {
+      "command": {}
+    }
+  },
+  "hardnessCliInstallHintCheckNetworkDocs": "  → Check your network connection or see the official docs",
+  "@hardnessCliInstallHintCheckNetworkDocs": {
+    "description": "Hardness CLI install dialog network/docs hint."
+  },
+  "hardnessCliInstallHintInstallPipx": "  → Install pipx first: https://pipx.pypa.io/stable/installation/",
+  "@hardnessCliInstallHintInstallPipx": {
+    "description": "Hardness CLI install dialog pipx missing hint."
+  },
+  "hardnessCliInstallHintUsePipInstallUserAider": "    Or use: pip install --user aider-chat",
+  "@hardnessCliInstallHintUsePipInstallUserAider": {
+    "description": "Hardness CLI install dialog pip fallback hint."
+  },
+  "hardnessCliInstallHintHomebrewNoSudo": "  → Homebrew usually should not be installed with sudo; check directory permissions",
+  "@hardnessCliInstallHintHomebrewNoSudo": {
+    "description": "Hardness CLI install dialog Homebrew permission hint."
+  },
+  "hardnessCliInstallHintHomebrewFix": "  → Suggested fix: https://docs.brew.sh/FAQ#why-does-homebrew-say-sudo-is-not-allowed",
+  "@hardnessCliInstallHintHomebrewFix": {
+    "description": "Hardness CLI install dialog Homebrew fix link hint."
+  },
+  "hardnessCliInstallHintInstallPython": "  → Install Python first: https://www.python.org",
+  "@hardnessCliInstallHintInstallPython": {
+    "description": "Hardness CLI install dialog Python missing hint."
+  },
+  "hardnessCliInstallHintPipInstallUser": "  → Try: pip install --user {packageName}",
+  "@hardnessCliInstallHintPipInstallUser": {
+    "description": "Hardness CLI install dialog pip user install hint.",
+    "placeholders": {
+      "packageName": {}
+    }
+  },
+  "hardnessCliInstallHintOfficialDocs": "  → Official docs: {url}",
+  "@hardnessCliInstallHintOfficialDocs": {
+    "description": "Hardness CLI install dialog official docs hint.",
+    "placeholders": {
+      "url": {}
+    }
+  },
+  "hardnessCliInstallLogCancelled": "⚠ Installation was cancelled",
+  "@hardnessCliInstallLogCancelled": {
+    "description": "Hardness CLI install dialog cancellation log line."
+  },
+  "hardnessCliInstallWindowsAdminManual": "Run manually in PowerShell with administrator privileges:",
+  "@hardnessCliInstallWindowsAdminManual": {
+    "description": "Hardness CLI install dialog Windows admin manual-run hint."
+  },
+  "hardnessCliInstallAdminCommand": "> [Admin] {command}",
+  "@hardnessCliInstallAdminCommand": {
+    "description": "Hardness CLI install dialog elevated command log line.",
+    "placeholders": {
+      "command": {}
+    }
+  },
+  "hardnessCliInstallAdminTimeout": "✗ Admin authorization dialog timed out or failed to start; forcibly ended the osascript child process",
+  "@hardnessCliInstallAdminTimeout": {
+    "description": "Hardness CLI install dialog admin authorization timeout log line."
+  },
+  "hardnessCliInstallUserCancelledAuth": "⚠ Authorization was cancelled",
+  "@hardnessCliInstallUserCancelledAuth": {
+    "description": "Hardness CLI install dialog user-cancelled authorization log line."
+  },
+  "hardnessCliInstallAdminPermissionFailed": "✗ Could not obtain administrator privileges",
+  "@hardnessCliInstallAdminPermissionFailed": {
+    "description": "Hardness CLI install dialog admin privilege failure log line."
+  },
+  "hardnessCliInstallPathMissingWarning": "⚠ Installation completed, but {executable} was not found in the current PATH",
+  "@hardnessCliInstallPathMissingWarning": {
+    "description": "Hardness CLI install dialog PATH warning log line.",
+    "placeholders": {
+      "executable": {}
+    }
+  },
+  "hardnessCliInstallRestartPathHint": "  → Try restarting OpenHand or launching it from a terminal to load the new PATH",
+  "@hardnessCliInstallRestartPathHint": {
+    "description": "Hardness CLI install dialog restart/PATH hint."
+  },
+  "hardnessCliInstallTimeoutManual": "✗ Installation timed out (over 5 minutes). Run manually:",
+  "@hardnessCliInstallTimeoutManual": {
+    "description": "Hardness CLI install dialog timeout manual-run hint."
+  },
+  "hardnessCliInstallOsascriptStartFailed": "✗ Failed to start osascript: {message}",
+  "@hardnessCliInstallOsascriptStartFailed": {
+    "description": "Hardness CLI install dialog osascript startup failure log line.",
+    "placeholders": {
+      "message": {}
+    }
+  },
+  "hardnessCliInstallLinuxSudoManual": "Run manually in a terminal (root privileges required):",
+  "@hardnessCliInstallLinuxSudoManual": {
+    "description": "Hardness CLI install dialog Linux sudo manual-run hint."
+  },
+  "hardnessCliInstallStatusInstalling": "Installing...",
+  "@hardnessCliInstallStatusInstalling": {
+    "description": "Hardness CLI install dialog status label."
+  },
+  "hardnessCliInstallStatusSuccess": "Installed successfully",
+  "@hardnessCliInstallStatusSuccess": {
+    "description": "Hardness CLI install dialog status label."
+  },
+  "hardnessCliInstallStatusCancelled": "Cancelled",
+  "@hardnessCliInstallStatusCancelled": {
+    "description": "Hardness CLI install dialog status label."
+  },
+  "hardnessCliInstallStatusFailed": "Installation failed",
+  "@hardnessCliInstallStatusFailed": {
+    "description": "Hardness CLI install dialog status label."
+  },
+  "hardnessCliInstallTitle": "Install {name}",
+  "@hardnessCliInstallTitle": {
+    "description": "Hardness CLI install dialog title.",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "hardnessCliInstallCopyDocUrl": "Copy Doc URL",
+  "@hardnessCliInstallCopyDocUrl": {
+    "description": "Hardness CLI install dialog copy docs URL button."
+  },
+  "hardnessCliInstallCancel": "Cancel install",
+  "@hardnessCliInstallCancel": {
+    "description": "Hardness CLI install dialog cancel button."
+  },
+  "hardnessCliInstallRetryAdmin": "Retry with Admin",
+  "@hardnessCliInstallRetryAdmin": {
+    "description": "Hardness CLI install dialog retry with admin button."
+  },
+  "hardnessCliInstallDoneContinue": "Done, continue",
+  "@hardnessCliInstallDoneContinue": {
+    "description": "Hardness CLI install dialog done/continue button."
+  },
   "settingsToolSearchReplayCancelWindowLabel": "Replay cancel window",
   "settingsToolSearchReplayCancelWindowBody": "How long the snackbar waits before sending; press Cancel inside this window to discard.",
   "settingsToolSearchReplayCancelWindowValue": "Window: {seconds} s",

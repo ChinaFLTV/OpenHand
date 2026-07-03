@@ -8,12 +8,12 @@ import 'package:flutter/services.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
-import '../../../shared/util/localized_text.dart';
 import '../service/hardness_cli_catalog.dart';
 
 /// Shows a dialog that runs the CLI install command and streams output in real time.
@@ -50,6 +50,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
   /// Tracks whether we've already pulsed for this run, so the periodic
   /// rebuilds from streaming log appends don't re-trigger.
   bool _pulsedOutcome = false;
+  AppLocalizations get _l10n => AppLocalizations.of(context)!;
 
   void _pulseOutcome() {
     if (_pulsedOutcome) return;
@@ -140,9 +141,9 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
       });
       _appendLine('');
       if (_success) {
-        _appendLine('✓ 安装成功');
+        _appendLine(_l10n.hardnessCliInstallLogSuccess);
       } else {
-        _appendLine('✗ 安装失败（退出码：$exitCode）');
+        _appendLine(_l10n.hardnessCliInstallLogFailureExitCode(exitCode));
         _appendInstallHint(cmd[0], exitCode);
       }
     } on ProcessException catch (e) {
@@ -152,7 +153,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
         _success = false;
       });
       _appendLine('');
-      _appendLine('✗ 无法启动安装进程：${e.message}');
+      _appendLine(_l10n.hardnessCliInstallLogStartProcessFailed(e.message));
       _appendInstallHint(cmd[0], null);
     } catch (e) {
       if (!mounted) return;
@@ -161,7 +162,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
         _success = false;
       });
       _appendLine('');
-      _appendLine('✗ 发生错误：$e');
+      _appendLine(_l10n.hardnessCliInstallLogGenericError('$e'));
     }
   }
 
@@ -182,47 +183,51 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
   }
 
   void _appendInstallHint(String installer, int? exitCode) {
+    final l10n = _l10n;
+    final installCommand = widget.cli.installCommand!.join(' ');
     if (installer == 'npm') {
       if (exitCode == 127 || exitCode == null) {
-        _appendLine('  → 请先安装 Node.js：https://nodejs.org');
+        _appendLine(l10n.hardnessCliInstallHintInstallNode);
       } else if (_isPermissionError) {
         if (Platform.isMacOS) {
-          _appendLine('  → 点击下方「以管理员权限重试」按钮');
+          _appendLine(l10n.hardnessCliInstallHintRetryAdminButton);
         } else {
-          _appendLine('  → 尝试：sudo ${widget.cli.installCommand!.join(' ')}');
+          _appendLine(l10n.hardnessCliInstallHintTrySudo(installCommand));
         }
       } else {
-        _appendLine('  → 请检查网络连接或查阅官方文档');
+        _appendLine(l10n.hardnessCliInstallHintCheckNetworkDocs);
       }
     } else if (installer == 'pipx') {
       if (exitCode == 127 || exitCode == null) {
-        _appendLine('  → 请先安装 pipx：https://pipx.pypa.io/stable/installation/');
-        _appendLine('    或使用：pip install --user aider-chat');
+        _appendLine(l10n.hardnessCliInstallHintInstallPipx);
+        _appendLine(l10n.hardnessCliInstallHintUsePipInstallUserAider);
       } else if (_isPermissionError) {
         if (Platform.isMacOS) {
-          _appendLine('  → 点击下方「以管理员权限重试」按钮');
+          _appendLine(l10n.hardnessCliInstallHintRetryAdminButton);
         } else {
-          _appendLine('  → 尝试：sudo ${widget.cli.installCommand!.join(' ')}');
+          _appendLine(l10n.hardnessCliInstallHintTrySudo(installCommand));
         }
       }
     } else if (installer == 'brew') {
       if (_isPermissionError) {
-        _appendLine('  → Homebrew 通常不应以 sudo 安装，请检查目录权限');
-        _appendLine(
-          '  → 修复建议：https://docs.brew.sh/FAQ#why-does-homebrew-say-sudo-is-not-allowed',
-        );
+        _appendLine(l10n.hardnessCliInstallHintHomebrewNoSudo);
+        _appendLine(l10n.hardnessCliInstallHintHomebrewFix);
       }
     } else if (installer == 'pip') {
       if (exitCode == null) {
-        _appendLine('  → 请先安装 Python：https://www.python.org');
+        _appendLine(l10n.hardnessCliInstallHintInstallPython);
       } else if (_isPermissionError) {
         _appendLine(
-          '  → 尝试：pip install --user ${widget.cli.installCommand!.last}',
+          l10n.hardnessCliInstallHintPipInstallUser(
+            widget.cli.installCommand!.last,
+          ),
         );
       }
     }
     if (widget.cli.installDocUrl != null) {
-      _appendLine('  → 官方文档：${widget.cli.installDocUrl}');
+      _appendLine(
+        l10n.hardnessCliInstallHintOfficialDocs(widget.cli.installDocUrl!),
+      );
     }
   }
 
@@ -243,7 +248,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
       _running = false;
     });
     _appendLine('');
-    _appendLine('⚠ 安装已被取消');
+    _appendLine(_l10n.hardnessCliInstallLogCancelled);
   }
 
   // ── Elevated install (macOS: osascript; others: display manual command) ─────
@@ -262,7 +267,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
     if (!Platform.isMacOS && !Platform.isLinux) {
       // Windows: just show the manual command.
       setState(() => _running = false);
-      _appendLine('请在管理员权限的 PowerShell 中手动执行：');
+      _appendLine(_l10n.hardnessCliInstallWindowsAdminManual);
       _appendLine('  ${cmd.join(' ')}');
       return;
     }
@@ -297,7 +302,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
       installerPath,
       ...cmd.sublist(1),
     ]).map(_shellQuote).join(' ');
-    _appendLine('> [管理员] $shellCmdStr');
+    _appendLine(_l10n.hardnessCliInstallAdminCommand(shellCmdStr));
     _appendLine('');
 
     if (Platform.isMacOS) {
@@ -342,7 +347,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
             _running = false;
             _success = false;
           });
-          _appendLine('✗ 管理员授权对话框超时或启动失败，已强制结束 osascript 子进程');
+          _appendLine(_l10n.hardnessCliInstallAdminTimeout);
           return;
         }
 
@@ -357,16 +362,20 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
               _running = false;
               _cancelled = true;
             });
-            _appendLine('⚠ 用户已取消授权');
+            _appendLine(_l10n.hardnessCliInstallUserCancelledAuth);
           } else {
             setState(() {
               _running = false;
               _success = false;
             });
-            _appendLine('✗ 无法获取管理员权限');
+            _appendLine(_l10n.hardnessCliInstallAdminPermissionFailed);
             if (stderr.isNotEmpty) _appendLine('  $stderr');
             if (widget.cli.installDocUrl != null) {
-              _appendLine('  → 官方文档：${widget.cli.installDocUrl}');
+              _appendLine(
+                _l10n.hardnessCliInstallHintOfficialDocs(
+                  widget.cli.installDocUrl!,
+                ),
+              );
             }
           }
           return;
@@ -394,17 +403,27 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
 
         if (probe.installed) {
           _appendLine(
-            '✓ 安装成功（路径：${probe.resolvedPath ?? widget.cli.executable}）',
+            _l10n.hardnessCliInstallLogSuccessWithPath(
+              probe.resolvedPath ?? widget.cli.executable,
+            ),
           );
         } else if (innerExitCode != null && innerExitCode != 0) {
-          _appendLine('✗ 安装失败（退出码：$innerExitCode）');
+          _appendLine(
+            _l10n.hardnessCliInstallLogFailureExitCode(innerExitCode),
+          );
           if (widget.cli.installDocUrl != null) {
-            _appendLine('  → 官方文档：${widget.cli.installDocUrl}');
+            _appendLine(
+              _l10n.hardnessCliInstallHintOfficialDocs(
+                widget.cli.installDocUrl!,
+              ),
+            );
           }
         } else {
           // Installed but not yet on PATH — might need a new shell session.
-          _appendLine('⚠ 安装完成，但未在当前 PATH 中检测到 ${widget.cli.executable}');
-          _appendLine('  → 请尝试重新启动 OpenHand 或从终端启动以加载新 PATH');
+          _appendLine(
+            _l10n.hardnessCliInstallPathMissingWarning(widget.cli.executable),
+          );
+          _appendLine(_l10n.hardnessCliInstallRestartPathHint);
           // Treat as success so the caller re-scans.
           if (mounted) setState(() => _success = true);
         }
@@ -414,7 +433,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
           _running = false;
           _success = false;
         });
-        _appendLine('✗ 安装超时（超过 5 分钟），请手动运行：');
+        _appendLine(_l10n.hardnessCliInstallTimeoutManual);
         _appendLine('  sudo ${cmd.join(' ')}');
       } on ProcessException catch (e) {
         if (!mounted) return;
@@ -422,14 +441,14 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
           _running = false;
           _success = false;
         });
-        _appendLine('✗ 无法启动 osascript：${e.message}');
+        _appendLine(_l10n.hardnessCliInstallOsascriptStartFailed(e.message));
       } catch (e) {
         if (!mounted) return;
         setState(() {
           _running = false;
           _success = false;
         });
-        _appendLine('✗ 发生错误：$e');
+        _appendLine(_l10n.hardnessCliInstallLogGenericError('$e'));
       }
     } else {
       // Linux: no GUI sudo helper — show manual command to copy.
@@ -437,10 +456,12 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
         _running = false;
         _success = false;
       });
-      _appendLine('请在终端手动执行（需要 root 权限）：');
+      _appendLine(_l10n.hardnessCliInstallLinuxSudoManual);
       _appendLine('  sudo ${cmd.join(' ')}');
       if (widget.cli.installDocUrl != null) {
-        _appendLine('  → 官方文档：${widget.cli.installDocUrl}');
+        _appendLine(
+          _l10n.hardnessCliInstallHintOfficialDocs(widget.cli.installDocUrl!),
+        );
       }
     }
   }
@@ -452,7 +473,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
 
     final statusColor = _running
         ? colorScheme.primary
@@ -467,12 +488,12 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
         : (_cancelled ? Icons.cancel_rounded : Icons.error_rounded);
 
     final statusLabel = _running
-        ? (isZh ? '安装中...' : 'Installing...')
+        ? l10n.hardnessCliInstallStatusInstalling
         : _success
-        ? (isZh ? '安装成功' : 'Installed Successfully')
+        ? l10n.hardnessCliInstallStatusSuccess
         : _cancelled
-        ? (isZh ? '已取消' : 'Cancelled')
-        : (isZh ? '安装失败' : 'Installation Failed');
+        ? l10n.hardnessCliInstallStatusCancelled
+        : l10n.hardnessCliInstallStatusFailed;
 
     if (!_running) {
       // Defer to next frame so the pulse fires after the build is committed.
@@ -486,11 +507,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
         children: [
           Icon(Icons.download_rounded, size: 22, color: colorScheme.primary),
           const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              isZh ? '安装 ${widget.cli.name}' : 'Install ${widget.cli.name}',
-            ),
-          ),
+          Expanded(child: Text(l10n.hardnessCliInstallTitle(widget.cli.name))),
         ],
       ),
       content: SizedBox(
@@ -531,7 +548,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
                         ),
                         icon: const Icon(Icons.link_rounded, size: 14),
                         label: Text(
-                          isZh ? '复制文档链接' : 'Copy Doc URL',
+                          l10n.hardnessCliInstallCopyDocUrl,
                           style: const TextStyle(fontSize: 12),
                         ),
                         style: TextButton.styleFrom(
@@ -602,12 +619,12 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
         if (_running)
           OpenHandDialogActionButton.destructive(
             onPressed: _cancel,
-            label: isZh ? '取消安装' : 'Cancel',
+            label: l10n.hardnessCliInstallCancel,
           )
         else ...[
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(context).pop(false),
-            label: isZh ? '关闭' : 'Close',
+            label: l10n.commonClose,
           ),
           // Show elevated-retry button when a permission error was detected
           // and we haven't already attempted an elevated install.
@@ -617,12 +634,12 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
               (Platform.isMacOS || Platform.isLinux))
             OpenHandDialogActionButton.destructive(
               onPressed: _retryWithAdminPrivileges,
-              label: isZh ? '以管理员权限重试' : 'Retry with Admin',
+              label: l10n.hardnessCliInstallRetryAdmin,
             ),
           if (_success)
             OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(context).pop(true),
-              label: isZh ? '完成，继续' : 'Done',
+              label: l10n.hardnessCliInstallDoneContinue,
             ),
         ],
       ],

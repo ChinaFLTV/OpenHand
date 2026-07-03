@@ -532,6 +532,222 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get hardnessCliLoginNoOutputHint =>
+      '[Hint] CLI has not produced output yet. It may be initializing, or waiting for browser-based authorization.\n';
+
+  @override
+  String get hardnessCliLoginTtyRequiredHint =>
+      '[Hint] This CLI may require a real terminal (TTY) for interactive login.\nUse the \"Open in Terminal\" button below to complete login in the system terminal.\n';
+
+  @override
+  String hardnessCliLoginStreamError(Object error) {
+    return '[Stream error: $error]';
+  }
+
+  @override
+  String hardnessCliLoginFailedToStartProcess(Object message) {
+    return 'Failed to start process: $message';
+  }
+
+  @override
+  String hardnessCliLoginOpenTerminalError(Object error) {
+    return '[Error opening terminal: $error]';
+  }
+
+  @override
+  String get hardnessCliLoginStatusFailed => 'Failed to launch';
+
+  @override
+  String get hardnessCliLoginStatusStarting => 'Starting login flow...';
+
+  @override
+  String get hardnessCliLoginStatusFinished => 'Process finished';
+
+  @override
+  String hardnessCliLoginStatusFinishedWithExit(int exitCode) {
+    return 'Process finished · exit $exitCode';
+  }
+
+  @override
+  String get hardnessCliLoginStatusWaiting => 'Waiting for CLI interaction...';
+
+  @override
+  String hardnessCliLoginTitle(Object name) {
+    return '$name Login';
+  }
+
+  @override
+  String get hardnessCliLoginDescription =>
+      'This dialog runs the CLI login flow in-app. The CLI may open your browser externally during authentication.';
+
+  @override
+  String get hardnessCliLoginCopyCommandTooltip => 'Copy command';
+
+  @override
+  String get hardnessCliLoginEmptyOutput => 'Waiting for CLI output...';
+
+  @override
+  String get hardnessCliLoginInputLabel => 'Send input';
+
+  @override
+  String get hardnessCliLoginInputHint =>
+      'Type a reply and press Enter; leave empty to send Enter';
+
+  @override
+  String get hardnessCliLoginSend => 'Send';
+
+  @override
+  String get hardnessCliLoginSendEsc => 'Send Esc';
+
+  @override
+  String get hardnessCliLoginOpenInTerminal => 'Open in Terminal';
+
+  @override
+  String get hardnessCliInstallLogSuccess => '✓ Installed successfully';
+
+  @override
+  String hardnessCliInstallLogSuccessWithPath(Object path) {
+    return '✓ Installed successfully (path: $path)';
+  }
+
+  @override
+  String hardnessCliInstallLogFailureExitCode(int exitCode) {
+    return '✗ Installation failed (exit code: $exitCode)';
+  }
+
+  @override
+  String hardnessCliInstallLogStartProcessFailed(Object message) {
+    return '✗ Failed to start install process: $message';
+  }
+
+  @override
+  String hardnessCliInstallLogGenericError(Object error) {
+    return '✗ Error: $error';
+  }
+
+  @override
+  String get hardnessCliInstallHintInstallNode =>
+      '  → Install Node.js first: https://nodejs.org';
+
+  @override
+  String get hardnessCliInstallHintRetryAdminButton =>
+      '  → Click the \"Retry with Admin\" button below';
+
+  @override
+  String hardnessCliInstallHintTrySudo(Object command) {
+    return '  → Try: sudo $command';
+  }
+
+  @override
+  String get hardnessCliInstallHintCheckNetworkDocs =>
+      '  → Check your network connection or see the official docs';
+
+  @override
+  String get hardnessCliInstallHintInstallPipx =>
+      '  → Install pipx first: https://pipx.pypa.io/stable/installation/';
+
+  @override
+  String get hardnessCliInstallHintUsePipInstallUserAider =>
+      '    Or use: pip install --user aider-chat';
+
+  @override
+  String get hardnessCliInstallHintHomebrewNoSudo =>
+      '  → Homebrew usually should not be installed with sudo; check directory permissions';
+
+  @override
+  String get hardnessCliInstallHintHomebrewFix =>
+      '  → Suggested fix: https://docs.brew.sh/FAQ#why-does-homebrew-say-sudo-is-not-allowed';
+
+  @override
+  String get hardnessCliInstallHintInstallPython =>
+      '  → Install Python first: https://www.python.org';
+
+  @override
+  String hardnessCliInstallHintPipInstallUser(Object packageName) {
+    return '  → Try: pip install --user $packageName';
+  }
+
+  @override
+  String hardnessCliInstallHintOfficialDocs(Object url) {
+    return '  → Official docs: $url';
+  }
+
+  @override
+  String get hardnessCliInstallLogCancelled => '⚠ Installation was cancelled';
+
+  @override
+  String get hardnessCliInstallWindowsAdminManual =>
+      'Run manually in PowerShell with administrator privileges:';
+
+  @override
+  String hardnessCliInstallAdminCommand(Object command) {
+    return '> [Admin] $command';
+  }
+
+  @override
+  String get hardnessCliInstallAdminTimeout =>
+      '✗ Admin authorization dialog timed out or failed to start; forcibly ended the osascript child process';
+
+  @override
+  String get hardnessCliInstallUserCancelledAuth =>
+      '⚠ Authorization was cancelled';
+
+  @override
+  String get hardnessCliInstallAdminPermissionFailed =>
+      '✗ Could not obtain administrator privileges';
+
+  @override
+  String hardnessCliInstallPathMissingWarning(Object executable) {
+    return '⚠ Installation completed, but $executable was not found in the current PATH';
+  }
+
+  @override
+  String get hardnessCliInstallRestartPathHint =>
+      '  → Try restarting OpenHand or launching it from a terminal to load the new PATH';
+
+  @override
+  String get hardnessCliInstallTimeoutManual =>
+      '✗ Installation timed out (over 5 minutes). Run manually:';
+
+  @override
+  String hardnessCliInstallOsascriptStartFailed(Object message) {
+    return '✗ Failed to start osascript: $message';
+  }
+
+  @override
+  String get hardnessCliInstallLinuxSudoManual =>
+      'Run manually in a terminal (root privileges required):';
+
+  @override
+  String get hardnessCliInstallStatusInstalling => 'Installing...';
+
+  @override
+  String get hardnessCliInstallStatusSuccess => 'Installed successfully';
+
+  @override
+  String get hardnessCliInstallStatusCancelled => 'Cancelled';
+
+  @override
+  String get hardnessCliInstallStatusFailed => 'Installation failed';
+
+  @override
+  String hardnessCliInstallTitle(Object name) {
+    return 'Install $name';
+  }
+
+  @override
+  String get hardnessCliInstallCopyDocUrl => 'Copy Doc URL';
+
+  @override
+  String get hardnessCliInstallCancel => 'Cancel install';
+
+  @override
+  String get hardnessCliInstallRetryAdmin => 'Retry with Admin';
+
+  @override
+  String get hardnessCliInstallDoneContinue => 'Done, continue';
+
+  @override
   String get settingsToolSearchReplayCancelWindowLabel =>
       'Replay cancel window';
 

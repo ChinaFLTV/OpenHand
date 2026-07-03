@@ -517,6 +517,219 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get hardnessCliLoginNoOutputHint =>
+      '[ヒント] CLI はまだ出力していません。初期化中か、外部ブラウザでの認証を待っている可能性があります。\n';
+
+  @override
+  String get hardnessCliLoginTtyRequiredHint =>
+      '[ヒント] この CLI は対話型ログインに実端末 (TTY) が必要な場合があります。\n下の「ターミナルで開く」ボタンからシステムターミナルでログインを完了してください。\n';
+
+  @override
+  String hardnessCliLoginStreamError(Object error) {
+    return '[ストリームエラー: $error]';
+  }
+
+  @override
+  String hardnessCliLoginFailedToStartProcess(Object message) {
+    return 'プロセスを開始できません: $message';
+  }
+
+  @override
+  String hardnessCliLoginOpenTerminalError(Object error) {
+    return '[ターミナルを開けません: $error]';
+  }
+
+  @override
+  String get hardnessCliLoginStatusFailed => '起動に失敗しました';
+
+  @override
+  String get hardnessCliLoginStatusStarting => 'ログインフローを開始しています...';
+
+  @override
+  String get hardnessCliLoginStatusFinished => 'プロセスが終了しました';
+
+  @override
+  String hardnessCliLoginStatusFinishedWithExit(int exitCode) {
+    return 'プロセスが終了しました · 終了コード $exitCode';
+  }
+
+  @override
+  String get hardnessCliLoginStatusWaiting => 'CLI の操作待ちです...';
+
+  @override
+  String hardnessCliLoginTitle(Object name) {
+    return '$name ログイン';
+  }
+
+  @override
+  String get hardnessCliLoginDescription =>
+      'このダイアログはアプリ内で CLI ログインフローを実行します。認証中に CLI が外部ブラウザを開く場合があります。';
+
+  @override
+  String get hardnessCliLoginCopyCommandTooltip => 'コマンドをコピー';
+
+  @override
+  String get hardnessCliLoginEmptyOutput => 'CLI 出力を待機中...';
+
+  @override
+  String get hardnessCliLoginInputLabel => '入力を送信';
+
+  @override
+  String get hardnessCliLoginInputHint => '返信を入力して Enter。空のままなら Enter のみ送信します';
+
+  @override
+  String get hardnessCliLoginSend => '送信';
+
+  @override
+  String get hardnessCliLoginSendEsc => 'Esc を送信';
+
+  @override
+  String get hardnessCliLoginOpenInTerminal => 'ターミナルで開く';
+
+  @override
+  String get hardnessCliInstallLogSuccess => '✓ インストール成功';
+
+  @override
+  String hardnessCliInstallLogSuccessWithPath(Object path) {
+    return '✓ インストール成功（パス: $path）';
+  }
+
+  @override
+  String hardnessCliInstallLogFailureExitCode(int exitCode) {
+    return '✗ インストール失敗（終了コード: $exitCode）';
+  }
+
+  @override
+  String hardnessCliInstallLogStartProcessFailed(Object message) {
+    return '✗ インストールプロセスを開始できません: $message';
+  }
+
+  @override
+  String hardnessCliInstallLogGenericError(Object error) {
+    return '✗ エラー: $error';
+  }
+
+  @override
+  String get hardnessCliInstallHintInstallNode =>
+      '  → 先に Node.js をインストールしてください: https://nodejs.org';
+
+  @override
+  String get hardnessCliInstallHintRetryAdminButton =>
+      '  → 下の「管理者権限で再試行」ボタンをクリックしてください';
+
+  @override
+  String hardnessCliInstallHintTrySudo(Object command) {
+    return '  → 試してください: sudo $command';
+  }
+
+  @override
+  String get hardnessCliInstallHintCheckNetworkDocs =>
+      '  → ネットワーク接続を確認するか公式ドキュメントを参照してください';
+
+  @override
+  String get hardnessCliInstallHintInstallPipx =>
+      '  → 先に pipx をインストールしてください: https://pipx.pypa.io/stable/installation/';
+
+  @override
+  String get hardnessCliInstallHintUsePipInstallUserAider =>
+      '    または使用: pip install --user aider-chat';
+
+  @override
+  String get hardnessCliInstallHintHomebrewNoSudo =>
+      '  → Homebrew は通常 sudo でインストールしません。ディレクトリ権限を確認してください';
+
+  @override
+  String get hardnessCliInstallHintHomebrewFix =>
+      '  → 修正案: https://docs.brew.sh/FAQ#why-does-homebrew-say-sudo-is-not-allowed';
+
+  @override
+  String get hardnessCliInstallHintInstallPython =>
+      '  → 先に Python をインストールしてください: https://www.python.org';
+
+  @override
+  String hardnessCliInstallHintPipInstallUser(Object packageName) {
+    return '  → 試してください: pip install --user $packageName';
+  }
+
+  @override
+  String hardnessCliInstallHintOfficialDocs(Object url) {
+    return '  → 公式ドキュメント: $url';
+  }
+
+  @override
+  String get hardnessCliInstallLogCancelled => '⚠ インストールはキャンセルされました';
+
+  @override
+  String get hardnessCliInstallWindowsAdminManual =>
+      '管理者権限の PowerShell で手動実行してください:';
+
+  @override
+  String hardnessCliInstallAdminCommand(Object command) {
+    return '> [管理者] $command';
+  }
+
+  @override
+  String get hardnessCliInstallAdminTimeout =>
+      '✗ 管理者認証ダイアログがタイムアウトしたか起動に失敗したため、osascript 子プロセスを強制終了しました';
+
+  @override
+  String get hardnessCliInstallUserCancelledAuth => '⚠ 認証がキャンセルされました';
+
+  @override
+  String get hardnessCliInstallAdminPermissionFailed => '✗ 管理者権限を取得できません';
+
+  @override
+  String hardnessCliInstallPathMissingWarning(Object executable) {
+    return '⚠ インストールは完了しましたが、現在の PATH で $executable が見つかりません';
+  }
+
+  @override
+  String get hardnessCliInstallRestartPathHint =>
+      '  → OpenHand を再起動するか、ターミナルから起動して新しい PATH を読み込んでください';
+
+  @override
+  String get hardnessCliInstallTimeoutManual =>
+      '✗ インストールがタイムアウトしました（5 分超）。手動で実行してください:';
+
+  @override
+  String hardnessCliInstallOsascriptStartFailed(Object message) {
+    return '✗ osascript を開始できません: $message';
+  }
+
+  @override
+  String get hardnessCliInstallLinuxSudoManual =>
+      'ターミナルで手動実行してください（root 権限が必要）:';
+
+  @override
+  String get hardnessCliInstallStatusInstalling => 'インストール中...';
+
+  @override
+  String get hardnessCliInstallStatusSuccess => 'インストール成功';
+
+  @override
+  String get hardnessCliInstallStatusCancelled => 'キャンセル済み';
+
+  @override
+  String get hardnessCliInstallStatusFailed => 'インストール失敗';
+
+  @override
+  String hardnessCliInstallTitle(Object name) {
+    return '$name をインストール';
+  }
+
+  @override
+  String get hardnessCliInstallCopyDocUrl => 'ドキュメント URL をコピー';
+
+  @override
+  String get hardnessCliInstallCancel => 'インストールをキャンセル';
+
+  @override
+  String get hardnessCliInstallRetryAdmin => '管理者権限で再試行';
+
+  @override
+  String get hardnessCliInstallDoneContinue => '完了して続行';
+
+  @override
   String get settingsToolSearchReplayCancelWindowLabel => 'リプレイキャンセルされるまでの待ち時間';
 
   @override

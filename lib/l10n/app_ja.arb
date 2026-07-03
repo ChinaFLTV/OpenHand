@@ -239,6 +239,278 @@
       }
     }
   },
+  "hardnessCliLoginNoOutputHint": "[ヒント] CLI はまだ出力していません。初期化中か、外部ブラウザでの認証を待っている可能性があります。\n",
+  "@hardnessCliLoginNoOutputHint": {
+    "description": "Hardness CLI login dialog terminal hint when no output arrives."
+  },
+  "hardnessCliLoginTtyRequiredHint": "[ヒント] この CLI は対話型ログインに実端末 (TTY) が必要な場合があります。\n下の「ターミナルで開く」ボタンからシステムターミナルでログインを完了してください。\n",
+  "@hardnessCliLoginTtyRequiredHint": {
+    "description": "Hardness CLI login dialog terminal hint when a TTY may be required."
+  },
+  "hardnessCliLoginStreamError": "[ストリームエラー: {error}]",
+  "@hardnessCliLoginStreamError": {
+    "description": "Hardness CLI login dialog stream error log line.",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "hardnessCliLoginFailedToStartProcess": "プロセスを開始できません: {message}",
+  "@hardnessCliLoginFailedToStartProcess": {
+    "description": "Hardness CLI login dialog process startup failure.",
+    "placeholders": {
+      "message": {}
+    }
+  },
+  "hardnessCliLoginOpenTerminalError": "[ターミナルを開けません: {error}]",
+  "@hardnessCliLoginOpenTerminalError": {
+    "description": "Hardness CLI login dialog open-terminal failure log line.",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "hardnessCliLoginStatusFailed": "起動に失敗しました",
+  "@hardnessCliLoginStatusFailed": {
+    "description": "Hardness CLI login dialog status label."
+  },
+  "hardnessCliLoginStatusStarting": "ログインフローを開始しています...",
+  "@hardnessCliLoginStatusStarting": {
+    "description": "Hardness CLI login dialog status label."
+  },
+  "hardnessCliLoginStatusFinished": "プロセスが終了しました",
+  "@hardnessCliLoginStatusFinished": {
+    "description": "Hardness CLI login dialog status label without exit code."
+  },
+  "hardnessCliLoginStatusFinishedWithExit": "プロセスが終了しました · 終了コード {exitCode}",
+  "@hardnessCliLoginStatusFinishedWithExit": {
+    "description": "Hardness CLI login dialog status label with exit code.",
+    "placeholders": {
+      "exitCode": {
+        "type": "int"
+      }
+    }
+  },
+  "hardnessCliLoginStatusWaiting": "CLI の操作待ちです...",
+  "@hardnessCliLoginStatusWaiting": {
+    "description": "Hardness CLI login dialog status label."
+  },
+  "hardnessCliLoginTitle": "{name} ログイン",
+  "@hardnessCliLoginTitle": {
+    "description": "Hardness CLI login dialog title.",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "hardnessCliLoginDescription": "このダイアログはアプリ内で CLI ログインフローを実行します。認証中に CLI が外部ブラウザを開く場合があります。",
+  "@hardnessCliLoginDescription": {
+    "description": "Hardness CLI login dialog description."
+  },
+  "hardnessCliLoginCopyCommandTooltip": "コマンドをコピー",
+  "@hardnessCliLoginCopyCommandTooltip": {
+    "description": "Hardness CLI login dialog copy-command tooltip."
+  },
+  "hardnessCliLoginEmptyOutput": "CLI 出力を待機中...",
+  "@hardnessCliLoginEmptyOutput": {
+    "description": "Hardness CLI login dialog empty terminal placeholder."
+  },
+  "hardnessCliLoginInputLabel": "入力を送信",
+  "@hardnessCliLoginInputLabel": {
+    "description": "Hardness CLI login dialog stdin input label."
+  },
+  "hardnessCliLoginInputHint": "返信を入力して Enter。空のままなら Enter のみ送信します",
+  "@hardnessCliLoginInputHint": {
+    "description": "Hardness CLI login dialog stdin input hint."
+  },
+  "hardnessCliLoginSend": "送信",
+  "@hardnessCliLoginSend": {
+    "description": "Hardness CLI login dialog send button."
+  },
+  "hardnessCliLoginSendEsc": "Esc を送信",
+  "@hardnessCliLoginSendEsc": {
+    "description": "Hardness CLI login dialog send-Esc button."
+  },
+  "hardnessCliLoginOpenInTerminal": "ターミナルで開く",
+  "@hardnessCliLoginOpenInTerminal": {
+    "description": "Hardness CLI login dialog open-in-terminal button."
+  },
+  "hardnessCliInstallLogSuccess": "✓ インストール成功",
+  "@hardnessCliInstallLogSuccess": {
+    "description": "Hardness CLI install dialog success log line."
+  },
+  "hardnessCliInstallLogSuccessWithPath": "✓ インストール成功（パス: {path}）",
+  "@hardnessCliInstallLogSuccessWithPath": {
+    "description": "Hardness CLI install dialog success log line with path.",
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "hardnessCliInstallLogFailureExitCode": "✗ インストール失敗（終了コード: {exitCode}）",
+  "@hardnessCliInstallLogFailureExitCode": {
+    "description": "Hardness CLI install dialog failure log line with exit code.",
+    "placeholders": {
+      "exitCode": {
+        "type": "int"
+      }
+    }
+  },
+  "hardnessCliInstallLogStartProcessFailed": "✗ インストールプロセスを開始できません: {message}",
+  "@hardnessCliInstallLogStartProcessFailed": {
+    "description": "Hardness CLI install dialog process startup failure log line.",
+    "placeholders": {
+      "message": {}
+    }
+  },
+  "hardnessCliInstallLogGenericError": "✗ エラー: {error}",
+  "@hardnessCliInstallLogGenericError": {
+    "description": "Hardness CLI install dialog generic error log line.",
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "hardnessCliInstallHintInstallNode": "  → 先に Node.js をインストールしてください: https://nodejs.org",
+  "@hardnessCliInstallHintInstallNode": {
+    "description": "Hardness CLI install dialog Node.js missing hint."
+  },
+  "hardnessCliInstallHintRetryAdminButton": "  → 下の「管理者権限で再試行」ボタンをクリックしてください",
+  "@hardnessCliInstallHintRetryAdminButton": {
+    "description": "Hardness CLI install dialog admin retry hint."
+  },
+  "hardnessCliInstallHintTrySudo": "  → 試してください: sudo {command}",
+  "@hardnessCliInstallHintTrySudo": {
+    "description": "Hardness CLI install dialog sudo retry hint.",
+    "placeholders": {
+      "command": {}
+    }
+  },
+  "hardnessCliInstallHintCheckNetworkDocs": "  → ネットワーク接続を確認するか公式ドキュメントを参照してください",
+  "@hardnessCliInstallHintCheckNetworkDocs": {
+    "description": "Hardness CLI install dialog network/docs hint."
+  },
+  "hardnessCliInstallHintInstallPipx": "  → 先に pipx をインストールしてください: https://pipx.pypa.io/stable/installation/",
+  "@hardnessCliInstallHintInstallPipx": {
+    "description": "Hardness CLI install dialog pipx missing hint."
+  },
+  "hardnessCliInstallHintUsePipInstallUserAider": "    または使用: pip install --user aider-chat",
+  "@hardnessCliInstallHintUsePipInstallUserAider": {
+    "description": "Hardness CLI install dialog pip fallback hint."
+  },
+  "hardnessCliInstallHintHomebrewNoSudo": "  → Homebrew は通常 sudo でインストールしません。ディレクトリ権限を確認してください",
+  "@hardnessCliInstallHintHomebrewNoSudo": {
+    "description": "Hardness CLI install dialog Homebrew permission hint."
+  },
+  "hardnessCliInstallHintHomebrewFix": "  → 修正案: https://docs.brew.sh/FAQ#why-does-homebrew-say-sudo-is-not-allowed",
+  "@hardnessCliInstallHintHomebrewFix": {
+    "description": "Hardness CLI install dialog Homebrew fix link hint."
+  },
+  "hardnessCliInstallHintInstallPython": "  → 先に Python をインストールしてください: https://www.python.org",
+  "@hardnessCliInstallHintInstallPython": {
+    "description": "Hardness CLI install dialog Python missing hint."
+  },
+  "hardnessCliInstallHintPipInstallUser": "  → 試してください: pip install --user {packageName}",
+  "@hardnessCliInstallHintPipInstallUser": {
+    "description": "Hardness CLI install dialog pip user install hint.",
+    "placeholders": {
+      "packageName": {}
+    }
+  },
+  "hardnessCliInstallHintOfficialDocs": "  → 公式ドキュメント: {url}",
+  "@hardnessCliInstallHintOfficialDocs": {
+    "description": "Hardness CLI install dialog official docs hint.",
+    "placeholders": {
+      "url": {}
+    }
+  },
+  "hardnessCliInstallLogCancelled": "⚠ インストールはキャンセルされました",
+  "@hardnessCliInstallLogCancelled": {
+    "description": "Hardness CLI install dialog cancellation log line."
+  },
+  "hardnessCliInstallWindowsAdminManual": "管理者権限の PowerShell で手動実行してください:",
+  "@hardnessCliInstallWindowsAdminManual": {
+    "description": "Hardness CLI install dialog Windows admin manual-run hint."
+  },
+  "hardnessCliInstallAdminCommand": "> [管理者] {command}",
+  "@hardnessCliInstallAdminCommand": {
+    "description": "Hardness CLI install dialog elevated command log line.",
+    "placeholders": {
+      "command": {}
+    }
+  },
+  "hardnessCliInstallAdminTimeout": "✗ 管理者認証ダイアログがタイムアウトしたか起動に失敗したため、osascript 子プロセスを強制終了しました",
+  "@hardnessCliInstallAdminTimeout": {
+    "description": "Hardness CLI install dialog admin authorization timeout log line."
+  },
+  "hardnessCliInstallUserCancelledAuth": "⚠ 認証がキャンセルされました",
+  "@hardnessCliInstallUserCancelledAuth": {
+    "description": "Hardness CLI install dialog user-cancelled authorization log line."
+  },
+  "hardnessCliInstallAdminPermissionFailed": "✗ 管理者権限を取得できません",
+  "@hardnessCliInstallAdminPermissionFailed": {
+    "description": "Hardness CLI install dialog admin privilege failure log line."
+  },
+  "hardnessCliInstallPathMissingWarning": "⚠ インストールは完了しましたが、現在の PATH で {executable} が見つかりません",
+  "@hardnessCliInstallPathMissingWarning": {
+    "description": "Hardness CLI install dialog PATH warning log line.",
+    "placeholders": {
+      "executable": {}
+    }
+  },
+  "hardnessCliInstallRestartPathHint": "  → OpenHand を再起動するか、ターミナルから起動して新しい PATH を読み込んでください",
+  "@hardnessCliInstallRestartPathHint": {
+    "description": "Hardness CLI install dialog restart/PATH hint."
+  },
+  "hardnessCliInstallTimeoutManual": "✗ インストールがタイムアウトしました（5 分超）。手動で実行してください:",
+  "@hardnessCliInstallTimeoutManual": {
+    "description": "Hardness CLI install dialog timeout manual-run hint."
+  },
+  "hardnessCliInstallOsascriptStartFailed": "✗ osascript を開始できません: {message}",
+  "@hardnessCliInstallOsascriptStartFailed": {
+    "description": "Hardness CLI install dialog osascript startup failure log line.",
+    "placeholders": {
+      "message": {}
+    }
+  },
+  "hardnessCliInstallLinuxSudoManual": "ターミナルで手動実行してください（root 権限が必要）:",
+  "@hardnessCliInstallLinuxSudoManual": {
+    "description": "Hardness CLI install dialog Linux sudo manual-run hint."
+  },
+  "hardnessCliInstallStatusInstalling": "インストール中...",
+  "@hardnessCliInstallStatusInstalling": {
+    "description": "Hardness CLI install dialog status label."
+  },
+  "hardnessCliInstallStatusSuccess": "インストール成功",
+  "@hardnessCliInstallStatusSuccess": {
+    "description": "Hardness CLI install dialog status label."
+  },
+  "hardnessCliInstallStatusCancelled": "キャンセル済み",
+  "@hardnessCliInstallStatusCancelled": {
+    "description": "Hardness CLI install dialog status label."
+  },
+  "hardnessCliInstallStatusFailed": "インストール失敗",
+  "@hardnessCliInstallStatusFailed": {
+    "description": "Hardness CLI install dialog status label."
+  },
+  "hardnessCliInstallTitle": "{name} をインストール",
+  "@hardnessCliInstallTitle": {
+    "description": "Hardness CLI install dialog title.",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "hardnessCliInstallCopyDocUrl": "ドキュメント URL をコピー",
+  "@hardnessCliInstallCopyDocUrl": {
+    "description": "Hardness CLI install dialog copy docs URL button."
+  },
+  "hardnessCliInstallCancel": "インストールをキャンセル",
+  "@hardnessCliInstallCancel": {
+    "description": "Hardness CLI install dialog cancel button."
+  },
+  "hardnessCliInstallRetryAdmin": "管理者権限で再試行",
+  "@hardnessCliInstallRetryAdmin": {
+    "description": "Hardness CLI install dialog retry with admin button."
+  },
+  "hardnessCliInstallDoneContinue": "完了して続行",
+  "@hardnessCliInstallDoneContinue": {
+    "description": "Hardness CLI install dialog done/continue button."
+  },
   "settingsToolSearchReplayCancelWindowLabel": "リプレイキャンセルされるまでの待ち時間",
   "settingsToolSearchReplayCancelWindowBody": "snackbar が送信するまでの秒数。期間中にキャンセルを押すとキャンセルされます。",
   "settingsToolSearchReplayCancelWindowValue": "ウィンドウ：{seconds} 秒",
