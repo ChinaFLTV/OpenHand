@@ -28,6 +28,28 @@ const int _kMaxFilePreviewBytes = 2 * kBytesPerMiB;
 const int _kKnowledgeEditorHistoryLimit = 160;
 const double _kKnowledgeEditorInlineControlSize = 48;
 
+String _kbContentText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    en: en,
+    zhHans: zhHans,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
 Future<void> showKnowledgeSourceContentDialog(
   BuildContext context,
   String sourceId,
@@ -166,13 +188,20 @@ class _KnowledgeSourceContentDialogState
       _sourceMode && (_snapshot?.canEdit == true) && _snapshot?.source != null;
 
   Future<void> _saveSource() async {
-    final isZh = openHandIsChineseLocale(context);
     final snapshot = _snapshot;
     final path = snapshot?.editablePath;
     if (snapshot == null || path == null) {
       OpenHandSnackBar.showError(
         context,
-        isZh ? '当前内容不可写入文件。' : 'This content cannot be written to a file.',
+        _kbContentText(
+          context,
+          zh: '当前内容不可写入文件。',
+          zhHant: '目前內容不可寫入檔案。',
+          en: 'This content cannot be written to a file.',
+          fr: 'Ce contenu ne peut pas être écrit dans un fichier.',
+          de: 'Dieser Inhalt kann nicht in eine Datei geschrieben werden.',
+          ja: '現在の内容はファイルに書き込めません。',
+        ),
       );
       return;
     }
@@ -189,12 +218,31 @@ class _KnowledgeSourceContentDialogState
           lineCount: _lineCount(text),
         );
       });
-      OpenHandSnackBar.showSuccess(context, isZh ? '文件已保存。' : 'File saved.');
+      OpenHandSnackBar.showSuccess(
+        context,
+        _kbContentText(
+          context,
+          zh: '文件已保存。',
+          zhHant: '檔案已儲存。',
+          en: 'File saved.',
+          fr: 'Fichier enregistré.',
+          de: 'Datei gespeichert.',
+          ja: 'ファイルを保存しました。',
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
       OpenHandSnackBar.showError(
         context,
-        isZh ? '文件保存失败：$error' : 'Failed to save file: $error',
+        _kbContentText(
+          context,
+          zh: '文件保存失败：$error',
+          zhHant: '檔案儲存失敗：$error',
+          en: 'Failed to save file: $error',
+          fr: 'Échec de l’enregistrement : $error',
+          de: 'Datei konnte nicht gespeichert werden: $error',
+          ja: 'ファイルの保存に失敗しました: $error',
+        ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -202,7 +250,6 @@ class _KnowledgeSourceContentDialogState
   }
 
   void _discardSourceChanges() {
-    final isZh = openHandIsChineseLocale(context);
     _setEditorValue(
       TextEditingValue(
         text: _savedText,
@@ -212,7 +259,15 @@ class _KnowledgeSourceContentDialogState
     );
     OpenHandSnackBar.showInfo(
       context,
-      isZh ? '已舍弃未保存修改。' : 'Unsaved changes discarded.',
+      _kbContentText(
+        context,
+        zh: '已舍弃未保存修改。',
+        zhHant: '已捨棄未儲存修改。',
+        en: 'Unsaved changes discarded.',
+        fr: 'Modifications non enregistrées ignorées.',
+        de: 'Nicht gespeicherte Änderungen verworfen.',
+        ja: '未保存の変更を破棄しました。',
+      ),
     );
   }
 
@@ -414,14 +469,23 @@ class _KnowledgeSourceContentDialogState
 
   @override
   Widget build(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
     final dialogHeight = math.min(
       MediaQuery.sizeOf(context).height * 0.82,
       760.0,
     );
     final snapshot = _snapshot;
     return buildOpenHandAlertDialog(
-      title: Text(isZh ? '查看知识库文档' : 'View Knowledge Source'),
+      title: Text(
+        _kbContentText(
+          context,
+          zh: '查看知识库文档',
+          zhHant: '查看知識庫文件',
+          en: 'View Knowledge Source',
+          fr: 'Voir la source de connaissance',
+          de: 'Wissensquelle anzeigen',
+          ja: 'ナレッジソースを表示',
+        ),
+      ),
       content: buildOpenHandDialogConstrainedContent(
         width: 980,
         height: dialogHeight,
@@ -430,15 +494,29 @@ class _KnowledgeSourceContentDialogState
             : _loadError != null
             ? KnowledgeDialogNotice(
                 icon: Icons.error_outline_rounded,
-                message: isZh
-                    ? '文档内容加载失败：$_loadError'
-                    : 'Failed to load document content: $_loadError',
+                message: _kbContentText(
+                  context,
+                  zh: '文档内容加载失败：$_loadError',
+                  zhHant: '文件內容載入失敗：$_loadError',
+                  en: 'Failed to load document content: $_loadError',
+                  fr: 'Échec du chargement du contenu : $_loadError',
+                  de: 'Dokumentinhalt konnte nicht geladen werden: $_loadError',
+                  ja: 'ドキュメント内容の読み込みに失敗しました: $_loadError',
+                ),
                 error: true,
               )
             : snapshot?.source == null
             ? KnowledgeDialogNotice(
                 icon: Icons.info_outline_rounded,
-                message: isZh ? '来源不存在。' : 'Source not found.',
+                message: _kbContentText(
+                  context,
+                  zh: '来源不存在。',
+                  zhHant: '來源不存在。',
+                  en: 'Source not found.',
+                  fr: 'Source introuvable.',
+                  de: 'Quelle nicht gefunden.',
+                  ja: 'ソースが見つかりません。',
+                ),
               )
             : _KnowledgeSourceContentBody(
                 snapshot: snapshot!,
@@ -454,14 +532,30 @@ class _KnowledgeSourceContentDialogState
           OpenHandDialogActionButton.secondary(
             onPressed: _saving || !_dirty ? null : _discardSourceChanges,
             icon: Icons.undo_rounded,
-            label: isZh ? '舍弃修改' : 'Discard',
+            label: _kbContentText(
+              context,
+              zh: '舍弃修改',
+              zhHant: '捨棄修改',
+              en: 'Discard',
+              fr: 'Ignorer',
+              de: 'Verwerfen',
+              ja: '破棄',
+            ),
           ),
         if (_showEditActions)
           OpenHandDialogActionButton.primary(
             onPressed: _saving || !_dirty ? null : _saveSource,
             icon: Icons.save_rounded,
             busy: _saving,
-            label: isZh ? '保存文件' : 'Save File',
+            label: _kbContentText(
+              context,
+              zh: '保存文件',
+              zhHant: '儲存檔案',
+              en: 'Save File',
+              fr: 'Enregistrer',
+              de: 'Datei speichern',
+              ja: 'ファイルを保存',
+            ),
           ),
         OpenHandDialogActionButton.secondary(
           onPressed: snapshot?.source == null
@@ -472,15 +566,39 @@ class _KnowledgeSourceContentDialogState
                   );
                   OpenHandSnackBar.showSuccess(
                     context,
-                    isZh ? '路径已复制。' : 'Path copied.',
+                    _kbContentText(
+                      context,
+                      zh: '路径已复制。',
+                      zhHant: '路徑已複製。',
+                      en: 'Path copied.',
+                      fr: 'Chemin copié.',
+                      de: 'Pfad kopiert.',
+                      ja: 'パスをコピーしました。',
+                    ),
                   );
                 },
           icon: Icons.copy_rounded,
-          label: isZh ? '复制路径' : 'Copy Path',
+          label: _kbContentText(
+            context,
+            zh: '复制路径',
+            zhHant: '複製路徑',
+            en: 'Copy Path',
+            fr: 'Copier le chemin',
+            de: 'Pfad kopieren',
+            ja: 'パスをコピー',
+          ),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () => Navigator.of(context).pop(),
-          label: isZh ? '关闭' : 'Close',
+          label: _kbContentText(
+            context,
+            zh: '关闭',
+            zhHant: '關閉',
+            en: 'Close',
+            fr: 'Fermer',
+            de: 'Schließen',
+            ja: '閉じる',
+          ),
         ),
       ],
     );
@@ -542,14 +660,9 @@ class _KnowledgeEditorControls {
 }
 
 class _KnowledgeModeToggle extends StatelessWidget {
-  const _KnowledgeModeToggle({
-    required this.preview,
-    required this.isZh,
-    required this.onChanged,
-  });
+  const _KnowledgeModeToggle({required this.preview, required this.onChanged});
 
   final bool preview;
-  final bool isZh;
   final ValueChanged<bool> onChanged;
 
   @override
@@ -569,14 +682,30 @@ class _KnowledgeModeToggle extends StatelessWidget {
           _KnowledgeModeToggleButton(
             selected: preview,
             icon: Icons.visibility_outlined,
-            label: isZh ? '预览' : 'Preview',
+            label: _kbContentText(
+              context,
+              zh: '预览',
+              zhHant: '預覽',
+              en: 'Preview',
+              fr: 'Aperçu',
+              de: 'Vorschau',
+              ja: 'プレビュー',
+            ),
             onPressed: () => onChanged(true),
           ),
           Container(width: 1, color: colorScheme.outlineVariant),
           _KnowledgeModeToggleButton(
             selected: !preview,
             icon: Icons.code_rounded,
-            label: isZh ? '源码' : 'Source',
+            label: _kbContentText(
+              context,
+              zh: '源码',
+              zhHant: '原始碼',
+              en: 'Source',
+              fr: 'Source',
+              de: 'Quelle',
+              ja: 'ソース',
+            ),
             onPressed: () => onChanged(false),
           ),
         ],
@@ -635,10 +764,9 @@ class _KnowledgeModeToggleButton extends StatelessWidget {
 }
 
 class _KnowledgeEditorToolbar extends StatelessWidget {
-  const _KnowledgeEditorToolbar({required this.controls, required this.isZh});
+  const _KnowledgeEditorToolbar({required this.controls});
 
   final _KnowledgeEditorControls controls;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -648,22 +776,54 @@ class _KnowledgeEditorToolbar extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         _KnowledgeEditorToolButton(
-          tooltip: isZh ? '撤销' : 'Undo',
+          tooltip: _kbContentText(
+            context,
+            zh: '撤销',
+            zhHant: '復原',
+            en: 'Undo',
+            fr: 'Annuler',
+            de: 'Rückgängig',
+            ja: '元に戻す',
+          ),
           icon: Icons.undo_rounded,
           onPressed: controls.canUndo ? controls.onUndo : null,
         ),
         _KnowledgeEditorToolButton(
-          tooltip: isZh ? '重做' : 'Redo',
+          tooltip: _kbContentText(
+            context,
+            zh: '重做',
+            zhHant: '重做',
+            en: 'Redo',
+            fr: 'Rétablir',
+            de: 'Wiederholen',
+            ja: 'やり直す',
+          ),
           icon: Icons.redo_rounded,
           onPressed: controls.canRedo ? controls.onRedo : null,
         ),
         _KnowledgeEditorToolButton(
-          tooltip: isZh ? '查找' : 'Find',
+          tooltip: _kbContentText(
+            context,
+            zh: '查找',
+            zhHant: '尋找',
+            en: 'Find',
+            fr: 'Rechercher',
+            de: 'Suchen',
+            ja: '検索',
+          ),
           icon: Icons.search_rounded,
           onPressed: controls.onShowFind,
         ),
         _KnowledgeEditorToolButton(
-          tooltip: isZh ? '查找并替换' : 'Find and replace',
+          tooltip: _kbContentText(
+            context,
+            zh: '查找并替换',
+            zhHant: '尋找並取代',
+            en: 'Find and replace',
+            fr: 'Rechercher et remplacer',
+            de: 'Suchen und ersetzen',
+            ja: '検索と置換',
+          ),
           icon: Icons.find_replace_rounded,
           onPressed: controls.editable ? controls.onShowReplace : null,
         ),
@@ -673,10 +833,9 @@ class _KnowledgeEditorToolbar extends StatelessWidget {
 }
 
 class _KnowledgeFindReplaceBar extends StatelessWidget {
-  const _KnowledgeFindReplaceBar({required this.controls, required this.isZh});
+  const _KnowledgeFindReplaceBar({required this.controls});
 
   final _KnowledgeEditorControls controls;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -685,29 +844,69 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
         : '${controls.currentMatchIndex + 1}/${controls.matchCount}';
     final findActions = <Widget>[
       _KnowledgeEditorToolButton(
-        tooltip: isZh ? '上一个匹配项' : 'Previous match',
+        tooltip: _kbContentText(
+          context,
+          zh: '上一个匹配项',
+          zhHant: '上一個符合項',
+          en: 'Previous match',
+          fr: 'Correspondance précédente',
+          de: 'Vorheriger Treffer',
+          ja: '前の一致',
+        ),
         icon: Icons.keyboard_arrow_up_rounded,
         onPressed: controls.matchCount <= 0 ? null : controls.onFindPrevious,
       ),
       _KnowledgeEditorToolButton(
-        tooltip: isZh ? '下一个匹配项' : 'Next match',
+        tooltip: _kbContentText(
+          context,
+          zh: '下一个匹配项',
+          zhHant: '下一個符合項',
+          en: 'Next match',
+          fr: 'Correspondance suivante',
+          de: 'Nächster Treffer',
+          ja: '次の一致',
+        ),
         icon: Icons.keyboard_arrow_down_rounded,
         onPressed: controls.matchCount <= 0 ? null : controls.onFindNext,
       ),
       _KnowledgeEditorToolButton(
-        tooltip: isZh ? '区分大小写' : 'Match case',
+        tooltip: _kbContentText(
+          context,
+          zh: '区分大小写',
+          zhHant: '區分大小寫',
+          en: 'Match case',
+          fr: 'Respecter la casse',
+          de: 'Groß-/Kleinschreibung beachten',
+          ja: '大文字小文字を区別',
+        ),
         icon: Icons.font_download_rounded,
         selected: controls.findCaseSensitive,
         onPressed: controls.onToggleCaseSensitive,
       ),
       if (!controls.replaceVisible)
         _KnowledgeEditorToolButton(
-          tooltip: isZh ? '显示替换' : 'Show replace',
+          tooltip: _kbContentText(
+            context,
+            zh: '显示替换',
+            zhHant: '顯示取代',
+            en: 'Show replace',
+            fr: 'Afficher remplacer',
+            de: 'Ersetzen anzeigen',
+            ja: '置換を表示',
+          ),
           icon: Icons.find_replace_rounded,
           onPressed: controls.editable ? controls.onShowReplace : null,
         ),
       _KnowledgeEditorToolButton(
-        tooltip: isZh ? '关闭查找' : 'Close find',
+        tooltip: _kbContentText(
+          context,
+          zh: '关闭查找',
+          zhHant: '關閉尋找',
+          en: 'Close find',
+          fr: 'Fermer la recherche',
+          de: 'Suche schließen',
+          ja: '検索を閉じる',
+        ),
         icon: Icons.close_rounded,
         onPressed: controls.onHideFind,
       ),
@@ -721,7 +920,15 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
               child: _KnowledgeFindTextField(
                 controller: controls.findController,
                 focusNode: controls.findFocusNode,
-                hintText: isZh ? '查找' : 'Find',
+                hintText: _kbContentText(
+                  context,
+                  zh: '查找',
+                  zhHant: '尋找',
+                  en: 'Find',
+                  fr: 'Rechercher',
+                  de: 'Suchen',
+                  ja: '検索',
+                ),
                 onChanged: controls.onFindChanged,
                 onSubmitted: (_) => controls.onFindNext(),
               ),
@@ -747,7 +954,15 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
               Expanded(
                 child: _KnowledgeFindTextField(
                   controller: controls.replaceController,
-                  hintText: isZh ? '替换为' : 'Replace with',
+                  hintText: _kbContentText(
+                    context,
+                    zh: '替换为',
+                    zhHant: '取代為',
+                    en: 'Replace with',
+                    fr: 'Remplacer par',
+                    de: 'Ersetzen durch',
+                    ja: '置換後',
+                  ),
                   onSubmitted: (_) => controls.onReplaceCurrent(),
                 ),
               ),
@@ -755,14 +970,30 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
               _KnowledgeEditorToolButtonGroup(
                 children: [
                   _KnowledgeEditorToolButton(
-                    tooltip: isZh ? '替换当前项' : 'Replace current',
+                    tooltip: _kbContentText(
+                      context,
+                      zh: '替换当前项',
+                      zhHant: '取代目前項',
+                      en: 'Replace current',
+                      fr: 'Remplacer l’élément actuel',
+                      de: 'Aktuellen Treffer ersetzen',
+                      ja: '現在の一致を置換',
+                    ),
                     icon: Icons.find_replace_rounded,
                     onPressed: controls.editable && controls.matchCount > 0
                         ? controls.onReplaceCurrent
                         : null,
                   ),
                   _KnowledgeEditorToolButton(
-                    tooltip: isZh ? '全部替换' : 'Replace all',
+                    tooltip: _kbContentText(
+                      context,
+                      zh: '全部替换',
+                      zhHant: '全部取代',
+                      en: 'Replace all',
+                      fr: 'Tout remplacer',
+                      de: 'Alle ersetzen',
+                      ja: 'すべて置換',
+                    ),
                     icon: Icons.done_all_rounded,
                     onPressed: controls.editable && controls.matchCount > 0
                         ? controls.onReplaceAll
@@ -908,7 +1139,6 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final source = snapshot.source!;
-    final isZh = openHandIsChineseLocale(context);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final previewAvailable = _supportsMarkdownPreview(source, snapshot);
@@ -989,8 +1219,24 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                         ? Icons.insert_drive_file_outlined
                         : Icons.view_agenda_outlined,
                     label: snapshot.loadedFromFile
-                        ? (isZh ? '原文' : 'Original')
-                        : (isZh ? '索引内容' : 'Indexed content'),
+                        ? _kbContentText(
+                            context,
+                            zh: '原文',
+                            zhHant: '原文',
+                            en: 'Original',
+                            fr: 'Original',
+                            de: 'Original',
+                            ja: '原文',
+                          )
+                        : _kbContentText(
+                            context,
+                            zh: '索引内容',
+                            zhHant: '索引內容',
+                            en: 'Indexed content',
+                            fr: 'Contenu indexé',
+                            de: 'Indexierter Inhalt',
+                            ja: 'インデックス済み内容',
+                          ),
                   ),
                   KnowledgeDialogChip(
                     icon: Icons.schedule_rounded,
@@ -1024,7 +1270,6 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                     if (previewAvailable)
                       _KnowledgeModeToggle(
                         preview: preview,
-                        isZh: isZh,
                         onChanged: onPreviewChanged,
                       ),
                     if (previewAvailable) const SizedBox(width: 8),
@@ -1037,11 +1282,29 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                                 Clipboard.setData(ClipboardData(text: text));
                                 OpenHandSnackBar.showSuccess(
                                   context,
-                                  isZh ? '内容已复制。' : 'Content copied.',
+                                  _kbContentText(
+                                    context,
+                                    zh: '内容已复制。',
+                                    zhHant: '內容已複製。',
+                                    en: 'Content copied.',
+                                    fr: 'Contenu copié.',
+                                    de: 'Inhalt kopiert.',
+                                    ja: '内容をコピーしました。',
+                                  ),
                                 );
                               },
                         icon: const Icon(Icons.copy_all_rounded),
-                        label: Text(isZh ? '复制内容' : 'Copy Content'),
+                        label: Text(
+                          _kbContentText(
+                            context,
+                            zh: '复制内容',
+                            zhHant: '複製內容',
+                            en: 'Copy Content',
+                            fr: 'Copier le contenu',
+                            de: 'Inhalt kopieren',
+                            ja: '内容をコピー',
+                          ),
+                        ),
                         style: FilledButton.styleFrom(
                           visualDensity: const VisualDensity(
                             horizontal: -1,
@@ -1056,9 +1319,16 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                       child: Align(
                         alignment: Alignment.centerRight,
                         child: Text(
-                          isZh
-                              ? '$lineCount 行 · ${formatByteSize(byteCount)}'
-                              : '$lineCount lines · ${formatByteSize(byteCount)}',
+                          _kbContentText(
+                            context,
+                            zh: '$lineCount 行 · ${formatByteSize(byteCount)}',
+                            zhHant:
+                                '$lineCount 行 · ${formatByteSize(byteCount)}',
+                            en: '$lineCount lines · ${formatByteSize(byteCount)}',
+                            fr: '$lineCount lignes · ${formatByteSize(byteCount)}',
+                            de: '$lineCount Zeilen · ${formatByteSize(byteCount)}',
+                            ja: '$lineCount 行 · ${formatByteSize(byteCount)}',
+                          ),
                           textAlign: TextAlign.right,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1074,11 +1344,11 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
               ),
               if (editorControls.sourceMode) ...[
                 const SizedBox(height: 8),
-                _KnowledgeEditorToolbar(controls: editorControls, isZh: isZh),
+                _KnowledgeEditorToolbar(controls: editorControls),
               ],
               if (editorControls.sourceMode && editorControls.findVisible) ...[
                 const SizedBox(height: 8),
-                _KnowledgeFindReplaceBar(controls: editorControls, isZh: isZh),
+                _KnowledgeFindReplaceBar(controls: editorControls),
               ],
             ],
           ),
@@ -1098,7 +1368,15 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                     controller: contentController,
                     focusNode: editorControls.editorFocusNode,
                     editable: editable,
-                    emptyText: isZh ? '暂无可浏览内容。' : 'No content to view.',
+                    emptyText: _kbContentText(
+                      context,
+                      zh: '暂无可浏览内容。',
+                      zhHant: '暫無可瀏覽內容。',
+                      en: 'No content to view.',
+                      fr: 'Aucun contenu à afficher.',
+                      de: 'Kein Inhalt zum Anzeigen.',
+                      ja: '表示できる内容はありません。',
+                    ),
                   ),
           ),
         ),
@@ -1497,20 +1775,34 @@ String _localizedNotice(
   _KnowledgeSourceContentNotice notice,
   BuildContext context,
 ) {
-  final isZh = openHandIsChineseLocale(context);
   return switch (notice) {
-    _KnowledgeSourceContentNotice.largeFileTruncated =>
-      isZh
-          ? '文件较大，当前仅预览前 ${formatByteSize(_kMaxFilePreviewBytes)}。'
-          : 'The file is large. Showing only the first ${formatByteSize(_kMaxFilePreviewBytes)}.',
-    _KnowledgeSourceContentNotice.indexedFallback =>
-      isZh
-          ? '当前展示已索引的分块内容；原文件不可直接作为文本浏览。'
-          : 'Showing indexed chunks because the original file cannot be viewed directly as text.',
-    _KnowledgeSourceContentNotice.empty =>
-      isZh
-          ? '没有可浏览的原文或索引内容。'
-          : 'No original or indexed content is available to view.',
+    _KnowledgeSourceContentNotice.largeFileTruncated => _kbContentText(
+      context,
+      zh: '文件较大，当前仅预览前 ${formatByteSize(_kMaxFilePreviewBytes)}。',
+      zhHant: '檔案較大，目前僅預覽前 ${formatByteSize(_kMaxFilePreviewBytes)}。',
+      en: 'The file is large. Showing only the first ${formatByteSize(_kMaxFilePreviewBytes)}.',
+      fr: 'Le fichier est volumineux. Seuls les ${formatByteSize(_kMaxFilePreviewBytes)} premiers sont affichés.',
+      de: 'Die Datei ist groß. Es werden nur die ersten ${formatByteSize(_kMaxFilePreviewBytes)} angezeigt.',
+      ja: 'ファイルが大きいため、先頭 ${formatByteSize(_kMaxFilePreviewBytes)} のみ表示しています。',
+    ),
+    _KnowledgeSourceContentNotice.indexedFallback => _kbContentText(
+      context,
+      zh: '当前展示已索引的分块内容；原文件不可直接作为文本浏览。',
+      zhHant: '目前顯示已索引的分塊內容；原始檔案無法直接以文字瀏覽。',
+      en: 'Showing indexed chunks because the original file cannot be viewed directly as text.',
+      fr: 'Affichage des fragments indexés, car le fichier d’origine ne peut pas être affiché directement en texte.',
+      de: 'Indexierte Abschnitte werden angezeigt, da die Originaldatei nicht direkt als Text angezeigt werden kann.',
+      ja: '元ファイルをテキストとして直接表示できないため、インデックス済みチャンクを表示しています。',
+    ),
+    _KnowledgeSourceContentNotice.empty => _kbContentText(
+      context,
+      zh: '没有可浏览的原文或索引内容。',
+      zhHant: '沒有可瀏覽的原文或索引內容。',
+      en: 'No original or indexed content is available to view.',
+      fr: 'Aucun contenu original ou indexé n’est disponible.',
+      de: 'Es ist kein Original- oder indexierter Inhalt verfügbar.',
+      ja: '表示できる原文またはインデックス済み内容はありません。',
+    ),
   };
 }
 
@@ -1520,7 +1812,8 @@ int _lineCount(String text) {
 }
 
 IconData _iconForKind(String kind) {
-  return switch (kind) {
+  final normalized = kind.trim().toLowerCase();
+  return switch (normalized) {
     'markdown' => Icons.notes_rounded,
     'code' => Icons.code_rounded,
     'pdf' => Icons.picture_as_pdf_outlined,
@@ -1535,19 +1828,99 @@ IconData _iconForKind(String kind) {
 }
 
 String _localizedKind(String kind, BuildContext context) {
-  final isZh = openHandIsChineseLocale(context);
-  return switch (kind) {
-    'markdown' => isZh ? 'Markdown 文档' : 'Markdown',
-    'text' => isZh ? '文本' : 'Text',
-    'code' => isZh ? '代码' : 'Code',
-    'pdf' => isZh ? 'PDF' : 'PDF',
-    'html' => isZh ? '网页 HTML' : 'HTML',
-    'docx' => isZh ? 'Word 文档' : 'Word document',
-    'spreadsheet' => isZh ? '电子表格' : 'Spreadsheet',
-    'presentation' => isZh ? '演示文稿' : 'Presentation',
-    'table' => isZh ? '表格数据' : 'Table data',
-    'structured' => isZh ? '结构化数据' : 'Structured data',
-    'note' => isZh ? '笔记' : 'Note',
-    _ => kind.trim().isEmpty ? '-' : kind,
+  final normalized = kind.trim().toLowerCase();
+  return switch (normalized) {
+    'markdown' => _kbContentText(
+      context,
+      zh: 'Markdown 文档',
+      zhHant: 'Markdown 文件',
+      en: 'Markdown',
+      fr: 'Markdown',
+      de: 'Markdown',
+      ja: 'Markdown',
+    ),
+    'text' => _kbContentText(
+      context,
+      zh: '文本',
+      zhHant: '文字',
+      en: 'Text',
+      fr: 'Texte',
+      de: 'Text',
+      ja: 'テキスト',
+    ),
+    'code' => _kbContentText(
+      context,
+      zh: '代码',
+      zhHant: '程式碼',
+      en: 'Code',
+      fr: 'Code',
+      de: 'Code',
+      ja: 'コード',
+    ),
+    'pdf' => 'PDF',
+    'html' => _kbContentText(
+      context,
+      zh: '网页 HTML',
+      zhHant: '網頁 HTML',
+      en: 'HTML',
+      fr: 'HTML',
+      de: 'HTML',
+      ja: 'HTML',
+    ),
+    'docx' => _kbContentText(
+      context,
+      zh: 'Word 文档',
+      zhHant: 'Word 文件',
+      en: 'Word document',
+      fr: 'Document Word',
+      de: 'Word-Dokument',
+      ja: 'Word 文書',
+    ),
+    'spreadsheet' => _kbContentText(
+      context,
+      zh: '电子表格',
+      zhHant: '試算表',
+      en: 'Spreadsheet',
+      fr: 'Feuille de calcul',
+      de: 'Tabellenkalkulation',
+      ja: 'スプレッドシート',
+    ),
+    'presentation' => _kbContentText(
+      context,
+      zh: '演示文稿',
+      zhHant: '簡報',
+      en: 'Presentation',
+      fr: 'Présentation',
+      de: 'Präsentation',
+      ja: 'プレゼンテーション',
+    ),
+    'table' => _kbContentText(
+      context,
+      zh: '表格数据',
+      zhHant: '表格資料',
+      en: 'Table data',
+      fr: 'Données tabulaires',
+      de: 'Tabellendaten',
+      ja: '表データ',
+    ),
+    'structured' => _kbContentText(
+      context,
+      zh: '结构化数据',
+      zhHant: '結構化資料',
+      en: 'Structured data',
+      fr: 'Données structurées',
+      de: 'Strukturierte Daten',
+      ja: '構造化データ',
+    ),
+    'note' => _kbContentText(
+      context,
+      zh: '笔记',
+      zhHant: '筆記',
+      en: 'Note',
+      fr: 'Note',
+      de: 'Notiz',
+      ja: 'ノート',
+    ),
+    _ => normalized.isEmpty ? '-' : kind.trim(),
   };
 }
