@@ -34,6 +34,7 @@ const Set<String> _agentKpiStatusValues = <String>{
 enum _AgentToolOperation {
   list,
   detail,
+  recordAudit,
   requestApproval,
   upsertKpi,
   updateResource,
@@ -78,6 +79,13 @@ class AiAgentTool extends AiTool {
         kind: AiBuiltinToolKind.agentDetail,
         name: 'AgentDetail',
         operation: _AgentToolOperation.detail,
+        agentsControllerProvider: agentsControllerProvider,
+        promptRenderer: renderer,
+      ),
+      AiAgentTool._(
+        kind: AiBuiltinToolKind.agentAuditRecord,
+        name: 'AgentAuditRecord',
+        operation: _AgentToolOperation.recordAudit,
         agentsControllerProvider: agentsControllerProvider,
         promptRenderer: renderer,
       ),
@@ -184,6 +192,7 @@ class AiAgentTool extends AiTool {
   bool get isDestructive {
     return switch (_operation) {
       _AgentToolOperation.publishTask ||
+      _AgentToolOperation.recordAudit ||
       _AgentToolOperation.requestApproval ||
       _AgentToolOperation.upsertKpi ||
       _AgentToolOperation.updateResource ||
@@ -217,6 +226,11 @@ class AiAgentTool extends AiTool {
       return switch (_operation) {
         _AgentToolOperation.list => _list(controller, context, stopwatch),
         _AgentToolOperation.detail => await _detail(
+          controller,
+          context,
+          stopwatch,
+        ),
+        _AgentToolOperation.recordAudit => await _recordAudit(
           controller,
           context,
           stopwatch,
@@ -374,6 +388,61 @@ class AiAgentTool extends AiTool {
       metadata: <String, Object?>{
         'action': 'detail',
         'agent_id': resolution.agent!.id,
+      },
+    );
+  }
+
+  Future<AiToolExecutionResult> _recordAudit(
+    AgentsController controller,
+    AiToolExecutionContext context,
+    Stopwatch stopwatch,
+  ) async {
+    final args = context.decodedArguments;
+    final resolution = _resolveAgent(controller, args);
+    if (resolution.error != null) return resolution.error!;
+    final summary = _optionalText(args['summary']);
+    if (summary == null) {
+      return AiToolUtils.invalidResult(_name, 'summary is required.');
+    }
+    final rawMetadata = optionalStringKeyedMapFromValueOrJsonText(
+      args['metadata'] ?? args['extra'],
+    );
+    final metadata = <String, Object?>{
+      if (rawMetadata != null) ...rawMetadata,
+      if (_optionalText(args['task_id']) case final taskId?) 'task_id': taskId,
+      if (_optionalText(args['worker_id']) case final workerId?)
+        'worker_id': workerId,
+      'recorded_by_session_id': context.sessionId,
+    };
+    final event = await controller.recordAuditEvent(
+      resolution.agent!.id,
+      kind: _optionalText(args['kind']) ?? 'capability_used',
+      summary: summary,
+      toolName: _optionalText(args['tool_name'] ?? args['tool']) ?? '',
+      tokenUsage: optionalNonNegativeIntFromValue(args['token_usage']) ?? 0,
+      requestCount: optionalNonNegativeIntFromValue(args['request_count']) ?? 0,
+      metadata: metadata,
+      auditToolName: _name,
+    );
+    if (event == null) {
+      return AiToolUtils.invalidResult(
+        _name,
+        'Failed to record audit event. The agent may have been removed.',
+      );
+    }
+    final currentAgent = controller.agentById(resolution.agent!.id);
+    final auditEvents = currentAgent?.auditEvents ?? <AgentAuditEvent>[event];
+    return _success(
+      <String, Object?>{
+        'agent': _agentSummaryJson(currentAgent ?? resolution.agent!),
+        'audit_event': event.toJson(),
+        'audit_summary': _auditSummaryJson(auditEvents),
+      },
+      stopwatch,
+      metadata: <String, Object?>{
+        'action': 'audit_recorded',
+        'agent_id': resolution.agent!.id,
+        'audit_id': event.id,
       },
     );
   }

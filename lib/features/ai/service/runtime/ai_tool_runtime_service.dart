@@ -216,6 +216,7 @@ enum AiBuiltinToolKind {
   knowledgeRead,
   agentList,
   agentDetail,
+  agentAuditRecord,
   agentApprovalRequest,
   agentKpiUpsert,
   agentResourceUpdate,
@@ -355,6 +356,7 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.notebookEdit,
         AiBuiltinToolKind.deleteFile,
         AiBuiltinToolKind.skillManager,
+        AiBuiltinToolKind.agentAuditRecord,
         AiBuiltinToolKind.agentApprovalRequest,
         AiBuiltinToolKind.agentKpiUpsert,
         AiBuiltinToolKind.agentResourceUpdate,
@@ -478,6 +480,7 @@ class AiToolRuntimeService {
     if (normalized.isEmpty) return false;
     return normalized == 'agentlist' ||
         normalized == 'agentdetail' ||
+        normalized.startsWith('agentaudit') ||
         normalized.startsWith('agentapproval') ||
         normalized.startsWith('agentkpi') ||
         normalized.startsWith('agentresource') ||
@@ -504,6 +507,7 @@ class AiToolRuntimeService {
     return switch (kind) {
       AiBuiltinToolKind.agentList ||
       AiBuiltinToolKind.agentDetail ||
+      AiBuiltinToolKind.agentAuditRecord ||
       AiBuiltinToolKind.agentApprovalRequest ||
       AiBuiltinToolKind.agentKpiUpsert ||
       AiBuiltinToolKind.agentResourceUpdate ||
@@ -1403,6 +1407,7 @@ class AiToolRuntimeService {
     }
     if (_isAgentBuiltinKind(kind)) {
       return kind == AiBuiltinToolKind.agentTaskPublish ||
+          kind == AiBuiltinToolKind.agentAuditRecord ||
           kind == AiBuiltinToolKind.agentApprovalRequest ||
           kind == AiBuiltinToolKind.agentKpiUpsert ||
           kind == AiBuiltinToolKind.agentResourceUpdate ||
@@ -1944,6 +1949,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.knowledgeRead => 'KnowledgeRead',
       AiBuiltinToolKind.agentList => 'AgentList',
       AiBuiltinToolKind.agentDetail => 'AgentDetail',
+      AiBuiltinToolKind.agentAuditRecord => 'AgentAuditRecord',
       AiBuiltinToolKind.agentApprovalRequest => 'AgentApprovalRequest',
       AiBuiltinToolKind.agentKpiUpsert => 'AgentKpiUpsert',
       AiBuiltinToolKind.agentResourceUpdate => 'AgentResourceUpdate',
@@ -3587,6 +3593,50 @@ class AiToolRuntimeService {
                 'When true, include the full rendered digital employee system prompt. Use sparingly.',
           },
         },
+        'anyOf': _agentToolAgentSelectorAnyOf,
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentAuditRecord,
+      name: 'AgentAuditRecord',
+      description:
+          'Record an auditable digital employee capability event such as Skill, MCP, memory, knowledge, builtin tool, model request, worker execution, or external resource use. Include request_count, token_usage, task_id, and worker_id when known so audit dashboards and task summaries stay accurate.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{
+            'type': 'string',
+            'description': 'Agent id or exact display name.',
+          },
+          'kind': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Event kind, for example skill_call, mcp_call, memory_write, builtin_tool_call, model_request, worker_execution, or resource_write.',
+          },
+          'summary': <String, Object?>{
+            'type': 'string',
+            'description': 'Short audit summary.',
+          },
+          'tool_name': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Name of the audited skill, MCP tool, builtin tool, or external capability.',
+          },
+          'tool': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for tool_name.',
+          },
+          'token_usage': <String, Object?>{'type': 'integer', 'minimum': 0},
+          'request_count': <String, Object?>{'type': 'integer', 'minimum': 0},
+          'task_id': <String, Object?>{'type': 'string'},
+          'worker_id': <String, Object?>{'type': 'string'},
+          'metadata': _agentToolExtraSchema,
+          'extra': _agentToolExtraSchema,
+        },
+        'required': <String>['summary'],
         'anyOf': _agentToolAgentSelectorAnyOf,
         'additionalProperties': false,
       },

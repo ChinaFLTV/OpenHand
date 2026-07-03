@@ -501,6 +501,38 @@ void main() {
       expect(agent.auditEvents.first.metadata['token_used'], 250);
     });
 
+    test('recording audit event stores capability metrics', () async {
+      await controller.saveAgent(_runningAgent());
+
+      final event = await controller.recordAuditEvent(
+        'agent-1',
+        kind: 'mcp_call',
+        summary: 'mcp_call: fetch billing rows',
+        toolName: 'billing.query',
+        tokenUsage: 128,
+        requestCount: 2,
+        metadata: const <String, Object?>{
+          'task_id': 'task-1',
+          'worker_id': 'worker-1',
+        },
+        auditToolName: 'AgentAuditRecordTest',
+      );
+
+      expect(event, isNotNull);
+      expect(event!.kind, 'mcp_call');
+      expect(event.toolName, 'billing.query');
+      expect(event.tokenUsage, 128);
+      expect(event.requestCount, 2);
+      final agent = controller.agentById('agent-1')!;
+      expect(agent.auditEvents.first.id, event.id);
+      expect(
+        agent.auditEvents.first.metadata['recorded_by'],
+        'AgentAuditRecordTest',
+      );
+      expect(agent.activities.first.kind, 'audit_recorded');
+      expect(agent.activities.first.metadata['audit_id'], event.id);
+    });
+
     test('saving scale settings resizes workers and records audit', () async {
       await controller.saveAgent(_runningAgent());
 

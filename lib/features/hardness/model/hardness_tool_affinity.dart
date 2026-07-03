@@ -69,6 +69,7 @@ HardnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.task ||
     AiBuiltinToolKind.agentList ||
     AiBuiltinToolKind.agentDetail ||
+    AiBuiltinToolKind.agentAuditRecord ||
     AiBuiltinToolKind.agentApprovalRequest ||
     AiBuiltinToolKind.agentKpiUpsert ||
     AiBuiltinToolKind.agentResourceUpdate ||

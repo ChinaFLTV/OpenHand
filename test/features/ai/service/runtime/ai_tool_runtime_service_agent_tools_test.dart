@@ -56,6 +56,9 @@ void main() {
       final track = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentTaskTrack,
       )!;
+      final audit = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentAuditRecord,
+      )!;
       final approval = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentApprovalRequest,
       )!;
@@ -86,6 +89,11 @@ void main() {
         contains('state.needs_polling is true'),
       );
       expect(track.definition.description, contains('operational summary'));
+      expect(
+        audit.definition.description,
+        contains('Record an auditable digital employee capability event'),
+      );
+      expect(audit.definition.description, contains('request_count'));
       expect(
         approval.definition.description,
         contains('Create an auditable approval request'),
@@ -198,6 +206,16 @@ void main() {
       expect(resourceProperties['cpu_percent'], isA<Map<String, Object?>>());
       expect(resourceProperties['memory_bytes'], isA<Map<String, Object?>>());
       expect(resourceProperties['extra'], isA<Map<String, Object?>>());
+
+      final auditParameters = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentAuditRecord,
+      )!.definition.parameters;
+      expect(_directRequiredFields(auditParameters), contains('summary'));
+      expect(_schemaAnyOfAllowsRequired(auditParameters, 'agent_id'), isTrue);
+      final auditProperties =
+          auditParameters['properties'] as Map<String, Object?>;
+      expect(auditProperties['tool_name'], isA<Map<String, Object?>>());
+      expect(auditProperties['metadata'], isA<Map<String, Object?>>());
     });
 
     test('hides agent tools until at least one agent is enabled', () async {
@@ -226,6 +244,10 @@ void main() {
         AiBuiltinToolKind.agentTaskPublish,
       );
       expect(
+        catalog.find('AgentAuditRecord')?.builtinKind,
+        AiBuiltinToolKind.agentAuditRecord,
+      );
+      expect(
         catalog.find('AgentApprovalRequest')?.builtinKind,
         AiBuiltinToolKind.agentApprovalRequest,
       );
@@ -248,6 +270,7 @@ void main() {
       );
       expect(catalog.find('AgentList'), isNull);
       expect(catalog.find('AgentTaskPublish'), isNull);
+      expect(catalog.find('AgentAuditRecord'), isNull);
       expect(catalog.find('AgentApprovalRequest'), isNull);
       expect(catalog.find('AgentKpiUpsert'), isNull);
       expect(catalog.find('AgentResourceUpdate'), isNull);
@@ -277,6 +300,7 @@ void main() {
           AiBuiltinToolKind.agentTaskTrack,
         );
         expect(catalog.find('AgentTaskPublish'), isNull);
+        expect(catalog.find('AgentAuditRecord'), isNull);
         expect(catalog.find('AgentApprovalRequest'), isNull);
         expect(catalog.find('AgentKpiUpsert'), isNull);
         expect(catalog.find('AgentResourceUpdate'), isNull);
@@ -297,6 +321,7 @@ void main() {
 
         expect(catalog.find('AgentList'), isNull);
         expect(catalog.find('AgentTaskPublish'), isNull);
+        expect(catalog.find('AgentAuditRecord'), isNull);
         expect(catalog.find('AgentApprovalRequest'), isNull);
         expect(catalog.find('AgentKpiUpsert'), isNull);
         expect(catalog.find('AgentResourceUpdate'), isNull);
@@ -512,6 +537,63 @@ void main() {
         expect(agent.auditEvents.first.metadata['token_used'], 640);
       },
     );
+
+    test('audit record tool stores capability metrics and metadata', () async {
+      await controller.saveAgent(_agent(enabled: true));
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(),
+      );
+      final result = await runtime.execute(
+        sessionId: 'session-audit',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-audit',
+          name: 'AgentAuditRecord',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-1',
+            'kind': 'skill_call',
+            'summary': 'skill_call: reconcile invoices',
+            'tool_name': 'finops-duizhang-expert',
+            'token_usage': 321,
+            'request_count': 2,
+            'task_id': 'task-123',
+            'worker_id': 'worker-1',
+            'metadata': <String, Object?>{'phase': 'collect'},
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+      final event = payload['audit_event'] as Map<String, Object?>;
+      final metadata = event['metadata'] as Map<String, Object?>;
+      final summary = payload['audit_summary'] as Map<String, Object?>;
+      final toolCounts = summary['tool_counts'] as Map<String, Object?>;
+      final agent = controller.agentById('agent-1')!;
+
+      expect(event['kind'], 'skill_call');
+      expect(event['summary'], 'skill_call: reconcile invoices');
+      expect(event['tool_name'], 'finops-duizhang-expert');
+      expect(event['token_usage'], 321);
+      expect(event['request_count'], 2);
+      expect(metadata['phase'], 'collect');
+      expect(metadata['task_id'], 'task-123');
+      expect(metadata['worker_id'], 'worker-1');
+      expect(metadata['recorded_by'], 'AgentAuditRecord');
+      expect(metadata['recorded_by_session_id'], 'session-audit');
+      expect(summary['event_count'], 1);
+      expect(summary['token_usage'], 321);
+      expect(toolCounts['finops-duizhang-expert'], 1);
+      expect(agent.auditEvents.first.kind, 'skill_call');
+      expect(agent.activities.first.kind, 'audit_recorded');
+    });
 
     test('publish tool routes to the best matching enabled agent', () async {
       await controller.saveAgent(

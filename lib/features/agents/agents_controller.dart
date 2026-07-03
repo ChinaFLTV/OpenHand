@@ -842,6 +842,72 @@ class AgentsController extends ManagedChangeNotifier {
     });
   }
 
+  Future<AgentAuditEvent?> recordAuditEvent(
+    String agentId, {
+    required String kind,
+    required String summary,
+    String toolName = '',
+    int tokenUsage = 0,
+    int requestCount = 0,
+    Map<String, Object?> metadata = const <String, Object?>{},
+    String auditToolName = 'AgentAuditDialog',
+  }) async {
+    final normalizedAgentId = agentId.trim();
+    final trimmedSummary = summary.trim();
+    if (normalizedAgentId.isEmpty || trimmedSummary.isEmpty) return null;
+    AgentAuditEvent? savedEvent;
+    final changed = await _commitMutation(() async {
+      final index = _agents.indexWhere(
+        (agent) => agent.id == normalizedAgentId,
+      );
+      if (index < 0) return false;
+      final agent = _agents[index];
+      final now = DateTime.now().toUtc();
+      final normalizedKind = kind.trim().isEmpty ? 'audit' : kind.trim();
+      final normalizedToolName = toolName.trim();
+      savedEvent = AgentAuditEvent(
+        id: _uuid.v4(),
+        kind: normalizedKind,
+        summary: trimmedSummary,
+        toolName: normalizedToolName,
+        tokenUsage: math.max(0, tokenUsage),
+        requestCount: math.max(0, requestCount),
+        createdAt: now,
+        metadata: <String, Object?>{...metadata, 'recorded_by': auditToolName},
+      );
+      final activityMetadata = <String, Object?>{
+        'audit_id': savedEvent!.id,
+        'audit_kind': savedEvent!.kind,
+        if (normalizedToolName.isNotEmpty) 'tool_name': normalizedToolName,
+      };
+      final updated = _normalizeAgent(
+        agent.copyWith(
+          activities: _prependActivity(
+            agent.activities,
+            AgentActivityEvent(
+              id: _uuid.v4(),
+              kind: 'audit_recorded',
+              title: 'audit_recorded',
+              content: trimmedSummary,
+              createdAt: now,
+              metadata: activityMetadata,
+            ),
+          ),
+          auditEvents: _prependAudit(agent.auditEvents, savedEvent!),
+          updatedAt: now,
+        ),
+      );
+      _setAgents(<AgentProfile>[
+        ..._agents.sublist(0, index),
+        updated,
+        ..._agents.sublist(index + 1),
+      ]);
+      await _store.save(_agents);
+      return true;
+    });
+    return changed ? savedEvent : null;
+  }
+
   Future<bool> saveScaleSettings(
     String agentId,
     AgentScaleSettings settings, {
