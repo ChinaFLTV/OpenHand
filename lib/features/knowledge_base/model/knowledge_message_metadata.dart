@@ -403,9 +403,7 @@ class KnowledgeMessageMetadata {
   }
 
   static bool _isTruthy(Object? value) {
-    if (value is bool) return value;
-    final normalized = '${value ?? ''}'.trim().toLowerCase();
-    return normalized == 'true' || normalized == '1' || normalized == 'yes';
+    return boolFromValue(value);
   }
 
   static bool _looksLikeKnowledgeMetadata(Map<String, Object?> metadata) {
