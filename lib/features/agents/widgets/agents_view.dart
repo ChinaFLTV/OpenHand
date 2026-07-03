@@ -395,14 +395,16 @@ class _AgentCard extends StatelessWidget {
                       action: _AgentCardAction.tasks,
                       onAction: onAction,
                     ),
+                    _AgentIconAction(
+                      icon: Icons.analytics_rounded,
+                      tooltip: l10n.agentsAuditReport,
+                      action: _AgentCardAction.audit,
+                      onAction: onAction,
+                    ),
                     PopupMenuButton<_AgentCardAction>(
                       tooltip: l10n.agentsMore,
                       onSelected: onAction,
                       itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: _AgentCardAction.audit,
-                          child: Text(l10n.agentsAuditReport),
-                        ),
                         PopupMenuItem(
                           value: _AgentCardAction.kpi,
                           child: Text(l10n.agentsKpi),
@@ -2100,69 +2102,19 @@ Future<void> _showCompleteTaskDialog(
 
 Future<void> _showAgentAuditDialog(BuildContext context, AgentProfile agent) {
   final l10n = AppLocalizations.of(context)!;
-  final tokenUsage = agent.auditEvents.fold<int>(
-    0,
-    (sum, event) => sum + event.tokenUsage,
-  );
-  final requests = agent.auditEvents.fold<int>(
-    0,
-    (sum, event) => sum + event.requestCount,
-  );
+  final report = _AgentAuditReportSummary.fromAgent(agent);
   return showAnimatedDialog<void>(
     context: context,
     builder: (_) => buildOpenHandDialog(
-      maxWidth: 780,
-      maxHeight: 640,
+      maxWidth: 860,
+      maxHeight: 700,
       child: _AgentDialogScaffold(
         icon: Icons.analytics_rounded,
         title: l10n.agentsDialogTitleWithName(
           l10n.agentsAuditReport,
           agent.name,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _MetricTile(
-                  label: l10n.agentsAuditRequests,
-                  value: '$requests',
-                ),
-                _MetricTile(label: 'Token', value: '$tokenUsage'),
-                _MetricTile(
-                  label: l10n.agentsAuditCompleted,
-                  value: '${agent.completedTaskCount}',
-                ),
-                _MetricTile(
-                  label: l10n.agentsAuditUtilization,
-                  value: '${(agent.workerUtilization * 100).round()}%',
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Text(
-              l10n.agentsRecentAuditEvents,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            if (agent.auditEvents.isEmpty)
-              Text(l10n.agentsNoAuditData)
-            else
-              ...agent.auditEvents
-                  .take(8)
-                  .map(
-                    (event) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(event.summary),
-                      subtitle: Text(
-                        event.toolName.isEmpty ? event.kind : event.toolName,
-                      ),
-                    ),
-                  ),
-          ],
-        ),
+        child: _AgentAuditReportBody(agent: agent, report: report),
       ),
     ),
   );
@@ -2658,8 +2610,28 @@ class _AgentResourceEditorDialogState
             _resourceField(_memoryBytes, l10n.agentsMetricMemory),
             _resourceField(_diskBytes, l10n.agentsMetricDisk),
             _resourceField(_persistedBytes, l10n.agentsMetricPersisted),
-            _resourceField(_tokenUsed, 'Token used'),
-            _resourceField(_tokenBudget, 'Token budget'),
+            _resourceField(
+              _tokenUsed,
+              openHandLocalizedText(
+                context,
+                zh: '已用 Token',
+                en: 'Token used',
+                fr: 'Tokens utilisés',
+                de: 'Verbrauchte Tokens',
+                ja: '使用済みトークン',
+              ),
+            ),
+            _resourceField(
+              _tokenBudget,
+              openHandLocalizedText(
+                context,
+                zh: 'Token 预算',
+                en: 'Token budget',
+                fr: 'Budget de tokens',
+                de: 'Token-Budget',
+                ja: 'トークン予算',
+              ),
+            ),
             _resourceField(_openHandles, l10n.agentsMetricHandles),
           ],
         ),
@@ -2709,7 +2681,7 @@ class _MetricTile extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: cs.surfaceContainerHighest.withValues(alpha: 0.65),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: cs.outlineVariant),
         ),
         child: Padding(
@@ -2723,6 +2695,361 @@ class _MetricTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AgentAuditReportBody extends StatelessWidget {
+  const _AgentAuditReportBody({required this.agent, required this.report});
+
+  final AgentProfile agent;
+  final _AgentAuditReportSummary report;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _MetricTile(
+              label: l10n.agentsAuditRequests,
+              value: '${report.requests}',
+            ),
+            _MetricTile(
+              label: openHandLocalizedText(
+                context,
+                zh: 'Token',
+                en: 'Tokens',
+                fr: 'Tokens',
+                de: 'Tokens',
+                ja: 'トークン',
+              ),
+              value: '${report.tokens}',
+            ),
+            _MetricTile(
+              label: l10n.agentsAuditCompleted,
+              value: '${agent.completedTaskCount}',
+            ),
+            _MetricTile(
+              label: l10n.agentsAuditUtilization,
+              value: '${(agent.workerUtilization * 100).round()}%',
+            ),
+            _MetricTile(
+              label: openHandLocalizedText(
+                context,
+                zh: '能力事件',
+                en: 'Capability events',
+                fr: 'Événements de capacité',
+                de: 'Fähigkeitsereignisse',
+                ja: '能力イベント',
+              ),
+              value: '${report.eventCount}',
+            ),
+            _MetricTile(
+              label: openHandLocalizedText(
+                context,
+                zh: '忙碌 Worker',
+                en: 'Busy workers',
+                fr: 'Workers occupés',
+                de: 'Beschäftigte Worker',
+                ja: '稼働中の Worker',
+              ),
+              value: '${report.busyWorkers}/${agent.workers.length}',
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        _AgentAuditSection(
+          icon: Icons.extension_rounded,
+          title: openHandLocalizedText(
+            context,
+            zh: '能力使用画像',
+            en: 'Capability usage',
+            fr: 'Usage des capacités',
+            de: 'Fähigkeitsnutzung',
+            ja: '能力使用',
+          ),
+          emptyText: l10n.agentsNoAuditData,
+          children: [
+            for (final item in report.capabilities.take(5))
+              _AgentAuditInsightRow(
+                title: item.name,
+                subtitle: [
+                  item.type,
+                  openHandLocalizedText(
+                    context,
+                    zh: '${item.requests} 请求',
+                    en: '${item.requests} requests',
+                  ),
+                  '${item.tokens} Token',
+                ].join(' · '),
+                trailing: '${item.events}',
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _AgentAuditSection(
+          icon: Icons.memory_rounded,
+          title: openHandLocalizedText(
+            context,
+            zh: 'Worker 执行画像',
+            en: 'Worker execution',
+            fr: 'Exécution des workers',
+            de: 'Worker-Ausführung',
+            ja: 'Worker 実行',
+          ),
+          emptyText: openHandLocalizedText(
+            context,
+            zh: '暂无 Worker 执行数据。',
+            en: 'No worker execution data yet.',
+            fr: 'Aucune donnée d’exécution worker.',
+            de: 'Noch keine Worker-Ausführungsdaten.',
+            ja: 'Worker 実行データはまだありません。',
+          ),
+          children: [
+            for (final item in report.workers.take(6))
+              _AgentAuditInsightRow(
+                title: item.name,
+                subtitle: [
+                  _agentWorkerStatusLabel(l10n, item.status),
+                  openHandLocalizedText(
+                    context,
+                    zh: '${item.assignedTasks} 任务',
+                    en: '${item.assignedTasks} tasks',
+                  ),
+                  '${item.tokens} Token',
+                  '${(item.busyScore * 100).round()}%',
+                ].join(' · '),
+                trailing: '${item.executedTasks}',
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _AgentAuditSection(
+          icon: Icons.speed_rounded,
+          title: openHandLocalizedText(
+            context,
+            zh: '负载与资源压力',
+            en: 'Load and resource pressure',
+            fr: 'Charge et pression des ressources',
+            de: 'Last und Ressourcendruck',
+            ja: '負荷とリソース圧力',
+          ),
+          emptyText: '',
+          children: [
+            _AgentAuditPressureRow(
+              label: openHandLocalizedText(context, zh: 'CPU', en: 'CPU'),
+              value: report.cpuPressure,
+            ),
+            _AgentAuditPressureRow(
+              label: openHandLocalizedText(
+                context,
+                zh: 'Token 预算',
+                en: 'Token budget',
+                fr: 'Budget de tokens',
+                de: 'Token-Budget',
+                ja: 'トークン予算',
+              ),
+              value: report.tokenPressure,
+            ),
+            _AgentAuditPressureRow(
+              label: openHandLocalizedText(
+                context,
+                zh: '持久化占用',
+                en: 'Persisted storage',
+                fr: 'Stockage persistant',
+                de: 'Persistenter Speicher',
+                ja: '永続化ストレージ',
+              ),
+              value: report.persistedPressure,
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        Text(l10n.agentsRecentAuditEvents, style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        if (agent.auditEvents.isEmpty)
+          Text(l10n.agentsNoAuditData)
+        else
+          ...agent.auditEvents
+              .take(8)
+              .map(
+                (event) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(event.summary),
+                  subtitle: Text(
+                    [
+                      event.toolName.isEmpty ? event.kind : event.toolName,
+                      if (event.requestCount > 0)
+                        openHandLocalizedText(
+                          context,
+                          zh: '${event.requestCount} 请求',
+                          en: '${event.requestCount} requests',
+                        ),
+                      if (event.tokenUsage > 0) '${event.tokenUsage} Token',
+                    ].join(' · '),
+                  ),
+                ),
+              ),
+      ],
+    );
+  }
+}
+
+class _AgentAuditSection extends StatelessWidget {
+  const _AgentAuditSection({
+    required this.icon,
+    required this.title,
+    required this.emptyText,
+    required this.children,
+  });
+
+  final IconData icon;
+  final String title;
+  final String emptyText;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.34),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 18, color: cs.primary),
+                const SizedBox(width: 8),
+                Expanded(child: Text(title, style: theme.textTheme.titleSmall)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (children.isEmpty)
+              Text(
+                emptyText,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              )
+            else
+              ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentAuditInsightRow extends StatelessWidget {
+  const _AgentAuditInsightRow({
+    required this.title,
+    required this.subtitle,
+    required this.trailing,
+  });
+
+  final String title;
+  final String subtitle;
+  final String trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            trailing,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: cs.primary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentAuditPressureRow extends StatelessWidget {
+  const _AgentAuditPressureRow({required this.label, required this.value});
+
+  final String label;
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final ratio = value.clamp(0, 1).toDouble();
+    final color = ratio >= 0.85 ? cs.error : cs.primary;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 112,
+            child: Text(label, style: theme.textTheme.bodyMedium),
+          ),
+          Expanded(
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 6,
+              borderRadius: BorderRadius.circular(999),
+              color: color,
+              backgroundColor: cs.surfaceContainerHighest,
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 44,
+            child: Text(
+              '${(ratio * 100).round()}%',
+              textAlign: TextAlign.end,
+              style: theme.textTheme.labelLarge?.copyWith(color: color),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -5531,6 +5858,99 @@ class _FormGridItem extends StatelessWidget {
   Widget build(BuildContext context) => child;
 }
 
+class _AgentAuditReportSummary {
+  _AgentAuditReportSummary({
+    required this.eventCount,
+    required this.requests,
+    required this.tokens,
+    required this.busyWorkers,
+    required this.capabilities,
+    required this.workers,
+    required this.cpuPressure,
+    required this.tokenPressure,
+    required this.persistedPressure,
+  });
+
+  factory _AgentAuditReportSummary.fromAgent(AgentProfile agent) {
+    final capabilities = _agentAuditCapabilityStats(agent.auditEvents);
+    final workers = _agentAuditWorkerStats(agent);
+    final requests = agent.auditEvents.fold<int>(
+      0,
+      (sum, event) => sum + event.requestCount,
+    );
+    final tokens = agent.auditEvents.fold<int>(
+      0,
+      (sum, event) => sum + event.tokenUsage,
+    );
+    final resource = agent.resourceUsage;
+    final tokenPressure = resource.tokenBudget <= 0
+        ? 0.0
+        : (resource.tokenUsed / resource.tokenBudget).clamp(0, 1).toDouble();
+    final persistedPressure = resource.diskBytes <= 0
+        ? 0.0
+        : (resource.persistedBytes / resource.diskBytes).clamp(0, 1).toDouble();
+    return _AgentAuditReportSummary(
+      eventCount: agent.auditEvents.length,
+      requests: requests,
+      tokens: tokens,
+      busyWorkers: _agentWorkerStatusCount(agent, AgentWorkerStatus.busy),
+      capabilities: capabilities,
+      workers: workers,
+      cpuPressure: resource.cpuPercent.clamp(0, 1).toDouble(),
+      tokenPressure: tokenPressure,
+      persistedPressure: persistedPressure,
+    );
+  }
+
+  final int eventCount;
+  final int requests;
+  final int tokens;
+  final int busyWorkers;
+  final List<_AgentAuditCapabilityStat> capabilities;
+  final List<_AgentAuditWorkerStat> workers;
+  final double cpuPressure;
+  final double tokenPressure;
+  final double persistedPressure;
+}
+
+class _AgentAuditCapabilityStat {
+  const _AgentAuditCapabilityStat({
+    required this.type,
+    required this.name,
+    required this.events,
+    required this.requests,
+    required this.tokens,
+  });
+
+  final String type;
+  final String name;
+  final int events;
+  final int requests;
+  final int tokens;
+}
+
+class _AgentAuditWorkerStat {
+  const _AgentAuditWorkerStat({
+    required this.id,
+    required this.name,
+    required this.status,
+    required this.assignedTasks,
+    required this.executedTasks,
+    required this.requests,
+    required this.tokens,
+    required this.busyScore,
+  });
+
+  final String id;
+  final String name;
+  final AgentWorkerStatus status;
+  final int assignedTasks;
+  final int executedTasks;
+  final int requests;
+  final int tokens;
+  final double busyScore;
+}
+
 String _agentLifecycleStateLabel(
   AppLocalizations l10n,
   AgentLifecycleState state,
@@ -5571,6 +5991,156 @@ int _agentWorkerStatusCount(AgentProfile agent, AgentWorkerStatus status) {
 
 int _agentTasksByStatusCount(AgentProfile agent, AgentTaskStatus status) {
   return agent.tasks.where((task) => task.status == status).length;
+}
+
+List<_AgentAuditCapabilityStat> _agentAuditCapabilityStats(
+  List<AgentAuditEvent> events,
+) {
+  final buckets =
+      <
+        String,
+        ({String type, String name, int events, int requests, int tokens})
+      >{};
+  for (final event in events) {
+    final type = _agentAuditCapabilityType(event);
+    final name = _agentAuditCapabilityName(event);
+    final key = '$type::$name';
+    final current =
+        buckets[key] ??
+        (type: type, name: name, events: 0, requests: 0, tokens: 0);
+    buckets[key] = (
+      type: current.type,
+      name: current.name,
+      events: current.events + 1,
+      requests: current.requests + event.requestCount,
+      tokens: current.tokens + event.tokenUsage,
+    );
+  }
+  final rows = buckets.values
+      .map(
+        (item) => _AgentAuditCapabilityStat(
+          type: item.type,
+          name: item.name,
+          events: item.events,
+          requests: item.requests,
+          tokens: item.tokens,
+        ),
+      )
+      .toList(growable: false);
+  rows.sort((a, b) {
+    final tokenCompare = b.tokens.compareTo(a.tokens);
+    if (tokenCompare != 0) return tokenCompare;
+    final requestCompare = b.requests.compareTo(a.requests);
+    if (requestCompare != 0) return requestCompare;
+    final eventCompare = b.events.compareTo(a.events);
+    if (eventCompare != 0) return eventCompare;
+    return a.name.compareTo(b.name);
+  });
+  return rows;
+}
+
+List<_AgentAuditWorkerStat> _agentAuditWorkerStats(AgentProfile agent) {
+  final workerIds = <String>{};
+  for (final worker in agent.workers) {
+    workerIds.add(worker.id);
+  }
+  for (final task in agent.tasks) {
+    final workerId = '${task.extra['assigned_worker_id'] ?? ''}'.trim();
+    if (workerId.isNotEmpty) workerIds.add(workerId);
+  }
+  for (final event in agent.auditEvents) {
+    final workerId = '${event.metadata['worker_id'] ?? ''}'.trim();
+    if (workerId.isNotEmpty) workerIds.add(workerId);
+  }
+  final rows = workerIds
+      .map((workerId) {
+        final worker = _agentWorkerById(agent, workerId);
+        final assignedTasks = agent.tasks
+            .where((task) => _agentTaskAssignedToWorker(task, workerId))
+            .length;
+        final workerEvents = agent.auditEvents.where(
+          (event) => '${event.metadata['worker_id'] ?? ''}'.trim() == workerId,
+        );
+        final requests = workerEvents.fold<int>(
+          0,
+          (sum, event) => sum + event.requestCount,
+        );
+        final tokens = workerEvents.fold<int>(
+          0,
+          (sum, event) => sum + event.tokenUsage,
+        );
+        final name = worker?.name.trim().isNotEmpty == true
+            ? worker!.name.trim()
+            : workerId;
+        return _AgentAuditWorkerStat(
+          id: workerId,
+          name: name,
+          status: worker?.status ?? AgentWorkerStatus.offline,
+          assignedTasks: assignedTasks,
+          executedTasks: worker?.executedTaskCount ?? 0,
+          requests: requests,
+          tokens: tokens,
+          busyScore: worker?.busyScore ?? 0,
+        );
+      })
+      .toList(growable: false);
+  rows.sort((a, b) {
+    final tokenCompare = b.tokens.compareTo(a.tokens);
+    if (tokenCompare != 0) return tokenCompare;
+    final requestCompare = b.requests.compareTo(a.requests);
+    if (requestCompare != 0) return requestCompare;
+    final taskCompare = b.assignedTasks.compareTo(a.assignedTasks);
+    if (taskCompare != 0) return taskCompare;
+    return a.id.compareTo(b.id);
+  });
+  return rows;
+}
+
+String _agentAuditCapabilityType(AgentAuditEvent event) {
+  final text = [
+    event.kind,
+    event.toolName,
+    '${event.metadata['capability_type'] ?? ''}',
+    '${event.metadata['type'] ?? ''}',
+  ].join(' ').toLowerCase();
+  if (text.contains('skill')) return 'skill';
+  if (text.contains('mcp')) return 'mcp';
+  if (text.contains('memory')) return 'memory';
+  if (text.contains('knowledge')) return 'knowledge';
+  if (text.contains('builtin')) return 'builtin_tool';
+  if (text.contains('model')) return 'model_request';
+  if (text.contains('resource')) return 'resource';
+  if (text.contains('approval')) return 'approval';
+  if (text.contains('kpi')) return 'kpi';
+  if (text.contains('worker') || text.contains('task')) {
+    return 'worker_execution';
+  }
+  return 'other';
+}
+
+String _agentAuditCapabilityName(AgentAuditEvent event) {
+  for (final raw in <Object?>[
+    event.toolName,
+    event.metadata['tool_name'],
+    event.metadata['tool'],
+    event.metadata['capability_name'],
+    event.kind,
+  ]) {
+    final text = '$raw'.trim();
+    if (text.isNotEmpty) return text;
+  }
+  return 'unknown';
+}
+
+AgentWorker? _agentWorkerById(AgentProfile agent, String workerId) {
+  for (final worker in agent.workers) {
+    if (worker.id == workerId) return worker;
+  }
+  return null;
+}
+
+bool _agentTaskAssignedToWorker(AgentTask task, String workerId) {
+  return '${task.extra['assigned_worker_id'] ?? ''}'.trim() == workerId;
 }
 
 String _agentTaskAssignedWorkerLabel(AppLocalizations l10n, AgentTask task) {

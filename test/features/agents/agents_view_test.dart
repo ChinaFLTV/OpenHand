@@ -333,6 +333,82 @@ void main() {
       await tester.tap(find.byIcon(Icons.close_rounded).last);
       await tester.pump(const Duration(milliseconds: 300));
     });
+
+    testWidgets('audit dialog renders capability and worker reports', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          enabled: true,
+          lifecycleState: AgentLifecycleState.running,
+          workers: <AgentWorker>[
+            AgentWorker(
+              id: 'worker-1',
+              name: 'Worker 1',
+              status: AgentWorkerStatus.busy,
+              currentTaskId: 'task-1',
+              busyScore: 0.7,
+              executedTaskCount: 4,
+            ),
+          ],
+          tasks: <AgentTask>[
+            AgentTask(
+              id: 'task-1',
+              title: 'Collect cloud billing evidence',
+              status: AgentTaskStatus.running,
+              extra: <String, Object?>{'assigned_worker_id': 'worker-1'},
+            ),
+          ],
+          resourceUsage: AgentResourceUsage(
+            cpuPercent: 0.4,
+            tokenBudget: 1000,
+            tokenUsed: 250,
+            diskBytes: 4096,
+            persistedBytes: 1024,
+          ),
+          auditEvents: <AgentAuditEvent>[
+            AgentAuditEvent(
+              id: 'audit-1',
+              kind: 'skill_call',
+              summary: 'skill_call: collect billing evidence',
+              toolName: 'SkillRunner',
+              requestCount: 2,
+              tokenUsage: 100,
+              metadata: <String, Object?>{
+                'task_id': 'task-1',
+                'worker_id': 'worker-1',
+              },
+            ),
+          ],
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      expect(find.text('Ops Agent'), findsOneWidget);
+      await tester.tap(find.byTooltip('审计报表').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('能力使用画像'), findsOneWidget);
+      expect(find.text('Worker 执行画像'), findsOneWidget);
+      expect(find.text('负载与资源压力'), findsOneWidget);
+      expect(find.text('SkillRunner'), findsAtLeastNWidgets(1));
+      expect(find.text('Worker 1'), findsOneWidget);
+      expect(find.textContaining('100 Token'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('2 请求'), findsAtLeastNWidgets(1));
+
+      await tester.tap(find.byIcon(Icons.close_rounded).last);
+      await tester.pump(const Duration(milliseconds: 300));
+    });
   });
 }
 
