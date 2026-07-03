@@ -37,6 +37,7 @@ import {
   DIALOG_MOTION_DEFAULT_DURATION_MS,
   syncRemoteDialogMotionSettings,
 } from '../../../hooks/useDialogMotionSettings';
+import { useTransientFlag } from '../../../hooks/useTransientFlag';
 import { showSnackbar } from '../../../components/Snackbar';
 import { clampNumber } from '../../../shared/util/number';
 import { finiteNumberOrNullFromUnknown } from '../../../shared/util/value';
@@ -446,7 +447,7 @@ export function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
-  const [savedSignal, setSavedSignal] = useState(0);
+  const { active: saved, trigger: showSaved } = useTransientFlag();
   const [saveError, setSaveError] = useState<string | null>(null);
   const { format: messageContentFormat, htmlFallback: htmlRenderFallback } = useMessageContentFormat();
   const ttsSettings = useTtsSettings();
@@ -478,12 +479,6 @@ export function SettingsPage() {
     };
   }, []);
 
-  useEffect(() => {
-    if (savedSignal <= 0) return undefined;
-    const timer = window.setTimeout(() => setSavedSignal(0), 1600);
-    return () => window.clearTimeout(timer);
-  }, [savedSignal]);
-
   const refresh = async () => {
     setLoading(true);
     setLoadError(null);
@@ -506,7 +501,7 @@ export function SettingsPage() {
     try {
       const next = await updatePreferences(update);
       applyPreferences(next);
-      setSavedSignal((signal) => signal + 1);
+      showSaved();
       showSnackbar(t('settings.saved', '已保存'), { tone: 'success' });
     } catch (err) {
       const message = describeApiError(err);
@@ -586,7 +581,7 @@ export function SettingsPage() {
 
           <section class="oh-settings-stack">
             {loadError ? <StatusBanner tone="error">{loadError}</StatusBanner> : null}
-            {savedSignal > 0 ? (
+            {saved ? (
               <StatusBanner tone="success">✓ {t('settings.saved', '已保存')}</StatusBanner>
             ) : null}
             {saveError ? <StatusBanner tone="error">{saveError}</StatusBanner> : null}

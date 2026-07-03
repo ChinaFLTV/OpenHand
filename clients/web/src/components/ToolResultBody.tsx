@@ -3,7 +3,7 @@
 // 功能:
 // - 展开 / 折叠 (默认折叠到 600 字符以下不显示按钮; 超出则展示前 600 字符
 //   + 「展开全部 (N 字符)」按钮; 展开后变为「折叠」)
-// - 复制按钮 (一键 navigator.clipboard.writeText, 1.6s 文案变 已复制)
+// - 复制按钮 (统一剪贴板工具兜底, 短暂展示已复制状态)
 // - 错误行红色高亮: 行内匹配 (?i)error|exception|traceback|fail|panic 时,
 //   左竖条 + 文字偏红
 // - 仍保持 pre-wrap mono 字体, word-break:break-all (避免长 URL 撑爆)
@@ -13,6 +13,7 @@ import { t } from '../i18n';
 import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useStickyBottom } from '../hooks/useStickyBottom';
+import { useTransientFlag } from '../hooks/useTransientFlag';
 
 const AUTO_COLLAPSE_CHARS = 600;
 const ERROR_LINE_PATTERN = /\b(error|exception|traceback|fail(?:ed|ure)?|panic|fatal)\b/i;
@@ -63,7 +64,7 @@ function classifyLines(text: string): RenderedLine[] {
 
 export function ToolResultBody({ content, autoFollow = false }: ToolResultBodyProps) {
   const [expanded, setExpanded] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { active: copied, trigger: showCopied } = useTransientFlag();
 
   const overflow = content.length > AUTO_COLLAPSE_CHARS;
   const shown = !overflow || expanded ? content : content.slice(0, AUTO_COLLAPSE_CHARS) + '…';
@@ -73,9 +74,8 @@ export function ToolResultBody({ content, autoFollow = false }: ToolResultBodyPr
   const handleCopy = async () => {
     const ok = await copyTextToClipboard(content);
     if (ok) {
-      setCopied(true);
+      showCopied();
       showSnackbar(t('detail.tool.body.copied', '已复制工具结果'), { tone: 'success' });
-      window.setTimeout(() => setCopied(false), 1600);
     } else {
       showSnackbar(t('detail.tool.body.copyFailed', '复制工具结果失败'), { tone: 'error' });
     }

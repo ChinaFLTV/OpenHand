@@ -33,6 +33,8 @@ import {
   revokeObjectUrlQuietly,
   scheduleObjectUrlRevoke,
 } from '../utils/save_blob';
+import { copyTextToClipboard } from '../utils/clipboard';
+import { useTransientFlag } from '../hooks/useTransientFlag';
 import 'katex/dist/katex.min.css';
 
 /// rehype-highlight 真正按需懒载：默认不在 entry / vendor 关键路径里拉，
@@ -958,8 +960,12 @@ function downloadInlineDiff(source: string, lang: string | null): boolean {
 
 function InlineDiffBlock({ lang, plainText }: { lang: string | null; plainText: string }) {
   const [showFull, setShowFull] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [downloaded, setDownloaded] = useState(false);
+  const { active: copied, trigger: showCopied, reset: resetCopied } = useTransientFlag();
+  const {
+    active: downloaded,
+    trigger: showDownloaded,
+    reset: resetDownloaded,
+  } = useTransientFlag();
   const lines = useMemo(() => inlineDiffLines(plainText), [plainText]);
   const visibleLines = !showFull && lines.length > INLINE_DIFF_PREVIEW_LINE_LIMIT
     ? lines.slice(0, INLINE_DIFF_PREVIEW_LINE_LIMIT)
@@ -969,22 +975,10 @@ function InlineDiffBlock({ lang, plainText }: { lang: string | null; plainText: 
   const showFooter = clipped || (showFull && lines.length > INLINE_DIFF_PREVIEW_LINE_LIMIT);
 
   useEffect(() => {
-    setCopied(false);
-    setDownloaded(false);
+    resetCopied();
+    resetDownloaded();
     setShowFull(false);
-  }, [plainText]);
-
-  useEffect(() => {
-    if (!copied) return;
-    const handle = window.setTimeout(() => setCopied(false), 1600);
-    return () => window.clearTimeout(handle);
-  }, [copied]);
-
-  useEffect(() => {
-    if (!downloaded) return;
-    const handle = window.setTimeout(() => setDownloaded(false), 1600);
-    return () => window.clearTimeout(handle);
-  }, [downloaded]);
+  }, [plainText, resetCopied, resetDownloaded]);
 
   return (
     <div class="oh-inline-diff-block">
@@ -995,11 +989,10 @@ function InlineDiffBlock({ lang, plainText }: { lang: string | null; plainText: 
           type="button"
           class="oh-code-block-copy"
           onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(plainText);
-              setCopied(true);
+            if (await copyTextToClipboard(plainText)) {
+              showCopied();
               showSnackbar('Diff 内容已复制', { tone: 'success' });
-            } catch {
+            } else {
               showSnackbar('复制 Diff 失败，请检查浏览器权限', { tone: 'error' });
             }
           }}
@@ -1009,7 +1002,7 @@ function InlineDiffBlock({ lang, plainText }: { lang: string | null; plainText: 
           class="oh-code-block-copy"
           onClick={() => {
             if (downloadInlineDiff(plainText, lang)) {
-              setDownloaded(true);
+              showDownloaded();
             }
           }}
         >{downloaded ? '已下载' : '下载'}</button>
@@ -1086,10 +1079,9 @@ function CodeBlockSurface({
           type="button"
           class="oh-code-block-copy"
           onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(effectivePlainText);
+            if (await copyTextToClipboard(effectivePlainText)) {
               showSnackbar('代码已复制', { tone: 'success' });
-            } catch {
+            } else {
               showSnackbar('复制失败，请检查浏览器权限', { tone: 'error' });
             }
           }}
