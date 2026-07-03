@@ -10,13 +10,8 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
 class _CronsBody extends StatefulWidget {
-  const _CronsBody({
-    required this.controller,
-    required this.isZh,
-    required this.onPersist,
-  });
+  const _CronsBody({required this.controller, required this.onPersist});
   final WebReverseSessionController controller;
-  final bool isZh;
   final VoidCallback onPersist;
 
   @override
@@ -146,15 +141,12 @@ class _CronsBodyState extends State<_CronsBody> {
 
   Future<void> _doNew() async {
     final ts = DateTime.now();
-    final isZh = widget.isZh;
     final name =
-        '${isZh ? "任务" : "cron"} '
+        '${_text(zh: "任务", zhHant: "任務", en: "cron", fr: "tâche", de: "Cron", ja: "タスク")} '
         '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}';
     final c = await widget.controller.addCron(
       name: name,
-      code:
-          '// ${isZh ? "周期性 JS。例：刷新登录态、轮询接口、自动点续期" : "Periodic JS. Heartbeat / polling / auto-renew."}\n'
-          '// ${isZh ? "在这里写入需要定时执行的安静脚本。" : "Add quiet scheduled script logic here."}\n',
+      code: _defaultCronCode(),
       intervalSeconds: 60,
     );
     widget.onPersist();
@@ -178,9 +170,15 @@ class _CronsBodyState extends State<_CronsBody> {
         iv > WebReverseSessionController.maxCronIntervalSeconds) {
       OpenHandSnackBar.showError(
         context,
-        widget.isZh
-            ? '周期需为 ${WebReverseSessionController.minCronIntervalSeconds}-${WebReverseSessionController.maxCronIntervalSeconds} 秒'
-            : 'Interval must be ${WebReverseSessionController.minCronIntervalSeconds}-${WebReverseSessionController.maxCronIntervalSeconds} seconds',
+        _text(
+          zh: '周期需为 ${WebReverseSessionController.minCronIntervalSeconds}-${WebReverseSessionController.maxCronIntervalSeconds} 秒',
+          zhHant:
+              '週期需為 ${WebReverseSessionController.minCronIntervalSeconds}-${WebReverseSessionController.maxCronIntervalSeconds} 秒',
+          en: 'Interval must be ${WebReverseSessionController.minCronIntervalSeconds}-${WebReverseSessionController.maxCronIntervalSeconds} seconds',
+          fr: "L'intervalle doit être de ${WebReverseSessionController.minCronIntervalSeconds} à ${WebReverseSessionController.maxCronIntervalSeconds} s",
+          de: 'Intervall muss ${WebReverseSessionController.minCronIntervalSeconds}-${WebReverseSessionController.maxCronIntervalSeconds} s betragen',
+          ja: '間隔は ${WebReverseSessionController.minCronIntervalSeconds}-${WebReverseSessionController.maxCronIntervalSeconds} 秒にしてください',
+        ),
       );
       return false;
     }
@@ -193,7 +191,17 @@ class _CronsBodyState extends State<_CronsBody> {
     widget.onPersist();
     if (mounted) {
       setState(() => _dirty = false);
-      OpenHandSnackBar.showSuccess(context, widget.isZh ? '已保存' : 'Saved');
+      OpenHandSnackBar.showSuccess(
+        context,
+        _text(
+          zh: '已保存',
+          zhHant: '已儲存',
+          en: 'Saved',
+          fr: 'Enregistré',
+          de: 'Gespeichert',
+          ja: '保存しました',
+        ),
+      );
     }
     return true;
   }
@@ -210,8 +218,16 @@ class _CronsBodyState extends State<_CronsBody> {
       final r = await widget.controller.runCronNow(id);
       if (!mounted) return;
       setState(
-        () =>
-            _lastResultPreview = r ?? (widget.isZh ? '(无返回值)' : '(no result)'),
+        () => _lastResultPreview =
+            r ??
+            _text(
+              zh: '(无返回值)',
+              zhHant: '(無返回值)',
+              en: '(no result)',
+              fr: '(aucun résultat)',
+              de: '(kein Ergebnis)',
+              ja: '(戻り値なし)',
+            ),
       );
     } finally {
       if (mounted) setState(() => _runningNow = false);
@@ -226,13 +242,40 @@ class _CronsBodyState extends State<_CronsBody> {
   Future<void> _delete() async {
     final id = _selectedId;
     if (id == null) return;
-    final isZh = widget.isZh;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '删除任务？' : 'Delete cron?',
-      message: isZh ? '将立即取消定时并不可撤销。' : 'Timer will be cancelled.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '删除' : 'Delete',
+      title: _text(
+        zh: '删除任务？',
+        zhHant: '刪除任務？',
+        en: 'Delete cron?',
+        fr: 'Supprimer la tâche ?',
+        de: 'Cron löschen?',
+        ja: 'タスクを削除しますか？',
+      ),
+      message: _text(
+        zh: '将立即取消定时并不可撤销。',
+        zhHant: '將立即取消定時且無法復原。',
+        en: 'Timer will be cancelled.',
+        fr: 'Le minuteur sera annulé.',
+        de: 'Der Timer wird beendet.',
+        ja: 'タイマーは直ちに解除されます。',
+      ),
+      cancelLabel: _text(
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _text(
+        zh: '删除',
+        zhHant: '刪除',
+        en: 'Delete',
+        fr: 'Supprimer',
+        de: 'Löschen',
+        ja: '削除',
+      ),
       destructive: true,
     );
     if (!confirmed || !mounted) return;
@@ -242,34 +285,147 @@ class _CronsBodyState extends State<_CronsBody> {
   }
 
   Future<void> _confirmDiscard(VoidCallback onConfirm) async {
-    final isZh = widget.isZh;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '丢弃未保存改动？' : 'Discard unsaved changes?',
-      cancelLabel: isZh ? '继续编辑' : 'Keep editing',
-      confirmLabel: isZh ? '丢弃' : 'Discard',
+      title: _text(
+        zh: '丢弃未保存改动？',
+        zhHant: '捨棄未儲存變更？',
+        en: 'Discard unsaved changes?',
+        fr: 'Ignorer les modifications ?',
+        de: 'Ungespeicherte Änderungen verwerfen?',
+        ja: '未保存の変更を破棄しますか？',
+      ),
+      cancelLabel: _text(
+        zh: '继续编辑',
+        zhHant: '繼續編輯',
+        en: 'Keep editing',
+        fr: 'Continuer',
+        de: 'Weiter bearbeiten',
+        ja: '編集を続ける',
+      ),
+      confirmLabel: _text(
+        zh: '丢弃',
+        zhHant: '捨棄',
+        en: 'Discard',
+        fr: 'Ignorer',
+        de: 'Verwerfen',
+        ja: '破棄',
+      ),
       destructive: true,
     );
     if (!confirmed || !mounted) return;
     onConfirm();
   }
 
-  String _formatAgo(DateTime? t, bool isZh) {
-    if (t == null) return isZh ? '从未' : 'never';
+  String _formatAgo(DateTime? t) {
+    if (t == null) {
+      return _text(
+        zh: '从未',
+        zhHant: '從未',
+        en: 'never',
+        fr: 'jamais',
+        de: 'nie',
+        ja: '未実行',
+      );
+    }
     final s = DateTime.now().difference(t).inSeconds;
-    if (s < 5) return isZh ? '刚刚' : 'just now';
-    if (s < 60) return isZh ? '${s}s 前' : '${s}s ago';
+    if (s < 5) {
+      return _text(
+        zh: '刚刚',
+        zhHant: '剛剛',
+        en: 'just now',
+        fr: "à l'instant",
+        de: 'gerade eben',
+        ja: 'たった今',
+      );
+    }
+    if (s < 60) {
+      return _text(
+        zh: '${s}s 前',
+        zhHant: '${s}s 前',
+        en: '${s}s ago',
+        fr: 'il y a ${s}s',
+        de: 'vor ${s}s',
+        ja: '${s}秒前',
+      );
+    }
     final m = s ~/ 60;
-    if (m < 60) return isZh ? '${m}m 前' : '${m}m ago';
+    if (m < 60) {
+      return _text(
+        zh: '${m}m 前',
+        zhHant: '${m}m 前',
+        en: '${m}m ago',
+        fr: 'il y a ${m} min',
+        de: 'vor ${m} Min.',
+        ja: '${m}分前',
+      );
+    }
     final h = m ~/ 60;
-    return isZh ? '${h}h 前' : '${h}h ago';
+    return _text(
+      zh: '${h}h 前',
+      zhHant: '${h}h 前',
+      en: '${h}h ago',
+      fr: 'il y a ${h} h',
+      de: 'vor ${h} Std.',
+      ja: '${h}時間前',
+    );
+  }
+
+  String _cronStatusLabel(WebReverseCron cron) {
+    final ago = _formatAgo(widget.controller.cronLastRunAt(cron.id));
+    return _text(
+      zh: '每 ${cron.intervalSeconds}s · $ago',
+      zhHant: '每 ${cron.intervalSeconds}s · $ago',
+      en: 'every ${cron.intervalSeconds}s · $ago',
+      fr: 'toutes les ${cron.intervalSeconds}s · $ago',
+      de: 'alle ${cron.intervalSeconds}s · $ago',
+      ja: '${cron.intervalSeconds}秒ごと · $ago',
+    );
+  }
+
+  String _defaultCronCode() {
+    final purpose = _text(
+      zh: '// 周期性 JS：心跳、轮询、自动续期。',
+      zhHant: '// 週期性 JS：心跳、輪詢、自動續期。',
+      en: '// Periodic JS: heartbeat, polling, auto-renew.',
+      fr: '// JS périodique : heartbeat, polling, renouvellement.',
+      de: '// Periodisches JS: Heartbeat, Polling, Auto-Renew.',
+      ja: '// 定期 JS: ハートビート、ポーリング、自動更新。',
+    );
+    final guidance = _text(
+      zh: '// 在这里写入安静、可重复执行的逻辑。',
+      zhHant: '// 在此寫入安靜、可重複執行的邏輯。',
+      en: '// Add quiet, repeatable logic here.',
+      fr: '// Ajoutez ici une logique discrète et répétable.',
+      de: '// Ruhige, wiederholbare Logik hier einfügen.',
+      ja: '// 静かに繰り返せる処理をここに書きます。',
+    );
+    return '$purpose\n$guidance\n';
+  }
+
+  String _text({
+    required String zh,
+    required String en,
+    String? zhHant,
+    String? fr,
+    String? de,
+    String? ja,
+  }) {
+    return _wrText(
+      context,
+      zh: zh,
+      zhHant: zhHant,
+      en: en,
+      fr: fr,
+      de: de,
+      ja: ja,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final list = [...widget.controller.crons]
       ..sort(
@@ -303,14 +459,28 @@ class _CronsBodyState extends State<_CronsBody> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            isZh ? '定时任务' : 'Crons',
+                            _text(
+                              zh: '定时任务',
+                              zhHant: '定時任務',
+                              en: 'Crons',
+                              fr: 'Tâches',
+                              de: 'Cronjobs',
+                              ja: '定期タスク',
+                            ),
                             style: theme.textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
                         IconButton(
-                          tooltip: isZh ? '新建任务' : 'New cron',
+                          tooltip: _text(
+                            zh: '新建任务',
+                            zhHant: '新增任務',
+                            en: 'New cron',
+                            fr: 'Nouvelle tâche',
+                            de: 'Neuer Cron',
+                            ja: '新規タスク',
+                          ),
                           icon: const Icon(Icons.add_rounded, size: 18),
                           onPressed: _newCron,
                         ),
@@ -324,9 +494,14 @@ class _CronsBodyState extends State<_CronsBody> {
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: Text(
-                                isZh
-                                    ? '暂无任务。\n点 + 新建第一个。'
-                                    : 'No crons yet.\nTap + to create one.',
+                                _text(
+                                  zh: '暂无任务。\n点 + 新建第一个。',
+                                  zhHant: '暫無任務。\n點 + 新增第一個。',
+                                  en: 'No crons yet.\nTap + to create one.',
+                                  fr: 'Aucune tâche.\nTouchez + pour en créer une.',
+                                  de: 'Noch keine Crons.\nMit + den ersten erstellen.',
+                                  ja: 'タスクはまだありません。\n+ で作成します。',
+                                ),
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: cs.onSurfaceVariant,
@@ -345,10 +520,7 @@ class _CronsBodyState extends State<_CronsBody> {
                               return _CronTile(
                                 cron: c,
                                 selected: selected,
-                                lastRunLabel: _formatAgo(
-                                  widget.controller.cronLastRunAt(c.id),
-                                  isZh,
-                                ),
+                                statusLabel: _cronStatusLabel(c),
                                 onTap: () => _select(c),
                                 onToggle: (v) => _toggle(c, v),
                               );
@@ -373,7 +545,14 @@ class _CronsBodyState extends State<_CronsBody> {
               child: _selectedId == null
                   ? Center(
                       child: Text(
-                        isZh ? '从左侧选一个任务，或新建一个。' : 'Pick a cron or create one.',
+                        _text(
+                          zh: '从左侧选一个任务，或新建一个。',
+                          zhHant: '從左側選一個任務，或新增一個。',
+                          en: 'Pick a cron or create one.',
+                          fr: 'Choisissez une tâche ou créez-en une.',
+                          de: 'Cron auswählen oder erstellen.',
+                          ja: 'タスクを選択するか新規作成してください。',
+                        ),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
@@ -396,7 +575,14 @@ class _CronsBodyState extends State<_CronsBody> {
                                 decoration: InputDecoration(
                                   isDense: true,
                                   border: const OutlineInputBorder(),
-                                  labelText: isZh ? '名称' : 'Name',
+                                  labelText: _text(
+                                    zh: '名称',
+                                    zhHant: '名稱',
+                                    en: 'Name',
+                                    fr: 'Nom',
+                                    de: 'Name',
+                                    ja: '名前',
+                                  ),
                                 ),
                               ),
                             ),
@@ -416,7 +602,14 @@ class _CronsBodyState extends State<_CronsBody> {
                                 decoration: InputDecoration(
                                   isDense: true,
                                   border: const OutlineInputBorder(),
-                                  labelText: isZh ? '周期(秒)' : 'Every (s)',
+                                  labelText: _text(
+                                    zh: '周期(秒)',
+                                    zhHant: '週期(秒)',
+                                    en: 'Every (s)',
+                                    fr: 'Toutes les (s)',
+                                    de: 'Alle (s)',
+                                    ja: '間隔(秒)',
+                                  ),
                                 ),
                               ),
                             ),
@@ -435,7 +628,16 @@ class _CronsBodyState extends State<_CronsBody> {
                                       Icons.play_arrow_rounded,
                                       size: 18,
                                     ),
-                              label: Text(isZh ? '立即跑' : 'Run now'),
+                              label: Text(
+                                _text(
+                                  zh: '立即跑',
+                                  zhHant: '立即執行',
+                                  en: 'Run now',
+                                  fr: 'Exécuter',
+                                  de: 'Jetzt ausführen',
+                                  ja: '今すぐ実行',
+                                ),
+                              ),
                             ),
                             const SizedBox(width: 6),
                             FilledButton.tonalIcon(
@@ -443,13 +645,34 @@ class _CronsBodyState extends State<_CronsBody> {
                               icon: const Icon(Icons.save_rounded, size: 18),
                               label: Text(
                                 _dirty
-                                    ? (isZh ? '保存 (⌘S)' : 'Save (⌘S)')
-                                    : (isZh ? '已保存' : 'Saved'),
+                                    ? _text(
+                                        zh: '保存 (⌘S)',
+                                        zhHant: '儲存 (⌘S)',
+                                        en: 'Save (⌘S)',
+                                        fr: 'Enregistrer (⌘S)',
+                                        de: 'Speichern (⌘S)',
+                                        ja: '保存 (⌘S)',
+                                      )
+                                    : _text(
+                                        zh: '已保存',
+                                        zhHant: '已儲存',
+                                        en: 'Saved',
+                                        fr: 'Enregistré',
+                                        de: 'Gespeichert',
+                                        ja: '保存済み',
+                                      ),
                               ),
                             ),
                             const SizedBox(width: 6),
                             IconButton(
-                              tooltip: isZh ? '删除' : 'Delete',
+                              tooltip: _text(
+                                zh: '删除',
+                                zhHant: '刪除',
+                                en: 'Delete',
+                                fr: 'Supprimer',
+                                de: 'Löschen',
+                                ja: '削除',
+                              ),
                               icon: Icon(
                                 Icons.delete_outline_rounded,
                                 color: cs.error,
@@ -580,13 +803,13 @@ class _CronTile extends StatefulWidget {
   const _CronTile({
     required this.cron,
     required this.selected,
-    required this.lastRunLabel,
+    required this.statusLabel,
     required this.onTap,
     required this.onToggle,
   });
   final WebReverseCron cron;
   final bool selected;
-  final String lastRunLabel;
+  final String statusLabel;
   final VoidCallback onTap;
   final ValueChanged<bool> onToggle;
 
@@ -667,7 +890,7 @@ class _CronTileState extends State<_CronTile> {
                       ),
                     ),
                     Text(
-                      'every ${widget.cron.intervalSeconds}s · ${widget.lastRunLabel}',
+                      widget.statusLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelSmall?.copyWith(

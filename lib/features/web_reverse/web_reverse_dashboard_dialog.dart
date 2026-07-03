@@ -1237,11 +1237,7 @@ class _WebReverseDashboardDialogState
         reduceMotion: reduceMotion,
       ),
       _Tab.hooks => _HooksBody(controller: ctrl, onPersist: persistHooks),
-      _Tab.crons => _CronsBody(
-        controller: ctrl,
-        isZh: isZh,
-        onPersist: persistCrons,
-      ),
+      _Tab.crons => _CronsBody(controller: ctrl, onPersist: persistCrons),
       _Tab.breakpoints => _BreakpointsBody(
         controller: ctrl,
         isZh: isZh,
