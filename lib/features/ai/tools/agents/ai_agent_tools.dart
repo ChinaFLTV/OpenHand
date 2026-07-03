@@ -8,6 +8,8 @@ import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
+const int _agentTaskRecommendedPollMs = 1500;
+
 enum _AgentToolOperation {
   list,
   detail,
@@ -419,12 +421,14 @@ class AiAgentTool extends AiTool {
     if (resolved.error != null) return resolved.error!;
     final task = resolved.task!;
     final assignedWorker = _assignedWorkerJson(resolved.agent!, task);
+    final state = _taskStateJson(task);
     return _success(
       <String, Object?>{
         'agent_id': resolved.agent!.id,
         'task_id': task.id,
         'status': task.status.storageValue,
         'progress': task.progress,
+        'state': state,
         if (assignedWorker != null) 'assigned_worker': assignedWorker,
         'updated_at': _iso(task.updatedAt),
       },
@@ -508,6 +512,7 @@ class AiAgentTool extends AiTool {
     if (resolved.error != null) return resolved.error!;
     final task = resolved.task!;
     final assignedWorker = _assignedWorkerJson(resolved.agent!, task);
+    final state = _taskStateJson(task);
     return _success(
       <String, Object?>{
         'agent_id': resolved.agent!.id,
@@ -515,6 +520,7 @@ class AiAgentTool extends AiTool {
         'title': task.title,
         'status': task.status.storageValue,
         'progress': task.progress,
+        'state': state,
         'result': task.result,
         'note': task.note,
         if (assignedWorker != null) 'assigned_worker': assignedWorker,
@@ -879,12 +885,41 @@ Map<String, Object?> _taskJson(AgentTask task, {AgentProfile? agent}) {
     'content': task.content,
     'status': task.status.storageValue,
     'progress': task.progress,
+    'state': _taskStateJson(task),
     'result': task.result,
     'note': task.note,
     if (assignedWorker != null) 'assigned_worker': assignedWorker,
     'extra': _taskExtraJson(task.extra),
     'created_at': _iso(task.createdAt),
     'updated_at': _iso(task.updatedAt),
+  };
+}
+
+Map<String, Object?> _taskStateJson(AgentTask task) {
+  final terminal = _taskIsTerminal(task.status);
+  final requiresAttention =
+      task.status == AgentTaskStatus.waitingApproval ||
+      task.status == AgentTaskStatus.paused ||
+      task.status == AgentTaskStatus.failed;
+  final needsPolling = !terminal && !requiresAttention;
+  return <String, Object?>{
+    'terminal': terminal,
+    'needs_polling': needsPolling,
+    'requires_attention': requiresAttention,
+    if (needsPolling) 'recommended_poll_ms': _agentTaskRecommendedPollMs,
+  };
+}
+
+bool _taskIsTerminal(AgentTaskStatus status) {
+  return switch (status) {
+    AgentTaskStatus.completed ||
+    AgentTaskStatus.failed ||
+    AgentTaskStatus.canceled => true,
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running ||
+    AgentTaskStatus.waitingApproval ||
+    AgentTaskStatus.paused => false,
   };
 }
 

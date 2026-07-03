@@ -164,13 +164,19 @@ domains: finance, cloud billing
       final publishedTask = publishPayload['task'] as Map<String, Object?>;
       final publishedWorker =
           publishedTask['assigned_worker'] as Map<String, Object?>;
+      final publishedState = publishedTask['state'] as Map<String, Object?>;
       final financeAgent = controller.agentById('finance-agent')!;
       final releaseAgent = controller.agentById('release-agent')!;
+      final assignedWorkerId =
+          '${financeAgent.tasks.single.extra['assigned_worker_id']}';
       expect(financeAgent.tasks, hasLength(1));
       expect(releaseAgent.tasks, isEmpty);
       expect(financeAgent.tasks.single.title, 'Reconcile cloud invoice');
-      expect(publishedWorker['id'], 'worker-1');
+      expect(publishedWorker['id'], assignedWorkerId);
       expect(publishedWorker['status'], 'busy');
+      expect(publishedState['terminal'], isFalse);
+      expect(publishedState['needs_polling'], isTrue);
+      expect(publishedState['recommended_poll_ms'], isPositive);
       expect(financeAgent.tasks.single.extra['agent_route_score'], isPositive);
       expect(
         financeAgent.tasks.single.extra['agent_route_reason'],
@@ -199,9 +205,11 @@ domains: finance, cloud billing
           jsonDecode(progress.resultText) as Map<String, Object?>;
       final progressWorker =
           progressPayload['assigned_worker'] as Map<String, Object?>;
+      final progressState = progressPayload['state'] as Map<String, Object?>;
       expect(progress.status, BashToolExecutionStatus.success);
-      expect(progressWorker['id'], 'worker-1');
+      expect(progressWorker['id'], assignedWorkerId);
       expect(progressWorker['current_task_id'], financeAgent.tasks.single.id);
+      expect(progressState['needs_polling'], isTrue);
     });
 
     test('complete tool writes task result and releases worker', () async {
@@ -238,6 +246,12 @@ domains: finance, cloud billing
       );
 
       expect(result.status, BashToolExecutionStatus.success);
+      final resultPayload =
+          jsonDecode(result.resultText) as Map<String, Object?>;
+      final resultTask = resultPayload['task'] as Map<String, Object?>;
+      final resultState = resultTask['state'] as Map<String, Object?>;
+      final resultWorker =
+          resultTask['assigned_worker'] as Map<String, Object?>;
       final completed = controller.taskById('agent-1', task.id)!;
       expect(completed.status, AgentTaskStatus.completed);
       expect(completed.progress, 1);
@@ -245,10 +259,15 @@ domains: finance, cloud billing
       expect(completed.note, 'worker handoff complete');
 
       final agent = controller.agentById('agent-1')!;
+      final assignedWorkerId = '${task.extra['assigned_worker_id']}';
       expect(agent.workers.single.status, AgentWorkerStatus.idle);
       expect(agent.workers.single.currentTaskId, isEmpty);
       expect(agent.activities.first.kind, 'task_completed');
       expect(agent.auditEvents.first.kind, 'task_completed');
+      expect(resultState['terminal'], isTrue);
+      expect(resultState['needs_polling'], isFalse);
+      expect(resultWorker['id'], assignedWorkerId);
+      expect(resultWorker['status'], 'idle');
     });
 
     test('complete tool requires a non-empty result', () async {
