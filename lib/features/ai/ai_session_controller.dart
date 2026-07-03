@@ -8639,6 +8639,7 @@ class AiSessionController extends ChangeNotifier {
       // Memory tool mutates shared MemoryController state — must run serially.
       case AiBuiltinToolKind.memory:
       case AiBuiltinToolKind.agentApprovalRequest:
+      case AiBuiltinToolKind.agentKpiUpsert:
       case AiBuiltinToolKind.agentTaskPublish:
       case AiBuiltinToolKind.agentTaskCancel:
       case AiBuiltinToolKind.agentTaskPause:

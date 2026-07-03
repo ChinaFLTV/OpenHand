@@ -217,6 +217,7 @@ enum AiBuiltinToolKind {
   agentList,
   agentDetail,
   agentApprovalRequest,
+  agentKpiUpsert,
   agentTaskPublish,
   agentTaskTrack,
   agentTaskProgress,
@@ -354,6 +355,7 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.deleteFile,
         AiBuiltinToolKind.skillManager,
         AiBuiltinToolKind.agentApprovalRequest,
+        AiBuiltinToolKind.agentKpiUpsert,
         AiBuiltinToolKind.agentTaskPublish,
         AiBuiltinToolKind.agentTaskCancel,
         AiBuiltinToolKind.agentTaskPause,
@@ -475,6 +477,7 @@ class AiToolRuntimeService {
     return normalized == 'agentlist' ||
         normalized == 'agentdetail' ||
         normalized.startsWith('agentapproval') ||
+        normalized.startsWith('agentkpi') ||
         normalized.startsWith('agenttask');
   }
 
@@ -499,6 +502,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.agentList ||
       AiBuiltinToolKind.agentDetail ||
       AiBuiltinToolKind.agentApprovalRequest ||
+      AiBuiltinToolKind.agentKpiUpsert ||
       AiBuiltinToolKind.agentTaskPublish ||
       AiBuiltinToolKind.agentTaskTrack ||
       AiBuiltinToolKind.agentTaskProgress ||
@@ -1396,6 +1400,7 @@ class AiToolRuntimeService {
     if (_isAgentBuiltinKind(kind)) {
       return kind == AiBuiltinToolKind.agentTaskPublish ||
           kind == AiBuiltinToolKind.agentApprovalRequest ||
+          kind == AiBuiltinToolKind.agentKpiUpsert ||
           kind == AiBuiltinToolKind.agentTaskCancel ||
           kind == AiBuiltinToolKind.agentTaskPause ||
           kind == AiBuiltinToolKind.agentTaskTerminate ||
@@ -1935,6 +1940,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.agentList => 'AgentList',
       AiBuiltinToolKind.agentDetail => 'AgentDetail',
       AiBuiltinToolKind.agentApprovalRequest => 'AgentApprovalRequest',
+      AiBuiltinToolKind.agentKpiUpsert => 'AgentKpiUpsert',
       AiBuiltinToolKind.agentTaskPublish => 'AgentTaskPublish',
       AiBuiltinToolKind.agentTaskTrack => 'AgentTaskTrack',
       AiBuiltinToolKind.agentTaskProgress => 'AgentTaskProgress',
@@ -3619,6 +3625,82 @@ class AiToolRuntimeService {
           'extra': _agentToolExtraSchema,
         },
         'required': <String>['title'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.agentKpiUpsert,
+      name: 'AgentKpiUpsert',
+      description:
+          'Create or update a digital employee KPI so the agent work loop has an auditable target, plan, status, and progress. Use kpi_id to update a known KPI; when kpi_id is omitted, OpenHand updates a matching KPI name before creating a new one. Prefer explicit agent id/name after AgentList or AgentDetail unless one enabled agent or route metadata clearly matches the KPI.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'agent_id': <String, Object?>{'type': 'string'},
+          'agent_name': <String, Object?>{'type': 'string'},
+          'agent': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Agent id or exact display name. Optional when the KPI context clearly matches one enabled agent route.',
+          },
+          'kpi_id': <String, Object?>{
+            'type': 'string',
+            'description': 'Existing KPI id. Omit to create or update by name.',
+          },
+          'id': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for kpi_id.',
+          },
+          'name': <String, Object?>{
+            'type': 'string',
+            'description': 'KPI name. Required when creating a new KPI.',
+          },
+          'title': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for name.',
+          },
+          'target': <String, Object?>{
+            'type': 'string',
+            'description': 'Measurable target or acceptance criteria.',
+          },
+          'plan': <String, Object?>{
+            'type': 'string',
+            'description': 'Current execution plan or next steps.',
+          },
+          'status': <String, Object?>{
+            'type': 'string',
+            'enum': <String>['tracking', 'at_risk', 'done', 'paused'],
+          },
+          'progress': <String, Object?>{
+            'type': 'number',
+            'minimum': 0,
+            'maximum': 1,
+          },
+          'labels': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+          },
+          'tags': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+            'description': 'Alias for labels.',
+          },
+          'extra': _agentToolExtraSchema,
+        },
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['name'],
+          },
+          <String, Object?>{
+            'required': <String>['title'],
+          },
+          <String, Object?>{
+            'required': <String>['kpi_id'],
+          },
+          <String, Object?>{
+            'required': <String>['id'],
+          },
+        ],
         'additionalProperties': false,
       },
     ),

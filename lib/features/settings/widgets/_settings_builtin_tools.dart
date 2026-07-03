@@ -59,6 +59,7 @@ class _BuiltinToolTile extends StatelessWidget {
       AiBuiltinToolKind.agentList => Icons.badge_outlined,
       AiBuiltinToolKind.agentDetail => Icons.assignment_ind_outlined,
       AiBuiltinToolKind.agentApprovalRequest => Icons.approval_outlined,
+      AiBuiltinToolKind.agentKpiUpsert => Icons.flag_outlined,
       AiBuiltinToolKind.agentTaskPublish => Icons.send_to_mobile_rounded,
       AiBuiltinToolKind.agentTaskTrack => Icons.track_changes_rounded,
       AiBuiltinToolKind.agentTaskProgress => Icons.trending_up_rounded,

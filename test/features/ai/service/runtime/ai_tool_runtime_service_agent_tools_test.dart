@@ -59,6 +59,9 @@ void main() {
       final approval = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentApprovalRequest,
       )!;
+      final kpi = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentKpiUpsert,
+      )!;
       final result = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentTaskResult,
       )!;
@@ -87,6 +90,14 @@ void main() {
       expect(
         approval.definition.description,
         contains('needs mentor/user permission'),
+      );
+      expect(
+        kpi.definition.description,
+        contains('Create or update a digital employee KPI'),
+      );
+      expect(
+        kpi.definition.description,
+        contains('updates a matching KPI name before creating a new one'),
       );
       expect(
         result.definition.description,
@@ -150,6 +161,18 @@ void main() {
         )!.definition.parameters,
       );
       expect(approvalRequired, contains('title'));
+
+      final kpiParameters = AiToolRuntimeService.builtinToolDefault(
+        AiBuiltinToolKind.agentKpiUpsert,
+      )!.definition.parameters;
+      expect(_schemaAnyOfAllowsRequired(kpiParameters, 'name'), isTrue);
+      expect(_schemaAnyOfAllowsRequired(kpiParameters, 'title'), isTrue);
+      expect(_schemaAnyOfAllowsRequired(kpiParameters, 'kpi_id'), isTrue);
+      expect(_schemaAnyOfAllowsRequired(kpiParameters, 'id'), isTrue);
+      final kpiProperties = kpiParameters['properties'] as Map<String, Object?>;
+      final statusSchema = kpiProperties['status'] as Map<String, Object?>;
+      expect(statusSchema['enum'], contains('at_risk'));
+      expect(kpiProperties['extra'], isA<Map<String, Object?>>());
     });
 
     test('hides agent tools until at least one agent is enabled', () async {
@@ -182,6 +205,10 @@ void main() {
         AiBuiltinToolKind.agentApprovalRequest,
       );
       expect(
+        catalog.find('AgentKpiUpsert')?.builtinKind,
+        AiBuiltinToolKind.agentKpiUpsert,
+      );
+      expect(
         catalog.find('AgentTaskComplete')?.builtinKind,
         AiBuiltinToolKind.agentTaskComplete,
       );
@@ -193,6 +220,7 @@ void main() {
       expect(catalog.find('AgentList'), isNull);
       expect(catalog.find('AgentTaskPublish'), isNull);
       expect(catalog.find('AgentApprovalRequest'), isNull);
+      expect(catalog.find('AgentKpiUpsert'), isNull);
       expect(catalog.find('AgentTaskComplete'), isNull);
     });
 
@@ -220,6 +248,7 @@ void main() {
         );
         expect(catalog.find('AgentTaskPublish'), isNull);
         expect(catalog.find('AgentApprovalRequest'), isNull);
+        expect(catalog.find('AgentKpiUpsert'), isNull);
         expect(catalog.find('AgentTaskComplete'), isNull);
       },
     );
@@ -238,6 +267,7 @@ void main() {
         expect(catalog.find('AgentList'), isNull);
         expect(catalog.find('AgentTaskPublish'), isNull);
         expect(catalog.find('AgentApprovalRequest'), isNull);
+        expect(catalog.find('AgentKpiUpsert'), isNull);
         expect(catalog.find('AgentTaskResult'), isNull);
         expect(catalog.find('Bash'), isNotNull);
       },
@@ -297,6 +327,87 @@ void main() {
         storedAgent.auditEvents.first.metadata['approval_id'],
         storedApproval.id,
       );
+    });
+
+    test('kpi upsert tool creates and updates by matching name', () async {
+      await controller.saveAgent(_agent(enabled: true));
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(),
+      );
+      final created = await runtime.execute(
+        sessionId: 'session-kpi',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-kpi-create',
+          name: 'AgentKpiUpsert',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-1',
+            'name': 'Weekly incident report',
+            'target': 'Publish one reviewed report every Friday.',
+            'plan': 'Collect incidents, summarize impact, and send draft.',
+            'status': 'tracking',
+            'progress': 0.25,
+            'labels': <String>['ops', 'report'],
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(created.status, BashToolExecutionStatus.success);
+      final createdPayload =
+          jsonDecode(created.resultText) as Map<String, Object?>;
+      final createdKpi = createdPayload['kpi'] as Map<String, Object?>;
+      final createdExtra = createdKpi['extra'] as Map<String, Object?>;
+      final kpiId = '${createdKpi['id']}';
+      expect(kpiId, isNotEmpty);
+      expect(createdKpi['progress'], 0.25);
+      expect(createdExtra['updated_by_session_id'], 'session-kpi');
+      expect(createdExtra['labels'], <String>['ops', 'report']);
+      expect(controller.agentById('agent-1')!.kpis, hasLength(1));
+      expect(
+        controller.agentById('agent-1')!.auditEvents.first.toolName,
+        'AgentKpiUpsert',
+      );
+
+      final updated = await runtime.execute(
+        sessionId: 'session-kpi',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-kpi-update',
+          name: 'AgentKpiUpsert',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-1',
+            'name': 'Weekly incident report',
+            'status': 'done',
+            'progress': 1,
+            'extra': <String, Object?>{'evidence': 'report.md'},
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(updated.status, BashToolExecutionStatus.success);
+      final agent = controller.agentById('agent-1')!;
+      final saved = agent.kpis.single;
+      expect(saved.id, kpiId);
+      expect(saved.status, 'done');
+      expect(saved.progress, 1);
+      expect(saved.target, 'Publish one reviewed report every Friday.');
+      expect(saved.extra['evidence'], 'report.md');
+      expect(agent.activities.first.kind, 'kpi_updated');
+      expect(agent.auditEvents.first.kind, 'kpi_updated');
+      expect(agent.auditEvents.first.toolName, 'AgentKpiUpsert');
     });
 
     test('publish tool routes to the best matching enabled agent', () async {
@@ -751,6 +862,17 @@ bool _schemaAllowsRequired(Map<String, Object?> parameters, String field) {
       final required = candidate['required'];
       if (required is List && required.contains(field)) return true;
     }
+  }
+  return false;
+}
+
+bool _schemaAnyOfAllowsRequired(Map<String, Object?> parameters, String field) {
+  final anyOf = parameters['anyOf'];
+  if (anyOf is! List) return false;
+  for (final candidate in anyOf) {
+    if (candidate is! Map) continue;
+    final required = candidate['required'];
+    if (required is List && required.contains(field)) return true;
   }
   return false;
 }

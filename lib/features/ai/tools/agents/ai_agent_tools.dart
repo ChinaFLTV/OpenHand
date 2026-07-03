@@ -24,11 +24,18 @@ const List<String> _agentTaskBlockedTools = <String>[
   'AgentTaskCancel',
   'AgentTaskTerminate',
 ];
+const Set<String> _agentKpiStatusValues = <String>{
+  'tracking',
+  'at_risk',
+  'done',
+  'paused',
+};
 
 enum _AgentToolOperation {
   list,
   detail,
   requestApproval,
+  upsertKpi,
   publishTask,
   trackTask,
   progressTask,
@@ -77,6 +84,13 @@ class AiAgentTool extends AiTool {
         kind: AiBuiltinToolKind.agentApprovalRequest,
         name: 'AgentApprovalRequest',
         operation: _AgentToolOperation.requestApproval,
+        agentsControllerProvider: agentsControllerProvider,
+        promptRenderer: renderer,
+      ),
+      AiAgentTool._(
+        kind: AiBuiltinToolKind.agentKpiUpsert,
+        name: 'AgentKpiUpsert',
+        operation: _AgentToolOperation.upsertKpi,
         agentsControllerProvider: agentsControllerProvider,
         promptRenderer: renderer,
       ),
@@ -163,6 +177,7 @@ class AiAgentTool extends AiTool {
     return switch (_operation) {
       _AgentToolOperation.publishTask ||
       _AgentToolOperation.requestApproval ||
+      _AgentToolOperation.upsertKpi ||
       _AgentToolOperation.cancelTask ||
       _AgentToolOperation.pauseTask ||
       _AgentToolOperation.terminateTask ||
@@ -198,6 +213,11 @@ class AiAgentTool extends AiTool {
           stopwatch,
         ),
         _AgentToolOperation.requestApproval => await _requestApproval(
+          controller,
+          context,
+          stopwatch,
+        ),
+        _AgentToolOperation.upsertKpi => await _upsertKpi(
           controller,
           context,
           stopwatch,
@@ -340,6 +360,109 @@ class AiAgentTool extends AiTool {
       metadata: <String, Object?>{
         'action': 'detail',
         'agent_id': resolution.agent!.id,
+      },
+    );
+  }
+
+  Future<AiToolExecutionResult> _upsertKpi(
+    AgentsController controller,
+    AiToolExecutionContext context,
+    Stopwatch stopwatch,
+  ) async {
+    final args = context.decodedArguments;
+    final kpiId = '${args['kpi_id'] ?? args['id'] ?? ''}'.trim();
+    final name = '${args['name'] ?? args['title'] ?? ''}'.trim();
+    final labels = stringListFromValueOrJsonText(
+      args['labels'] ?? args['tags'],
+    );
+    final resolution = _resolveKpiAgent(
+      controller,
+      args,
+      name: name,
+      labels: labels,
+    );
+    if (resolution.error != null) return resolution.error!;
+
+    final agent = resolution.agent!;
+    final existing = kpiId.isNotEmpty
+        ? _findAgentKpi(agent, kpiId)
+        : _findAgentKpiByName(agent, name);
+    if (kpiId.isNotEmpty && existing == null) {
+      return AiToolUtils.invalidResult(
+        _name,
+        'No KPI "$kpiId" was found for agent "${agent.name}".',
+      );
+    }
+
+    final resolvedName = name.isNotEmpty ? name : existing?.name.trim() ?? '';
+    if (resolvedName.isEmpty) {
+      return AiToolUtils.invalidResult(
+        _name,
+        'name is required when creating a KPI.',
+      );
+    }
+
+    final rawStatus = _optionalText(args['status']);
+    final status = rawStatus == null
+        ? (existing?.status.trim().isNotEmpty == true
+              ? existing!.status.trim()
+              : 'tracking')
+        : _normalizedKpiStatus(rawStatus);
+    if (status == null) {
+      return AiToolUtils.invalidResult(
+        _name,
+        'status must be one of: ${_agentKpiStatusValues.join(', ')}.',
+      );
+    }
+
+    final rawExtra = optionalStringKeyedMapFromValueOrJsonText(args['extra']);
+    final extra = <String, Object?>{
+      if (existing != null) ...existing.extra,
+      if (rawExtra != null) ...rawExtra,
+      if (labels.isNotEmpty) 'labels': labels,
+      'updated_by_session_id': context.sessionId,
+      if (resolution.routeReason != null)
+        'agent_route_reason': resolution.routeReason,
+      if (resolution.routeScore != null)
+        'agent_route_score': resolution.routeScore,
+    };
+    final draft = AgentKpiItem(
+      id: existing?.id ?? kpiId,
+      name: resolvedName,
+      target: _optionalText(args['target']) ?? existing?.target ?? '',
+      progress: _optionalRatio(args['progress']) ?? existing?.progress ?? 0,
+      status: status,
+      plan: _optionalText(args['plan']) ?? existing?.plan ?? '',
+      createdAt: existing?.createdAt,
+      extra: extra,
+    );
+    final saved = await controller.saveKpi(
+      agent.id,
+      draft,
+      auditToolName: _name,
+    );
+    if (saved == null) {
+      return AiToolUtils.invalidResult(
+        _name,
+        'Failed to save KPI. The agent may have been removed.',
+      );
+    }
+
+    final currentAgent = controller.agentById(agent.id);
+    return _success(
+      <String, Object?>{
+        'agent': _agentSummaryJson(currentAgent ?? agent),
+        'kpi': saved.toJson(),
+        if (currentAgent != null)
+          'kpi_state': currentAgent.kpis
+              .map((item) => item.toJson())
+              .toList(growable: false),
+      },
+      stopwatch,
+      metadata: <String, Object?>{
+        'action': existing == null ? 'kpi_created' : 'kpi_updated',
+        'agent_id': agent.id,
+        'kpi_id': saved.id,
       },
     );
   }
@@ -687,6 +810,48 @@ class AiAgentTool extends AiTool {
     );
   }
 
+  _AgentResolution _resolveKpiAgent(
+    AgentsController controller,
+    Map<String, Object?> args, {
+    required String name,
+    required List<String> labels,
+  }) {
+    final identifier =
+        '${args['agent_id'] ?? args['agent_name'] ?? args['agent'] ?? ''}'
+            .trim();
+    if (identifier.isNotEmpty) return _resolveAgent(controller, args);
+
+    final candidates = controller.enabledAgents;
+    if (candidates.length == 1) {
+      return _AgentResolution.agent(
+        candidates.single,
+        routeReason: 'single_enabled_agent',
+        routeScore: 0,
+      );
+    }
+    final routed = _routeAgentForTask(
+      candidates,
+      title: name,
+      description: '${args['target'] ?? ''}',
+      content: '${args['plan'] ?? ''}',
+      note: '${args['status'] ?? ''}',
+      labels: labels,
+    );
+    if (routed != null) {
+      return _AgentResolution.agent(
+        routed.agent,
+        routeReason: routed.reason,
+        routeScore: routed.score,
+      );
+    }
+    return _AgentResolution.error(
+      AiToolUtils.invalidResult(
+        _name,
+        'agent_id, agent_name, or a routable KPI context is required. Use AgentList or AgentDetail before saving KPI when multiple agents are enabled.',
+      ),
+    );
+  }
+
   _AgentResolution _resolveApprovalAgent(
     AgentsController controller,
     Map<String, Object?> args, {
@@ -950,6 +1115,24 @@ class _AgentRouteMatch {
   final AgentProfile agent;
   final int score;
   final String reason;
+}
+
+AgentKpiItem? _findAgentKpi(AgentProfile agent, String kpiId) {
+  final normalized = kpiId.trim();
+  if (normalized.isEmpty) return null;
+  for (final item in agent.kpis) {
+    if (item.id == normalized) return item;
+  }
+  return null;
+}
+
+AgentKpiItem? _findAgentKpiByName(AgentProfile agent, String name) {
+  final normalized = name.trim().toLowerCase();
+  if (normalized.isEmpty) return null;
+  for (final item in agent.kpis) {
+    if (item.name.trim().toLowerCase() == normalized) return item;
+  }
+  return null;
 }
 
 Map<String, Object?> _agentSummaryJson(AgentProfile agent) {
@@ -1309,6 +1492,15 @@ double? _optionalRatio(Object? raw) {
   };
   if (value == null || !value.isFinite) return null;
   return value.clamp(0, 1).toDouble();
+}
+
+String? _normalizedKpiStatus(String raw) {
+  final normalized = raw.trim().toLowerCase().replaceAll(
+    RegExp(r'[\s-]+'),
+    '_',
+  );
+  if (_agentKpiStatusValues.contains(normalized)) return normalized;
+  return null;
 }
 
 String _normalizeRouteText(String value) {
