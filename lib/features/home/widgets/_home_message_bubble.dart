@@ -4705,8 +4705,8 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
     }
     if (value.startsWith('time:')) {
       final raw = value.substring(5);
-      final parsed = double.tryParse(raw);
-      if (parsed != null && parsed >= 0) {
+      final parsed = optionalNonNegativeDoubleFromValue(raw);
+      if (parsed != null) {
         _currentTime = parsed;
       }
       return;
@@ -4714,9 +4714,9 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
     if (value.startsWith('size:')) {
       final parts = value.substring(5).split(':');
       if (parts.length == 2) {
-        final width = double.tryParse(parts[0]);
-        final height = double.tryParse(parts[1]);
-        if (width != null && height != null && width > 0 && height > 0) {
+        final width = optionalPositiveDoubleFromValue(parts[0]);
+        final height = optionalPositiveDoubleFromValue(parts[1]);
+        if (width != null && height != null) {
           final previous = _naturalMediaSize;
           if (previous == null ||
               previous.width != width ||
@@ -8362,8 +8362,8 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
     if (value == 'close') {
       _exit();
     } else if (value.startsWith('time:')) {
-      final parsed = double.tryParse(value.substring(5));
-      if (parsed != null && parsed >= 0) {
+      final parsed = optionalNonNegativeDoubleFromValue(value.substring(5));
+      if (parsed != null) {
         _currentTime = parsed;
       }
     } else if (value.startsWith('error')) {

@@ -3507,9 +3507,7 @@ class _StreamThrottleSessionDialogState
   }
 
   int? _parse(String raw) {
-    final t = raw.trim();
-    if (t.isEmpty) return null;
-    return int.tryParse(t);
+    return optionalIntFromValue(raw);
   }
 
   @override
