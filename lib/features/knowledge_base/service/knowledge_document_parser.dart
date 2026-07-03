@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
 
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
 
 class KnowledgeDocumentParseRequest {
@@ -636,11 +637,9 @@ class PptxKnowledgeDocumentParser extends KnowledgeDocumentParser {
       final xmlDoc = xml.XmlDocument.parse(
         _decodeText(slideFiles[index].readBytes() ?? const <int>[]),
       );
-      final paragraphs = _elements(xmlDoc.rootElement, 'p')
-          .map(_ooxmlText)
-          .map((value) => value.trim())
-          .where((value) => value.isNotEmpty)
-          .toList(growable: false);
+      final paragraphs = trimmedNonEmptyStrings(
+        _elements(xmlDoc.rootElement, 'p').map(_ooxmlText),
+      );
       if (paragraphs.isEmpty) continue;
       buffer
         ..writeln('## Slide ${index + 1}\n')
@@ -854,10 +853,7 @@ String _rowsToBlocks(List<List<String>> rows) {
   if (rows.isEmpty) return '';
   final buffer = StringBuffer();
   for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-    final values = rows[rowIndex]
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toList(growable: false);
+    final values = trimmedNonEmptyStrings(rows[rowIndex]);
     if (values.isEmpty) continue;
     buffer.writeln('- Row ${rowIndex + 1}: ${values.join(' | ')}');
   }

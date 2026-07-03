@@ -1408,11 +1408,11 @@ class AiTtsPlaybackService {
       );
       if (result.exitCode != 0) return const <String>{};
       final output = '${result.stdout}';
-      return output
-          .split('\n')
-          .map((line) => line.trimLeft().split(RegExp(r'\s{2,}')).first.trim())
-          .where((voice) => voice.isNotEmpty)
-          .toSet();
+      return trimmedNonEmptyStrings(
+        output
+            .split('\n')
+            .map((line) => line.trimLeft().split(RegExp(r'\s{2,}')).first),
+      ).toSet();
     } catch (error, stack) {
       silentLog(
         'ai_tts_playback_service',
