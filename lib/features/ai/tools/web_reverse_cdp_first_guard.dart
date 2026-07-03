@@ -81,7 +81,8 @@ class WebReverseCdpFirstGuard {
 
   static bool isRequired({required Map<String, Object?> metadata}) {
     final runtime = _webReverseRuntimeFromMetadata(metadata);
-    return runtime != null && _boolValue(runtime['cdp_first_required']);
+    return runtime != null &&
+        webReverseRuntimeBoolTrue(runtime['cdp_first_required']);
   }
 
   static WebReverseCdpFirstDecision? evaluateUrl({
@@ -89,7 +90,8 @@ class WebReverseCdpFirstGuard {
     required Map<String, Object?> metadata,
   }) {
     final runtime = _webReverseRuntimeFromMetadata(metadata);
-    if (runtime == null || !_boolValue(runtime['cdp_first_required'])) {
+    if (runtime == null ||
+        !webReverseRuntimeBoolTrue(runtime['cdp_first_required'])) {
       return null;
     }
 
@@ -140,7 +142,8 @@ class WebReverseCdpFirstGuard {
     required Map<String, Object?> metadata,
   }) {
     final runtime = _webReverseRuntimeFromMetadata(metadata);
-    if (runtime == null || !_boolValue(runtime['cdp_first_required'])) {
+    if (runtime == null ||
+        !webReverseRuntimeBoolTrue(runtime['cdp_first_required'])) {
       return null;
     }
 
@@ -296,7 +299,9 @@ Map<String, Object?>? _webReverseRuntimeFromMetadata(
     if (cdpRuntime != null) 'cdp_runtime': cdpRuntime,
     if (dashboardState.isNotEmpty) 'dashboard_state': dashboardState,
     'cdp_mcp_tool_availability': <String, Object?>{
-      'session_ai_cdp_mcp_enabled': _boolValue(config['cdp_mcp_enabled']),
+      'session_ai_cdp_mcp_enabled': webReverseRuntimeBoolTrue(
+        config['cdp_mcp_enabled'],
+      ),
       'browser_runtime_live': webReverseCdpRuntimeIsLive(cdpRuntime),
       'tool_search_available': false,
       'legacy_metadata_fallback': true,
@@ -334,7 +339,7 @@ _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
   }
 
   final runtimeLive =
-      _boolValue(availability?['browser_runtime_live']) ||
+      webReverseRuntimeBoolTrue(availability?['browser_runtime_live']) ||
       (cdpRuntime != null && webReverseCdpRuntimeIsLive(cdpRuntime));
   if (!runtimeLive) return _WebReverseCdpRoute.runtimeUnavailable();
 
@@ -345,8 +350,10 @@ _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
     availability?['current_turn_callable_count'],
   );
   final currentCallable =
-      _boolValue(availability?['live_cdp_actions_current_turn_callable']) ||
-      (_boolValue(availability?['current_turn_callable']) &&
+      webReverseRuntimeBoolTrue(
+        availability?['live_cdp_actions_current_turn_callable'],
+      ) ||
+      (webReverseRuntimeBoolTrue(availability?['current_turn_callable']) &&
           (currentToolNames.isNotEmpty || currentToolCount > 0));
   if (currentCallable) {
     return _WebReverseCdpRoute.current(
@@ -363,7 +370,7 @@ _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
   final deferredToolCount = _intValue(
     availability?['tool_search_deferred_cdp_mcp_count'],
   );
-  if (_boolValue(availability?['tool_search_available']) &&
+  if (webReverseRuntimeBoolTrue(availability?['tool_search_available']) &&
       (deferredToolNames.isNotEmpty || deferredToolCount > 0)) {
     return _WebReverseCdpRoute.deferred(
       deferredToolNames,
@@ -373,10 +380,10 @@ _WebReverseCdpRoute? _webReverseCdpRoute(Map<String, Object?> runtime) {
     );
   }
 
-  final toolSearchAvailable = _boolValue(
+  final toolSearchAvailable = webReverseRuntimeBoolTrue(
     availability?['tool_search_available'],
   );
-  final sessionCdpMcpEnabled = _boolValue(
+  final sessionCdpMcpEnabled = webReverseRuntimeBoolTrue(
     availability?['session_ai_cdp_mcp_enabled'],
   );
   return _WebReverseCdpRoute.runtimeLiveWithoutTools(
@@ -503,12 +510,6 @@ List<String> _stringList(Object? raw) {
       .map((entry) => '$entry'.trim())
       .where((entry) => entry.isNotEmpty)
       .toList(growable: false);
-}
-
-bool _boolValue(Object? raw) {
-  if (raw is bool) return raw;
-  final normalized = '${raw ?? ''}'.trim().toLowerCase();
-  return normalized == 'true' || normalized == '1' || normalized == 'yes';
 }
 
 int _intValue(Object? raw) {
