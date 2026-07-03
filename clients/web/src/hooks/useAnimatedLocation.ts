@@ -1,4 +1,5 @@
 import { useLocation } from 'preact-iso';
+import { normalizeDurationMs } from '../shared/util/number';
 
 type ViewTransitionDocument = Document & {
   startViewTransition?: (callback: () => Promise<void> | void) => {
@@ -7,6 +8,18 @@ type ViewTransitionDocument = Document & {
     updateCallbackDone?: Promise<void>;
   };
 };
+
+const ROUTE_TRANSITION_CLEANUP_FALLBACK_MS = 720;
+const ROUTE_TRANSITION_CLEANUP_MIN_MS = 120;
+const ROUTE_TRANSITION_CLEANUP_MAX_MS = 3_000;
+
+function routeTransitionCleanupDelayMs(): number {
+  return normalizeDurationMs(ROUTE_TRANSITION_CLEANUP_FALLBACK_MS, {
+    fallback: ROUTE_TRANSITION_CLEANUP_FALLBACK_MS,
+    min: ROUTE_TRANSITION_CLEANUP_MIN_MS,
+    max: ROUTE_TRANSITION_CLEANUP_MAX_MS,
+  });
+}
 
 function shouldReduceMotion(): boolean {
   try {
@@ -35,7 +48,7 @@ function runWithRouteTransition(update: () => void): void {
     if (cleanupTimer != null) window.clearTimeout(cleanupTimer);
     delete document.documentElement.dataset.routeTransition;
   };
-  cleanupTimer = window.setTimeout(cleanup, 720);
+  cleanupTimer = window.setTimeout(cleanup, routeTransitionCleanupDelayMs());
   try {
     const transition = doc.startViewTransition(() => {
       updateStarted = true;
