@@ -12,6 +12,7 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -59,46 +60,6 @@ const List<String> _agentKpiStatusOptions = <String>[
   'paused',
 ];
 
-FeatureStateCard _agentRuntimeNotice(
-  BuildContext context,
-  AgentRuntimeAvailability runtime,
-) {
-  final title = runtime.isLoading
-      ? openHandLocalizedText(
-          context,
-          zh: 'Hermes Agent 检查中',
-          en: 'Checking Hermes Agent',
-        )
-      : openHandLocalizedText(
-          context,
-          zh: 'Hermes Agent 未就绪',
-          en: 'Hermes Agent is not ready',
-        );
-  final body = runtime.isLoading
-      ? openHandLocalizedText(
-          context,
-          zh: '插件服务仍在扫描运行时状态，完成后即可启动智能体工作循环。',
-          en: 'Plugin service is still scanning the runtime. Agents can start once it finishes.',
-        )
-      : !runtime.isInstalled
-      ? openHandLocalizedText(
-          context,
-          zh: '请先在插件板块安装 Hermes Agent，然后再启动智能体工作循环。',
-          en: 'Install Hermes Agent from Plugins before starting an agent work loop.',
-        )
-      : openHandLocalizedText(
-          context,
-          zh: '请先在插件板块启用 Hermes Agent，然后再启动智能体工作循环。',
-          en: 'Enable Hermes Agent from Plugins before starting an agent work loop.',
-        );
-  return FeatureStateCard.inline(
-    icon: runtime.isLoading ? Icons.sync_rounded : Icons.extension_off_outlined,
-    tone: runtime.isLoading ? FeatureStateTone.neutral : FeatureStateTone.error,
-    title: title,
-    body: body,
-  );
-}
-
 String _agentRuntimeBlockingText(
   BuildContext context,
   AgentRuntimeAvailability runtime,
@@ -126,6 +87,37 @@ String _agentRuntimeBlockingText(
     );
   }
   return runtime.errorMessage ?? runtime.blockingReason;
+}
+
+String _agentRuntimeCreateBlockingText(
+  BuildContext context,
+  AgentRuntimeAvailability runtime,
+) {
+  if (runtime.canRun) return '';
+  final reason = runtime.isLoading
+      ? openHandLocalizedText(
+          context,
+          zh: 'Hermes Agent 运行时仍在检查中，暂不能创建智能体。',
+          en: 'Hermes Agent runtime is still being checked. Try creating an agent after it finishes.',
+        )
+      : !runtime.isInstalled
+      ? openHandLocalizedText(
+          context,
+          zh: '请先在插件板块安装 Hermes Agent，再创建智能体。',
+          en: 'Install Hermes Agent from Plugins before creating an agent.',
+        )
+      : !runtime.isEnabled
+      ? openHandLocalizedText(
+          context,
+          zh: '请先在插件板块启用 Hermes Agent，再创建智能体。',
+          en: 'Enable Hermes Agent from Plugins before creating an agent.',
+        )
+      : (runtime.errorMessage ?? runtime.blockingReason);
+  return openHandLocalizedText(
+    context,
+    zh: 'Hermes Agent 未就绪：$reason',
+    en: 'Hermes Agent is not ready: $reason',
+  );
 }
 
 class AgentsView extends StatelessWidget {
@@ -167,22 +159,13 @@ class AgentsView extends StatelessWidget {
             label: Text(l10n.agentsOpenFolder),
           ),
           FilledButton.icon(
-            onPressed: () => _showAgentEditor(context),
+            onPressed: () => _handleCreateAgent(context, snapshot.runtime),
             icon: const Icon(Icons.add_rounded),
             label: Text(l10n.agentsCreateAgent),
           ),
         ],
       ),
       successSignal: controller.saveSuccessSignal,
-      notices: [
-        FeatureStateCard.inline(
-          icon: Icons.info_outline_rounded,
-          title: l10n.agentsWorkspaceTitle,
-          body: l10n.agentsWorkspaceBody,
-        ),
-        if (snapshot.runtime.isLoading || !snapshot.runtime.canRun)
-          _agentRuntimeNotice(context, snapshot.runtime),
-      ],
       body: _AgentsBody(snapshot: snapshot),
     );
   }
@@ -218,15 +201,9 @@ class _AgentsBody extends StatelessWidget {
       );
     }
     if (snapshot.agents.isEmpty) {
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
-        children: [
-          FeatureStateCard.inline(
-            icon: Icons.smart_toy_outlined,
-            title: l10n.agentsEmptyTitle,
-            body: l10n.agentsEmptyBody,
-          ),
-        ],
+      return const SizedBox.expand(
+        key: ValueKey<String>('agents-empty'),
+        child: _AgentsEmptyState(),
       );
     }
     return ListView.separated(
@@ -250,6 +227,21 @@ class _AgentsBody extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _AgentsEmptyState extends StatelessWidget {
+  const _AgentsEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return FeatureStateCard.centered(
+      icon: Icons.smart_toy_outlined,
+      tone: FeatureStateTone.neutral,
+      title: l10n.agentsEmptyTitle,
+      body: l10n.agentsEmptyBody,
     );
   }
 }
@@ -2552,6 +2544,20 @@ Future<void> _showAgentEditor(
   if (result != null && context.mounted) {
     await context.read<AgentsController>().saveAgent(result);
   }
+}
+
+void _handleCreateAgent(
+  BuildContext context,
+  AgentRuntimeAvailability runtime,
+) {
+  if (!runtime.canRun) {
+    OpenHandSnackBar.showError(
+      context,
+      _agentRuntimeCreateBlockingText(context, runtime),
+    );
+    return;
+  }
+  _showAgentEditor(context);
 }
 
 class _AgentEditorDialog extends StatefulWidget {
