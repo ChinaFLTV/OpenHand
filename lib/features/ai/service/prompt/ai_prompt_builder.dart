@@ -1511,21 +1511,9 @@ class AiPromptBuilder {
         builtinTools.add(tool);
       }
     }
-    skillTools.sort(
-      (a, b) => _normalizeToolNameForPromptCatalog(
-        a.name,
-      ).compareTo(_normalizeToolNameForPromptCatalog(b.name)),
-    );
-    mcpTools.sort(
-      (a, b) => _normalizeToolNameForPromptCatalog(
-        a.name,
-      ).compareTo(_normalizeToolNameForPromptCatalog(b.name)),
-    );
-    builtinTools.sort(
-      (a, b) => _normalizeToolNameForPromptCatalog(
-        a.name,
-      ).compareTo(_normalizeToolNameForPromptCatalog(b.name)),
-    );
+    skillTools.sort(_compareToolDefinitionsForPromptCatalog);
+    mcpTools.sort(_compareToolDefinitionsForPromptCatalog);
+    builtinTools.sort(_compareToolDefinitionsForPromptCatalog);
     final visibleToolCount =
         skillTools.length + mcpTools.length + builtinTools.length;
     if (visibleToolCount == 0) {
@@ -1862,6 +1850,19 @@ class AiPromptBuilder {
       }
     }
     return buffer.toString();
+  }
+
+  int _compareToolDefinitionsForPromptCatalog(
+    AiToolDefinition a,
+    AiToolDefinition b,
+  ) {
+    final normalizedCompare = _normalizeToolNameForPromptCatalog(
+      a.name,
+    ).compareTo(_normalizeToolNameForPromptCatalog(b.name));
+    if (normalizedCompare != 0) {
+      return normalizedCompare;
+    }
+    return a.name.compareTo(b.name);
   }
 
   List<String> _promptCatalogToolNames(List<AiToolDefinition> tools) {
