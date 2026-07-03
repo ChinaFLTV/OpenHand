@@ -107,6 +107,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         lastScannedAt: scannedAt,
       );
     } on McpToolDiscoveryException catch (error) {
+      if (error.isExpectedLifecycleCancellation) {
+        return const McpToolCatalog();
+      }
       return McpToolCatalog(
         status: McpToolCatalogStatus.failed,
         errorMessage: error.message,
@@ -148,6 +151,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         lastCheckedAt: checkedAt,
       );
     } on McpToolDiscoveryException catch (error) {
+      if (error.isExpectedLifecycleCancellation) {
+        return const McpServerHealth();
+      }
       return McpServerHealth(
         status: McpServerHealthStatus.unhealthy,
         errorMessage: error.message,
@@ -1417,10 +1423,27 @@ void _stripSensitiveRedirectHeaders(
   );
 }
 
+const String kMcpStdioSessionClosingMessage =
+    'Tool scan stopped because the stdio MCP session is closing.';
+
+bool isExpectedMcpToolDiscoveryLifecycleError(Object error) {
+  if (error is McpToolDiscoveryException) {
+    return error.isExpectedLifecycleCancellation;
+  }
+  final message = error.toString();
+  return message.contains(kMcpStdioSessionClosingMessage) ||
+      (message.contains('Stdio MCP server "') &&
+          message.contains(' is stopping.'));
+}
+
 class McpToolDiscoveryException implements Exception {
-  const McpToolDiscoveryException(this.message);
+  const McpToolDiscoveryException(
+    this.message, {
+    this.isExpectedLifecycleCancellation = false,
+  });
 
   final String message;
+  final bool isExpectedLifecycleCancellation;
 
   @override
   String toString() => message;
@@ -2245,13 +2268,11 @@ class _StdioSession {
     _stdoutSubscription = _process.stdout.listen(
       _handleStdoutData,
       onError: (Object error, StackTrace stackTrace) {
-        _failPendingResponses(error, stackTrace);
+        _failPendingResponses(_stdioSessionStreamError(error), stackTrace);
       },
       onDone: () {
         _appendTrace('stdout:done');
-        _failPendingResponses(
-          McpToolDiscoveryException(_closedUnexpectedlyMessage()),
-        );
+        _failPendingResponses(_stdioSessionClosedError());
       },
       cancelOnError: false,
     );
@@ -2302,7 +2323,8 @@ class _StdioSession {
 
   static const McpToolDiscoveryException _closingWriteException =
       McpToolDiscoveryException(
-        'Tool scan stopped because the stdio MCP session is closing.',
+        kMcpStdioSessionClosingMessage,
+        isExpectedLifecycleCancellation: true,
       );
 
   final Process _process;
@@ -2476,6 +2498,20 @@ class _StdioSession {
     return 'Tool scan failed because the stdio MCP server closed unexpectedly: $stderr$traceSuffix$hintSuffix';
   }
 
+  Object _stdioSessionStreamError(Object error) {
+    if (_closeFuture != null) {
+      return _closingWriteException;
+    }
+    return error;
+  }
+
+  Object _stdioSessionClosedError() {
+    if (_closeFuture != null) {
+      return _closingWriteException;
+    }
+    return McpToolDiscoveryException(_closedUnexpectedlyMessage());
+  }
+
   void _enforceStdoutBufferLimit() {
     if (_stdoutBuffer.length <=
         DefaultMcpToolDiscoveryService._maxStdioStdoutBufferBytes) {
@@ -2599,10 +2635,11 @@ class _StdioSession {
       } on StateError catch (error, stack) {
         if (!isExpectedMcpStdioSinkStateError(error)) {
           silentLog('mcp.stdio', 'write.stdin', error, stack);
+          throw McpToolDiscoveryException(
+            'Tool scan failed because stdin became unavailable: $error',
+          );
         }
-        throw McpToolDiscoveryException(
-          'Tool scan failed because stdin became unavailable: $error',
-        );
+        throw _closingWriteException;
       }
     });
   }

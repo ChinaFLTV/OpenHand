@@ -111,6 +111,9 @@ Future<void> _bootstrap() async {
       _triggerComposerImeSoftRecovery();
       return;
     }
+    if (_shouldSilenceMcpLifecycleError(details.exception)) {
+      return;
+    }
     if (details.exceptionAsString().contains(
       'is dispatched, but the state shows that the physical key is',
     )) {
@@ -134,6 +137,9 @@ Future<void> _bootstrap() async {
     }
     if (_isComposerImeRangeOverflow(error)) {
       _triggerComposerImeSoftRecovery();
+      return true;
+    }
+    if (_shouldSilenceMcpLifecycleError(error)) {
       return true;
     }
     return false;
@@ -549,6 +555,9 @@ void _handleUncaughtZoneError(Object error, StackTrace stack) {
     _triggerComposerImeSoftRecovery();
     return;
   }
+  if (_shouldSilenceMcpLifecycleError(error)) {
+    return;
+  }
   FlutterError.reportError(
     FlutterErrorDetails(
       exception: error,
@@ -557,4 +566,8 @@ void _handleUncaughtZoneError(Object error, StackTrace stack) {
       context: ErrorDescription('uncaught zone error'),
     ),
   );
+}
+
+bool _shouldSilenceMcpLifecycleError(Object error) {
+  return isExpectedMcpToolDiscoveryLifecycleError(error);
 }

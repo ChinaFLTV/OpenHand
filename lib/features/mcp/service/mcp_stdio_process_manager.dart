@@ -327,7 +327,8 @@ class McpStdioProcessManager extends ChangeNotifier {
   /// 尝试借用已运行且握手完成的进程供 discovery service 发送 tools/list。
   /// 如果进程正在启动或握手尚未完成，最多等待 [_handshakeWaitTimeout]。
   /// 返回 null 表示无可用进程（未启动/已停止/等待超时），调用方应回退到启动新进程。
-  /// 借用期间进程不会被 stopServer 关闭（通过引用计数保护）。
+  /// 借用计数用于 stopServer 给已借出的请求一个短暂收尾窗口；停止请求仍会
+  /// 立即拒绝新写入，避免关闭流程被长时间 tools/list 卡住。
   static const Duration _handshakeWaitTimeout = Duration(minutes: 2);
 
   Future<ManagedStdioSession?> borrowSessionForDiscovery(
@@ -374,6 +375,16 @@ class McpStdioProcessManager extends ChangeNotifier {
     }
     _sessionBorrowCount[serverName] =
         (_sessionBorrowCount[serverName] ?? 0) + 1;
+    final latest = _processes[serverName];
+    if (latest == null ||
+        latest.info.state != StdioProcessState.running ||
+        latest.process != managed.process ||
+        latest.responseRouter != managed.responseRouter ||
+        latest.responseRouter == null ||
+        latest.responseRouter!.isClosed) {
+      returnSession(serverName);
+      return null;
+    }
     return ManagedStdioSession._(managed.process!, managed.responseRouter!);
   }
 
@@ -735,6 +746,7 @@ class McpStdioProcessManager extends ChangeNotifier {
   static McpToolDiscoveryException _stoppingException(String serverName) {
     return McpToolDiscoveryException(
       'Stdio MCP server "$serverName" is stopping. Try again after it finishes stopping.',
+      isExpectedLifecycleCancellation: true,
     );
   }
 
@@ -751,7 +763,11 @@ class McpStdioProcessManager extends ChangeNotifier {
 
   @override
   void dispose() {
-    stopAll();
+    unawaited(
+      stopAll().catchError((Object error, StackTrace stack) {
+        silentLog('mcp_stdio_process_manager', 'dispose.stopAll', error, stack);
+      }),
+    );
     super.dispose();
   }
 }

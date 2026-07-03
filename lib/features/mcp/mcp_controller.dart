@@ -483,7 +483,13 @@ class McpController extends ChangeNotifier {
     return candidates;
   }
 
-  Future<void> refreshServerTools(String serverName) async {
+  Future<void> refreshServerTools(
+    String serverName, {
+    bool requirePageActive = false,
+  }) async {
+    if (_isDisposed || requirePageActive && !_isPageActive) {
+      return;
+    }
     final normalizedServerName = _normalizeServerName(serverName);
     if (normalizedServerName.isEmpty) {
       return;
@@ -503,6 +509,9 @@ class McpController extends ChangeNotifier {
       if (processInfo.isStopped) {
         await McpStdioProcessManager.instance.startServer(server);
       }
+      if (_isDisposed || requirePageActive && !_isPageActive) {
+        return;
+      }
     }
 
     final nextGeneration =
@@ -520,8 +529,14 @@ class McpController extends ChangeNotifier {
         server,
       );
       if (_isDisposed ||
+          requirePageActive && !_isPageActive ||
           _toolRefreshGenerationByServerName[normalizedServerName] !=
               nextGeneration) {
+        return;
+      }
+      if (_isLifecycleCancelledCatalog(discoveredCatalog)) {
+        _toolCatalogByServerName[normalizedServerName] = previousCatalog;
+        notifyListeners();
         return;
       }
       _toolCatalogByServerName[normalizedServerName] = _resolvedRefreshCatalog(
@@ -531,8 +546,14 @@ class McpController extends ChangeNotifier {
       notifyListeners();
     } catch (error) {
       if (_isDisposed ||
+          requirePageActive && !_isPageActive ||
           _toolRefreshGenerationByServerName[normalizedServerName] !=
               nextGeneration) {
+        return;
+      }
+      if (isExpectedMcpToolDiscoveryLifecycleError(error)) {
+        _toolCatalogByServerName[normalizedServerName] = previousCatalog;
+        notifyListeners();
         return;
       }
       _toolCatalogByServerName[normalizedServerName] = _resolvedRefreshCatalog(
@@ -582,6 +603,11 @@ class McpController extends ChangeNotifier {
       final latencyMs = stopwatch.elapsedMilliseconds;
       final completedAt =
           resolvedHealth.lastCheckedAt ?? DateTime.now().toUtc();
+      if (_isLifecycleCancelledHealth(resolvedHealth)) {
+        _healthByServerName[normalizedServerName] = previousHealth;
+        notifyListeners();
+        return;
+      }
       final isHealthy = resolvedHealth.status == McpServerHealthStatus.healthy;
       final consecutiveFailures = isHealthy
           ? 0
@@ -610,6 +636,11 @@ class McpController extends ChangeNotifier {
           !_isPageActive ||
           _healthCheckGenerationByServerName[normalizedServerName] !=
               nextGeneration) {
+        return;
+      }
+      if (isExpectedMcpToolDiscoveryLifecycleError(error)) {
+        _healthByServerName[normalizedServerName] = previousHealth;
+        notifyListeners();
         return;
       }
       final completedAt = DateTime.now().toUtc();
@@ -730,7 +761,7 @@ class McpController extends ChangeNotifier {
           shouldAutoRefreshTools &&
           changedServerName != null) {
         _runDetached(
-          refreshServerTools(changedServerName),
+          refreshServerTools(changedServerName, requirePageActive: true),
           'refresh changed server tools',
         );
       }
@@ -850,7 +881,7 @@ class McpController extends ChangeNotifier {
       }
       await _runAutoProbeWorkerPool(
         targets,
-        (server) => refreshServerTools(server.name),
+        (server) => refreshServerTools(server.name, requirePageActive: true),
       );
     } finally {
       _autoToolRefreshInProgress = false;
@@ -1076,6 +1107,9 @@ class McpController extends ChangeNotifier {
     required McpToolCatalog previousCatalog,
     required McpToolCatalog discoveredCatalog,
   }) {
+    if (_isLifecycleCancelledCatalog(discoveredCatalog)) {
+      return previousCatalog;
+    }
     if (discoveredCatalog.status != McpToolCatalogStatus.failed ||
         previousCatalog.tools.isEmpty) {
       return discoveredCatalog;
@@ -1088,5 +1122,24 @@ class McpController extends ChangeNotifier {
       clearWarningMessage: discoveredCatalog.warningMessage == null,
       lastScannedAt: discoveredCatalog.lastScannedAt,
     );
+  }
+
+  bool _isLifecycleCancelledCatalog(McpToolCatalog catalog) {
+    return catalog.status == McpToolCatalogStatus.idle &&
+        catalog.tools.isEmpty &&
+        catalog.errorMessage == null &&
+        catalog.warningMessage == null &&
+        catalog.serverInstructions.isEmpty &&
+        catalog.lastScannedAt == null;
+  }
+
+  bool _isLifecycleCancelledHealth(McpServerHealth health) {
+    return health.status == McpServerHealthStatus.idle &&
+        health.errorMessage == null &&
+        health.lastCheckedAt == null &&
+        health.latencyMs == null &&
+        health.consecutiveFailures == 0 &&
+        health.lastSuccessAt == null &&
+        health.recentProbes.isEmpty;
   }
 }
