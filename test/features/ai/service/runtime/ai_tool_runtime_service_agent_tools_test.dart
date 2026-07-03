@@ -159,16 +159,49 @@ domains: finance, cloud billing
       );
 
       expect(result.status, BashToolExecutionStatus.success);
+      final publishPayload =
+          jsonDecode(result.resultText) as Map<String, Object?>;
+      final publishedTask = publishPayload['task'] as Map<String, Object?>;
+      final publishedWorker =
+          publishedTask['assigned_worker'] as Map<String, Object?>;
       final financeAgent = controller.agentById('finance-agent')!;
       final releaseAgent = controller.agentById('release-agent')!;
       expect(financeAgent.tasks, hasLength(1));
       expect(releaseAgent.tasks, isEmpty);
       expect(financeAgent.tasks.single.title, 'Reconcile cloud invoice');
+      expect(publishedWorker['id'], 'worker-1');
+      expect(publishedWorker['status'], 'busy');
       expect(financeAgent.tasks.single.extra['agent_route_score'], isPositive);
       expect(
         financeAgent.tasks.single.extra['agent_route_reason'],
         contains('invoice'),
       );
+
+      final progress = await runtime.execute(
+        sessionId: 'session-1',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-2',
+          name: 'AgentTaskProgress',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'finance-agent',
+            'task_id': financeAgent.tasks.single.id,
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+      final progressPayload =
+          jsonDecode(progress.resultText) as Map<String, Object?>;
+      final progressWorker =
+          progressPayload['assigned_worker'] as Map<String, Object?>;
+      expect(progress.status, BashToolExecutionStatus.success);
+      expect(progressWorker['id'], 'worker-1');
+      expect(progressWorker['current_task_id'], financeAgent.tasks.single.id);
     });
 
     test('complete tool writes task result and releases worker', () async {

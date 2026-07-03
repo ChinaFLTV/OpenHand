@@ -372,9 +372,10 @@ class AiAgentTool extends AiTool {
         'Failed to publish task. The agent may have been disabled or removed.',
       );
     }
+    final currentAgent = controller.agentById(resolution.agent!.id);
     final payload = <String, Object?>{
-      'agent': _agentSummaryJson(resolution.agent!),
-      'task': _taskJson(task),
+      'agent': _agentSummaryJson(currentAgent ?? resolution.agent!),
+      'task': _taskJson(task, agent: currentAgent),
       'agent_prompt': promptSnapshot.metadataJson(),
     };
     return _success(
@@ -398,7 +399,7 @@ class AiAgentTool extends AiTool {
     return _success(
       <String, Object?>{
         'agent': _agentSummaryJson(resolved.agent!),
-        'task': _taskJson(resolved.task!),
+        'task': _taskJson(resolved.task!, agent: resolved.agent),
       },
       stopwatch,
       metadata: <String, Object?>{
@@ -417,12 +418,14 @@ class AiAgentTool extends AiTool {
     final resolved = _resolveTask(controller, context.decodedArguments);
     if (resolved.error != null) return resolved.error!;
     final task = resolved.task!;
+    final assignedWorker = _assignedWorkerJson(resolved.agent!, task);
     return _success(
       <String, Object?>{
         'agent_id': resolved.agent!.id,
         'task_id': task.id,
         'status': task.status.storageValue,
         'progress': task.progress,
+        if (assignedWorker != null) 'assigned_worker': assignedWorker,
         'updated_at': _iso(task.updatedAt),
       },
       stopwatch,
@@ -481,10 +484,11 @@ class AiAgentTool extends AiTool {
         'Failed to update task. The agent or task may have changed.',
       );
     }
+    final currentAgent = controller.agentById(resolved.agent!.id);
     return _success(
       <String, Object?>{
-        'agent': _agentSummaryJson(resolved.agent!),
-        'task': _taskJson(updated),
+        'agent': _agentSummaryJson(currentAgent ?? resolved.agent!),
+        'task': _taskJson(updated, agent: currentAgent),
       },
       stopwatch,
       metadata: <String, Object?>{
@@ -503,6 +507,7 @@ class AiAgentTool extends AiTool {
     final resolved = _resolveTask(controller, context.decodedArguments);
     if (resolved.error != null) return resolved.error!;
     final task = resolved.task!;
+    final assignedWorker = _assignedWorkerJson(resolved.agent!, task);
     return _success(
       <String, Object?>{
         'agent_id': resolved.agent!.id,
@@ -512,6 +517,7 @@ class AiAgentTool extends AiTool {
         'progress': task.progress,
         'result': task.result,
         'note': task.note,
+        if (assignedWorker != null) 'assigned_worker': assignedWorker,
         'updated_at': _iso(task.updatedAt),
       },
       stopwatch,
@@ -849,7 +855,9 @@ Map<String, Object?> _agentDetailJson(
         .map((item) => item.toJson())
         .toList(growable: false),
     if (includeTasks)
-      'tasks': agent.tasks.map(_taskJson).toList(growable: false),
+      'tasks': agent.tasks
+          .map((task) => _taskJson(task, agent: agent))
+          .toList(growable: false),
     if (includeAudit)
       'audit_events': agent.auditEvents
           .take(50)
@@ -860,7 +868,10 @@ Map<String, Object?> _agentDetailJson(
   };
 }
 
-Map<String, Object?> _taskJson(AgentTask task) {
+Map<String, Object?> _taskJson(AgentTask task, {AgentProfile? agent}) {
+  final assignedWorker = agent == null
+      ? null
+      : _assignedWorkerJson(agent, task);
   return <String, Object?>{
     'id': task.id,
     'title': task.title,
@@ -870,10 +881,31 @@ Map<String, Object?> _taskJson(AgentTask task) {
     'progress': task.progress,
     'result': task.result,
     'note': task.note,
+    if (assignedWorker != null) 'assigned_worker': assignedWorker,
     'extra': _taskExtraJson(task.extra),
     'created_at': _iso(task.createdAt),
     'updated_at': _iso(task.updatedAt),
   };
+}
+
+Map<String, Object?>? _assignedWorkerJson(AgentProfile agent, AgentTask task) {
+  final workerId = '${task.extra['assigned_worker_id'] ?? ''}'.trim();
+  if (workerId.isEmpty) return null;
+  for (final worker in agent.workers) {
+    if (worker.id != workerId) continue;
+    return <String, Object?>{
+      'id': worker.id,
+      'name': worker.name,
+      'status': worker.status.storageValue,
+      'executed_task_count': worker.executedTaskCount,
+      'busy_score': worker.busyScore,
+      'priority': worker.priority,
+      'current_task_id': worker.currentTaskId,
+      'labels': worker.labels,
+      'updated_at': _iso(worker.updatedAt),
+    };
+  }
+  return <String, Object?>{'id': workerId, 'missing': true};
 }
 
 Map<String, Object?> _taskExtraJson(Map<String, Object?> extra) {
