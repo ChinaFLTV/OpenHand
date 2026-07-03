@@ -2131,13 +2131,7 @@ int? _reasoningFixedElapsedMs(AiSessionMessage message) {
 }
 
 int? _nonNegativeIntFromMetadata(Object? rawValue) {
-  final value = rawValue is int
-      ? rawValue
-      : int.tryParse('${rawValue ?? ''}'.trim());
-  if (value == null || value < 0) {
-    return null;
-  }
-  return value;
+  return optionalNonNegativeIntFromValue(rawValue);
 }
 
 DateTime? _dateTimeFromMetadata(Object? rawValue) {
@@ -2146,10 +2140,7 @@ DateTime? _dateTimeFromMetadata(Object? rawValue) {
 
 int? _toolExecutionExitCode(AiSessionMessage message) {
   final value = message.metadata['tool_execution_exit_code'];
-  if (value is int) {
-    return value;
-  }
-  return int.tryParse('${value ?? ''}'.trim());
+  return optionalIntegralIntFromValue(value);
 }
 
 IconData _toolExecutionStatusIcon(String status) {
@@ -2790,10 +2781,7 @@ int _toolExecutionDurationMs(AiSessionMessage message) {
       message.metadata['tool_execution_elapsed_ms'] ??
       message.metadata['tool_execution_duration_ms'] ??
       0;
-  if (rawValue is int) {
-    return rawValue;
-  }
-  return int.tryParse('$rawValue'.trim()) ?? 0;
+  return math.max(0, optionalRoundedIntFromValue(rawValue) ?? 0);
 }
 
 Future<void> _openResolvedMessagePath(
