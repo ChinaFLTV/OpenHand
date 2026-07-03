@@ -16,6 +16,7 @@ import type { PendingWriteApproval } from './session_events';
 import { clientEnvironmentHeaders } from '../utils/client_env';
 import { jsonlExportPickerSuggestedName, normalizeJsonlExportFilename } from '../shared/util/export_filename';
 import { filenameFromContentDisposition, saveBlobWithPicker } from '../utils/save_blob';
+import { isAbortError } from '../utils/api_error';
 import { createTimedAbortController } from '../utils/timed_abort';
 
 export interface SessionTodoItem {
@@ -811,7 +812,7 @@ export async function exportSessionDownload(
       signal: timed.controller.signal,
     });
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (isAbortError(error)) {
       throw new Error(EXPORT_SESSION_TIMEOUT_ERROR);
     }
     throw error;

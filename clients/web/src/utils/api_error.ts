@@ -39,5 +39,7 @@ export function describeApiError(error: unknown): string {
 }
 
 export function isAbortError(error: unknown): boolean {
-  return error instanceof Error && error.name === 'AbortError';
+  if (error instanceof Error && error.name === 'AbortError') return true;
+  if (!isRecord(error)) return false;
+  return error.name === 'AbortError';
 }

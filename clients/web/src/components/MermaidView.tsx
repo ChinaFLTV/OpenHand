@@ -15,6 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { saveBlobWithPicker } from '../utils/save_blob';
 import { copyTextToClipboard, copyBlobToClipboard } from '../utils/clipboard';
+import { isAbortError } from '../utils/api_error';
 import { showSnackbar } from './Snackbar';
 
 interface MermaidViewProps {
@@ -279,7 +280,7 @@ export function MermaidView({ source }: MermaidViewProps) {
       );
       showSnackbar('SVG 已导出', { tone: 'success' });
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (isAbortError(err)) return;
       showSnackbar('导出 SVG 失败', { tone: 'error' });
     }
   }
@@ -296,7 +297,7 @@ export function MermaidView({ source }: MermaidViewProps) {
       );
       showSnackbar('PNG 已导出', { tone: 'success' });
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (isAbortError(err)) return;
       const message = err instanceof Error ? err.message : String(err);
       showSnackbar(`导出 PNG 失败 (${message})`, { tone: 'error' });
     }

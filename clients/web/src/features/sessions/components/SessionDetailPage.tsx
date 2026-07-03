@@ -67,6 +67,7 @@ import {
   type SessionSummary,
 } from '../../../api/sessions';
 import { ApiError, UnauthorizedError } from '../../../api/client';
+import { isAbortError } from '../../../utils/api_error';
 import { subscribeSessionEvents, type PendingWriteApproval, type SessionEventSnapshot } from '../../../api/session_events';
 import { listSessions } from '../../../api/sessions';
 import { SessionGoneDialog } from '../../../components/SessionGoneDialog';
@@ -5668,7 +5669,7 @@ export function SessionDetailPage() {
               showSnackbar(`${t('topbar.export.ok', '已保存导出文件')}：${result.filename}`, { tone: 'success' });
             } catch (e) {
               if (!ownsSessionAsyncResult(requestSessionId)) return;
-              if (e instanceof DOMException && e.name === 'AbortError') return;
+              if (isAbortError(e)) return;
               if (handleAuthError(e)) return;
               if (handleSessionGoneError(e)) return;
               const message = e instanceof Error && e.message === EXPORT_SESSION_TIMEOUT_ERROR ? t('topbar.export.timeout', '导出会话超时，请稍后重试') : e instanceof Error ? e.message : String(e);

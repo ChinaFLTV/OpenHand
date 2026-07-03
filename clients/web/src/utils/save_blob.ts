@@ -1,4 +1,5 @@
 import { normalizeDurationMs } from '../shared/util/number';
+import { isAbortError } from './api_error';
 
 export interface SaveBlobPickerType {
   description: string;
@@ -109,7 +110,7 @@ export async function saveBlobWithPicker(
       return { filename: normalizedFilename, picked: true };
     } catch (error) {
       await abortWritableQuietly(writable);
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (isAbortError(error)) {
         throw error;
       }
     }

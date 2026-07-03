@@ -14,6 +14,7 @@ import { normalizeMarkdownDestination } from '../shared/util/markdown';
 import { clampNumber } from '../shared/util/number';
 import { basenameFromPath } from '../shared/util/path';
 import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
+import { isAbortError } from '../utils/api_error';
 import {
   revokeObjectUrlQuietly,
   saveBlobWithPicker,
@@ -1229,7 +1230,7 @@ export function MediaPreviewDialog({ item, url, onClose }: MediaPreviewDialogPro
       if (timed.controller.signal.aborted) return;
       showSnackbar(t('detail.media.saveOk', '已保存媒体文件'), { tone: 'success' });
     } catch (error) {
-      if (timed.controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
+      if (timed.controller.signal.aborted || isAbortError(error)) return;
       showSnackbar(
         `${t('detail.media.saveFailed', '保存失败')}：${error instanceof Error ? error.message : String(error)}`,
         { tone: 'error' },

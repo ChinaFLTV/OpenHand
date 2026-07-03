@@ -23,6 +23,7 @@ import {
   type SessionSummary,
 } from '../../../api/sessions';
 import { ApiError, UnauthorizedError } from '../../../api/client';
+import { isAbortError } from '../../../utils/api_error';
 import { t } from '../../../i18n';
 import { useAuth } from '../../../state/auth';
 import type { ApiMetaTemplate } from '../../../api/meta';
@@ -298,7 +299,7 @@ export function SessionsPage() {
       patchRow(item.id, { exporting: false });
       showSnackbar(`${t('topbar.export.ok', '已保存导出文件')}：${result.filename}`, { tone: 'success' });
     } catch (e: unknown) {
-      if (e instanceof DOMException && e.name === 'AbortError') {
+      if (isAbortError(e)) {
         patchRow(item.id, { exporting: false });
         return;
       }
