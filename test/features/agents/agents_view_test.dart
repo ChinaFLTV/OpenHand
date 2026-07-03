@@ -94,9 +94,9 @@ void main() {
       expect(controller.agentById('agent-1')!.enabled, isFalse);
     });
 
-    testWidgets('keeps the editor open when metadata JSON is invalid', (
-      tester,
-    ) async {
+    testWidgets('saves structured routing and metadata fields', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final dependencies = _AgentEditorDependencies.empty();
       addTearDown(dependencies.dispose);
       controller.setRuntimeAvailabilityProvider(
@@ -118,21 +118,37 @@ void main() {
         find.widgetWithText(TextField, '名称 *'),
         'Ops Agent',
       );
+      await tester.enterText(
+        find.widgetWithText(TextField, '路由名称'),
+        'ops-triage',
+      );
+      await tester.enterText(find.widgetWithText(TextField, '优先级'), '80');
+
       DefaultTabController.of(
         tester.element(find.byType(TabBar)),
       ).animateTo(4, duration: Duration.zero);
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.widgetWithText(TextField, '元数据 JSON'),
-        '{bad json',
+
+      await tester.tap(find.byTooltip('添加字段'));
+      await tester.pump();
+      await tester.enterText(find.widgetWithText(TextField, '键'), 'quota');
+      await tester.enterText(find.widgetWithText(TextField, '值'), '42');
+      final saveButton = find.ancestor(
+        of: find.text('保存'),
+        matching: find.byType(FilledButton),
       );
-      await tester.tap(find.text('保存'));
+      expect(tester.widget<FilledButton>(saveButton).onPressed, isNotNull);
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pump();
 
-      expect(find.textContaining('元数据 JSON 必须是有效对象'), findsOneWidget);
-      expect(find.byType(SnackBar), findsOneWidget);
-      expect(find.widgetWithText(TextField, '元数据 JSON'), findsOneWidget);
-      expect(controller.agents, isEmpty);
+      expect(controller.agents, hasLength(1));
+      final agent = controller.agents.single;
+      final route = parseAgentRouteFrontMatter(agent.routeFrontMatter);
+      expect(route['route'], 'ops-triage');
+      expect(route['priority'], 80);
+      expect(agent.metadata['quota'], 42);
     });
 
     testWidgets('preserves builtin selections across tool groups', (

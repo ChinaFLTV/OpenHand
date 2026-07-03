@@ -1,15 +1,20 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../../app/model/app_settings_snapshot.dart';
 import '../../../app/state/settings_controller.dart';
+import '../../../app/support/openhand_paths.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/image_editor_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -63,6 +68,14 @@ const List<String> _agentKpiStatusOptions = <String>[
 ];
 const int _agentRoutePreviewKeywordLimit = 10;
 const String _agentTaskExtraJsonHint = '{"priority":"high","retryable":true}';
+const List<String> _agentImageExtensions = <String>[
+  'jpg',
+  'jpeg',
+  'png',
+  'webp',
+  'gif',
+  'bmp',
+];
 const Set<AiBuiltinToolKind> _agentCoordinationBuiltinToolKinds =
     <AiBuiltinToolKind>{
       AiBuiltinToolKind.agentList,
@@ -486,11 +499,12 @@ class _AgentAvatar extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
           ),
           alignment: Alignment.center,
-          child: Text(
-            avatar.isEmpty ? agent.initials : avatar,
-            maxLines: 1,
-            overflow: TextOverflow.clip,
-            style: theme.textTheme.headlineSmall?.copyWith(
+          clipBehavior: Clip.antiAlias,
+          child: _AgentAvatarContent(
+            avatar: avatar,
+            fallback: agent.initials,
+            size: 64,
+            textStyle: theme.textTheme.headlineSmall?.copyWith(
               color: cs.onPrimaryContainer,
               fontWeight: FontWeight.w800,
             ),
@@ -2793,12 +2807,13 @@ Future<void> _showAgentEditor(
   BuildContext context, {
   AgentProfile? initialAgent,
 }) async {
+  final controller = context.read<AgentsController>();
   final result = await showAnimatedDialog<AgentProfile>(
     context: context,
     builder: (dialogContext) => _AgentEditorDialog(initialAgent: initialAgent),
   );
-  if (result != null && context.mounted) {
-    await context.read<AgentsController>().saveAgent(result);
+  if (result != null) {
+    await controller.saveAgent(result);
   }
 }
 
@@ -2848,15 +2863,18 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   late final TextEditingController _level;
   late final TextEditingController _introduction;
   late final TextEditingController _archive;
-  late final TextEditingController _routeFrontMatter;
+  late final TextEditingController _routeName;
+  late final TextEditingController _routePriority;
+  late final TextEditingController _routeDescription;
+  late final TextEditingController _routeKeywordInput;
+  late final TextEditingController _routeDomainInput;
+  late final TextEditingController _routeIntentInput;
   late final TextEditingController _welcomeMessage;
   late final TextEditingController _persona;
   late final TextEditingController _boundary;
   late final TextEditingController _workspacePath;
-  late final TextEditingController _workspaceScope;
-  late final TextEditingController _taskLabels;
-  late final TextEditingController _workerTags;
-  late final TextEditingController _metadata;
+  late final TextEditingController _taskLabelInput;
+  late final TextEditingController _workerTagInput;
   late final TextEditingController _kpiName;
   late final TextEditingController _kpiTarget;
   late AgentExecutionMode _executionMode;
@@ -2880,6 +2898,15 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   late Set<String> _cronIds;
   late Set<String> _hookIds;
   late List<AgentKpiItem> _kpis;
+  late List<String> _routeKeywords;
+  late List<String> _routeDomains;
+  late List<String> _routeIntents;
+  late List<_KeyValueDraft> _routeExtraFields;
+  late List<String> _workspaceScopePaths;
+  late List<String> _taskLabelValues;
+  late List<String> _workerTagValues;
+  late List<_KeyValueDraft> _metadataEntries;
+  bool _refreshingCapabilities = false;
 
   @override
   void initState() {
@@ -2893,28 +2920,48 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     _level = TextEditingController(text: agent?.level ?? 'L1');
     _introduction = TextEditingController(text: agent?.introduction ?? '');
     _archive = TextEditingController(text: agent?.archive ?? '');
-    _routeFrontMatter = TextEditingController(
-      text:
-          agent?.routeFrontMatter ?? '---\nroute: default\npriority: 100\n---',
+    final route = parseAgentRouteFrontMatter(agent?.routeFrontMatter ?? '');
+    _routeName = TextEditingController(
+      text: _stringFromRouteValue(route['route'] ?? route['routes'], 'default'),
     );
+    _routePriority = TextEditingController(
+      text: _stringFromRouteValue(route['priority'], '100'),
+    );
+    _routeDescription = TextEditingController(
+      text: _stringFromRouteValue(route['description'], ''),
+    );
+    _routeKeywordInput = TextEditingController();
+    _routeDomainInput = TextEditingController();
+    _routeIntentInput = TextEditingController();
+    _routeKeywords = _routeStringsFromValues(<Object?>[
+      route['keywords'],
+      route['keyword'],
+      route['triggers'],
+      route['trigger'],
+    ]);
+    _routeDomains = _routeStringsFromValues(<Object?>[
+      route['domains'],
+      route['domain'],
+    ]);
+    _routeIntents = _routeStringsFromValues(<Object?>[
+      route['intents'],
+      route['intent'],
+    ]);
+    _routeExtraFields = _routeExtraEntries(route);
     _welcomeMessage = TextEditingController(text: agent?.welcomeMessage ?? '');
     _persona = TextEditingController(text: agent?.persona ?? '');
     _boundary = TextEditingController(
       text: agent?.responsibilityBoundary ?? '',
     );
     _workspacePath = TextEditingController(text: agent?.workspacePath ?? '');
-    _workspaceScope = TextEditingController(text: agent?.workspaceScope ?? '');
-    _taskLabels = TextEditingController(
-      text: agent?.taskLabels.join(', ') ?? '',
+    _taskLabelInput = TextEditingController();
+    _workerTagInput = TextEditingController();
+    _workspaceScopePaths = _splitStructuredText(agent?.workspaceScope ?? '');
+    _taskLabelValues = List<String>.from(agent?.taskLabels ?? const <String>[]);
+    _workerTagValues = List<String>.from(
+      agent?.scaleSettings.tags ?? const <String>[],
     );
-    _workerTags = TextEditingController(
-      text: agent?.scaleSettings.tags.join(', ') ?? '',
-    );
-    _metadata = TextEditingController(
-      text: agent == null || agent.metadata.isEmpty
-          ? '{}'
-          : const JsonEncoder.withIndent('  ').convert(agent.metadata),
-    );
+    _metadataEntries = _metadataEntriesFromMap(agent?.metadata);
     _kpiName = TextEditingController();
     _kpiTarget = TextEditingController();
     _executionMode = agent?.executionMode ?? AgentExecutionMode.normal;
@@ -2952,19 +2999,25 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       _level,
       _introduction,
       _archive,
-      _routeFrontMatter,
+      _routeName,
+      _routePriority,
+      _routeDescription,
+      _routeKeywordInput,
+      _routeDomainInput,
+      _routeIntentInput,
       _welcomeMessage,
       _persona,
       _boundary,
       _workspacePath,
-      _workspaceScope,
-      _taskLabels,
-      _workerTags,
-      _metadata,
+      _taskLabelInput,
+      _workerTagInput,
       _kpiName,
       _kpiTarget,
     ]) {
       controller.dispose();
+    }
+    for (final entry in [..._routeExtraFields, ..._metadataEntries]) {
+      entry.dispose();
     }
     super.dispose();
   }
@@ -2973,12 +3026,18 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final settings = context.watch<SettingsController>();
-    final skills = context.watch<SkillsController>().skills;
-    final knowledgeSources = context.watch<KnowledgeBaseController>().sources;
-    final memories = context.watch<MemoryController>().entries;
-    final mcpServers = context.watch<McpController>().servers;
-    final crons = context.watch<CronsController>().entries;
-    final hooks = context.watch<HooksController>().entries;
+    final skillsController = context.watch<SkillsController>();
+    final knowledgeBaseController = context.watch<KnowledgeBaseController>();
+    final memoryController = context.watch<MemoryController>();
+    final mcpController = context.watch<McpController>();
+    final cronsController = context.watch<CronsController>();
+    final hooksController = context.watch<HooksController>();
+    final skills = skillsController.skills;
+    final knowledgeSources = knowledgeBaseController.sources;
+    final memories = memoryController.entries;
+    final mcpServers = mcpController.servers;
+    final crons = cronsController.entries;
+    final hooks = hooksController.entries;
     final runtime = context.watch<AgentsController>().runtimeAvailability;
     final builtinTools = _builtinToolOptions(settings.builtinToolConfigs);
     final selectedBuiltinTools = _normalizedBuiltinToolSelection(
@@ -3016,7 +3075,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                   ),
                   const SizedBox(height: 14),
                   TabBar(
-                    isScrollable: true,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 6),
                     tabs: [
                       Tab(text: l10n.agentsTabProfile),
                       Tab(text: l10n.agentsTabCapabilities),
@@ -3051,6 +3110,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                                 .toList(),
                             builtinTools: builtinTools,
                             selectedBuiltinTools: selectedBuiltinTools,
+                            onRefresh: _refreshCapabilities,
+                            refreshing: _refreshingCapabilities,
                           ),
                         ),
                         _tabScroll(
@@ -3089,7 +3150,10 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                   buildOpenHandDialogActionsBar(
                     actions: [
                       OpenHandDialogActionButton.secondary(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        onPressed: () => Navigator.of(
+                          dialogContext,
+                          rootNavigator: true,
+                        ).pop(),
                         label: l10n.commonCancel,
                       ),
                       OpenHandDialogActionButton.primary(
@@ -3122,11 +3186,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   Widget _profileTab(AppLocalizations l10n) {
     return _FormGrid(
       children: [
-        _field(
-          _avatar,
-          l10n.agentsFieldAvatar,
-          hint: l10n.agentsFieldAvatarHint,
-        ),
+        _FormGridItem(child: _avatarPicker(l10n)),
         _field(
           _name,
           l10n.agentsFieldNameRequired,
@@ -3143,13 +3203,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           fullWidth: true,
         ),
         _field(_archive, l10n.agentsFieldArchive, maxLines: 5, fullWidth: true),
-        _field(
-          _routeFrontMatter,
-          l10n.agentsFieldRouteFrontMatter,
-          maxLines: 5,
-          fullWidth: true,
-          onChanged: (_) => setState(() {}),
-        ),
+        _FormGridItem(fullWidth: true, child: _routeEditor(l10n)),
         _FormGridItem(
           fullWidth: true,
           child: _AgentRoutePreviewCard(metadata: _routePreview()),
@@ -3179,6 +3233,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     required List<_Option> mcpServers,
     required List<_Option> builtinTools,
     required Set<String> selectedBuiltinTools,
+    required VoidCallback onRefresh,
+    required bool refreshing,
   }) {
     final agentTools = builtinTools
         .where((option) => _isAgentCoordinationBuiltinToolId(option.id))
@@ -3187,58 +3243,126 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
         .where((option) => !_isAgentCoordinationBuiltinToolId(option.id))
         .toList(growable: false);
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _OptionChips(
-          title: l10n.skills,
-          options: skills,
-          selected: _skillNames,
-          onChanged: (v) => setState(() => _skillNames = v),
-        ),
-        _OptionChips(
-          title: l10n.agentsKnowledgeBase,
-          options: knowledgeSources,
-          selected: _knowledgeSourceIds,
-          onChanged: (v) => setState(() => _knowledgeSourceIds = v),
-        ),
-        _OptionChips(
-          title: l10n.memory,
-          options: memories,
-          selected: _memoryIds,
-          onChanged: (v) => setState(() => _memoryIds = v),
-        ),
-        _OptionChips(
-          title: 'MCP',
-          options: mcpServers,
-          selected: _mcpServerNames,
-          onChanged: (v) => setState(() => _mcpServerNames = v),
-        ),
-        _OptionChips(
-          title: openHandLocalizedText(
-            context,
-            zh: 'Agent 协同工具',
-            en: 'Agent coordination tools',
-          ),
-          options: agentTools,
-          selected: selectedBuiltinTools,
-          onChanged: (v) => setState(
-            () => _builtinToolNames = _mergeOptionGroupSelection(
-              current: selectedBuiltinTools,
-              groupSelection: v,
-              groupOptions: agentTools,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                openHandLocalizedText(
+                  context,
+                  zh: '外置能力',
+                  en: 'External capabilities',
+                ),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
-          ),
-        ),
-        _OptionChips(
-          title: l10n.agentsBuiltInTools,
-          options: regularTools,
-          selected: selectedBuiltinTools,
-          onChanged: (v) => setState(
-            () => _builtinToolNames = _mergeOptionGroupSelection(
-              current: selectedBuiltinTools,
-              groupSelection: v,
-              groupOptions: regularTools,
+            IconButton.filledTonal(
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '刷新能力配置',
+                en: 'Refresh capabilities',
+              ),
+              onPressed: refreshing ? null : onRefresh,
+              icon: refreshing
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh_rounded),
             ),
-          ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final twoColumns = constraints.maxWidth >= 780;
+            final itemWidth = twoColumns
+                ? (constraints.maxWidth - 12) / 2
+                : constraints.maxWidth;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                SizedBox(
+                  width: itemWidth,
+                  child: _CapabilityPanel(
+                    title: l10n.skills,
+                    icon: Icons.school_rounded,
+                    options: skills,
+                    selected: _skillNames,
+                    onChanged: (v) => setState(() => _skillNames = v),
+                  ),
+                ),
+                SizedBox(
+                  width: itemWidth,
+                  child: _CapabilityPanel(
+                    title: l10n.agentsKnowledgeBase,
+                    icon: Icons.library_books_rounded,
+                    options: knowledgeSources,
+                    selected: _knowledgeSourceIds,
+                    onChanged: (v) => setState(() => _knowledgeSourceIds = v),
+                  ),
+                ),
+                SizedBox(
+                  width: itemWidth,
+                  child: _CapabilityPanel(
+                    title: l10n.memory,
+                    icon: Icons.psychology_rounded,
+                    options: memories,
+                    selected: _memoryIds,
+                    onChanged: (v) => setState(() => _memoryIds = v),
+                  ),
+                ),
+                SizedBox(
+                  width: itemWidth,
+                  child: _CapabilityPanel(
+                    title: 'MCP',
+                    icon: Icons.hub_rounded,
+                    options: mcpServers,
+                    selected: _mcpServerNames,
+                    onChanged: (v) => setState(() => _mcpServerNames = v),
+                  ),
+                ),
+                SizedBox(
+                  width: itemWidth,
+                  child: _CapabilityPanel(
+                    title: openHandLocalizedText(
+                      context,
+                      zh: 'Agent 协同工具',
+                      en: 'Agent coordination tools',
+                    ),
+                    icon: Icons.account_tree_rounded,
+                    options: agentTools,
+                    selected: selectedBuiltinTools,
+                    onChanged: (v) => setState(
+                      () => _builtinToolNames = _mergeOptionGroupSelection(
+                        current: selectedBuiltinTools,
+                        groupSelection: v,
+                        groupOptions: agentTools,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: itemWidth,
+                  child: _CapabilityPanel(
+                    title: l10n.agentsBuiltInTools,
+                    icon: Icons.extension_rounded,
+                    options: regularTools,
+                    selected: selectedBuiltinTools,
+                    onChanged: (v) => setState(
+                      () => _builtinToolNames = _mergeOptionGroupSelection(
+                        current: selectedBuiltinTools,
+                        groupSelection: v,
+                        groupOptions: regularTools,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -3298,9 +3422,29 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           title: Text(l10n.agentsSelfLearningTitle),
           subtitle: Text(l10n.agentsSelfLearningBody),
         ),
-        _field(_workspacePath, l10n.agentsFieldWorkspacePath),
         const SizedBox(height: 12),
-        _field(_workspaceScope, l10n.agentsFieldWorkspaceScope, maxLines: 3),
+        _directoryPickerField(
+          label: l10n.agentsFieldWorkspacePath,
+          value: _workspacePath.text,
+          onPick: _pickWorkspacePath,
+          onClear: () => setState(_workspacePath.clear),
+        ),
+        const SizedBox(height: 12),
+        _directoryListPicker(
+          label: l10n.agentsFieldWorkspaceScope,
+          values: _workspaceScopePaths,
+          emptyText: openHandLocalizedText(
+            context,
+            zh: '尚未限定目录范围。留空时仅使用工作目录。',
+            en: 'No scoped directories yet. Leave empty to use only the workspace.',
+          ),
+          onAdd: _pickWorkspaceScopePath,
+          onRemove: (value) =>
+              setState(() => _workspaceScopePaths.remove(value)),
+          onReorder: (oldIndex, newIndex) => setState(
+            () => _reorderStringList(_workspaceScopePaths, oldIndex, newIndex),
+          ),
+        ),
       ],
     );
   }
@@ -3430,17 +3574,42 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           ],
         ),
         const SizedBox(height: 14),
-        _field(
-          _workerTags,
-          openHandLocalizedText(context, zh: 'Worker 标签', en: 'Worker tags'),
-          hint: l10n.agentsCommaSeparatedHint,
+        _editableStringChips(
+          label: openHandLocalizedText(
+            context,
+            zh: 'Worker 标签',
+            en: 'Worker tags',
+          ),
+          inputController: _workerTagInput,
+          values: _workerTagValues,
+          emptyText: openHandLocalizedText(
+            context,
+            zh: '暂无 Worker 标签。',
+            en: 'No worker tags yet.',
+          ),
+          onAdd: _addWorkerTag,
+          onSubmitted: (_) => _addWorkerTag(),
+          onRemove: (value) => setState(() => _workerTagValues.remove(value)),
+          onReorder: (oldIndex, newIndex) => setState(
+            () => _reorderStringList(_workerTagValues, oldIndex, newIndex),
+          ),
         ),
         const SizedBox(height: 14),
-        _field(
-          _taskLabels,
-          l10n.agentsTaskLabelsLabel,
-          hint: l10n.agentsCommaSeparatedHint,
-          onChanged: (_) => setState(() {}),
+        _editableStringChips(
+          label: l10n.agentsTaskLabelsLabel,
+          inputController: _taskLabelInput,
+          values: _taskLabelValues,
+          emptyText: openHandLocalizedText(
+            context,
+            zh: '暂无任务标签。',
+            en: 'No task labels yet.',
+          ),
+          onAdd: _addTaskLabel,
+          onSubmitted: (_) => _addTaskLabel(),
+          onRemove: (value) => setState(() => _taskLabelValues.remove(value)),
+          onReorder: (oldIndex, newIndex) => setState(
+            () => _reorderStringList(_taskLabelValues, oldIndex, newIndex),
+          ),
         ),
         const SizedBox(height: 14),
         Text(l10n.agentsKpi, style: Theme.of(context).textTheme.titleMedium),
@@ -3485,13 +3654,518 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _field(_metadata, l10n.agentsMetadataJsonLabel, maxLines: 14),
+        _keyValueEditor(
+          title: openHandLocalizedText(
+            context,
+            zh: '元数据键值',
+            en: 'Metadata fields',
+          ),
+          entries: _metadataEntries,
+          keyLabel: openHandLocalizedText(context, zh: '键', en: 'Key'),
+          valueLabel: openHandLocalizedText(context, zh: '值', en: 'Value'),
+          emptyText: openHandLocalizedText(
+            context,
+            zh: '暂无元数据。添加键值后会随智能体档案保存。',
+            en: 'No metadata yet. Add key-value pairs to save with this agent.',
+          ),
+          onAdd: _addMetadataEntry,
+          onRemove: _removeMetadataEntry,
+        ),
         const SizedBox(height: 12),
         FeatureStateCard.inline(
           icon: Icons.schema_rounded,
           title: l10n.agentsMetadataInfoTitle,
-          body: l10n.agentsMetadataInfoBody,
+          body: openHandLocalizedText(
+            context,
+            zh: '这里保存扩展字段。值会自动识别数字、布尔值、数组和对象；无法解析时按文本保存。',
+            en: 'Extension fields live here. Values are parsed as numbers, booleans, arrays, or objects when possible; otherwise they are saved as text.',
+          ),
         ),
+      ],
+    );
+  }
+
+  Widget _avatarPicker(AppLocalizations l10n) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final avatar = _avatar.text.trim();
+    final isImage = _agentAvatarLooksLikeImagePath(avatar);
+    final displayText = avatar.isEmpty
+        ? l10n.agentsFieldAvatarHint
+        : isImage
+        ? OpenHandPaths.shortenHomePath(avatar)
+        : avatar;
+    return InputDecorator(
+      decoration: InputDecoration(labelText: l10n.agentsFieldAvatar),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: colors.primaryContainer,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            alignment: Alignment.center,
+            child: _AgentAvatarContent(
+              avatar: avatar,
+              fallback: _name.text.trim().isEmpty
+                  ? (widget.initialAgent?.initials ?? 'A')
+                  : _name.text.trim().characters.first.toUpperCase(),
+              size: 52,
+              textStyle: theme.textTheme.titleLarge?.copyWith(
+                color: colors.onPrimaryContainer,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              displayText,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: avatar.isEmpty
+                    ? colors.onSurfaceVariant
+                    : colors.onSurface,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filledTonal(
+            tooltip: openHandLocalizedText(
+              context,
+              zh: avatar.isEmpty ? '选择图片' : '更换图片',
+              en: avatar.isEmpty ? 'Choose image' : 'Change image',
+            ),
+            onPressed: _pickAvatarImage,
+            icon: const Icon(Icons.image_search_rounded),
+          ),
+          if (avatar.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            IconButton(
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '清除头像',
+                en: 'Clear avatar',
+              ),
+              onPressed: () => setState(_avatar.clear),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _routeEditor(AppLocalizations l10n) {
+    return _AgentEditorPanel(
+      title: l10n.agentsFieldRouteFrontMatter,
+      icon: Icons.route_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _FormGrid(
+            children: [
+              _field(
+                _routeName,
+                openHandLocalizedText(context, zh: '路由名称', en: 'Route name'),
+                onChanged: (_) => setState(() {}),
+              ),
+              _field(
+                _routePriority,
+                openHandLocalizedText(context, zh: '优先级', en: 'Priority'),
+                onChanged: (_) => setState(() {}),
+              ),
+              _field(
+                _routeDescription,
+                openHandLocalizedText(
+                  context,
+                  zh: '路由说明',
+                  en: 'Route description',
+                ),
+                maxLines: 2,
+                fullWidth: true,
+                onChanged: (_) => setState(() {}),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _editableStringChips(
+            label: openHandLocalizedText(
+              context,
+              zh: '关键词 / 触发词',
+              en: 'Keywords / triggers',
+            ),
+            inputController: _routeKeywordInput,
+            values: _routeKeywords,
+            emptyText: openHandLocalizedText(
+              context,
+              zh: '暂无关键词。',
+              en: 'No keywords yet.',
+            ),
+            onAdd: _addRouteKeyword,
+            onSubmitted: (_) => _addRouteKeyword(),
+            onRemove: (value) => setState(() => _routeKeywords.remove(value)),
+            onReorder: (oldIndex, newIndex) => setState(
+              () => _reorderStringList(_routeKeywords, oldIndex, newIndex),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _editableStringChips(
+            label: openHandLocalizedText(context, zh: '领域', en: 'Domains'),
+            inputController: _routeDomainInput,
+            values: _routeDomains,
+            emptyText: openHandLocalizedText(
+              context,
+              zh: '暂无领域。',
+              en: 'No domains yet.',
+            ),
+            onAdd: _addRouteDomain,
+            onSubmitted: (_) => _addRouteDomain(),
+            onRemove: (value) => setState(() => _routeDomains.remove(value)),
+            onReorder: (oldIndex, newIndex) => setState(
+              () => _reorderStringList(_routeDomains, oldIndex, newIndex),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _editableStringChips(
+            label: openHandLocalizedText(context, zh: '意图', en: 'Intents'),
+            inputController: _routeIntentInput,
+            values: _routeIntents,
+            emptyText: openHandLocalizedText(
+              context,
+              zh: '暂无意图。',
+              en: 'No intents yet.',
+            ),
+            onAdd: _addRouteIntent,
+            onSubmitted: (_) => _addRouteIntent(),
+            onRemove: (value) => setState(() => _routeIntents.remove(value)),
+            onReorder: (oldIndex, newIndex) => setState(
+              () => _reorderStringList(_routeIntents, oldIndex, newIndex),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _keyValueEditor(
+            title: openHandLocalizedText(
+              context,
+              zh: '扩展路由字段',
+              en: 'Extra routing fields',
+            ),
+            entries: _routeExtraFields,
+            keyLabel: openHandLocalizedText(context, zh: '字段', en: 'Field'),
+            valueLabel: openHandLocalizedText(context, zh: '值', en: 'Value'),
+            emptyText: openHandLocalizedText(
+              context,
+              zh: '无需扩展字段时可留空。',
+              en: 'Leave empty when no extra routing fields are needed.',
+            ),
+            onAdd: _addRouteExtraEntry,
+            onRemove: _removeRouteExtraEntry,
+            onChanged: () => setState(() {}),
+            framed: false,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _directoryPickerField({
+    required String label,
+    required String value,
+    required VoidCallback onPick,
+    required VoidCallback onClear,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    final hasValue = value.trim().isNotEmpty;
+    return InputDecorator(
+      decoration: InputDecoration(labelText: label),
+      child: Row(
+        children: [
+          Icon(
+            hasValue ? Icons.folder_rounded : Icons.folder_open_rounded,
+            color: hasValue ? colors.primary : colors.onSurfaceVariant,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              hasValue
+                  ? OpenHandPaths.shortenHomePath(value)
+                  : openHandLocalizedText(
+                      context,
+                      zh: '请选择目录',
+                      en: 'Pick a directory',
+                    ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: hasValue ? colors.onSurface : colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filledTonal(
+            tooltip: openHandLocalizedText(
+              context,
+              zh: hasValue ? '更换目录' : '选择目录',
+              en: hasValue ? 'Change directory' : 'Pick directory',
+            ),
+            onPressed: onPick,
+            icon: const Icon(Icons.drive_folder_upload_rounded),
+          ),
+          if (hasValue) ...[
+            const SizedBox(width: 6),
+            IconButton(
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '清除目录',
+                en: 'Clear directory',
+              ),
+              onPressed: onClear,
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _directoryListPicker({
+    required String label,
+    required List<String> values,
+    required String emptyText,
+    required VoidCallback onAdd,
+    required ValueChanged<String> onRemove,
+    required void Function(int oldIndex, int newIndex) onReorder,
+  }) {
+    return InputDecorator(
+      decoration: InputDecoration(labelText: label),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.tonalIcon(
+              onPressed: onAdd,
+              icon: const Icon(Icons.create_new_folder_rounded),
+              label: Text(
+                openHandLocalizedText(
+                  context,
+                  zh: '选择目录',
+                  en: 'Pick directory',
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _reorderableChips(
+            values: values,
+            emptyText: emptyText,
+            onRemove: onRemove,
+            onReorder: onReorder,
+            labelBuilder: OpenHandPaths.shortenHomePath,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _editableStringChips({
+    required String label,
+    required TextEditingController inputController,
+    required List<String> values,
+    required String emptyText,
+    required VoidCallback onAdd,
+    required ValueChanged<String> onSubmitted,
+    required ValueChanged<String> onRemove,
+    required void Function(int oldIndex, int newIndex) onReorder,
+    IconData addIcon = Icons.add_rounded,
+  }) {
+    return InputDecorator(
+      decoration: InputDecoration(labelText: label),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: inputController,
+                  decoration: InputDecoration(
+                    hintText: openHandLocalizedText(
+                      context,
+                      zh: '输入后点击添加',
+                      en: 'Enter text, then add',
+                    ),
+                  ),
+                  onSubmitted: onSubmitted,
+                ),
+              ),
+              const SizedBox(width: 10),
+              IconButton.filledTonal(
+                tooltip: openHandLocalizedText(context, zh: '添加', en: 'Add'),
+                onPressed: onAdd,
+                icon: Icon(addIcon),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _reorderableChips(
+            values: values,
+            emptyText: emptyText,
+            onRemove: onRemove,
+            onReorder: onReorder,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reorderableChips({
+    required List<String> values,
+    required String emptyText,
+    required ValueChanged<String> onRemove,
+    required void Function(int oldIndex, int newIndex) onReorder,
+    String Function(String value)? labelBuilder,
+  }) {
+    if (values.isEmpty) {
+      return Text(
+        emptyText,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      );
+    }
+    return SizedBox(
+      height: 44,
+      child: ReorderableListView.builder(
+        scrollDirection: Axis.horizontal,
+        buildDefaultDragHandles: false,
+        proxyDecorator: (child, index, animation) {
+          return ScaleTransition(
+            scale: Tween<double>(begin: 1, end: 1.04).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+            ),
+            child: Material(color: Colors.transparent, child: child),
+          );
+        },
+        itemCount: values.length,
+        onReorder: onReorder,
+        itemBuilder: (context, index) {
+          final value = values[index];
+          return Padding(
+            key: ValueKey<String>('chip-$value'),
+            padding: const EdgeInsets.only(right: 8),
+            child: InputChip(
+              avatar: ReorderableDragStartListener(
+                index: index,
+                child: const Icon(Icons.drag_indicator_rounded, size: 18),
+              ),
+              label: Text(
+                labelBuilder?.call(value) ?? value,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onDeleted: () => onRemove(value),
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _keyValueEditor({
+    required String title,
+    required List<_KeyValueDraft> entries,
+    required String keyLabel,
+    required String valueLabel,
+    required String emptyText,
+    required VoidCallback onAdd,
+    required ValueChanged<_KeyValueDraft> onRemove,
+    VoidCallback? onChanged,
+    bool framed = true,
+  }) {
+    final theme = Theme.of(context);
+    final addButton = IconButton.filledTonal(
+      tooltip: openHandLocalizedText(context, zh: '添加字段', en: 'Add field'),
+      onPressed: onAdd,
+      icon: const Icon(Icons.add_rounded),
+    );
+    final content = entries.isEmpty
+        ? Text(
+            emptyText,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        : Column(
+            children: [
+              for (final entry in entries)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: TextField(
+                          controller: entry.key,
+                          decoration: InputDecoration(labelText: keyLabel),
+                          onChanged: (_) => onChanged?.call(),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 7,
+                        child: TextField(
+                          controller: entry.value,
+                          decoration: InputDecoration(labelText: valueLabel),
+                          onChanged: (_) => onChanged?.call(),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton(
+                        tooltip: openHandLocalizedText(
+                          context,
+                          zh: '删除字段',
+                          en: 'Remove field',
+                        ),
+                        onPressed: () => onRemove(entry),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          );
+    if (framed) {
+      return _AgentEditorPanel(
+        title: title,
+        icon: Icons.schema_rounded,
+        trailing: addButton,
+        child: content,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            addButton,
+          ],
+        ),
+        const SizedBox(height: 8),
+        content,
       ],
     );
   }
@@ -3526,7 +4200,12 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       initialValue: effectiveValue,
       decoration: InputDecoration(labelText: label),
       items: values
-          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .map(
+            (item) => DropdownMenuItem(
+              value: item,
+              child: Text(_agentPolicyOptionLabel(context, item)),
+            ),
+          )
           .toList(),
       onChanged: (next) {
         if (next != null) onChanged(next);
@@ -3583,6 +4262,184 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     );
   }
 
+  Future<void> _pickAvatarImage() async {
+    try {
+      final file = await openFile(
+        acceptedTypeGroups: const <XTypeGroup>[
+          XTypeGroup(label: 'Images', extensions: _agentImageExtensions),
+        ],
+      );
+      if (file == null || !mounted) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      final edited = await showImageEditorDialog(
+        context,
+        imageBytes: bytes,
+        imageSizeLimitBytes: 512 * 1024,
+      );
+      if (edited == null || !mounted) return;
+      final path = await _persistAvatarImage(
+        sourceName: file.name,
+        bytes: edited.bytes,
+        format: edited.format,
+      );
+      if (!mounted) return;
+      setState(() => _avatar.text = path);
+    } catch (error) {
+      if (!mounted) return;
+      OpenHandSnackBar.showError(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '无法处理所选头像：$error',
+          en: 'Could not process the selected avatar: $error',
+        ),
+      );
+    }
+  }
+
+  Future<String> _persistAvatarImage({
+    required String sourceName,
+    required List<int> bytes,
+    required String format,
+  }) async {
+    final directory = Directory(
+      p.join(OpenHandPaths.defaultRootDirectoryPath(), 'agents', 'avatars'),
+    );
+    await directory.create(recursive: true);
+    final rawBase = p.basenameWithoutExtension(sourceName).trim();
+    final safeBase = rawBase
+        .replaceAll(RegExp(r'[^a-zA-Z0-9._-]+'), '-')
+        .replaceAll(RegExp(r'-+'), '-')
+        .replaceAll(RegExp(r'^-|-$'), '');
+    final baseName = safeBase.isEmpty ? 'agent-avatar' : safeBase;
+    final timestamp = DateTime.now().microsecondsSinceEpoch;
+    final extension = format == 'png' ? 'png' : 'jpg';
+    final file = File(
+      p.join(directory.path, '$baseName-$timestamp.$extension'),
+    );
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
+  }
+
+  Future<void> _pickWorkspacePath() async {
+    final path = await _pickDirectory();
+    if (path == null || !mounted) return;
+    setState(
+      () => _workspacePath.text = OpenHandPaths.normalizeOptionalPath(path),
+    );
+  }
+
+  Future<void> _pickWorkspaceScopePath() async {
+    final path = await _pickDirectory();
+    if (path == null || !mounted) return;
+    final normalized = OpenHandPaths.normalizeOptionalPath(path);
+    if (normalized.isEmpty) return;
+    setState(() {
+      _addUniqueString(_workspaceScopePaths, normalized);
+    });
+  }
+
+  Future<String?> _pickDirectory() {
+    return getDirectoryPath(
+      confirmButtonText: openHandLocalizedText(
+        context,
+        zh: '选择目录',
+        en: 'Pick directory',
+      ),
+    );
+  }
+
+  Future<void> _refreshCapabilities() async {
+    if (_refreshingCapabilities) return;
+    setState(() => _refreshingCapabilities = true);
+    try {
+      await Future.wait(<Future<void>>[
+        context.read<SkillsController>().refresh(),
+        context.read<KnowledgeBaseController>().initialize(),
+        context.read<MemoryController>().refresh(),
+        context.read<McpController>().refresh(),
+        context.read<CronsController>().refresh(),
+        context.read<HooksController>().refresh(),
+      ]);
+      if (!mounted) return;
+      OpenHandSnackBar.showInfo(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '能力配置已刷新。',
+          en: 'Capabilities refreshed.',
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      OpenHandSnackBar.showError(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '刷新能力配置失败：$error',
+          en: 'Failed to refresh capabilities: $error',
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _refreshingCapabilities = false);
+    }
+  }
+
+  void _addRouteKeyword() {
+    _addStringFromController(_routeKeywords, _routeKeywordInput);
+  }
+
+  void _addRouteDomain() {
+    _addStringFromController(_routeDomains, _routeDomainInput);
+  }
+
+  void _addRouteIntent() {
+    _addStringFromController(_routeIntents, _routeIntentInput);
+  }
+
+  void _addTaskLabel() {
+    _addStringFromController(_taskLabelValues, _taskLabelInput);
+  }
+
+  void _addWorkerTag() {
+    _addStringFromController(_workerTagValues, _workerTagInput);
+  }
+
+  void _addStringFromController(
+    List<String> values,
+    TextEditingController controller,
+  ) {
+    final value = controller.text.trim();
+    if (value.isEmpty) return;
+    setState(() {
+      _addUniqueString(values, value);
+      controller.clear();
+    });
+  }
+
+  void _addRouteExtraEntry() {
+    setState(() => _routeExtraFields.add(_KeyValueDraft()));
+  }
+
+  void _removeRouteExtraEntry(_KeyValueDraft entry) {
+    setState(() {
+      _routeExtraFields.remove(entry);
+      entry.dispose();
+    });
+  }
+
+  void _addMetadataEntry() {
+    setState(() => _metadataEntries.add(_KeyValueDraft()));
+  }
+
+  void _removeMetadataEntry(_KeyValueDraft entry) {
+    setState(() {
+      _metadataEntries.remove(entry);
+      entry.dispose();
+    });
+  }
+
   void _addKpi() {
     final name = _kpiName.text.trim();
     if (name.isEmpty) return;
@@ -3604,19 +4461,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     required BuildContext dialogContext,
     required List<AiBuiltinToolConfig> builtinToolConfigs,
   }) {
-    final metadata = _parseMetadataJson();
-    if (metadata == null) {
-      OpenHandSnackBar.showError(
-        dialogContext,
-        openHandLocalizedText(
-          dialogContext,
-          zh: '元数据 JSON 必须是有效对象，请修正后再保存。',
-          en: 'Metadata JSON must be a valid object. Fix it before saving.',
-        ),
-      );
-      return;
-    }
-    Navigator.of(dialogContext).pop(
+    final metadata = _metadataMapFromEntries();
+    Navigator.of(dialogContext, rootNavigator: true).pop(
       _buildAgent(builtinToolConfigs: builtinToolConfigs, metadata: metadata),
     );
   }
@@ -3626,8 +4472,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       AgentProfile(
         id: widget.initialAgent?.id ?? 'route-preview',
         name: _name.text.trim().isEmpty ? 'Route Preview' : _name.text.trim(),
-        routeFrontMatter: _routeFrontMatter.text,
-        taskLabels: _commaSeparatedValues(_taskLabels.text),
+        routeFrontMatter: _buildRouteFrontMatter(),
+        taskLabels: _taskLabelValues,
         skillNames: _skillNames.toList(growable: false),
       ),
     );
@@ -3641,8 +4487,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     final previous = widget.initialAgent;
     final maxWorkers = _maxWorkers.clamp(1, 999);
     final minWorkers = _minWorkers.clamp(0, maxWorkers);
-    final taskLabels = _commaSeparatedValues(_taskLabels.text);
-    final workerTags = _commaSeparatedValues(_workerTags.text);
+    final taskLabels = _dedupeStrings(_taskLabelValues);
+    final workerTags = _dedupeStrings(_workerTagValues);
     final builtinToolNames = _normalizedBuiltinToolSelection(
       builtinToolConfigs,
     ).toList();
@@ -3656,7 +4502,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       level: _level.text.trim(),
       introduction: _introduction.text.trim(),
       archive: _archive.text.trim(),
-      routeFrontMatter: _routeFrontMatter.text.trim(),
+      routeFrontMatter: _buildRouteFrontMatter(),
       welcomeMessage: _welcomeMessage.text.trim(),
       modelProviderConfigId: _modelProviderConfigId,
       modelId: _modelId,
@@ -3669,7 +4515,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       mcpServerNames: _mcpServerNames.toList(),
       builtinToolNames: builtinToolNames,
       workspacePath: _workspacePath.text.trim(),
-      workspaceScope: _workspaceScope.text.trim(),
+      workspaceScope: _workspaceScopePaths.join('\n'),
       cronIds: _cronIds.toList(),
       hookIds: _hookIds.toList(),
       selfLearningEnabled: _selfLearningEnabled,
@@ -3702,12 +4548,137 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     );
   }
 
-  List<String> _commaSeparatedValues(String value) {
+  String _buildRouteFrontMatter() {
+    final data = <String, Object?>{};
+    final route = _routeName.text.trim();
+    if (route.isNotEmpty) data['route'] = route;
+    final priority = _parseStructuredValue(_routePriority.text);
+    if (priority != null && '$priority'.trim().isNotEmpty) {
+      data['priority'] = priority;
+    }
+    final description = _routeDescription.text.trim();
+    if (description.isNotEmpty) data['description'] = description;
+    final keywords = _dedupeStrings(_routeKeywords);
+    final domains = _dedupeStrings(_routeDomains);
+    final intents = _dedupeStrings(_routeIntents);
+    if (keywords.isNotEmpty) data['keywords'] = keywords;
+    if (domains.isNotEmpty) data['domains'] = domains;
+    if (intents.isNotEmpty) data['intents'] = intents;
+    data.addAll(_mapFromEntries(_routeExtraFields));
+    if (data.isEmpty) return '';
+    return '---\n${const JsonEncoder.withIndent('  ').convert(data)}\n---';
+  }
+
+  Map<String, Object?> _metadataMapFromEntries() {
+    return _mapFromEntries(_metadataEntries);
+  }
+
+  Map<String, Object?> _mapFromEntries(List<_KeyValueDraft> entries) {
+    final result = <String, Object?>{};
+    for (final entry in entries) {
+      final key = entry.key.text.trim();
+      if (key.isEmpty) continue;
+      result[key] = _parseStructuredValue(entry.value.text);
+    }
+    return result;
+  }
+
+  Object? _parseStructuredValue(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return '';
+    final decoded = _tryDecodeJsonValue(value);
+    return decoded.$1 ? decoded.$2 : value;
+  }
+
+  (bool, Object?) _tryDecodeJsonValue(String value) {
+    try {
+      return (true, jsonDecode(value));
+    } on FormatException {
+      return (false, null);
+    }
+  }
+
+  List<_KeyValueDraft> _metadataEntriesFromMap(Map<String, Object?>? map) {
+    if (map == null || map.isEmpty) return <_KeyValueDraft>[];
+    return map.entries
+        .map((entry) => _KeyValueDraft(key: entry.key, value: entry.value))
+        .toList(growable: false);
+  }
+
+  List<_KeyValueDraft> _routeExtraEntries(Map<String, Object?> route) {
+    const reserved = <String>{
+      'route',
+      'routes',
+      'priority',
+      'description',
+      'keywords',
+      'keyword',
+      'triggers',
+      'trigger',
+      'domains',
+      'domain',
+      'intents',
+      'intent',
+    };
+    final entries = <_KeyValueDraft>[];
+    for (final entry in route.entries) {
+      if (reserved.contains(entry.key.toLowerCase())) continue;
+      entries.add(_KeyValueDraft(key: entry.key, value: entry.value));
+    }
+    return entries;
+  }
+
+  String _stringFromRouteValue(Object? value, String fallback) {
+    final text = value == null ? '' : '$value'.trim();
+    return text.isEmpty ? fallback : text;
+  }
+
+  List<String> _routeStringsFromValues(Iterable<Object?> values) {
+    return _dedupeStrings(values.expand(_stringsFromStructuredValue));
+  }
+
+  List<String> _stringsFromStructuredValue(Object? raw) {
+    if (raw == null) return const <String>[];
+    if (raw is Iterable) {
+      return raw.expand(_stringsFromStructuredValue).toList(growable: false);
+    }
+    return _splitStructuredText('$raw');
+  }
+
+  List<String> _splitStructuredText(String value) {
     return value
-        .split(',')
+        .split(RegExp(r'[\r\n,，;；]+'))
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)
         .toList(growable: false);
+  }
+
+  List<String> _dedupeStrings(Iterable<String> values) {
+    final seen = <String>{};
+    final result = <String>[];
+    for (final raw in values) {
+      final value = raw.trim();
+      if (value.isEmpty) continue;
+      if (seen.add(value.toLowerCase())) result.add(value);
+    }
+    return result;
+  }
+
+  void _addUniqueString(List<String> values, String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return;
+    final exists = values.any(
+      (item) => item.toLowerCase() == value.toLowerCase(),
+    );
+    if (!exists) values.add(value);
+  }
+
+  void _reorderStringList(List<String> values, int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= values.length) return;
+    final targetIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
+    if (targetIndex < 0 || targetIndex >= values.length) return;
+    final item = values.removeAt(oldIndex);
+    values.insert(targetIndex, item);
   }
 
   List<_Option> _builtinToolOptions(List<AiBuiltinToolConfig> configs) {
@@ -3752,12 +4723,219 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     }
     return normalized;
   }
+}
 
-  Map<String, Object?>? _parseMetadataJson() {
-    final raw = _metadata.text.trim();
-    if (raw.isEmpty) return const <String, Object?>{};
-    return optionalStringKeyedMapFromJsonText(raw);
+class _AgentAvatarContent extends StatelessWidget {
+  const _AgentAvatarContent({
+    required this.avatar,
+    required this.fallback,
+    required this.size,
+    this.textStyle,
+  });
+
+  final String avatar;
+  final String fallback;
+  final double size;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_agentAvatarLooksLikeImagePath(avatar)) {
+      return Image.file(
+        File(avatar),
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _fallbackText(),
+      );
+    }
+    return _fallbackText();
   }
+
+  Widget _fallbackText() {
+    final label = avatar.trim().isEmpty ? fallback : avatar.trim();
+    return Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.clip,
+      style: textStyle,
+    );
+  }
+}
+
+class _AgentEditorPanel extends StatelessWidget {
+  const _AgentEditorPanel({
+    required this.title,
+    required this.icon,
+    required this.child,
+    this.trailing,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return AnimatedContainer(
+      duration: kThemeAnimationDuration,
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.34),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: colors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _CapabilityPanel extends StatelessWidget {
+  const _CapabilityPanel({
+    required this.title,
+    required this.icon,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<_Option> options;
+  final Set<String> selected;
+  final ValueChanged<Set<String>> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return _AgentEditorPanel(
+      title: title,
+      icon: icon,
+      child: options.isEmpty
+          ? Text(
+              l10n.agentsNoOptionsAvailable,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            )
+          : ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 152),
+              child: SingleChildScrollView(
+                physics: openHandDialogAwareScrollPhysics(context),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final option in options)
+                      FilterChip(
+                        label: Text(
+                          option.label,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        selected: selected.contains(option.id),
+                        onSelected: (value) {
+                          final next = {...selected};
+                          value ? next.add(option.id) : next.remove(option.id);
+                          onChanged(next);
+                        },
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+class _KeyValueDraft {
+  _KeyValueDraft({String key = '', Object? value})
+    : key = TextEditingController(text: key),
+      value = TextEditingController(text: _valueText(value));
+
+  final TextEditingController key;
+  final TextEditingController value;
+
+  void dispose() {
+    key.dispose();
+    value.dispose();
+  }
+
+  static String _valueText(Object? value) {
+    if (value == null) return 'null';
+    if (value is String) return value;
+    try {
+      return jsonEncode(value);
+    } catch (_) {
+      return '$value';
+    }
+  }
+}
+
+bool _agentAvatarLooksLikeImagePath(String value) {
+  final extension = p
+      .extension(value.trim())
+      .toLowerCase()
+      .replaceFirst('.', '');
+  return extension.isNotEmpty && _agentImageExtensions.contains(extension);
+}
+
+String _agentPolicyOptionLabel(BuildContext context, String value) {
+  return switch (value) {
+    'least_busy' => openHandLocalizedText(
+      context,
+      zh: '空闲优先',
+      en: 'Least busy',
+    ),
+    'priority_first' => openHandLocalizedText(
+      context,
+      zh: '优先级优先',
+      en: 'Priority first',
+    ),
+    'round_robin' => openHandLocalizedText(
+      context,
+      zh: '轮询分配',
+      en: 'Round robin',
+    ),
+    'newest_first' => openHandLocalizedText(
+      context,
+      zh: '最新优先',
+      en: 'Newest first',
+    ),
+    'bounded_retry' => openHandLocalizedText(
+      context,
+      zh: '有限重试',
+      en: 'Bounded retry',
+    ),
+    'none' => openHandLocalizedText(context, zh: '不重试', en: 'No retry'),
+    _ => value,
+  };
 }
 
 class _AgentRoutePreviewCard extends StatelessWidget {
@@ -3804,19 +4982,19 @@ class _AgentRoutePreviewCard extends StatelessWidget {
         : hasRawRoute
         ? openHandLocalizedText(
             context,
-            zh: '未识别到有效字段，请使用 YAML / JSON 的键值结构描述路由。',
-            en: 'No valid fields were detected. Use YAML / JSON key-value routing metadata.',
+            zh: '未识别到有效字段，请完善上方结构化路由信息。',
+            en: 'No valid fields were detected. Complete the structured routing fields above.',
           )
         : hasKeywordSignals
         ? openHandLocalizedText(
             context,
-            zh: '技能与任务标签会参与基础分流；补充 front matter 可提升命中精度。',
-            en: 'Skills and task labels can guide routing. Add front matter for better precision.',
+            zh: '技能与任务标签会参与基础分流；补充结构化路由可提升命中精度。',
+            en: 'Skills and task labels can guide routing. Add structured routing fields for better precision.',
           )
         : openHandLocalizedText(
             context,
-            zh: '填写 YAML / JSON front matter 后，智能体会据此参与任务分流。',
-            en: 'Add YAML / JSON front matter so this agent can join task routing.',
+            zh: '填写结构化路由信息后，智能体会据此参与任务分流。',
+            en: 'Add structured routing fields so this agent can join task routing.',
           );
     return AnimatedContainer(
       duration: kThemeAnimationDuration,
