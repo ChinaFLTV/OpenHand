@@ -205,6 +205,9 @@ class AiPromptBuilder {
       runtimeContext: runtimeContext,
     );
     final latestCompressionPoint = session.latestCompressionPoint;
+    final promptMemoryEntries = runtimeContext.memoryEnabled
+        ? _memoryEntriesForPrompt(memoryEntries)
+        : const <UserMemoryEntry>[];
     final visibleSessionMessages = sessionMessages
         .where(
           (item) =>
@@ -285,7 +288,7 @@ class AiPromptBuilder {
       session: session,
       historyMessages: historyMessages,
       runtimeContext: runtimeContext,
-      memoryEntries: memoryEntries,
+      memoryEntries: promptMemoryEntries,
       repositorySnapshot: repositorySnapshot,
       availableToolNames: availableToolNames,
       resolvedToolsByName: resolvedToolsByName,
@@ -527,8 +530,8 @@ class AiPromptBuilder {
       _systemSectionTurn(
         AiPromptSectionHeaders.userMemory,
         'Long-term user facts and preferences.\n\n'
-        '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: true)}'
-        '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
+        '${_renderUserProfileSection(promptMemoryEntries, runtimeContext.memoryEnabled, compact: true)}'
+        '${_renderUserMemory(promptMemoryEntries, runtimeContext.memoryEnabled)}',
       ),
       // 2026-04-25 — 【指令】模块注入。
       // 2026-05-23 v6 — 为了不让「本轮临时跳过某条指令」的勾选击穿
@@ -3657,12 +3660,54 @@ $tail''';
     }
     return filtered
         .map((entry) {
-          final tags = entry.tags.isEmpty
+          final promptTags = _memoryTagsForPrompt(entry);
+          final tags = promptTags.isEmpty
               ? ''
-              : ' (tags: ${entry.tags.join(', ')})';
-          return '- ${entry.content}$tags';
+              : ' (tags: ${promptTags.join(', ')})';
+          return '- ${entry.content.trim()}$tags';
         })
         .join('\n');
+  }
+
+  List<UserMemoryEntry> _memoryEntriesForPrompt(
+    List<UserMemoryEntry> memoryEntries,
+  ) {
+    final entries = memoryEntries
+        .where((entry) => entry.content.trim().isNotEmpty)
+        .toList(growable: false);
+    entries.sort(_compareMemoryEntriesForPrompt);
+    return entries;
+  }
+
+  int _compareMemoryEntriesForPrompt(UserMemoryEntry a, UserMemoryEntry b) {
+    final typeRankCompare = _memoryTypeRank(
+      a.type,
+    ).compareTo(_memoryTypeRank(b.type));
+    if (typeRankCompare != 0) return typeRankCompare;
+    final createdAtCompare = b.createdAt
+        .toUtc()
+        .microsecondsSinceEpoch
+        .compareTo(a.createdAt.toUtc().microsecondsSinceEpoch);
+    if (createdAtCompare != 0) return createdAtCompare;
+    final idCompare = _comparePromptText(a.id, b.id);
+    if (idCompare != 0) return idCompare;
+    return _comparePromptText(a.content, b.content);
+  }
+
+  int _memoryTypeRank(String type) {
+    return type == UserMemoryEntry.userProfileType ? 0 : 1;
+  }
+
+  List<String> _memoryTagsForPrompt(UserMemoryEntry entry) {
+    final tags = UserMemoryEntry.normalizeTags(entry.tags);
+    tags.sort(_comparePromptText);
+    return tags;
+  }
+
+  int _comparePromptText(String a, String b) {
+    final lowerCompare = a.toLowerCase().compareTo(b.toLowerCase());
+    if (lowerCompare != 0) return lowerCompare;
+    return a.compareTo(b);
   }
 
   /// 渲染用户画像独立子段。当 user_profile 为空 / memory 被关闭时返回空字符串

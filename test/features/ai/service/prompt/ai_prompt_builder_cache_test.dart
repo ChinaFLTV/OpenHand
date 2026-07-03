@@ -10,6 +10,7 @@ import 'package:openhand/features/ai/service/prompt/ai_prompt_sections.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_assembly.dart';
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_repository.dart';
 import 'package:openhand/features/mcp/index.dart';
+import 'package:openhand/features/memory/index.dart';
 
 void main() {
   test('tool catalog order is stable when normalized names collide', () {
@@ -228,12 +229,104 @@ void main() {
       lessThan(firstDynamic.indexOf('"zeta"')),
     );
   });
+
+  test('user memory rendering is stable across entry and tag order', () {
+    final newerMemoryCreatedAt = DateTime.utc(2026, 1, 3);
+    final olderMemoryCreatedAt = DateTime.utc(2026, 1, 2);
+    final newerProfileCreatedAt = DateTime.utc(2026, 1, 4);
+    final olderProfileCreatedAt = DateTime.utc(2026);
+    final firstEntries = <UserMemoryEntry>[
+      _memory(
+        id: 'mem-new',
+        createdAt: newerMemoryCreatedAt,
+        content: 'Prefers concise output.',
+        tags: const <String>['Work', 'ai'],
+      ),
+      _memory(
+        id: 'profile-old',
+        type: UserMemoryEntry.userProfileType,
+        createdAt: olderProfileCreatedAt,
+        content: 'Older profile.',
+      ),
+      _memory(
+        id: 'profile-new',
+        type: UserMemoryEntry.userProfileType,
+        createdAt: newerProfileCreatedAt,
+        content: 'Prefers precise engineering answers.',
+      ),
+      _memory(
+        id: 'mem-old',
+        createdAt: olderMemoryCreatedAt,
+        content: 'Uses Flutter.',
+        tags: const <String>['mobile', 'Work'],
+      ),
+    ];
+    final secondEntries = <UserMemoryEntry>[
+      _memory(
+        id: 'mem-old',
+        createdAt: olderMemoryCreatedAt,
+        content: 'Uses Flutter.',
+        tags: const <String>['Work', 'mobile'],
+      ),
+      _memory(
+        id: 'profile-new',
+        type: UserMemoryEntry.userProfileType,
+        createdAt: newerProfileCreatedAt,
+        content: 'Prefers precise engineering answers.',
+      ),
+      _memory(
+        id: 'mem-new',
+        createdAt: newerMemoryCreatedAt,
+        content: 'Prefers concise output.',
+        tags: const <String>['ai', 'Work'],
+      ),
+      _memory(
+        id: 'profile-old',
+        type: UserMemoryEntry.userProfileType,
+        createdAt: olderProfileCreatedAt,
+        content: 'Older profile.',
+      ),
+    ];
+
+    final first = _buildPrompt(
+      const <AiToolDefinition>[],
+      memoryEnabled: true,
+      memoryEntries: firstEntries,
+    );
+    final second = _buildPrompt(
+      const <AiToolDefinition>[],
+      memoryEnabled: true,
+      memoryEntries: secondEntries,
+    );
+    final firstMemory = _sectionText(first, AiPromptSectionHeaders.userMemory);
+    final secondMemory = _sectionText(
+      second,
+      AiPromptSectionHeaders.userMemory,
+    );
+
+    expect(firstMemory, secondMemory);
+    expect(
+      first.metadata['stable_prefix_hash'],
+      second.metadata['stable_prefix_hash'],
+    );
+    expect(
+      firstMemory,
+      contains('## User Profile\nPrefers precise engineering answers.\n\n'),
+    );
+    expect(firstMemory, contains('- Prefers concise output. (tags: ai, Work)'));
+    expect(
+      firstMemory.indexOf('- Prefers concise output.'),
+      lessThan(firstMemory.indexOf('- Uses Flutter.')),
+    );
+  });
 }
 
 AiPromptBuildResult _buildPrompt(
   List<AiToolDefinition> tools, {
   AiSession? session,
   AiSessionRuntimeContext? runtimeContext,
+  bool memoryEnabled = false,
+  List<UserMemoryEntry> memoryEntries = const <UserMemoryEntry>[],
   Map<String, String> mcpServerInstructionsByName = const <String, String>{},
   String templateId = AiPromptTemplatePolicies.defaultTemplateId,
 }) {
@@ -249,13 +342,34 @@ AiPromptBuildResult _buildPrompt(
     templateBundle: _templateBundle(templateId: templateId),
     session: effectiveSession,
     model: _model(),
-    runtimeContext: runtimeContext ?? _runtimeContext(),
-    memoryEntries: const [],
+    runtimeContext:
+        runtimeContext ??
+        _runtimeContext(
+          memoryEnabled: memoryEnabled,
+          memoryEntries: memoryEntries,
+        ),
+    memoryEntries: memoryEntries,
     sessionMessages: effectiveSession.messages,
     latestUserMessageId: 'user-1',
     availableTools: tools,
     displayCatalogOverride: tools,
     mcpServerInstructionsByName: mcpServerInstructionsByName,
+  );
+}
+
+UserMemoryEntry _memory({
+  required String id,
+  String type = UserMemoryEntry.userType,
+  required DateTime createdAt,
+  required String content,
+  List<String> tags = const <String>[],
+}) {
+  return UserMemoryEntry(
+    id: id,
+    type: type,
+    createdAt: createdAt,
+    content: content,
+    tags: tags,
   );
 }
 
@@ -391,6 +505,8 @@ String _templatePromptAssetDirectory(String templateId) {
 
 AiSessionRuntimeContext _runtimeContext({
   List<McpServer> availableMcpServers = const <McpServer>[],
+  bool memoryEnabled = false,
+  List<UserMemoryEntry> memoryEntries = const <UserMemoryEntry>[],
 }) {
   return AiSessionRuntimeContext(
     localeTag: 'zh-Hans',
@@ -401,8 +517,8 @@ AiSessionRuntimeContext _runtimeContext({
     mcpServersFilePath: '/tmp/mcp.json',
     userMemoryFilePath: '/tmp/memory.json',
     compressionThresholdChars: 100000,
-    memoryEnabled: false,
-    memoryEntries: [],
+    memoryEnabled: memoryEnabled,
+    memoryEntries: memoryEntries,
     platformName: 'test',
     workingDirectory: '/tmp/openhand-test',
     timeZoneName: 'UTC',
