@@ -9102,6 +9102,433 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get knowledgeVectorResample => '重新采样';
+
+  @override
+  String get qdrantStatusRefreshIncomplete => 'Qdrant 状态刷新返回的数据不完整。';
+
+  @override
+  String get qdrantStatusRawVectorEmpty => '请先输入 raw vector。';
+
+  @override
+  String qdrantStatusRawVectorInvalid(Object value) {
+    return '原始向量包含无效数值：$value';
+  }
+
+  @override
+  String qdrantStatusRawVectorDimensionMismatch(int actual, int expected) {
+    return '原始向量维度为 $actual，当前配置要求 $expected。';
+  }
+
+  @override
+  String get qdrantStatusPointIdsEmpty => '请先输入 point/chunk id。';
+
+  @override
+  String get qdrantStatusPayloadIndexesSubmitted => '常用 Payload 索引已提交创建/重建。';
+
+  @override
+  String get qdrantStatusDangerousOpsDisabled => '请先在知识库配置中启用危险管理操作。';
+
+  @override
+  String get qdrantStatusDeletePointIdsEmpty => '请先输入要删除的向量点 ID。';
+
+  @override
+  String get qdrantStatusDeletePointsTitle => '删除 Qdrant 向量点？';
+
+  @override
+  String qdrantStatusDeletePointsMessage(int count) {
+    return '将从当前集合删除 $count 个向量点。此操作不可撤销。';
+  }
+
+  @override
+  String get qdrantStatusDeletePointsConfirm => '删除向量点';
+
+  @override
+  String get qdrantStatusPointsDeleted => '向量点已删除。';
+
+  @override
+  String get qdrantStatusDeleteCollectionTitle => '删除 Qdrant 集合？';
+
+  @override
+  String qdrantStatusDeleteCollectionMessage(Object collection) {
+    return '将删除集合“$collection”及其中所有向量点。此操作不可撤销。';
+  }
+
+  @override
+  String get qdrantStatusDeleteCollectionConfirm => '删除集合';
+
+  @override
+  String get qdrantStatusCollectionDeleted => '集合已删除。';
+
+  @override
+  String get qdrantStatusDiagnosticsCopied => '诊断信息已复制。';
+
+  @override
+  String get qdrantStatusTitle => 'Qdrant 运维';
+
+  @override
+  String get qdrantStatusTabOverview => '总览监控';
+
+  @override
+  String get qdrantStatusTabCollections => '集合管理';
+
+  @override
+  String get qdrantStatusTabPoints => '向量点查询';
+
+  @override
+  String get qdrantStatusTabDiagnostics => '诊断日志';
+
+  @override
+  String get qdrantStatusRefresh => '刷新';
+
+  @override
+  String get qdrantStatusCopyDiagnostics => '复制诊断';
+
+  @override
+  String get qdrantStatusHeaderTitle => '本地向量数据库实时状态';
+
+  @override
+  String get qdrantStatusMetricCollections => '集合';
+
+  @override
+  String get qdrantStatusMetricPoints => '向量点';
+
+  @override
+  String get qdrantStatusMetricIndexedVectors => '已索引向量';
+
+  @override
+  String get qdrantStatusMetricChunks => '分块';
+
+  @override
+  String get qdrantStatusMetricPendingJobs => '待处理任务';
+
+  @override
+  String get qdrantStatusMetricWalCapacity => 'WAL 容量';
+
+  @override
+  String get qdrantStatusSmoothTrend => '平滑趋势';
+
+  @override
+  String get qdrantStatusNoCollections => '没有集合，或当前 Qdrant 服务不可用。';
+
+  @override
+  String get qdrantStatusPointsSectionTitle => '向量点查询 / 搜索 / 滚动读取';
+
+  @override
+  String get qdrantStatusPointIdsLabel => '向量点/分块 ID（空格或逗号分隔）';
+
+  @override
+  String get qdrantStatusSourceFilterLabel => '来源 ID 过滤';
+
+  @override
+  String get qdrantStatusTagFilterLabel => '标签过滤';
+
+  @override
+  String get qdrantStatusLimitLabel => '数量上限';
+
+  @override
+  String get qdrantStatusRawVectorLabel => '原始向量（逗号或空格分隔，维度必须匹配当前配置）';
+
+  @override
+  String get qdrantStatusQueryIds => '按 ID 查询';
+
+  @override
+  String get qdrantStatusScrollFilter => '滚动读取 / 过滤';
+
+  @override
+  String get qdrantStatusRawVectorSearch => '原始向量搜索';
+
+  @override
+  String get qdrantStatusRebuildPayloadIndexes => '重建 Payload 索引';
+
+  @override
+  String get qdrantStatusDeletePoints => '删除 Points';
+
+  @override
+  String get qdrantStatusOperationResult => '操作结果';
+
+  @override
+  String get qdrantStatusRawDiagnosticsJson => '原始诊断 JSON';
+
+  @override
+  String get qdrantStatusNoDiagnostics => '暂无诊断数据。';
+
+  @override
+  String get qdrantStatusLatestOperationResult => '最近操作结果';
+
+  @override
+  String get qdrantStatusOperationLog => '操作日志';
+
+  @override
+  String get qdrantStatusNoOperations => '暂无操作。';
+
+  @override
+  String get qdrantStatusCollectingSamples => '等待更多采样后展示趋势。';
+
+  @override
+  String get qdrantStatusTrendPoints => '向量点';
+
+  @override
+  String get qdrantStatusTrendChunks => '分块';
+
+  @override
+  String get qdrantStatusTrendPendingFailed => '待处理/失败';
+
+  @override
+  String qdrantStatusTrendSampleCount(int count) {
+    return '$count 点';
+  }
+
+  @override
+  String get qdrantStatusViewConfig => '查看配置';
+
+  @override
+  String get qdrantSectionOverview => '总览';
+
+  @override
+  String get qdrantSectionDockerContainer => 'Docker / 容器指标';
+
+  @override
+  String get qdrantSectionApiMetrics => 'Qdrant API 指标';
+
+  @override
+  String get qdrantSectionCollectionConfig => '集合配置';
+
+  @override
+  String get qdrantSectionStorageOptimizer => '存储 / 优化器';
+
+  @override
+  String get qdrantSectionTelemetry => '遥测数据';
+
+  @override
+  String get qdrantSectionOpenHandKnowledge => 'OpenHand 知识库指标';
+
+  @override
+  String get qdrantMetricServiceStatus => '服务状态';
+
+  @override
+  String get qdrantMetricRestEndpoint => 'REST endpoint';
+
+  @override
+  String get qdrantMetricGrpcEndpoint => 'gRPC endpoint';
+
+  @override
+  String get qdrantMetricQdrantVersion => 'Qdrant 版本';
+
+  @override
+  String get qdrantMetricCurrentCollection => '当前集合';
+
+  @override
+  String get qdrantMetricCollectionStatus => '集合状态';
+
+  @override
+  String get qdrantMetricOptimizerStatus => '优化器状态';
+
+  @override
+  String get qdrantMetricLastHealthCheck => '最近健康检查时间';
+
+  @override
+  String get qdrantMetricDockerDaemon => 'Docker 守护进程';
+
+  @override
+  String get qdrantMetricContainerCpu => '容器 CPU';
+
+  @override
+  String get qdrantMetricContainerMemory => '容器内存';
+
+  @override
+  String get qdrantMetricNetworkIo => '网络收发';
+
+  @override
+  String get qdrantMetricBlockIo => '块设备 I/O';
+
+  @override
+  String get qdrantMetricRestartCount => '重启次数';
+
+  @override
+  String get qdrantMetricLatestLogSummary => '最近日志摘要';
+
+  @override
+  String get qdrantMetricCollectionsTotal => '集合总数';
+
+  @override
+  String get qdrantMetricPointsTotal => '向量点总数';
+
+  @override
+  String get qdrantMetricVectorsTotal => '向量总数';
+
+  @override
+  String get qdrantMetricIndexedVectorsTotal => '已索引向量总数';
+
+  @override
+  String get qdrantMetricSegmentsTotal => '分段数';
+
+  @override
+  String get qdrantMetricPayloadSchemaFields => 'Payload schema 字段数';
+
+  @override
+  String get qdrantMetricPayloadSchemaNames => 'Payload schema 字段';
+
+  @override
+  String get qdrantMetricVectorSize => '向量维度';
+
+  @override
+  String get qdrantMetricDistance => '距离度量';
+
+  @override
+  String get qdrantMetricSingleNodeMode => '单机模式';
+
+  @override
+  String get qdrantMetricPayloadIndexStatus => 'Payload 索引状态';
+
+  @override
+  String get qdrantMetricClusterStatus => '集群状态';
+
+  @override
+  String get qdrantMetricHnswM => 'HNSW M';
+
+  @override
+  String get qdrantMetricHnswEfConstruct => 'HNSW ef_construct';
+
+  @override
+  String get qdrantMetricHnswFullScanThreshold => 'HNSW 全扫描阈值';
+
+  @override
+  String get qdrantMetricHnswMaxIndexingThreads => 'HNSW 最大索引线程';
+
+  @override
+  String get qdrantMetricOnDiskPayload => 'Payload 磁盘存储';
+
+  @override
+  String get qdrantMetricShardNumber => '分片数';
+
+  @override
+  String get qdrantMetricReplicationFactor => '副本因子';
+
+  @override
+  String get qdrantMetricWriteConsistencyFactor => '写一致性因子';
+
+  @override
+  String get qdrantMetricReadFanOutFactor => '读取扇出因子';
+
+  @override
+  String get qdrantMetricOptimizerDeletedThreshold => '优化器删除阈值';
+
+  @override
+  String get qdrantMetricOptimizerVacuumMinVectorNumber => 'Vacuum 最小向量数';
+
+  @override
+  String get qdrantMetricOptimizerDefaultSegmentNumber => '默认分段数';
+
+  @override
+  String get qdrantMetricOptimizerMaxSegmentSize => '最大分段大小';
+
+  @override
+  String get qdrantMetricOptimizerIndexingThreshold => '索引阈值';
+
+  @override
+  String get qdrantMetricOptimizerFlushIntervalSeconds => '刷盘间隔秒数';
+
+  @override
+  String get qdrantMetricWalCapacityMb => 'WAL 容量 MB';
+
+  @override
+  String get qdrantMetricWalSegmentsAhead => 'WAL 预留段';
+
+  @override
+  String get qdrantMetricQuantization => '量化配置';
+
+  @override
+  String get qdrantMetricStrictMode => '严格模式';
+
+  @override
+  String get qdrantMetricTelemetryStatus => '遥测状态';
+
+  @override
+  String get qdrantMetricAppVersion => '应用版本';
+
+  @override
+  String get qdrantMetricAppName => '应用名称';
+
+  @override
+  String get qdrantMetricTelemetryCollections => '集合遥测';
+
+  @override
+  String get qdrantMetricTelemetryRequests => '请求遥测';
+
+  @override
+  String get qdrantMetricSourceCount => '来源数';
+
+  @override
+  String get qdrantMetricChunkCount => '分块数';
+
+  @override
+  String get qdrantMetricPendingEmbeddingJobs => '待处理嵌入任务';
+
+  @override
+  String get qdrantMetricFailedEmbeddingJobs => '失败嵌入任务';
+
+  @override
+  String get qdrantMetricEmbeddingModel => '当前嵌入模型';
+
+  @override
+  String get qdrantMetricEmbeddingDimensions => '当前向量维度';
+
+  @override
+  String get qdrantMetricRetrievalTopN => '召回 TopN';
+
+  @override
+  String get qdrantMetricRetrievalTopK => '最终 TopK';
+
+  @override
+  String get qdrantMetricMinSimilarity => '最低相似度';
+
+  @override
+  String get qdrantMetricPromptChunkBudget => 'Prompt 分块预算';
+
+  @override
+  String get qdrantMetricPromptTokenBudget => 'Prompt token 预算';
+
+  @override
+  String get qdrantValueYes => '是';
+
+  @override
+  String get qdrantValueNo => '否';
+
+  @override
+  String get qdrantValueHealthy => '健康';
+
+  @override
+  String get qdrantValueUnknown => '未知';
+
+  @override
+  String get qdrantValueLoading => '加载中';
+
+  @override
+  String get qdrantValueAvailable => '可用';
+
+  @override
+  String get qdrantValueUnavailable => '不可用';
+
+  @override
+  String get qdrantValuePluginServiceScan => '由插件服务扫描';
+
+  @override
+  String get qdrantValuePluginRuntimeMetric => '由插件运行时提供';
+
+  @override
+  String get qdrantValuePluginDetailsLogs => '可在插件详情查看';
+
+  @override
+  String get qdrantValueLocalSingleNodeOrUnavailable => '本地单机 / 不可用';
+
+  @override
+  String get qdrantValueClusterInfoAvailable => '已返回集群信息';
+
+  @override
+  String get qdrantValuePayloadSchemaConfigured => '已配置 payload schema';
+
+  @override
+  String get qdrantValuePayloadSchemaMissing => '未发现 payload schema';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -18202,6 +18629,433 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get knowledgeVectorResample => '重新采样';
+
+  @override
+  String get qdrantStatusRefreshIncomplete => 'Qdrant 状态刷新返回的数据不完整。';
+
+  @override
+  String get qdrantStatusRawVectorEmpty => '请先输入 raw vector。';
+
+  @override
+  String qdrantStatusRawVectorInvalid(Object value) {
+    return '原始向量包含无效数值：$value';
+  }
+
+  @override
+  String qdrantStatusRawVectorDimensionMismatch(int actual, int expected) {
+    return '原始向量维度为 $actual，当前配置要求 $expected。';
+  }
+
+  @override
+  String get qdrantStatusPointIdsEmpty => '请先输入 point/chunk id。';
+
+  @override
+  String get qdrantStatusPayloadIndexesSubmitted => '常用 Payload 索引已提交创建/重建。';
+
+  @override
+  String get qdrantStatusDangerousOpsDisabled => '请先在知识库配置中启用危险管理操作。';
+
+  @override
+  String get qdrantStatusDeletePointIdsEmpty => '请先输入要删除的向量点 ID。';
+
+  @override
+  String get qdrantStatusDeletePointsTitle => '删除 Qdrant 向量点？';
+
+  @override
+  String qdrantStatusDeletePointsMessage(int count) {
+    return '将从当前集合删除 $count 个向量点。此操作不可撤销。';
+  }
+
+  @override
+  String get qdrantStatusDeletePointsConfirm => '删除向量点';
+
+  @override
+  String get qdrantStatusPointsDeleted => '向量点已删除。';
+
+  @override
+  String get qdrantStatusDeleteCollectionTitle => '删除 Qdrant 集合？';
+
+  @override
+  String qdrantStatusDeleteCollectionMessage(Object collection) {
+    return '将删除集合“$collection”及其中所有向量点。此操作不可撤销。';
+  }
+
+  @override
+  String get qdrantStatusDeleteCollectionConfirm => '删除集合';
+
+  @override
+  String get qdrantStatusCollectionDeleted => '集合已删除。';
+
+  @override
+  String get qdrantStatusDiagnosticsCopied => '诊断信息已复制。';
+
+  @override
+  String get qdrantStatusTitle => 'Qdrant 运维';
+
+  @override
+  String get qdrantStatusTabOverview => '总览监控';
+
+  @override
+  String get qdrantStatusTabCollections => '集合管理';
+
+  @override
+  String get qdrantStatusTabPoints => '向量点查询';
+
+  @override
+  String get qdrantStatusTabDiagnostics => '诊断日志';
+
+  @override
+  String get qdrantStatusRefresh => '刷新';
+
+  @override
+  String get qdrantStatusCopyDiagnostics => '复制诊断';
+
+  @override
+  String get qdrantStatusHeaderTitle => '本地向量数据库实时状态';
+
+  @override
+  String get qdrantStatusMetricCollections => '集合';
+
+  @override
+  String get qdrantStatusMetricPoints => '向量点';
+
+  @override
+  String get qdrantStatusMetricIndexedVectors => '已索引向量';
+
+  @override
+  String get qdrantStatusMetricChunks => '分块';
+
+  @override
+  String get qdrantStatusMetricPendingJobs => '待处理任务';
+
+  @override
+  String get qdrantStatusMetricWalCapacity => 'WAL 容量';
+
+  @override
+  String get qdrantStatusSmoothTrend => '平滑趋势';
+
+  @override
+  String get qdrantStatusNoCollections => '没有集合，或当前 Qdrant 服务不可用。';
+
+  @override
+  String get qdrantStatusPointsSectionTitle => '向量点查询 / 搜索 / 滚动读取';
+
+  @override
+  String get qdrantStatusPointIdsLabel => '向量点/分块 ID（空格或逗号分隔）';
+
+  @override
+  String get qdrantStatusSourceFilterLabel => '来源 ID 过滤';
+
+  @override
+  String get qdrantStatusTagFilterLabel => '标签过滤';
+
+  @override
+  String get qdrantStatusLimitLabel => '数量上限';
+
+  @override
+  String get qdrantStatusRawVectorLabel => '原始向量（逗号或空格分隔，维度必须匹配当前配置）';
+
+  @override
+  String get qdrantStatusQueryIds => '按 ID 查询';
+
+  @override
+  String get qdrantStatusScrollFilter => '滚动读取 / 过滤';
+
+  @override
+  String get qdrantStatusRawVectorSearch => '原始向量搜索';
+
+  @override
+  String get qdrantStatusRebuildPayloadIndexes => '重建 Payload 索引';
+
+  @override
+  String get qdrantStatusDeletePoints => '删除 Points';
+
+  @override
+  String get qdrantStatusOperationResult => '操作结果';
+
+  @override
+  String get qdrantStatusRawDiagnosticsJson => '原始诊断 JSON';
+
+  @override
+  String get qdrantStatusNoDiagnostics => '暂无诊断数据。';
+
+  @override
+  String get qdrantStatusLatestOperationResult => '最近操作结果';
+
+  @override
+  String get qdrantStatusOperationLog => '操作日志';
+
+  @override
+  String get qdrantStatusNoOperations => '暂无操作。';
+
+  @override
+  String get qdrantStatusCollectingSamples => '等待更多采样后展示趋势。';
+
+  @override
+  String get qdrantStatusTrendPoints => '向量点';
+
+  @override
+  String get qdrantStatusTrendChunks => '分块';
+
+  @override
+  String get qdrantStatusTrendPendingFailed => '待处理/失败';
+
+  @override
+  String qdrantStatusTrendSampleCount(int count) {
+    return '$count 点';
+  }
+
+  @override
+  String get qdrantStatusViewConfig => '查看配置';
+
+  @override
+  String get qdrantSectionOverview => '总览';
+
+  @override
+  String get qdrantSectionDockerContainer => 'Docker / 容器指标';
+
+  @override
+  String get qdrantSectionApiMetrics => 'Qdrant API 指标';
+
+  @override
+  String get qdrantSectionCollectionConfig => '集合配置';
+
+  @override
+  String get qdrantSectionStorageOptimizer => '存储 / 优化器';
+
+  @override
+  String get qdrantSectionTelemetry => '遥测数据';
+
+  @override
+  String get qdrantSectionOpenHandKnowledge => 'OpenHand 知识库指标';
+
+  @override
+  String get qdrantMetricServiceStatus => '服务状态';
+
+  @override
+  String get qdrantMetricRestEndpoint => 'REST endpoint';
+
+  @override
+  String get qdrantMetricGrpcEndpoint => 'gRPC endpoint';
+
+  @override
+  String get qdrantMetricQdrantVersion => 'Qdrant 版本';
+
+  @override
+  String get qdrantMetricCurrentCollection => '当前集合';
+
+  @override
+  String get qdrantMetricCollectionStatus => '集合状态';
+
+  @override
+  String get qdrantMetricOptimizerStatus => '优化器状态';
+
+  @override
+  String get qdrantMetricLastHealthCheck => '最近健康检查时间';
+
+  @override
+  String get qdrantMetricDockerDaemon => 'Docker 守护进程';
+
+  @override
+  String get qdrantMetricContainerCpu => '容器 CPU';
+
+  @override
+  String get qdrantMetricContainerMemory => '容器内存';
+
+  @override
+  String get qdrantMetricNetworkIo => '网络收发';
+
+  @override
+  String get qdrantMetricBlockIo => '块设备 I/O';
+
+  @override
+  String get qdrantMetricRestartCount => '重启次数';
+
+  @override
+  String get qdrantMetricLatestLogSummary => '最近日志摘要';
+
+  @override
+  String get qdrantMetricCollectionsTotal => '集合总数';
+
+  @override
+  String get qdrantMetricPointsTotal => '向量点总数';
+
+  @override
+  String get qdrantMetricVectorsTotal => '向量总数';
+
+  @override
+  String get qdrantMetricIndexedVectorsTotal => '已索引向量总数';
+
+  @override
+  String get qdrantMetricSegmentsTotal => '分段数';
+
+  @override
+  String get qdrantMetricPayloadSchemaFields => 'Payload schema 字段数';
+
+  @override
+  String get qdrantMetricPayloadSchemaNames => 'Payload schema 字段';
+
+  @override
+  String get qdrantMetricVectorSize => '向量维度';
+
+  @override
+  String get qdrantMetricDistance => '距离度量';
+
+  @override
+  String get qdrantMetricSingleNodeMode => '单机模式';
+
+  @override
+  String get qdrantMetricPayloadIndexStatus => 'Payload 索引状态';
+
+  @override
+  String get qdrantMetricClusterStatus => '集群状态';
+
+  @override
+  String get qdrantMetricHnswM => 'HNSW M';
+
+  @override
+  String get qdrantMetricHnswEfConstruct => 'HNSW ef_construct';
+
+  @override
+  String get qdrantMetricHnswFullScanThreshold => 'HNSW 全扫描阈值';
+
+  @override
+  String get qdrantMetricHnswMaxIndexingThreads => 'HNSW 最大索引线程';
+
+  @override
+  String get qdrantMetricOnDiskPayload => 'Payload 磁盘存储';
+
+  @override
+  String get qdrantMetricShardNumber => '分片数';
+
+  @override
+  String get qdrantMetricReplicationFactor => '副本因子';
+
+  @override
+  String get qdrantMetricWriteConsistencyFactor => '写一致性因子';
+
+  @override
+  String get qdrantMetricReadFanOutFactor => '读取扇出因子';
+
+  @override
+  String get qdrantMetricOptimizerDeletedThreshold => '优化器删除阈值';
+
+  @override
+  String get qdrantMetricOptimizerVacuumMinVectorNumber => 'Vacuum 最小向量数';
+
+  @override
+  String get qdrantMetricOptimizerDefaultSegmentNumber => '默认分段数';
+
+  @override
+  String get qdrantMetricOptimizerMaxSegmentSize => '最大分段大小';
+
+  @override
+  String get qdrantMetricOptimizerIndexingThreshold => '索引阈值';
+
+  @override
+  String get qdrantMetricOptimizerFlushIntervalSeconds => '刷盘间隔秒数';
+
+  @override
+  String get qdrantMetricWalCapacityMb => 'WAL 容量 MB';
+
+  @override
+  String get qdrantMetricWalSegmentsAhead => 'WAL 预留段';
+
+  @override
+  String get qdrantMetricQuantization => '量化配置';
+
+  @override
+  String get qdrantMetricStrictMode => '严格模式';
+
+  @override
+  String get qdrantMetricTelemetryStatus => '遥测状态';
+
+  @override
+  String get qdrantMetricAppVersion => '应用版本';
+
+  @override
+  String get qdrantMetricAppName => '应用名称';
+
+  @override
+  String get qdrantMetricTelemetryCollections => '集合遥测';
+
+  @override
+  String get qdrantMetricTelemetryRequests => '请求遥测';
+
+  @override
+  String get qdrantMetricSourceCount => '来源数';
+
+  @override
+  String get qdrantMetricChunkCount => '分块数';
+
+  @override
+  String get qdrantMetricPendingEmbeddingJobs => '待处理嵌入任务';
+
+  @override
+  String get qdrantMetricFailedEmbeddingJobs => '失败嵌入任务';
+
+  @override
+  String get qdrantMetricEmbeddingModel => '当前嵌入模型';
+
+  @override
+  String get qdrantMetricEmbeddingDimensions => '当前向量维度';
+
+  @override
+  String get qdrantMetricRetrievalTopN => '召回 TopN';
+
+  @override
+  String get qdrantMetricRetrievalTopK => '最终 TopK';
+
+  @override
+  String get qdrantMetricMinSimilarity => '最低相似度';
+
+  @override
+  String get qdrantMetricPromptChunkBudget => 'Prompt 分块预算';
+
+  @override
+  String get qdrantMetricPromptTokenBudget => 'Prompt token 预算';
+
+  @override
+  String get qdrantValueYes => '是';
+
+  @override
+  String get qdrantValueNo => '否';
+
+  @override
+  String get qdrantValueHealthy => '健康';
+
+  @override
+  String get qdrantValueUnknown => '未知';
+
+  @override
+  String get qdrantValueLoading => '加载中';
+
+  @override
+  String get qdrantValueAvailable => '可用';
+
+  @override
+  String get qdrantValueUnavailable => '不可用';
+
+  @override
+  String get qdrantValuePluginServiceScan => '由插件服务扫描';
+
+  @override
+  String get qdrantValuePluginRuntimeMetric => '由插件运行时提供';
+
+  @override
+  String get qdrantValuePluginDetailsLogs => '可在插件详情查看';
+
+  @override
+  String get qdrantValueLocalSingleNodeOrUnavailable => '本地单机 / 不可用';
+
+  @override
+  String get qdrantValueClusterInfoAvailable => '已返回集群信息';
+
+  @override
+  String get qdrantValuePayloadSchemaConfigured => '已配置 payload schema';
+
+  @override
+  String get qdrantValuePayloadSchemaMissing => '未发现 payload schema';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -27298,4 +28152,431 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get knowledgeVectorResample => '重新取樣';
+
+  @override
+  String get qdrantStatusRefreshIncomplete => 'Qdrant 狀態重新整理返回的資料不完整。';
+
+  @override
+  String get qdrantStatusRawVectorEmpty => '請先輸入 raw vector。';
+
+  @override
+  String qdrantStatusRawVectorInvalid(Object value) {
+    return '原始向量包含無效數值：$value';
+  }
+
+  @override
+  String qdrantStatusRawVectorDimensionMismatch(int actual, int expected) {
+    return '原始向量維度為 $actual，目前設定要求 $expected。';
+  }
+
+  @override
+  String get qdrantStatusPointIdsEmpty => '請先輸入 point/chunk id。';
+
+  @override
+  String get qdrantStatusPayloadIndexesSubmitted => '常用 Payload 索引已提交建立/重建。';
+
+  @override
+  String get qdrantStatusDangerousOpsDisabled => '請先在知識庫設定中啟用危險管理操作。';
+
+  @override
+  String get qdrantStatusDeletePointIdsEmpty => '請先輸入要刪除的向量點 ID。';
+
+  @override
+  String get qdrantStatusDeletePointsTitle => '刪除 Qdrant 向量點？';
+
+  @override
+  String qdrantStatusDeletePointsMessage(int count) {
+    return '將從目前集合刪除 $count 個向量點。此操作無法復原。';
+  }
+
+  @override
+  String get qdrantStatusDeletePointsConfirm => '刪除向量點';
+
+  @override
+  String get qdrantStatusPointsDeleted => '向量點已刪除。';
+
+  @override
+  String get qdrantStatusDeleteCollectionTitle => '刪除 Qdrant 集合？';
+
+  @override
+  String qdrantStatusDeleteCollectionMessage(Object collection) {
+    return '將刪除集合「$collection」及其中所有向量點。此操作無法復原。';
+  }
+
+  @override
+  String get qdrantStatusDeleteCollectionConfirm => '刪除集合';
+
+  @override
+  String get qdrantStatusCollectionDeleted => '集合已刪除。';
+
+  @override
+  String get qdrantStatusDiagnosticsCopied => '診斷資訊已複製。';
+
+  @override
+  String get qdrantStatusTitle => 'Qdrant 維運';
+
+  @override
+  String get qdrantStatusTabOverview => '總覽監控';
+
+  @override
+  String get qdrantStatusTabCollections => '集合管理';
+
+  @override
+  String get qdrantStatusTabPoints => '向量點查詢';
+
+  @override
+  String get qdrantStatusTabDiagnostics => '診斷日誌';
+
+  @override
+  String get qdrantStatusRefresh => '重新整理';
+
+  @override
+  String get qdrantStatusCopyDiagnostics => '複製診斷';
+
+  @override
+  String get qdrantStatusHeaderTitle => '本機向量資料庫即時狀態';
+
+  @override
+  String get qdrantStatusMetricCollections => '集合';
+
+  @override
+  String get qdrantStatusMetricPoints => '向量点';
+
+  @override
+  String get qdrantStatusMetricIndexedVectors => '已索引向量';
+
+  @override
+  String get qdrantStatusMetricChunks => '分块';
+
+  @override
+  String get qdrantStatusMetricPendingJobs => '待處理任務';
+
+  @override
+  String get qdrantStatusMetricWalCapacity => 'WAL 容量';
+
+  @override
+  String get qdrantStatusSmoothTrend => '平滑趋势';
+
+  @override
+  String get qdrantStatusNoCollections => '沒有集合，或目前 Qdrant 服務不可用。';
+
+  @override
+  String get qdrantStatusPointsSectionTitle => '向量点查询 / 搜索 / 滚动读取';
+
+  @override
+  String get qdrantStatusPointIdsLabel => '向量點/分塊 ID（空格或逗號分隔）';
+
+  @override
+  String get qdrantStatusSourceFilterLabel => '來源 ID 篩選';
+
+  @override
+  String get qdrantStatusTagFilterLabel => '標籤篩選';
+
+  @override
+  String get qdrantStatusLimitLabel => '數量上限';
+
+  @override
+  String get qdrantStatusRawVectorLabel => '原始向量（逗號或空格分隔，維度必須符合目前設定）';
+
+  @override
+  String get qdrantStatusQueryIds => '依 ID 查詢';
+
+  @override
+  String get qdrantStatusScrollFilter => '捲動讀取 / 篩選';
+
+  @override
+  String get qdrantStatusRawVectorSearch => '原始向量搜尋';
+
+  @override
+  String get qdrantStatusRebuildPayloadIndexes => '重建 Payload 索引';
+
+  @override
+  String get qdrantStatusDeletePoints => '删除 Points';
+
+  @override
+  String get qdrantStatusOperationResult => '操作結果';
+
+  @override
+  String get qdrantStatusRawDiagnosticsJson => '原始診斷 JSON';
+
+  @override
+  String get qdrantStatusNoDiagnostics => '尚無診斷資料。';
+
+  @override
+  String get qdrantStatusLatestOperationResult => '最近操作結果';
+
+  @override
+  String get qdrantStatusOperationLog => '操作日誌';
+
+  @override
+  String get qdrantStatusNoOperations => '尚無操作。';
+
+  @override
+  String get qdrantStatusCollectingSamples => '等待更多取樣後顯示趨勢。';
+
+  @override
+  String get qdrantStatusTrendPoints => '向量点';
+
+  @override
+  String get qdrantStatusTrendChunks => '分块';
+
+  @override
+  String get qdrantStatusTrendPendingFailed => '待處理/失敗';
+
+  @override
+  String qdrantStatusTrendSampleCount(int count) {
+    return '$count 點';
+  }
+
+  @override
+  String get qdrantStatusViewConfig => '查看設定';
+
+  @override
+  String get qdrantSectionOverview => '總覽';
+
+  @override
+  String get qdrantSectionDockerContainer => 'Docker / 容器指標';
+
+  @override
+  String get qdrantSectionApiMetrics => 'Qdrant API 指標';
+
+  @override
+  String get qdrantSectionCollectionConfig => '集合設定';
+
+  @override
+  String get qdrantSectionStorageOptimizer => '儲存 / 優化器';
+
+  @override
+  String get qdrantSectionTelemetry => '遙測資料';
+
+  @override
+  String get qdrantSectionOpenHandKnowledge => 'OpenHand 知識庫指標';
+
+  @override
+  String get qdrantMetricServiceStatus => '服務狀態';
+
+  @override
+  String get qdrantMetricRestEndpoint => 'REST 端點';
+
+  @override
+  String get qdrantMetricGrpcEndpoint => 'gRPC 端點';
+
+  @override
+  String get qdrantMetricQdrantVersion => 'Qdrant 版本';
+
+  @override
+  String get qdrantMetricCurrentCollection => '目前集合';
+
+  @override
+  String get qdrantMetricCollectionStatus => '集合狀態';
+
+  @override
+  String get qdrantMetricOptimizerStatus => '優化器狀態';
+
+  @override
+  String get qdrantMetricLastHealthCheck => '最近健康檢查時間';
+
+  @override
+  String get qdrantMetricDockerDaemon => 'Docker 守護行程';
+
+  @override
+  String get qdrantMetricContainerCpu => '容器 CPU';
+
+  @override
+  String get qdrantMetricContainerMemory => '容器記憶體';
+
+  @override
+  String get qdrantMetricNetworkIo => '網路收發';
+
+  @override
+  String get qdrantMetricBlockIo => '块设备 I/O';
+
+  @override
+  String get qdrantMetricRestartCount => '重新啟動次數';
+
+  @override
+  String get qdrantMetricLatestLogSummary => '最近日誌摘要';
+
+  @override
+  String get qdrantMetricCollectionsTotal => '集合總數';
+
+  @override
+  String get qdrantMetricPointsTotal => '向量點總數';
+
+  @override
+  String get qdrantMetricVectorsTotal => '向量總數';
+
+  @override
+  String get qdrantMetricIndexedVectorsTotal => '已索引向量總數';
+
+  @override
+  String get qdrantMetricSegmentsTotal => '分段數';
+
+  @override
+  String get qdrantMetricPayloadSchemaFields => 'Payload schema 欄位數';
+
+  @override
+  String get qdrantMetricPayloadSchemaNames => 'Payload schema 欄位';
+
+  @override
+  String get qdrantMetricVectorSize => '向量維度';
+
+  @override
+  String get qdrantMetricDistance => '距離度量';
+
+  @override
+  String get qdrantMetricSingleNodeMode => '單機模式';
+
+  @override
+  String get qdrantMetricPayloadIndexStatus => 'Payload 索引狀態';
+
+  @override
+  String get qdrantMetricClusterStatus => '叢集狀態';
+
+  @override
+  String get qdrantMetricHnswM => 'HNSW M';
+
+  @override
+  String get qdrantMetricHnswEfConstruct => 'HNSW ef_construct';
+
+  @override
+  String get qdrantMetricHnswFullScanThreshold => 'HNSW 全掃描閾值';
+
+  @override
+  String get qdrantMetricHnswMaxIndexingThreads => 'HNSW 最大索引執行緒';
+
+  @override
+  String get qdrantMetricOnDiskPayload => 'Payload 磁碟儲存';
+
+  @override
+  String get qdrantMetricShardNumber => '分片數';
+
+  @override
+  String get qdrantMetricReplicationFactor => '副本因子';
+
+  @override
+  String get qdrantMetricWriteConsistencyFactor => '寫入一致性因子';
+
+  @override
+  String get qdrantMetricReadFanOutFactor => '讀取扇出因子';
+
+  @override
+  String get qdrantMetricOptimizerDeletedThreshold => '優化器刪除閾值';
+
+  @override
+  String get qdrantMetricOptimizerVacuumMinVectorNumber => 'Vacuum 最小向量數';
+
+  @override
+  String get qdrantMetricOptimizerDefaultSegmentNumber => '預設分段數';
+
+  @override
+  String get qdrantMetricOptimizerMaxSegmentSize => '最大分段大小';
+
+  @override
+  String get qdrantMetricOptimizerIndexingThreshold => '索引閾值';
+
+  @override
+  String get qdrantMetricOptimizerFlushIntervalSeconds => '刷盤間隔秒數';
+
+  @override
+  String get qdrantMetricWalCapacityMb => 'WAL 容量 MB';
+
+  @override
+  String get qdrantMetricWalSegmentsAhead => 'WAL 預留段';
+
+  @override
+  String get qdrantMetricQuantization => '量化設定';
+
+  @override
+  String get qdrantMetricStrictMode => '嚴格模式';
+
+  @override
+  String get qdrantMetricTelemetryStatus => '遙測狀態';
+
+  @override
+  String get qdrantMetricAppVersion => '應用程式版本';
+
+  @override
+  String get qdrantMetricAppName => '應用程式名稱';
+
+  @override
+  String get qdrantMetricTelemetryCollections => '集合遙測';
+
+  @override
+  String get qdrantMetricTelemetryRequests => '請求遙測';
+
+  @override
+  String get qdrantMetricSourceCount => '來源數';
+
+  @override
+  String get qdrantMetricChunkCount => '分塊數';
+
+  @override
+  String get qdrantMetricPendingEmbeddingJobs => '待處理嵌入任務';
+
+  @override
+  String get qdrantMetricFailedEmbeddingJobs => '失敗嵌入任務';
+
+  @override
+  String get qdrantMetricEmbeddingModel => '目前嵌入模型';
+
+  @override
+  String get qdrantMetricEmbeddingDimensions => '目前向量維度';
+
+  @override
+  String get qdrantMetricRetrievalTopN => '召回 TopN';
+
+  @override
+  String get qdrantMetricRetrievalTopK => '最終 TopK';
+
+  @override
+  String get qdrantMetricMinSimilarity => '最低相似度';
+
+  @override
+  String get qdrantMetricPromptChunkBudget => 'Prompt 分塊預算';
+
+  @override
+  String get qdrantMetricPromptTokenBudget => 'Prompt token 預算';
+
+  @override
+  String get qdrantValueYes => '是';
+
+  @override
+  String get qdrantValueNo => '否';
+
+  @override
+  String get qdrantValueHealthy => '健康';
+
+  @override
+  String get qdrantValueUnknown => '未知';
+
+  @override
+  String get qdrantValueLoading => '載入中';
+
+  @override
+  String get qdrantValueAvailable => '可用';
+
+  @override
+  String get qdrantValueUnavailable => '不可用';
+
+  @override
+  String get qdrantValuePluginServiceScan => '由插件服務掃描';
+
+  @override
+  String get qdrantValuePluginRuntimeMetric => '由插件執行階段提供';
+
+  @override
+  String get qdrantValuePluginDetailsLogs => '可在插件詳情查看';
+
+  @override
+  String get qdrantValueLocalSingleNodeOrUnavailable => '本機單機 / 不可用';
+
+  @override
+  String get qdrantValueClusterInfoAvailable => '已返回叢集資訊';
+
+  @override
+  String get qdrantValuePayloadSchemaConfigured => '已設定 payload schema';
+
+  @override
+  String get qdrantValuePayloadSchemaMissing => '未發現 payload schema';
 }

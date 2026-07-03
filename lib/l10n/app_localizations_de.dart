@@ -9524,4 +9524,447 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get knowledgeVectorResample => 'Neu abtasten';
+
+  @override
+  String get qdrantStatusRefreshIncomplete =>
+      'Die Qdrant-Statusaktualisierung lieferte unvollständige Daten.';
+
+  @override
+  String get qdrantStatusRawVectorEmpty => 'Gib zuerst einen Rohvektor ein.';
+
+  @override
+  String qdrantStatusRawVectorInvalid(Object value) {
+    return 'Ungültige Vektorzahl: $value';
+  }
+
+  @override
+  String qdrantStatusRawVectorDimensionMismatch(int actual, int expected) {
+    return 'Der Rohvektor hat $actual Dimensionen; die aktuelle Einstellung erfordert $expected.';
+  }
+
+  @override
+  String get qdrantStatusPointIdsEmpty => 'Gib zuerst Punkt-/Chunk-IDs ein.';
+
+  @override
+  String get qdrantStatusPayloadIndexesSubmitted =>
+      'Erstellung der Standard-Payload-Indizes wurde gestartet.';
+
+  @override
+  String get qdrantStatusDangerousOpsDisabled =>
+      'Aktiviere zuerst gefährliche Admin-Operationen in den Knowledge-Base-Einstellungen.';
+
+  @override
+  String get qdrantStatusDeletePointIdsEmpty =>
+      'Gib zuerst die zu löschenden Punkt-IDs ein.';
+
+  @override
+  String get qdrantStatusDeletePointsTitle => 'Qdrant-Punkte löschen?';
+
+  @override
+  String qdrantStatusDeletePointsMessage(int count) {
+    return 'Löscht $count Punkte aus der aktuellen Collection. Diese Aktion kann nicht rückgängig gemacht werden.';
+  }
+
+  @override
+  String get qdrantStatusDeletePointsConfirm => 'Punkte löschen';
+
+  @override
+  String get qdrantStatusPointsDeleted => 'Punkte gelöscht.';
+
+  @override
+  String get qdrantStatusDeleteCollectionTitle => 'Qdrant-Collection löschen?';
+
+  @override
+  String qdrantStatusDeleteCollectionMessage(Object collection) {
+    return 'Löscht die Collection „$collection“ und alle darin enthaltenen Punkte. Diese Aktion kann nicht rückgängig gemacht werden.';
+  }
+
+  @override
+  String get qdrantStatusDeleteCollectionConfirm => 'Collection löschen';
+
+  @override
+  String get qdrantStatusCollectionDeleted => 'Collection gelöscht.';
+
+  @override
+  String get qdrantStatusDiagnosticsCopied => 'Diagnose kopiert.';
+
+  @override
+  String get qdrantStatusTitle => 'Qdrant-Betrieb';
+
+  @override
+  String get qdrantStatusTabOverview => 'Übersicht';
+
+  @override
+  String get qdrantStatusTabCollections => 'Sammlungen';
+
+  @override
+  String get qdrantStatusTabPoints => 'Punkte';
+
+  @override
+  String get qdrantStatusTabDiagnostics => 'Diagnose';
+
+  @override
+  String get qdrantStatusRefresh => 'Aktualisieren';
+
+  @override
+  String get qdrantStatusCopyDiagnostics => 'Diagnose kopieren';
+
+  @override
+  String get qdrantStatusHeaderTitle => 'Status der lokalen Vektordatenbank';
+
+  @override
+  String get qdrantStatusMetricCollections => 'Sammlungen';
+
+  @override
+  String get qdrantStatusMetricPoints => 'Punkte';
+
+  @override
+  String get qdrantStatusMetricIndexedVectors => 'Indexierte Vektoren';
+
+  @override
+  String get qdrantStatusMetricChunks => 'Chunks';
+
+  @override
+  String get qdrantStatusMetricPendingJobs => 'Ausstehende Jobs';
+
+  @override
+  String get qdrantStatusMetricWalCapacity => 'WAL-Kapazität';
+
+  @override
+  String get qdrantStatusSmoothTrend => 'Geglätteter Trend';
+
+  @override
+  String get qdrantStatusNoCollections =>
+      'Keine Collection gefunden oder Qdrant ist nicht verfügbar.';
+
+  @override
+  String get qdrantStatusPointsSectionTitle => 'Punkte / Suche / Scrollen';
+
+  @override
+  String get qdrantStatusPointIdsLabel => 'Punkt-/Chunk-IDs';
+
+  @override
+  String get qdrantStatusSourceFilterLabel => 'Quell-ID-Filter';
+
+  @override
+  String get qdrantStatusTagFilterLabel => 'Tag-Filter';
+
+  @override
+  String get qdrantStatusLimitLabel => 'Grenze';
+
+  @override
+  String get qdrantStatusRawVectorLabel =>
+      'Rohvektor (Komma oder Leerzeichen, Dimensionen müssen passen)';
+
+  @override
+  String get qdrantStatusQueryIds => 'IDs abfragen';
+
+  @override
+  String get qdrantStatusScrollFilter => 'Scrollen / Filtern';
+
+  @override
+  String get qdrantStatusRawVectorSearch => 'Rohvektorsuche';
+
+  @override
+  String get qdrantStatusRebuildPayloadIndexes =>
+      'Payload-Indizes neu aufbauen';
+
+  @override
+  String get qdrantStatusDeletePoints => 'Punkte löschen';
+
+  @override
+  String get qdrantStatusOperationResult => 'Operationsergebnis';
+
+  @override
+  String get qdrantStatusRawDiagnosticsJson => 'Rohes Diagnose-JSON';
+
+  @override
+  String get qdrantStatusNoDiagnostics => 'Noch keine Diagnose.';
+
+  @override
+  String get qdrantStatusLatestOperationResult => 'Letztes Operationsergebnis';
+
+  @override
+  String get qdrantStatusOperationLog => 'Operationsprotokoll';
+
+  @override
+  String get qdrantStatusNoOperations => 'Noch keine Operationen.';
+
+  @override
+  String get qdrantStatusCollectingSamples =>
+      'Sammle Samples für die Trendansicht.';
+
+  @override
+  String get qdrantStatusTrendPoints => 'Punkte';
+
+  @override
+  String get qdrantStatusTrendChunks => 'Chunks';
+
+  @override
+  String get qdrantStatusTrendPendingFailed => 'ausstehend/fehlgeschlagen';
+
+  @override
+  String qdrantStatusTrendSampleCount(int count) {
+    return '$count Pkt.';
+  }
+
+  @override
+  String get qdrantStatusViewConfig => 'Konfiguration anzeigen';
+
+  @override
+  String get qdrantSectionOverview => 'Übersicht';
+
+  @override
+  String get qdrantSectionDockerContainer => 'Docker / Container';
+
+  @override
+  String get qdrantSectionApiMetrics => 'Qdrant-API-Metriken';
+
+  @override
+  String get qdrantSectionCollectionConfig => 'Collection-Konfiguration';
+
+  @override
+  String get qdrantSectionStorageOptimizer => 'Speicher / Optimierer';
+
+  @override
+  String get qdrantSectionTelemetry => 'Telemetrie';
+
+  @override
+  String get qdrantSectionOpenHandKnowledge => 'OpenHand Knowledge Base';
+
+  @override
+  String get qdrantMetricServiceStatus => 'Dienststatus';
+
+  @override
+  String get qdrantMetricRestEndpoint => 'REST-Endpunkt';
+
+  @override
+  String get qdrantMetricGrpcEndpoint => 'gRPC-Endpunkt';
+
+  @override
+  String get qdrantMetricQdrantVersion => 'Qdrant-Version';
+
+  @override
+  String get qdrantMetricCurrentCollection => 'Aktuelle Collection';
+
+  @override
+  String get qdrantMetricCollectionStatus => 'Collection-Status';
+
+  @override
+  String get qdrantMetricOptimizerStatus => 'Optimiererstatus';
+
+  @override
+  String get qdrantMetricLastHealthCheck => 'Letzter Health-Check';
+
+  @override
+  String get qdrantMetricDockerDaemon => 'Docker-Daemon';
+
+  @override
+  String get qdrantMetricContainerCpu => 'Container-CPU';
+
+  @override
+  String get qdrantMetricContainerMemory => 'Container-Speicher';
+
+  @override
+  String get qdrantMetricNetworkIo => 'Netzwerk-I/O';
+
+  @override
+  String get qdrantMetricBlockIo => 'Block-I/O';
+
+  @override
+  String get qdrantMetricRestartCount => 'Neustarts';
+
+  @override
+  String get qdrantMetricLatestLogSummary => 'Letzte Log-Zusammenfassung';
+
+  @override
+  String get qdrantMetricCollectionsTotal => 'Collections gesamt';
+
+  @override
+  String get qdrantMetricPointsTotal => 'Punkte gesamt';
+
+  @override
+  String get qdrantMetricVectorsTotal => 'Vektoren gesamt';
+
+  @override
+  String get qdrantMetricIndexedVectorsTotal => 'Indexierte Vektoren gesamt';
+
+  @override
+  String get qdrantMetricSegmentsTotal => 'Segmente';
+
+  @override
+  String get qdrantMetricPayloadSchemaFields => 'Payload-Schema-Felder';
+
+  @override
+  String get qdrantMetricPayloadSchemaNames => 'Payload-Schema-Namen';
+
+  @override
+  String get qdrantMetricVectorSize => 'Vektordimension';
+
+  @override
+  String get qdrantMetricDistance => 'Distanz';
+
+  @override
+  String get qdrantMetricSingleNodeMode => 'Einzelknotenmodus';
+
+  @override
+  String get qdrantMetricPayloadIndexStatus => 'Payload-Indexstatus';
+
+  @override
+  String get qdrantMetricClusterStatus => 'Clusterstatus';
+
+  @override
+  String get qdrantMetricHnswM => 'HNSW M';
+
+  @override
+  String get qdrantMetricHnswEfConstruct => 'HNSW ef_construct';
+
+  @override
+  String get qdrantMetricHnswFullScanThreshold => 'HNSW-Full-Scan-Schwelle';
+
+  @override
+  String get qdrantMetricHnswMaxIndexingThreads => 'Max. HNSW-Index-Threads';
+
+  @override
+  String get qdrantMetricOnDiskPayload => 'Payload auf Datenträger';
+
+  @override
+  String get qdrantMetricShardNumber => 'Shard-Anzahl';
+
+  @override
+  String get qdrantMetricReplicationFactor => 'Replikationsfaktor';
+
+  @override
+  String get qdrantMetricWriteConsistencyFactor => 'Schreibkonsistenzfaktor';
+
+  @override
+  String get qdrantMetricReadFanOutFactor => 'Lese-Fan-out-Faktor';
+
+  @override
+  String get qdrantMetricOptimizerDeletedThreshold =>
+      'Optimierer-Löschschwelle';
+
+  @override
+  String get qdrantMetricOptimizerVacuumMinVectorNumber =>
+      'Vacuum-Minimum-Vektoren';
+
+  @override
+  String get qdrantMetricOptimizerDefaultSegmentNumber =>
+      'Standard-Segmentanzahl';
+
+  @override
+  String get qdrantMetricOptimizerMaxSegmentSize => 'Max. Segmentgröße';
+
+  @override
+  String get qdrantMetricOptimizerIndexingThreshold => 'Indexierungsschwelle';
+
+  @override
+  String get qdrantMetricOptimizerFlushIntervalSeconds =>
+      'Flush-Intervall Sekunden';
+
+  @override
+  String get qdrantMetricWalCapacityMb => 'WAL-Kapazität MB';
+
+  @override
+  String get qdrantMetricWalSegmentsAhead => 'WAL-Segmente voraus';
+
+  @override
+  String get qdrantMetricQuantization => 'Quantisierung';
+
+  @override
+  String get qdrantMetricStrictMode => 'Strikter Modus';
+
+  @override
+  String get qdrantMetricTelemetryStatus => 'Telemetriestatus';
+
+  @override
+  String get qdrantMetricAppVersion => 'App-Version';
+
+  @override
+  String get qdrantMetricAppName => 'App-Name';
+
+  @override
+  String get qdrantMetricTelemetryCollections => 'Collection-Telemetrie';
+
+  @override
+  String get qdrantMetricTelemetryRequests => 'Request-Telemetrie';
+
+  @override
+  String get qdrantMetricSourceCount => 'Quellen';
+
+  @override
+  String get qdrantMetricChunkCount => 'Chunks';
+
+  @override
+  String get qdrantMetricPendingEmbeddingJobs => 'Ausstehende Embedding-Jobs';
+
+  @override
+  String get qdrantMetricFailedEmbeddingJobs =>
+      'Fehlgeschlagene Embedding-Jobs';
+
+  @override
+  String get qdrantMetricEmbeddingModel => 'Aktuelles Embedding-Modell';
+
+  @override
+  String get qdrantMetricEmbeddingDimensions => 'Aktuelle Dimensionen';
+
+  @override
+  String get qdrantMetricRetrievalTopN => 'Retrieval topN';
+
+  @override
+  String get qdrantMetricRetrievalTopK => 'Finales topK';
+
+  @override
+  String get qdrantMetricMinSimilarity => 'Minimale Ähnlichkeit';
+
+  @override
+  String get qdrantMetricPromptChunkBudget => 'Prompt-Chunk-Budget';
+
+  @override
+  String get qdrantMetricPromptTokenBudget => 'Prompt-Token-Budget';
+
+  @override
+  String get qdrantValueYes => 'Ja';
+
+  @override
+  String get qdrantValueNo => 'Nein';
+
+  @override
+  String get qdrantValueHealthy => 'Gesund';
+
+  @override
+  String get qdrantValueUnknown => 'Unbekannt';
+
+  @override
+  String get qdrantValueLoading => 'Wird geladen';
+
+  @override
+  String get qdrantValueAvailable => 'Verfügbar';
+
+  @override
+  String get qdrantValueUnavailable => 'Nicht verfügbar';
+
+  @override
+  String get qdrantValuePluginServiceScan => 'Vom Plugin-Dienst gescannt';
+
+  @override
+  String get qdrantValuePluginRuntimeMetric =>
+      'Vom Plugin-Runtime bereitgestellt';
+
+  @override
+  String get qdrantValuePluginDetailsLogs => 'In Plugin-Details verfügbar';
+
+  @override
+  String get qdrantValueLocalSingleNodeOrUnavailable =>
+      'Lokaler Einzelknoten / nicht verfügbar';
+
+  @override
+  String get qdrantValueClusterInfoAvailable => 'Clusterinformationen erhalten';
+
+  @override
+  String get qdrantValuePayloadSchemaConfigured =>
+      'Payload-Schema konfiguriert';
+
+  @override
+  String get qdrantValuePayloadSchemaMissing => 'Kein Payload-Schema gefunden';
 }

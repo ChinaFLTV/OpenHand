@@ -16714,6 +16714,840 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'重新采样'**
   String get knowledgeVectorResample;
+
+  /// No description provided for @qdrantStatusRefreshIncomplete.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Qdrant 状态刷新返回的数据不完整。'**
+  String get qdrantStatusRefreshIncomplete;
+
+  /// No description provided for @qdrantStatusRawVectorEmpty.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请先输入 raw vector。'**
+  String get qdrantStatusRawVectorEmpty;
+
+  /// Qdrant status dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'原始向量包含无效数值：{value}'**
+  String qdrantStatusRawVectorInvalid(Object value);
+
+  /// Qdrant status dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'原始向量维度为 {actual}，当前配置要求 {expected}。'**
+  String qdrantStatusRawVectorDimensionMismatch(int actual, int expected);
+
+  /// No description provided for @qdrantStatusPointIdsEmpty.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请先输入 point/chunk id。'**
+  String get qdrantStatusPointIdsEmpty;
+
+  /// No description provided for @qdrantStatusPayloadIndexesSubmitted.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'常用 Payload 索引已提交创建/重建。'**
+  String get qdrantStatusPayloadIndexesSubmitted;
+
+  /// No description provided for @qdrantStatusDangerousOpsDisabled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请先在知识库配置中启用危险管理操作。'**
+  String get qdrantStatusDangerousOpsDisabled;
+
+  /// No description provided for @qdrantStatusDeletePointIdsEmpty.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请先输入要删除的向量点 ID。'**
+  String get qdrantStatusDeletePointIdsEmpty;
+
+  /// No description provided for @qdrantStatusDeletePointsTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除 Qdrant 向量点？'**
+  String get qdrantStatusDeletePointsTitle;
+
+  /// Qdrant status dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'将从当前集合删除 {count} 个向量点。此操作不可撤销。'**
+  String qdrantStatusDeletePointsMessage(int count);
+
+  /// No description provided for @qdrantStatusDeletePointsConfirm.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除向量点'**
+  String get qdrantStatusDeletePointsConfirm;
+
+  /// No description provided for @qdrantStatusPointsDeleted.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'向量点已删除。'**
+  String get qdrantStatusPointsDeleted;
+
+  /// No description provided for @qdrantStatusDeleteCollectionTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除 Qdrant 集合？'**
+  String get qdrantStatusDeleteCollectionTitle;
+
+  /// Qdrant status dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'将删除集合“{collection}”及其中所有向量点。此操作不可撤销。'**
+  String qdrantStatusDeleteCollectionMessage(Object collection);
+
+  /// No description provided for @qdrantStatusDeleteCollectionConfirm.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除集合'**
+  String get qdrantStatusDeleteCollectionConfirm;
+
+  /// No description provided for @qdrantStatusCollectionDeleted.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'集合已删除。'**
+  String get qdrantStatusCollectionDeleted;
+
+  /// No description provided for @qdrantStatusDiagnosticsCopied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'诊断信息已复制。'**
+  String get qdrantStatusDiagnosticsCopied;
+
+  /// No description provided for @qdrantStatusTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Qdrant 运维'**
+  String get qdrantStatusTitle;
+
+  /// No description provided for @qdrantStatusTabOverview.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'总览监控'**
+  String get qdrantStatusTabOverview;
+
+  /// No description provided for @qdrantStatusTabCollections.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'集合管理'**
+  String get qdrantStatusTabCollections;
+
+  /// No description provided for @qdrantStatusTabPoints.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'向量点查询'**
+  String get qdrantStatusTabPoints;
+
+  /// No description provided for @qdrantStatusTabDiagnostics.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'诊断日志'**
+  String get qdrantStatusTabDiagnostics;
+
+  /// No description provided for @qdrantStatusRefresh.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新'**
+  String get qdrantStatusRefresh;
+
+  /// No description provided for @qdrantStatusCopyDiagnostics.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制诊断'**
+  String get qdrantStatusCopyDiagnostics;
+
+  /// No description provided for @qdrantStatusHeaderTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'本地向量数据库实时状态'**
+  String get qdrantStatusHeaderTitle;
+
+  /// No description provided for @qdrantStatusMetricCollections.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'集合'**
+  String get qdrantStatusMetricCollections;
+
+  /// No description provided for @qdrantStatusMetricPoints.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'向量点'**
+  String get qdrantStatusMetricPoints;
+
+  /// No description provided for @qdrantStatusMetricIndexedVectors.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已索引向量'**
+  String get qdrantStatusMetricIndexedVectors;
+
+  /// No description provided for @qdrantStatusMetricChunks.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'分块'**
+  String get qdrantStatusMetricChunks;
+
+  /// No description provided for @qdrantStatusMetricPendingJobs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'待处理任务'**
+  String get qdrantStatusMetricPendingJobs;
+
+  /// No description provided for @qdrantStatusMetricWalCapacity.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'WAL 容量'**
+  String get qdrantStatusMetricWalCapacity;
+
+  /// No description provided for @qdrantStatusSmoothTrend.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'平滑趋势'**
+  String get qdrantStatusSmoothTrend;
+
+  /// No description provided for @qdrantStatusNoCollections.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'没有集合，或当前 Qdrant 服务不可用。'**
+  String get qdrantStatusNoCollections;
+
+  /// No description provided for @qdrantStatusPointsSectionTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'向量点查询 / 搜索 / 滚动读取'**
+  String get qdrantStatusPointsSectionTitle;
+
+  /// No description provided for @qdrantStatusPointIdsLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'向量点/分块 ID（空格或逗号分隔）'**
+  String get qdrantStatusPointIdsLabel;
+
+  /// No description provided for @qdrantStatusSourceFilterLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'来源 ID 过滤'**
+  String get qdrantStatusSourceFilterLabel;
+
+  /// No description provided for @qdrantStatusTagFilterLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'标签过滤'**
+  String get qdrantStatusTagFilterLabel;
+
+  /// No description provided for @qdrantStatusLimitLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'数量上限'**
+  String get qdrantStatusLimitLabel;
+
+  /// No description provided for @qdrantStatusRawVectorLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'原始向量（逗号或空格分隔，维度必须匹配当前配置）'**
+  String get qdrantStatusRawVectorLabel;
+
+  /// No description provided for @qdrantStatusQueryIds.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按 ID 查询'**
+  String get qdrantStatusQueryIds;
+
+  /// No description provided for @qdrantStatusScrollFilter.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'滚动读取 / 过滤'**
+  String get qdrantStatusScrollFilter;
+
+  /// No description provided for @qdrantStatusRawVectorSearch.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'原始向量搜索'**
+  String get qdrantStatusRawVectorSearch;
+
+  /// No description provided for @qdrantStatusRebuildPayloadIndexes.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重建 Payload 索引'**
+  String get qdrantStatusRebuildPayloadIndexes;
+
+  /// No description provided for @qdrantStatusDeletePoints.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除 Points'**
+  String get qdrantStatusDeletePoints;
+
+  /// No description provided for @qdrantStatusOperationResult.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'操作结果'**
+  String get qdrantStatusOperationResult;
+
+  /// No description provided for @qdrantStatusRawDiagnosticsJson.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'原始诊断 JSON'**
+  String get qdrantStatusRawDiagnosticsJson;
+
+  /// No description provided for @qdrantStatusNoDiagnostics.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无诊断数据。'**
+  String get qdrantStatusNoDiagnostics;
+
+  /// No description provided for @qdrantStatusLatestOperationResult.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最近操作结果'**
+  String get qdrantStatusLatestOperationResult;
+
+  /// No description provided for @qdrantStatusOperationLog.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'操作日志'**
+  String get qdrantStatusOperationLog;
+
+  /// No description provided for @qdrantStatusNoOperations.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无操作。'**
+  String get qdrantStatusNoOperations;
+
+  /// No description provided for @qdrantStatusCollectingSamples.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'等待更多采样后展示趋势。'**
+  String get qdrantStatusCollectingSamples;
+
+  /// No description provided for @qdrantStatusTrendPoints.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'向量点'**
+  String get qdrantStatusTrendPoints;
+
+  /// No description provided for @qdrantStatusTrendChunks.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'分块'**
+  String get qdrantStatusTrendChunks;
+
+  /// No description provided for @qdrantStatusTrendPendingFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'待处理/失败'**
+  String get qdrantStatusTrendPendingFailed;
+
+  /// Qdrant status dialog localized UI text.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{count} 点'**
+  String qdrantStatusTrendSampleCount(int count);
+
+  /// No description provided for @qdrantStatusViewConfig.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'查看配置'**
+  String get qdrantStatusViewConfig;
+
+  /// No description provided for @qdrantSectionOverview.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'总览'**
+  String get qdrantSectionOverview;
+
+  /// No description provided for @qdrantSectionDockerContainer.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Docker / 容器指标'**
+  String get qdrantSectionDockerContainer;
+
+  /// No description provided for @qdrantSectionApiMetrics.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Qdrant API 指标'**
+  String get qdrantSectionApiMetrics;
+
+  /// No description provided for @qdrantSectionCollectionConfig.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'集合配置'**
+  String get qdrantSectionCollectionConfig;
+
+  /// No description provided for @qdrantSectionStorageOptimizer.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'存储 / 优化器'**
+  String get qdrantSectionStorageOptimizer;
+
+  /// No description provided for @qdrantSectionTelemetry.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'遥测数据'**
+  String get qdrantSectionTelemetry;
+
+  /// No description provided for @qdrantSectionOpenHandKnowledge.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'OpenHand 知识库指标'**
+  String get qdrantSectionOpenHandKnowledge;
+
+  /// No description provided for @qdrantMetricServiceStatus.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'服务状态'**
+  String get qdrantMetricServiceStatus;
+
+  /// No description provided for @qdrantMetricRestEndpoint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'REST endpoint'**
+  String get qdrantMetricRestEndpoint;
+
+  /// No description provided for @qdrantMetricGrpcEndpoint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'gRPC endpoint'**
+  String get qdrantMetricGrpcEndpoint;
+
+  /// No description provided for @qdrantMetricQdrantVersion.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Qdrant 版本'**
+  String get qdrantMetricQdrantVersion;
+
+  /// No description provided for @qdrantMetricCurrentCollection.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前集合'**
+  String get qdrantMetricCurrentCollection;
+
+  /// No description provided for @qdrantMetricCollectionStatus.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'集合状态'**
+  String get qdrantMetricCollectionStatus;
+
+  /// No description provided for @qdrantMetricOptimizerStatus.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'优化器状态'**
+  String get qdrantMetricOptimizerStatus;
+
+  /// No description provided for @qdrantMetricLastHealthCheck.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最近健康检查时间'**
+  String get qdrantMetricLastHealthCheck;
+
+  /// No description provided for @qdrantMetricDockerDaemon.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Docker 守护进程'**
+  String get qdrantMetricDockerDaemon;
+
+  /// No description provided for @qdrantMetricContainerCpu.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'容器 CPU'**
+  String get qdrantMetricContainerCpu;
+
+  /// No description provided for @qdrantMetricContainerMemory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'容器内存'**
+  String get qdrantMetricContainerMemory;
+
+  /// No description provided for @qdrantMetricNetworkIo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'网络收发'**
+  String get qdrantMetricNetworkIo;
+
+  /// No description provided for @qdrantMetricBlockIo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'块设备 I/O'**
+  String get qdrantMetricBlockIo;
+
+  /// No description provided for @qdrantMetricRestartCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重启次数'**
+  String get qdrantMetricRestartCount;
+
+  /// No description provided for @qdrantMetricLatestLogSummary.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最近日志摘要'**
+  String get qdrantMetricLatestLogSummary;
+
+  /// No description provided for @qdrantMetricCollectionsTotal.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'集合总数'**
+  String get qdrantMetricCollectionsTotal;
+
+  /// No description provided for @qdrantMetricPointsTotal.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'向量点总数'**
+  String get qdrantMetricPointsTotal;
+
+  /// No description provided for @qdrantMetricVectorsTotal.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'向量总数'**
+  String get qdrantMetricVectorsTotal;
+
+  /// No description provided for @qdrantMetricIndexedVectorsTotal.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已索引向量总数'**
+  String get qdrantMetricIndexedVectorsTotal;
+
+  /// No description provided for @qdrantMetricSegmentsTotal.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'分段数'**
+  String get qdrantMetricSegmentsTotal;
+
+  /// No description provided for @qdrantMetricPayloadSchemaFields.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Payload schema 字段数'**
+  String get qdrantMetricPayloadSchemaFields;
+
+  /// No description provided for @qdrantMetricPayloadSchemaNames.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Payload schema 字段'**
+  String get qdrantMetricPayloadSchemaNames;
+
+  /// No description provided for @qdrantMetricVectorSize.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'向量维度'**
+  String get qdrantMetricVectorSize;
+
+  /// No description provided for @qdrantMetricDistance.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'距离度量'**
+  String get qdrantMetricDistance;
+
+  /// No description provided for @qdrantMetricSingleNodeMode.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'单机模式'**
+  String get qdrantMetricSingleNodeMode;
+
+  /// No description provided for @qdrantMetricPayloadIndexStatus.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Payload 索引状态'**
+  String get qdrantMetricPayloadIndexStatus;
+
+  /// No description provided for @qdrantMetricClusterStatus.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'集群状态'**
+  String get qdrantMetricClusterStatus;
+
+  /// No description provided for @qdrantMetricHnswM.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HNSW M'**
+  String get qdrantMetricHnswM;
+
+  /// No description provided for @qdrantMetricHnswEfConstruct.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HNSW ef_construct'**
+  String get qdrantMetricHnswEfConstruct;
+
+  /// No description provided for @qdrantMetricHnswFullScanThreshold.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HNSW 全扫描阈值'**
+  String get qdrantMetricHnswFullScanThreshold;
+
+  /// No description provided for @qdrantMetricHnswMaxIndexingThreads.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HNSW 最大索引线程'**
+  String get qdrantMetricHnswMaxIndexingThreads;
+
+  /// No description provided for @qdrantMetricOnDiskPayload.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Payload 磁盘存储'**
+  String get qdrantMetricOnDiskPayload;
+
+  /// No description provided for @qdrantMetricShardNumber.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'分片数'**
+  String get qdrantMetricShardNumber;
+
+  /// No description provided for @qdrantMetricReplicationFactor.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'副本因子'**
+  String get qdrantMetricReplicationFactor;
+
+  /// No description provided for @qdrantMetricWriteConsistencyFactor.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'写一致性因子'**
+  String get qdrantMetricWriteConsistencyFactor;
+
+  /// No description provided for @qdrantMetricReadFanOutFactor.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'读取扇出因子'**
+  String get qdrantMetricReadFanOutFactor;
+
+  /// No description provided for @qdrantMetricOptimizerDeletedThreshold.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'优化器删除阈值'**
+  String get qdrantMetricOptimizerDeletedThreshold;
+
+  /// No description provided for @qdrantMetricOptimizerVacuumMinVectorNumber.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Vacuum 最小向量数'**
+  String get qdrantMetricOptimizerVacuumMinVectorNumber;
+
+  /// No description provided for @qdrantMetricOptimizerDefaultSegmentNumber.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认分段数'**
+  String get qdrantMetricOptimizerDefaultSegmentNumber;
+
+  /// No description provided for @qdrantMetricOptimizerMaxSegmentSize.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最大分段大小'**
+  String get qdrantMetricOptimizerMaxSegmentSize;
+
+  /// No description provided for @qdrantMetricOptimizerIndexingThreshold.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'索引阈值'**
+  String get qdrantMetricOptimizerIndexingThreshold;
+
+  /// No description provided for @qdrantMetricOptimizerFlushIntervalSeconds.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷盘间隔秒数'**
+  String get qdrantMetricOptimizerFlushIntervalSeconds;
+
+  /// No description provided for @qdrantMetricWalCapacityMb.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'WAL 容量 MB'**
+  String get qdrantMetricWalCapacityMb;
+
+  /// No description provided for @qdrantMetricWalSegmentsAhead.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'WAL 预留段'**
+  String get qdrantMetricWalSegmentsAhead;
+
+  /// No description provided for @qdrantMetricQuantization.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'量化配置'**
+  String get qdrantMetricQuantization;
+
+  /// No description provided for @qdrantMetricStrictMode.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'严格模式'**
+  String get qdrantMetricStrictMode;
+
+  /// No description provided for @qdrantMetricTelemetryStatus.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'遥测状态'**
+  String get qdrantMetricTelemetryStatus;
+
+  /// No description provided for @qdrantMetricAppVersion.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用版本'**
+  String get qdrantMetricAppVersion;
+
+  /// No description provided for @qdrantMetricAppName.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用名称'**
+  String get qdrantMetricAppName;
+
+  /// No description provided for @qdrantMetricTelemetryCollections.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'集合遥测'**
+  String get qdrantMetricTelemetryCollections;
+
+  /// No description provided for @qdrantMetricTelemetryRequests.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求遥测'**
+  String get qdrantMetricTelemetryRequests;
+
+  /// No description provided for @qdrantMetricSourceCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'来源数'**
+  String get qdrantMetricSourceCount;
+
+  /// No description provided for @qdrantMetricChunkCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'分块数'**
+  String get qdrantMetricChunkCount;
+
+  /// No description provided for @qdrantMetricPendingEmbeddingJobs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'待处理嵌入任务'**
+  String get qdrantMetricPendingEmbeddingJobs;
+
+  /// No description provided for @qdrantMetricFailedEmbeddingJobs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'失败嵌入任务'**
+  String get qdrantMetricFailedEmbeddingJobs;
+
+  /// No description provided for @qdrantMetricEmbeddingModel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前嵌入模型'**
+  String get qdrantMetricEmbeddingModel;
+
+  /// No description provided for @qdrantMetricEmbeddingDimensions.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前向量维度'**
+  String get qdrantMetricEmbeddingDimensions;
+
+  /// No description provided for @qdrantMetricRetrievalTopN.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'召回 TopN'**
+  String get qdrantMetricRetrievalTopN;
+
+  /// No description provided for @qdrantMetricRetrievalTopK.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最终 TopK'**
+  String get qdrantMetricRetrievalTopK;
+
+  /// No description provided for @qdrantMetricMinSimilarity.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最低相似度'**
+  String get qdrantMetricMinSimilarity;
+
+  /// No description provided for @qdrantMetricPromptChunkBudget.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Prompt 分块预算'**
+  String get qdrantMetricPromptChunkBudget;
+
+  /// No description provided for @qdrantMetricPromptTokenBudget.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Prompt token 预算'**
+  String get qdrantMetricPromptTokenBudget;
+
+  /// No description provided for @qdrantValueYes.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'是'**
+  String get qdrantValueYes;
+
+  /// No description provided for @qdrantValueNo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'否'**
+  String get qdrantValueNo;
+
+  /// No description provided for @qdrantValueHealthy.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'健康'**
+  String get qdrantValueHealthy;
+
+  /// No description provided for @qdrantValueUnknown.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未知'**
+  String get qdrantValueUnknown;
+
+  /// No description provided for @qdrantValueLoading.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'加载中'**
+  String get qdrantValueLoading;
+
+  /// No description provided for @qdrantValueAvailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'可用'**
+  String get qdrantValueAvailable;
+
+  /// No description provided for @qdrantValueUnavailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'不可用'**
+  String get qdrantValueUnavailable;
+
+  /// No description provided for @qdrantValuePluginServiceScan.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'由插件服务扫描'**
+  String get qdrantValuePluginServiceScan;
+
+  /// No description provided for @qdrantValuePluginRuntimeMetric.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'由插件运行时提供'**
+  String get qdrantValuePluginRuntimeMetric;
+
+  /// No description provided for @qdrantValuePluginDetailsLogs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'可在插件详情查看'**
+  String get qdrantValuePluginDetailsLogs;
+
+  /// No description provided for @qdrantValueLocalSingleNodeOrUnavailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'本地单机 / 不可用'**
+  String get qdrantValueLocalSingleNodeOrUnavailable;
+
+  /// No description provided for @qdrantValueClusterInfoAvailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已返回集群信息'**
+  String get qdrantValueClusterInfoAvailable;
+
+  /// No description provided for @qdrantValuePayloadSchemaConfigured.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已配置 payload schema'**
+  String get qdrantValuePayloadSchemaConfigured;
+
+  /// No description provided for @qdrantValuePayloadSchemaMissing.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未发现 payload schema'**
+  String get qdrantValuePayloadSchemaMissing;
 }
 
 class _AppLocalizationsDelegate

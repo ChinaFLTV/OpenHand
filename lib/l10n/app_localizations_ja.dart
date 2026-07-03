@@ -9208,4 +9208,433 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get knowledgeVectorResample => '再サンプリング';
+
+  @override
+  String get qdrantStatusRefreshIncomplete => 'Qdrant ステータス更新で不完全なデータが返されました。';
+
+  @override
+  String get qdrantStatusRawVectorEmpty => '先に raw vector を入力してください。';
+
+  @override
+  String qdrantStatusRawVectorInvalid(Object value) {
+    return '無効なベクトル値: $value';
+  }
+
+  @override
+  String qdrantStatusRawVectorDimensionMismatch(int actual, int expected) {
+    return 'raw vector は $actual 次元ですが、現在の設定では $expected 次元が必要です。';
+  }
+
+  @override
+  String get qdrantStatusPointIdsEmpty => '先に point/chunk ID を入力してください。';
+
+  @override
+  String get qdrantStatusPayloadIndexesSubmitted =>
+      '既定の Payload インデックス作成を送信しました。';
+
+  @override
+  String get qdrantStatusDangerousOpsDisabled =>
+      '先にナレッジベース設定で危険な管理操作を有効にしてください。';
+
+  @override
+  String get qdrantStatusDeletePointIdsEmpty => '先に削除するポイント ID を入力してください。';
+
+  @override
+  String get qdrantStatusDeletePointsTitle => 'Qdrant ポイントを削除しますか？';
+
+  @override
+  String qdrantStatusDeletePointsMessage(int count) {
+    return '現在のコレクションから $count 件のポイントを削除します。この操作は元に戻せません。';
+  }
+
+  @override
+  String get qdrantStatusDeletePointsConfirm => 'ポイントを削除';
+
+  @override
+  String get qdrantStatusPointsDeleted => 'ポイントを削除しました。';
+
+  @override
+  String get qdrantStatusDeleteCollectionTitle => 'Qdrant コレクションを削除しますか？';
+
+  @override
+  String qdrantStatusDeleteCollectionMessage(Object collection) {
+    return 'コレクション「$collection」とその中の全ポイントを削除します。この操作は元に戻せません。';
+  }
+
+  @override
+  String get qdrantStatusDeleteCollectionConfirm => 'コレクションを削除';
+
+  @override
+  String get qdrantStatusCollectionDeleted => 'コレクションを削除しました。';
+
+  @override
+  String get qdrantStatusDiagnosticsCopied => '診断情報をコピーしました。';
+
+  @override
+  String get qdrantStatusTitle => 'Qdrant 運用';
+
+  @override
+  String get qdrantStatusTabOverview => '概要';
+
+  @override
+  String get qdrantStatusTabCollections => 'コレクション';
+
+  @override
+  String get qdrantStatusTabPoints => 'ポイント';
+
+  @override
+  String get qdrantStatusTabDiagnostics => '診断';
+
+  @override
+  String get qdrantStatusRefresh => '更新';
+
+  @override
+  String get qdrantStatusCopyDiagnostics => '診断をコピー';
+
+  @override
+  String get qdrantStatusHeaderTitle => 'ローカルベクトル DB の状態';
+
+  @override
+  String get qdrantStatusMetricCollections => 'コレクション';
+
+  @override
+  String get qdrantStatusMetricPoints => 'ポイント';
+
+  @override
+  String get qdrantStatusMetricIndexedVectors => 'インデックス済みベクトル';
+
+  @override
+  String get qdrantStatusMetricChunks => 'チャンク';
+
+  @override
+  String get qdrantStatusMetricPendingJobs => '保留中ジョブ';
+
+  @override
+  String get qdrantStatusMetricWalCapacity => 'WAL 容量';
+
+  @override
+  String get qdrantStatusSmoothTrend => '平滑トレンド';
+
+  @override
+  String get qdrantStatusNoCollections => 'コレクションがないか、Qdrant を利用できません。';
+
+  @override
+  String get qdrantStatusPointsSectionTitle => 'ポイント / 検索 / スクロール';
+
+  @override
+  String get qdrantStatusPointIdsLabel => 'ポイント / チャンク ID';
+
+  @override
+  String get qdrantStatusSourceFilterLabel => 'ソース ID フィルタ';
+
+  @override
+  String get qdrantStatusTagFilterLabel => 'タグフィルタ';
+
+  @override
+  String get qdrantStatusLimitLabel => '上限';
+
+  @override
+  String get qdrantStatusRawVectorLabel => 'raw vector（カンマまたは空白区切り、次元数一致が必要）';
+
+  @override
+  String get qdrantStatusQueryIds => 'ID で照会';
+
+  @override
+  String get qdrantStatusScrollFilter => 'スクロール / フィルタ';
+
+  @override
+  String get qdrantStatusRawVectorSearch => 'raw vector 検索';
+
+  @override
+  String get qdrantStatusRebuildPayloadIndexes => 'Payload インデックスを再構築';
+
+  @override
+  String get qdrantStatusDeletePoints => 'ポイントを削除';
+
+  @override
+  String get qdrantStatusOperationResult => '操作結果';
+
+  @override
+  String get qdrantStatusRawDiagnosticsJson => '生の診断 JSON';
+
+  @override
+  String get qdrantStatusNoDiagnostics => '診断データはまだありません。';
+
+  @override
+  String get qdrantStatusLatestOperationResult => '最新の操作結果';
+
+  @override
+  String get qdrantStatusOperationLog => '操作ログ';
+
+  @override
+  String get qdrantStatusNoOperations => '操作はまだありません。';
+
+  @override
+  String get qdrantStatusCollectingSamples => 'トレンド表示用のサンプルを収集中です。';
+
+  @override
+  String get qdrantStatusTrendPoints => 'ポイント';
+
+  @override
+  String get qdrantStatusTrendChunks => 'チャンク';
+
+  @override
+  String get qdrantStatusTrendPendingFailed => '保留/失敗';
+
+  @override
+  String qdrantStatusTrendSampleCount(int count) {
+    return '$count 点';
+  }
+
+  @override
+  String get qdrantStatusViewConfig => '設定を表示';
+
+  @override
+  String get qdrantSectionOverview => '概要';
+
+  @override
+  String get qdrantSectionDockerContainer => 'Docker / コンテナ';
+
+  @override
+  String get qdrantSectionApiMetrics => 'Qdrant API メトリクス';
+
+  @override
+  String get qdrantSectionCollectionConfig => 'コレクション設定';
+
+  @override
+  String get qdrantSectionStorageOptimizer => 'ストレージ / オプティマイザ';
+
+  @override
+  String get qdrantSectionTelemetry => 'テレメトリ';
+
+  @override
+  String get qdrantSectionOpenHandKnowledge => 'OpenHand ナレッジ';
+
+  @override
+  String get qdrantMetricServiceStatus => 'サービス状態';
+
+  @override
+  String get qdrantMetricRestEndpoint => 'REST エンドポイント';
+
+  @override
+  String get qdrantMetricGrpcEndpoint => 'gRPC エンドポイント';
+
+  @override
+  String get qdrantMetricQdrantVersion => 'Qdrant バージョン';
+
+  @override
+  String get qdrantMetricCurrentCollection => '現在のコレクション';
+
+  @override
+  String get qdrantMetricCollectionStatus => 'コレクション状態';
+
+  @override
+  String get qdrantMetricOptimizerStatus => 'オプティマイザ状態';
+
+  @override
+  String get qdrantMetricLastHealthCheck => '最終ヘルスチェック';
+
+  @override
+  String get qdrantMetricDockerDaemon => 'Docker デーモン';
+
+  @override
+  String get qdrantMetricContainerCpu => 'コンテナ CPU';
+
+  @override
+  String get qdrantMetricContainerMemory => 'コンテナメモリ';
+
+  @override
+  String get qdrantMetricNetworkIo => 'ネットワーク I/O';
+
+  @override
+  String get qdrantMetricBlockIo => 'ブロック I/O';
+
+  @override
+  String get qdrantMetricRestartCount => '再起動回数';
+
+  @override
+  String get qdrantMetricLatestLogSummary => '最新ログ要約';
+
+  @override
+  String get qdrantMetricCollectionsTotal => 'コレクション総数';
+
+  @override
+  String get qdrantMetricPointsTotal => 'ポイント総数';
+
+  @override
+  String get qdrantMetricVectorsTotal => 'ベクトル総数';
+
+  @override
+  String get qdrantMetricIndexedVectorsTotal => 'インデックス済みベクトル総数';
+
+  @override
+  String get qdrantMetricSegmentsTotal => 'セグメント';
+
+  @override
+  String get qdrantMetricPayloadSchemaFields => 'Payload schema フィールド数';
+
+  @override
+  String get qdrantMetricPayloadSchemaNames => 'Payload schema 名';
+
+  @override
+  String get qdrantMetricVectorSize => 'ベクトル次元';
+
+  @override
+  String get qdrantMetricDistance => '距離';
+
+  @override
+  String get qdrantMetricSingleNodeMode => 'シングルノードモード';
+
+  @override
+  String get qdrantMetricPayloadIndexStatus => 'Payload インデックス状態';
+
+  @override
+  String get qdrantMetricClusterStatus => 'クラスタ状態';
+
+  @override
+  String get qdrantMetricHnswM => 'HNSW M';
+
+  @override
+  String get qdrantMetricHnswEfConstruct => 'HNSW ef_construct';
+
+  @override
+  String get qdrantMetricHnswFullScanThreshold => 'HNSW フルスキャンしきい値';
+
+  @override
+  String get qdrantMetricHnswMaxIndexingThreads => 'HNSW 最大インデックススレッド';
+
+  @override
+  String get qdrantMetricOnDiskPayload => 'ディスク上 Payload';
+
+  @override
+  String get qdrantMetricShardNumber => 'シャード数';
+
+  @override
+  String get qdrantMetricReplicationFactor => 'レプリケーション係数';
+
+  @override
+  String get qdrantMetricWriteConsistencyFactor => '書き込み整合性係数';
+
+  @override
+  String get qdrantMetricReadFanOutFactor => '読み取り fan-out 係数';
+
+  @override
+  String get qdrantMetricOptimizerDeletedThreshold => 'オプティマイザ削除しきい値';
+
+  @override
+  String get qdrantMetricOptimizerVacuumMinVectorNumber => 'Vacuum 最小ベクトル数';
+
+  @override
+  String get qdrantMetricOptimizerDefaultSegmentNumber => '既定セグメント数';
+
+  @override
+  String get qdrantMetricOptimizerMaxSegmentSize => '最大セグメントサイズ';
+
+  @override
+  String get qdrantMetricOptimizerIndexingThreshold => 'インデックスしきい値';
+
+  @override
+  String get qdrantMetricOptimizerFlushIntervalSeconds => 'flush 間隔秒';
+
+  @override
+  String get qdrantMetricWalCapacityMb => 'WAL 容量 MB';
+
+  @override
+  String get qdrantMetricWalSegmentsAhead => 'WAL 先行セグメント';
+
+  @override
+  String get qdrantMetricQuantization => '量子化';
+
+  @override
+  String get qdrantMetricStrictMode => '厳格モード';
+
+  @override
+  String get qdrantMetricTelemetryStatus => 'テレメトリ状態';
+
+  @override
+  String get qdrantMetricAppVersion => 'アプリバージョン';
+
+  @override
+  String get qdrantMetricAppName => 'アプリ名';
+
+  @override
+  String get qdrantMetricTelemetryCollections => 'コレクションテレメトリ';
+
+  @override
+  String get qdrantMetricTelemetryRequests => 'リクエストテレメトリ';
+
+  @override
+  String get qdrantMetricSourceCount => 'ソース数';
+
+  @override
+  String get qdrantMetricChunkCount => 'チャンク数';
+
+  @override
+  String get qdrantMetricPendingEmbeddingJobs => '保留中の埋め込みジョブ';
+
+  @override
+  String get qdrantMetricFailedEmbeddingJobs => '失敗した埋め込みジョブ';
+
+  @override
+  String get qdrantMetricEmbeddingModel => '現在の埋め込みモデル';
+
+  @override
+  String get qdrantMetricEmbeddingDimensions => '現在の次元数';
+
+  @override
+  String get qdrantMetricRetrievalTopN => '検索 topN';
+
+  @override
+  String get qdrantMetricRetrievalTopK => '最終 topK';
+
+  @override
+  String get qdrantMetricMinSimilarity => '最小類似度';
+
+  @override
+  String get qdrantMetricPromptChunkBudget => 'Prompt チャンク予算';
+
+  @override
+  String get qdrantMetricPromptTokenBudget => 'Prompt token 予算';
+
+  @override
+  String get qdrantValueYes => 'はい';
+
+  @override
+  String get qdrantValueNo => 'いいえ';
+
+  @override
+  String get qdrantValueHealthy => '正常';
+
+  @override
+  String get qdrantValueUnknown => '不明';
+
+  @override
+  String get qdrantValueLoading => '読み込み中';
+
+  @override
+  String get qdrantValueAvailable => '利用可能';
+
+  @override
+  String get qdrantValueUnavailable => '利用不可';
+
+  @override
+  String get qdrantValuePluginServiceScan => 'プラグインサービスがスキャン';
+
+  @override
+  String get qdrantValuePluginRuntimeMetric => 'プラグインランタイムが提供';
+
+  @override
+  String get qdrantValuePluginDetailsLogs => 'プラグイン詳細で確認可能';
+
+  @override
+  String get qdrantValueLocalSingleNodeOrUnavailable => 'ローカル単一ノード / 利用不可';
+
+  @override
+  String get qdrantValueClusterInfoAvailable => 'クラスタ情報を取得済み';
+
+  @override
+  String get qdrantValuePayloadSchemaConfigured => 'Payload schema 設定済み';
+
+  @override
+  String get qdrantValuePayloadSchemaMissing => 'Payload schema が見つかりません';
 }
