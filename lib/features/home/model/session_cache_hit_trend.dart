@@ -1,3 +1,4 @@
+import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 import 'cache_hit_ratio.dart';
 
@@ -460,11 +461,8 @@ _CacheHitDiagnostics _cacheHitDiagnostics({
 
   bool firstBool(List<Object?> values) {
     for (final value in values) {
-      if (value is bool) return value;
-      if (value == null) continue;
-      final text = '$value'.trim().toLowerCase();
-      if (text == 'true') return true;
-      if (text == 'false') return false;
+      final parsed = optionalBoolFromValue(value);
+      if (parsed != null) return parsed;
     }
     return false;
   }
