@@ -1084,15 +1084,7 @@ class AiChatService implements AiChatClient {
       if (resultCompleter.isCompleted) {
         return;
       }
-      final trimmedBlock = block.trim();
-      if (trimmedBlock.isEmpty) {
-        return;
-      }
-      final dataLines = trimmedBlock
-          .split('\n')
-          .where((line) => line.startsWith('data:'))
-          .map((line) => line.substring(5).trim())
-          .toList(growable: false);
+      final dataLines = _extractSseDataLines(block);
       if (dataLines.isEmpty) {
         return;
       }
@@ -1374,13 +1366,8 @@ class AiChatService implements AiChatClient {
     }
 
     void processEventBlock(String block) {
-      final trimmedBlock = block.trim();
-      if (trimmedBlock.isEmpty || resultCompleter.isCompleted) return;
-      final dataLines = trimmedBlock
-          .split('\n')
-          .where((line) => line.startsWith('data:'))
-          .map((line) => line.substring(5).trim())
-          .toList(growable: false);
+      if (resultCompleter.isCompleted) return;
+      final dataLines = _extractSseDataLines(block);
       if (dataLines.isEmpty) return;
       final data = dataLines.join('\n');
       if (data == '[DONE]') {
@@ -2539,6 +2526,16 @@ String? _streamingMediaKindFromType(String value) {
 
 String? _streamingMediaKindFromField(String key) {
   return _streamingMediaKindFromType(key.replaceAll('_', '-'));
+}
+
+List<String> _extractSseDataLines(String block) {
+  final trimmedBlock = block.trim();
+  if (trimmedBlock.isEmpty) return const <String>[];
+  return trimmedBlock
+      .split('\n')
+      .where((line) => line.startsWith('data:'))
+      .map((line) => line.substring(5).trim())
+      .toList(growable: false);
 }
 
 int? _readInt(Object? value) {
