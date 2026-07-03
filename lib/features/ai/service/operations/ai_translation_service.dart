@@ -686,7 +686,7 @@ class AiTranslationService {
   ) {
     final decoded = _decodeJson(response, provider);
     if (decoded is Map<String, Object?>) return decoded;
-    if (decoded is Map) return Map<String, Object?>.from(decoded);
+    if (decoded is Map) return stringKeyedMapFromValue(decoded);
     throw AiTranslationException(
       '${provider.storageKey} translation response is invalid.',
       provider: provider,
@@ -823,12 +823,12 @@ class AiTranslationService {
 
   Object? _doubaoCorpus(AiTranslationProviderSettings settings) {
     final rawObject = settings.extra['corpus'];
-    if (rawObject is Map) return Map<String, Object?>.from(rawObject);
+    if (rawObject is Map) return stringKeyedMapFromValue(rawObject);
     final rawJson = _extraString(settings, 'corpus_json');
     if (rawJson.isEmpty) return null;
     try {
       final decoded = jsonDecode(rawJson);
-      if (decoded is Map) return Map<String, Object?>.from(decoded);
+      if (decoded is Map) return stringKeyedMapFromValue(decoded);
     } on FormatException catch (error) {
       throw AiTranslationException(
         'Doubao corpus JSON is invalid: ${error.message}',

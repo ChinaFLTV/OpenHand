@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../chat/ai_transport_diagnostic_messages.dart';
@@ -81,7 +82,7 @@ final class AiOperationHttp {
 
   static Map<String, Object?> jsonMapOrEmpty(Object? decoded) {
     if (decoded is Map<String, Object?>) return decoded;
-    if (decoded is Map) return Map<String, Object?>.from(decoded);
+    if (decoded is Map) return stringKeyedMapFromValue(decoded);
     return const <String, Object?>{};
   }
 
@@ -92,11 +93,8 @@ final class AiOperationHttp {
   }
 
   static Map<String, Object?> stringKeyedMap(Object? raw) {
-    if (raw is Map<String, Object?>) {
-      return Map<String, Object?>.from(raw);
-    }
     if (raw is Map) {
-      return Map<String, Object?>.from(raw);
+      return Map<String, Object?>.from(stringKeyedMapFromValue(raw));
     }
     return const <String, Object?>{};
   }
@@ -200,7 +198,7 @@ final class AiOperationHttp {
           return _boundedErrorMessage(error.trim());
         }
         if (error is Map) {
-          final map = Map<String, Object?>.from(error);
+          final map = stringKeyedMapFromValue(error);
           final message = '${map['message'] ?? map['error'] ?? ''}'.trim();
           if (message.isNotEmpty) return _boundedErrorMessage(message);
           final code = '${map['code'] ?? ''}'.trim();
