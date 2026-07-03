@@ -17,6 +17,7 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../instructions_controller.dart';
 import '../model/user_instruction_entry.dart';
 
@@ -206,12 +207,8 @@ class _InstructionCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     // 过滤空白项，避免持久化历史中遗留的空字符串渲染出"空胶囊"。
-    final visibleTaskTypes = entry.taskTypes
-        .where((value) => value.trim().isNotEmpty)
-        .toList(growable: false);
-    final visibleKeywords = entry.keywords
-        .where((value) => value.trim().isNotEmpty)
-        .toList(growable: false);
+    final visibleTaskTypes = stringListFromValue(entry.taskTypes);
+    final visibleKeywords = stringListFromValue(entry.keywords);
     final taskTypes = visibleTaskTypes.take(4).toList(growable: false);
     final hiddenTaskTypeCount = visibleTaskTypes.length - taskTypes.length;
     final keywords = visibleKeywords.take(4).toList(growable: false);
@@ -875,10 +872,10 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
   }
 
   List<String> _splitCsv(String value) =>
-      value.split(RegExp(r'[,，;；]')).map((e) => e.trim()).toList();
+      splitTrimmedNonEmpty(value, separator: RegExp(r'[,，;；]'));
 
   List<String> _splitLines(String value) =>
-      value.split('\n').map((e) => e.trim()).toList();
+      splitTrimmedNonEmpty(value, separator: '\n');
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;

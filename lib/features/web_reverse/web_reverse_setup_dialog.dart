@@ -7,6 +7,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_model_selector_field.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
@@ -198,11 +199,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog> {
   }
 
   void _submit() {
-    final keywords = _keywordsCtrl.text
-        .split(RegExp(r'[,\s]+'))
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList(growable: false);
+    final keywords = splitLooseDelimitedValues(_keywordsCtrl.text);
     final config = WebReverseSessionConfig(
       targetUrl: _urlCtrl.text.trim(),
       objective: _objectiveCtrl.text.trim(),

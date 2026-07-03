@@ -49,6 +49,31 @@ void main() {
     });
   });
 
+  group('splitTrimmedNonEmpty', () {
+    test('trims entries and drops empty delimiter gaps', () {
+      expect(splitTrimmedNonEmpty(' alpha, , beta ,'), <String>[
+        'alpha',
+        'beta',
+      ]);
+    });
+
+    test('treats an empty string separator as one trimmed item', () {
+      expect(splitTrimmedNonEmpty('  alpha,beta  ', separator: ''), <String>[
+        'alpha,beta',
+      ]);
+      expect(splitTrimmedNonEmpty('   ', separator: ''), isEmpty);
+    });
+  });
+
+  group('splitLooseDelimitedValues', () {
+    test('splits comma, Chinese punctuation, semicolon, and whitespace', () {
+      expect(
+        splitLooseDelimitedValues(' adb, frida；jadx apktool， mitm;  ida '),
+        <String>['adb', 'frida', 'jadx', 'apktool', 'mitm', 'ida'],
+      );
+    });
+  });
+
   group('stringKeyedMapFromValue', () {
     test('normalizes map keys to strings', () {
       expect(
