@@ -724,16 +724,8 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _deviceProps = props;
-        _forwardRows = (forwards ?? '')
-            .split('\n')
-            .map((line) => line.trim())
-            .where((line) => line.isNotEmpty)
-            .toList(growable: false);
-        _reverseRows = (reverses ?? '')
-            .split('\n')
-            .map((line) => line.trim())
-            .where((line) => line.isNotEmpty)
-            .toList(growable: false);
+        _forwardRows = splitTrimmedNonEmpty(forwards ?? '', separator: '\n');
+        _reverseRows = splitTrimmedNonEmpty(reverses ?? '', separator: '\n');
         _deviceSnapshotOutput = _formatDeviceSnapshot(snapshot, isZh);
       });
     } catch (error) {

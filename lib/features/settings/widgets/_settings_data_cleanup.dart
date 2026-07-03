@@ -1378,11 +1378,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
     final token = ++_runToken;
     setState(() => _busy = true);
     try {
-      final tools = _toolCtrl.text
-          .split(RegExp(r'[,\s]+'))
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .toList();
+      final tools = splitLooseDelimitedValues(_toolCtrl.text);
       final results = await widget.ledger.searchRecords(
         pathContains: _pathCtrl.text.trim(),
         toolNames: tools.isEmpty ? null : tools,
