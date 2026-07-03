@@ -1672,6 +1672,25 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   );
   static const Duration _editorLspSymbolsDebounce = Duration(milliseconds: 260);
 
+  String _editorText({
+    required String zh,
+    String? zhHant,
+    required String en,
+    String? fr,
+    String? de,
+    String? ja,
+  }) {
+    return _localizedText(
+      context,
+      zh: zh,
+      zhHant: zhHant,
+      en: en,
+      fr: fr,
+      de: de,
+      ja: ja,
+    );
+  }
+
   final Map<String, String?> _fileContents = {};
   final Map<String, bool> _fileLoading = {};
   final Map<String, bool> _fileDirty = {};
@@ -7500,7 +7519,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   Widget _buildFindBar(ColorScheme colorScheme) {
     if (!_findBarVisible) return const SizedBox.shrink();
-    final isZh = openHandIsChineseLocale(context);
     final matchLabel = _findMatchOffsets.isEmpty
         ? ''
         : '${_currentMatchIndex + 1}/${_findMatchOffsets.length}';
@@ -7532,7 +7550,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       color: colorScheme.onSurface,
                     ),
                     decoration: InputDecoration(
-                      hintText: isZh ? '查找' : 'Find',
+                      hintText: _editorText(
+                        zh: '查找',
+                        zhHant: '尋找',
+                        en: 'Find',
+                        fr: 'Rechercher',
+                        de: 'Suchen',
+                        ja: '検索',
+                      ),
                       hintStyle: TextStyle(
                         fontSize: 13,
                         color: colorScheme.onSurfaceVariant.withValues(
@@ -7628,7 +7653,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         color: colorScheme.onSurface,
                       ),
                       decoration: InputDecoration(
-                        hintText: isZh ? '替换' : 'Replace',
+                        hintText: _editorText(
+                          zh: '替换',
+                          zhHant: '取代',
+                          en: 'Replace',
+                          fr: 'Remplacer',
+                          de: 'Ersetzen',
+                          ja: '置換',
+                        ),
                         hintStyle: TextStyle(
                           fontSize: 13,
                           color: colorScheme.onSurfaceVariant.withValues(
@@ -7689,7 +7721,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   Widget _buildGoToLineBar(ColorScheme colorScheme) {
     if (!_goToLineVisible) return const SizedBox.shrink();
-    final isZh = openHandIsChineseLocale(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -7704,7 +7735,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       child: Row(
         children: [
           Text(
-            isZh ? '跳转到行:' : 'Go to Line:',
+            _editorText(
+              zh: '跳转到行:',
+              zhHant: '跳至行:',
+              en: 'Go to Line:',
+              fr: 'Aller à la ligne :',
+              de: 'Gehe zu Zeile:',
+              ja: '行へ移動:',
+            ),
             style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(width: 8),
@@ -7757,7 +7795,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!_symbolBarVisible) {
       return const SizedBox.shrink();
     }
-    final isZh = openHandIsChineseLocale(context);
     final symbolCountLabel = _allSymbols.isEmpty
         ? ''
         : '${_visibleSymbols.length}/${_allSymbols.length}';
@@ -7789,8 +7826,22 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ),
                     decoration: InputDecoration(
                       hintText: _workspaceSymbolMode
-                          ? (isZh ? '搜索工作区符号' : 'Search Workspace Symbols')
-                          : (isZh ? '跳转到符号' : 'Go to Symbol'),
+                          ? _editorText(
+                              zh: '搜索工作区符号',
+                              zhHant: '搜尋工作區符號',
+                              en: 'Search Workspace Symbols',
+                              fr: 'Rechercher des symboles du workspace',
+                              de: 'Workspace-Symbole suchen',
+                              ja: 'ワークスペースシンボルを検索',
+                            )
+                          : _editorText(
+                              zh: '跳转到符号',
+                              zhHant: '跳至符號',
+                              en: 'Go to Symbol',
+                              fr: 'Aller au symbole',
+                              de: 'Gehe zu Symbol',
+                              ja: 'シンボルへ移動',
+                            ),
                       hintStyle: TextStyle(
                         fontSize: 13,
                         color: colorScheme.onSurfaceVariant.withValues(
@@ -7877,7 +7928,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                           ? 'WS'
                           : _symbolsUsingLsp
                           ? 'LSP'
-                          : (isZh ? '本地' : 'Local'),
+                          : _editorText(
+                              zh: '本地',
+                              zhHant: '本機',
+                              en: 'Local',
+                              fr: 'Local',
+                              de: 'Lokal',
+                              ja: 'ローカル',
+                            ),
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w600,
@@ -7921,7 +7979,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  isZh ? '正在加载符号列表…' : 'Loading symbols…',
+                  _editorText(
+                    zh: '正在加载符号列表…',
+                    zhHant: '正在載入符號清單…',
+                    en: 'Loading symbols…',
+                    fr: 'Chargement des symboles…',
+                    de: 'Symbole werden geladen…',
+                    ja: 'シンボル一覧を読み込み中…',
+                  ),
                   style: TextStyle(
                     fontSize: 12,
                     color: colorScheme.onSurfaceVariant,
@@ -7935,17 +8000,39 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               child: Text(
                 _allSymbols.isEmpty
                     ? (_workspaceSymbolMode
-                          ? (isZh
-                                ? '输入关键词后可跨文件搜索工作区符号'
-                                : 'Type a query to search workspace symbols across files')
-                          : (isZh
-                                ? '当前文件未提取到可导航符号'
-                                : 'No navigable symbols found in this file'))
+                          ? _editorText(
+                              zh: '输入关键词后可跨文件搜索工作区符号',
+                              zhHant: '輸入關鍵字後可跨檔案搜尋工作區符號',
+                              en: 'Type a query to search workspace symbols across files',
+                              fr: 'Saisissez une requête pour rechercher les symboles du workspace',
+                              de: 'Gib eine Suche ein, um Workspace-Symbole dateiübergreifend zu finden',
+                              ja: 'キーワードを入力すると複数ファイルのシンボルを検索できます',
+                            )
+                          : _editorText(
+                              zh: '当前文件未提取到可导航符号',
+                              zhHant: '目前檔案未提取到可導覽符號',
+                              en: 'No navigable symbols found in this file',
+                              fr: 'Aucun symbole navigable trouvé dans ce fichier',
+                              de: 'Keine navigierbaren Symbole in dieser Datei gefunden',
+                              ja: 'このファイルに移動可能なシンボルはありません',
+                            ))
                     : (_workspaceSymbolMode
-                          ? (isZh
-                                ? '没有匹配的工作区符号'
-                                : 'No matching workspace symbols')
-                          : (isZh ? '没有匹配的符号' : 'No matching symbols')),
+                          ? _editorText(
+                              zh: '没有匹配的工作区符号',
+                              zhHant: '沒有相符的工作區符號',
+                              en: 'No matching workspace symbols',
+                              fr: 'Aucun symbole du workspace correspondant',
+                              de: 'Keine passenden Workspace-Symbole',
+                              ja: '一致するワークスペースシンボルはありません',
+                            )
+                          : _editorText(
+                              zh: '没有匹配的符号',
+                              zhHant: '沒有相符的符號',
+                              en: 'No matching symbols',
+                              fr: 'Aucun symbole correspondant',
+                              de: 'Keine passenden Symbole',
+                              ja: '一致するシンボルはありません',
+                            )),
                 style: TextStyle(
                   fontSize: 12,
                   color: colorScheme.onSurfaceVariant,
@@ -8054,9 +8141,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                isZh
-                    ? '符号列表已做性能截断，仅展示前部结果。'
-                    : 'The symbol list was truncated for performance.',
+                _editorText(
+                  zh: '符号列表已做性能截断，仅展示前部结果。',
+                  zhHant: '符號清單已為效能截斷，僅顯示前段結果。',
+                  en: 'The symbol list was truncated for performance.',
+                  fr: 'La liste des symboles a été tronquée pour préserver les performances.',
+                  de: 'Die Symbolliste wurde aus Leistungsgründen gekürzt.',
+                  ja: 'パフォーマンスのため、シンボル一覧は先頭の結果のみ表示しています。',
+                ),
                 style: TextStyle(
                   fontSize: 11,
                   color: colorScheme.onSurfaceVariant,
@@ -8072,7 +8164,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!_diagnosticsBarVisible) {
       return const SizedBox.shrink();
     }
-    final isZh = openHandIsChineseLocale(context);
     final filePath = widget.activeFilePath;
     final resolution = _lspResolutionForFile(filePath);
     final supportsDiagnostics = _supportsDiagnosticsForFile(filePath);
@@ -8104,7 +8195,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             children: [
               Expanded(
                 child: Text(
-                  isZh ? '代码诊断' : 'Diagnostics',
+                  _editorText(
+                    zh: '代码诊断',
+                    zhHant: '程式碼診斷',
+                    en: 'Diagnostics',
+                    fr: 'Diagnostics',
+                    de: 'Diagnosen',
+                    ja: '診断',
+                  ),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -8135,7 +8233,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           Flexible(
             child: _buildDiagnosticsContent(
               colorScheme: colorScheme,
-              isZh: isZh,
               filePath: filePath,
               supportsDiagnostics: supportsDiagnostics,
               diagnostics: diagnostics,
@@ -8151,7 +8248,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   Widget _buildDiagnosticsContent({
     required ColorScheme colorScheme,
-    required bool isZh,
     required String filePath,
     required bool supportsDiagnostics,
     required List<_EditorDiagnostic> diagnostics,
@@ -8172,7 +8268,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           ),
           const SizedBox(width: 8),
           Text(
-            isZh ? '正在连接 LSP 后端…' : 'Resolving LSP backend…',
+            _editorText(
+              zh: '正在连接 LSP 后端…',
+              zhHant: '正在連線 LSP 後端…',
+              en: 'Resolving LSP backend…',
+              fr: 'Résolution du backend LSP…',
+              de: 'LSP-Backend wird aufgelöst…',
+              ja: 'LSP 後端を解決中…',
+            ),
             style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
           ),
         ],
@@ -8197,7 +8300,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           ),
           const SizedBox(width: 8),
           Text(
-            isZh ? '正在等待 LSP 诊断结果…' : 'Waiting for LSP diagnostics…',
+            _editorText(
+              zh: '正在等待 LSP 诊断结果…',
+              zhHant: '正在等待 LSP 診斷結果…',
+              en: 'Waiting for LSP diagnostics…',
+              fr: 'En attente des diagnostics LSP…',
+              de: 'Warte auf LSP-Diagnosen…',
+              ja: 'LSP 診断結果を待機中…',
+            ),
             style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
           ),
         ],
@@ -8212,14 +8322,26 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             padding: const EdgeInsets.only(bottom: 6),
             child: _buildDiagnosticsHint(
               colorScheme,
-              isZh
-                  ? '编辑内容已经变化，诊断会按当前文本继续刷新。'
-                  : 'The editor text changed; diagnostics will keep refreshing against the current content.',
+              _editorText(
+                zh: '编辑内容已经变化，诊断会按当前文本继续刷新。',
+                zhHant: '編輯內容已變更，診斷會依目前文字繼續刷新。',
+                en: 'The editor text changed; diagnostics will keep refreshing against the current content.',
+                fr: 'Le texte de l’éditeur a changé ; les diagnostics continueront sur le contenu actuel.',
+                de: 'Der Editorinhalt hat sich geändert; Diagnosen werden für den aktuellen Text aktualisiert.',
+                ja: 'エディタの内容が変わったため、現在のテキストで診断を更新します。',
+              ),
             ),
           ),
         if (diagnostics.isEmpty)
           Text(
-            isZh ? '未发现诊断问题。' : 'No diagnostics found.',
+            _editorText(
+              zh: '未发现诊断问题。',
+              zhHant: '未發現診斷問題。',
+              en: 'No diagnostics found.',
+              fr: 'Aucun diagnostic trouvé.',
+              de: 'Keine Diagnosen gefunden.',
+              ja: '診断問題は見つかりませんでした。',
+            ),
             style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
           )
         else
@@ -8303,7 +8425,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!_lspResultBarVisible) {
       return const SizedBox.shrink();
     }
-    final isZh = openHandIsChineseLocale(context);
     final theme = Theme.of(context);
     final hasLocations = _lspResultLocations.isNotEmpty;
     final hasCodeActions = _lspResultCodeActions.isNotEmpty;
@@ -8376,9 +8497,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               padding: const EdgeInsets.only(bottom: 8),
               child: _buildDiagnosticsHint(
                 colorScheme,
-                isZh
-                    ? '正在加载结果附近的代码上下文…'
-                    : 'Loading code context around the current results...',
+                _editorText(
+                  zh: '正在加载结果附近的代码上下文…',
+                  zhHant: '正在載入結果附近的程式碼上下文…',
+                  en: 'Loading code context around the current results...',
+                  fr: 'Chargement du contexte de code autour des résultats actuels...',
+                  de: 'Codekontext um die aktuellen Ergebnisse wird geladen...',
+                  ja: '現在の結果周辺のコードコンテキストを読み込み中...',
+                ),
               ),
             ),
           if (_lspResultLoading)
@@ -8394,7 +8520,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  isZh ? '正在执行 LSP 请求…' : 'Running LSP request…',
+                  _editorText(
+                    zh: '正在执行 LSP 请求…',
+                    zhHant: '正在執行 LSP 請求…',
+                    en: 'Running LSP request…',
+                    fr: 'Exécution de la requête LSP…',
+                    de: 'LSP-Anfrage wird ausgeführt…',
+                    ja: 'LSP リクエストを実行中…',
+                  ),
                   style: TextStyle(
                     fontSize: 12,
                     color: colorScheme.onSurfaceVariant,
@@ -8417,9 +8550,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               )
             else if (message == null)
               Text(
-                isZh
-                    ? '当前请求没有返回可显示内容。'
-                    : 'This request returned no displayable content.',
+                _editorText(
+                  zh: '当前请求没有返回可显示内容。',
+                  zhHant: '目前請求沒有返回可顯示內容。',
+                  en: 'This request returned no displayable content.',
+                  fr: 'Cette requête n’a renvoyé aucun contenu affichable.',
+                  de: 'Diese Anfrage lieferte keinen anzeigbaren Inhalt.',
+                  ja: 'このリクエストは表示できる内容を返しませんでした。',
+                ),
                 style: TextStyle(
                   fontSize: 12,
                   color: colorScheme.onSurfaceVariant,
@@ -8767,7 +8905,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _codeActionSummary(AiLspCodeAction action) {
-    final isZh = openHandIsChineseLocale(context);
     if (action.isDisabled) {
       return action.disabledReason!;
     }
@@ -8778,19 +8915,49 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final edit = action.edit;
     if (edit != null && !edit.isEmpty) {
       parts.add(
-        isZh
-            ? '${edit.fileCount} 文件 / ${edit.editCount} 修改'
-            : '${edit.fileCount} files / ${edit.editCount} edits',
+        _editorText(
+          zh: '${edit.fileCount} 文件 / ${edit.editCount} 修改',
+          zhHant: '${edit.fileCount} 檔案 / ${edit.editCount} 修改',
+          en: '${edit.fileCount} files / ${edit.editCount} edits',
+          fr: '${edit.fileCount} fichiers / ${edit.editCount} modifs',
+          de: '${edit.fileCount} Dateien / ${edit.editCount} Änderungen',
+          ja: '${edit.fileCount} ファイル / ${edit.editCount} 編集',
+        ),
       );
     }
     if (action.command != null) {
-      parts.add(isZh ? '命令' : 'Command');
+      parts.add(
+        _editorText(
+          zh: '命令',
+          zhHant: '命令',
+          en: 'Command',
+          fr: 'Commande',
+          de: 'Befehl',
+          ja: 'コマンド',
+        ),
+      );
     }
     if (action.isPreferred) {
-      parts.add(isZh ? '推荐' : 'Preferred');
+      parts.add(
+        _editorText(
+          zh: '推荐',
+          zhHant: '推薦',
+          en: 'Preferred',
+          fr: 'Préféré',
+          de: 'Bevorzugt',
+          ja: '推奨',
+        ),
+      );
     }
     return parts.isEmpty
-        ? (isZh ? '可应用操作' : 'Applicable action')
+        ? _editorText(
+            zh: '可应用操作',
+            zhHant: '可套用操作',
+            en: 'Applicable action',
+            fr: 'Action applicable',
+            de: 'Anwendbare Aktion',
+            ja: '適用可能な操作',
+          )
         : parts.join('  •  ');
   }
 
@@ -8836,19 +9003,50 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   String _diagnosticsStatusLabel(BuildContext context, String filePath) {
-    final isZh = openHandIsChineseLocale(context);
     final resolution = _lspResolutionForFile(filePath);
     if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
-      return isZh ? 'LSP中' : 'LSP';
+      return _localizedText(
+        context,
+        zh: 'LSP中',
+        zhHant: 'LSP中',
+        en: 'LSP',
+        fr: 'LSP',
+        de: 'LSP',
+        ja: 'LSP中',
+      );
     }
     if (resolution == null) {
-      return isZh ? '待解析' : 'Resolve';
+      return _localizedText(
+        context,
+        zh: '待解析',
+        zhHant: '待解析',
+        en: 'Resolve',
+        fr: 'Résoudre',
+        de: 'Auflösen',
+        ja: '解決待ち',
+      );
     }
     if (!resolution.isAvailable) {
-      return isZh ? '无后端' : 'No LSP';
+      return _localizedText(
+        context,
+        zh: '无后端',
+        zhHant: '無後端',
+        en: 'No LSP',
+        fr: 'Sans LSP',
+        de: 'Kein LSP',
+        ja: 'LSPなし',
+      );
     }
     if (_diagnosticsLoadingFiles.contains(filePath)) {
-      return isZh ? '诊断中' : 'LSP Diag';
+      return _localizedText(
+        context,
+        zh: '诊断中',
+        zhHant: '診斷中',
+        en: 'LSP Diag',
+        fr: 'Diag LSP',
+        de: 'LSP-Diag',
+        ja: '診断中',
+      );
     }
     final diagnostics =
         _diagnosticsByFile[filePath] ?? const <_EditorDiagnostic>[];
@@ -8858,17 +9056,55 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         _fileDirty[filePath] == true ||
         _diagnosticsStaleFiles.contains(filePath);
     if (errors == 0 && warnings == 0) {
-      return stale ? (isZh ? '已过期' : 'Stale') : (isZh ? '通过' : 'Clean');
+      return stale
+          ? _localizedText(
+              context,
+              zh: '已过期',
+              zhHant: '已過期',
+              en: 'Stale',
+              fr: 'Périmé',
+              de: 'Veraltet',
+              ja: '古い',
+            )
+          : _localizedText(
+              context,
+              zh: '通过',
+              zhHant: '通過',
+              en: 'Clean',
+              fr: 'OK',
+              de: 'OK',
+              ja: '正常',
+            );
     }
     final buffer = StringBuffer();
     if (errors > 0) {
-      buffer.write(isZh ? '$errors错' : '${errors}E');
+      buffer.write(
+        _localizedText(
+          context,
+          zh: '$errors错',
+          zhHant: '$errors錯',
+          en: '${errors}E',
+          fr: '${errors}E',
+          de: '${errors}F',
+          ja: '$errorsエ',
+        ),
+      );
     }
     if (warnings > 0) {
       if (buffer.isNotEmpty) {
         buffer.write(' · ');
       }
-      buffer.write(isZh ? '$warnings警' : '${warnings}W');
+      buffer.write(
+        _localizedText(
+          context,
+          zh: '$warnings警',
+          zhHant: '$warnings警',
+          en: '${warnings}W',
+          fr: '${warnings}A',
+          de: '${warnings}W',
+          ja: '$warnings警',
+        ),
+      );
     }
     return buffer.toString();
   }
@@ -9300,14 +9536,18 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     } catch (error, stack) {
       silentLog('file_explorer', 'save file $filePath', error, stack);
       if (!mounted) return;
-      final isZh = openHandIsChineseLocale(context);
       _showHomeSnackBar(
         context,
         SnackBar(
           content: Text(
-            isZh
-                ? '保存失败：${p.basename(filePath)}\n$error'
-                : 'Save failed: ${p.basename(filePath)}\n$error',
+            _editorText(
+              zh: '保存失败：${p.basename(filePath)}\n$error',
+              zhHant: '儲存失敗：${p.basename(filePath)}\n$error',
+              en: 'Save failed: ${p.basename(filePath)}\n$error',
+              fr: 'Échec de l’enregistrement : ${p.basename(filePath)}\n$error',
+              de: 'Speichern fehlgeschlagen: ${p.basename(filePath)}\n$error',
+              ja: '保存に失敗しました: ${p.basename(filePath)}\n$error',
+            ),
           ),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
@@ -9321,36 +9561,68 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       return;
     }
     final fileName = p.basename(filePath);
-    final isZh = openHandIsChineseLocale(context);
     final result = await showAnimatedDialog<_UnsavedCloseAction>(
       context: context,
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
         return buildOpenHandAlertDialog(
           title: Text(
-            isZh ? '文件未保存' : 'Unsaved Changes',
+            _editorText(
+              zh: '文件未保存',
+              zhHant: '檔案未儲存',
+              en: 'Unsaved Changes',
+              fr: 'Modifications non enregistrées',
+              de: 'Ungespeicherte Änderungen',
+              ja: '未保存の変更',
+            ),
             style: theme.textTheme.titleMedium,
           ),
           content: Text(
-            isZh
-                ? '"$fileName" 有未保存的更改，是否保存？'
-                : '"$fileName" has unsaved changes. Do you want to save?',
+            _editorText(
+              zh: '"$fileName" 有未保存的更改，是否保存？',
+              zhHant: '"$fileName" 有未儲存的變更，是否儲存？',
+              en: '"$fileName" has unsaved changes. Do you want to save?',
+              fr: '"$fileName" contient des modifications non enregistrées. Voulez-vous les enregistrer ?',
+              de: '"$fileName" hat ungespeicherte Änderungen. Möchtest du speichern?',
+              ja: '"$fileName" には未保存の変更があります。保存しますか？',
+            ),
           ),
           actions: [
             OpenHandDialogActionButton.secondary(
               onPressed: () =>
                   Navigator.of(dialogContext).pop(_UnsavedCloseAction.cancel),
-              label: isZh ? '取消' : 'Cancel',
+              label: _editorText(
+                zh: '取消',
+                zhHant: '取消',
+                en: 'Cancel',
+                fr: 'Annuler',
+                de: 'Abbrechen',
+                ja: 'キャンセル',
+              ),
             ),
             OpenHandDialogActionButton.destructive(
               onPressed: () =>
                   Navigator.of(dialogContext).pop(_UnsavedCloseAction.discard),
-              label: isZh ? '不保存' : "Don't Save",
+              label: _editorText(
+                zh: '不保存',
+                zhHant: '不儲存',
+                en: "Don't Save",
+                fr: 'Ne pas enregistrer',
+                de: 'Nicht speichern',
+                ja: '保存しない',
+              ),
             ),
             OpenHandDialogActionButton.primary(
               onPressed: () =>
                   Navigator.of(dialogContext).pop(_UnsavedCloseAction.save),
-              label: isZh ? '保存' : 'Save',
+              label: _editorText(
+                zh: '保存',
+                zhHant: '儲存',
+                en: 'Save',
+                fr: 'Enregistrer',
+                de: 'Speichern',
+                ja: '保存',
+              ),
             ),
           ],
         );
@@ -9410,7 +9682,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (!mounted) {
       return;
     }
-    final isZh = openHandIsChineseLocale(context);
     final workspaceRoot =
         _lspResolutionForFile(filePath)?.rootPath.isNotEmpty == true
         ? _lspResolutionForFile(filePath)!.rootPath
@@ -9436,15 +9707,42 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       items: [
         PopupMenuItem<String>(
           value: 'abs',
-          child: Text(isZh ? '绝对路径' : 'Absolute Path'),
+          child: Text(
+            _editorText(
+              zh: '绝对路径',
+              zhHant: '絕對路徑',
+              en: 'Absolute Path',
+              fr: 'Chemin absolu',
+              de: 'Absoluter Pfad',
+              ja: '絶対パス',
+            ),
+          ),
         ),
         PopupMenuItem<String>(
           value: 'name',
-          child: Text(isZh ? '文件名' : 'File Name'),
+          child: Text(
+            _editorText(
+              zh: '文件名',
+              zhHant: '檔案名稱',
+              en: 'File Name',
+              fr: 'Nom du fichier',
+              de: 'Dateiname',
+              ja: 'ファイル名',
+            ),
+          ),
         ),
         PopupMenuItem<String>(
           value: 'workspace_root',
-          child: Text(isZh ? '相对工作区路径' : 'Path from Workspace Root'),
+          child: Text(
+            _editorText(
+              zh: '相对工作区路径',
+              zhHant: '相對工作區路徑',
+              en: 'Path from Workspace Root',
+              fr: 'Chemin depuis la racine du workspace',
+              de: 'Pfad ab Workspace-Wurzel',
+              ja: 'ワークスペースルートからのパス',
+            ),
+          ),
         ),
       ],
     );
@@ -9531,7 +9829,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (fileIndex < 0) {
       return;
     }
-    final isZh = openHandIsChineseLocale(context);
     final hasOtherTabs = widget.openFiles.length > 1;
     final hasTabsToLeft = fileIndex > 0;
     final hasTabsToRight = fileIndex < widget.openFiles.length - 1;
@@ -9565,43 +9862,92 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         buildItem(
           value: _EditorTabMenuAction.close,
           icon: Icons.close_rounded,
-          label: isZh ? '关闭' : 'Close',
+          label: _editorText(
+            zh: '关闭',
+            zhHant: '關閉',
+            en: 'Close',
+            fr: 'Fermer',
+            de: 'Schließen',
+            ja: '閉じる',
+          ),
         ),
         buildItem(
           value: _EditorTabMenuAction.closeOthers,
           icon: Icons.filter_none_rounded,
-          label: isZh ? '关闭其他标签页' : 'Close Other Tabs',
+          label: _editorText(
+            zh: '关闭其他标签页',
+            zhHant: '關閉其他分頁',
+            en: 'Close Other Tabs',
+            fr: 'Fermer les autres onglets',
+            de: 'Andere Tabs schließen',
+            ja: '他のタブを閉じる',
+          ),
           enabled: hasOtherTabs,
         ),
         buildItem(
           value: _EditorTabMenuAction.closeAll,
           icon: Icons.deselect_rounded,
-          label: isZh ? '关闭所有标签页' : 'Close All Tabs',
+          label: _editorText(
+            zh: '关闭所有标签页',
+            zhHant: '關閉所有分頁',
+            en: 'Close All Tabs',
+            fr: 'Fermer tous les onglets',
+            de: 'Alle Tabs schließen',
+            ja: 'すべてのタブを閉じる',
+          ),
           enabled: widget.openFiles.isNotEmpty,
         ),
         buildItem(
           value: _EditorTabMenuAction.closeUnmodified,
           icon: Icons.cleaning_services_rounded,
-          label: isZh ? '关闭未修改标签页' : 'Close Unmodified Tabs',
+          label: _editorText(
+            zh: '关闭未修改标签页',
+            zhHant: '關閉未修改分頁',
+            en: 'Close Unmodified Tabs',
+            fr: 'Fermer les onglets non modifiés',
+            de: 'Unveränderte Tabs schließen',
+            ja: '未変更のタブを閉じる',
+          ),
           enabled: hasUnmodifiedTabs,
         ),
         buildItem(
           value: _EditorTabMenuAction.closeLeft,
           icon: Icons.keyboard_double_arrow_left_rounded,
-          label: isZh ? '关闭左侧标签页' : 'Close Tabs to the Left',
+          label: _editorText(
+            zh: '关闭左侧标签页',
+            zhHant: '關閉左側分頁',
+            en: 'Close Tabs to the Left',
+            fr: 'Fermer les onglets à gauche',
+            de: 'Tabs links schließen',
+            ja: '左側のタブを閉じる',
+          ),
           enabled: hasTabsToLeft,
         ),
         buildItem(
           value: _EditorTabMenuAction.closeRight,
           icon: Icons.keyboard_double_arrow_right_rounded,
-          label: isZh ? '关闭右侧标签页' : 'Close Tabs to the Right',
+          label: _editorText(
+            zh: '关闭右侧标签页',
+            zhHant: '關閉右側分頁',
+            en: 'Close Tabs to the Right',
+            fr: 'Fermer les onglets à droite',
+            de: 'Tabs rechts schließen',
+            ja: '右側のタブを閉じる',
+          ),
           enabled: hasTabsToRight,
         ),
         const PopupMenuDivider(),
         buildItem(
           value: _EditorTabMenuAction.copyPathReference,
           icon: Icons.content_copy_rounded,
-          label: isZh ? '复制路径 / 引用…' : 'Copy Path / Reference…',
+          label: _editorText(
+            zh: '复制路径 / 引用…',
+            zhHant: '複製路徑 / 引用…',
+            en: 'Copy Path / Reference…',
+            fr: 'Copier chemin / référence…',
+            de: 'Pfad / Referenz kopieren…',
+            ja: 'パス / 参照をコピー…',
+          ),
         ),
       ],
     );
@@ -9645,7 +9991,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     Offset globalPosition,
   ) async {
     if (!mounted) return;
-    final isZh = openHandIsChineseLocale(context);
     final colorScheme = Theme.of(context).colorScheme;
     final controller = _textControllers[filePath];
     final hasSelection =
@@ -9710,96 +10055,201 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         buildItem(
           value: _ctxGoToDefinition,
           icon: Icons.gps_fixed_rounded,
-          label: isZh ? '跳转到定义' : 'Go to Definition',
+          label: _editorText(
+            zh: '跳转到定义',
+            zhHant: '跳至定義',
+            en: 'Go to Definition',
+            fr: 'Aller à la définition',
+            de: 'Zur Definition',
+            ja: '定義へ移動',
+          ),
           shortcut: 'F12',
         ),
         buildItem(
           value: _ctxFindReferences,
           icon: Icons.search_rounded,
-          label: isZh ? '查找引用' : 'Find References',
+          label: _editorText(
+            zh: '查找引用',
+            zhHant: '尋找參照',
+            en: 'Find References',
+            fr: 'Rechercher les références',
+            de: 'Referenzen suchen',
+            ja: '参照を検索',
+          ),
           shortcut: '⇧F12',
         ),
         buildItem(
           value: _ctxGoToImplementation,
           icon: Icons.integration_instructions_outlined,
-          label: isZh ? '跳转到实现' : 'Go to Implementation',
+          label: _editorText(
+            zh: '跳转到实现',
+            zhHant: '跳至實作',
+            en: 'Go to Implementation',
+            fr: 'Aller à l’implémentation',
+            de: 'Zur Implementierung',
+            ja: '実装へ移動',
+          ),
           shortcut: '⌥⌘B',
         ),
         buildItem(
           value: _ctxHoverInfo,
           icon: Icons.info_outline_rounded,
-          label: isZh ? '悬浮信息' : 'Hover Info',
+          label: _editorText(
+            zh: '悬浮信息',
+            zhHant: '懸浮資訊',
+            en: 'Hover Info',
+            fr: 'Info au survol',
+            de: 'Hover-Info',
+            ja: 'ホバー情報',
+          ),
           shortcut: '⌘I',
         ),
         const PopupMenuDivider(),
         buildItem(
           value: _ctxRefactorSubmenu,
           icon: Icons.build_rounded,
-          label: isZh ? '重构' : 'Refactor',
+          label: _editorText(
+            zh: '重构',
+            zhHant: '重構',
+            en: 'Refactor',
+            fr: 'Refactoriser',
+            de: 'Refaktorieren',
+            ja: 'リファクタリング',
+          ),
           hasSubmenu: true,
         ),
         buildItem(
           value: _ctxNavigateSubmenu,
           icon: Icons.explore_rounded,
-          label: isZh ? '导航' : 'Navigate',
+          label: _editorText(
+            zh: '导航',
+            zhHant: '導覽',
+            en: 'Navigate',
+            fr: 'Naviguer',
+            de: 'Navigieren',
+            ja: 'ナビゲート',
+          ),
           hasSubmenu: true,
         ),
         buildItem(
           value: _ctxFoldingSubmenu,
           icon: Icons.unfold_less_rounded,
-          label: isZh ? '折叠' : 'Folding',
+          label: _editorText(
+            zh: '折叠',
+            zhHant: '摺疊',
+            en: 'Folding',
+            fr: 'Pliage',
+            de: 'Faltung',
+            ja: '折りたたみ',
+          ),
           hasSubmenu: true,
         ),
         const PopupMenuDivider(),
         buildItem(
           value: _ctxCut,
           icon: Icons.content_cut_rounded,
-          label: isZh ? '剪切' : 'Cut',
+          label: _editorText(
+            zh: '剪切',
+            zhHant: '剪下',
+            en: 'Cut',
+            fr: 'Couper',
+            de: 'Ausschneiden',
+            ja: '切り取り',
+          ),
           shortcut: '⌘X',
           enabled: hasSelection,
         ),
         buildItem(
           value: _ctxCopy,
           icon: Icons.content_copy_rounded,
-          label: isZh ? '复制' : 'Copy',
+          label: _editorText(
+            zh: '复制',
+            zhHant: '複製',
+            en: 'Copy',
+            fr: 'Copier',
+            de: 'Kopieren',
+            ja: 'コピー',
+          ),
           shortcut: '⌘C',
           enabled: hasSelection,
         ),
         buildItem(
           value: _ctxPaste,
           icon: Icons.content_paste_rounded,
-          label: isZh ? '粘贴' : 'Paste',
+          label: _editorText(
+            zh: '粘贴',
+            zhHant: '貼上',
+            en: 'Paste',
+            fr: 'Coller',
+            de: 'Einfügen',
+            ja: '貼り付け',
+          ),
           shortcut: '⌘V',
         ),
         buildItem(
           value: _ctxSelectAll,
           icon: Icons.select_all_rounded,
-          label: isZh ? '全选' : 'Select All',
+          label: _editorText(
+            zh: '全选',
+            zhHant: '全選',
+            en: 'Select All',
+            fr: 'Tout sélectionner',
+            de: 'Alles auswählen',
+            ja: 'すべて選択',
+          ),
           shortcut: '⌘A',
         ),
         const PopupMenuDivider(),
         buildItem(
           value: _ctxFind,
           icon: Icons.find_in_page_rounded,
-          label: isZh ? '查找' : 'Find',
+          label: _editorText(
+            zh: '查找',
+            zhHant: '尋找',
+            en: 'Find',
+            fr: 'Rechercher',
+            de: 'Suchen',
+            ja: '検索',
+          ),
           shortcut: '⌘F',
         ),
         buildItem(
           value: _ctxReplace,
           icon: Icons.find_replace_rounded,
-          label: isZh ? '替换' : 'Replace',
+          label: _editorText(
+            zh: '替换',
+            zhHant: '取代',
+            en: 'Replace',
+            fr: 'Remplacer',
+            de: 'Ersetzen',
+            ja: '置換',
+          ),
           shortcut: '⌘H',
         ),
         const PopupMenuDivider(),
         buildItem(
           value: _ctxOpenInExplorer,
           icon: Icons.folder_open_outlined,
-          label: isZh ? '在系统文件浏览器中打开' : 'Open in System Explorer',
+          label: _editorText(
+            zh: '在系统文件浏览器中打开',
+            zhHant: '在系統檔案瀏覽器中開啟',
+            en: 'Open in System Explorer',
+            fr: 'Ouvrir dans l’explorateur système',
+            de: 'Im System-Dateimanager öffnen',
+            ja: 'システムファイルブラウザで開く',
+          ),
         ),
         buildItem(
           value: _ctxCopyPath,
           icon: Icons.link_rounded,
-          label: isZh ? '复制路径 / 引用…' : 'Copy Path / Reference…',
+          label: _editorText(
+            zh: '复制路径 / 引用…',
+            zhHant: '複製路徑 / 引用…',
+            en: 'Copy Path / Reference…',
+            fr: 'Copier chemin / référence…',
+            de: 'Pfad / Referenz kopieren…',
+            ja: 'パス / 参照をコピー…',
+          ),
         ),
       ],
     );
@@ -9854,7 +10304,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     Offset globalPosition,
   ) async {
     if (!mounted) return;
-    final isZh = openHandIsChineseLocale(context);
 
     PopupMenuItem<String> buildItem({
       required String value,
@@ -9896,45 +10345,94 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         buildItem(
           value: 'rename',
           icon: Icons.drive_file_rename_outline,
-          label: isZh ? '重命名…' : 'Rename…',
+          label: _editorText(
+            zh: '重命名…',
+            zhHant: '重新命名…',
+            en: 'Rename…',
+            fr: 'Renommer…',
+            de: 'Umbenennen…',
+            ja: '名前を変更…',
+          ),
           shortcut: 'F2',
         ),
         buildItem(
           value: 'code_actions',
           icon: Icons.lightbulb_outline_rounded,
-          label: isZh ? '代码操作…' : 'Code Actions…',
+          label: _editorText(
+            zh: '代码操作…',
+            zhHant: '程式碼操作…',
+            en: 'Code Actions…',
+            fr: 'Actions de code…',
+            de: 'Codeaktionen…',
+            ja: 'コードアクション…',
+          ),
           shortcut: '⌘.',
         ),
         const PopupMenuDivider(),
         buildItem(
           value: 'extract_method',
           icon: Icons.functions_rounded,
-          label: isZh ? '提取方法…' : 'Extract Method…',
+          label: _editorText(
+            zh: '提取方法…',
+            zhHant: '提取方法…',
+            en: 'Extract Method…',
+            fr: 'Extraire une méthode…',
+            de: 'Methode extrahieren…',
+            ja: 'メソッドを抽出…',
+          ),
           shortcut: '⌥⌘M',
         ),
         buildItem(
           value: 'extract_variable',
           icon: Icons.data_object_rounded,
-          label: isZh ? '提取变量…' : 'Extract Variable…',
+          label: _editorText(
+            zh: '提取变量…',
+            zhHant: '提取變數…',
+            en: 'Extract Variable…',
+            fr: 'Extraire une variable…',
+            de: 'Variable extrahieren…',
+            ja: '変数を抽出…',
+          ),
           shortcut: '⌥⌘V',
         ),
         buildItem(
           value: 'extract_constant',
           icon: Icons.pin_rounded,
-          label: isZh ? '提取常量…' : 'Extract Constant…',
+          label: _editorText(
+            zh: '提取常量…',
+            zhHant: '提取常數…',
+            en: 'Extract Constant…',
+            fr: 'Extraire une constante…',
+            de: 'Konstante extrahieren…',
+            ja: '定数を抽出…',
+          ),
           shortcut: '⌥⌘C',
         ),
         const PopupMenuDivider(),
         buildItem(
           value: 'inline',
           icon: Icons.compress_rounded,
-          label: isZh ? '内联函数/方法' : 'Inline Function/Method',
+          label: _editorText(
+            zh: '内联函数/方法',
+            zhHant: '內嵌函式/方法',
+            en: 'Inline Function/Method',
+            fr: 'Intégrer fonction/méthode',
+            de: 'Funktion/Methode inline setzen',
+            ja: '関数/メソッドをインライン化',
+          ),
           shortcut: '⌥⌘N',
         ),
         buildItem(
           value: 'change_signature',
           icon: Icons.tune_rounded,
-          label: isZh ? '更改签名…' : 'Change Signature…',
+          label: _editorText(
+            zh: '更改签名…',
+            zhHant: '變更簽名…',
+            en: 'Change Signature…',
+            fr: 'Modifier la signature…',
+            de: 'Signatur ändern…',
+            ja: 'シグネチャを変更…',
+          ),
           shortcut: '⌘F6',
         ),
       ],
@@ -9972,7 +10470,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     Offset globalPosition,
   ) async {
     if (!mounted) return;
-    final isZh = openHandIsChineseLocale(context);
 
     PopupMenuItem<String> buildItem({
       required String value,
@@ -10014,33 +10511,68 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         buildItem(
           value: 'definition',
           icon: Icons.gps_fixed_rounded,
-          label: isZh ? '声明 / 用法' : 'Declaration or Usages',
+          label: _editorText(
+            zh: '声明 / 用法',
+            zhHant: '宣告 / 用法',
+            en: 'Declaration or Usages',
+            fr: 'Déclaration ou usages',
+            de: 'Deklaration oder Verwendungen',
+            ja: '宣言 / 使用箇所',
+          ),
           shortcut: '⌘B',
         ),
         buildItem(
           value: 'implementation',
           icon: Icons.integration_instructions_outlined,
-          label: isZh ? '实现' : 'Implementation(s)',
+          label: _editorText(
+            zh: '实现',
+            zhHant: '實作',
+            en: 'Implementation(s)',
+            fr: 'Implémentation(s)',
+            de: 'Implementierung(en)',
+            ja: '実装',
+          ),
           shortcut: '⌥⌘B',
         ),
         const PopupMenuDivider(),
         buildItem(
           value: 'document_symbols',
           icon: Icons.account_tree_rounded,
-          label: isZh ? '文档符号' : 'Document Symbols',
+          label: _editorText(
+            zh: '文档符号',
+            zhHant: '文件符號',
+            en: 'Document Symbols',
+            fr: 'Symboles du document',
+            de: 'Dokumentsymbole',
+            ja: 'ドキュメントシンボル',
+          ),
           shortcut: '⌘⇧O',
         ),
         buildItem(
           value: 'workspace_symbols',
           icon: Icons.workspaces_outlined,
-          label: isZh ? '工作区符号' : 'Workspace Symbols',
+          label: _editorText(
+            zh: '工作区符号',
+            zhHant: '工作區符號',
+            en: 'Workspace Symbols',
+            fr: 'Symboles du workspace',
+            de: 'Workspace-Symbole',
+            ja: 'ワークスペースシンボル',
+          ),
           shortcut: '⌘T',
         ),
         const PopupMenuDivider(),
         buildItem(
           value: 'go_to_line',
           icon: Icons.format_list_numbered_rounded,
-          label: isZh ? '跳转到行…' : 'Go to Line…',
+          label: _editorText(
+            zh: '跳转到行…',
+            zhHant: '跳至行…',
+            en: 'Go to Line…',
+            fr: 'Aller à la ligne…',
+            de: 'Gehe zu Zeile…',
+            ja: '行へ移動…',
+          ),
           shortcut: '⌘G',
         ),
       ],
@@ -10068,7 +10600,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     Offset globalPosition,
   ) async {
     if (!mounted) return;
-    final isZh = openHandIsChineseLocale(context);
     final hasFoldedRegions = _foldedRegions[filePath]?.isNotEmpty == true;
     final foldableRegions = _foldableRegionsForFile(filePath);
     final hasFoldableRegions = foldableRegions.isNotEmpty;
@@ -10113,21 +10644,42 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         buildItem(
           value: 'toggle_fold',
           icon: Icons.unfold_more_rounded,
-          label: isZh ? '切换折叠' : 'Toggle Folding',
+          label: _editorText(
+            zh: '切换折叠',
+            zhHant: '切換摺疊',
+            en: 'Toggle Folding',
+            fr: 'Basculer le pliage',
+            de: 'Faltung umschalten',
+            ja: '折りたたみを切り替え',
+          ),
           enabled: hasFoldableRegions,
         ),
         const PopupMenuDivider(),
         buildItem(
           value: 'fold_all',
           icon: Icons.unfold_less_rounded,
-          label: isZh ? '全部折叠' : 'Collapse All',
+          label: _editorText(
+            zh: '全部折叠',
+            zhHant: '全部摺疊',
+            en: 'Collapse All',
+            fr: 'Tout replier',
+            de: 'Alle einklappen',
+            ja: 'すべて折りたたむ',
+          ),
           shortcut: '⇧⌘-',
           enabled: hasFoldableRegions,
         ),
         buildItem(
           value: 'unfold_all',
           icon: Icons.unfold_more_rounded,
-          label: isZh ? '全部展开' : 'Expand All',
+          label: _editorText(
+            zh: '全部展开',
+            zhHant: '全部展開',
+            en: 'Expand All',
+            fr: 'Tout déplier',
+            de: 'Alle ausklappen',
+            ja: 'すべて展開',
+          ),
           shortcut: '⇧⌘+',
           enabled: hasFoldedRegions,
         ),
@@ -10135,14 +10687,28 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         buildItem(
           value: 'fold_at_cursor',
           icon: Icons.expand_less_rounded,
-          label: isZh ? '折叠当前区域' : 'Collapse',
+          label: _editorText(
+            zh: '折叠当前区域',
+            zhHant: '摺疊目前區域',
+            en: 'Collapse',
+            fr: 'Replier',
+            de: 'Einklappen',
+            ja: '折りたたむ',
+          ),
           shortcut: '⌘-',
           enabled: hasFoldableRegions,
         ),
         buildItem(
           value: 'unfold_at_cursor',
           icon: Icons.expand_more_rounded,
-          label: isZh ? '展开当前区域' : 'Expand',
+          label: _editorText(
+            zh: '展开当前区域',
+            zhHant: '展開目前區域',
+            en: 'Expand',
+            fr: 'Déplier',
+            de: 'Ausklappen',
+            ja: '展開',
+          ),
           shortcut: '⌘+',
           enabled: hasFoldedRegions,
         ),
@@ -10150,13 +10716,27 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         buildItem(
           value: 'fold_comments',
           icon: Icons.comment_rounded,
-          label: isZh ? '折叠文档注释' : 'Collapse Doc Comments',
+          label: _editorText(
+            zh: '折叠文档注释',
+            zhHant: '摺疊文件註解',
+            en: 'Collapse Doc Comments',
+            fr: 'Replier les commentaires de doc',
+            de: 'Doku-Kommentare einklappen',
+            ja: 'ドキュメントコメントを折りたたむ',
+          ),
           enabled: hasFoldableRegions,
         ),
         buildItem(
           value: 'unfold_comments',
           icon: Icons.insert_comment_rounded,
-          label: isZh ? '展开文档注释' : 'Expand Doc Comments',
+          label: _editorText(
+            zh: '展开文档注释',
+            zhHant: '展開文件註解',
+            en: 'Expand Doc Comments',
+            fr: 'Déplier les commentaires de doc',
+            de: 'Doku-Kommentare ausklappen',
+            ja: 'ドキュメントコメントを展開',
+          ),
           enabled: hasFoldedRegions,
         ),
       ],
@@ -10282,7 +10862,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     required String filePath,
   }) async {
     if (!mounted || actions.isEmpty) return;
-    final isZh = openHandIsChineseLocale(context);
     final selected = await showAnimatedDialog<AiLspCodeAction>(
       context: context,
       builder: (dialogContext) {
@@ -10312,7 +10891,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           actions: [
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              label: isZh ? '取消' : 'Cancel',
+              label: _editorText(
+                zh: '取消',
+                zhHant: '取消',
+                en: 'Cancel',
+                fr: 'Annuler',
+                de: 'Abbrechen',
+                ja: 'キャンセル',
+              ),
             ),
           ],
         );
@@ -10895,7 +11481,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
     final content = _fileContents[filePath];
     if (content == null) {
-      final isZh = openHandIsChineseLocale(context);
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -10907,7 +11492,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             ),
             const SizedBox(height: 12),
             Text(
-              isZh ? '无法加载文件' : 'Unable to load file',
+              _editorText(
+                zh: '无法加载文件',
+                zhHant: '無法載入檔案',
+                en: 'Unable to load file',
+                fr: 'Impossible de charger le fichier',
+                de: 'Datei kann nicht geladen werden',
+                ja: 'ファイルを読み込めません',
+              ),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -11329,7 +11921,6 @@ class _SignatureHelpOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
     final signature = help.selectedSignature;
     if (signature == null) {
       return const SizedBox.shrink();
@@ -11369,7 +11960,15 @@ class _SignatureHelpOverlay extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        isZh ? '参数签名' : 'Signature Help',
+                        _localizedText(
+                          context,
+                          zh: '参数签名',
+                          zhHant: '參數簽名',
+                          en: 'Signature Help',
+                          fr: 'Aide à la signature',
+                          de: 'Signaturhilfe',
+                          ja: 'シグネチャヘルプ',
+                        ),
                         style: theme.textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: colorScheme.onSurface,
@@ -11432,7 +12031,15 @@ class _SignatureHelpOverlay extends StatelessWidget {
                 if (parameterDoc.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(
-                    isZh ? '当前参数' : 'Parameter',
+                    _localizedText(
+                      context,
+                      zh: '当前参数',
+                      zhHant: '目前參數',
+                      en: 'Parameter',
+                      fr: 'Paramètre',
+                      de: 'Parameter',
+                      ja: 'パラメータ',
+                    ),
                     style: theme.textTheme.labelMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: colorScheme.primary,
@@ -11450,7 +12057,15 @@ class _SignatureHelpOverlay extends StatelessWidget {
                 if (signatureDoc.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(
-                    isZh ? '文档说明' : 'Documentation',
+                    _localizedText(
+                      context,
+                      zh: '文档说明',
+                      zhHant: '文件說明',
+                      en: 'Documentation',
+                      fr: 'Documentation',
+                      de: 'Dokumentation',
+                      ja: 'ドキュメント',
+                    ),
                     style: theme.textTheme.labelMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: colorScheme.primary,
@@ -14126,7 +14741,6 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final visibleDiagnostics = diagnostics.take(4).toList(growable: false);
-    final isZh = openHandIsChineseLocale(context);
     final actionAnchor = _diagnosticMenuAnchorPosition(globalAnchorRect);
 
     return Positioned(
@@ -14190,9 +14804,16 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                   if (diagnostics.length > visibleDiagnostics.length) ...[
                     const SizedBox(height: 6),
                     Text(
-                      isZh
-                          ? '还有 ${diagnostics.length - visibleDiagnostics.length} 条重叠诊断'
-                          : '${diagnostics.length - visibleDiagnostics.length} more overlapping diagnostics',
+                      _localizedText(
+                        context,
+                        zh: '还有 ${diagnostics.length - visibleDiagnostics.length} 条重叠诊断',
+                        zhHant:
+                            '還有 ${diagnostics.length - visibleDiagnostics.length} 條重疊診斷',
+                        en: '${diagnostics.length - visibleDiagnostics.length} more overlapping diagnostics',
+                        fr: '${diagnostics.length - visibleDiagnostics.length} diagnostics superposés en plus',
+                        de: '${diagnostics.length - visibleDiagnostics.length} weitere überlappende Diagnosen',
+                        ja: 'ほかに ${diagnostics.length - visibleDiagnostics.length} 件の重なった診断',
+                      ),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -14232,7 +14853,17 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                 Icons.more_horiz_rounded,
                                 size: 16,
                               ),
-                              label: Text(isZh ? '更多操作' : 'More Actions'),
+                              label: Text(
+                                _localizedText(
+                                  context,
+                                  zh: '更多操作',
+                                  zhHant: '更多操作',
+                                  en: 'More Actions',
+                                  fr: 'Plus d’actions',
+                                  de: 'Weitere Aktionen',
+                                  ja: 'その他の操作',
+                                ),
+                              ),
                             ),
                           if (widget.onDiagnosticTooltipQuickFixRequested !=
                               null)
@@ -14258,7 +14889,17 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                 Icons.auto_fix_high_rounded,
                                 size: 16,
                               ),
-                              label: Text(isZh ? '应用快速修复' : 'Apply Quick Fix'),
+                              label: Text(
+                                _localizedText(
+                                  context,
+                                  zh: '应用快速修复',
+                                  zhHant: '套用快速修復',
+                                  en: 'Apply Quick Fix',
+                                  fr: 'Appliquer la correction rapide',
+                                  de: 'Schnellkorrektur anwenden',
+                                  ja: 'クイック修正を適用',
+                                ),
+                              ),
                             ),
                         ],
                       ),
@@ -14279,12 +14920,35 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     _EditorDiagnostic diagnostic,
   ) {
     final accent = _diagnosticColor(colorScheme, diagnostic);
-    final isZh = openHandIsChineseLocale(context);
     final severityLabel = diagnostic.isError
-        ? (isZh ? '错误' : 'Error')
+        ? _localizedText(
+            context,
+            zh: '错误',
+            zhHant: '錯誤',
+            en: 'Error',
+            fr: 'Erreur',
+            de: 'Fehler',
+            ja: 'エラー',
+          )
         : diagnostic.isWarning
-        ? (isZh ? '警告' : 'Warning')
-        : (isZh ? '提示' : 'Info');
+        ? _localizedText(
+            context,
+            zh: '警告',
+            zhHant: '警告',
+            en: 'Warning',
+            fr: 'Avertissement',
+            de: 'Warnung',
+            ja: '警告',
+          )
+        : _localizedText(
+            context,
+            zh: '提示',
+            zhHant: '提示',
+            en: 'Info',
+            fr: 'Info',
+            de: 'Info',
+            ja: '情報',
+          );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
