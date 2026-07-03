@@ -306,6 +306,150 @@
   "mcpAutoProbeConcurrencySave": "Parallelität speichern",
   "mcpAutoProbeConcurrencySaved": "MCP Check/Fetch Parallelität gespeichert.",
   "mcpAutoProbeConcurrencyInvalid": "Bitte eine ganze Zahl zwischen 1 und 32 eingeben.",
+  "mcpProbeDetailsTitle": "MCP-Prüfdetails",
+  "mcpProbePoolActive": "Prüfpool aktiv",
+  "mcpProbePoolIdle": "Prüfpool inaktiv",
+  "mcpProbePoolStatusTitle": "Pool-Status",
+  "mcpProbeSlots": "Slots {active}/{total}",
+  "@mcpProbeSlots": {
+    "placeholders": {
+      "active": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeQueued": "Wartend {count}",
+  "@mcpProbeQueued": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeStateRunning": "läuft",
+  "mcpProbeStateIdle": "inaktiv",
+  "mcpProbeToolsStatus": "Tools {status}",
+  "@mcpProbeToolsStatus": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "mcpProbeHealthStatus": "Health {status}",
+  "@mcpProbeHealthStatus": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "mcpProbeLastRun": "Letzte {time}",
+  "@mcpProbeLastRun": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpProbeNextRun": "Nächste {time}",
+  "@mcpProbeNextRun": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpProbeControlsTitle": "Prüfsteuerung",
+  "mcpProbeForceProbe": "Prüfung erzwingen",
+  "mcpProbeStopProbing": "Prüfung stoppen",
+  "mcpProbeReloadServers": "Serverliste neu laden",
+  "mcpProbeServerStatusTitle": "Server-Prüfstatus ({count} Server)",
+  "@mcpProbeServerStatusTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeNoServers": "Keine Server",
+  "mcpProbeHealthHealthy": "Gesund",
+  "mcpProbeHealthUnhealthy": "Fehlerhaft",
+  "mcpProbeHealthChecking": "Prüft",
+  "mcpProbeHealthIdle": "Bereit",
+  "mcpProbeDisableServerTooltip": "Prüfung deaktivieren",
+  "mcpProbeEnableServerTooltip": "Prüfung aktivieren",
+  "mcpProbeNoProbe": "Keine Prüfung",
+  "mcpProbeToolCount": "{count} Tools",
+  "@mcpProbeToolCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeThisServer": "Diesen Server prüfen",
+  "mcpRelativeJustNow": "gerade eben",
+  "mcpRelativeSecondsAgo": "vor {seconds}s",
+  "@mcpRelativeSecondsAgo": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeMinutesAgo": "vor {minutes}m",
+  "@mcpRelativeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeHoursAgo": "vor {hours}h",
+  "@mcpRelativeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeDaysAgo": "vor {days}d",
+  "@mcpRelativeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeImminent": "gleich",
+  "mcpRelativeInSeconds": "in {seconds}s",
+  "@mcpRelativeInSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInMinutes": "in {minutes}m",
+  "@mcpRelativeInMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInHours": "in {hours}h",
+  "@mcpRelativeInHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInDays": "in {days}d",
+  "@mcpRelativeInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "mcpKeywordIndexUpdateModeLabel": "Aktualisierungsmodus für Keyword-Index",
   "mcpKeywordIndexUpdateModeBody": "Steuert, wie der invertierte Keyword-Index der MCP-Tools neu aufgebaut wird. Kaltstart: nur beim Boot vom Datenträger laden; Aktualisierung über die Schaltfläche „Keyword-Index erstellen“. Intervall: zyklisch (Wert + Einheit) neu aufbauen und Cache vollständig überschreiben. Tageszeit: einmal täglich zur festgelegten Zeit. Die letzten beiden teilen sich einen System-Cron-Eintrag, um eine Fragmentierung zu vermeiden.",
   "mcpKeywordIndexUpdateModeColdStart": "Kaltstart",

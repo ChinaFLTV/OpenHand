@@ -1158,6 +1158,228 @@ abstract class AppLocalizations {
   /// **'请输入 1 到 32 之间的整数。'**
   String get mcpAutoProbeConcurrencyInvalid;
 
+  /// No description provided for @mcpProbeDetailsTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 探测详情'**
+  String get mcpProbeDetailsTitle;
+
+  /// No description provided for @mcpProbePoolActive.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'探测池运行中'**
+  String get mcpProbePoolActive;
+
+  /// No description provided for @mcpProbePoolIdle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'探测池空闲'**
+  String get mcpProbePoolIdle;
+
+  /// No description provided for @mcpProbePoolStatusTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'探测池状态'**
+  String get mcpProbePoolStatusTitle;
+
+  /// No description provided for @mcpProbeSlots.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'槽位 {active}/{total}'**
+  String mcpProbeSlots(int active, int total);
+
+  /// No description provided for @mcpProbeQueued.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'排队 {count}'**
+  String mcpProbeQueued(int count);
+
+  /// No description provided for @mcpProbeStateRunning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行中'**
+  String get mcpProbeStateRunning;
+
+  /// No description provided for @mcpProbeStateIdle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'空闲'**
+  String get mcpProbeStateIdle;
+
+  /// No description provided for @mcpProbeToolsStatus.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具 {status}'**
+  String mcpProbeToolsStatus(Object status);
+
+  /// No description provided for @mcpProbeHealthStatus.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'健康 {status}'**
+  String mcpProbeHealthStatus(Object status);
+
+  /// No description provided for @mcpProbeLastRun.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'上次 {time}'**
+  String mcpProbeLastRun(Object time);
+
+  /// No description provided for @mcpProbeNextRun.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'下次 {time}'**
+  String mcpProbeNextRun(Object time);
+
+  /// No description provided for @mcpProbeControlsTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'探测控制'**
+  String get mcpProbeControlsTitle;
+
+  /// No description provided for @mcpProbeForceProbe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'强制触发探测'**
+  String get mcpProbeForceProbe;
+
+  /// No description provided for @mcpProbeStopProbing.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'中断当前探测'**
+  String get mcpProbeStopProbing;
+
+  /// No description provided for @mcpProbeReloadServers.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重载服务列表'**
+  String get mcpProbeReloadServers;
+
+  /// No description provided for @mcpProbeServerStatusTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'服务探测状态 ({count} 个服务)'**
+  String mcpProbeServerStatusTitle(int count);
+
+  /// No description provided for @mcpProbeNoServers.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无服务'**
+  String get mcpProbeNoServers;
+
+  /// No description provided for @mcpProbeHealthHealthy.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'健康'**
+  String get mcpProbeHealthHealthy;
+
+  /// No description provided for @mcpProbeHealthUnhealthy.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'异常'**
+  String get mcpProbeHealthUnhealthy;
+
+  /// No description provided for @mcpProbeHealthChecking.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'检测中'**
+  String get mcpProbeHealthChecking;
+
+  /// No description provided for @mcpProbeHealthIdle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'待检测'**
+  String get mcpProbeHealthIdle;
+
+  /// No description provided for @mcpProbeDisableServerTooltip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击禁用此服务探测'**
+  String get mcpProbeDisableServerTooltip;
+
+  /// No description provided for @mcpProbeEnableServerTooltip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击启用此服务探测'**
+  String get mcpProbeEnableServerTooltip;
+
+  /// No description provided for @mcpProbeNoProbe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'不探测'**
+  String get mcpProbeNoProbe;
+
+  /// No description provided for @mcpProbeToolCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{count} 个工具'**
+  String mcpProbeToolCount(int count);
+
+  /// No description provided for @mcpProbeThisServer.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'探测此服务'**
+  String get mcpProbeThisServer;
+
+  /// No description provided for @mcpRelativeJustNow.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刚刚'**
+  String get mcpRelativeJustNow;
+
+  /// No description provided for @mcpRelativeSecondsAgo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{seconds} 秒前'**
+  String mcpRelativeSecondsAgo(int seconds);
+
+  /// No description provided for @mcpRelativeMinutesAgo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{minutes} 分钟前'**
+  String mcpRelativeMinutesAgo(int minutes);
+
+  /// No description provided for @mcpRelativeHoursAgo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{hours} 小时前'**
+  String mcpRelativeHoursAgo(int hours);
+
+  /// No description provided for @mcpRelativeDaysAgo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{days} 天前'**
+  String mcpRelativeDaysAgo(int days);
+
+  /// No description provided for @mcpRelativeImminent.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'即将开始'**
+  String get mcpRelativeImminent;
+
+  /// No description provided for @mcpRelativeInSeconds.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'约 {seconds} 秒后'**
+  String mcpRelativeInSeconds(int seconds);
+
+  /// No description provided for @mcpRelativeInMinutes.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'约 {minutes} 分钟后'**
+  String mcpRelativeInMinutes(int minutes);
+
+  /// No description provided for @mcpRelativeInHours.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'约 {hours} 小时后'**
+  String mcpRelativeInHours(int hours);
+
+  /// No description provided for @mcpRelativeInDays.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'约 {days} 天后'**
+  String mcpRelativeInDays(int days);
+
   /// No description provided for @mcpKeywordIndexUpdateModeLabel.
   ///
   /// In zh_Hans, this message translates to:

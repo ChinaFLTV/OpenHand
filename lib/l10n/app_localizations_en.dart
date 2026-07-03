@@ -605,6 +605,149 @@ class AppLocalizationsEn extends AppLocalizations {
       'Please enter an integer between 1 and 32.';
 
   @override
+  String get mcpProbeDetailsTitle => 'MCP Probe Details';
+
+  @override
+  String get mcpProbePoolActive => 'Probe pool active';
+
+  @override
+  String get mcpProbePoolIdle => 'Probe pool idle';
+
+  @override
+  String get mcpProbePoolStatusTitle => 'Pool Status';
+
+  @override
+  String mcpProbeSlots(int active, int total) {
+    return 'Slots $active/$total';
+  }
+
+  @override
+  String mcpProbeQueued(int count) {
+    return 'Queued $count';
+  }
+
+  @override
+  String get mcpProbeStateRunning => 'running';
+
+  @override
+  String get mcpProbeStateIdle => 'idle';
+
+  @override
+  String mcpProbeToolsStatus(Object status) {
+    return 'Tools $status';
+  }
+
+  @override
+  String mcpProbeHealthStatus(Object status) {
+    return 'Health $status';
+  }
+
+  @override
+  String mcpProbeLastRun(Object time) {
+    return 'Last $time';
+  }
+
+  @override
+  String mcpProbeNextRun(Object time) {
+    return 'Next $time';
+  }
+
+  @override
+  String get mcpProbeControlsTitle => 'Probe Controls';
+
+  @override
+  String get mcpProbeForceProbe => 'Force Probe';
+
+  @override
+  String get mcpProbeStopProbing => 'Stop Probing';
+
+  @override
+  String get mcpProbeReloadServers => 'Reload Servers';
+
+  @override
+  String mcpProbeServerStatusTitle(int count) {
+    return 'Server Probe Status ($count servers)';
+  }
+
+  @override
+  String get mcpProbeNoServers => 'No servers';
+
+  @override
+  String get mcpProbeHealthHealthy => 'Healthy';
+
+  @override
+  String get mcpProbeHealthUnhealthy => 'Unhealthy';
+
+  @override
+  String get mcpProbeHealthChecking => 'Checking';
+
+  @override
+  String get mcpProbeHealthIdle => 'Idle';
+
+  @override
+  String get mcpProbeDisableServerTooltip => 'Disable probing';
+
+  @override
+  String get mcpProbeEnableServerTooltip => 'Enable probing';
+
+  @override
+  String get mcpProbeNoProbe => 'No probe';
+
+  @override
+  String mcpProbeToolCount(int count) {
+    return '$count tools';
+  }
+
+  @override
+  String get mcpProbeThisServer => 'Probe this server';
+
+  @override
+  String get mcpRelativeJustNow => 'just now';
+
+  @override
+  String mcpRelativeSecondsAgo(int seconds) {
+    return '${seconds}s ago';
+  }
+
+  @override
+  String mcpRelativeMinutesAgo(int minutes) {
+    return '${minutes}m ago';
+  }
+
+  @override
+  String mcpRelativeHoursAgo(int hours) {
+    return '${hours}h ago';
+  }
+
+  @override
+  String mcpRelativeDaysAgo(int days) {
+    return '${days}d ago';
+  }
+
+  @override
+  String get mcpRelativeImminent => 'imminent';
+
+  @override
+  String mcpRelativeInSeconds(int seconds) {
+    return 'in ${seconds}s';
+  }
+
+  @override
+  String mcpRelativeInMinutes(int minutes) {
+    return 'in ${minutes}m';
+  }
+
+  @override
+  String mcpRelativeInHours(int hours) {
+    return 'in ${hours}h';
+  }
+
+  @override
+  String mcpRelativeInDays(int days) {
+    return 'in ${days}d';
+  }
+
+  @override
   String get mcpKeywordIndexUpdateModeLabel => 'Keyword index update mode';
 
   @override

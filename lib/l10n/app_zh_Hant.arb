@@ -306,6 +306,150 @@
   "mcpAutoProbeConcurrencySave": "儲存並行數",
   "mcpAutoProbeConcurrencySaved": "MCP 檢查/拉取並行數已儲存。",
   "mcpAutoProbeConcurrencyInvalid": "請輸入 1 到 32 之間的整數。",
+  "mcpProbeDetailsTitle": "MCP 探測詳情",
+  "mcpProbePoolActive": "探測池執行中",
+  "mcpProbePoolIdle": "探測池閒置",
+  "mcpProbePoolStatusTitle": "探測池狀態",
+  "mcpProbeSlots": "槽位 {active}/{total}",
+  "@mcpProbeSlots": {
+    "placeholders": {
+      "active": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeQueued": "佇列 {count}",
+  "@mcpProbeQueued": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeStateRunning": "執行中",
+  "mcpProbeStateIdle": "閒置",
+  "mcpProbeToolsStatus": "工具 {status}",
+  "@mcpProbeToolsStatus": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "mcpProbeHealthStatus": "健康 {status}",
+  "@mcpProbeHealthStatus": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "mcpProbeLastRun": "上次 {time}",
+  "@mcpProbeLastRun": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpProbeNextRun": "下次 {time}",
+  "@mcpProbeNextRun": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpProbeControlsTitle": "探測控制",
+  "mcpProbeForceProbe": "強制觸發探測",
+  "mcpProbeStopProbing": "中斷目前探測",
+  "mcpProbeReloadServers": "重新載入服務列表",
+  "mcpProbeServerStatusTitle": "服務探測狀態 ({count} 個服務)",
+  "@mcpProbeServerStatusTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeNoServers": "暫無服務",
+  "mcpProbeHealthHealthy": "健康",
+  "mcpProbeHealthUnhealthy": "異常",
+  "mcpProbeHealthChecking": "檢測中",
+  "mcpProbeHealthIdle": "待檢測",
+  "mcpProbeDisableServerTooltip": "點擊停用此服務探測",
+  "mcpProbeEnableServerTooltip": "點擊啟用此服務探測",
+  "mcpProbeNoProbe": "不探測",
+  "mcpProbeToolCount": "{count} 個工具",
+  "@mcpProbeToolCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeThisServer": "探測此服務",
+  "mcpRelativeJustNow": "剛剛",
+  "mcpRelativeSecondsAgo": "{seconds} 秒前",
+  "@mcpRelativeSecondsAgo": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeMinutesAgo": "{minutes} 分鐘前",
+  "@mcpRelativeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeHoursAgo": "{hours} 小時前",
+  "@mcpRelativeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeDaysAgo": "{days} 天前",
+  "@mcpRelativeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeImminent": "即將開始",
+  "mcpRelativeInSeconds": "約 {seconds} 秒後",
+  "@mcpRelativeInSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInMinutes": "約 {minutes} 分鐘後",
+  "@mcpRelativeInMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInHours": "約 {hours} 小時後",
+  "@mcpRelativeInHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInDays": "約 {days} 天後",
+  "@mcpRelativeInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "mcpKeywordIndexUpdateModeLabel": "更新關鍵字映射模式",
   "mcpKeywordIndexUpdateModeBody": "控制 MCP 工具關鍵字倒排索引的重建節奏。冷啟動模式僅在啟動時載入磁碟快取，需要手動點擊「建立關鍵字映射」；定時間隔模式按設定的「值 + 單位」週期重建並整體覆寫磁碟快取；每日定點模式在指定時刻自動重建一次。後兩者共用同一個系統 cron 任務，避免任務碎片化。",
   "mcpKeywordIndexUpdateModeColdStart": "冷啟動",

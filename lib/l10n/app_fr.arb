@@ -306,6 +306,150 @@
   "mcpAutoProbeConcurrencySave": "Enregistrer le parallélisme",
   "mcpAutoProbeConcurrencySaved": "Parallélisme MCP check/fetch enregistré.",
   "mcpAutoProbeConcurrencyInvalid": "Saisissez un entier entre 1 et 32.",
+  "mcpProbeDetailsTitle": "Détails de sonde MCP",
+  "mcpProbePoolActive": "Pool de sondes actif",
+  "mcpProbePoolIdle": "Pool de sondes inactif",
+  "mcpProbePoolStatusTitle": "État du pool",
+  "mcpProbeSlots": "Slots {active}/{total}",
+  "@mcpProbeSlots": {
+    "placeholders": {
+      "active": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeQueued": "En attente {count}",
+  "@mcpProbeQueued": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeStateRunning": "en cours",
+  "mcpProbeStateIdle": "inactif",
+  "mcpProbeToolsStatus": "Outils {status}",
+  "@mcpProbeToolsStatus": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "mcpProbeHealthStatus": "Santé {status}",
+  "@mcpProbeHealthStatus": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "mcpProbeLastRun": "Dernier {time}",
+  "@mcpProbeLastRun": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpProbeNextRun": "Prochain {time}",
+  "@mcpProbeNextRun": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpProbeControlsTitle": "Contrôles de sonde",
+  "mcpProbeForceProbe": "Forcer la sonde",
+  "mcpProbeStopProbing": "Arrêter la sonde",
+  "mcpProbeReloadServers": "Recharger les services",
+  "mcpProbeServerStatusTitle": "État des sondes serveur ({count} services)",
+  "@mcpProbeServerStatusTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeNoServers": "Aucun service",
+  "mcpProbeHealthHealthy": "Sain",
+  "mcpProbeHealthUnhealthy": "Anormal",
+  "mcpProbeHealthChecking": "Vérification",
+  "mcpProbeHealthIdle": "Inactif",
+  "mcpProbeDisableServerTooltip": "Désactiver la sonde",
+  "mcpProbeEnableServerTooltip": "Activer la sonde",
+  "mcpProbeNoProbe": "Pas de sonde",
+  "mcpProbeToolCount": "{count} outils",
+  "@mcpProbeToolCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeThisServer": "Sonder ce service",
+  "mcpRelativeJustNow": "à l’instant",
+  "mcpRelativeSecondsAgo": "il y a {seconds}s",
+  "@mcpRelativeSecondsAgo": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeMinutesAgo": "il y a {minutes}m",
+  "@mcpRelativeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeHoursAgo": "il y a {hours}h",
+  "@mcpRelativeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeDaysAgo": "il y a {days}j",
+  "@mcpRelativeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeImminent": "imminent",
+  "mcpRelativeInSeconds": "dans {seconds}s",
+  "@mcpRelativeInSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInMinutes": "dans {minutes}m",
+  "@mcpRelativeInMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInHours": "dans {hours}h",
+  "@mcpRelativeInHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInDays": "dans {days}j",
+  "@mcpRelativeInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "mcpKeywordIndexUpdateModeLabel": "Mode de mise à jour de l'index de mots-clés",
   "mcpKeywordIndexUpdateModeBody": "Contrôle la reconstruction de l'index inversé des mots-clés MCP. Démarrage à froid : ne charge que le cache disque au démarrage ; cliquez sur « Construire l'index de mots-clés » pour rafraîchir. Intervalle : reconstruction périodique (valeur + unité) avec écrasement complet du cache. Heure quotidienne : reconstruction une fois par jour à l'heure fixée. Les deux derniers partagent une seule tâche cron système pour éviter la fragmentation.",
   "mcpKeywordIndexUpdateModeColdStart": "Démarrage à froid",

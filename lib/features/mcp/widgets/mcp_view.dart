@@ -3769,7 +3769,7 @@ class _McpProbeDetailsDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
@@ -3857,15 +3857,15 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                isZh ? 'MCP 探测详情' : 'MCP Probe Details',
+                                l10n.mcpProbeDetailsTitle,
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                               Text(
                                 hasWork
-                                    ? (isZh ? '探测池运行中' : 'Probe pool active')
-                                    : (isZh ? '探测池空闲' : 'Probe pool idle'),
+                                    ? l10n.mcpProbePoolActive
+                                    : l10n.mcpProbePoolIdle,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: colorScheme.onSurfaceVariant,
                                 ),
@@ -3894,7 +3894,7 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                       children: [
                         // 探测池状态
                         _ProbeSection(
-                          title: isZh ? '探测池状态' : 'Pool Status',
+                          title: l10n.mcpProbePoolStatusTitle,
                           icon: Icons.commit_rounded,
                           children: [
                             Wrap(
@@ -3903,38 +3903,53 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                               children: [
                                 _McpStatusChip(
                                   icon: Icons.commit_rounded,
-                                  label: isZh
-                                      ? '槽位 ${snap.activeAutoProbeSlots}/${snap.autoProbeConcurrency}'
-                                      : 'Slots ${snap.activeAutoProbeSlots}/${snap.autoProbeConcurrency}',
+                                  label: l10n.mcpProbeSlots(
+                                    snap.activeAutoProbeSlots,
+                                    snap.autoProbeConcurrency,
+                                  ),
                                 ),
                                 _McpStatusChip(
                                   icon: Icons.queue_rounded,
-                                  label: isZh
-                                      ? '排队 ${snap.queuedAutoProbeTasks}'
-                                      : 'Queued ${snap.queuedAutoProbeTasks}',
+                                  label: l10n.mcpProbeQueued(
+                                    snap.queuedAutoProbeTasks,
+                                  ),
                                 ),
                                 _McpStatusChip(
                                   icon: Icons.build_circle_outlined,
-                                  label:
-                                      'Tools ${snap.autoToolRefreshInProgress ? (isZh ? "运行中" : "running") : (isZh ? "空闲" : "idle")}',
+                                  label: l10n.mcpProbeToolsStatus(
+                                    snap.autoToolRefreshInProgress
+                                        ? l10n.mcpProbeStateRunning
+                                        : l10n.mcpProbeStateIdle,
+                                  ),
                                 ),
                                 _McpStatusChip(
                                   icon: Icons.health_and_safety_outlined,
-                                  label:
-                                      '${isZh ? "健康" : "Health"} ${snap.autoHealthCheckInProgress ? (isZh ? "运行中" : "running") : (isZh ? "空闲" : "idle")}',
+                                  label: l10n.mcpProbeHealthStatus(
+                                    snap.autoHealthCheckInProgress
+                                        ? l10n.mcpProbeStateRunning
+                                        : l10n.mcpProbeStateIdle,
+                                  ),
                                 ),
                                 if (snap.lastBatchProbeAt != null)
                                   _McpStatusChip(
                                     icon: Icons.history_rounded,
-                                    label:
-                                        '${isZh ? "上次" : "Last"} ${_formatRelativePast(context, snap.lastBatchProbeAt!)}',
+                                    label: l10n.mcpProbeLastRun(
+                                      _formatRelativePast(
+                                        context,
+                                        snap.lastBatchProbeAt!,
+                                      ),
+                                    ),
                                   ),
                                 if (snap.nextScheduledProbeAt != null &&
                                     !hasWork)
                                   _McpStatusChip(
                                     icon: Icons.schedule_rounded,
-                                    label:
-                                        '${isZh ? "下次" : "Next"} ${_formatRelativeFuture(context, snap.nextScheduledProbeAt!)}',
+                                    label: l10n.mcpProbeNextRun(
+                                      _formatRelativeFuture(
+                                        context,
+                                        snap.nextScheduledProbeAt!,
+                                      ),
+                                    ),
                                   ),
                               ],
                             ),
@@ -3943,7 +3958,7 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                         const SizedBox(height: 16),
                         // 探测控制
                         _ProbeSection(
-                          title: isZh ? '探测控制' : 'Probe Controls',
+                          title: l10n.mcpProbeControlsTitle,
                           icon: Icons.tune_rounded,
                           children: [
                             Wrap(
@@ -3968,7 +3983,7 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                                     Icons.play_arrow_rounded,
                                     size: 18,
                                   ),
-                                  label: Text(isZh ? '强制触发探测' : 'Force Probe'),
+                                  label: Text(l10n.mcpProbeForceProbe),
                                 ),
                                 OutlinedButton.icon(
                                   onPressed: !hasWork
@@ -3981,7 +3996,7 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                                     Icons.stop_rounded,
                                     size: 18,
                                   ),
-                                  label: Text(isZh ? '中断当前探测' : 'Stop Probing'),
+                                  label: Text(l10n.mcpProbeStopProbing),
                                 ),
                                 OutlinedButton.icon(
                                   onPressed: () async {
@@ -3994,9 +4009,7 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                                     Icons.refresh_rounded,
                                     size: 18,
                                   ),
-                                  label: Text(
-                                    isZh ? '重载服务列表' : 'Reload Servers',
-                                  ),
+                                  label: Text(l10n.mcpProbeReloadServers),
                                 ),
                               ],
                             ),
@@ -4005,9 +4018,9 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                         const SizedBox(height: 16),
                         // 各服务探测状态
                         _ProbeSection(
-                          title: isZh
-                              ? '服务探测状态 (${snap.servers.length} 个服务)'
-                              : 'Server Probe Status (${snap.servers.length} servers)',
+                          title: l10n.mcpProbeServerStatusTitle(
+                            snap.servers.length,
+                          ),
                           icon: Icons.dns_outlined,
                           children: [
                             for (final server in snap.servers)
@@ -4021,7 +4034,7 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                                   vertical: 8,
                                 ),
                                 child: Text(
-                                  isZh ? '暂无服务' : 'No servers',
+                                  l10n.mcpProbeNoServers,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
@@ -4099,7 +4112,7 @@ class _ProbeServerRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final health = controller.healthStatusFor(server.name);
     final catalog = controller.toolCatalogFor(server.name);
     final isBusy = health.isChecking || catalog.isLoading;
@@ -4111,10 +4124,10 @@ class _ProbeServerRow extends StatelessWidget {
       McpServerHealthStatus.idle => colorScheme.onSurfaceVariant,
     };
     final statusLabel = switch (health.status) {
-      McpServerHealthStatus.healthy => isZh ? '健康' : 'Healthy',
-      McpServerHealthStatus.unhealthy => isZh ? '异常' : 'Unhealthy',
-      McpServerHealthStatus.checking => isZh ? '检测中' : 'Checking',
-      McpServerHealthStatus.idle => isZh ? '待检测' : 'Idle',
+      McpServerHealthStatus.healthy => l10n.mcpProbeHealthHealthy,
+      McpServerHealthStatus.unhealthy => l10n.mcpProbeHealthUnhealthy,
+      McpServerHealthStatus.checking => l10n.mcpProbeHealthChecking,
+      McpServerHealthStatus.idle => l10n.mcpProbeHealthIdle,
     };
 
     return Padding(
@@ -4127,8 +4140,8 @@ class _ProbeServerRow extends StatelessWidget {
             height: 28,
             child: Tooltip(
               message: server.probeEnabled
-                  ? (isZh ? '点击禁用此服务探测' : 'Disable probing')
-                  : (isZh ? '点击启用此服务探测' : 'Enable probing'),
+                  ? l10n.mcpProbeDisableServerTooltip
+                  : l10n.mcpProbeEnableServerTooltip,
               child: IconButton(
                 onPressed: () => controller.updateServerProbeEnabled(
                   server.name,
@@ -4174,7 +4187,7 @@ class _ProbeServerRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            server.probeEnabled ? statusLabel : (isZh ? '不探测' : 'No probe'),
+            server.probeEnabled ? statusLabel : l10n.mcpProbeNoProbe,
             style: theme.textTheme.labelSmall?.copyWith(
               color: server.probeEnabled
                   ? statusColor
@@ -4185,7 +4198,7 @@ class _ProbeServerRow extends StatelessWidget {
           if (catalog.tools.isNotEmpty && server.probeEnabled) ...[
             const SizedBox(width: 8),
             Text(
-              '${catalog.tools.length} tools',
+              l10n.mcpProbeToolCount(catalog.tools.length),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -4209,7 +4222,7 @@ class _ProbeServerRow extends StatelessWidget {
               ),
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
-              tooltip: isZh ? '探测此服务' : 'Probe this server',
+              tooltip: l10n.mcpProbeThisServer,
             ),
           ),
         ],
@@ -6711,22 +6724,22 @@ String _localizedText(
 /// 把 UTC 时间戳渲染成「12 秒前 / 3 分钟前 / 4 小时前」形式。
 String _formatRelativePast(BuildContext context, DateTime utc) {
   final diff = DateTime.now().toUtc().difference(utc);
-  final isZh = openHandIsChineseLocale(context);
-  if (diff.inSeconds < 5) return isZh ? '刚刚' : 'just now';
+  final l10n = AppLocalizations.of(context)!;
+  if (diff.inSeconds < 5) return l10n.mcpRelativeJustNow;
   if (diff.inSeconds < 60) {
     final s = diff.inSeconds;
-    return isZh ? '$s 秒前' : '${s}s ago';
+    return l10n.mcpRelativeSecondsAgo(s);
   }
   if (diff.inMinutes < 60) {
     final m = diff.inMinutes;
-    return isZh ? '$m 分钟前' : '${m}m ago';
+    return l10n.mcpRelativeMinutesAgo(m);
   }
   if (diff.inHours < 24) {
     final h = diff.inHours;
-    return isZh ? '$h 小时前' : '${h}h ago';
+    return l10n.mcpRelativeHoursAgo(h);
   }
   final d = diff.inDays;
-  return isZh ? '$d 天前' : '${d}d ago';
+  return l10n.mcpRelativeDaysAgo(d);
 }
 
 /// 判断 STDIO MCP 服务是否为 npx 类型。
@@ -6778,20 +6791,20 @@ String? _extractPackageName(McpServer server) {
 /// 把未来 UTC 时间戳渲染成「约 12 秒后 / 约 3 分钟后」形式；过期则显示「即将开始」。
 String _formatRelativeFuture(BuildContext context, DateTime utc) {
   final diff = utc.difference(DateTime.now().toUtc());
-  final isZh = openHandIsChineseLocale(context);
-  if (diff.inSeconds <= 0) return isZh ? '即将开始' : 'imminent';
+  final l10n = AppLocalizations.of(context)!;
+  if (diff.inSeconds <= 0) return l10n.mcpRelativeImminent;
   if (diff.inSeconds < 60) {
     final s = diff.inSeconds;
-    return isZh ? '约 $s 秒后' : 'in ${s}s';
+    return l10n.mcpRelativeInSeconds(s);
   }
   if (diff.inMinutes < 60) {
     final m = diff.inMinutes;
-    return isZh ? '约 $m 分钟后' : 'in ${m}m';
+    return l10n.mcpRelativeInMinutes(m);
   }
   if (diff.inHours < 24) {
     final h = diff.inHours;
-    return isZh ? '约 $h 小时后' : 'in ${h}h';
+    return l10n.mcpRelativeInHours(h);
   }
   final d = diff.inDays;
-  return isZh ? '约 $d 天后' : 'in ${d}d';
+  return l10n.mcpRelativeInDays(d);
 }

@@ -591,6 +591,149 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mcpAutoProbeConcurrencyInvalid => '1 から 32 までの整数を入力してください。';
 
   @override
+  String get mcpProbeDetailsTitle => 'MCP プローブ詳細';
+
+  @override
+  String get mcpProbePoolActive => 'プローブプール稼働中';
+
+  @override
+  String get mcpProbePoolIdle => 'プローブプール待機中';
+
+  @override
+  String get mcpProbePoolStatusTitle => 'プローブプール状態';
+
+  @override
+  String mcpProbeSlots(int active, int total) {
+    return 'スロット $active/$total';
+  }
+
+  @override
+  String mcpProbeQueued(int count) {
+    return 'キュー $count';
+  }
+
+  @override
+  String get mcpProbeStateRunning => '実行中';
+
+  @override
+  String get mcpProbeStateIdle => '待機中';
+
+  @override
+  String mcpProbeToolsStatus(Object status) {
+    return 'ツール $status';
+  }
+
+  @override
+  String mcpProbeHealthStatus(Object status) {
+    return 'ヘルス $status';
+  }
+
+  @override
+  String mcpProbeLastRun(Object time) {
+    return '前回 $time';
+  }
+
+  @override
+  String mcpProbeNextRun(Object time) {
+    return '次回 $time';
+  }
+
+  @override
+  String get mcpProbeControlsTitle => 'プローブ制御';
+
+  @override
+  String get mcpProbeForceProbe => 'プローブを強制実行';
+
+  @override
+  String get mcpProbeStopProbing => '現在のプローブを停止';
+
+  @override
+  String get mcpProbeReloadServers => 'サービス一覧を再読み込み';
+
+  @override
+  String mcpProbeServerStatusTitle(int count) {
+    return 'サーバープローブ状態 ($count 件)';
+  }
+
+  @override
+  String get mcpProbeNoServers => 'サービスなし';
+
+  @override
+  String get mcpProbeHealthHealthy => '正常';
+
+  @override
+  String get mcpProbeHealthUnhealthy => '異常';
+
+  @override
+  String get mcpProbeHealthChecking => '確認中';
+
+  @override
+  String get mcpProbeHealthIdle => '未確認';
+
+  @override
+  String get mcpProbeDisableServerTooltip => 'このサービスのプローブを無効化';
+
+  @override
+  String get mcpProbeEnableServerTooltip => 'このサービスのプローブを有効化';
+
+  @override
+  String get mcpProbeNoProbe => 'プローブなし';
+
+  @override
+  String mcpProbeToolCount(int count) {
+    return '$count 個のツール';
+  }
+
+  @override
+  String get mcpProbeThisServer => 'このサービスをプローブ';
+
+  @override
+  String get mcpRelativeJustNow => 'たった今';
+
+  @override
+  String mcpRelativeSecondsAgo(int seconds) {
+    return '$seconds 秒前';
+  }
+
+  @override
+  String mcpRelativeMinutesAgo(int minutes) {
+    return '$minutes 分前';
+  }
+
+  @override
+  String mcpRelativeHoursAgo(int hours) {
+    return '$hours 時間前';
+  }
+
+  @override
+  String mcpRelativeDaysAgo(int days) {
+    return '$days 日前';
+  }
+
+  @override
+  String get mcpRelativeImminent => 'まもなく';
+
+  @override
+  String mcpRelativeInSeconds(int seconds) {
+    return '約 $seconds 秒後';
+  }
+
+  @override
+  String mcpRelativeInMinutes(int minutes) {
+    return '約 $minutes 分後';
+  }
+
+  @override
+  String mcpRelativeInHours(int hours) {
+    return '約 $hours 時間後';
+  }
+
+  @override
+  String mcpRelativeInDays(int days) {
+    return '約 $days 日後';
+  }
+
+  @override
   String get mcpKeywordIndexUpdateModeLabel => 'キーワードインデックスの更新モード';
 
   @override

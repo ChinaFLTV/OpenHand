@@ -306,6 +306,150 @@
   "mcpAutoProbeConcurrencySave": "並列数を保存",
   "mcpAutoProbeConcurrencySaved": "MCP チェック/取得の並列数を保存しました。",
   "mcpAutoProbeConcurrencyInvalid": "1 から 32 までの整数を入力してください。",
+  "mcpProbeDetailsTitle": "MCP プローブ詳細",
+  "mcpProbePoolActive": "プローブプール稼働中",
+  "mcpProbePoolIdle": "プローブプール待機中",
+  "mcpProbePoolStatusTitle": "プローブプール状態",
+  "mcpProbeSlots": "スロット {active}/{total}",
+  "@mcpProbeSlots": {
+    "placeholders": {
+      "active": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeQueued": "キュー {count}",
+  "@mcpProbeQueued": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeStateRunning": "実行中",
+  "mcpProbeStateIdle": "待機中",
+  "mcpProbeToolsStatus": "ツール {status}",
+  "@mcpProbeToolsStatus": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "mcpProbeHealthStatus": "ヘルス {status}",
+  "@mcpProbeHealthStatus": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "mcpProbeLastRun": "前回 {time}",
+  "@mcpProbeLastRun": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpProbeNextRun": "次回 {time}",
+  "@mcpProbeNextRun": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpProbeControlsTitle": "プローブ制御",
+  "mcpProbeForceProbe": "プローブを強制実行",
+  "mcpProbeStopProbing": "現在のプローブを停止",
+  "mcpProbeReloadServers": "サービス一覧を再読み込み",
+  "mcpProbeServerStatusTitle": "サーバープローブ状態 ({count} 件)",
+  "@mcpProbeServerStatusTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeNoServers": "サービスなし",
+  "mcpProbeHealthHealthy": "正常",
+  "mcpProbeHealthUnhealthy": "異常",
+  "mcpProbeHealthChecking": "確認中",
+  "mcpProbeHealthIdle": "未確認",
+  "mcpProbeDisableServerTooltip": "このサービスのプローブを無効化",
+  "mcpProbeEnableServerTooltip": "このサービスのプローブを有効化",
+  "mcpProbeNoProbe": "プローブなし",
+  "mcpProbeToolCount": "{count} 個のツール",
+  "@mcpProbeToolCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeThisServer": "このサービスをプローブ",
+  "mcpRelativeJustNow": "たった今",
+  "mcpRelativeSecondsAgo": "{seconds} 秒前",
+  "@mcpRelativeSecondsAgo": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeMinutesAgo": "{minutes} 分前",
+  "@mcpRelativeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeHoursAgo": "{hours} 時間前",
+  "@mcpRelativeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeDaysAgo": "{days} 日前",
+  "@mcpRelativeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeImminent": "まもなく",
+  "mcpRelativeInSeconds": "約 {seconds} 秒後",
+  "@mcpRelativeInSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInMinutes": "約 {minutes} 分後",
+  "@mcpRelativeInMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInHours": "約 {hours} 時間後",
+  "@mcpRelativeInHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInDays": "約 {days} 日後",
+  "@mcpRelativeInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "mcpKeywordIndexUpdateModeLabel": "キーワードインデックスの更新モード",
   "mcpKeywordIndexUpdateModeBody": "MCP ツールのキーワード転置インデックスを再構築するタイミングを制御します。コールドスタート：起動時にディスクキャッシュを読み込むのみ。手動更新は「キーワードインデックスを構築」ボタンから。定期間隔：設定した「値＋単位」の周期で再構築し、キャッシュを丸ごと上書きします。毎日定刻：指定時刻に毎日 1 回再構築します。後者 2 つは同じシステム cron タスクを共有し、タスクの断片化を防ぎます。",
   "mcpKeywordIndexUpdateModeColdStart": "コールドスタート",

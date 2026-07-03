@@ -306,6 +306,150 @@
   "mcpAutoProbeConcurrencySave": "Save concurrency",
   "mcpAutoProbeConcurrencySaved": "MCP check/fetch concurrency saved.",
   "mcpAutoProbeConcurrencyInvalid": "Please enter an integer between 1 and 32.",
+  "mcpProbeDetailsTitle": "MCP Probe Details",
+  "mcpProbePoolActive": "Probe pool active",
+  "mcpProbePoolIdle": "Probe pool idle",
+  "mcpProbePoolStatusTitle": "Pool Status",
+  "mcpProbeSlots": "Slots {active}/{total}",
+  "@mcpProbeSlots": {
+    "placeholders": {
+      "active": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeQueued": "Queued {count}",
+  "@mcpProbeQueued": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeStateRunning": "running",
+  "mcpProbeStateIdle": "idle",
+  "mcpProbeToolsStatus": "Tools {status}",
+  "@mcpProbeToolsStatus": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "mcpProbeHealthStatus": "Health {status}",
+  "@mcpProbeHealthStatus": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "mcpProbeLastRun": "Last {time}",
+  "@mcpProbeLastRun": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpProbeNextRun": "Next {time}",
+  "@mcpProbeNextRun": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpProbeControlsTitle": "Probe Controls",
+  "mcpProbeForceProbe": "Force Probe",
+  "mcpProbeStopProbing": "Stop Probing",
+  "mcpProbeReloadServers": "Reload Servers",
+  "mcpProbeServerStatusTitle": "Server Probe Status ({count} servers)",
+  "@mcpProbeServerStatusTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeNoServers": "No servers",
+  "mcpProbeHealthHealthy": "Healthy",
+  "mcpProbeHealthUnhealthy": "Unhealthy",
+  "mcpProbeHealthChecking": "Checking",
+  "mcpProbeHealthIdle": "Idle",
+  "mcpProbeDisableServerTooltip": "Disable probing",
+  "mcpProbeEnableServerTooltip": "Enable probing",
+  "mcpProbeNoProbe": "No probe",
+  "mcpProbeToolCount": "{count} tools",
+  "@mcpProbeToolCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeThisServer": "Probe this server",
+  "mcpRelativeJustNow": "just now",
+  "mcpRelativeSecondsAgo": "{seconds}s ago",
+  "@mcpRelativeSecondsAgo": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeMinutesAgo": "{minutes}m ago",
+  "@mcpRelativeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeHoursAgo": "{hours}h ago",
+  "@mcpRelativeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeDaysAgo": "{days}d ago",
+  "@mcpRelativeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeImminent": "imminent",
+  "mcpRelativeInSeconds": "in {seconds}s",
+  "@mcpRelativeInSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInMinutes": "in {minutes}m",
+  "@mcpRelativeInMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInHours": "in {hours}h",
+  "@mcpRelativeInHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInDays": "in {days}d",
+  "@mcpRelativeInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "mcpKeywordIndexUpdateModeLabel": "Keyword index update mode",
   "mcpKeywordIndexUpdateModeBody": "Controls how the MCP tool keyword inverted index is rebuilt. Cold-start: only loads the on-disk cache at boot; click 'Build keyword index' to refresh. Interval: rebuild on a periodic schedule (value + unit) and fully overwrite the cache. Scheduled: rebuild once per day at a fixed time. The latter two share one system cron entry to avoid scheduler fragmentation.",
   "mcpKeywordIndexUpdateModeColdStart": "Cold-start",

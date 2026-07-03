@@ -306,6 +306,150 @@
   "mcpAutoProbeConcurrencySave": "保存并发数",
   "mcpAutoProbeConcurrencySaved": "MCP 检查/拉取并发数已保存。",
   "mcpAutoProbeConcurrencyInvalid": "请输入 1 到 32 之间的整数。",
+  "mcpProbeDetailsTitle": "MCP 探测详情",
+  "mcpProbePoolActive": "探测池运行中",
+  "mcpProbePoolIdle": "探测池空闲",
+  "mcpProbePoolStatusTitle": "探测池状态",
+  "mcpProbeSlots": "槽位 {active}/{total}",
+  "@mcpProbeSlots": {
+    "placeholders": {
+      "active": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeQueued": "排队 {count}",
+  "@mcpProbeQueued": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeStateRunning": "运行中",
+  "mcpProbeStateIdle": "空闲",
+  "mcpProbeToolsStatus": "工具 {status}",
+  "@mcpProbeToolsStatus": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "mcpProbeHealthStatus": "健康 {status}",
+  "@mcpProbeHealthStatus": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "mcpProbeLastRun": "上次 {time}",
+  "@mcpProbeLastRun": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpProbeNextRun": "下次 {time}",
+  "@mcpProbeNextRun": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "mcpProbeControlsTitle": "探测控制",
+  "mcpProbeForceProbe": "强制触发探测",
+  "mcpProbeStopProbing": "中断当前探测",
+  "mcpProbeReloadServers": "重载服务列表",
+  "mcpProbeServerStatusTitle": "服务探测状态 ({count} 个服务)",
+  "@mcpProbeServerStatusTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeNoServers": "暂无服务",
+  "mcpProbeHealthHealthy": "健康",
+  "mcpProbeHealthUnhealthy": "异常",
+  "mcpProbeHealthChecking": "检测中",
+  "mcpProbeHealthIdle": "待检测",
+  "mcpProbeDisableServerTooltip": "点击禁用此服务探测",
+  "mcpProbeEnableServerTooltip": "点击启用此服务探测",
+  "mcpProbeNoProbe": "不探测",
+  "mcpProbeToolCount": "{count} 个工具",
+  "@mcpProbeToolCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpProbeThisServer": "探测此服务",
+  "mcpRelativeJustNow": "刚刚",
+  "mcpRelativeSecondsAgo": "{seconds} 秒前",
+  "@mcpRelativeSecondsAgo": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeMinutesAgo": "{minutes} 分钟前",
+  "@mcpRelativeMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeHoursAgo": "{hours} 小时前",
+  "@mcpRelativeHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeDaysAgo": "{days} 天前",
+  "@mcpRelativeDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeImminent": "即将开始",
+  "mcpRelativeInSeconds": "约 {seconds} 秒后",
+  "@mcpRelativeInSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInMinutes": "约 {minutes} 分钟后",
+  "@mcpRelativeInMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInHours": "约 {hours} 小时后",
+  "@mcpRelativeInHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "mcpRelativeInDays": "约 {days} 天后",
+  "@mcpRelativeInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "mcpKeywordIndexUpdateModeLabel": "更新关键词映射模式",
   "mcpKeywordIndexUpdateModeBody": "控制 MCP 工具关键词倒排索引的重建节奏。冷启动模式仅在启动时加载磁盘缓存，需要手动点击「构建关键词映射」；定时间隔模式按设定的「值 + 单位」周期重建并整体覆盖磁盘缓存；每日定点模式在指定时刻自动重建一次。后两者复用同一条系统 cron 任务，避免任务碎片化。",
   "mcpKeywordIndexUpdateModeColdStart": "冷启动",

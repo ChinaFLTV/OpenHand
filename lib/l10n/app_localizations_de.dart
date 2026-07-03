@@ -607,6 +607,149 @@ class AppLocalizationsDe extends AppLocalizations {
       'Bitte eine ganze Zahl zwischen 1 und 32 eingeben.';
 
   @override
+  String get mcpProbeDetailsTitle => 'MCP-Prüfdetails';
+
+  @override
+  String get mcpProbePoolActive => 'Prüfpool aktiv';
+
+  @override
+  String get mcpProbePoolIdle => 'Prüfpool inaktiv';
+
+  @override
+  String get mcpProbePoolStatusTitle => 'Pool-Status';
+
+  @override
+  String mcpProbeSlots(int active, int total) {
+    return 'Slots $active/$total';
+  }
+
+  @override
+  String mcpProbeQueued(int count) {
+    return 'Wartend $count';
+  }
+
+  @override
+  String get mcpProbeStateRunning => 'läuft';
+
+  @override
+  String get mcpProbeStateIdle => 'inaktiv';
+
+  @override
+  String mcpProbeToolsStatus(Object status) {
+    return 'Tools $status';
+  }
+
+  @override
+  String mcpProbeHealthStatus(Object status) {
+    return 'Health $status';
+  }
+
+  @override
+  String mcpProbeLastRun(Object time) {
+    return 'Letzte $time';
+  }
+
+  @override
+  String mcpProbeNextRun(Object time) {
+    return 'Nächste $time';
+  }
+
+  @override
+  String get mcpProbeControlsTitle => 'Prüfsteuerung';
+
+  @override
+  String get mcpProbeForceProbe => 'Prüfung erzwingen';
+
+  @override
+  String get mcpProbeStopProbing => 'Prüfung stoppen';
+
+  @override
+  String get mcpProbeReloadServers => 'Serverliste neu laden';
+
+  @override
+  String mcpProbeServerStatusTitle(int count) {
+    return 'Server-Prüfstatus ($count Server)';
+  }
+
+  @override
+  String get mcpProbeNoServers => 'Keine Server';
+
+  @override
+  String get mcpProbeHealthHealthy => 'Gesund';
+
+  @override
+  String get mcpProbeHealthUnhealthy => 'Fehlerhaft';
+
+  @override
+  String get mcpProbeHealthChecking => 'Prüft';
+
+  @override
+  String get mcpProbeHealthIdle => 'Bereit';
+
+  @override
+  String get mcpProbeDisableServerTooltip => 'Prüfung deaktivieren';
+
+  @override
+  String get mcpProbeEnableServerTooltip => 'Prüfung aktivieren';
+
+  @override
+  String get mcpProbeNoProbe => 'Keine Prüfung';
+
+  @override
+  String mcpProbeToolCount(int count) {
+    return '$count Tools';
+  }
+
+  @override
+  String get mcpProbeThisServer => 'Diesen Server prüfen';
+
+  @override
+  String get mcpRelativeJustNow => 'gerade eben';
+
+  @override
+  String mcpRelativeSecondsAgo(int seconds) {
+    return 'vor ${seconds}s';
+  }
+
+  @override
+  String mcpRelativeMinutesAgo(int minutes) {
+    return 'vor ${minutes}m';
+  }
+
+  @override
+  String mcpRelativeHoursAgo(int hours) {
+    return 'vor ${hours}h';
+  }
+
+  @override
+  String mcpRelativeDaysAgo(int days) {
+    return 'vor ${days}d';
+  }
+
+  @override
+  String get mcpRelativeImminent => 'gleich';
+
+  @override
+  String mcpRelativeInSeconds(int seconds) {
+    return 'in ${seconds}s';
+  }
+
+  @override
+  String mcpRelativeInMinutes(int minutes) {
+    return 'in ${minutes}m';
+  }
+
+  @override
+  String mcpRelativeInHours(int hours) {
+    return 'in ${hours}h';
+  }
+
+  @override
+  String mcpRelativeInDays(int days) {
+    return 'in ${days}d';
+  }
+
+  @override
   String get mcpKeywordIndexUpdateModeLabel =>
       'Aktualisierungsmodus für Keyword-Index';
 

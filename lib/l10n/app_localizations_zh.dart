@@ -585,6 +585,149 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mcpAutoProbeConcurrencyInvalid => '请输入 1 到 32 之间的整数。';
 
   @override
+  String get mcpProbeDetailsTitle => 'MCP 探测详情';
+
+  @override
+  String get mcpProbePoolActive => '探测池运行中';
+
+  @override
+  String get mcpProbePoolIdle => '探测池空闲';
+
+  @override
+  String get mcpProbePoolStatusTitle => '探测池状态';
+
+  @override
+  String mcpProbeSlots(int active, int total) {
+    return '槽位 $active/$total';
+  }
+
+  @override
+  String mcpProbeQueued(int count) {
+    return '排队 $count';
+  }
+
+  @override
+  String get mcpProbeStateRunning => '运行中';
+
+  @override
+  String get mcpProbeStateIdle => '空闲';
+
+  @override
+  String mcpProbeToolsStatus(Object status) {
+    return '工具 $status';
+  }
+
+  @override
+  String mcpProbeHealthStatus(Object status) {
+    return '健康 $status';
+  }
+
+  @override
+  String mcpProbeLastRun(Object time) {
+    return '上次 $time';
+  }
+
+  @override
+  String mcpProbeNextRun(Object time) {
+    return '下次 $time';
+  }
+
+  @override
+  String get mcpProbeControlsTitle => '探测控制';
+
+  @override
+  String get mcpProbeForceProbe => '强制触发探测';
+
+  @override
+  String get mcpProbeStopProbing => '中断当前探测';
+
+  @override
+  String get mcpProbeReloadServers => '重载服务列表';
+
+  @override
+  String mcpProbeServerStatusTitle(int count) {
+    return '服务探测状态 ($count 个服务)';
+  }
+
+  @override
+  String get mcpProbeNoServers => '暂无服务';
+
+  @override
+  String get mcpProbeHealthHealthy => '健康';
+
+  @override
+  String get mcpProbeHealthUnhealthy => '异常';
+
+  @override
+  String get mcpProbeHealthChecking => '检测中';
+
+  @override
+  String get mcpProbeHealthIdle => '待检测';
+
+  @override
+  String get mcpProbeDisableServerTooltip => '点击禁用此服务探测';
+
+  @override
+  String get mcpProbeEnableServerTooltip => '点击启用此服务探测';
+
+  @override
+  String get mcpProbeNoProbe => '不探测';
+
+  @override
+  String mcpProbeToolCount(int count) {
+    return '$count 个工具';
+  }
+
+  @override
+  String get mcpProbeThisServer => '探测此服务';
+
+  @override
+  String get mcpRelativeJustNow => '刚刚';
+
+  @override
+  String mcpRelativeSecondsAgo(int seconds) {
+    return '$seconds 秒前';
+  }
+
+  @override
+  String mcpRelativeMinutesAgo(int minutes) {
+    return '$minutes 分钟前';
+  }
+
+  @override
+  String mcpRelativeHoursAgo(int hours) {
+    return '$hours 小时前';
+  }
+
+  @override
+  String mcpRelativeDaysAgo(int days) {
+    return '$days 天前';
+  }
+
+  @override
+  String get mcpRelativeImminent => '即将开始';
+
+  @override
+  String mcpRelativeInSeconds(int seconds) {
+    return '约 $seconds 秒后';
+  }
+
+  @override
+  String mcpRelativeInMinutes(int minutes) {
+    return '约 $minutes 分钟后';
+  }
+
+  @override
+  String mcpRelativeInHours(int hours) {
+    return '约 $hours 小时后';
+  }
+
+  @override
+  String mcpRelativeInDays(int days) {
+    return '约 $days 天后';
+  }
+
+  @override
   String get mcpKeywordIndexUpdateModeLabel => '更新关键词映射模式';
 
   @override
@@ -10324,6 +10467,149 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get mcpAutoProbeConcurrencyInvalid => '请输入 1 到 32 之间的整数。';
 
   @override
+  String get mcpProbeDetailsTitle => 'MCP 探测详情';
+
+  @override
+  String get mcpProbePoolActive => '探测池运行中';
+
+  @override
+  String get mcpProbePoolIdle => '探测池空闲';
+
+  @override
+  String get mcpProbePoolStatusTitle => '探测池状态';
+
+  @override
+  String mcpProbeSlots(int active, int total) {
+    return '槽位 $active/$total';
+  }
+
+  @override
+  String mcpProbeQueued(int count) {
+    return '排队 $count';
+  }
+
+  @override
+  String get mcpProbeStateRunning => '运行中';
+
+  @override
+  String get mcpProbeStateIdle => '空闲';
+
+  @override
+  String mcpProbeToolsStatus(Object status) {
+    return '工具 $status';
+  }
+
+  @override
+  String mcpProbeHealthStatus(Object status) {
+    return '健康 $status';
+  }
+
+  @override
+  String mcpProbeLastRun(Object time) {
+    return '上次 $time';
+  }
+
+  @override
+  String mcpProbeNextRun(Object time) {
+    return '下次 $time';
+  }
+
+  @override
+  String get mcpProbeControlsTitle => '探测控制';
+
+  @override
+  String get mcpProbeForceProbe => '强制触发探测';
+
+  @override
+  String get mcpProbeStopProbing => '中断当前探测';
+
+  @override
+  String get mcpProbeReloadServers => '重载服务列表';
+
+  @override
+  String mcpProbeServerStatusTitle(int count) {
+    return '服务探测状态 ($count 个服务)';
+  }
+
+  @override
+  String get mcpProbeNoServers => '暂无服务';
+
+  @override
+  String get mcpProbeHealthHealthy => '健康';
+
+  @override
+  String get mcpProbeHealthUnhealthy => '异常';
+
+  @override
+  String get mcpProbeHealthChecking => '检测中';
+
+  @override
+  String get mcpProbeHealthIdle => '待检测';
+
+  @override
+  String get mcpProbeDisableServerTooltip => '点击禁用此服务探测';
+
+  @override
+  String get mcpProbeEnableServerTooltip => '点击启用此服务探测';
+
+  @override
+  String get mcpProbeNoProbe => '不探测';
+
+  @override
+  String mcpProbeToolCount(int count) {
+    return '$count 个工具';
+  }
+
+  @override
+  String get mcpProbeThisServer => '探测此服务';
+
+  @override
+  String get mcpRelativeJustNow => '刚刚';
+
+  @override
+  String mcpRelativeSecondsAgo(int seconds) {
+    return '$seconds 秒前';
+  }
+
+  @override
+  String mcpRelativeMinutesAgo(int minutes) {
+    return '$minutes 分钟前';
+  }
+
+  @override
+  String mcpRelativeHoursAgo(int hours) {
+    return '$hours 小时前';
+  }
+
+  @override
+  String mcpRelativeDaysAgo(int days) {
+    return '$days 天前';
+  }
+
+  @override
+  String get mcpRelativeImminent => '即将开始';
+
+  @override
+  String mcpRelativeInSeconds(int seconds) {
+    return '约 $seconds 秒后';
+  }
+
+  @override
+  String mcpRelativeInMinutes(int minutes) {
+    return '约 $minutes 分钟后';
+  }
+
+  @override
+  String mcpRelativeInHours(int hours) {
+    return '约 $hours 小时后';
+  }
+
+  @override
+  String mcpRelativeInDays(int days) {
+    return '约 $days 天后';
+  }
+
+  @override
   String get mcpKeywordIndexUpdateModeLabel => '更新关键词映射模式';
 
   @override
@@ -20060,6 +20346,149 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mcpAutoProbeConcurrencyInvalid => '請輸入 1 到 32 之間的整數。';
+
+  @override
+  String get mcpProbeDetailsTitle => 'MCP 探測詳情';
+
+  @override
+  String get mcpProbePoolActive => '探測池執行中';
+
+  @override
+  String get mcpProbePoolIdle => '探測池閒置';
+
+  @override
+  String get mcpProbePoolStatusTitle => '探測池狀態';
+
+  @override
+  String mcpProbeSlots(int active, int total) {
+    return '槽位 $active/$total';
+  }
+
+  @override
+  String mcpProbeQueued(int count) {
+    return '佇列 $count';
+  }
+
+  @override
+  String get mcpProbeStateRunning => '執行中';
+
+  @override
+  String get mcpProbeStateIdle => '閒置';
+
+  @override
+  String mcpProbeToolsStatus(Object status) {
+    return '工具 $status';
+  }
+
+  @override
+  String mcpProbeHealthStatus(Object status) {
+    return '健康 $status';
+  }
+
+  @override
+  String mcpProbeLastRun(Object time) {
+    return '上次 $time';
+  }
+
+  @override
+  String mcpProbeNextRun(Object time) {
+    return '下次 $time';
+  }
+
+  @override
+  String get mcpProbeControlsTitle => '探測控制';
+
+  @override
+  String get mcpProbeForceProbe => '強制觸發探測';
+
+  @override
+  String get mcpProbeStopProbing => '中斷目前探測';
+
+  @override
+  String get mcpProbeReloadServers => '重新載入服務列表';
+
+  @override
+  String mcpProbeServerStatusTitle(int count) {
+    return '服務探測狀態 ($count 個服務)';
+  }
+
+  @override
+  String get mcpProbeNoServers => '暫無服務';
+
+  @override
+  String get mcpProbeHealthHealthy => '健康';
+
+  @override
+  String get mcpProbeHealthUnhealthy => '異常';
+
+  @override
+  String get mcpProbeHealthChecking => '檢測中';
+
+  @override
+  String get mcpProbeHealthIdle => '待檢測';
+
+  @override
+  String get mcpProbeDisableServerTooltip => '點擊停用此服務探測';
+
+  @override
+  String get mcpProbeEnableServerTooltip => '點擊啟用此服務探測';
+
+  @override
+  String get mcpProbeNoProbe => '不探測';
+
+  @override
+  String mcpProbeToolCount(int count) {
+    return '$count 個工具';
+  }
+
+  @override
+  String get mcpProbeThisServer => '探測此服務';
+
+  @override
+  String get mcpRelativeJustNow => '剛剛';
+
+  @override
+  String mcpRelativeSecondsAgo(int seconds) {
+    return '$seconds 秒前';
+  }
+
+  @override
+  String mcpRelativeMinutesAgo(int minutes) {
+    return '$minutes 分鐘前';
+  }
+
+  @override
+  String mcpRelativeHoursAgo(int hours) {
+    return '$hours 小時前';
+  }
+
+  @override
+  String mcpRelativeDaysAgo(int days) {
+    return '$days 天前';
+  }
+
+  @override
+  String get mcpRelativeImminent => '即將開始';
+
+  @override
+  String mcpRelativeInSeconds(int seconds) {
+    return '約 $seconds 秒後';
+  }
+
+  @override
+  String mcpRelativeInMinutes(int minutes) {
+    return '約 $minutes 分鐘後';
+  }
+
+  @override
+  String mcpRelativeInHours(int hours) {
+    return '約 $hours 小時後';
+  }
+
+  @override
+  String mcpRelativeInDays(int days) {
+    return '約 $days 天後';
+  }
 
   @override
   String get mcpKeywordIndexUpdateModeLabel => '更新關鍵字映射模式';
