@@ -14,7 +14,11 @@ import { normalizeMarkdownDestination } from '../shared/util/markdown';
 import { clampNumber } from '../shared/util/number';
 import { basenameFromPath } from '../shared/util/path';
 import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
-import { saveBlobWithPicker, type SaveBlobPickerType } from '../utils/save_blob';
+import {
+  revokeObjectUrlQuietly,
+  saveBlobWithPicker,
+  type SaveBlobPickerType,
+} from '../utils/save_blob';
 import { buildSessionAssetUrl } from '../utils/session_asset';
 import { createTimedAbortController } from '../utils/timed_abort';
 import {
@@ -1457,7 +1461,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
   const browserObjectUrlsRef = useRef<Record<string, string>>({});
   useEffect(() => () => {
     for (const objectUrl of Object.values(browserObjectUrlsRef.current)) {
-      URL.revokeObjectURL(objectUrl);
+      revokeObjectUrlQuietly(objectUrl);
     }
     browserObjectUrlsRef.current = {};
   }, []);
@@ -1478,12 +1482,12 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
           timed.clear();
           if (!objectUrl) return;
           if (disposed) {
-            URL.revokeObjectURL(objectUrl);
+            revokeObjectUrlQuietly(objectUrl);
             return;
           }
           const previous = browserObjectUrlsRef.current[entry.key];
           if (previous && previous !== objectUrl) {
-            URL.revokeObjectURL(previous);
+            revokeObjectUrlQuietly(previous);
           }
           browserObjectUrlsRef.current[entry.key] = objectUrl;
           setCachedEntryUrls((current) => (
@@ -1503,7 +1507,7 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
         timed.dispose();
       }
       for (const objectUrl of Object.values(browserObjectUrlsRef.current)) {
-        URL.revokeObjectURL(objectUrl);
+        revokeObjectUrlQuietly(objectUrl);
       }
       browserObjectUrlsRef.current = {};
     };

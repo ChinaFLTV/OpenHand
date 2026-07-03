@@ -28,7 +28,11 @@ import {
 } from '../shared/ui/transcript_scroll_activity';
 import { showSnackbar } from './Snackbar';
 import { MermaidView } from './MermaidView';
-import { downloadBlobWithAnchor } from '../utils/save_blob';
+import {
+  downloadBlobWithAnchor,
+  revokeObjectUrlQuietly,
+  scheduleObjectUrlRevoke,
+} from '../utils/save_blob';
 import 'katex/dist/katex.min.css';
 
 /// rehype-highlight 真正按需懒载：默认不在 entry / vendor 关键路径里拉，
@@ -530,17 +534,13 @@ export function openHtmlInNewTab(html: string): void {
     const opened = window.open(url, '_blank', 'noopener,noreferrer');
     if (!opened) {
       showSnackbar('浏览器已拦截新标签页，请允许弹窗后重试', { tone: 'error' });
-      URL.revokeObjectURL(url);
+      revokeObjectUrlQuietly(url);
       return;
     }
     showSnackbar('已在新标签页打开预览', { tone: 'success' });
-    setTimeout(() => {
-      try { URL.revokeObjectURL(url); } catch {}
-    }, 60_000);
+    scheduleObjectUrlRevoke(url, 60_000);
   } catch (_e) {
-    if (url) {
-      try { URL.revokeObjectURL(url); } catch {}
-    }
+    revokeObjectUrlQuietly(url);
     showSnackbar('打开浏览器预览失败', { tone: 'error' });
   }
 }

@@ -11,7 +11,6 @@ import 'package:provider/provider.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/ansi_text.dart';
-import '../../shared/ui/openhand_dialog_motion_surface.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/localized_text.dart';
@@ -23,6 +22,7 @@ import '../mcp/index.dart';
 import '../plugin_service/index.dart';
 import '../thread_template_runtime/index.dart';
 import 'android_reverse_adb_client.dart';
+import 'android_reverse_dialog_utils.dart';
 import 'android_reverse_session_config.dart';
 import 'android_reverse_session_controller.dart';
 import 'android_reverse_toolchain_diagnostics.dart';
@@ -82,33 +82,17 @@ const List<String> _kAndroidMcpKeywords =
     TemplateRuntimeDependencyRegistry.androidReverseMcpKeywords;
 const List<String> _kAndroidRuntimePluginIds =
     TemplateRuntimeDependencyRegistry.androidReversePluginIds;
-const OpenHandAnimationTransitionProfile _kAndroidDashboardMotionProfile =
-    OpenHandAnimationTransitionProfile(
-      fadeScaleBegin: 0.88,
-      expandScaleBegin: 0.80,
-      rotateScaleBegin: 0.86,
-      elasticScaleBegin: 0.86,
-      springScaleBegin: 0.84,
-      slideUpOffset: Offset(0, 0.20),
-      slideDownOffset: Offset(0, -0.16),
-      slideLeftOffset: Offset(-0.20, 0),
-      slideRightOffset: Offset(0.20, 0),
-    );
-
 Future<void> showAndroidReverseDashboardDialog(
   BuildContext context, {
   required AndroidReverseSessionController controller,
   required String sessionId,
 }) {
-  return showAnimatedDialog<void>(
+  return showAndroidReverseToolDialog<void>(
     context: context,
-    transitionProfile: _kAndroidDashboardMotionProfile,
-    builder: (_) => OpenHandDialogMotionSurface(
-      transitionProfile: _kAndroidDashboardMotionProfile,
-      child: _AndroidReverseDashboardDialog(
-        controller: controller,
-        sessionId: sessionId,
-      ),
+    surfaceMotion: true,
+    builder: (_) => _AndroidReverseDashboardDialog(
+      controller: controller,
+      sessionId: sessionId,
     ),
   );
 }
@@ -4878,9 +4862,8 @@ fi
   }
 
   void _showRuntimePluginInfoDialog(PluginInfo plugin, bool isZh) {
-    showAnimatedDialog<void>(
+    showAndroidReverseToolDialog<void>(
       context: context,
-      transitionProfile: _kAndroidDashboardMotionProfile,
       builder: (_) => _RuntimePluginInfoDialog(plugin: plugin, isZh: isZh),
     );
   }
@@ -6882,9 +6865,8 @@ fi
   void _showToolchainInfoDialog(AndroidReverseToolchainProbe probe, bool isZh) {
     final row = _toolchainResultForProbe(probe);
     final plugin = _toolchainPluginForProbe(probe);
-    showAnimatedDialog<void>(
+    showAndroidReverseToolDialog<void>(
       context: context,
-      transitionProfile: _kAndroidDashboardMotionProfile,
       builder: (_) => _ToolchainInfoDialog(
         probe: probe,
         result: row,

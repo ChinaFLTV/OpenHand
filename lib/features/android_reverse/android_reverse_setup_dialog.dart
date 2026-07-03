@@ -6,6 +6,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_model_selector_field.dart';
 import '../../shared/util/localized_text.dart';
 import '../ai/index.dart';
+import 'android_reverse_dialog_utils.dart';
 import 'android_reverse_session_config.dart';
 
 /// 弹出 Android 逆向会话创建表单。
@@ -20,7 +21,7 @@ Future<AndroidReverseSetupResult?> showAndroidReverseSetupDialog(
   String? initialSelectedModelConfigId,
   String? initialSelectedModelId,
 }) {
-  return showAnimatedDialog<AndroidReverseSetupResult>(
+  return showAndroidReverseToolDialog<AndroidReverseSetupResult>(
     context: context,
     barrierDismissible: false,
     builder: (_) => _AndroidReverseSetupDialog(

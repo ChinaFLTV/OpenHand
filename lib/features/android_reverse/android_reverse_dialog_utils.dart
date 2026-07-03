@@ -3,25 +3,20 @@ import 'package:flutter/material.dart';
 import '../../app/model/dialog_animation_settings.dart';
 import '../../shared/ui/animated_dialog.dart';
 
-const OpenHandAnimationTransitionProfile kWebReverseDialogMotionProfile =
+const OpenHandAnimationTransitionProfile kAndroidReverseDialogMotionProfile =
     OpenHandAnimationTransitionProfile(
-      fadeScaleBegin: 0.925,
-      expandScaleBegin: 0.86,
-      rotateScaleBegin: 0.88,
-      elasticScaleBegin: 0.90,
-      springScaleBegin: 0.90,
-      slideUpOffset: Offset(0, 0.16),
-      slideDownOffset: Offset(0, -0.14),
-      slideLeftOffset: Offset(-0.18, 0),
-      slideRightOffset: Offset(0.18, 0),
+      fadeScaleBegin: 0.88,
+      expandScaleBegin: 0.80,
+      rotateScaleBegin: 0.86,
+      elasticScaleBegin: 0.86,
+      springScaleBegin: 0.84,
+      slideUpOffset: Offset(0, 0.20),
+      slideDownOffset: Offset(0, -0.16),
+      slideLeftOffset: Offset(-0.20, 0),
+      slideRightOffset: Offset(0.20, 0),
     );
 
-/// Shows a Web Reverse tool dialog with one feature-level motion profile.
-///
-/// The route still reads the global dialog animation settings through
-/// [showAnimatedDialog]; this helper only centralizes the Web Reverse
-/// transition geometry so all tool dialogs can be tuned in one place.
-Future<T?> showWebReverseToolDialog<T>({
+Future<T?> showAndroidReverseToolDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   DialogAnimationSettings? settings,
@@ -37,7 +32,7 @@ Future<T?> showWebReverseToolDialog<T>({
   return showOpenHandProfiledDialog<T>(
     context: context,
     settings: settings,
-    transitionProfile: kWebReverseDialogMotionProfile,
+    transitionProfile: kAndroidReverseDialogMotionProfile,
     barrierDismissible: barrierDismissible,
     dismissOnEscape: dismissOnEscape,
     barrierLabel: barrierLabel,

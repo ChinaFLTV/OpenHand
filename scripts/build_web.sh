@@ -7,11 +7,32 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 WEB_DIR="clients/web"
 OUT_DIR="assets/web"
+DEFAULT_PNPM_PACKAGE_MANAGER="pnpm@11.7.0"
 
 if [[ ! -d "$WEB_DIR" ]]; then
   echo "[build_web] 找不到 $WEB_DIR" >&2
   exit 1
 fi
+
+resolve_pnpm_package_manager() {
+  if ! command -v node >/dev/null 2>&1; then
+    printf '%s' "$DEFAULT_PNPM_PACKAGE_MANAGER"
+    return
+  fi
+  node - "$WEB_DIR/package.json" "$DEFAULT_PNPM_PACKAGE_MANAGER" <<'NODE'
+const fs = require('fs');
+const [, , packageJsonPath, fallback] = process.argv;
+try {
+  const raw = fs.readFileSync(packageJsonPath, 'utf8');
+  const value = JSON.parse(raw).packageManager;
+  process.stdout.write(
+    typeof value === 'string' && value.trim() ? value.trim() : fallback,
+  );
+} catch {
+  process.stdout.write(fallback);
+}
+NODE
+}
 
 # ---- 安全清理旧产物 ---------------------------------------------------------
 # vite 已有 emptyOutDir，但当 outDir 越过项目根（这里是 ../../assets/web）
@@ -37,9 +58,10 @@ fi
 # ---- 工具链 -----------------------------------------------------------------
 if ! command -v pnpm >/dev/null 2>&1; then
   if command -v corepack >/dev/null 2>&1; then
-    echo "[build_web] 未检测到 pnpm，使用 corepack 自动激活 pnpm@latest"
+    PNPM_PACKAGE_MANAGER="$(resolve_pnpm_package_manager)"
+    echo "[build_web] 未检测到 pnpm，使用 corepack 自动激活 $PNPM_PACKAGE_MANAGER"
     corepack enable
-    corepack prepare pnpm@latest --activate
+    corepack prepare "$PNPM_PACKAGE_MANAGER" --activate
   else
     echo "[build_web] 缺少 pnpm，且系统没有 corepack；请先安装 pnpm" >&2
     exit 1
@@ -47,7 +69,11 @@ if ! command -v pnpm >/dev/null 2>&1; then
 fi
 
 pushd "$WEB_DIR" >/dev/null
-pnpm install --frozen-lockfile=false
+if [[ -f pnpm-lock.yaml ]]; then
+  pnpm install --frozen-lockfile
+else
+  pnpm install
+fi
 pnpm build
 popd >/dev/null
 

@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "packageManager": "pnpm@11.7.0",
   "description": "OpenHand Web 通用消息平台前端 (Vite + Preact + TypeScript + Tailwind)",
   "scripts": {
     "dev": "vite",

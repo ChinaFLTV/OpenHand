@@ -34,6 +34,27 @@ function normalizeRevokeDelayMs(value: number | undefined): number {
   });
 }
 
+export function revokeObjectUrlQuietly(url: string | null | undefined): void {
+  if (!url) return;
+  try {
+    URL.revokeObjectURL(url);
+  } catch {
+    // Object URL cleanup is best-effort; callers should not fail user actions.
+  }
+}
+
+export function scheduleObjectUrlRevoke(
+  url: string,
+  delayMs?: number,
+): void {
+  const safeDelayMs = normalizeRevokeDelayMs(delayMs);
+  if (safeDelayMs <= 0 || typeof window === 'undefined') {
+    revokeObjectUrlQuietly(url);
+    return;
+  }
+  window.setTimeout(() => revokeObjectUrlQuietly(url), safeDelayMs);
+}
+
 export function filenameFromContentDisposition(value: string | null): string | null {
   if (!value) return null;
   const encoded = /filename\*=UTF-8''([^;]+)/i.exec(value);
@@ -64,10 +85,7 @@ export function downloadBlobWithAnchor(
     anchor.click();
     anchor.remove();
   } finally {
-    window.setTimeout(
-      () => URL.revokeObjectURL(url),
-      normalizeRevokeDelayMs(revokeDelayMs),
-    );
+    scheduleObjectUrlRevoke(url, revokeDelayMs);
   }
 }
 

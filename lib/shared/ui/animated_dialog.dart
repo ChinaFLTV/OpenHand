@@ -586,6 +586,46 @@ Widget buildOpenHandDialogMotionSurface({
   );
 }
 
+/// Shows a dialog with a caller-provided motion profile.
+///
+/// Feature modules use this when a family of dialogs needs one tuned geometry
+/// while still inheriting global duration, curve, reduce-motion, and exit
+/// behavior from [showAnimatedDialog].
+Future<T?> showOpenHandProfiledDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  required OpenHandAnimationTransitionProfile transitionProfile,
+  DialogAnimationSettings? settings,
+  bool barrierDismissible = true,
+  bool dismissOnEscape = true,
+  String? barrierLabel,
+  Color? barrierColor,
+  bool useRootNavigator = true,
+  RouteSettings? routeSettings,
+  AlignmentGeometry alignment = Alignment.center,
+  bool surfaceMotion = false,
+}) {
+  return showAnimatedDialog<T>(
+    context: context,
+    settings: settings,
+    transitionProfile: transitionProfile,
+    barrierDismissible: barrierDismissible,
+    dismissOnEscape: dismissOnEscape,
+    barrierLabel: barrierLabel,
+    barrierColor: barrierColor,
+    useRootNavigator: useRootNavigator,
+    routeSettings: routeSettings,
+    alignment: alignment,
+    builder: surfaceMotion
+        ? (dialogContext) => buildOpenHandDialogMotionSurface(
+            context: dialogContext,
+            transitionProfile: transitionProfile,
+            child: builder(dialogContext),
+          )
+        : builder,
+  );
+}
+
 Future<void> showOpenHandInfoDialog({
   required BuildContext context,
   required String title,

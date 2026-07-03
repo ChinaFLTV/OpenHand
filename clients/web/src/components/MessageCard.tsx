@@ -40,6 +40,7 @@ import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { getDialogMotionDurationMs } from '../hooks/useDialogMotionSettings';
 import { useStickyBottom } from '../hooks/useStickyBottom';
 import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
+import { useDelayedFalse } from '../hooks/useDelayedFalse';
 import { boundedFnv1aHashBase36 } from '../shared/util/hash';
 import { knowledgeBaseResultsUsedByAnswer } from '../shared/util/knowledge';
 import {
@@ -52,6 +53,7 @@ import {
   isTranscriptScrollActive,
   scheduleAfterTranscriptScrollSettles,
 } from '../shared/ui/transcript_scroll_activity';
+import { STREAMING_TURN_IDLE_DEBOUNCE_MS } from '../shared/ui/streaming_turn_timing';
 
 function formatTimestamp(iso: string): string {
   try {
@@ -2501,15 +2503,10 @@ function MessageCardImpl({
   // 同时撑高的工具卡在视窗中表现为"折叠 → 展开 → 折叠"。
   // 这里把 turnActive 的 false 沿做 12s 去抖：只有持续 12s false 才认为回合
   // 真正结束，覆盖慢速节流 / drain 间隔里的 idle 抖动。true 沿立即生效。
-  const [stableTurnActive, setStableTurnActive] = useState(turnActive);
-  useEffect(() => {
-    if (turnActive) {
-      setStableTurnActive(true);
-      return;
-    }
-    const handle = window.setTimeout(() => setStableTurnActive(false), 12000);
-    return () => window.clearTimeout(handle);
-  }, [turnActive]);
+  const stableTurnActive = useDelayedFalse(
+    turnActive,
+    STREAMING_TURN_IDLE_DEBOUNCE_MS,
+  );
   const keepExpandedDuringTurn =
     stableTurnActive && message.role === 'assistant' && !isReasoningMessage;
   const hasCollapsibleContent = content.trim().length > 0;

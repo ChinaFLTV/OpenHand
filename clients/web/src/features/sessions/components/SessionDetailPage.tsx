@@ -85,6 +85,7 @@ import {
   clearTranscriptScrollActivity,
   markTranscriptScrollActivity,
 } from '../../../shared/ui/transcript_scroll_activity';
+import { STREAMING_TURN_IDLE_DEBOUNCE_MS } from '../../../shared/ui/streaming_turn_timing';
 import {
   arrayFromUnknown,
   finiteNumberFromUnknown,
@@ -105,6 +106,7 @@ import { useReducedMotion } from '../../../hooks/useReducedMotion';
 import type { MessageContentFormat } from '../../../hooks/useMessageContentFormat';
 import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
+import { useDelayedFalse } from '../../../hooks/useDelayedFalse';
 import { useDialogExitMotion } from '../../../hooks/useDialogExitMotion';
 import { useDelayedVisibility } from '../../../hooks/useDelayedVisibility';
 import { useEventCallback } from '../../../hooks/useEventCallback';
@@ -5428,15 +5430,10 @@ export function SessionDetailPage() {
   };
 
   const responseRunning = isRunningPhase(sendPhase);
-  const [stableResponseRunning, setStableResponseRunning] = useState(responseRunning);
-  useEffect(() => {
-    if (responseRunning) {
-      setStableResponseRunning(true);
-      return;
-    }
-    const handle = window.setTimeout(() => setStableResponseRunning(false), 12000);
-    return () => window.clearTimeout(handle);
-  }, [responseRunning]);
+  const stableResponseRunning = useDelayedFalse(
+    responseRunning,
+    STREAMING_TURN_IDLE_DEBOUNCE_MS,
+  );
   const latestStreamingTextMessageId = messageWindowView.latestStreamingTextMessageId;
   const loadTitleSourceMessages = useCallback(async (options: { signal: AbortSignal }) => {
     if (!sessionId) return [];
