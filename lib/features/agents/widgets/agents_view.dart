@@ -915,12 +915,16 @@ Future<void> _showAgentClusterDialog(BuildContext context, AgentProfile agent) {
                     ),
                     _AgentPill(
                       icon: Icons.route_rounded,
-                      label: settings.schedulerPolicy,
+                      label: _agentPolicyOptionLabel(
+                        context,
+                        settings.schedulerPolicy,
+                      ),
                       color: Theme.of(context).colorScheme.tertiary,
                     ),
                     _AgentPill(
                       icon: Icons.repeat_rounded,
-                      label: '${settings.retryPolicy} · ${settings.maxRetries}',
+                      label:
+                          '${_agentPolicyOptionLabel(context, settings.retryPolicy)} · ${settings.maxRetries}',
                       color: Theme.of(context).colorScheme.primary,
                     ),
                     _AgentPill(
@@ -1011,7 +1015,7 @@ class _AgentClusterSettingsDialog extends StatefulWidget {
 
 class _AgentClusterSettingsDialogState
     extends State<_AgentClusterSettingsDialog> {
-  late final TextEditingController _tags;
+  late final TextEditingController _tagInput;
   late int _minWorkers;
   late int _maxWorkers;
   late int _maxRetries;
@@ -1020,6 +1024,7 @@ class _AgentClusterSettingsDialogState
   late String _schedulerPolicy;
   late String _workerRemovalPolicy;
   late String _retryPolicy;
+  late List<String> _tags;
 
   @override
   void initState() {
@@ -1041,12 +1046,13 @@ class _AgentClusterSettingsDialogState
     _retryPolicy = _agentRetryPolicyOptions.contains(initial.retryPolicy)
         ? initial.retryPolicy
         : _agentRetryPolicyOptions.first;
-    _tags = TextEditingController(text: initial.tags.join(', '));
+    _tagInput = TextEditingController();
+    _tags = List<String>.from(initial.tags);
   }
 
   @override
   void dispose() {
-    _tags.dispose();
+    _tagInput.dispose();
     super.dispose();
   }
 
@@ -1138,15 +1144,11 @@ class _AgentClusterSettingsDialogState
             ),
             _FormGridItem(
               fullWidth: true,
-              child: TextField(
-                controller: _tags,
-                decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh: 'Worker 标签',
-                    en: 'Worker tags',
-                  ),
-                  hintText: l10n.agentsCommaSeparatedHint,
+              child: _clusterTagEditor(
+                label: openHandLocalizedText(
+                  context,
+                  zh: 'Worker 标签',
+                  en: 'Worker tags',
                 ),
               ),
             ),
@@ -1225,7 +1227,12 @@ class _AgentClusterSettingsDialogState
         initialValue: effectiveValue,
         decoration: InputDecoration(labelText: label),
         items: values
-            .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+            .map(
+              (item) => DropdownMenuItem(
+                value: item,
+                child: Text(_agentPolicyOptionLabel(context, item)),
+              ),
+            )
             .toList(),
         onChanged: (next) {
           if (next != null) onChanged(next);
@@ -1244,8 +1251,128 @@ class _AgentClusterSettingsDialogState
       retryPolicy: _retryPolicy,
       maxRetries: _maxRetries,
       schedulerPolicy: _schedulerPolicy,
-      tags: _commaSeparatedTextValues(_tags.text),
+      tags: _dedupeClusterTags(_tags),
     );
+  }
+
+  Widget _clusterTagEditor({required String label}) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return InputDecorator(
+      decoration: InputDecoration(labelText: label),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _tagInput,
+                  decoration: InputDecoration(
+                    hintText: openHandLocalizedText(
+                      context,
+                      zh: '输入后点击添加',
+                      en: 'Enter text, then add',
+                    ),
+                  ),
+                  onSubmitted: (_) => _addClusterTag(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              IconButton.filledTonal(
+                tooltip: openHandLocalizedText(context, zh: '添加', en: 'Add'),
+                onPressed: _addClusterTag,
+                icon: const Icon(Icons.add_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_tags.isEmpty)
+            Text(
+              openHandLocalizedText(
+                context,
+                zh: '暂无 Worker 标签。',
+                en: 'No worker tags yet.',
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            )
+          else
+            SizedBox(
+              height: 44,
+              child: ReorderableListView.builder(
+                scrollDirection: Axis.horizontal,
+                buildDefaultDragHandles: false,
+                proxyDecorator: (child, index, animation) {
+                  return ScaleTransition(
+                    scale: Tween<double>(begin: 1, end: 1.04).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      ),
+                    ),
+                    child: Material(color: Colors.transparent, child: child),
+                  );
+                },
+                itemCount: _tags.length,
+                onReorder: (oldIndex, newIndex) =>
+                    setState(() => _reorderClusterTag(oldIndex, newIndex)),
+                itemBuilder: (context, index) {
+                  final tag = _tags[index];
+                  return Padding(
+                    key: ValueKey<String>('cluster-tag-$tag'),
+                    padding: const EdgeInsets.only(right: 8),
+                    child: InputChip(
+                      avatar: ReorderableDragStartListener(
+                        index: index,
+                        child: const Icon(
+                          Icons.drag_indicator_rounded,
+                          size: 18,
+                        ),
+                      ),
+                      label: Text(tag, overflow: TextOverflow.ellipsis),
+                      onDeleted: () => setState(() => _tags.remove(tag)),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _addClusterTag() {
+    final value = _tagInput.text.trim();
+    if (value.isEmpty) return;
+    setState(() {
+      if (!_tags.any((tag) => tag.toLowerCase() == value.toLowerCase())) {
+        _tags.add(value);
+      }
+      _tagInput.clear();
+    });
+  }
+
+  void _reorderClusterTag(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _tags.length) return;
+    final targetIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
+    if (targetIndex < 0 || targetIndex >= _tags.length) return;
+    final item = _tags.removeAt(oldIndex);
+    _tags.insert(targetIndex, item);
+  }
+
+  List<String> _dedupeClusterTags(List<String> values) {
+    final seen = <String>{};
+    final result = <String>[];
+    for (final raw in values) {
+      final value = raw.trim();
+      if (value.isEmpty) continue;
+      if (seen.add(value.toLowerCase())) result.add(value);
+    }
+    return result;
   }
 }
 
@@ -2333,14 +2460,6 @@ class _AgentResourceEditorDialogState
 
 int _nonNegativeIntFromText(String value) {
   return nonNegativeIntFromValue(value, fallback: 0);
-}
-
-List<String> _commaSeparatedTextValues(String value) {
-  return value
-      .split(',')
-      .map((item) => item.trim())
-      .where((item) => item.isNotEmpty)
-      .toList(growable: false);
 }
 
 class _MetricTile extends StatelessWidget {

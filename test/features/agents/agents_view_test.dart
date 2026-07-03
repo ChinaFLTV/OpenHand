@@ -198,6 +198,61 @@ void main() {
       expect(tester.widget<FilterChip>(publishChip).selected, isTrue);
     });
 
+    testWidgets('edits cluster worker tags with structured chips', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          enabled: true,
+          lifecycleState: AgentLifecycleState.running,
+          scaleSettings: AgentScaleSettings(
+            maxWorkers: 2,
+            schedulerPolicy: 'round_robin',
+            tags: <String>['ops'],
+          ),
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('集群'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('轮询分配'), findsOneWidget);
+      expect(find.textContaining('有限重试'), findsOneWidget);
+
+      await tester.tap(find.text('调整集群'));
+      await tester.pumpAndSettle();
+      expect(find.text('ops'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).last, 'urgent');
+      await tester.tap(find.byTooltip('添加'));
+      await tester.pump();
+      expect(find.text('urgent'), findsOneWidget);
+
+      final saveButton = find.ancestor(
+        of: find.text('保存').last,
+        matching: find.byType(FilledButton),
+      );
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      expect(controller.agentById('agent-1')!.scaleSettings.tags, <String>[
+        'ops',
+        'urgent',
+      ]);
+    });
+
     testWidgets('opens a complete task detail dialog from task desk', (
       tester,
     ) async {
