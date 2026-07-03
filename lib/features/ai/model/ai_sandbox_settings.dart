@@ -56,9 +56,9 @@ class AiSandboxPatternRule {
   }
 
   bool matches(String value) {
-    final normalizedPattern = pattern.trim();
-    final normalizedValue = value.trim();
-    if (normalizedPattern.isEmpty || normalizedValue.isEmpty) {
+    final normalizedPattern = nullIfBlank(pattern);
+    final normalizedValue = nullIfBlank(value);
+    if (normalizedPattern == null || normalizedValue == null) {
       return false;
     }
     try {
@@ -309,7 +309,7 @@ class AiSandboxSettings {
     final rules = <AiSandboxFileRule>[];
     for (final item in items) {
       final rule = AiSandboxFileRule.fromJson(item);
-      if (rule.path.trim().isNotEmpty) rules.add(rule);
+      if (nullIfBlank(rule.path) != null) rules.add(rule);
     }
     return rules.isEmpty ? AiSandboxSettings.defaults().filesystemRules : rules;
   }
@@ -318,7 +318,7 @@ class AiSandboxSettings {
     final rules = <AiSandboxPatternRule>[];
     for (final item in stringKeyedMapListFromValueOrJsonText(value)) {
       final rule = AiSandboxPatternRule.fromJson(item);
-      if (rule.pattern.trim().isNotEmpty) rules.add(rule);
+      if (nullIfBlank(rule.pattern) != null) rules.add(rule);
     }
     return rules;
   }

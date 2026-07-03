@@ -139,7 +139,7 @@ class AiWebFetchEngineConfig {
   }
 
   Map<String, Object?> toJson() {
-    return <String, Object?>{
+    final json = <String, Object?>{
       'kind': kind.name,
       'enabled': enabled,
       'weight': weight,
@@ -147,12 +147,11 @@ class AiWebFetchEngineConfig {
       'truncation_chars': truncationChars,
       'connection_timeout_seconds': connectionTimeoutSeconds,
       'response_timeout_seconds': responseTimeoutSeconds,
-      if (apiKey != null && apiKey!.isNotEmpty) 'api_key': apiKey,
-      if (providerConfigId != null && providerConfigId!.isNotEmpty)
-        'provider_config_id': providerConfigId,
-      if (endpointOverride != null && endpointOverride!.isNotEmpty)
-        'endpoint_override': endpointOverride,
     };
+    putIfNotBlank(json, 'api_key', apiKey);
+    putIfNotBlank(json, 'provider_config_id', providerConfigId);
+    putIfNotBlank(json, 'endpoint_override', endpointOverride);
+    return json;
   }
 
   static AiWebFetchEngineConfig? fromJson(Map<String, Object?> json) {
@@ -250,13 +249,13 @@ class AiWebFetchScraplingSettings {
   }
 
   Map<String, Object?> toJson() {
-    return <String, Object?>{
-      if (pythonExecutable != null && pythonExecutable!.trim().isNotEmpty)
-        'python_executable': pythonExecutable,
+    final json = <String, Object?>{
       'startup_timeout_seconds': startupTimeoutSeconds,
       'request_timeout_seconds': requestTimeoutSeconds,
       'install_timeout_seconds': installTimeoutSeconds,
     };
+    putIfNotBlank(json, 'python_executable', pythonExecutable);
+    return json;
   }
 
   static AiWebFetchScraplingSettings? fromJson(Object? raw) {
