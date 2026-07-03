@@ -83,6 +83,27 @@ const List<String> _kAndroidMcpKeywords =
     TemplateRuntimeDependencyRegistry.androidReverseMcpKeywords;
 const List<String> _kAndroidRuntimePluginIds =
     TemplateRuntimeDependencyRegistry.androidReversePluginIds;
+
+String _arText(
+  BuildContext context, {
+  required String zh,
+  String? zhHant,
+  required String en,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    zhHant: zhHant,
+    en: en,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
 Future<void> showAndroidReverseDashboardDialog(
   BuildContext context, {
   required AndroidReverseSessionController controller,
@@ -243,21 +264,101 @@ const List<_FridaSnippetPreset> _kFridaSnippetPresets = <_FridaSnippetPreset>[
 ];
 
 extension _TabLabel on _Tab {
-  String label(bool isZh) {
+  String label(BuildContext context) {
     return switch (this) {
-      _Tab.devices => isZh ? '设备管理' : 'Devices',
-      _Tab.overview => isZh ? '概览' : 'Overview',
-      _Tab.toolchain => isZh ? '工具链' : 'Toolchain',
+      _Tab.devices => _arText(
+        context,
+        zh: '设备管理',
+        zhHant: '裝置管理',
+        en: 'Devices',
+        fr: 'Appareils',
+        de: 'Geräte',
+        ja: 'デバイス',
+      ),
+      _Tab.overview => _arText(
+        context,
+        zh: '概览',
+        zhHant: '概覽',
+        en: 'Overview',
+        fr: 'Vue d’ensemble',
+        de: 'Übersicht',
+        ja: '概要',
+      ),
+      _Tab.toolchain => _arText(
+        context,
+        zh: '工具链',
+        zhHant: '工具鏈',
+        en: 'Toolchain',
+        fr: 'Chaîne d’outils',
+        de: 'Toolchain',
+        ja: 'ツールチェーン',
+      ),
       _Tab.mcp => 'MCP',
-      _Tab.plugins => isZh ? '插件' : 'Plugins',
-      _Tab.packages => isZh ? 'APP 信息' : 'APP Info',
-      _Tab.processes => isZh ? '进程' : 'Processes',
+      _Tab.plugins => _arText(
+        context,
+        zh: '插件',
+        zhHant: '外掛',
+        en: 'Plugins',
+        fr: 'Plugins',
+        de: 'Plugins',
+        ja: 'プラグイン',
+      ),
+      _Tab.packages => _arText(
+        context,
+        zh: 'APP 信息',
+        zhHant: 'APP 資訊',
+        en: 'APP Info',
+        fr: 'Infos APP',
+        de: 'APP-Info',
+        ja: 'APP 情報',
+      ),
+      _Tab.processes => _arText(
+        context,
+        zh: '进程',
+        zhHant: '程序',
+        en: 'Processes',
+        fr: 'Processus',
+        de: 'Prozesse',
+        ja: 'プロセス',
+      ),
       _Tab.logcat => 'Logcat',
       _Tab.frida => 'Frida',
-      _Tab.network => isZh ? '网络' : 'Network',
-      _Tab.staticAnalysis => isZh ? '静态分析' : 'Static',
-      _Tab.certs => isZh ? '证书' : 'Certs',
-      _Tab.crypto => isZh ? '加密' : 'Crypto',
+      _Tab.network => _arText(
+        context,
+        zh: '网络',
+        zhHant: '網路',
+        en: 'Network',
+        fr: 'Réseau',
+        de: 'Netzwerk',
+        ja: 'ネットワーク',
+      ),
+      _Tab.staticAnalysis => _arText(
+        context,
+        zh: '静态分析',
+        zhHant: '靜態分析',
+        en: 'Static',
+        fr: 'Statique',
+        de: 'Statisch',
+        ja: '静的解析',
+      ),
+      _Tab.certs => _arText(
+        context,
+        zh: '证书',
+        zhHant: '憑證',
+        en: 'Certs',
+        fr: 'Certificats',
+        de: 'Zertifikate',
+        ja: '証明書',
+      ),
+      _Tab.crypto => _arText(
+        context,
+        zh: '加密',
+        zhHant: '加密',
+        en: 'Crypto',
+        fr: 'Crypto',
+        de: 'Krypto',
+        ja: '暗号',
+      ),
     };
   }
 
@@ -2227,7 +2328,7 @@ fi
                     },
                     icon: Icon(tab.icon, size: 14),
                     label: Text(
-                      tab.label(isZh),
+                      tab.label(context),
                       style: theme.textTheme.labelMedium?.copyWith(
                         fontWeight: selected
                             ? FontWeight.w700
