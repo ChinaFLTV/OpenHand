@@ -35,6 +35,7 @@ const initialState: AuthState = {
 
 let current: AuthState = initialState;
 const subscribers = new Set<(s: AuthState) => void>();
+const FOREGROUND_META_REFRESH_MIN_INTERVAL_MS = 2000;
 
 function emit(next: AuthState): void {
   current = next;
@@ -62,14 +63,20 @@ function installForegroundMetaSync(): void {
   syncListenersInstalled = true;
   const refreshIfStale = () => {
     const now = Date.now();
-    if (now - lastForegroundMetaRefreshAt < 2000) return;
+    if (
+      now - lastForegroundMetaRefreshAt <
+      FOREGROUND_META_REFRESH_MIN_INTERVAL_MS
+    ) {
+      return;
+    }
     lastForegroundMetaRefreshAt = now;
     void refreshMeta().catch(() => undefined);
   };
-  window.addEventListener('focus', refreshIfStale);
-  document.addEventListener('visibilitychange', () => {
+  const refreshIfVisible = () => {
     if (document.visibilityState === 'visible') refreshIfStale();
-  });
+  };
+  window.addEventListener('focus', refreshIfStale);
+  document.addEventListener('visibilitychange', refreshIfVisible);
 }
 
 /// 第一次调用会拉取 /api/meta + 应用主题 + 检查 token；后续 useAuth 复用结果。
