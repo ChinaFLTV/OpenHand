@@ -746,14 +746,39 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '启用 Claude 显式提示词缓存点',
+                          _localizedText(
+                            context,
+                            zh: '启用 Claude 显式提示词缓存点',
+                            zhHant: '啟用 Claude 顯式提示詞快取點',
+                            en: 'Enable Claude Explicit Prompt Cache Points',
+                            fr: 'Activer les points de cache Claude explicites',
+                            de: 'Explizite Claude-Prompt-Cachepunkte aktivieren',
+                            ja: 'Claude 明示的プロンプトキャッシュ点を有効化',
+                          ),
                           style: theme.textTheme.titleSmall,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           globalInputCacheEnabled
-                              ? '开启后，Claude native 请求会按成本控制设置插入 cache_control 断点。'
-                              : '全局输入缓存已关闭；此开关会保存偏好，但当前不会生效。',
+                              ? _localizedText(
+                                  context,
+                                  zh: '开启后，Claude native 请求会按成本控制设置插入 cache_control 断点。',
+                                  zhHant:
+                                      '開啟後，Claude native 請求會依成本控制設定插入 cache_control 斷點。',
+                                  en: 'When enabled, Claude native requests insert cache_control breakpoints based on cost-control settings.',
+                                  fr: 'Activé, les requêtes Claude native insèrent des points cache_control selon le contrôle des coûts.',
+                                  de: 'Aktiviert fügen Claude-native Anfragen cache_control-Punkte gemäß Kostensteuerung ein.',
+                                  ja: '有効にすると、Claude native リクエストにコスト制御設定に基づく cache_control ブレークポイントを挿入します。',
+                                )
+                              : _localizedText(
+                                  context,
+                                  zh: '全局输入缓存已关闭；此开关会保存偏好，但当前不会生效。',
+                                  zhHant: '全域輸入快取已關閉；此開關會保存偏好，但目前不會生效。',
+                                  en: 'Global input caching is off; this switch saves the preference but has no effect now.',
+                                  fr: 'Le cache global des entrées est désactivé ; ce choix est enregistré mais sans effet pour l’instant.',
+                                  de: 'Globales Eingabe-Caching ist aus; diese Option speichert nur die Präferenz.',
+                                  ja: 'グローバル入力キャッシュはオフです。このスイッチは設定を保存しますが、現在は効果がありません。',
+                                ),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -3028,9 +3053,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final modelId = _modelIdController.text.trim();
     if (modelId.isEmpty) {
       setState(() {
-        _profileErrorMessage = openHandIsChineseLocale(context)
-            ? '模型 ID 不能为空。'
-            : 'Model ID cannot be empty.';
+        _profileErrorMessage = _localizedText(
+          context,
+          zh: '模型 ID 不能为空。',
+          zhHant: '模型 ID 不能為空。',
+          en: 'Model ID cannot be empty.',
+          fr: 'L’ID du modèle ne peut pas être vide.',
+          de: 'Die Modell-ID darf nicht leer sein.',
+          ja: 'モデル ID は空にできません。',
+        );
       });
       return null;
     }
@@ -3038,9 +3069,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         _reservedModelIds.contains(modelId) && modelId != widget.modelId;
     if (conflicts) {
       setState(() {
-        _profileErrorMessage = openHandIsChineseLocale(context)
-            ? '模型 ID 已存在，请换一个唯一 ID。'
-            : 'Model ID already exists. Use a unique ID.';
+        _profileErrorMessage = _localizedText(
+          context,
+          zh: '模型 ID 已存在，请换一个唯一 ID。',
+          zhHant: '模型 ID 已存在，請換一個唯一 ID。',
+          en: 'Model ID already exists. Use a unique ID.',
+          fr: 'Cet ID de modèle existe déjà. Utilisez un ID unique.',
+          de: 'Diese Modell-ID existiert bereits. Nutze eine eindeutige ID.',
+          ja: 'モデル ID は既に存在します。一意の ID を使用してください。',
+        );
       });
       return null;
     }
@@ -3053,9 +3090,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       defaultParameters = _parseJsonObject(_defaultParametersController.text);
     } on FormatException {
       setState(() {
-        _profileErrorMessage = openHandIsChineseLocale(context)
-            ? 'default_parameters 必须是合法的 JSON 对象。'
-            : 'default_parameters must be a valid JSON object.';
+        _profileErrorMessage = _localizedText(
+          context,
+          zh: 'default_parameters 必须是合法的 JSON 对象。',
+          zhHant: 'default_parameters 必須是合法的 JSON 物件。',
+          en: 'default_parameters must be a valid JSON object.',
+          fr: 'default_parameters doit être un objet JSON valide.',
+          de: 'default_parameters muss ein gültiges JSON-Objekt sein.',
+          ja: 'default_parameters は有効な JSON オブジェクトである必要があります。',
+        );
       });
       return null;
     }
@@ -3065,9 +3108,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     if (_capabilities.contains(AiModelCapability.readerConversion) &&
         (_readerSourceTypes.isEmpty || _readerTargetTypes.isEmpty)) {
       setState(() {
-        _profileErrorMessage = openHandIsChineseLocale(context)
-            ? '读取转换模型至少需要选择一个源文件类型和一个目标文件类型。'
-            : 'Read conversion models need at least one source type and one target type.';
+        _profileErrorMessage = _localizedText(
+          context,
+          zh: '读取转换模型至少需要选择一个源文件类型和一个目标文件类型。',
+          zhHant: '讀取轉換模型至少需要選擇一個來源檔案類型和一個目標檔案類型。',
+          en: 'Read conversion models need at least one source type and one target type.',
+          fr: 'Les modèles de conversion doivent avoir au moins un type source et un type cible.',
+          de: 'Read-Conversion-Modelle benötigen mindestens einen Quell- und einen Zieltyp.',
+          ja: '読み取り変換モデルには、少なくとも 1 つのソース種別と 1 つのターゲット種別が必要です。',
+        );
       });
       return null;
     }
@@ -3241,9 +3290,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     }
     OpenHandSnackBar.showSuccess(
       context,
-      openHandIsChineseLocale(context)
-          ? '已复制模型：$copyModelId'
-          : 'Copied model: $copyModelId',
+      _localizedText(
+        context,
+        zh: '已复制模型：$copyModelId',
+        zhHant: '已複製模型：$copyModelId',
+        en: 'Copied model: $copyModelId',
+        fr: 'Modèle copié : $copyModelId',
+        de: 'Modell kopiert: $copyModelId',
+        ja: 'モデルをコピーしました：$copyModelId',
+      ),
       duration: const Duration(milliseconds: 1800),
     );
   }
@@ -3319,7 +3374,11 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 _localizedText(
                   context,
                   zh: '全局默认标题生成模型',
+                  zhHant: '全域預設標題生成模型',
                   en: 'Global Default Title Model',
+                  fr: 'Modèle de titre global par défaut',
+                  de: 'Globales Standardmodell für Titel',
+                  ja: 'グローバル既定タイトル生成モデル',
                 ),
                 style: theme.textTheme.titleSmall,
               ),
@@ -3328,7 +3387,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 _localizedText(
                   context,
                   zh: '开启后，该模型会作为所有线程标题生成的全局兜底；请选择可生成文本标题的模型，保存时其他模型的同名开关会自动关闭。',
+                  zhHant:
+                      '開啟後，該模型會作為所有執行緒標題生成的全域兜底；請選擇可生成文字標題的模型，儲存時其他模型的同名開關會自動關閉。',
                   en: 'When enabled, this model becomes the app-wide title fallback. Use a text-capable model; saving turns off the same switch on other models.',
+                  fr: 'Activé, ce modèle devient le secours global pour les titres. Choisissez un modèle texte ; l’enregistrement désactive ce choix ailleurs.',
+                  de: 'Aktiviert wird dieses Modell zum globalen Titel-Fallback. Nutze ein Textmodell; beim Speichern wird die Option bei anderen Modellen deaktiviert.',
+                  ja: '有効にすると、このモデルが全スレッドのタイトル生成フォールバックになります。テキスト対応モデルを選択してください。保存時に他モデルの同名設定はオフになります。',
                 ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
@@ -3358,12 +3422,22 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         ? _localizedText(
             context,
             zh: '已锁定上下文长度为 ${_OneMillionContextPolicy.contextTokensText}，保存时模型 ID 会保持 ${_OneMillionContextPolicy.modelIdSuffix} 后缀。',
+            zhHant:
+                '已鎖定上下文長度為 ${_OneMillionContextPolicy.contextTokensText}，儲存時模型 ID 會保持 ${_OneMillionContextPolicy.modelIdSuffix} 後綴。',
             en: 'Locks context length to ${_OneMillionContextPolicy.contextTokensText}; saving keeps the ${_OneMillionContextPolicy.modelIdSuffix} model ID suffix.',
+            fr: 'Verrouille le contexte à ${_OneMillionContextPolicy.contextTokensText} ; l’ID conserve le suffixe ${_OneMillionContextPolicy.modelIdSuffix}.',
+            de: 'Sperrt die Kontextlänge auf ${_OneMillionContextPolicy.contextTokensText}; die Modell-ID behält das Suffix ${_OneMillionContextPolicy.modelIdSuffix}.',
+            ja: 'コンテキスト長を ${_OneMillionContextPolicy.contextTokensText} に固定し、保存時にモデル ID の ${_OneMillionContextPolicy.modelIdSuffix} 接尾辞を維持します。',
           )
         : _localizedText(
             context,
             zh: '开启后会自动写入 ${_OneMillionContextPolicy.contextTokensText}，并为模型 ID 补齐 ${_OneMillionContextPolicy.modelIdSuffix} 后缀。',
+            zhHant:
+                '開啟後會自動寫入 ${_OneMillionContextPolicy.contextTokensText}，並為模型 ID 補齊 ${_OneMillionContextPolicy.modelIdSuffix} 後綴。',
             en: 'When enabled, writes ${_OneMillionContextPolicy.contextTokensText} and appends the ${_OneMillionContextPolicy.modelIdSuffix} model ID suffix.',
+            fr: 'Activé, écrit ${_OneMillionContextPolicy.contextTokensText} et ajoute le suffixe ${_OneMillionContextPolicy.modelIdSuffix} à l’ID du modèle.',
+            de: 'Aktiviert schreibt ${_OneMillionContextPolicy.contextTokensText} und ergänzt das Suffix ${_OneMillionContextPolicy.modelIdSuffix} an der Modell-ID.',
+            ja: '有効にすると ${_OneMillionContextPolicy.contextTokensText} を書き込み、モデル ID に ${_OneMillionContextPolicy.modelIdSuffix} 接尾辞を付けます。',
           );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3376,7 +3450,11 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 _localizedText(
                   context,
                   zh: '启用 1M 上下文',
+                  zhHant: '啟用 1M 上下文',
                   en: 'Enable 1M Context',
+                  fr: 'Activer le contexte 1M',
+                  de: '1M-Kontext aktivieren',
+                  ja: '1M コンテキストを有効化',
                 ),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
@@ -3435,7 +3513,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     required ValueChanged<Set<String>> onChanged,
   }) {
     final theme = Theme.of(context);
-    final zh = openHandIsChineseLocale(context);
     final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3451,12 +3528,32 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 onChanged(ReaderFileType.normalizeList(values).toSet());
               },
               icon: const Icon(Icons.done_all_rounded, size: 16),
-              label: Text(zh ? '全选' : 'Select All'),
+              label: Text(
+                _localizedText(
+                  context,
+                  zh: '全选',
+                  zhHant: '全選',
+                  en: 'Select All',
+                  fr: 'Tout sélectionner',
+                  de: 'Alle auswählen',
+                  ja: 'すべて選択',
+                ),
+              ),
             ),
             TextButton.icon(
               onPressed: () => onChanged(<String>{}),
               icon: const Icon(Icons.clear_all_rounded, size: 16),
-              label: Text(zh ? '清空' : 'Clear'),
+              label: Text(
+                _localizedText(
+                  context,
+                  zh: '清空',
+                  zhHant: '清空',
+                  en: 'Clear',
+                  fr: 'Effacer',
+                  de: 'Leeren',
+                  ja: 'クリア',
+                ),
+              ),
             ),
           ],
         ),
@@ -3487,12 +3584,19 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
 
   Widget _buildEmbeddingNormalizedControl() {
     final theme = Theme.of(context);
-    final zh = openHandIsChineseLocale(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          zh ? '输出向量已归一化' : 'Normalized Output Vectors',
+          _localizedText(
+            context,
+            zh: '输出向量已归一化',
+            zhHant: '輸出向量已正規化',
+            en: 'Normalized Output Vectors',
+            fr: 'Vecteurs de sortie normalisés',
+            de: 'Normalisierte Ausgabevektoren',
+            ja: '出力ベクトルは正規化済み',
+          ),
           style: theme.textTheme.bodyMedium,
         ),
         const SizedBox(height: 6),
@@ -3501,7 +3605,17 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           runSpacing: 6,
           children: <Widget>[
             ChoiceChip(
-              label: Text(zh ? '未知/自动' : 'Unknown / Auto'),
+              label: Text(
+                _localizedText(
+                  context,
+                  zh: '未知/自动',
+                  zhHant: '未知/自動',
+                  en: 'Unknown / Auto',
+                  fr: 'Inconnu / auto',
+                  de: 'Unbekannt / Auto',
+                  ja: '不明 / 自動',
+                ),
+              ),
               selected: _embeddingOutputsNormalized == null,
               onSelected: (_) =>
                   setState(() => _embeddingOutputsNormalized = null),
@@ -3528,7 +3642,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final zh = openHandIsChineseLocale(context);
     return buildOpenHandAlertDialog(
       title: Text(
         AppLocalizations.of(context)!.mdlEdEditModelProfile,
@@ -3549,11 +3662,25 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               TextField(
                 controller: _modelIdController,
                 decoration: InputDecoration(
-                  labelText: zh ? '模型 ID' : 'Model ID',
+                  labelText: _localizedText(
+                    context,
+                    zh: '模型 ID',
+                    zhHant: '模型 ID',
+                    en: 'Model ID',
+                    fr: 'ID du modèle',
+                    de: 'Modell-ID',
+                    ja: 'モデル ID',
+                  ),
                   hintText: 'gpt-4o-mini',
-                  helperText: zh
-                      ? '用于请求接口的真实模型标识，必须在当前提供商内唯一。'
-                      : 'Actual model identifier sent to the API. Must be unique in this provider.',
+                  helperText: _localizedText(
+                    context,
+                    zh: '用于请求接口的真实模型标识，必须在当前提供商内唯一。',
+                    zhHant: '用於請求介面的真實模型識別，必須在目前提供商內唯一。',
+                    en: 'Actual model identifier sent to the API. Must be unique in this provider.',
+                    fr: 'Identifiant réel envoyé à l’API. Il doit être unique chez ce fournisseur.',
+                    de: 'Tatsächliche Modellkennung für die API. Muss bei diesem Anbieter eindeutig sein.',
+                    ja: 'API に送信される実際のモデル識別子です。このプロバイダー内で一意である必要があります。',
+                  ),
                   isDense: true,
                 ),
                 onChanged: (_) {
@@ -3770,16 +3897,33 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         AiModelCapability.pptGeneration => AppLocalizations.of(
                           context,
                         )!.mdlEdPpt,
-                        AiModelCapability.embeddingGeneration =>
-                          openHandIsChineseLocale(context)
-                              ? '嵌入生成'
-                              : 'Embeddings',
-                        AiModelCapability.rerank =>
-                          openHandIsChineseLocale(context) ? '重排序' : 'Rerank',
-                        AiModelCapability.readerConversion =>
-                          openHandIsChineseLocale(context)
-                              ? '读取转换'
-                              : 'Read Convert',
+                        AiModelCapability.embeddingGeneration => _localizedText(
+                          context,
+                          zh: '嵌入生成',
+                          zhHant: '嵌入生成',
+                          en: 'Embeddings',
+                          fr: 'Embeddings',
+                          de: 'Embeddings',
+                          ja: '埋め込み生成',
+                        ),
+                        AiModelCapability.rerank => _localizedText(
+                          context,
+                          zh: '重排序',
+                          zhHant: '重排序',
+                          en: 'Rerank',
+                          fr: 'Rerank',
+                          de: 'Rerank',
+                          ja: '再ランキング',
+                        ),
+                        AiModelCapability.readerConversion => _localizedText(
+                          context,
+                          zh: '读取转换',
+                          zhHant: '讀取轉換',
+                          en: 'Read Convert',
+                          fr: 'Conversion de lecture',
+                          de: 'Lesekonvertierung',
+                          ja: '読み取り変換',
+                        ),
                       };
                       return FilterChip(
                         label: Text(label),
@@ -3809,19 +3953,43 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               if (_capabilities.contains(
                 AiModelCapability.readerConversion,
               )) ...[
-                _buildSectionHeader(zh ? '读取转换配置' : 'Read Conversion'),
+                _buildSectionHeader(
+                  _localizedText(
+                    context,
+                    zh: '读取转换配置',
+                    zhHant: '讀取轉換設定',
+                    en: 'Read Conversion',
+                    fr: 'Conversion de lecture',
+                    de: 'Lesekonvertierung',
+                    ja: '読み取り変換設定',
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Text(
-                  zh
-                      ? '配置该模型可读取的源文件类型，以及可转换输出的目标类型。知识库模型解析会按这里的能力筛选模型。'
-                      : 'Configure source file types this model can read and target types it can output. Knowledge Base model parsing filters by these capabilities.',
+                  _localizedText(
+                    context,
+                    zh: '配置该模型可读取的源文件类型，以及可转换输出的目标类型。知识库模型解析会按这里的能力筛选模型。',
+                    zhHant: '設定該模型可讀取的來源檔案類型，以及可轉換輸出的目標類型。知識庫模型解析會依這裡的能力篩選模型。',
+                    en: 'Configure source file types this model can read and target types it can output. Knowledge Base model parsing filters by these capabilities.',
+                    fr: 'Configurez les types source lisibles et les types cible produits. La base de connaissances filtre les modèles avec ces capacités.',
+                    de: 'Konfiguriere lesbare Quelldateitypen und mögliche Zieltypen. Die Wissensbasis filtert Modelle nach diesen Fähigkeiten.',
+                    ja: 'このモデルが読み取れるソースファイル種別と、出力できるターゲット種別を設定します。ナレッジベース解析はこの能力でモデルを絞り込みます。',
+                  ),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 10),
                 _buildReaderTypeChips(
-                  title: zh ? '源文件类型' : 'Source Types',
+                  title: _localizedText(
+                    context,
+                    zh: '源文件类型',
+                    zhHant: '來源檔案類型',
+                    en: 'Source Types',
+                    fr: 'Types source',
+                    de: 'Quelltypen',
+                    ja: 'ソース種別',
+                  ),
                   values: ReaderFileType.sourceTypes,
                   selected: _readerSourceTypes,
                   onChanged: (next) =>
@@ -3829,7 +3997,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 ),
                 const SizedBox(height: 12),
                 _buildReaderTypeChips(
-                  title: zh ? '目标文件类型' : 'Target Types',
+                  title: _localizedText(
+                    context,
+                    zh: '目标文件类型',
+                    zhHant: '目標檔案類型',
+                    en: 'Target Types',
+                    fr: 'Types cible',
+                    de: 'Zieltypen',
+                    ja: 'ターゲット種別',
+                  ),
                   values: ReaderFileType.targetTypes,
                   selected: _readerTargetTypes,
                   onChanged: (next) =>
@@ -3841,7 +4017,17 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               if (_capabilities.contains(
                 AiModelCapability.embeddingGeneration,
               )) ...[
-                _buildSectionHeader(zh ? '嵌入生成配置' : 'Embedding Configuration'),
+                _buildSectionHeader(
+                  _localizedText(
+                    context,
+                    zh: '嵌入生成配置',
+                    zhHant: '嵌入生成設定',
+                    en: 'Embedding Configuration',
+                    fr: 'Configuration des embeddings',
+                    de: 'Embedding-Konfiguration',
+                    ja: '埋め込み生成設定',
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: <Widget>[
@@ -3849,7 +4035,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: _buildCompactTextField(
                         controller: _embeddingDimensionsController,
                         keyboardType: TextInputType.number,
-                        label: zh ? '默认维度' : 'Default Dimensions',
+                        label: _localizedText(
+                          context,
+                          zh: '默认维度',
+                          zhHant: '預設維度',
+                          en: 'Default Dimensions',
+                          fr: 'Dimensions par défaut',
+                          de: 'Standarddimensionen',
+                          ja: 'デフォルト次元',
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -3857,7 +4051,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: _buildCompactTextField(
                         controller: _embeddingMaxInputTokensController,
                         keyboardType: TextInputType.number,
-                        label: zh ? '单条最大输入 tokens' : 'Max Input Tokens',
+                        label: _localizedText(
+                          context,
+                          zh: '单条最大输入 tokens',
+                          zhHant: '單筆最大輸入 tokens',
+                          en: 'Max Input Tokens',
+                          fr: 'Tokens d’entrée max',
+                          de: 'Max. Eingabe-Tokens',
+                          ja: '最大入力トークン',
+                        ),
                       ),
                     ),
                   ],
@@ -3868,9 +4070,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingEndpointPathController,
-                        label: zh
-                            ? '嵌入 endpoint path'
-                            : 'Embedding Endpoint Path',
+                        label: _localizedText(
+                          context,
+                          zh: '嵌入 endpoint path',
+                          zhHant: '嵌入 endpoint path',
+                          en: 'Embedding Endpoint Path',
+                          fr: 'Chemin endpoint embeddings',
+                          de: 'Embedding-Endpoint-Pfad',
+                          ja: '埋め込み endpoint path',
+                        ),
                         hint: '/v1/embeddings',
                       ),
                     ),
@@ -3879,7 +4087,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: _buildCompactTextField(
                         controller: _embeddingBatchSizeController,
                         keyboardType: TextInputType.number,
-                        label: zh ? '建议 batch size' : 'Suggested Batch Size',
+                        label: _localizedText(
+                          context,
+                          zh: '建议 batch size',
+                          zhHant: '建議 batch size',
+                          en: 'Suggested Batch Size',
+                          fr: 'Batch size suggéré',
+                          de: 'Empfohlene Batch-Größe',
+                          ja: '推奨 batch size',
+                        ),
                       ),
                     ),
                   ],
@@ -3890,7 +4106,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingQueryModelIdController,
-                        label: zh ? 'Query 模型 ID' : 'Query Model ID',
+                        label: _localizedText(
+                          context,
+                          zh: 'Query 模型 ID',
+                          zhHant: 'Query 模型 ID',
+                          en: 'Query Model ID',
+                          fr: 'ID modèle Query',
+                          de: 'Query-Modell-ID',
+                          ja: 'Query モデル ID',
+                        ),
                         hint: widget.modelId,
                       ),
                     ),
@@ -3898,7 +4122,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDocumentModelIdController,
-                        label: zh ? 'Document 模型 ID' : 'Document Model ID',
+                        label: _localizedText(
+                          context,
+                          zh: 'Document 模型 ID',
+                          zhHant: 'Document 模型 ID',
+                          en: 'Document Model ID',
+                          fr: 'ID modèle Document',
+                          de: 'Document-Modell-ID',
+                          ja: 'Document モデル ID',
+                        ),
                         hint: widget.modelId,
                       ),
                     ),
@@ -3911,7 +4143,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: _buildCompactTextField(
                         controller: _embeddingMinDimensionsController,
                         keyboardType: TextInputType.number,
-                        label: zh ? '最小可选维度' : 'Min Dimensions',
+                        label: _localizedText(
+                          context,
+                          zh: '最小可选维度',
+                          zhHant: '最小可選維度',
+                          en: 'Min Dimensions',
+                          fr: 'Dimensions min',
+                          de: 'Min. Dimensionen',
+                          ja: '最小次元',
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -3919,7 +4159,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: _buildCompactTextField(
                         controller: _embeddingMaxDimensionsController,
                         keyboardType: TextInputType.number,
-                        label: zh ? '最大可选维度' : 'Max Dimensions',
+                        label: _localizedText(
+                          context,
+                          zh: '最大可选维度',
+                          zhHant: '最大可選維度',
+                          en: 'Max Dimensions',
+                          fr: 'Dimensions max',
+                          de: 'Max. Dimensionen',
+                          ja: '最大次元',
+                        ),
                       ),
                     ),
                   ],
@@ -3930,7 +4178,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingInputTypesController,
-                        label: zh ? '输入类型（逗号分隔）' : 'Input Types (CSV)',
+                        label: _localizedText(
+                          context,
+                          zh: '输入类型（逗号分隔）',
+                          zhHant: '輸入類型（逗號分隔）',
+                          en: 'Input Types (CSV)',
+                          fr: 'Types d’entrée (CSV)',
+                          de: 'Eingabetypen (CSV)',
+                          ja: '入力タイプ（CSV）',
+                        ),
                         hint: 'text, image',
                       ),
                     ),
@@ -3938,7 +4194,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingSupportedTaskTypesController,
-                        label: zh ? '任务类型（逗号分隔）' : 'Task Types (CSV)',
+                        label: _localizedText(
+                          context,
+                          zh: '任务类型（逗号分隔）',
+                          zhHant: '任務類型（逗號分隔）',
+                          en: 'Task Types (CSV)',
+                          fr: 'Types de tâche (CSV)',
+                          de: 'Aufgabentypen (CSV)',
+                          ja: 'タスクタイプ（CSV）',
+                        ),
                         hint: 'retrieval_query, retrieval_document',
                       ),
                     ),
@@ -3950,7 +4214,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultInputTypeController,
-                        label: zh ? '默认输入类型' : 'Default Input Type',
+                        label: _localizedText(
+                          context,
+                          zh: '默认输入类型',
+                          zhHant: '預設輸入類型',
+                          en: 'Default Input Type',
+                          fr: 'Type d’entrée par défaut',
+                          de: 'Standard-Eingabetyp',
+                          ja: 'デフォルト入力タイプ',
+                        ),
                         hint: 'document',
                       ),
                     ),
@@ -3958,7 +4230,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingQueryInputTypeController,
-                        label: zh ? 'Query 输入类型' : 'Query Input Type',
+                        label: _localizedText(
+                          context,
+                          zh: 'Query 输入类型',
+                          zhHant: 'Query 輸入類型',
+                          en: 'Query Input Type',
+                          fr: 'Type d’entrée Query',
+                          de: 'Query-Eingabetyp',
+                          ja: 'Query 入力タイプ',
+                        ),
                         hint: 'query',
                       ),
                     ),
@@ -3967,7 +4247,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 const SizedBox(height: 12),
                 _buildCompactTextField(
                   controller: _embeddingDocumentInputTypeController,
-                  label: zh ? 'Document 输入类型' : 'Document Input Type',
+                  label: _localizedText(
+                    context,
+                    zh: 'Document 输入类型',
+                    zhHant: 'Document 輸入類型',
+                    en: 'Document Input Type',
+                    fr: 'Type d’entrée Document',
+                    de: 'Document-Eingabetyp',
+                    ja: 'Document 入力タイプ',
+                  ),
                   hint: 'document',
                 ),
                 const SizedBox(height: 12),
@@ -3976,7 +4264,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultTaskTypeController,
-                        label: zh ? '默认任务类型' : 'Default Task Type',
+                        label: _localizedText(
+                          context,
+                          zh: '默认任务类型',
+                          zhHant: '預設任務類型',
+                          en: 'Default Task Type',
+                          fr: 'Type de tâche par défaut',
+                          de: 'Standard-Aufgabentyp',
+                          ja: 'デフォルトタスクタイプ',
+                        ),
                         hint: 'retrieval_document',
                       ),
                     ),
@@ -3984,7 +4280,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingSimilarityMetricController,
-                        label: zh ? '相似度/距离类型' : 'Similarity Metric',
+                        label: _localizedText(
+                          context,
+                          zh: '相似度/距离类型',
+                          zhHant: '相似度/距離類型',
+                          en: 'Similarity Metric',
+                          fr: 'Métrique de similarité',
+                          de: 'Ähnlichkeitsmetrik',
+                          ja: '類似度メトリック',
+                        ),
                         hint: 'cosine',
                       ),
                     ),
@@ -3996,7 +4300,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultQueryTaskTypeController,
-                        label: zh ? 'Query 任务类型' : 'Query Task Type',
+                        label: _localizedText(
+                          context,
+                          zh: 'Query 任务类型',
+                          zhHant: 'Query 任務類型',
+                          en: 'Query Task Type',
+                          fr: 'Type de tâche Query',
+                          de: 'Query-Aufgabentyp',
+                          ja: 'Query タスクタイプ',
+                        ),
                         hint: 'RETRIEVAL_QUERY',
                       ),
                     ),
@@ -4004,7 +4316,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultDocumentTaskTypeController,
-                        label: zh ? 'Document 任务类型' : 'Document Task Type',
+                        label: _localizedText(
+                          context,
+                          zh: 'Document 任务类型',
+                          zhHant: 'Document 任務類型',
+                          en: 'Document Task Type',
+                          fr: 'Type de tâche Document',
+                          de: 'Document-Aufgabentyp',
+                          ja: 'Document タスクタイプ',
+                        ),
                         hint: 'RETRIEVAL_DOCUMENT',
                       ),
                     ),
@@ -4016,7 +4336,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingQueryTextPrefixController,
-                        label: zh ? 'Query 文本前缀' : 'Query Text Prefix',
+                        label: _localizedText(
+                          context,
+                          zh: 'Query 文本前缀',
+                          zhHant: 'Query 文字前綴',
+                          en: 'Query Text Prefix',
+                          fr: 'Préfixe texte Query',
+                          de: 'Query-Textpräfix',
+                          ja: 'Query テキスト接頭辞',
+                        ),
                         hint: 'query:',
                       ),
                     ),
@@ -4024,7 +4352,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDocumentTextPrefixController,
-                        label: zh ? 'Document 文本前缀' : 'Document Text Prefix',
+                        label: _localizedText(
+                          context,
+                          zh: 'Document 文本前缀',
+                          zhHant: 'Document 文字前綴',
+                          en: 'Document Text Prefix',
+                          fr: 'Préfixe texte Document',
+                          de: 'Document-Textpräfix',
+                          ja: 'Document テキスト接頭辞',
+                        ),
                         hint: 'passage:',
                       ),
                     ),
@@ -4036,7 +4372,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingEncodingFormatsController,
-                        label: zh ? '编码格式（逗号分隔）' : 'Encoding Formats (CSV)',
+                        label: _localizedText(
+                          context,
+                          zh: '编码格式（逗号分隔）',
+                          zhHant: '編碼格式（逗號分隔）',
+                          en: 'Encoding Formats (CSV)',
+                          fr: 'Formats d’encodage (CSV)',
+                          de: 'Kodierungsformate (CSV)',
+                          ja: 'エンコード形式（CSV）',
+                        ),
                         hint: 'float, base64',
                       ),
                     ),
@@ -4044,7 +4388,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultEncodingFormatController,
-                        label: zh ? '默认编码格式' : 'Default Encoding Format',
+                        label: _localizedText(
+                          context,
+                          zh: '默认编码格式',
+                          zhHant: '預設編碼格式',
+                          en: 'Default Encoding Format',
+                          fr: 'Format d’encodage par défaut',
+                          de: 'Standard-Kodierungsformat',
+                          ja: 'デフォルトエンコード形式',
+                        ),
                         hint: 'float',
                       ),
                     ),
@@ -4053,7 +4405,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 const SizedBox(height: 12),
                 _buildCompactTextField(
                   controller: _embeddingDefaultTruncationController,
-                  label: zh ? '默认截断策略' : 'Default Truncation',
+                  label: _localizedText(
+                    context,
+                    zh: '默认截断策略',
+                    zhHant: '預設截斷策略',
+                    en: 'Default Truncation',
+                    fr: 'Troncature par défaut',
+                    de: 'Standard-Kürzung',
+                    ja: 'デフォルト切り詰め',
+                  ),
                   hint: 'END / true',
                 ),
                 const SizedBox(height: 12),
@@ -4062,7 +4422,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingOutputDTypesController,
-                        label: zh ? '输出 dtype（逗号分隔）' : 'Output DTypes (CSV)',
+                        label: _localizedText(
+                          context,
+                          zh: '输出 dtype（逗号分隔）',
+                          zhHant: '輸出 dtype（逗號分隔）',
+                          en: 'Output DTypes (CSV)',
+                          fr: 'DTypes de sortie (CSV)',
+                          de: 'Ausgabe-DTypes (CSV)',
+                          ja: '出力 dtype（CSV）',
+                        ),
                         hint: 'float, int8, uint8, binary',
                       ),
                     ),
@@ -4070,7 +4438,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultOutputDTypeController,
-                        label: zh ? '默认输出 dtype' : 'Default Output DType',
+                        label: _localizedText(
+                          context,
+                          zh: '默认输出 dtype',
+                          zhHant: '預設輸出 dtype',
+                          en: 'Default Output DType',
+                          fr: 'DType de sortie par défaut',
+                          de: 'Standard-Ausgabe-DType',
+                          ja: 'デフォルト出力 dtype',
+                        ),
                         hint: 'float',
                       ),
                     ),
@@ -4083,7 +4459,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: _buildCompactTextField(
                         controller: _embeddingMaxInputsPerBatchController,
                         keyboardType: TextInputType.number,
-                        label: zh ? '每批最大输入数' : 'Max Inputs Per Batch',
+                        label: _localizedText(
+                          context,
+                          zh: '每批最大输入数',
+                          zhHant: '每批最大輸入數',
+                          en: 'Max Inputs Per Batch',
+                          fr: 'Entrées max par lot',
+                          de: 'Max. Eingaben pro Batch',
+                          ja: 'バッチあたり最大入力数',
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -4091,7 +4475,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       child: _buildCompactTextField(
                         controller: _embeddingMaxTokensPerBatchController,
                         keyboardType: TextInputType.number,
-                        label: zh ? '每批最大 tokens' : 'Max Tokens Per Batch',
+                        label: _localizedText(
+                          context,
+                          zh: '每批最大 tokens',
+                          zhHant: '每批最大 tokens',
+                          en: 'Max Tokens Per Batch',
+                          fr: 'Tokens max par lot',
+                          de: 'Max. Tokens pro Batch',
+                          ja: 'バッチあたり最大トークン',
+                        ),
                       ),
                     ),
                   ],
@@ -4101,9 +4493,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    zh
-                        ? '支持自定义 dimensions / output dimensionality'
-                        : 'Supports Custom Dimensions',
+                    _localizedText(
+                      context,
+                      zh: '支持自定义 dimensions / output dimensionality',
+                      zhHant: '支援自訂 dimensions / output dimensionality',
+                      en: 'Supports Custom Dimensions',
+                      fr: 'Prend en charge les dimensions personnalisées',
+                      de: 'Unterstützt benutzerdefinierte Dimensionen',
+                      ja: 'カスタム dimensions / output dimensionality に対応',
+                    ),
                   ),
                   value: _embeddingSupportsCustomDimensions,
                   onChanged: (value) => setState(
@@ -4114,9 +4512,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    zh
-                        ? '需要特殊 request body 字段'
-                        : 'Requires Special Request Body',
+                    _localizedText(
+                      context,
+                      zh: '需要特殊 request body 字段',
+                      zhHant: '需要特殊 request body 欄位',
+                      en: 'Requires Special Request Body',
+                      fr: 'Nécessite un corps de requête spécial',
+                      de: 'Benötigt speziellen Request-Body',
+                      ja: '特殊な request body フィールドが必要',
+                    ),
                   ),
                   value: _embeddingRequiresSpecialBody,
                   onChanged: (value) =>
@@ -4125,7 +4529,17 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 SwitchListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  title: Text(zh ? '支持服务端自动截断' : 'Supports Server Truncation'),
+                  title: Text(
+                    _localizedText(
+                      context,
+                      zh: '支持服务端自动截断',
+                      zhHant: '支援服務端自動截斷',
+                      en: 'Supports Server Truncation',
+                      fr: 'Prend en charge la troncature serveur',
+                      de: 'Unterstützt serverseitige Kürzung',
+                      ja: 'サーバー側自動切り詰めに対応',
+                    ),
+                  ),
                   value: _embeddingSupportsTruncation,
                   onChanged: (value) =>
                       setState(() => _embeddingSupportsTruncation = value),
