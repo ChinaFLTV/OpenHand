@@ -112,6 +112,7 @@ import { useDelayedFalse } from '../../../hooks/useDelayedFalse';
 import { useDialogExitMotion } from '../../../hooks/useDialogExitMotion';
 import { useDelayedVisibility } from '../../../hooks/useDelayedVisibility';
 import { useEventCallback } from '../../../hooks/useEventCallback';
+import { useTimeoutController } from '../../../hooks/useTimeoutController';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { showSnackbar } from '../../../components/Snackbar';
 import { OverlayPortal } from '../../../components/OverlayPortal';
@@ -2270,6 +2271,8 @@ export function SessionDetailPage() {
   const skillsLoadedRef = useRef(false);
   const detailRef = useRef<SessionDetailResponse | null>(null);
   const sessionIdRef = useRef(sessionId);
+  const { scheduleTimer: scheduleComposerEditFocusTimer } =
+    useTimeoutController();
 
   function resetSlashTriggerState(): void {
     slashDismissalRef.current = null;
@@ -3174,7 +3177,7 @@ export function SessionDetailPage() {
     setAttachmentPreviews([]);
     void restoreSelectedSkillForEdit(m);
     void restoreAttachmentsForEdit(m);
-    window.setTimeout(
+    scheduleComposerEditFocusTimer(
       () => composerTextareaRef.current?.focus(),
       COMPOSER_EDIT_FOCUS_DELAY_MS,
     );
