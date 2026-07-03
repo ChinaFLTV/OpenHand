@@ -71,19 +71,13 @@ class SystemProxyResolver {
   /// （格式 `host:port`），供"系统设置 → 代理"卡片在禁用文本框里
   /// 实时回填显示。优先级：HTTPS > HTTP > SOCKS。无任何探测结果返回 null。
   String? get detectedAutomaticEndpoint {
-    return _httpsProxy ?? _httpProxy ?? _socksProxy;
+    return _normalizedProxyEndpoint(_httpsProxy ?? _httpProxy ?? _socksProxy);
   }
 
   /// 自动模式探测端点拆分为 (host, port)；解析失败返回 null。
   ({String host, int port})? get detectedAutomaticHostPort {
     final raw = detectedAutomaticEndpoint;
-    if (raw == null || raw.isEmpty) return null;
-    final idx = raw.lastIndexOf(':');
-    if (idx <= 0 || idx == raw.length - 1) return null;
-    final host = raw.substring(0, idx).trim();
-    final port = optionalIntFromValue(raw.substring(idx + 1));
-    if (host.isEmpty || port == null || port < 1 || port > 65535) return null;
-    return (host: host, port: port);
+    return raw == null ? null : _parseHostPortEndpoint(raw);
   }
 
   /// Best-effort discovery. Safe to call multiple times — each call
@@ -101,10 +95,8 @@ class SystemProxyResolver {
     final env = Platform.environment;
     String? pick(List<String> keys) {
       for (final key in keys) {
-        final raw = env[key];
-        if (raw != null && raw.trim().isNotEmpty) {
-          return _stripScheme(raw.trim());
-        }
+        final endpoint = _normalizedProxyEndpoint(env[key]);
+        if (endpoint != null) return endpoint;
       }
       return null;
     }
@@ -179,7 +171,8 @@ class SystemProxyResolver {
   }
 
   String _findProxyManual(Uri uri) {
-    if (_settings.host.trim().isEmpty || _settings.port <= 0) {
+    final endpoint = _manualEndpoint;
+    if (endpoint == null) {
       return 'DIRECT';
     }
     if (_isExemptManual(uri.host)) {
@@ -192,7 +185,6 @@ class SystemProxyResolver {
         scheme == 'https' &&
         _settings.protocols.contains(AppProxyProtocol.https);
     final wantsSocks = _settings.protocols.contains(AppProxyProtocol.socks);
-    final endpoint = '${_settings.host}:${_settings.port}';
     if (wantsHttp || wantsHttps) {
       return 'PROXY $endpoint';
     }
@@ -207,14 +199,17 @@ class SystemProxyResolver {
       return 'DIRECT';
     }
     final scheme = uri.scheme.toLowerCase();
-    final picked = scheme == 'https'
-        ? (_httpsProxy ?? _httpProxy)
-        : (_httpProxy ?? _httpsProxy);
-    if (picked != null && picked.isNotEmpty) {
+    final picked = _normalizedProxyEndpoint(
+      scheme == 'https'
+          ? (_httpsProxy ?? _httpProxy)
+          : (_httpProxy ?? _httpsProxy),
+    );
+    if (picked != null) {
       return 'PROXY $picked';
     }
-    if (_socksProxy != null && _socksProxy!.isNotEmpty) {
-      return 'SOCKS $_socksProxy';
+    final socksProxy = _normalizedProxyEndpoint(_socksProxy);
+    if (socksProxy != null) {
+      return 'SOCKS $socksProxy';
     }
     return 'DIRECT';
   }
@@ -280,10 +275,10 @@ class SystemProxyResolver {
       case AppProxyMode.disabled:
         return const <String, String>{};
       case AppProxyMode.manual:
-        if (_settings.host.trim().isEmpty || _settings.port <= 0) {
+        final endpoint = _manualEndpoint;
+        if (endpoint == null) {
           return const <String, String>{};
         }
-        final endpoint = '${_settings.host}:${_settings.port}';
         final wantsHttp = _settings.protocols.contains(AppProxyProtocol.http);
         final wantsHttps = _settings.protocols.contains(AppProxyProtocol.https);
         final wantsSocks = _settings.protocols.contains(AppProxyProtocol.socks);
@@ -300,14 +295,14 @@ class SystemProxyResolver {
           httpsEndpoint = httpEndpoint;
         }
         for (final pattern in _settings.exceptions) {
-          final trimmed = pattern.trim();
-          if (trimmed.isNotEmpty) exceptions.add(trimmed);
+          final trimmed = nullIfBlank(pattern);
+          if (trimmed != null) exceptions.add(trimmed);
         }
         break;
       case AppProxyMode.automatic:
-        httpEndpoint = _httpProxy;
-        httpsEndpoint = _httpsProxy;
-        socksEndpoint = _socksProxy;
+        httpEndpoint = _normalizedProxyEndpoint(_httpProxy);
+        httpsEndpoint = _normalizedProxyEndpoint(_httpsProxy);
+        socksEndpoint = _normalizedProxyEndpoint(_socksProxy);
         if (httpEndpoint == null && httpsEndpoint != null) {
           httpEndpoint = httpsEndpoint;
         } else if (httpsEndpoint == null && httpEndpoint != null) {
@@ -375,17 +370,18 @@ class SystemProxyResolver {
     final inner = HttpClient()
       ..connectionTimeout = connectionTimeout
       ..findProxy = findProxyFor;
+    final manualHostPort = _manualHostPort;
+    final username = nullIfBlank(_settings.username);
     if (_settings.mode == AppProxyMode.manual &&
         _settings.authEnabled &&
-        _settings.username.isNotEmpty &&
-        _settings.host.isNotEmpty &&
-        _settings.port > 0) {
+        username != null &&
+        manualHostPort != null) {
       try {
         inner.addProxyCredentials(
-          _settings.host,
-          _settings.port,
+          manualHostPort.host,
+          manualHostPort.port,
           'Basic',
-          HttpClientBasicCredentials(_settings.username, _settings.password),
+          HttpClientBasicCredentials(username, _settings.password),
         );
       } catch (error, stack) {
         silentLog('system_proxy', 'addProxyCredentials', error, stack);
@@ -393,10 +389,29 @@ class SystemProxyResolver {
     }
     return inner;
   }
+
+  ({String host, int port})? get _manualHostPort {
+    final host = nullIfBlank(_settings.host);
+    final port = _validProxyPort(_settings.port);
+    if (host == null || port == null) return null;
+    return (host: host, port: port);
+  }
+
+  String? get _manualEndpoint {
+    final hostPort = _manualHostPort;
+    return hostPort == null ? null : '${hostPort.host}:${hostPort.port}';
+  }
+}
+
+String? _normalizedProxyEndpoint(String? raw) {
+  final trimmed = nullIfBlank(raw);
+  if (trimmed == null) return null;
+  return nullIfBlank(_stripScheme(trimmed));
 }
 
 String _stripScheme(String raw) {
-  final lower = raw.toLowerCase();
+  final trimmed = raw.trim();
+  final lower = trimmed.toLowerCase();
   for (final prefix in const <String>[
     'http://',
     'https://',
@@ -405,10 +420,28 @@ String _stripScheme(String raw) {
     'socks://',
   ]) {
     if (lower.startsWith(prefix)) {
-      return raw.substring(prefix.length).replaceAll(RegExp(r'/+$'), '');
+      return trimmed.substring(prefix.length).replaceAll(RegExp(r'/+$'), '');
     }
   }
-  return raw.replaceAll(RegExp(r'/+$'), '');
+  return trimmed.replaceAll(RegExp(r'/+$'), '');
+}
+
+({String host, int port})? _parseHostPortEndpoint(String raw) {
+  final idx = raw.lastIndexOf(':');
+  if (idx <= 0 || idx == raw.length - 1) return null;
+  final host = nullIfBlank(raw.substring(0, idx));
+  final port = _validProxyPort(optionalIntFromValue(raw.substring(idx + 1)));
+  if (host == null || port == null) return null;
+  return (host: host, port: port);
+}
+
+int? _validProxyPort(int? port) {
+  if (port == null ||
+      port < AppProxySettings.minPort ||
+      port > AppProxySettings.maxPort) {
+    return null;
+  }
+  return port;
 }
 
 /// 通用例外匹配。支持：
@@ -534,11 +567,14 @@ _ScutilProxyConfig _parseScutilProxyDictionary(String stdout) {
   String? combine(String prefix) {
     final enable = readKey(RegExp('${prefix}Enable\\s*:\\s*(\\d+)'));
     if (enable != '1') return null;
-    final host = readKey(RegExp('${prefix}Proxy\\s*:\\s*([^\\s\\n]+)'));
-    if (host == null || host.isEmpty) return null;
-    final port = readKey(RegExp('${prefix}Port\\s*:\\s*(\\d+)'));
-    if (port == null || port.isEmpty) return host;
-    return '$host:$port';
+    final host = nullIfBlank(
+      readKey(RegExp('${prefix}Proxy\\s*:\\s*([^\\s\\n]+)')),
+    );
+    if (host == null) return null;
+    final port = _validProxyPort(
+      optionalIntFromValue(readKey(RegExp('${prefix}Port\\s*:\\s*(\\d+)'))),
+    );
+    return port == null ? host : '$host:$port';
   }
 
   final exceptions = <String>[];
