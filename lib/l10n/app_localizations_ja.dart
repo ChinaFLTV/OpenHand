@@ -328,6 +328,430 @@ class AppLocalizationsJa extends AppLocalizations {
       'リセットに失敗しました。~/.openhand/mcp/package-cache を手動で削除してください。';
 
   @override
+  String get pluginServiceTitle => 'プラグイン';
+
+  @override
+  String get pluginServiceSubtitle =>
+      '任意プラグインのインストール、更新、削除を管理します。プラグインは OpenHand に追加の実行時機能を提供します。';
+
+  @override
+  String get pluginServiceRescan => '再スキャン';
+
+  @override
+  String get pluginServiceScanning => 'ローカルのプラグイン環境をスキャン中…';
+
+  @override
+  String get pluginServiceScanFailed => 'プラグインのスキャンに失敗しました';
+
+  @override
+  String get pluginServiceActionInstall => 'インストール';
+
+  @override
+  String get pluginServiceActionUpdate => '更新';
+
+  @override
+  String get pluginServiceActionUninstall => 'アンインストール';
+
+  @override
+  String get pluginServiceActionEnable => '有効化';
+
+  @override
+  String get pluginServiceActionDisable => '無効化';
+
+  @override
+  String get pluginServiceStatusInstalled => 'インストール済み';
+
+  @override
+  String get pluginServiceStatusNotInstalled => '未インストール';
+
+  @override
+  String get pluginServiceStatusInstalling => 'インストール中…';
+
+  @override
+  String get pluginServiceStatusUpdating => '更新中…';
+
+  @override
+  String get pluginServiceStatusUninstalling => 'アンインストール中…';
+
+  @override
+  String get pluginServiceStatusError => 'エラー';
+
+  @override
+  String get pluginServiceCheckUpdates => '更新を確認';
+
+  @override
+  String get pluginServiceMcpService => 'MCP サービス';
+
+  @override
+  String pluginServiceInstallDependencyRequired(Object dependency) {
+    return '$dependency を先にインストールしてください';
+  }
+
+  @override
+  String pluginServiceInstallConfirmTitle(Object plugin) {
+    return '$plugin をインストールしますか？';
+  }
+
+  @override
+  String pluginServiceInstallConfirmMessage(Object plugin) {
+    return '$plugin をインストールします。依存ファイルをダウンロードする場合があります。';
+  }
+
+  @override
+  String pluginServiceInstallSuccess(Object plugin) {
+    return '$plugin をインストールしました';
+  }
+
+  @override
+  String pluginServiceInstallFailure(Object plugin) {
+    return '$plugin のインストールに失敗しました';
+  }
+
+  @override
+  String pluginServiceUpdateConfirmTitle(Object plugin) {
+    return '$plugin を更新しますか？';
+  }
+
+  @override
+  String pluginServiceUpdateConfirmMessage(
+    Object plugin,
+    Object currentVersion,
+    Object latestVersion,
+  ) {
+    return '$plugin を $currentVersion から $latestVersion に更新します。';
+  }
+
+  @override
+  String pluginServiceUpdateSuccess(Object plugin) {
+    return '$plugin を更新しました';
+  }
+
+  @override
+  String pluginServiceUpdateFailure(Object plugin) {
+    return '$plugin の更新に失敗しました';
+  }
+
+  @override
+  String get pluginServiceCheckUpdateFailed => '更新の確認に失敗しました';
+
+  @override
+  String pluginServiceNewVersionAvailable(Object version) {
+    return '新しいバージョンがあります: $version';
+  }
+
+  @override
+  String get pluginServiceNoUpdatesAvailable => '利用可能な更新はありません';
+
+  @override
+  String pluginServiceUninstallBlocked(Object dependent, Object plugin) {
+    return '$dependent は $plugin に依存しています。先にアンインストールしてください。';
+  }
+
+  @override
+  String pluginServiceUninstallConfirmTitle(Object plugin) {
+    return '$plugin をアンインストールしますか？';
+  }
+
+  @override
+  String pluginServiceUninstallConfirmMessage(Object plugin) {
+    return '$plugin を削除します。この操作は元に戻せません。';
+  }
+
+  @override
+  String pluginServiceUninstallSuccess(Object plugin) {
+    return '$plugin をアンインストールしました';
+  }
+
+  @override
+  String pluginServiceUninstallFailure(Object plugin) {
+    return '$plugin のアンインストールに失敗しました';
+  }
+
+  @override
+  String pluginServiceOperationTitle(Object action, Object plugin) {
+    return '$plugin の$action';
+  }
+
+  @override
+  String get pluginServiceRuntimePid => 'PID';
+
+  @override
+  String get pluginServiceRuntimeOs => 'OS';
+
+  @override
+  String get pluginServiceRuntimeArch => 'アーキテクチャ';
+
+  @override
+  String pluginServiceLogLineCount(Object count) {
+    return 'ログ: $count 行';
+  }
+
+  @override
+  String get pluginServiceWaitingForOutput => '出力待ち…';
+
+  @override
+  String get pluginServiceExecuting => '実行中…';
+
+  @override
+  String get pluginServiceCompleted => '完了';
+
+  @override
+  String get pluginServiceForceClose => '強制終了';
+
+  @override
+  String get pluginServiceVersion => 'バージョン';
+
+  @override
+  String get pluginServiceUpdateAvailable => '更新先';
+
+  @override
+  String get pluginServiceDependsOn => '依存先';
+
+  @override
+  String get pluginServiceRequiredBy => '依存元';
+
+  @override
+  String get pluginServiceNone => 'なし';
+
+  @override
+  String pluginServiceDetailTitle(Object plugin) {
+    return '$plugin の詳細';
+  }
+
+  @override
+  String get pluginServiceDetailBasicInfo => '基本情報';
+
+  @override
+  String get pluginServiceDetailName => '名前';
+
+  @override
+  String get pluginServiceDetailDescription => '説明';
+
+  @override
+  String get pluginServiceDetailStatus => '状態';
+
+  @override
+  String get pluginServiceDetailEnvironment => '環境情報';
+
+  @override
+  String get pluginServiceDetailDependencies => '依存関係';
+
+  @override
+  String get pluginServiceThreadTemplates => 'スレッドテンプレート';
+
+  @override
+  String get pluginServiceTemplates => 'テンプレート';
+
+  @override
+  String get pluginServiceMcpPackage => 'MCP パッケージ';
+
+  @override
+  String get pluginServiceMcpBrowserDescription => 'ブラウザ自動化用の MCP サービス';
+
+  @override
+  String get pluginServiceDetailProcessors => 'プロセッサ数';
+
+  @override
+  String get pluginServiceDetailInstallPath => 'インストールパス';
+
+  @override
+  String get pluginServiceDetailCurrentVersion => '現在のバージョン';
+
+  @override
+  String get pluginServiceDetailLatestVersion => '最新バージョン';
+
+  @override
+  String get pluginServiceDetailBoundPython => '紐付け Python';
+
+  @override
+  String get pluginServiceDetailDesktopAppDetected => 'デスクトップアプリを検出';
+
+  @override
+  String get pluginServiceDetailDaemonRunning => 'Daemon 実行中';
+
+  @override
+  String get pluginServiceDetailCliAvailable => 'CLI 利用可能';
+
+  @override
+  String get pluginServiceDetailDockerContext => 'Docker コンテキスト';
+
+  @override
+  String get pluginServiceDetailServerVersion => 'サーバーバージョン';
+
+  @override
+  String get pluginServiceDetailDockerOs => 'Docker OS';
+
+  @override
+  String get pluginServiceDetailDockerRootDir => 'Docker ルート';
+
+  @override
+  String get pluginServiceDetailDaemonName => 'Daemon 名';
+
+  @override
+  String get pluginServiceDetailOsType => 'OS タイプ';
+
+  @override
+  String get pluginServiceDetailArchitecture => 'アーキテクチャ';
+
+  @override
+  String get pluginServiceDetailComposeVersion => 'Compose バージョン';
+
+  @override
+  String get pluginServiceDetailDockerDaemonRunning => 'Docker daemon 実行中';
+
+  @override
+  String get pluginServiceDetailOpenHandManaged => 'OpenHand 管理';
+
+  @override
+  String get pluginServiceDetailContainerId => 'コンテナ ID';
+
+  @override
+  String get pluginServiceDetailContainerName => 'コンテナ名';
+
+  @override
+  String get pluginServiceDetailContainerStatus => 'コンテナ状態';
+
+  @override
+  String get pluginServiceDetailRunning => '実行中';
+
+  @override
+  String get pluginServiceDetailStartedAt => '開始時刻';
+
+  @override
+  String get pluginServiceDetailFinishedAt => '終了時刻';
+
+  @override
+  String get pluginServiceDetailRestartCount => '再起動回数';
+
+  @override
+  String get pluginServiceDetailExitCode => '終了コード';
+
+  @override
+  String get pluginServiceDetailImage => 'イメージ';
+
+  @override
+  String get pluginServiceDetailImageId => 'イメージ ID';
+
+  @override
+  String get pluginServiceDetailPorts => 'ポート';
+
+  @override
+  String get pluginServiceDetailRestartPolicy => '再起動ポリシー';
+
+  @override
+  String get pluginServiceDetailRestEndpoint => 'REST エンドポイント';
+
+  @override
+  String get pluginServiceDetailGrpcEndpoint => 'gRPC エンドポイント';
+
+  @override
+  String get pluginServiceDetailDataDirectory => 'データディレクトリ';
+
+  @override
+  String get pluginServiceDetailHealthResponse => 'ヘルスレスポンス';
+
+  @override
+  String get pluginServiceDetailHealthTitle => 'ヘルスタイトル';
+
+  @override
+  String get pluginServiceDetailCollectionCount => 'コレクション数';
+
+  @override
+  String pluginServiceMcpInstalledVersion(Object version) {
+    return 'インストール済み v$version';
+  }
+
+  @override
+  String get pluginServiceMcpOperationTimeout =>
+      '[timeout] 操作がタイムアウトし、プロセスを終了しました';
+
+  @override
+  String pluginServiceMcpOperationCompleted(Object action, Object exitCode) {
+    return '✓ $action 完了 (exit code: $exitCode)';
+  }
+
+  @override
+  String pluginServiceMcpOperationFailed(Object action, Object exitCode) {
+    return '✗ $action 失敗 (exit code: $exitCode)';
+  }
+
+  @override
+  String pluginServiceMcpOperationError(Object error) {
+    return '✗ エラー: $error';
+  }
+
+  @override
+  String get pluginServiceDescriptionNodejs =>
+      'JS/TS スクリプトとツールチェーン向けの JavaScript ランタイム';
+
+  @override
+  String get pluginServiceDescriptionPlaywright =>
+      'Chromium / Firefox / WebKit に対応したブラウザ自動化テストフレームワーク';
+
+  @override
+  String get pluginServiceDescriptionHermesAgent =>
+      'エージェント編成、自己学習、スキル洗練のための Hermes Agent ランタイム';
+
+  @override
+  String get pluginServiceDescriptionPython =>
+      'スクリプト、ライブラリ、拡張機能向けの Python ランタイム';
+
+  @override
+  String get pluginServiceDescriptionPip =>
+      'Python ライブラリのインストール、更新、管理に使うパッケージ管理ツール';
+
+  @override
+  String get pluginServiceDescriptionJava =>
+      'apktool / jadx などの Android 静的解析ツール向け JDK ランタイム';
+
+  @override
+  String get pluginServiceDescriptionFrida =>
+      'Android 実行時検証向けの動的インストルメンテーションと Hook ツールチェーン';
+
+  @override
+  String get pluginServiceDescriptionMitmproxy =>
+      'Web / Android トラフィック調査向けの HTTP(S) プロキシキャプチャツール';
+
+  @override
+  String get pluginServiceDescriptionApktool => 'APK 展開と smali 解析ツール';
+
+  @override
+  String get pluginServiceDescriptionJadx => 'DEX / APK Java デコンパイラ';
+
+  @override
+  String get pluginServiceDescriptionRadare2 =>
+      'バイナリ静的解析と ELF / native so リバースエンジニアリングツール';
+
+  @override
+  String get pluginServiceDescriptionBlutter =>
+      'libapp.so 解析向け Flutter Dart AOT 復元ツール';
+
+  @override
+  String get pluginServiceDescriptionDoldrums =>
+      'Flutter snapshot / ELF 補助解析ツール';
+
+  @override
+  String get pluginServiceDescriptionAnythingAnalyzer =>
+      'キャプチャ、解析、Agent 連携向けのプロトコル解析・MCP Server ツール';
+
+  @override
+  String get pluginServiceDescriptionDocker =>
+      'ローカル Qdrant ベクトルデータベースサービス向けのコンテナランタイム';
+
+  @override
+  String get pluginServiceDescriptionQdrant =>
+      'ナレッジベースの embedding ベクトル索引と検索に使うローカルベクトルデータベース';
+
+  @override
+  String get pluginServiceTemplateWebReverseExpert => 'Web リバースエキスパート';
+
+  @override
+  String get pluginServiceTemplateAndroidReverseExpert => 'Android リバースエキスパート';
+
+  @override
+  String get pluginServiceTemplateHermesTalker => 'Hermes Talker';
+
+  @override
   String get mcpStdioMirrorModeLabel => 'ミラーレジストリモード';
 
   @override

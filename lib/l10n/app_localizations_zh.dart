@@ -327,6 +327,425 @@ class AppLocalizationsZh extends AppLocalizations {
       '重置失败，请手动删除 ~/.openhand/mcp/package-cache。';
 
   @override
+  String get pluginServiceTitle => '插件';
+
+  @override
+  String get pluginServiceSubtitle =>
+      '管理可选插件的安装、更新与卸载。插件为 OpenHand 提供额外的运行时能力。';
+
+  @override
+  String get pluginServiceRescan => '重新扫描';
+
+  @override
+  String get pluginServiceScanning => '正在扫描本机插件环境…';
+
+  @override
+  String get pluginServiceScanFailed => '插件扫描失败';
+
+  @override
+  String get pluginServiceActionInstall => '安装';
+
+  @override
+  String get pluginServiceActionUpdate => '更新';
+
+  @override
+  String get pluginServiceActionUninstall => '卸载';
+
+  @override
+  String get pluginServiceActionEnable => '启用';
+
+  @override
+  String get pluginServiceActionDisable => '禁用';
+
+  @override
+  String get pluginServiceStatusInstalled => '已安装';
+
+  @override
+  String get pluginServiceStatusNotInstalled => '未安装';
+
+  @override
+  String get pluginServiceStatusInstalling => '安装中…';
+
+  @override
+  String get pluginServiceStatusUpdating => '更新中…';
+
+  @override
+  String get pluginServiceStatusUninstalling => '卸载中…';
+
+  @override
+  String get pluginServiceStatusError => '错误';
+
+  @override
+  String get pluginServiceCheckUpdates => '检查更新';
+
+  @override
+  String get pluginServiceMcpService => 'MCP 服务';
+
+  @override
+  String pluginServiceInstallDependencyRequired(Object dependency) {
+    return '需要先安装 $dependency';
+  }
+
+  @override
+  String pluginServiceInstallConfirmTitle(Object plugin) {
+    return '安装 $plugin？';
+  }
+
+  @override
+  String pluginServiceInstallConfirmMessage(Object plugin) {
+    return '将在本机安装 $plugin，可能需要下载依赖文件。';
+  }
+
+  @override
+  String pluginServiceInstallSuccess(Object plugin) {
+    return '$plugin 安装成功';
+  }
+
+  @override
+  String pluginServiceInstallFailure(Object plugin) {
+    return '$plugin 安装失败';
+  }
+
+  @override
+  String pluginServiceUpdateConfirmTitle(Object plugin) {
+    return '更新 $plugin？';
+  }
+
+  @override
+  String pluginServiceUpdateConfirmMessage(
+    Object plugin,
+    Object currentVersion,
+    Object latestVersion,
+  ) {
+    return '将 $plugin 从 $currentVersion 更新到 $latestVersion。';
+  }
+
+  @override
+  String pluginServiceUpdateSuccess(Object plugin) {
+    return '$plugin 更新成功';
+  }
+
+  @override
+  String pluginServiceUpdateFailure(Object plugin) {
+    return '$plugin 更新失败';
+  }
+
+  @override
+  String get pluginServiceCheckUpdateFailed => '检查更新失败';
+
+  @override
+  String pluginServiceNewVersionAvailable(Object version) {
+    return '发现新版本：$version';
+  }
+
+  @override
+  String get pluginServiceNoUpdatesAvailable => '未发现新版本';
+
+  @override
+  String pluginServiceUninstallBlocked(Object dependent, Object plugin) {
+    return '$dependent 依赖 $plugin，请先卸载 $dependent';
+  }
+
+  @override
+  String pluginServiceUninstallConfirmTitle(Object plugin) {
+    return '卸载 $plugin？';
+  }
+
+  @override
+  String pluginServiceUninstallConfirmMessage(Object plugin) {
+    return '将从本机卸载 $plugin，此操作不可撤销。';
+  }
+
+  @override
+  String pluginServiceUninstallSuccess(Object plugin) {
+    return '$plugin 已卸载';
+  }
+
+  @override
+  String pluginServiceUninstallFailure(Object plugin) {
+    return '$plugin 卸载失败';
+  }
+
+  @override
+  String pluginServiceOperationTitle(Object action, Object plugin) {
+    return '$action $plugin';
+  }
+
+  @override
+  String get pluginServiceRuntimePid => 'PID';
+
+  @override
+  String get pluginServiceRuntimeOs => 'OS';
+
+  @override
+  String get pluginServiceRuntimeArch => '架构';
+
+  @override
+  String pluginServiceLogLineCount(Object count) {
+    return '日志：$count 行';
+  }
+
+  @override
+  String get pluginServiceWaitingForOutput => '等待输出…';
+
+  @override
+  String get pluginServiceExecuting => '正在执行…';
+
+  @override
+  String get pluginServiceCompleted => '操作完成';
+
+  @override
+  String get pluginServiceForceClose => '强制关闭';
+
+  @override
+  String get pluginServiceVersion => '版本';
+
+  @override
+  String get pluginServiceUpdateAvailable => '可更新到';
+
+  @override
+  String get pluginServiceDependsOn => '依赖';
+
+  @override
+  String get pluginServiceRequiredBy => '被依赖';
+
+  @override
+  String get pluginServiceNone => '无';
+
+  @override
+  String pluginServiceDetailTitle(Object plugin) {
+    return '$plugin 详情';
+  }
+
+  @override
+  String get pluginServiceDetailBasicInfo => '基本信息';
+
+  @override
+  String get pluginServiceDetailName => '名称';
+
+  @override
+  String get pluginServiceDetailDescription => '描述';
+
+  @override
+  String get pluginServiceDetailStatus => '状态';
+
+  @override
+  String get pluginServiceDetailEnvironment => '环境信息';
+
+  @override
+  String get pluginServiceDetailDependencies => '依赖关系';
+
+  @override
+  String get pluginServiceThreadTemplates => '线程模板关联';
+
+  @override
+  String get pluginServiceTemplates => '关联模板';
+
+  @override
+  String get pluginServiceMcpPackage => 'MCP 包';
+
+  @override
+  String get pluginServiceMcpBrowserDescription => '提供浏览器自动化能力的 MCP 服务';
+
+  @override
+  String get pluginServiceDetailProcessors => '处理器数';
+
+  @override
+  String get pluginServiceDetailInstallPath => '安装路径';
+
+  @override
+  String get pluginServiceDetailCurrentVersion => '当前版本';
+
+  @override
+  String get pluginServiceDetailLatestVersion => '最新版本';
+
+  @override
+  String get pluginServiceDetailBoundPython => '绑定解释器';
+
+  @override
+  String get pluginServiceDetailDesktopAppDetected => '检测到桌面应用';
+
+  @override
+  String get pluginServiceDetailDaemonRunning => 'Daemon 运行中';
+
+  @override
+  String get pluginServiceDetailCliAvailable => 'CLI 可用';
+
+  @override
+  String get pluginServiceDetailDockerContext => 'Docker 上下文';
+
+  @override
+  String get pluginServiceDetailServerVersion => '服务端版本';
+
+  @override
+  String get pluginServiceDetailDockerOs => 'Docker OS';
+
+  @override
+  String get pluginServiceDetailDockerRootDir => 'Docker 根目录';
+
+  @override
+  String get pluginServiceDetailDaemonName => 'Daemon 名称';
+
+  @override
+  String get pluginServiceDetailOsType => 'OS 类型';
+
+  @override
+  String get pluginServiceDetailArchitecture => '架构';
+
+  @override
+  String get pluginServiceDetailComposeVersion => 'Compose 版本';
+
+  @override
+  String get pluginServiceDetailDockerDaemonRunning => 'Docker daemon 运行中';
+
+  @override
+  String get pluginServiceDetailOpenHandManaged => 'OpenHand 管理';
+
+  @override
+  String get pluginServiceDetailContainerId => '容器 ID';
+
+  @override
+  String get pluginServiceDetailContainerName => '容器名称';
+
+  @override
+  String get pluginServiceDetailContainerStatus => '容器状态';
+
+  @override
+  String get pluginServiceDetailRunning => '运行中';
+
+  @override
+  String get pluginServiceDetailStartedAt => '启动时间';
+
+  @override
+  String get pluginServiceDetailFinishedAt => '结束时间';
+
+  @override
+  String get pluginServiceDetailRestartCount => '重启次数';
+
+  @override
+  String get pluginServiceDetailExitCode => '退出码';
+
+  @override
+  String get pluginServiceDetailImage => '镜像';
+
+  @override
+  String get pluginServiceDetailImageId => '镜像 ID';
+
+  @override
+  String get pluginServiceDetailPorts => '端口';
+
+  @override
+  String get pluginServiceDetailRestartPolicy => '重启策略';
+
+  @override
+  String get pluginServiceDetailRestEndpoint => 'REST 端点';
+
+  @override
+  String get pluginServiceDetailGrpcEndpoint => 'gRPC 端点';
+
+  @override
+  String get pluginServiceDetailDataDirectory => '数据目录';
+
+  @override
+  String get pluginServiceDetailHealthResponse => '健康响应';
+
+  @override
+  String get pluginServiceDetailHealthTitle => '健康标题';
+
+  @override
+  String get pluginServiceDetailCollectionCount => '集合数量';
+
+  @override
+  String pluginServiceMcpInstalledVersion(Object version) {
+    return '已安装 v$version';
+  }
+
+  @override
+  String get pluginServiceMcpOperationTimeout => '[timeout] 操作超时，已终止进程';
+
+  @override
+  String pluginServiceMcpOperationCompleted(Object action, Object exitCode) {
+    return '✓ $action 完成 (exit code: $exitCode)';
+  }
+
+  @override
+  String pluginServiceMcpOperationFailed(Object action, Object exitCode) {
+    return '✗ $action 失败 (exit code: $exitCode)';
+  }
+
+  @override
+  String pluginServiceMcpOperationError(Object error) {
+    return '✗ 异常：$error';
+  }
+
+  @override
+  String get pluginServiceDescriptionNodejs =>
+      'JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链';
+
+  @override
+  String get pluginServiceDescriptionPlaywright =>
+      '浏览器自动化测试框架，支持 Chromium / Firefox / WebKit';
+
+  @override
+  String get pluginServiceDescriptionHermesAgent =>
+      'Hermes Agent 运行时，用于智能体编排、自我学习与技能沉淀';
+
+  @override
+  String get pluginServiceDescriptionPython =>
+      'Python 运行时环境，用于执行 Python 脚本、库与扩展能力';
+
+  @override
+  String get pluginServiceDescriptionPip => 'Python 包管理工具，用于安装、升级与管理 Python 库';
+
+  @override
+  String get pluginServiceDescriptionJava =>
+      'JDK 运行时，用于 apktool / jadx 等 Android 静态分析工具';
+
+  @override
+  String get pluginServiceDescriptionFrida => '动态插桩与 Hook 工具链，用于 Android 运行时验证';
+
+  @override
+  String get pluginServiceDescriptionMitmproxy =>
+      'HTTP(S) 代理抓包工具，用于 Web / Android 流量取证';
+
+  @override
+  String get pluginServiceDescriptionApktool => 'APK 解包与 smali 分析工具';
+
+  @override
+  String get pluginServiceDescriptionJadx => 'DEX / APK Java 反编译工具';
+
+  @override
+  String get pluginServiceDescriptionRadare2 => '二进制静态分析与 ELF / native so 逆向工具';
+
+  @override
+  String get pluginServiceDescriptionBlutter =>
+      'Flutter Dart AOT 快速还原工具，用于 libapp.so 分析';
+
+  @override
+  String get pluginServiceDescriptionDoldrums =>
+      'Flutter snapshot / ELF 辅助分析工具';
+
+  @override
+  String get pluginServiceDescriptionAnythingAnalyzer =>
+      '协议分析与 MCP Server 工具，用于抓包、分析和 Agent 联动';
+
+  @override
+  String get pluginServiceDescriptionDocker => '容器运行环境，用于运行 Qdrant 本地向量数据库服务';
+
+  @override
+  String get pluginServiceDescriptionQdrant =>
+      '本地向量数据库，用于知识库 embedding 向量索引与检索';
+
+  @override
+  String get pluginServiceTemplateWebReverseExpert => 'Web 逆向专家';
+
+  @override
+  String get pluginServiceTemplateAndroidReverseExpert => 'Android 逆向专家';
+
+  @override
+  String get pluginServiceTemplateHermesTalker => 'Hermes Talker';
+
+  @override
   String get mcpStdioMirrorModeLabel => '镜像源模式';
 
   @override
@@ -10209,6 +10628,425 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
       '重置失败，请手动删除 ~/.openhand/mcp/package-cache。';
 
   @override
+  String get pluginServiceTitle => '插件';
+
+  @override
+  String get pluginServiceSubtitle =>
+      '管理可选插件的安装、更新与卸载。插件为 OpenHand 提供额外的运行时能力。';
+
+  @override
+  String get pluginServiceRescan => '重新扫描';
+
+  @override
+  String get pluginServiceScanning => '正在扫描本机插件环境…';
+
+  @override
+  String get pluginServiceScanFailed => '插件扫描失败';
+
+  @override
+  String get pluginServiceActionInstall => '安装';
+
+  @override
+  String get pluginServiceActionUpdate => '更新';
+
+  @override
+  String get pluginServiceActionUninstall => '卸载';
+
+  @override
+  String get pluginServiceActionEnable => '启用';
+
+  @override
+  String get pluginServiceActionDisable => '禁用';
+
+  @override
+  String get pluginServiceStatusInstalled => '已安装';
+
+  @override
+  String get pluginServiceStatusNotInstalled => '未安装';
+
+  @override
+  String get pluginServiceStatusInstalling => '安装中…';
+
+  @override
+  String get pluginServiceStatusUpdating => '更新中…';
+
+  @override
+  String get pluginServiceStatusUninstalling => '卸载中…';
+
+  @override
+  String get pluginServiceStatusError => '错误';
+
+  @override
+  String get pluginServiceCheckUpdates => '检查更新';
+
+  @override
+  String get pluginServiceMcpService => 'MCP 服务';
+
+  @override
+  String pluginServiceInstallDependencyRequired(Object dependency) {
+    return '需要先安装 $dependency';
+  }
+
+  @override
+  String pluginServiceInstallConfirmTitle(Object plugin) {
+    return '安装 $plugin？';
+  }
+
+  @override
+  String pluginServiceInstallConfirmMessage(Object plugin) {
+    return '将在本机安装 $plugin，可能需要下载依赖文件。';
+  }
+
+  @override
+  String pluginServiceInstallSuccess(Object plugin) {
+    return '$plugin 安装成功';
+  }
+
+  @override
+  String pluginServiceInstallFailure(Object plugin) {
+    return '$plugin 安装失败';
+  }
+
+  @override
+  String pluginServiceUpdateConfirmTitle(Object plugin) {
+    return '更新 $plugin？';
+  }
+
+  @override
+  String pluginServiceUpdateConfirmMessage(
+    Object plugin,
+    Object currentVersion,
+    Object latestVersion,
+  ) {
+    return '将 $plugin 从 $currentVersion 更新到 $latestVersion。';
+  }
+
+  @override
+  String pluginServiceUpdateSuccess(Object plugin) {
+    return '$plugin 更新成功';
+  }
+
+  @override
+  String pluginServiceUpdateFailure(Object plugin) {
+    return '$plugin 更新失败';
+  }
+
+  @override
+  String get pluginServiceCheckUpdateFailed => '检查更新失败';
+
+  @override
+  String pluginServiceNewVersionAvailable(Object version) {
+    return '发现新版本：$version';
+  }
+
+  @override
+  String get pluginServiceNoUpdatesAvailable => '未发现新版本';
+
+  @override
+  String pluginServiceUninstallBlocked(Object dependent, Object plugin) {
+    return '$dependent 依赖 $plugin，请先卸载 $dependent';
+  }
+
+  @override
+  String pluginServiceUninstallConfirmTitle(Object plugin) {
+    return '卸载 $plugin？';
+  }
+
+  @override
+  String pluginServiceUninstallConfirmMessage(Object plugin) {
+    return '将从本机卸载 $plugin，此操作不可撤销。';
+  }
+
+  @override
+  String pluginServiceUninstallSuccess(Object plugin) {
+    return '$plugin 已卸载';
+  }
+
+  @override
+  String pluginServiceUninstallFailure(Object plugin) {
+    return '$plugin 卸载失败';
+  }
+
+  @override
+  String pluginServiceOperationTitle(Object action, Object plugin) {
+    return '$action $plugin';
+  }
+
+  @override
+  String get pluginServiceRuntimePid => 'PID';
+
+  @override
+  String get pluginServiceRuntimeOs => 'OS';
+
+  @override
+  String get pluginServiceRuntimeArch => '架构';
+
+  @override
+  String pluginServiceLogLineCount(Object count) {
+    return '日志：$count 行';
+  }
+
+  @override
+  String get pluginServiceWaitingForOutput => '等待输出…';
+
+  @override
+  String get pluginServiceExecuting => '正在执行…';
+
+  @override
+  String get pluginServiceCompleted => '操作完成';
+
+  @override
+  String get pluginServiceForceClose => '强制关闭';
+
+  @override
+  String get pluginServiceVersion => '版本';
+
+  @override
+  String get pluginServiceUpdateAvailable => '可更新到';
+
+  @override
+  String get pluginServiceDependsOn => '依赖';
+
+  @override
+  String get pluginServiceRequiredBy => '被依赖';
+
+  @override
+  String get pluginServiceNone => '无';
+
+  @override
+  String pluginServiceDetailTitle(Object plugin) {
+    return '$plugin 详情';
+  }
+
+  @override
+  String get pluginServiceDetailBasicInfo => '基本信息';
+
+  @override
+  String get pluginServiceDetailName => '名称';
+
+  @override
+  String get pluginServiceDetailDescription => '描述';
+
+  @override
+  String get pluginServiceDetailStatus => '状态';
+
+  @override
+  String get pluginServiceDetailEnvironment => '环境信息';
+
+  @override
+  String get pluginServiceDetailDependencies => '依赖关系';
+
+  @override
+  String get pluginServiceThreadTemplates => '线程模板关联';
+
+  @override
+  String get pluginServiceTemplates => '关联模板';
+
+  @override
+  String get pluginServiceMcpPackage => 'MCP 包';
+
+  @override
+  String get pluginServiceMcpBrowserDescription => '提供浏览器自动化能力的 MCP 服务';
+
+  @override
+  String get pluginServiceDetailProcessors => '处理器数';
+
+  @override
+  String get pluginServiceDetailInstallPath => '安装路径';
+
+  @override
+  String get pluginServiceDetailCurrentVersion => '当前版本';
+
+  @override
+  String get pluginServiceDetailLatestVersion => '最新版本';
+
+  @override
+  String get pluginServiceDetailBoundPython => '绑定解释器';
+
+  @override
+  String get pluginServiceDetailDesktopAppDetected => '检测到桌面应用';
+
+  @override
+  String get pluginServiceDetailDaemonRunning => 'Daemon 运行中';
+
+  @override
+  String get pluginServiceDetailCliAvailable => 'CLI 可用';
+
+  @override
+  String get pluginServiceDetailDockerContext => 'Docker 上下文';
+
+  @override
+  String get pluginServiceDetailServerVersion => '服务端版本';
+
+  @override
+  String get pluginServiceDetailDockerOs => 'Docker OS';
+
+  @override
+  String get pluginServiceDetailDockerRootDir => 'Docker 根目录';
+
+  @override
+  String get pluginServiceDetailDaemonName => 'Daemon 名称';
+
+  @override
+  String get pluginServiceDetailOsType => 'OS 类型';
+
+  @override
+  String get pluginServiceDetailArchitecture => '架构';
+
+  @override
+  String get pluginServiceDetailComposeVersion => 'Compose 版本';
+
+  @override
+  String get pluginServiceDetailDockerDaemonRunning => 'Docker daemon 运行中';
+
+  @override
+  String get pluginServiceDetailOpenHandManaged => 'OpenHand 管理';
+
+  @override
+  String get pluginServiceDetailContainerId => '容器 ID';
+
+  @override
+  String get pluginServiceDetailContainerName => '容器名称';
+
+  @override
+  String get pluginServiceDetailContainerStatus => '容器状态';
+
+  @override
+  String get pluginServiceDetailRunning => '运行中';
+
+  @override
+  String get pluginServiceDetailStartedAt => '启动时间';
+
+  @override
+  String get pluginServiceDetailFinishedAt => '结束时间';
+
+  @override
+  String get pluginServiceDetailRestartCount => '重启次数';
+
+  @override
+  String get pluginServiceDetailExitCode => '退出码';
+
+  @override
+  String get pluginServiceDetailImage => '镜像';
+
+  @override
+  String get pluginServiceDetailImageId => '镜像 ID';
+
+  @override
+  String get pluginServiceDetailPorts => '端口';
+
+  @override
+  String get pluginServiceDetailRestartPolicy => '重启策略';
+
+  @override
+  String get pluginServiceDetailRestEndpoint => 'REST 端点';
+
+  @override
+  String get pluginServiceDetailGrpcEndpoint => 'gRPC 端点';
+
+  @override
+  String get pluginServiceDetailDataDirectory => '数据目录';
+
+  @override
+  String get pluginServiceDetailHealthResponse => '健康响应';
+
+  @override
+  String get pluginServiceDetailHealthTitle => '健康标题';
+
+  @override
+  String get pluginServiceDetailCollectionCount => '集合数量';
+
+  @override
+  String pluginServiceMcpInstalledVersion(Object version) {
+    return '已安装 v$version';
+  }
+
+  @override
+  String get pluginServiceMcpOperationTimeout => '[timeout] 操作超时，已终止进程';
+
+  @override
+  String pluginServiceMcpOperationCompleted(Object action, Object exitCode) {
+    return '✓ $action 完成 (exit code: $exitCode)';
+  }
+
+  @override
+  String pluginServiceMcpOperationFailed(Object action, Object exitCode) {
+    return '✗ $action 失败 (exit code: $exitCode)';
+  }
+
+  @override
+  String pluginServiceMcpOperationError(Object error) {
+    return '✗ 异常：$error';
+  }
+
+  @override
+  String get pluginServiceDescriptionNodejs =>
+      'JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链';
+
+  @override
+  String get pluginServiceDescriptionPlaywright =>
+      '浏览器自动化测试框架，支持 Chromium / Firefox / WebKit';
+
+  @override
+  String get pluginServiceDescriptionHermesAgent =>
+      'Hermes Agent 运行时，用于智能体编排、自我学习与技能沉淀';
+
+  @override
+  String get pluginServiceDescriptionPython =>
+      'Python 运行时环境，用于执行 Python 脚本、库与扩展能力';
+
+  @override
+  String get pluginServiceDescriptionPip => 'Python 包管理工具，用于安装、升级与管理 Python 库';
+
+  @override
+  String get pluginServiceDescriptionJava =>
+      'JDK 运行时，用于 apktool / jadx 等 Android 静态分析工具';
+
+  @override
+  String get pluginServiceDescriptionFrida => '动态插桩与 Hook 工具链，用于 Android 运行时验证';
+
+  @override
+  String get pluginServiceDescriptionMitmproxy =>
+      'HTTP(S) 代理抓包工具，用于 Web / Android 流量取证';
+
+  @override
+  String get pluginServiceDescriptionApktool => 'APK 解包与 smali 分析工具';
+
+  @override
+  String get pluginServiceDescriptionJadx => 'DEX / APK Java 反编译工具';
+
+  @override
+  String get pluginServiceDescriptionRadare2 => '二进制静态分析与 ELF / native so 逆向工具';
+
+  @override
+  String get pluginServiceDescriptionBlutter =>
+      'Flutter Dart AOT 快速还原工具，用于 libapp.so 分析';
+
+  @override
+  String get pluginServiceDescriptionDoldrums =>
+      'Flutter snapshot / ELF 辅助分析工具';
+
+  @override
+  String get pluginServiceDescriptionAnythingAnalyzer =>
+      '协议分析与 MCP Server 工具，用于抓包、分析和 Agent 联动';
+
+  @override
+  String get pluginServiceDescriptionDocker => '容器运行环境，用于运行 Qdrant 本地向量数据库服务';
+
+  @override
+  String get pluginServiceDescriptionQdrant =>
+      '本地向量数据库，用于知识库 embedding 向量索引与检索';
+
+  @override
+  String get pluginServiceTemplateWebReverseExpert => 'Web 逆向专家';
+
+  @override
+  String get pluginServiceTemplateAndroidReverseExpert => 'Android 逆向专家';
+
+  @override
+  String get pluginServiceTemplateHermesTalker => 'Hermes Talker';
+
+  @override
   String get mcpStdioMirrorModeLabel => '镜像源模式';
 
   @override
@@ -20088,6 +20926,427 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get mcpStdioCacheResetFailed =>
       '重置失敗，請手動刪除 ~/.openhand/mcp/package-cache。';
+
+  @override
+  String get pluginServiceTitle => '插件';
+
+  @override
+  String get pluginServiceSubtitle =>
+      '管理可選插件的安裝、更新與卸載。插件為 OpenHand 提供額外的執行階段能力。';
+
+  @override
+  String get pluginServiceRescan => '重新掃描';
+
+  @override
+  String get pluginServiceScanning => '正在掃描本機插件環境…';
+
+  @override
+  String get pluginServiceScanFailed => '插件掃描失敗';
+
+  @override
+  String get pluginServiceActionInstall => '安裝';
+
+  @override
+  String get pluginServiceActionUpdate => '更新';
+
+  @override
+  String get pluginServiceActionUninstall => '卸載';
+
+  @override
+  String get pluginServiceActionEnable => '啟用';
+
+  @override
+  String get pluginServiceActionDisable => '停用';
+
+  @override
+  String get pluginServiceStatusInstalled => '已安裝';
+
+  @override
+  String get pluginServiceStatusNotInstalled => '未安裝';
+
+  @override
+  String get pluginServiceStatusInstalling => '安裝中…';
+
+  @override
+  String get pluginServiceStatusUpdating => '更新中…';
+
+  @override
+  String get pluginServiceStatusUninstalling => '卸載中…';
+
+  @override
+  String get pluginServiceStatusError => '錯誤';
+
+  @override
+  String get pluginServiceCheckUpdates => '檢查更新';
+
+  @override
+  String get pluginServiceMcpService => 'MCP 服務';
+
+  @override
+  String pluginServiceInstallDependencyRequired(Object dependency) {
+    return '需要先安裝 $dependency';
+  }
+
+  @override
+  String pluginServiceInstallConfirmTitle(Object plugin) {
+    return '安裝 $plugin？';
+  }
+
+  @override
+  String pluginServiceInstallConfirmMessage(Object plugin) {
+    return '將在本機安裝 $plugin，可能需要下載依賴檔案。';
+  }
+
+  @override
+  String pluginServiceInstallSuccess(Object plugin) {
+    return '$plugin 安裝成功';
+  }
+
+  @override
+  String pluginServiceInstallFailure(Object plugin) {
+    return '$plugin 安裝失敗';
+  }
+
+  @override
+  String pluginServiceUpdateConfirmTitle(Object plugin) {
+    return '更新 $plugin？';
+  }
+
+  @override
+  String pluginServiceUpdateConfirmMessage(
+    Object plugin,
+    Object currentVersion,
+    Object latestVersion,
+  ) {
+    return '將 $plugin 從 $currentVersion 更新到 $latestVersion。';
+  }
+
+  @override
+  String pluginServiceUpdateSuccess(Object plugin) {
+    return '$plugin 更新成功';
+  }
+
+  @override
+  String pluginServiceUpdateFailure(Object plugin) {
+    return '$plugin 更新失敗';
+  }
+
+  @override
+  String get pluginServiceCheckUpdateFailed => '檢查更新失敗';
+
+  @override
+  String pluginServiceNewVersionAvailable(Object version) {
+    return '發現新版本：$version';
+  }
+
+  @override
+  String get pluginServiceNoUpdatesAvailable => '未發現新版本';
+
+  @override
+  String pluginServiceUninstallBlocked(Object dependent, Object plugin) {
+    return '$dependent 依賴 $plugin，請先卸載 $dependent';
+  }
+
+  @override
+  String pluginServiceUninstallConfirmTitle(Object plugin) {
+    return '卸載 $plugin？';
+  }
+
+  @override
+  String pluginServiceUninstallConfirmMessage(Object plugin) {
+    return '將從本機卸載 $plugin，此操作無法復原。';
+  }
+
+  @override
+  String pluginServiceUninstallSuccess(Object plugin) {
+    return '$plugin 已卸載';
+  }
+
+  @override
+  String pluginServiceUninstallFailure(Object plugin) {
+    return '$plugin 卸載失敗';
+  }
+
+  @override
+  String pluginServiceOperationTitle(Object action, Object plugin) {
+    return '$action $plugin';
+  }
+
+  @override
+  String get pluginServiceRuntimePid => 'PID';
+
+  @override
+  String get pluginServiceRuntimeOs => 'OS';
+
+  @override
+  String get pluginServiceRuntimeArch => '架構';
+
+  @override
+  String pluginServiceLogLineCount(Object count) {
+    return '日誌：$count 行';
+  }
+
+  @override
+  String get pluginServiceWaitingForOutput => '等待輸出…';
+
+  @override
+  String get pluginServiceExecuting => '正在執行…';
+
+  @override
+  String get pluginServiceCompleted => '操作完成';
+
+  @override
+  String get pluginServiceForceClose => '強制關閉';
+
+  @override
+  String get pluginServiceVersion => '版本';
+
+  @override
+  String get pluginServiceUpdateAvailable => '可更新到';
+
+  @override
+  String get pluginServiceDependsOn => '依賴';
+
+  @override
+  String get pluginServiceRequiredBy => '被依賴';
+
+  @override
+  String get pluginServiceNone => '無';
+
+  @override
+  String pluginServiceDetailTitle(Object plugin) {
+    return '$plugin 詳情';
+  }
+
+  @override
+  String get pluginServiceDetailBasicInfo => '基本資訊';
+
+  @override
+  String get pluginServiceDetailName => '名稱';
+
+  @override
+  String get pluginServiceDetailDescription => '描述';
+
+  @override
+  String get pluginServiceDetailStatus => '狀態';
+
+  @override
+  String get pluginServiceDetailEnvironment => '環境資訊';
+
+  @override
+  String get pluginServiceDetailDependencies => '依賴關係';
+
+  @override
+  String get pluginServiceThreadTemplates => '執行緒模板關聯';
+
+  @override
+  String get pluginServiceTemplates => '關聯模板';
+
+  @override
+  String get pluginServiceMcpPackage => 'MCP 套件';
+
+  @override
+  String get pluginServiceMcpBrowserDescription => '提供瀏覽器自動化能力的 MCP 服務';
+
+  @override
+  String get pluginServiceDetailProcessors => '處理器數';
+
+  @override
+  String get pluginServiceDetailInstallPath => '安裝路徑';
+
+  @override
+  String get pluginServiceDetailCurrentVersion => '目前版本';
+
+  @override
+  String get pluginServiceDetailLatestVersion => '最新版本';
+
+  @override
+  String get pluginServiceDetailBoundPython => '綁定直譯器';
+
+  @override
+  String get pluginServiceDetailDesktopAppDetected => '偵測到桌面應用程式';
+
+  @override
+  String get pluginServiceDetailDaemonRunning => 'Daemon 執行中';
+
+  @override
+  String get pluginServiceDetailCliAvailable => 'CLI 可用';
+
+  @override
+  String get pluginServiceDetailDockerContext => 'Docker 上下文';
+
+  @override
+  String get pluginServiceDetailServerVersion => '服務端版本';
+
+  @override
+  String get pluginServiceDetailDockerOs => 'Docker OS';
+
+  @override
+  String get pluginServiceDetailDockerRootDir => 'Docker 根目錄';
+
+  @override
+  String get pluginServiceDetailDaemonName => 'Daemon 名稱';
+
+  @override
+  String get pluginServiceDetailOsType => 'OS 類型';
+
+  @override
+  String get pluginServiceDetailArchitecture => '架構';
+
+  @override
+  String get pluginServiceDetailComposeVersion => 'Compose 版本';
+
+  @override
+  String get pluginServiceDetailDockerDaemonRunning => 'Docker daemon 執行中';
+
+  @override
+  String get pluginServiceDetailOpenHandManaged => 'OpenHand 管理';
+
+  @override
+  String get pluginServiceDetailContainerId => '容器 ID';
+
+  @override
+  String get pluginServiceDetailContainerName => '容器名稱';
+
+  @override
+  String get pluginServiceDetailContainerStatus => '容器狀態';
+
+  @override
+  String get pluginServiceDetailRunning => '執行中';
+
+  @override
+  String get pluginServiceDetailStartedAt => '啟動時間';
+
+  @override
+  String get pluginServiceDetailFinishedAt => '結束時間';
+
+  @override
+  String get pluginServiceDetailRestartCount => '重啟次數';
+
+  @override
+  String get pluginServiceDetailExitCode => '結束碼';
+
+  @override
+  String get pluginServiceDetailImage => '映像';
+
+  @override
+  String get pluginServiceDetailImageId => '映像 ID';
+
+  @override
+  String get pluginServiceDetailPorts => '連接埠';
+
+  @override
+  String get pluginServiceDetailRestartPolicy => '重啟策略';
+
+  @override
+  String get pluginServiceDetailRestEndpoint => 'REST 端點';
+
+  @override
+  String get pluginServiceDetailGrpcEndpoint => 'gRPC 端點';
+
+  @override
+  String get pluginServiceDetailDataDirectory => '資料目錄';
+
+  @override
+  String get pluginServiceDetailHealthResponse => '健康回應';
+
+  @override
+  String get pluginServiceDetailHealthTitle => '健康標題';
+
+  @override
+  String get pluginServiceDetailCollectionCount => '集合數量';
+
+  @override
+  String pluginServiceMcpInstalledVersion(Object version) {
+    return '已安裝 v$version';
+  }
+
+  @override
+  String get pluginServiceMcpOperationTimeout => '[timeout] 操作逾時，已終止行程';
+
+  @override
+  String pluginServiceMcpOperationCompleted(Object action, Object exitCode) {
+    return '✓ $action 完成 (exit code: $exitCode)';
+  }
+
+  @override
+  String pluginServiceMcpOperationFailed(Object action, Object exitCode) {
+    return '✗ $action 失敗 (exit code: $exitCode)';
+  }
+
+  @override
+  String pluginServiceMcpOperationError(Object error) {
+    return '✗ 異常：$error';
+  }
+
+  @override
+  String get pluginServiceDescriptionNodejs =>
+      'JavaScript 執行階段環境，用於執行 JS/TS 腳本與工具鏈';
+
+  @override
+  String get pluginServiceDescriptionPlaywright =>
+      '瀏覽器自動化測試框架，支援 Chromium / Firefox / WebKit';
+
+  @override
+  String get pluginServiceDescriptionHermesAgent =>
+      'Hermes Agent 執行階段，用於智能體編排、自我學習與技能沉澱';
+
+  @override
+  String get pluginServiceDescriptionPython =>
+      'Python 執行階段環境，用於執行 Python 腳本、程式庫與擴充能力';
+
+  @override
+  String get pluginServiceDescriptionPip =>
+      'Python 套件管理工具，用於安裝、升級與管理 Python 程式庫';
+
+  @override
+  String get pluginServiceDescriptionJava =>
+      'JDK 執行階段，用於 apktool / jadx 等 Android 靜態分析工具';
+
+  @override
+  String get pluginServiceDescriptionFrida =>
+      '動態插樁與 Hook 工具鏈，用於 Android 執行階段驗證';
+
+  @override
+  String get pluginServiceDescriptionMitmproxy =>
+      'HTTP(S) 代理抓包工具，用於 Web / Android 流量取證';
+
+  @override
+  String get pluginServiceDescriptionApktool => 'APK 解包與 smali 分析工具';
+
+  @override
+  String get pluginServiceDescriptionJadx => 'DEX / APK Java 反編譯工具';
+
+  @override
+  String get pluginServiceDescriptionRadare2 => '二進位靜態分析與 ELF / native so 逆向工具';
+
+  @override
+  String get pluginServiceDescriptionBlutter =>
+      'Flutter Dart AOT 快速還原工具，用於 libapp.so 分析';
+
+  @override
+  String get pluginServiceDescriptionDoldrums =>
+      'Flutter snapshot / ELF 輔助分析工具';
+
+  @override
+  String get pluginServiceDescriptionAnythingAnalyzer =>
+      '協議分析與 MCP Server 工具，用於抓包、分析和 Agent 聯動';
+
+  @override
+  String get pluginServiceDescriptionDocker => '容器執行環境，用於執行 Qdrant 本地向量資料庫服務';
+
+  @override
+  String get pluginServiceDescriptionQdrant =>
+      '本地向量資料庫，用於知識庫 embedding 向量索引與檢索';
+
+  @override
+  String get pluginServiceTemplateWebReverseExpert => 'Web 逆向專家';
+
+  @override
+  String get pluginServiceTemplateAndroidReverseExpert => 'Android 逆向專家';
+
+  @override
+  String get pluginServiceTemplateHermesTalker => 'Hermes Talker';
 
   @override
   String get mcpStdioMirrorModeLabel => '鏡像源模式';

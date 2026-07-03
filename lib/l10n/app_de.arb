@@ -120,6 +120,242 @@
   "mcpStdioCacheResetCancel": "Abbrechen",
   "mcpStdioCacheResetDone": "Isolierter Cache wurde geleert.",
   "mcpStdioCacheResetFailed": "Zurücksetzen fehlgeschlagen. Bitte ~/.openhand/mcp/package-cache manuell löschen.",
+  "pluginServiceTitle": "Plugins",
+  "pluginServiceSubtitle": "Optionale Plugins installieren, aktualisieren und entfernen. Plugins erweitern OpenHand um zusätzliche Laufzeitfunktionen.",
+  "pluginServiceRescan": "Erneut scannen",
+  "pluginServiceScanning": "Lokale Plugin-Umgebung wird gescannt…",
+  "pluginServiceScanFailed": "Plugin-Scan fehlgeschlagen",
+  "pluginServiceActionInstall": "Installieren",
+  "pluginServiceActionUpdate": "Aktualisieren",
+  "pluginServiceActionUninstall": "Deinstallieren",
+  "pluginServiceActionEnable": "Aktivieren",
+  "pluginServiceActionDisable": "Deaktivieren",
+  "pluginServiceStatusInstalled": "Installiert",
+  "pluginServiceStatusNotInstalled": "Nicht installiert",
+  "pluginServiceStatusInstalling": "Wird installiert…",
+  "pluginServiceStatusUpdating": "Wird aktualisiert…",
+  "pluginServiceStatusUninstalling": "Wird deinstalliert…",
+  "pluginServiceStatusError": "Fehler",
+  "pluginServiceCheckUpdates": "Updates prüfen",
+  "pluginServiceMcpService": "MCP-Dienst",
+  "pluginServiceInstallDependencyRequired": "{dependency} muss zuerst installiert werden",
+  "@pluginServiceInstallDependencyRequired": {
+    "placeholders": {
+      "dependency": {}
+    }
+  },
+  "pluginServiceInstallConfirmTitle": "{plugin} installieren?",
+  "@pluginServiceInstallConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallConfirmMessage": "{plugin} wird installiert. Abhängigkeiten können heruntergeladen werden.",
+  "@pluginServiceInstallConfirmMessage": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallSuccess": "{plugin} installiert",
+  "@pluginServiceInstallSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallFailure": "Installation von {plugin} fehlgeschlagen",
+  "@pluginServiceInstallFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateConfirmTitle": "{plugin} aktualisieren?",
+  "@pluginServiceUpdateConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateConfirmMessage": "{plugin} von {currentVersion} auf {latestVersion} aktualisieren.",
+  "@pluginServiceUpdateConfirmMessage": {
+    "placeholders": {
+      "plugin": {},
+      "currentVersion": {},
+      "latestVersion": {}
+    }
+  },
+  "pluginServiceUpdateSuccess": "{plugin} aktualisiert",
+  "@pluginServiceUpdateSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateFailure": "Aktualisierung von {plugin} fehlgeschlagen",
+  "@pluginServiceUpdateFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceCheckUpdateFailed": "Update-Prüfung fehlgeschlagen",
+  "pluginServiceNewVersionAvailable": "Neue Version verfügbar: {version}",
+  "@pluginServiceNewVersionAvailable": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginServiceNoUpdatesAvailable": "Keine Updates verfügbar",
+  "pluginServiceUninstallBlocked": "{dependent} hängt von {plugin} ab. Bitte zuerst deinstallieren.",
+  "@pluginServiceUninstallBlocked": {
+    "placeholders": {
+      "dependent": {},
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallConfirmTitle": "{plugin} deinstallieren?",
+  "@pluginServiceUninstallConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallConfirmMessage": "{plugin} wird entfernt. Diese Aktion kann nicht rückgängig gemacht werden.",
+  "@pluginServiceUninstallConfirmMessage": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallSuccess": "{plugin} deinstalliert",
+  "@pluginServiceUninstallSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallFailure": "Deinstallation von {plugin} fehlgeschlagen",
+  "@pluginServiceUninstallFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceOperationTitle": "{action} {plugin}",
+  "@pluginServiceOperationTitle": {
+    "placeholders": {
+      "action": {},
+      "plugin": {}
+    }
+  },
+  "pluginServiceRuntimePid": "PID",
+  "pluginServiceRuntimeOs": "OS",
+  "pluginServiceRuntimeArch": "Arch.",
+  "pluginServiceLogLineCount": "Logs: {count} Zeilen",
+  "@pluginServiceLogLineCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "pluginServiceWaitingForOutput": "Warte auf Ausgabe…",
+  "pluginServiceExecuting": "Wird ausgeführt…",
+  "pluginServiceCompleted": "Abgeschlossen",
+  "pluginServiceForceClose": "Schließen erzwingen",
+  "pluginServiceVersion": "Version",
+  "pluginServiceUpdateAvailable": "Update verfügbar",
+  "pluginServiceDependsOn": "Hängt ab von",
+  "pluginServiceRequiredBy": "Benötigt von",
+  "pluginServiceNone": "Keine",
+  "pluginServiceDetailTitle": "{plugin} Details",
+  "@pluginServiceDetailTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceDetailBasicInfo": "Basisinfo",
+  "pluginServiceDetailName": "Name",
+  "pluginServiceDetailDescription": "Beschreibung",
+  "pluginServiceDetailStatus": "Status",
+  "pluginServiceDetailEnvironment": "Umgebung",
+  "pluginServiceDetailDependencies": "Abhängigkeiten",
+  "pluginServiceThreadTemplates": "Thread-Vorlagen",
+  "pluginServiceTemplates": "Vorlagen",
+  "pluginServiceMcpPackage": "MCP-Paket",
+  "pluginServiceMcpBrowserDescription": "MCP-Server für Browser-Automatisierung",
+  "pluginServiceDetailProcessors": "Prozessoren",
+  "pluginServiceDetailInstallPath": "Installationspfad",
+  "pluginServiceDetailCurrentVersion": "Version",
+  "pluginServiceDetailLatestVersion": "Neueste",
+  "pluginServiceDetailBoundPython": "Gebundenes Python",
+  "pluginServiceDetailDesktopAppDetected": "Desktop-App erkannt",
+  "pluginServiceDetailDaemonRunning": "Daemon läuft",
+  "pluginServiceDetailCliAvailable": "CLI verfügbar",
+  "pluginServiceDetailDockerContext": "Docker-Kontext",
+  "pluginServiceDetailServerVersion": "Serverversion",
+  "pluginServiceDetailDockerOs": "Docker-OS",
+  "pluginServiceDetailDockerRootDir": "Docker-Root-Verzeichnis",
+  "pluginServiceDetailDaemonName": "Daemon-Name",
+  "pluginServiceDetailOsType": "OS-Typ",
+  "pluginServiceDetailArchitecture": "Architektur",
+  "pluginServiceDetailComposeVersion": "Compose-Version",
+  "pluginServiceDetailDockerDaemonRunning": "Docker-Daemon läuft",
+  "pluginServiceDetailOpenHandManaged": "Von OpenHand verwaltet",
+  "pluginServiceDetailContainerId": "Container-ID",
+  "pluginServiceDetailContainerName": "Containername",
+  "pluginServiceDetailContainerStatus": "Containerstatus",
+  "pluginServiceDetailRunning": "Läuft",
+  "pluginServiceDetailStartedAt": "Gestartet um",
+  "pluginServiceDetailFinishedAt": "Beendet um",
+  "pluginServiceDetailRestartCount": "Neustarts",
+  "pluginServiceDetailExitCode": "Exit-Code",
+  "pluginServiceDetailImage": "Image",
+  "pluginServiceDetailImageId": "Image-ID",
+  "pluginServiceDetailPorts": "Ports",
+  "pluginServiceDetailRestartPolicy": "Neustartregel",
+  "pluginServiceDetailRestEndpoint": "REST-Endpunkt",
+  "pluginServiceDetailGrpcEndpoint": "gRPC-Endpunkt",
+  "pluginServiceDetailDataDirectory": "Datenverzeichnis",
+  "pluginServiceDetailHealthResponse": "Health-Antwort",
+  "pluginServiceDetailHealthTitle": "Health-Titel",
+  "pluginServiceDetailCollectionCount": "Collection-Anzahl",
+  "pluginServiceMcpInstalledVersion": "Installiert v{version}",
+  "@pluginServiceMcpInstalledVersion": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginServiceMcpOperationTimeout": "[timeout] Vorgang hat zu lange gedauert; Prozess beendet",
+  "pluginServiceMcpOperationCompleted": "✓ {action} abgeschlossen (exit code: {exitCode})",
+  "@pluginServiceMcpOperationCompleted": {
+    "placeholders": {
+      "action": {},
+      "exitCode": {}
+    }
+  },
+  "pluginServiceMcpOperationFailed": "✗ {action} fehlgeschlagen (exit code: {exitCode})",
+  "@pluginServiceMcpOperationFailed": {
+    "placeholders": {
+      "action": {},
+      "exitCode": {}
+    }
+  },
+  "pluginServiceMcpOperationError": "✗ Fehler: {error}",
+  "@pluginServiceMcpOperationError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pluginServiceDescriptionNodejs": "JavaScript-Laufzeit für JS/TS-Skripte und Toolchains",
+  "pluginServiceDescriptionPlaywright": "Framework für Browser-Automatisierungstests mit Chromium, Firefox und WebKit",
+  "pluginServiceDescriptionHermesAgent": "Hermes-Agent-Laufzeit für Agent-Orchestrierung, Selbstlernen und Skill-Verfeinerung",
+  "pluginServiceDescriptionPython": "Python-Laufzeit für Skripte, Bibliotheken und Erweiterungen",
+  "pluginServiceDescriptionPip": "Python-Paketmanager zum Installieren, Aktualisieren und Verwalten von Bibliotheken",
+  "pluginServiceDescriptionJava": "JDK-Laufzeit für Android-Static-Analysis-Tools wie apktool und jadx",
+  "pluginServiceDescriptionFrida": "Dynamische Instrumentierungs- und Hook-Toolchain für Android-Laufzeitvalidierung",
+  "pluginServiceDescriptionMitmproxy": "HTTP(S)-Proxy-Capture-Tool für Web- und Android-Traffic-Forensik",
+  "pluginServiceDescriptionApktool": "Tool zum Entpacken von APKs und zur smali-Analyse",
+  "pluginServiceDescriptionJadx": "DEX-/APK-Java-Decompiler",
+  "pluginServiceDescriptionRadare2": "Tool für binäre statische Analyse und ELF-/native-so-Reverse-Engineering",
+  "pluginServiceDescriptionBlutter": "Flutter-Dart-AOT-Recovery-Tool für libapp.so-Analysen",
+  "pluginServiceDescriptionDoldrums": "Hilfstool für Flutter-snapshot-/ELF-Analysen",
+  "pluginServiceDescriptionAnythingAnalyzer": "Protokollanalyse- und MCP-Server-Tool für Capture, Analyse und Agent-Integration",
+  "pluginServiceDescriptionDocker": "Container-Laufzeit für den lokalen Qdrant-Vektordatenbankdienst",
+  "pluginServiceDescriptionQdrant": "Lokale Vektordatenbank für Knowledge-Base-Embedding-Indizes und Retrieval",
+  "pluginServiceTemplateWebReverseExpert": "Web Reverse Expert",
+  "pluginServiceTemplateAndroidReverseExpert": "Android Reverse Expert",
+  "pluginServiceTemplateHermesTalker": "Hermes Talker",
   "mcpStdioMirrorModeLabel": "Mirror-Registry-Modus",
   "mcpStdioMirrorModeBody": "Beim Cold Start von stdio-MCP-Diensten: China-Mirror (npmmirror / Tsinghua PyPI) injizieren? auto = nach Systemsprache. Erzwingen ein/aus = Locale ignorieren. OPENHAND_MCP_MIRROR=on/off überschreibt zur Laufzeit.",
   "mcpStdioMirrorModeAuto": "Sprachbasiert",

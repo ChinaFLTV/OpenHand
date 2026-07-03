@@ -120,6 +120,242 @@
   "mcpStdioCacheResetCancel": "Cancel",
   "mcpStdioCacheResetDone": "Isolated cache cleared.",
   "mcpStdioCacheResetFailed": "Reset failed. Please remove ~/.openhand/mcp/package-cache manually.",
+  "pluginServiceTitle": "Plugins",
+  "pluginServiceSubtitle": "Manage optional plugin installation, updates, and removal. Plugins add runtime capabilities to OpenHand.",
+  "pluginServiceRescan": "Rescan",
+  "pluginServiceScanning": "Scanning local plugin environment…",
+  "pluginServiceScanFailed": "Plugin scan failed",
+  "pluginServiceActionInstall": "Install",
+  "pluginServiceActionUpdate": "Update",
+  "pluginServiceActionUninstall": "Uninstall",
+  "pluginServiceActionEnable": "Enable",
+  "pluginServiceActionDisable": "Disable",
+  "pluginServiceStatusInstalled": "Installed",
+  "pluginServiceStatusNotInstalled": "Not Installed",
+  "pluginServiceStatusInstalling": "Installing…",
+  "pluginServiceStatusUpdating": "Updating…",
+  "pluginServiceStatusUninstalling": "Uninstalling…",
+  "pluginServiceStatusError": "Error",
+  "pluginServiceCheckUpdates": "Check Updates",
+  "pluginServiceMcpService": "MCP Service",
+  "pluginServiceInstallDependencyRequired": "{dependency} must be installed first",
+  "@pluginServiceInstallDependencyRequired": {
+    "placeholders": {
+      "dependency": {}
+    }
+  },
+  "pluginServiceInstallConfirmTitle": "Install {plugin}?",
+  "@pluginServiceInstallConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallConfirmMessage": "This will install {plugin}. Dependencies may be downloaded.",
+  "@pluginServiceInstallConfirmMessage": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallSuccess": "{plugin} installed",
+  "@pluginServiceInstallSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallFailure": "{plugin} install failed",
+  "@pluginServiceInstallFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateConfirmTitle": "Update {plugin}?",
+  "@pluginServiceUpdateConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateConfirmMessage": "Update {plugin} from {currentVersion} to {latestVersion}.",
+  "@pluginServiceUpdateConfirmMessage": {
+    "placeholders": {
+      "plugin": {},
+      "currentVersion": {},
+      "latestVersion": {}
+    }
+  },
+  "pluginServiceUpdateSuccess": "{plugin} updated",
+  "@pluginServiceUpdateSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateFailure": "{plugin} update failed",
+  "@pluginServiceUpdateFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceCheckUpdateFailed": "Failed to check updates",
+  "pluginServiceNewVersionAvailable": "New version available: {version}",
+  "@pluginServiceNewVersionAvailable": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginServiceNoUpdatesAvailable": "No updates available",
+  "pluginServiceUninstallBlocked": "{dependent} depends on {plugin}. Uninstall it first.",
+  "@pluginServiceUninstallBlocked": {
+    "placeholders": {
+      "dependent": {},
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallConfirmTitle": "Uninstall {plugin}?",
+  "@pluginServiceUninstallConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallConfirmMessage": "This will remove {plugin}. This cannot be undone.",
+  "@pluginServiceUninstallConfirmMessage": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallSuccess": "{plugin} uninstalled",
+  "@pluginServiceUninstallSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallFailure": "{plugin} uninstall failed",
+  "@pluginServiceUninstallFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceOperationTitle": "{action} {plugin}",
+  "@pluginServiceOperationTitle": {
+    "placeholders": {
+      "action": {},
+      "plugin": {}
+    }
+  },
+  "pluginServiceRuntimePid": "PID",
+  "pluginServiceRuntimeOs": "OS",
+  "pluginServiceRuntimeArch": "Arch",
+  "pluginServiceLogLineCount": "Logs: {count} lines",
+  "@pluginServiceLogLineCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "pluginServiceWaitingForOutput": "Waiting for output…",
+  "pluginServiceExecuting": "Executing…",
+  "pluginServiceCompleted": "Completed",
+  "pluginServiceForceClose": "Force Close",
+  "pluginServiceVersion": "Version",
+  "pluginServiceUpdateAvailable": "Update available",
+  "pluginServiceDependsOn": "Depends on",
+  "pluginServiceRequiredBy": "Required by",
+  "pluginServiceNone": "None",
+  "pluginServiceDetailTitle": "{plugin} Details",
+  "@pluginServiceDetailTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceDetailBasicInfo": "Basic Info",
+  "pluginServiceDetailName": "Name",
+  "pluginServiceDetailDescription": "Description",
+  "pluginServiceDetailStatus": "Status",
+  "pluginServiceDetailEnvironment": "Environment",
+  "pluginServiceDetailDependencies": "Dependencies",
+  "pluginServiceThreadTemplates": "Thread templates",
+  "pluginServiceTemplates": "Templates",
+  "pluginServiceMcpPackage": "MCP Package",
+  "pluginServiceMcpBrowserDescription": "MCP server for browser automation",
+  "pluginServiceDetailProcessors": "Processors",
+  "pluginServiceDetailInstallPath": "Install Path",
+  "pluginServiceDetailCurrentVersion": "Version",
+  "pluginServiceDetailLatestVersion": "Latest",
+  "pluginServiceDetailBoundPython": "Bound Python",
+  "pluginServiceDetailDesktopAppDetected": "Desktop app detected",
+  "pluginServiceDetailDaemonRunning": "Daemon running",
+  "pluginServiceDetailCliAvailable": "CLI available",
+  "pluginServiceDetailDockerContext": "Docker context",
+  "pluginServiceDetailServerVersion": "Server version",
+  "pluginServiceDetailDockerOs": "Docker OS",
+  "pluginServiceDetailDockerRootDir": "Docker root dir",
+  "pluginServiceDetailDaemonName": "Daemon name",
+  "pluginServiceDetailOsType": "OS type",
+  "pluginServiceDetailArchitecture": "Architecture",
+  "pluginServiceDetailComposeVersion": "Compose version",
+  "pluginServiceDetailDockerDaemonRunning": "Docker daemon running",
+  "pluginServiceDetailOpenHandManaged": "OpenHand managed",
+  "pluginServiceDetailContainerId": "Container ID",
+  "pluginServiceDetailContainerName": "Container name",
+  "pluginServiceDetailContainerStatus": "Container status",
+  "pluginServiceDetailRunning": "Running",
+  "pluginServiceDetailStartedAt": "Started at",
+  "pluginServiceDetailFinishedAt": "Finished at",
+  "pluginServiceDetailRestartCount": "Restart count",
+  "pluginServiceDetailExitCode": "Exit code",
+  "pluginServiceDetailImage": "Image",
+  "pluginServiceDetailImageId": "Image ID",
+  "pluginServiceDetailPorts": "Ports",
+  "pluginServiceDetailRestartPolicy": "Restart policy",
+  "pluginServiceDetailRestEndpoint": "REST endpoint",
+  "pluginServiceDetailGrpcEndpoint": "gRPC endpoint",
+  "pluginServiceDetailDataDirectory": "Data directory",
+  "pluginServiceDetailHealthResponse": "Health response",
+  "pluginServiceDetailHealthTitle": "Health title",
+  "pluginServiceDetailCollectionCount": "Collection count",
+  "pluginServiceMcpInstalledVersion": "Installed v{version}",
+  "@pluginServiceMcpInstalledVersion": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginServiceMcpOperationTimeout": "[timeout] Operation timed out; process terminated",
+  "pluginServiceMcpOperationCompleted": "✓ {action} completed (exit code: {exitCode})",
+  "@pluginServiceMcpOperationCompleted": {
+    "placeholders": {
+      "action": {},
+      "exitCode": {}
+    }
+  },
+  "pluginServiceMcpOperationFailed": "✗ {action} failed (exit code: {exitCode})",
+  "@pluginServiceMcpOperationFailed": {
+    "placeholders": {
+      "action": {},
+      "exitCode": {}
+    }
+  },
+  "pluginServiceMcpOperationError": "✗ Error: {error}",
+  "@pluginServiceMcpOperationError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pluginServiceDescriptionNodejs": "JavaScript runtime for JS/TS scripts and toolchains",
+  "pluginServiceDescriptionPlaywright": "Browser automation test framework for Chromium, Firefox, and WebKit",
+  "pluginServiceDescriptionHermesAgent": "Hermes Agent runtime for agent orchestration, self-learning, and skill refinement",
+  "pluginServiceDescriptionPython": "Python runtime for scripts, libraries, and extensions",
+  "pluginServiceDescriptionPip": "Python package manager for installing, upgrading, and managing libraries",
+  "pluginServiceDescriptionJava": "JDK runtime for Android static analysis tools such as apktool and jadx",
+  "pluginServiceDescriptionFrida": "Dynamic instrumentation and Hook toolchain for Android runtime validation",
+  "pluginServiceDescriptionMitmproxy": "HTTP(S) proxy capture tool for Web and Android traffic forensics",
+  "pluginServiceDescriptionApktool": "APK unpacking and smali analysis tool",
+  "pluginServiceDescriptionJadx": "DEX / APK Java decompiler",
+  "pluginServiceDescriptionRadare2": "Binary static analysis and ELF / native so reverse-engineering tool",
+  "pluginServiceDescriptionBlutter": "Flutter Dart AOT recovery tool for libapp.so analysis",
+  "pluginServiceDescriptionDoldrums": "Flutter snapshot / ELF auxiliary analysis tool",
+  "pluginServiceDescriptionAnythingAnalyzer": "Protocol analysis and MCP Server tool for capture, analysis, and Agent integration",
+  "pluginServiceDescriptionDocker": "Container runtime for the local Qdrant vector database service",
+  "pluginServiceDescriptionQdrant": "Local vector database for knowledge-base embedding indexes and retrieval",
+  "pluginServiceTemplateWebReverseExpert": "Web Reverse Expert",
+  "pluginServiceTemplateAndroidReverseExpert": "Android Reverse Expert",
+  "pluginServiceTemplateHermesTalker": "Hermes Talker",
   "mcpStdioMirrorModeLabel": "Mirror registry mode",
   "mcpStdioMirrorModeBody": "On stdio MCP cold start, whether to inject China mirrors (npmmirror / Tsinghua PyPI). auto = follow system locale; force on / off = ignore locale. The OPENHAND_MCP_MIRROR=on/off env var still wins at runtime.",
   "mcpStdioMirrorModeAuto": "Follow locale",

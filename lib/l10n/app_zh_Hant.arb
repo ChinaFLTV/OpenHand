@@ -120,6 +120,242 @@
   "mcpStdioCacheResetCancel": "取消",
   "mcpStdioCacheResetDone": "雔離緩存已重置。",
   "mcpStdioCacheResetFailed": "重置失敗，請手動刪除 ~/.openhand/mcp/package-cache。",
+  "pluginServiceTitle": "插件",
+  "pluginServiceSubtitle": "管理可選插件的安裝、更新與卸載。插件為 OpenHand 提供額外的執行階段能力。",
+  "pluginServiceRescan": "重新掃描",
+  "pluginServiceScanning": "正在掃描本機插件環境…",
+  "pluginServiceScanFailed": "插件掃描失敗",
+  "pluginServiceActionInstall": "安裝",
+  "pluginServiceActionUpdate": "更新",
+  "pluginServiceActionUninstall": "卸載",
+  "pluginServiceActionEnable": "啟用",
+  "pluginServiceActionDisable": "停用",
+  "pluginServiceStatusInstalled": "已安裝",
+  "pluginServiceStatusNotInstalled": "未安裝",
+  "pluginServiceStatusInstalling": "安裝中…",
+  "pluginServiceStatusUpdating": "更新中…",
+  "pluginServiceStatusUninstalling": "卸載中…",
+  "pluginServiceStatusError": "錯誤",
+  "pluginServiceCheckUpdates": "檢查更新",
+  "pluginServiceMcpService": "MCP 服務",
+  "pluginServiceInstallDependencyRequired": "需要先安裝 {dependency}",
+  "@pluginServiceInstallDependencyRequired": {
+    "placeholders": {
+      "dependency": {}
+    }
+  },
+  "pluginServiceInstallConfirmTitle": "安裝 {plugin}？",
+  "@pluginServiceInstallConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallConfirmMessage": "將在本機安裝 {plugin}，可能需要下載依賴檔案。",
+  "@pluginServiceInstallConfirmMessage": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallSuccess": "{plugin} 安裝成功",
+  "@pluginServiceInstallSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallFailure": "{plugin} 安裝失敗",
+  "@pluginServiceInstallFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateConfirmTitle": "更新 {plugin}？",
+  "@pluginServiceUpdateConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateConfirmMessage": "將 {plugin} 從 {currentVersion} 更新到 {latestVersion}。",
+  "@pluginServiceUpdateConfirmMessage": {
+    "placeholders": {
+      "plugin": {},
+      "currentVersion": {},
+      "latestVersion": {}
+    }
+  },
+  "pluginServiceUpdateSuccess": "{plugin} 更新成功",
+  "@pluginServiceUpdateSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateFailure": "{plugin} 更新失敗",
+  "@pluginServiceUpdateFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceCheckUpdateFailed": "檢查更新失敗",
+  "pluginServiceNewVersionAvailable": "發現新版本：{version}",
+  "@pluginServiceNewVersionAvailable": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginServiceNoUpdatesAvailable": "未發現新版本",
+  "pluginServiceUninstallBlocked": "{dependent} 依賴 {plugin}，請先卸載 {dependent}",
+  "@pluginServiceUninstallBlocked": {
+    "placeholders": {
+      "dependent": {},
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallConfirmTitle": "卸載 {plugin}？",
+  "@pluginServiceUninstallConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallConfirmMessage": "將從本機卸載 {plugin}，此操作無法復原。",
+  "@pluginServiceUninstallConfirmMessage": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallSuccess": "{plugin} 已卸載",
+  "@pluginServiceUninstallSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallFailure": "{plugin} 卸載失敗",
+  "@pluginServiceUninstallFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceOperationTitle": "{action} {plugin}",
+  "@pluginServiceOperationTitle": {
+    "placeholders": {
+      "action": {},
+      "plugin": {}
+    }
+  },
+  "pluginServiceRuntimePid": "PID",
+  "pluginServiceRuntimeOs": "OS",
+  "pluginServiceRuntimeArch": "架構",
+  "pluginServiceLogLineCount": "日誌：{count} 行",
+  "@pluginServiceLogLineCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "pluginServiceWaitingForOutput": "等待輸出…",
+  "pluginServiceExecuting": "正在執行…",
+  "pluginServiceCompleted": "操作完成",
+  "pluginServiceForceClose": "強制關閉",
+  "pluginServiceVersion": "版本",
+  "pluginServiceUpdateAvailable": "可更新到",
+  "pluginServiceDependsOn": "依賴",
+  "pluginServiceRequiredBy": "被依賴",
+  "pluginServiceNone": "無",
+  "pluginServiceDetailTitle": "{plugin} 詳情",
+  "@pluginServiceDetailTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceDetailBasicInfo": "基本資訊",
+  "pluginServiceDetailName": "名稱",
+  "pluginServiceDetailDescription": "描述",
+  "pluginServiceDetailStatus": "狀態",
+  "pluginServiceDetailEnvironment": "環境資訊",
+  "pluginServiceDetailDependencies": "依賴關係",
+  "pluginServiceThreadTemplates": "執行緒模板關聯",
+  "pluginServiceTemplates": "關聯模板",
+  "pluginServiceMcpPackage": "MCP 套件",
+  "pluginServiceMcpBrowserDescription": "提供瀏覽器自動化能力的 MCP 服務",
+  "pluginServiceDetailProcessors": "處理器數",
+  "pluginServiceDetailInstallPath": "安裝路徑",
+  "pluginServiceDetailCurrentVersion": "目前版本",
+  "pluginServiceDetailLatestVersion": "最新版本",
+  "pluginServiceDetailBoundPython": "綁定直譯器",
+  "pluginServiceDetailDesktopAppDetected": "偵測到桌面應用程式",
+  "pluginServiceDetailDaemonRunning": "Daemon 執行中",
+  "pluginServiceDetailCliAvailable": "CLI 可用",
+  "pluginServiceDetailDockerContext": "Docker 上下文",
+  "pluginServiceDetailServerVersion": "服務端版本",
+  "pluginServiceDetailDockerOs": "Docker OS",
+  "pluginServiceDetailDockerRootDir": "Docker 根目錄",
+  "pluginServiceDetailDaemonName": "Daemon 名稱",
+  "pluginServiceDetailOsType": "OS 類型",
+  "pluginServiceDetailArchitecture": "架構",
+  "pluginServiceDetailComposeVersion": "Compose 版本",
+  "pluginServiceDetailDockerDaemonRunning": "Docker daemon 執行中",
+  "pluginServiceDetailOpenHandManaged": "OpenHand 管理",
+  "pluginServiceDetailContainerId": "容器 ID",
+  "pluginServiceDetailContainerName": "容器名稱",
+  "pluginServiceDetailContainerStatus": "容器狀態",
+  "pluginServiceDetailRunning": "執行中",
+  "pluginServiceDetailStartedAt": "啟動時間",
+  "pluginServiceDetailFinishedAt": "結束時間",
+  "pluginServiceDetailRestartCount": "重啟次數",
+  "pluginServiceDetailExitCode": "結束碼",
+  "pluginServiceDetailImage": "映像",
+  "pluginServiceDetailImageId": "映像 ID",
+  "pluginServiceDetailPorts": "連接埠",
+  "pluginServiceDetailRestartPolicy": "重啟策略",
+  "pluginServiceDetailRestEndpoint": "REST 端點",
+  "pluginServiceDetailGrpcEndpoint": "gRPC 端點",
+  "pluginServiceDetailDataDirectory": "資料目錄",
+  "pluginServiceDetailHealthResponse": "健康回應",
+  "pluginServiceDetailHealthTitle": "健康標題",
+  "pluginServiceDetailCollectionCount": "集合數量",
+  "pluginServiceMcpInstalledVersion": "已安裝 v{version}",
+  "@pluginServiceMcpInstalledVersion": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginServiceMcpOperationTimeout": "[timeout] 操作逾時，已終止行程",
+  "pluginServiceMcpOperationCompleted": "✓ {action} 完成 (exit code: {exitCode})",
+  "@pluginServiceMcpOperationCompleted": {
+    "placeholders": {
+      "action": {},
+      "exitCode": {}
+    }
+  },
+  "pluginServiceMcpOperationFailed": "✗ {action} 失敗 (exit code: {exitCode})",
+  "@pluginServiceMcpOperationFailed": {
+    "placeholders": {
+      "action": {},
+      "exitCode": {}
+    }
+  },
+  "pluginServiceMcpOperationError": "✗ 異常：{error}",
+  "@pluginServiceMcpOperationError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pluginServiceDescriptionNodejs": "JavaScript 執行階段環境，用於執行 JS/TS 腳本與工具鏈",
+  "pluginServiceDescriptionPlaywright": "瀏覽器自動化測試框架，支援 Chromium / Firefox / WebKit",
+  "pluginServiceDescriptionHermesAgent": "Hermes Agent 執行階段，用於智能體編排、自我學習與技能沉澱",
+  "pluginServiceDescriptionPython": "Python 執行階段環境，用於執行 Python 腳本、程式庫與擴充能力",
+  "pluginServiceDescriptionPip": "Python 套件管理工具，用於安裝、升級與管理 Python 程式庫",
+  "pluginServiceDescriptionJava": "JDK 執行階段，用於 apktool / jadx 等 Android 靜態分析工具",
+  "pluginServiceDescriptionFrida": "動態插樁與 Hook 工具鏈，用於 Android 執行階段驗證",
+  "pluginServiceDescriptionMitmproxy": "HTTP(S) 代理抓包工具，用於 Web / Android 流量取證",
+  "pluginServiceDescriptionApktool": "APK 解包與 smali 分析工具",
+  "pluginServiceDescriptionJadx": "DEX / APK Java 反編譯工具",
+  "pluginServiceDescriptionRadare2": "二進位靜態分析與 ELF / native so 逆向工具",
+  "pluginServiceDescriptionBlutter": "Flutter Dart AOT 快速還原工具，用於 libapp.so 分析",
+  "pluginServiceDescriptionDoldrums": "Flutter snapshot / ELF 輔助分析工具",
+  "pluginServiceDescriptionAnythingAnalyzer": "協議分析與 MCP Server 工具，用於抓包、分析和 Agent 聯動",
+  "pluginServiceDescriptionDocker": "容器執行環境，用於執行 Qdrant 本地向量資料庫服務",
+  "pluginServiceDescriptionQdrant": "本地向量資料庫，用於知識庫 embedding 向量索引與檢索",
+  "pluginServiceTemplateWebReverseExpert": "Web 逆向專家",
+  "pluginServiceTemplateAndroidReverseExpert": "Android 逆向專家",
+  "pluginServiceTemplateHermesTalker": "Hermes Talker",
   "mcpStdioMirrorModeLabel": "鏡像源模式",
   "mcpStdioMirrorModeBody": "stdio MCP 服務首次啟動時，是否注入國內鏡像源（npmmirror / 清華 PyPI）。auto = 依系統語言自判；強制開啟 / 關閉 = 無視 locale。環變 OPENHAND_MCP_MIRROR=on/off 可在運行時再覆蓋一次。",
   "mcpStdioMirrorModeAuto": "跟隨語言",

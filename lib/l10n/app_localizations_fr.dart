@@ -338,6 +338,436 @@ class AppLocalizationsFr extends AppLocalizations {
       'Échec de la réinitialisation. Supprimez ~/.openhand/mcp/package-cache manuellement.';
 
   @override
+  String get pluginServiceTitle => 'Plugins';
+
+  @override
+  String get pluginServiceSubtitle =>
+      'Gérez l’installation, les mises à jour et la suppression des plugins facultatifs. Les plugins ajoutent des capacités d’exécution à OpenHand.';
+
+  @override
+  String get pluginServiceRescan => 'Réanalyser';
+
+  @override
+  String get pluginServiceScanning =>
+      'Analyse de l’environnement local des plugins…';
+
+  @override
+  String get pluginServiceScanFailed => 'Échec de l’analyse des plugins';
+
+  @override
+  String get pluginServiceActionInstall => 'Installer';
+
+  @override
+  String get pluginServiceActionUpdate => 'Mettre à jour';
+
+  @override
+  String get pluginServiceActionUninstall => 'Désinstaller';
+
+  @override
+  String get pluginServiceActionEnable => 'Activer';
+
+  @override
+  String get pluginServiceActionDisable => 'Désactiver';
+
+  @override
+  String get pluginServiceStatusInstalled => 'Installé';
+
+  @override
+  String get pluginServiceStatusNotInstalled => 'Non installé';
+
+  @override
+  String get pluginServiceStatusInstalling => 'Installation…';
+
+  @override
+  String get pluginServiceStatusUpdating => 'Mise à jour…';
+
+  @override
+  String get pluginServiceStatusUninstalling => 'Désinstallation…';
+
+  @override
+  String get pluginServiceStatusError => 'Erreur';
+
+  @override
+  String get pluginServiceCheckUpdates => 'Vérifier les mises à jour';
+
+  @override
+  String get pluginServiceMcpService => 'Service MCP';
+
+  @override
+  String pluginServiceInstallDependencyRequired(Object dependency) {
+    return '$dependency doit être installé d’abord';
+  }
+
+  @override
+  String pluginServiceInstallConfirmTitle(Object plugin) {
+    return 'Installer $plugin ?';
+  }
+
+  @override
+  String pluginServiceInstallConfirmMessage(Object plugin) {
+    return '$plugin va être installé. Des dépendances peuvent être téléchargées.';
+  }
+
+  @override
+  String pluginServiceInstallSuccess(Object plugin) {
+    return '$plugin installé';
+  }
+
+  @override
+  String pluginServiceInstallFailure(Object plugin) {
+    return 'Échec de l’installation de $plugin';
+  }
+
+  @override
+  String pluginServiceUpdateConfirmTitle(Object plugin) {
+    return 'Mettre à jour $plugin ?';
+  }
+
+  @override
+  String pluginServiceUpdateConfirmMessage(
+    Object plugin,
+    Object currentVersion,
+    Object latestVersion,
+  ) {
+    return 'Mettre à jour $plugin de $currentVersion vers $latestVersion.';
+  }
+
+  @override
+  String pluginServiceUpdateSuccess(Object plugin) {
+    return '$plugin mis à jour';
+  }
+
+  @override
+  String pluginServiceUpdateFailure(Object plugin) {
+    return 'Échec de la mise à jour de $plugin';
+  }
+
+  @override
+  String get pluginServiceCheckUpdateFailed =>
+      'Échec de la vérification des mises à jour';
+
+  @override
+  String pluginServiceNewVersionAvailable(Object version) {
+    return 'Nouvelle version disponible : $version';
+  }
+
+  @override
+  String get pluginServiceNoUpdatesAvailable => 'Aucune mise à jour disponible';
+
+  @override
+  String pluginServiceUninstallBlocked(Object dependent, Object plugin) {
+    return '$dependent dépend de $plugin. Désinstallez-le d’abord.';
+  }
+
+  @override
+  String pluginServiceUninstallConfirmTitle(Object plugin) {
+    return 'Désinstaller $plugin ?';
+  }
+
+  @override
+  String pluginServiceUninstallConfirmMessage(Object plugin) {
+    return '$plugin va être supprimé. Cette action est irréversible.';
+  }
+
+  @override
+  String pluginServiceUninstallSuccess(Object plugin) {
+    return '$plugin désinstallé';
+  }
+
+  @override
+  String pluginServiceUninstallFailure(Object plugin) {
+    return 'Échec de la désinstallation de $plugin';
+  }
+
+  @override
+  String pluginServiceOperationTitle(Object action, Object plugin) {
+    return '$action $plugin';
+  }
+
+  @override
+  String get pluginServiceRuntimePid => 'PID';
+
+  @override
+  String get pluginServiceRuntimeOs => 'OS';
+
+  @override
+  String get pluginServiceRuntimeArch => 'Arch.';
+
+  @override
+  String pluginServiceLogLineCount(Object count) {
+    return 'Journaux : $count lignes';
+  }
+
+  @override
+  String get pluginServiceWaitingForOutput => 'En attente de sortie…';
+
+  @override
+  String get pluginServiceExecuting => 'Exécution…';
+
+  @override
+  String get pluginServiceCompleted => 'Terminé';
+
+  @override
+  String get pluginServiceForceClose => 'Forcer la fermeture';
+
+  @override
+  String get pluginServiceVersion => 'Version';
+
+  @override
+  String get pluginServiceUpdateAvailable => 'Mise à jour disponible';
+
+  @override
+  String get pluginServiceDependsOn => 'Dépend de';
+
+  @override
+  String get pluginServiceRequiredBy => 'Requis par';
+
+  @override
+  String get pluginServiceNone => 'Aucun';
+
+  @override
+  String pluginServiceDetailTitle(Object plugin) {
+    return 'Détails de $plugin';
+  }
+
+  @override
+  String get pluginServiceDetailBasicInfo => 'Infos de base';
+
+  @override
+  String get pluginServiceDetailName => 'Nom';
+
+  @override
+  String get pluginServiceDetailDescription => 'Description';
+
+  @override
+  String get pluginServiceDetailStatus => 'État';
+
+  @override
+  String get pluginServiceDetailEnvironment => 'Environnement';
+
+  @override
+  String get pluginServiceDetailDependencies => 'Dépendances';
+
+  @override
+  String get pluginServiceThreadTemplates => 'Modèles de thread';
+
+  @override
+  String get pluginServiceTemplates => 'Modèles';
+
+  @override
+  String get pluginServiceMcpPackage => 'Paquet MCP';
+
+  @override
+  String get pluginServiceMcpBrowserDescription =>
+      'Service MCP pour l’automatisation du navigateur';
+
+  @override
+  String get pluginServiceDetailProcessors => 'Processeurs';
+
+  @override
+  String get pluginServiceDetailInstallPath => 'Chemin d’installation';
+
+  @override
+  String get pluginServiceDetailCurrentVersion => 'Version';
+
+  @override
+  String get pluginServiceDetailLatestVersion => 'Dernière';
+
+  @override
+  String get pluginServiceDetailBoundPython => 'Python lié';
+
+  @override
+  String get pluginServiceDetailDesktopAppDetected =>
+      'Application de bureau détectée';
+
+  @override
+  String get pluginServiceDetailDaemonRunning => 'Daemon actif';
+
+  @override
+  String get pluginServiceDetailCliAvailable => 'CLI disponible';
+
+  @override
+  String get pluginServiceDetailDockerContext => 'Contexte Docker';
+
+  @override
+  String get pluginServiceDetailServerVersion => 'Version serveur';
+
+  @override
+  String get pluginServiceDetailDockerOs => 'OS Docker';
+
+  @override
+  String get pluginServiceDetailDockerRootDir => 'Racine Docker';
+
+  @override
+  String get pluginServiceDetailDaemonName => 'Nom du daemon';
+
+  @override
+  String get pluginServiceDetailOsType => 'Type d’OS';
+
+  @override
+  String get pluginServiceDetailArchitecture => 'Architecture';
+
+  @override
+  String get pluginServiceDetailComposeVersion => 'Version Compose';
+
+  @override
+  String get pluginServiceDetailDockerDaemonRunning => 'Daemon Docker actif';
+
+  @override
+  String get pluginServiceDetailOpenHandManaged => 'Géré par OpenHand';
+
+  @override
+  String get pluginServiceDetailContainerId => 'ID du conteneur';
+
+  @override
+  String get pluginServiceDetailContainerName => 'Nom du conteneur';
+
+  @override
+  String get pluginServiceDetailContainerStatus => 'État du conteneur';
+
+  @override
+  String get pluginServiceDetailRunning => 'En cours';
+
+  @override
+  String get pluginServiceDetailStartedAt => 'Démarré à';
+
+  @override
+  String get pluginServiceDetailFinishedAt => 'Terminé à';
+
+  @override
+  String get pluginServiceDetailRestartCount => 'Redémarrages';
+
+  @override
+  String get pluginServiceDetailExitCode => 'Code de sortie';
+
+  @override
+  String get pluginServiceDetailImage => 'Image';
+
+  @override
+  String get pluginServiceDetailImageId => 'ID de l’image';
+
+  @override
+  String get pluginServiceDetailPorts => 'Ports';
+
+  @override
+  String get pluginServiceDetailRestartPolicy => 'Politique de redémarrage';
+
+  @override
+  String get pluginServiceDetailRestEndpoint => 'Endpoint REST';
+
+  @override
+  String get pluginServiceDetailGrpcEndpoint => 'Endpoint gRPC';
+
+  @override
+  String get pluginServiceDetailDataDirectory => 'Dossier de données';
+
+  @override
+  String get pluginServiceDetailHealthResponse => 'Réponse de santé';
+
+  @override
+  String get pluginServiceDetailHealthTitle => 'Titre de santé';
+
+  @override
+  String get pluginServiceDetailCollectionCount => 'Nombre de collections';
+
+  @override
+  String pluginServiceMcpInstalledVersion(Object version) {
+    return 'Installé v$version';
+  }
+
+  @override
+  String get pluginServiceMcpOperationTimeout =>
+      '[timeout] L’opération a expiré ; processus terminé';
+
+  @override
+  String pluginServiceMcpOperationCompleted(Object action, Object exitCode) {
+    return '✓ $action terminé (exit code: $exitCode)';
+  }
+
+  @override
+  String pluginServiceMcpOperationFailed(Object action, Object exitCode) {
+    return '✗ Échec de $action (exit code: $exitCode)';
+  }
+
+  @override
+  String pluginServiceMcpOperationError(Object error) {
+    return '✗ Erreur : $error';
+  }
+
+  @override
+  String get pluginServiceDescriptionNodejs =>
+      'Runtime JavaScript pour scripts JS/TS et chaînes d’outils';
+
+  @override
+  String get pluginServiceDescriptionPlaywright =>
+      'Framework de tests d’automatisation navigateur pour Chromium, Firefox et WebKit';
+
+  @override
+  String get pluginServiceDescriptionHermesAgent =>
+      'Runtime Hermes Agent pour l’orchestration d’agents, l’auto-apprentissage et l’affinage des compétences';
+
+  @override
+  String get pluginServiceDescriptionPython =>
+      'Runtime Python pour scripts, bibliothèques et extensions';
+
+  @override
+  String get pluginServiceDescriptionPip =>
+      'Gestionnaire de paquets Python pour installer, mettre à niveau et gérer les bibliothèques';
+
+  @override
+  String get pluginServiceDescriptionJava =>
+      'Runtime JDK pour les outils d’analyse statique Android comme apktool et jadx';
+
+  @override
+  String get pluginServiceDescriptionFrida =>
+      'Chaîne d’instrumentation dynamique et Hook pour la validation Android à l’exécution';
+
+  @override
+  String get pluginServiceDescriptionMitmproxy =>
+      'Outil de proxy et capture HTTP(S) pour l’analyse de trafic Web et Android';
+
+  @override
+  String get pluginServiceDescriptionApktool =>
+      'Outil de dépaquetage APK et d’analyse smali';
+
+  @override
+  String get pluginServiceDescriptionJadx => 'Décompilateur Java DEX / APK';
+
+  @override
+  String get pluginServiceDescriptionRadare2 =>
+      'Outil d’analyse statique binaire et de rétro-ingénierie ELF / native so';
+
+  @override
+  String get pluginServiceDescriptionBlutter =>
+      'Outil de récupération Flutter Dart AOT pour l’analyse de libapp.so';
+
+  @override
+  String get pluginServiceDescriptionDoldrums =>
+      'Outil auxiliaire d’analyse Flutter snapshot / ELF';
+
+  @override
+  String get pluginServiceDescriptionAnythingAnalyzer =>
+      'Outil d’analyse de protocoles et MCP Server pour capture, analyse et intégration Agent';
+
+  @override
+  String get pluginServiceDescriptionDocker =>
+      'Runtime de conteneurs pour le service local de base vectorielle Qdrant';
+
+  @override
+  String get pluginServiceDescriptionQdrant =>
+      'Base vectorielle locale pour l’indexation et la recherche d’embeddings de la base de connaissances';
+
+  @override
+  String get pluginServiceTemplateWebReverseExpert => 'Expert Web Reverse';
+
+  @override
+  String get pluginServiceTemplateAndroidReverseExpert =>
+      'Expert Android Reverse';
+
+  @override
+  String get pluginServiceTemplateHermesTalker => 'Hermes Talker';
+
+  @override
   String get mcpStdioMirrorModeLabel => 'Mode du miroir registre';
 
   @override

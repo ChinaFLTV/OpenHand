@@ -724,6 +724,730 @@ abstract class AppLocalizations {
   /// **'重置失败，请手动删除 ~/.openhand/mcp/package-cache。'**
   String get mcpStdioCacheResetFailed;
 
+  /// No description provided for @pluginServiceTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'插件'**
+  String get pluginServiceTitle;
+
+  /// No description provided for @pluginServiceSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'管理可选插件的安装、更新与卸载。插件为 OpenHand 提供额外的运行时能力。'**
+  String get pluginServiceSubtitle;
+
+  /// No description provided for @pluginServiceRescan.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重新扫描'**
+  String get pluginServiceRescan;
+
+  /// No description provided for @pluginServiceScanning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在扫描本机插件环境…'**
+  String get pluginServiceScanning;
+
+  /// No description provided for @pluginServiceScanFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'插件扫描失败'**
+  String get pluginServiceScanFailed;
+
+  /// No description provided for @pluginServiceActionInstall.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安装'**
+  String get pluginServiceActionInstall;
+
+  /// No description provided for @pluginServiceActionUpdate.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'更新'**
+  String get pluginServiceActionUpdate;
+
+  /// No description provided for @pluginServiceActionUninstall.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'卸载'**
+  String get pluginServiceActionUninstall;
+
+  /// No description provided for @pluginServiceActionEnable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用'**
+  String get pluginServiceActionEnable;
+
+  /// No description provided for @pluginServiceActionDisable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'禁用'**
+  String get pluginServiceActionDisable;
+
+  /// No description provided for @pluginServiceStatusInstalled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已安装'**
+  String get pluginServiceStatusInstalled;
+
+  /// No description provided for @pluginServiceStatusNotInstalled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未安装'**
+  String get pluginServiceStatusNotInstalled;
+
+  /// No description provided for @pluginServiceStatusInstalling.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安装中…'**
+  String get pluginServiceStatusInstalling;
+
+  /// No description provided for @pluginServiceStatusUpdating.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'更新中…'**
+  String get pluginServiceStatusUpdating;
+
+  /// No description provided for @pluginServiceStatusUninstalling.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'卸载中…'**
+  String get pluginServiceStatusUninstalling;
+
+  /// No description provided for @pluginServiceStatusError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'错误'**
+  String get pluginServiceStatusError;
+
+  /// No description provided for @pluginServiceCheckUpdates.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'检查更新'**
+  String get pluginServiceCheckUpdates;
+
+  /// No description provided for @pluginServiceMcpService.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 服务'**
+  String get pluginServiceMcpService;
+
+  /// No description provided for @pluginServiceInstallDependencyRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'需要先安装 {dependency}'**
+  String pluginServiceInstallDependencyRequired(Object dependency);
+
+  /// No description provided for @pluginServiceInstallConfirmTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安装 {plugin}？'**
+  String pluginServiceInstallConfirmTitle(Object plugin);
+
+  /// No description provided for @pluginServiceInstallConfirmMessage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'将在本机安装 {plugin}，可能需要下载依赖文件。'**
+  String pluginServiceInstallConfirmMessage(Object plugin);
+
+  /// No description provided for @pluginServiceInstallSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{plugin} 安装成功'**
+  String pluginServiceInstallSuccess(Object plugin);
+
+  /// No description provided for @pluginServiceInstallFailure.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{plugin} 安装失败'**
+  String pluginServiceInstallFailure(Object plugin);
+
+  /// No description provided for @pluginServiceUpdateConfirmTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'更新 {plugin}？'**
+  String pluginServiceUpdateConfirmTitle(Object plugin);
+
+  /// No description provided for @pluginServiceUpdateConfirmMessage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'将 {plugin} 从 {currentVersion} 更新到 {latestVersion}。'**
+  String pluginServiceUpdateConfirmMessage(
+    Object plugin,
+    Object currentVersion,
+    Object latestVersion,
+  );
+
+  /// No description provided for @pluginServiceUpdateSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{plugin} 更新成功'**
+  String pluginServiceUpdateSuccess(Object plugin);
+
+  /// No description provided for @pluginServiceUpdateFailure.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{plugin} 更新失败'**
+  String pluginServiceUpdateFailure(Object plugin);
+
+  /// No description provided for @pluginServiceCheckUpdateFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'检查更新失败'**
+  String get pluginServiceCheckUpdateFailed;
+
+  /// No description provided for @pluginServiceNewVersionAvailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发现新版本：{version}'**
+  String pluginServiceNewVersionAvailable(Object version);
+
+  /// No description provided for @pluginServiceNoUpdatesAvailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未发现新版本'**
+  String get pluginServiceNoUpdatesAvailable;
+
+  /// No description provided for @pluginServiceUninstallBlocked.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{dependent} 依赖 {plugin}，请先卸载 {dependent}'**
+  String pluginServiceUninstallBlocked(Object dependent, Object plugin);
+
+  /// No description provided for @pluginServiceUninstallConfirmTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'卸载 {plugin}？'**
+  String pluginServiceUninstallConfirmTitle(Object plugin);
+
+  /// No description provided for @pluginServiceUninstallConfirmMessage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'将从本机卸载 {plugin}，此操作不可撤销。'**
+  String pluginServiceUninstallConfirmMessage(Object plugin);
+
+  /// No description provided for @pluginServiceUninstallSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{plugin} 已卸载'**
+  String pluginServiceUninstallSuccess(Object plugin);
+
+  /// No description provided for @pluginServiceUninstallFailure.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{plugin} 卸载失败'**
+  String pluginServiceUninstallFailure(Object plugin);
+
+  /// No description provided for @pluginServiceOperationTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{action} {plugin}'**
+  String pluginServiceOperationTitle(Object action, Object plugin);
+
+  /// No description provided for @pluginServiceRuntimePid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'PID'**
+  String get pluginServiceRuntimePid;
+
+  /// No description provided for @pluginServiceRuntimeOs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'OS'**
+  String get pluginServiceRuntimeOs;
+
+  /// No description provided for @pluginServiceRuntimeArch.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'架构'**
+  String get pluginServiceRuntimeArch;
+
+  /// No description provided for @pluginServiceLogLineCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'日志：{count} 行'**
+  String pluginServiceLogLineCount(Object count);
+
+  /// No description provided for @pluginServiceWaitingForOutput.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'等待输出…'**
+  String get pluginServiceWaitingForOutput;
+
+  /// No description provided for @pluginServiceExecuting.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在执行…'**
+  String get pluginServiceExecuting;
+
+  /// No description provided for @pluginServiceCompleted.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'操作完成'**
+  String get pluginServiceCompleted;
+
+  /// No description provided for @pluginServiceForceClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'强制关闭'**
+  String get pluginServiceForceClose;
+
+  /// No description provided for @pluginServiceVersion.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'版本'**
+  String get pluginServiceVersion;
+
+  /// No description provided for @pluginServiceUpdateAvailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'可更新到'**
+  String get pluginServiceUpdateAvailable;
+
+  /// No description provided for @pluginServiceDependsOn.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'依赖'**
+  String get pluginServiceDependsOn;
+
+  /// No description provided for @pluginServiceRequiredBy.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'被依赖'**
+  String get pluginServiceRequiredBy;
+
+  /// No description provided for @pluginServiceNone.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无'**
+  String get pluginServiceNone;
+
+  /// No description provided for @pluginServiceDetailTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{plugin} 详情'**
+  String pluginServiceDetailTitle(Object plugin);
+
+  /// No description provided for @pluginServiceDetailBasicInfo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'基本信息'**
+  String get pluginServiceDetailBasicInfo;
+
+  /// No description provided for @pluginServiceDetailName.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'名称'**
+  String get pluginServiceDetailName;
+
+  /// No description provided for @pluginServiceDetailDescription.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'描述'**
+  String get pluginServiceDetailDescription;
+
+  /// No description provided for @pluginServiceDetailStatus.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'状态'**
+  String get pluginServiceDetailStatus;
+
+  /// No description provided for @pluginServiceDetailEnvironment.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'环境信息'**
+  String get pluginServiceDetailEnvironment;
+
+  /// No description provided for @pluginServiceDetailDependencies.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'依赖关系'**
+  String get pluginServiceDetailDependencies;
+
+  /// No description provided for @pluginServiceThreadTemplates.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'线程模板关联'**
+  String get pluginServiceThreadTemplates;
+
+  /// No description provided for @pluginServiceTemplates.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关联模板'**
+  String get pluginServiceTemplates;
+
+  /// No description provided for @pluginServiceMcpPackage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 包'**
+  String get pluginServiceMcpPackage;
+
+  /// No description provided for @pluginServiceMcpBrowserDescription.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'提供浏览器自动化能力的 MCP 服务'**
+  String get pluginServiceMcpBrowserDescription;
+
+  /// No description provided for @pluginServiceDetailProcessors.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'处理器数'**
+  String get pluginServiceDetailProcessors;
+
+  /// No description provided for @pluginServiceDetailInstallPath.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安装路径'**
+  String get pluginServiceDetailInstallPath;
+
+  /// No description provided for @pluginServiceDetailCurrentVersion.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前版本'**
+  String get pluginServiceDetailCurrentVersion;
+
+  /// No description provided for @pluginServiceDetailLatestVersion.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最新版本'**
+  String get pluginServiceDetailLatestVersion;
+
+  /// No description provided for @pluginServiceDetailBoundPython.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'绑定解释器'**
+  String get pluginServiceDetailBoundPython;
+
+  /// No description provided for @pluginServiceDetailDesktopAppDetected.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'检测到桌面应用'**
+  String get pluginServiceDetailDesktopAppDetected;
+
+  /// No description provided for @pluginServiceDetailDaemonRunning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Daemon 运行中'**
+  String get pluginServiceDetailDaemonRunning;
+
+  /// No description provided for @pluginServiceDetailCliAvailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'CLI 可用'**
+  String get pluginServiceDetailCliAvailable;
+
+  /// No description provided for @pluginServiceDetailDockerContext.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Docker 上下文'**
+  String get pluginServiceDetailDockerContext;
+
+  /// No description provided for @pluginServiceDetailServerVersion.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'服务端版本'**
+  String get pluginServiceDetailServerVersion;
+
+  /// No description provided for @pluginServiceDetailDockerOs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Docker OS'**
+  String get pluginServiceDetailDockerOs;
+
+  /// No description provided for @pluginServiceDetailDockerRootDir.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Docker 根目录'**
+  String get pluginServiceDetailDockerRootDir;
+
+  /// No description provided for @pluginServiceDetailDaemonName.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Daemon 名称'**
+  String get pluginServiceDetailDaemonName;
+
+  /// No description provided for @pluginServiceDetailOsType.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'OS 类型'**
+  String get pluginServiceDetailOsType;
+
+  /// No description provided for @pluginServiceDetailArchitecture.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'架构'**
+  String get pluginServiceDetailArchitecture;
+
+  /// No description provided for @pluginServiceDetailComposeVersion.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Compose 版本'**
+  String get pluginServiceDetailComposeVersion;
+
+  /// No description provided for @pluginServiceDetailDockerDaemonRunning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Docker daemon 运行中'**
+  String get pluginServiceDetailDockerDaemonRunning;
+
+  /// No description provided for @pluginServiceDetailOpenHandManaged.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'OpenHand 管理'**
+  String get pluginServiceDetailOpenHandManaged;
+
+  /// No description provided for @pluginServiceDetailContainerId.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'容器 ID'**
+  String get pluginServiceDetailContainerId;
+
+  /// No description provided for @pluginServiceDetailContainerName.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'容器名称'**
+  String get pluginServiceDetailContainerName;
+
+  /// No description provided for @pluginServiceDetailContainerStatus.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'容器状态'**
+  String get pluginServiceDetailContainerStatus;
+
+  /// No description provided for @pluginServiceDetailRunning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行中'**
+  String get pluginServiceDetailRunning;
+
+  /// No description provided for @pluginServiceDetailStartedAt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启动时间'**
+  String get pluginServiceDetailStartedAt;
+
+  /// No description provided for @pluginServiceDetailFinishedAt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'结束时间'**
+  String get pluginServiceDetailFinishedAt;
+
+  /// No description provided for @pluginServiceDetailRestartCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重启次数'**
+  String get pluginServiceDetailRestartCount;
+
+  /// No description provided for @pluginServiceDetailExitCode.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'退出码'**
+  String get pluginServiceDetailExitCode;
+
+  /// No description provided for @pluginServiceDetailImage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'镜像'**
+  String get pluginServiceDetailImage;
+
+  /// No description provided for @pluginServiceDetailImageId.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'镜像 ID'**
+  String get pluginServiceDetailImageId;
+
+  /// No description provided for @pluginServiceDetailPorts.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'端口'**
+  String get pluginServiceDetailPorts;
+
+  /// No description provided for @pluginServiceDetailRestartPolicy.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重启策略'**
+  String get pluginServiceDetailRestartPolicy;
+
+  /// No description provided for @pluginServiceDetailRestEndpoint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'REST 端点'**
+  String get pluginServiceDetailRestEndpoint;
+
+  /// No description provided for @pluginServiceDetailGrpcEndpoint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'gRPC 端点'**
+  String get pluginServiceDetailGrpcEndpoint;
+
+  /// No description provided for @pluginServiceDetailDataDirectory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'数据目录'**
+  String get pluginServiceDetailDataDirectory;
+
+  /// No description provided for @pluginServiceDetailHealthResponse.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'健康响应'**
+  String get pluginServiceDetailHealthResponse;
+
+  /// No description provided for @pluginServiceDetailHealthTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'健康标题'**
+  String get pluginServiceDetailHealthTitle;
+
+  /// No description provided for @pluginServiceDetailCollectionCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'集合数量'**
+  String get pluginServiceDetailCollectionCount;
+
+  /// No description provided for @pluginServiceMcpInstalledVersion.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已安装 v{version}'**
+  String pluginServiceMcpInstalledVersion(Object version);
+
+  /// No description provided for @pluginServiceMcpOperationTimeout.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'[timeout] 操作超时，已终止进程'**
+  String get pluginServiceMcpOperationTimeout;
+
+  /// No description provided for @pluginServiceMcpOperationCompleted.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'✓ {action} 完成 (exit code: {exitCode})'**
+  String pluginServiceMcpOperationCompleted(Object action, Object exitCode);
+
+  /// No description provided for @pluginServiceMcpOperationFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'✗ {action} 失败 (exit code: {exitCode})'**
+  String pluginServiceMcpOperationFailed(Object action, Object exitCode);
+
+  /// No description provided for @pluginServiceMcpOperationError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'✗ 异常：{error}'**
+  String pluginServiceMcpOperationError(Object error);
+
+  /// No description provided for @pluginServiceDescriptionNodejs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链'**
+  String get pluginServiceDescriptionNodejs;
+
+  /// No description provided for @pluginServiceDescriptionPlaywright.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'浏览器自动化测试框架，支持 Chromium / Firefox / WebKit'**
+  String get pluginServiceDescriptionPlaywright;
+
+  /// No description provided for @pluginServiceDescriptionHermesAgent.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Hermes Agent 运行时，用于智能体编排、自我学习与技能沉淀'**
+  String get pluginServiceDescriptionHermesAgent;
+
+  /// No description provided for @pluginServiceDescriptionPython.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Python 运行时环境，用于执行 Python 脚本、库与扩展能力'**
+  String get pluginServiceDescriptionPython;
+
+  /// No description provided for @pluginServiceDescriptionPip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Python 包管理工具，用于安装、升级与管理 Python 库'**
+  String get pluginServiceDescriptionPip;
+
+  /// No description provided for @pluginServiceDescriptionJava.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'JDK 运行时，用于 apktool / jadx 等 Android 静态分析工具'**
+  String get pluginServiceDescriptionJava;
+
+  /// No description provided for @pluginServiceDescriptionFrida.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'动态插桩与 Hook 工具链，用于 Android 运行时验证'**
+  String get pluginServiceDescriptionFrida;
+
+  /// No description provided for @pluginServiceDescriptionMitmproxy.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'HTTP(S) 代理抓包工具，用于 Web / Android 流量取证'**
+  String get pluginServiceDescriptionMitmproxy;
+
+  /// No description provided for @pluginServiceDescriptionApktool.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'APK 解包与 smali 分析工具'**
+  String get pluginServiceDescriptionApktool;
+
+  /// No description provided for @pluginServiceDescriptionJadx.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'DEX / APK Java 反编译工具'**
+  String get pluginServiceDescriptionJadx;
+
+  /// No description provided for @pluginServiceDescriptionRadare2.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'二进制静态分析与 ELF / native so 逆向工具'**
+  String get pluginServiceDescriptionRadare2;
+
+  /// No description provided for @pluginServiceDescriptionBlutter.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Flutter Dart AOT 快速还原工具，用于 libapp.so 分析'**
+  String get pluginServiceDescriptionBlutter;
+
+  /// No description provided for @pluginServiceDescriptionDoldrums.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Flutter snapshot / ELF 辅助分析工具'**
+  String get pluginServiceDescriptionDoldrums;
+
+  /// No description provided for @pluginServiceDescriptionAnythingAnalyzer.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'协议分析与 MCP Server 工具，用于抓包、分析和 Agent 联动'**
+  String get pluginServiceDescriptionAnythingAnalyzer;
+
+  /// No description provided for @pluginServiceDescriptionDocker.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'容器运行环境，用于运行 Qdrant 本地向量数据库服务'**
+  String get pluginServiceDescriptionDocker;
+
+  /// No description provided for @pluginServiceDescriptionQdrant.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'本地向量数据库，用于知识库 embedding 向量索引与检索'**
+  String get pluginServiceDescriptionQdrant;
+
+  /// No description provided for @pluginServiceTemplateWebReverseExpert.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Web 逆向专家'**
+  String get pluginServiceTemplateWebReverseExpert;
+
+  /// No description provided for @pluginServiceTemplateAndroidReverseExpert.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Android 逆向专家'**
+  String get pluginServiceTemplateAndroidReverseExpert;
+
+  /// No description provided for @pluginServiceTemplateHermesTalker.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Hermes Talker'**
+  String get pluginServiceTemplateHermesTalker;
+
   /// No description provided for @mcpStdioMirrorModeLabel.
   ///
   /// In zh_Hans, this message translates to:

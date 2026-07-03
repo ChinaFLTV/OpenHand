@@ -120,6 +120,242 @@
   "mcpStdioCacheResetCancel": "キャンセル",
   "mcpStdioCacheResetDone": "隔離キャッシュをクリアしました。",
   "mcpStdioCacheResetFailed": "リセットに失敗しました。~/.openhand/mcp/package-cache を手動で削除してください。",
+  "pluginServiceTitle": "プラグイン",
+  "pluginServiceSubtitle": "任意プラグインのインストール、更新、削除を管理します。プラグインは OpenHand に追加の実行時機能を提供します。",
+  "pluginServiceRescan": "再スキャン",
+  "pluginServiceScanning": "ローカルのプラグイン環境をスキャン中…",
+  "pluginServiceScanFailed": "プラグインのスキャンに失敗しました",
+  "pluginServiceActionInstall": "インストール",
+  "pluginServiceActionUpdate": "更新",
+  "pluginServiceActionUninstall": "アンインストール",
+  "pluginServiceActionEnable": "有効化",
+  "pluginServiceActionDisable": "無効化",
+  "pluginServiceStatusInstalled": "インストール済み",
+  "pluginServiceStatusNotInstalled": "未インストール",
+  "pluginServiceStatusInstalling": "インストール中…",
+  "pluginServiceStatusUpdating": "更新中…",
+  "pluginServiceStatusUninstalling": "アンインストール中…",
+  "pluginServiceStatusError": "エラー",
+  "pluginServiceCheckUpdates": "更新を確認",
+  "pluginServiceMcpService": "MCP サービス",
+  "pluginServiceInstallDependencyRequired": "{dependency} を先にインストールしてください",
+  "@pluginServiceInstallDependencyRequired": {
+    "placeholders": {
+      "dependency": {}
+    }
+  },
+  "pluginServiceInstallConfirmTitle": "{plugin} をインストールしますか？",
+  "@pluginServiceInstallConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallConfirmMessage": "{plugin} をインストールします。依存ファイルをダウンロードする場合があります。",
+  "@pluginServiceInstallConfirmMessage": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallSuccess": "{plugin} をインストールしました",
+  "@pluginServiceInstallSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallFailure": "{plugin} のインストールに失敗しました",
+  "@pluginServiceInstallFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateConfirmTitle": "{plugin} を更新しますか？",
+  "@pluginServiceUpdateConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateConfirmMessage": "{plugin} を {currentVersion} から {latestVersion} に更新します。",
+  "@pluginServiceUpdateConfirmMessage": {
+    "placeholders": {
+      "plugin": {},
+      "currentVersion": {},
+      "latestVersion": {}
+    }
+  },
+  "pluginServiceUpdateSuccess": "{plugin} を更新しました",
+  "@pluginServiceUpdateSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateFailure": "{plugin} の更新に失敗しました",
+  "@pluginServiceUpdateFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceCheckUpdateFailed": "更新の確認に失敗しました",
+  "pluginServiceNewVersionAvailable": "新しいバージョンがあります: {version}",
+  "@pluginServiceNewVersionAvailable": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginServiceNoUpdatesAvailable": "利用可能な更新はありません",
+  "pluginServiceUninstallBlocked": "{dependent} は {plugin} に依存しています。先にアンインストールしてください。",
+  "@pluginServiceUninstallBlocked": {
+    "placeholders": {
+      "dependent": {},
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallConfirmTitle": "{plugin} をアンインストールしますか？",
+  "@pluginServiceUninstallConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallConfirmMessage": "{plugin} を削除します。この操作は元に戻せません。",
+  "@pluginServiceUninstallConfirmMessage": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallSuccess": "{plugin} をアンインストールしました",
+  "@pluginServiceUninstallSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallFailure": "{plugin} のアンインストールに失敗しました",
+  "@pluginServiceUninstallFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceOperationTitle": "{plugin} の{action}",
+  "@pluginServiceOperationTitle": {
+    "placeholders": {
+      "action": {},
+      "plugin": {}
+    }
+  },
+  "pluginServiceRuntimePid": "PID",
+  "pluginServiceRuntimeOs": "OS",
+  "pluginServiceRuntimeArch": "アーキテクチャ",
+  "pluginServiceLogLineCount": "ログ: {count} 行",
+  "@pluginServiceLogLineCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "pluginServiceWaitingForOutput": "出力待ち…",
+  "pluginServiceExecuting": "実行中…",
+  "pluginServiceCompleted": "完了",
+  "pluginServiceForceClose": "強制終了",
+  "pluginServiceVersion": "バージョン",
+  "pluginServiceUpdateAvailable": "更新先",
+  "pluginServiceDependsOn": "依存先",
+  "pluginServiceRequiredBy": "依存元",
+  "pluginServiceNone": "なし",
+  "pluginServiceDetailTitle": "{plugin} の詳細",
+  "@pluginServiceDetailTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceDetailBasicInfo": "基本情報",
+  "pluginServiceDetailName": "名前",
+  "pluginServiceDetailDescription": "説明",
+  "pluginServiceDetailStatus": "状態",
+  "pluginServiceDetailEnvironment": "環境情報",
+  "pluginServiceDetailDependencies": "依存関係",
+  "pluginServiceThreadTemplates": "スレッドテンプレート",
+  "pluginServiceTemplates": "テンプレート",
+  "pluginServiceMcpPackage": "MCP パッケージ",
+  "pluginServiceMcpBrowserDescription": "ブラウザ自動化用の MCP サービス",
+  "pluginServiceDetailProcessors": "プロセッサ数",
+  "pluginServiceDetailInstallPath": "インストールパス",
+  "pluginServiceDetailCurrentVersion": "現在のバージョン",
+  "pluginServiceDetailLatestVersion": "最新バージョン",
+  "pluginServiceDetailBoundPython": "紐付け Python",
+  "pluginServiceDetailDesktopAppDetected": "デスクトップアプリを検出",
+  "pluginServiceDetailDaemonRunning": "Daemon 実行中",
+  "pluginServiceDetailCliAvailable": "CLI 利用可能",
+  "pluginServiceDetailDockerContext": "Docker コンテキスト",
+  "pluginServiceDetailServerVersion": "サーバーバージョン",
+  "pluginServiceDetailDockerOs": "Docker OS",
+  "pluginServiceDetailDockerRootDir": "Docker ルート",
+  "pluginServiceDetailDaemonName": "Daemon 名",
+  "pluginServiceDetailOsType": "OS タイプ",
+  "pluginServiceDetailArchitecture": "アーキテクチャ",
+  "pluginServiceDetailComposeVersion": "Compose バージョン",
+  "pluginServiceDetailDockerDaemonRunning": "Docker daemon 実行中",
+  "pluginServiceDetailOpenHandManaged": "OpenHand 管理",
+  "pluginServiceDetailContainerId": "コンテナ ID",
+  "pluginServiceDetailContainerName": "コンテナ名",
+  "pluginServiceDetailContainerStatus": "コンテナ状態",
+  "pluginServiceDetailRunning": "実行中",
+  "pluginServiceDetailStartedAt": "開始時刻",
+  "pluginServiceDetailFinishedAt": "終了時刻",
+  "pluginServiceDetailRestartCount": "再起動回数",
+  "pluginServiceDetailExitCode": "終了コード",
+  "pluginServiceDetailImage": "イメージ",
+  "pluginServiceDetailImageId": "イメージ ID",
+  "pluginServiceDetailPorts": "ポート",
+  "pluginServiceDetailRestartPolicy": "再起動ポリシー",
+  "pluginServiceDetailRestEndpoint": "REST エンドポイント",
+  "pluginServiceDetailGrpcEndpoint": "gRPC エンドポイント",
+  "pluginServiceDetailDataDirectory": "データディレクトリ",
+  "pluginServiceDetailHealthResponse": "ヘルスレスポンス",
+  "pluginServiceDetailHealthTitle": "ヘルスタイトル",
+  "pluginServiceDetailCollectionCount": "コレクション数",
+  "pluginServiceMcpInstalledVersion": "インストール済み v{version}",
+  "@pluginServiceMcpInstalledVersion": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginServiceMcpOperationTimeout": "[timeout] 操作がタイムアウトし、プロセスを終了しました",
+  "pluginServiceMcpOperationCompleted": "✓ {action} 完了 (exit code: {exitCode})",
+  "@pluginServiceMcpOperationCompleted": {
+    "placeholders": {
+      "action": {},
+      "exitCode": {}
+    }
+  },
+  "pluginServiceMcpOperationFailed": "✗ {action} 失敗 (exit code: {exitCode})",
+  "@pluginServiceMcpOperationFailed": {
+    "placeholders": {
+      "action": {},
+      "exitCode": {}
+    }
+  },
+  "pluginServiceMcpOperationError": "✗ エラー: {error}",
+  "@pluginServiceMcpOperationError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pluginServiceDescriptionNodejs": "JS/TS スクリプトとツールチェーン向けの JavaScript ランタイム",
+  "pluginServiceDescriptionPlaywright": "Chromium / Firefox / WebKit に対応したブラウザ自動化テストフレームワーク",
+  "pluginServiceDescriptionHermesAgent": "エージェント編成、自己学習、スキル洗練のための Hermes Agent ランタイム",
+  "pluginServiceDescriptionPython": "スクリプト、ライブラリ、拡張機能向けの Python ランタイム",
+  "pluginServiceDescriptionPip": "Python ライブラリのインストール、更新、管理に使うパッケージ管理ツール",
+  "pluginServiceDescriptionJava": "apktool / jadx などの Android 静的解析ツール向け JDK ランタイム",
+  "pluginServiceDescriptionFrida": "Android 実行時検証向けの動的インストルメンテーションと Hook ツールチェーン",
+  "pluginServiceDescriptionMitmproxy": "Web / Android トラフィック調査向けの HTTP(S) プロキシキャプチャツール",
+  "pluginServiceDescriptionApktool": "APK 展開と smali 解析ツール",
+  "pluginServiceDescriptionJadx": "DEX / APK Java デコンパイラ",
+  "pluginServiceDescriptionRadare2": "バイナリ静的解析と ELF / native so リバースエンジニアリングツール",
+  "pluginServiceDescriptionBlutter": "libapp.so 解析向け Flutter Dart AOT 復元ツール",
+  "pluginServiceDescriptionDoldrums": "Flutter snapshot / ELF 補助解析ツール",
+  "pluginServiceDescriptionAnythingAnalyzer": "キャプチャ、解析、Agent 連携向けのプロトコル解析・MCP Server ツール",
+  "pluginServiceDescriptionDocker": "ローカル Qdrant ベクトルデータベースサービス向けのコンテナランタイム",
+  "pluginServiceDescriptionQdrant": "ナレッジベースの embedding ベクトル索引と検索に使うローカルベクトルデータベース",
+  "pluginServiceTemplateWebReverseExpert": "Web リバースエキスパート",
+  "pluginServiceTemplateAndroidReverseExpert": "Android リバースエキスパート",
+  "pluginServiceTemplateHermesTalker": "Hermes Talker",
   "mcpStdioMirrorModeLabel": "ミラーレジストリモード",
   "mcpStdioMirrorModeBody": "stdio MCP コールドスタート時、中国ミラー (npmmirror / Tsinghua PyPI) を注入するか。auto = システム言語に従う。強制 ON / OFF = locale を無視。OPENHAND_MCP_MIRROR=on/off 环境変数はいつでも上書きします。",
   "mcpStdioMirrorModeAuto": "言語に従う",

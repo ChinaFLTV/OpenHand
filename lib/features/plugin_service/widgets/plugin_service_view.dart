@@ -8,12 +8,13 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
-import '../../../shared/util/localized_text.dart';
+import '../../ai/index.dart' show AiPromptTemplatePolicies;
 import '../../mcp/index.dart';
 import '../../thread_template_runtime/index.dart';
 import '../model/plugin_info.dart';
@@ -21,6 +22,120 @@ import '../plugin_service_controller.dart';
 
 void _showPluginSnackBar(BuildContext context, SnackBar snackBar) {
   OpenHandSnackBar.showInContext(context, snackBar);
+}
+
+enum _PluginServiceAction { install, update, uninstall }
+
+extension _PluginServiceActionL10n on _PluginServiceAction {
+  String label(AppLocalizations l10n) {
+    return switch (this) {
+      _PluginServiceAction.install => l10n.pluginServiceActionInstall,
+      _PluginServiceAction.update => l10n.pluginServiceActionUpdate,
+      _PluginServiceAction.uninstall => l10n.pluginServiceActionUninstall,
+    };
+  }
+}
+
+extension _PluginStatusL10n on PluginStatus {
+  String label(AppLocalizations l10n) {
+    return switch (this) {
+      PluginStatus.installed => l10n.pluginServiceStatusInstalled,
+      PluginStatus.notInstalled => l10n.pluginServiceStatusNotInstalled,
+      PluginStatus.installing => l10n.pluginServiceStatusInstalling,
+      PluginStatus.updating => l10n.pluginServiceStatusUpdating,
+      PluginStatus.uninstalling => l10n.pluginServiceStatusUninstalling,
+      PluginStatus.error => l10n.pluginServiceStatusError,
+    };
+  }
+}
+
+String _localizedPluginDescription(AppLocalizations l10n, PluginInfo plugin) {
+  return switch (plugin.id) {
+    PluginCatalogIds.nodejs => l10n.pluginServiceDescriptionNodejs,
+    PluginCatalogIds.playwright => l10n.pluginServiceDescriptionPlaywright,
+    PluginCatalogIds.hermesAgent => l10n.pluginServiceDescriptionHermesAgent,
+    'python' => l10n.pluginServiceDescriptionPython,
+    'pip' => l10n.pluginServiceDescriptionPip,
+    'java' => l10n.pluginServiceDescriptionJava,
+    'frida' => l10n.pluginServiceDescriptionFrida,
+    'mitmproxy' => l10n.pluginServiceDescriptionMitmproxy,
+    'apktool' => l10n.pluginServiceDescriptionApktool,
+    'jadx' => l10n.pluginServiceDescriptionJadx,
+    'radare2' => l10n.pluginServiceDescriptionRadare2,
+    'blutter' => l10n.pluginServiceDescriptionBlutter,
+    'doldrums' => l10n.pluginServiceDescriptionDoldrums,
+    'anything_analyzer' => l10n.pluginServiceDescriptionAnythingAnalyzer,
+    'docker' => l10n.pluginServiceDescriptionDocker,
+    'qdrant' => l10n.pluginServiceDescriptionQdrant,
+    _ => plugin.description,
+  };
+}
+
+String _localizedTemplateDependencyLabel(
+  AppLocalizations l10n,
+  TemplateRuntimeDependencySpec spec,
+) {
+  return switch (spec.templateId) {
+    AiPromptTemplatePolicies.webReverseExpertTemplateId =>
+      l10n.pluginServiceTemplateWebReverseExpert,
+    AiPromptTemplatePolicies.androidReverseExpertTemplateId =>
+      l10n.pluginServiceTemplateAndroidReverseExpert,
+    AiPromptTemplatePolicies.hermesTalkerTemplateId =>
+      l10n.pluginServiceTemplateHermesTalker,
+    _ => spec.labelEn,
+  };
+}
+
+String _localizedDetailLabel(AppLocalizations l10n, String key) {
+  return switch (key) {
+    'processors' => l10n.pluginServiceDetailProcessors,
+    'install_path' => l10n.pluginServiceDetailInstallPath,
+    'current_version' => l10n.pluginServiceDetailCurrentVersion,
+    'latest_version' => l10n.pluginServiceDetailLatestVersion,
+    'bound_python' => l10n.pluginServiceDetailBoundPython,
+    'desktop_app_detected' => l10n.pluginServiceDetailDesktopAppDetected,
+    'daemon_running' => l10n.pluginServiceDetailDaemonRunning,
+    'cli_available' => l10n.pluginServiceDetailCliAvailable,
+    'context' => l10n.pluginServiceDetailDockerContext,
+    'server_version' => l10n.pluginServiceDetailServerVersion,
+    'docker_os' => l10n.pluginServiceDetailDockerOs,
+    'docker_root_dir' => l10n.pluginServiceDetailDockerRootDir,
+    'daemon_name' => l10n.pluginServiceDetailDaemonName,
+    'os_type' => l10n.pluginServiceDetailOsType,
+    'architecture' => l10n.pluginServiceDetailArchitecture,
+    'compose_version' => l10n.pluginServiceDetailComposeVersion,
+    'docker_daemon_running' => l10n.pluginServiceDetailDockerDaemonRunning,
+    'openhand_managed' => l10n.pluginServiceDetailOpenHandManaged,
+    'container_id' => l10n.pluginServiceDetailContainerId,
+    'container_name' => l10n.pluginServiceDetailContainerName,
+    'container_status' => l10n.pluginServiceDetailContainerStatus,
+    'running' => l10n.pluginServiceDetailRunning,
+    'started_at' => l10n.pluginServiceDetailStartedAt,
+    'finished_at' => l10n.pluginServiceDetailFinishedAt,
+    'restart_count' => l10n.pluginServiceDetailRestartCount,
+    'exit_code' => l10n.pluginServiceDetailExitCode,
+    'image' => l10n.pluginServiceDetailImage,
+    'image_id' => l10n.pluginServiceDetailImageId,
+    'ports' => l10n.pluginServiceDetailPorts,
+    'restart_policy' => l10n.pluginServiceDetailRestartPolicy,
+    'rest_endpoint' => l10n.pluginServiceDetailRestEndpoint,
+    'grpc_endpoint' => l10n.pluginServiceDetailGrpcEndpoint,
+    'data_directory' => l10n.pluginServiceDetailDataDirectory,
+    'health_response' => l10n.pluginServiceDetailHealthResponse,
+    'health_title' => l10n.pluginServiceDetailHealthTitle,
+    'collection_count' => l10n.pluginServiceDetailCollectionCount,
+    _ => key,
+  };
+}
+
+String _localizedDetailValue(AppLocalizations l10n, Object? value) {
+  if (value is bool) {
+    return value ? l10n.qdrantValueYes : l10n.qdrantValueNo;
+  }
+  if (value is Iterable) {
+    return value.map((item) => '$item').join(', ');
+  }
+  return '$value';
 }
 
 class PluginServiceView extends StatefulWidget {
@@ -34,7 +149,7 @@ class _PluginServiceViewState extends State<PluginServiceView> {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<PluginServiceController>();
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
 
     final actions = Wrap(
       spacing: 12,
@@ -44,16 +159,14 @@ class _PluginServiceViewState extends State<PluginServiceView> {
         FilledButton.tonalIcon(
           onPressed: controller.isOperating ? null : controller.rescan,
           icon: const Icon(Icons.refresh_rounded),
-          label: Text(isZh ? '重新扫描' : 'Rescan'),
+          label: Text(l10n.pluginServiceRescan),
         ),
       ],
     );
 
     return FeaturePageShell(
-      title: isZh ? '插件' : 'Plugins',
-      subtitle: isZh
-          ? '管理可选插件的安装、更新与卸载。插件为 OpenHand 提供额外的运行时能力。'
-          : 'Manage optional plugin installation, updates, and removal.',
+      title: l10n.pluginServiceTitle,
+      subtitle: l10n.pluginServiceSubtitle,
       actions: actions,
       successSignal: controller.operationSuccessSignal,
       body: _buildBody(context, controller),
@@ -68,7 +181,7 @@ class _PluginServiceViewState extends State<PluginServiceView> {
   }
 
   Widget _buildBody(BuildContext context, PluginServiceController controller) {
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     if (controller.isLoading) {
       return Center(
         child: Column(
@@ -77,7 +190,7 @@ class _PluginServiceViewState extends State<PluginServiceView> {
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
             Text(
-              isZh ? '正在扫描本机插件环境…' : 'Scanning local plugin environment…',
+              l10n.pluginServiceScanning,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -90,12 +203,12 @@ class _PluginServiceViewState extends State<PluginServiceView> {
       return FeatureStateCard.centered(
         icon: Icons.error_outline_rounded,
         tone: FeatureStateTone.error,
-        title: isZh ? '插件扫描失败' : 'Plugin scan failed',
+        title: l10n.pluginServiceScanFailed,
         body: controller.errorMessage!,
         action: TextButton.icon(
           onPressed: controller.rescan,
           icon: const Icon(Icons.refresh, size: 18),
-          label: Text(isZh ? '重试' : 'Retry'),
+          label: Text(l10n.commonRetry),
         ),
       );
     }
@@ -200,7 +313,7 @@ class _PluginTemplateBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -208,7 +321,7 @@ class _PluginTemplateBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        isZh ? spec.labelZh : spec.labelEn,
+        _localizedTemplateDependencyLabel(l10n, spec),
         style: theme.textTheme.labelSmall?.copyWith(
           color: theme.colorScheme.onSecondaryContainer,
           fontWeight: FontWeight.w700,
@@ -231,7 +344,7 @@ class _PluginCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final stateColor = switch (plugin.status) {
       PluginStatus.installed => OpenHandStatusColors.success,
       PluginStatus.error => theme.colorScheme.error,
@@ -240,14 +353,7 @@ class _PluginCard extends StatelessWidget {
       PluginStatus.uninstalling => OpenHandStatusColors.warning,
       PluginStatus.notInstalled => theme.colorScheme.onSurfaceVariant,
     };
-    final statusLabel = switch (plugin.status) {
-      PluginStatus.installed => isZh ? '已安装' : 'Installed',
-      PluginStatus.notInstalled => isZh ? '未安装' : 'Not Installed',
-      PluginStatus.installing => isZh ? '安装中…' : 'Installing…',
-      PluginStatus.updating => isZh ? '更新中…' : 'Updating…',
-      PluginStatus.uninstalling => isZh ? '卸载中…' : 'Uninstalling…',
-      PluginStatus.error => isZh ? '错误' : 'Error',
-    };
+    final statusLabel = plugin.status.label(l10n);
     final pluginIcon = switch (plugin.id) {
       'nodejs' => Icons.javascript_rounded,
       'python' => Icons.code_rounded,
@@ -327,7 +433,7 @@ class _PluginCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            plugin.description,
+                            _localizedPluginDescription(l10n, plugin),
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -417,7 +523,7 @@ class _PluginCard extends StatelessWidget {
   }
 
   Widget _buildActions(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final isCheckingUpdate = controller.checkingPluginId == plugin.id;
     final isBusy = plugin.isBusy || controller.isOperating || isCheckingUpdate;
     final hasMcp = plugin.id == 'playwright';
@@ -429,14 +535,14 @@ class _PluginCard extends StatelessWidget {
       children: [
         // 详情
         IconButton.filledTonal(
-          tooltip: isZh ? '详情' : 'Details',
+          tooltip: l10n.commonDetails,
           onPressed: () => _showDetailDialog(context),
           icon: const Icon(Icons.info_outline_rounded, size: 18),
         ),
         // 检查更新
         if (plugin.isInstalled)
           IconButton.filledTonal(
-            tooltip: isZh ? '检查更新' : 'Check Updates',
+            tooltip: l10n.pluginServiceCheckUpdates,
             onPressed: isBusy ? null : () => _checkUpdate(context),
             icon: isCheckingUpdate
                 ? const SizedBox(
@@ -449,7 +555,7 @@ class _PluginCard extends StatelessWidget {
         // MCP 服务（仅 Playwright）
         if (hasMcp && plugin.isInstalled)
           IconButton.filledTonal(
-            tooltip: isZh ? 'MCP 服务' : 'MCP Service',
+            tooltip: l10n.pluginServiceMcpService,
             onPressed: isBusy ? null : () => _showMcpActions(context),
             icon: const Icon(Icons.hub_outlined, size: 18),
           ),
@@ -457,8 +563,8 @@ class _PluginCard extends StatelessWidget {
         if (plugin.isInstalled)
           IconButton.filledTonal(
             tooltip: plugin.enabled
-                ? (isZh ? '禁用' : 'Disable')
-                : (isZh ? '启用' : 'Enable'),
+                ? l10n.pluginServiceActionDisable
+                : l10n.pluginServiceActionEnable,
             onPressed: isBusy
                 ? null
                 : () => controller.toggleEnabled(
@@ -476,21 +582,21 @@ class _PluginCard extends StatelessWidget {
         // 安装
         if (plugin.status == PluginStatus.notInstalled)
           IconButton.filled(
-            tooltip: isZh ? '安装' : 'Install',
+            tooltip: l10n.pluginServiceActionInstall,
             onPressed: isBusy ? null : () => _doInstall(context),
             icon: const Icon(Icons.download_rounded, size: 18),
           ),
         // 更新
         if (plugin.isInstalled && plugin.hasUpdate)
           IconButton.filledTonal(
-            tooltip: isZh ? '更新' : 'Update',
+            tooltip: l10n.pluginServiceActionUpdate,
             onPressed: isBusy ? null : () => _doUpdate(context),
             icon: const Icon(Icons.system_update_alt_rounded, size: 18),
           ),
         // 卸载
         if (plugin.isInstalled && plugin.supportsUninstall)
           IconButton.filledTonal(
-            tooltip: isZh ? '卸载' : 'Uninstall',
+            tooltip: l10n.pluginServiceActionUninstall,
             onPressed: isBusy ? null : () => _doUninstall(context),
             style: IconButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.error,
@@ -511,7 +617,7 @@ class _PluginCard extends StatelessWidget {
   }
 
   Future<void> _doInstall(BuildContext context) async {
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     for (final depId in plugin.dependencies) {
       final dep = controller.pluginById(depId);
       if (dep == null || !dep.isInstalled) {
@@ -519,9 +625,7 @@ class _PluginCard extends StatelessWidget {
           context,
           SnackBar(
             content: Text(
-              isZh
-                  ? '需要先安装 ${dep?.name ?? depId}'
-                  : '${dep?.name ?? depId} must be installed first',
+              l10n.pluginServiceInstallDependencyRequired(dep?.name ?? depId),
             ),
           ),
         );
@@ -530,15 +634,17 @@ class _PluginCard extends StatelessWidget {
     }
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '安装 ${plugin.name}？' : 'Install ${plugin.name}?',
-      message: isZh
-          ? '将在本机安装 ${plugin.name}，可能需要下载依赖文件。'
-          : 'This will install ${plugin.name}. Dependencies may be downloaded.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '安装' : 'Install',
+      title: l10n.pluginServiceInstallConfirmTitle(plugin.name),
+      message: l10n.pluginServiceInstallConfirmMessage(plugin.name),
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.pluginServiceActionInstall,
     );
     if (!confirmed || !context.mounted) return;
-    _showOperationDialog(context, isZh ? '安装' : 'Install', plugin.name);
+    _showOperationDialog(
+      context,
+      _PluginServiceAction.install.label(l10n),
+      plugin.name,
+    );
     final success = await controller.installPlugin(plugin.id);
     if (!context.mounted) return;
     // 弹窗可能已被用户强制关闭，安全 pop
@@ -552,28 +658,32 @@ class _PluginCard extends StatelessWidget {
       SnackBar(
         content: Text(
           success
-              ? (isZh ? '${plugin.name} 安装成功' : '${plugin.name} installed')
-              : (isZh
-                    ? '${plugin.name} 安装失败'
-                    : '${plugin.name} install failed'),
+              ? l10n.pluginServiceInstallSuccess(plugin.name)
+              : l10n.pluginServiceInstallFailure(plugin.name),
         ),
       ),
     );
   }
 
   Future<void> _doUpdate(BuildContext context) async {
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '更新 ${plugin.name}？' : 'Update ${plugin.name}?',
-      message: isZh
-          ? '将 ${plugin.name} 从 ${plugin.installedVersion} 更新到 ${plugin.latestVersion}。'
-          : 'Update ${plugin.name} from ${plugin.installedVersion} to ${plugin.latestVersion}.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '更新' : 'Update',
+      title: l10n.pluginServiceUpdateConfirmTitle(plugin.name),
+      message: l10n.pluginServiceUpdateConfirmMessage(
+        plugin.name,
+        plugin.installedVersion ?? '-',
+        plugin.latestVersion ?? '-',
+      ),
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.pluginServiceActionUpdate,
     );
     if (!confirmed || !context.mounted) return;
-    _showOperationDialog(context, isZh ? '更新' : 'Update', plugin.name);
+    _showOperationDialog(
+      context,
+      _PluginServiceAction.update.label(l10n),
+      plugin.name,
+    );
     final success = await controller.updatePlugin(plugin.id);
     if (!context.mounted) return;
     try {
@@ -586,15 +696,15 @@ class _PluginCard extends StatelessWidget {
       SnackBar(
         content: Text(
           success
-              ? (isZh ? '${plugin.name} 更新成功' : '${plugin.name} updated')
-              : (isZh ? '${plugin.name} 更新失败' : '${plugin.name} update failed'),
+              ? l10n.pluginServiceUpdateSuccess(plugin.name)
+              : l10n.pluginServiceUpdateFailure(plugin.name),
         ),
       ),
     );
   }
 
   Future<void> _checkUpdate(BuildContext context) async {
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final refreshed = await controller.checkPluginUpdate(plugin.id);
     if (!context.mounted) return;
     if (refreshed == null) {
@@ -602,8 +712,7 @@ class _PluginCard extends StatelessWidget {
         context,
         SnackBar(
           content: Text(
-            controller.errorMessage ??
-                (isZh ? '检查更新失败' : 'Failed to check updates'),
+            controller.errorMessage ?? l10n.pluginServiceCheckUpdateFailed,
           ),
         ),
       );
@@ -615,17 +724,17 @@ class _PluginCard extends StatelessWidget {
       SnackBar(
         content: Text(
           checkedPlugin.hasUpdate && checkedPlugin.latestVersion != null
-              ? (isZh
-                    ? '发现新版本：${checkedPlugin.latestVersion}'
-                    : 'New version available: ${checkedPlugin.latestVersion}')
-              : (isZh ? '未发现新版本' : 'No updates available'),
+              ? l10n.pluginServiceNewVersionAvailable(
+                  checkedPlugin.latestVersion!,
+                )
+              : l10n.pluginServiceNoUpdatesAvailable,
         ),
       ),
     );
   }
 
   Future<void> _doUninstall(BuildContext context) async {
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     for (final dependentId in plugin.dependents) {
       final dependent = controller.pluginById(dependentId);
       if (dependent != null && dependent.isInstalled) {
@@ -633,9 +742,7 @@ class _PluginCard extends StatelessWidget {
           context,
           SnackBar(
             content: Text(
-              isZh
-                  ? '${dependent.name} 依赖 ${plugin.name}，请先卸载 ${dependent.name}'
-                  : '${dependent.name} depends on ${plugin.name}. Uninstall it first.',
+              l10n.pluginServiceUninstallBlocked(dependent.name, plugin.name),
             ),
           ),
         );
@@ -644,16 +751,18 @@ class _PluginCard extends StatelessWidget {
     }
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '卸载 ${plugin.name}？' : 'Uninstall ${plugin.name}?',
-      message: isZh
-          ? '将从本机卸载 ${plugin.name}，此操作不可撤销。'
-          : 'This will remove ${plugin.name}. This cannot be undone.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '卸载' : 'Uninstall',
+      title: l10n.pluginServiceUninstallConfirmTitle(plugin.name),
+      message: l10n.pluginServiceUninstallConfirmMessage(plugin.name),
+      cancelLabel: l10n.commonCancel,
+      confirmLabel: l10n.pluginServiceActionUninstall,
       destructive: true,
     );
     if (!confirmed || !context.mounted) return;
-    _showOperationDialog(context, isZh ? '卸载' : 'Uninstall', plugin.name);
+    _showOperationDialog(
+      context,
+      _PluginServiceAction.uninstall.label(l10n),
+      plugin.name,
+    );
     final success = await controller.uninstallPlugin(plugin.id);
     if (!context.mounted) return;
     try {
@@ -671,10 +780,8 @@ class _PluginCard extends StatelessWidget {
       SnackBar(
         content: Text(
           success
-              ? (isZh ? '${plugin.name} 已卸载' : '${plugin.name} uninstalled')
-              : (isZh
-                    ? '${plugin.name} 卸载失败'
-                    : '${plugin.name} uninstall failed'),
+              ? l10n.pluginServiceUninstallSuccess(plugin.name)
+              : l10n.pluginServiceUninstallFailure(plugin.name),
         ),
       ),
     );
@@ -697,19 +804,17 @@ class _PluginCard extends StatelessWidget {
   }
 
   void _showDetailDialog(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
     showAnimatedDialog(
       context: context,
-      builder: (ctx) => _PluginDetailDialog(plugin: plugin, isZh: isZh),
+      builder: (ctx) => _PluginDetailDialog(plugin: plugin),
     );
   }
 
   void _showMcpActions(BuildContext context) {
-    final isZh = openHandIsChineseLocale(context);
     showAnimatedDialog(
       context: context,
       builder: (ctx) =>
-          _PluginMcpDialog(plugin: plugin, controller: controller, isZh: isZh),
+          _PluginMcpDialog(plugin: plugin, controller: controller),
     );
   }
 }
@@ -779,7 +884,7 @@ class _PluginOperationProgressDialogState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final logs = widget.controller.operationLogs;
     final isOperating = widget.controller.isOperating;
 
@@ -796,7 +901,10 @@ class _PluginOperationProgressDialogState
             icon: isOperating
                 ? Icons.terminal_rounded
                 : Icons.check_circle_rounded,
-            title: '${widget.action} ${widget.pluginName}',
+            title: l10n.pluginServiceOperationTitle(
+              widget.action,
+              widget.pluginName,
+            ),
             iconColor: isOperating
                 ? theme.colorScheme.primary
                 : OpenHandStatusColors.success,
@@ -845,14 +953,14 @@ class _PluginOperationProgressDialogState
                 spacing: 16,
                 runSpacing: 4,
                 children: [
-                  Text('PID: $pid'),
-                  Text('OS: ${Platform.operatingSystem}'),
-                  Text('Arch: ${Platform.version.split(' ').last}'),
+                  Text('${l10n.pluginServiceRuntimePid}: $pid'),
                   Text(
-                    isZh
-                        ? '日志: ${logs.length} 行'
-                        : 'Logs: ${logs.length} lines',
+                    '${l10n.pluginServiceRuntimeOs}: ${Platform.operatingSystem}',
                   ),
+                  Text(
+                    '${l10n.pluginServiceRuntimeArch}: ${Platform.version.split(' ').last}',
+                  ),
+                  Text(l10n.pluginServiceLogLineCount(logs.length)),
                 ],
               ),
             ),
@@ -873,7 +981,7 @@ class _PluginOperationProgressDialogState
               child: logs.isEmpty
                   ? Center(
                       child: Text(
-                        isZh ? '等待输出…' : 'Waiting for output…',
+                        l10n.pluginServiceWaitingForOutput,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: const Color(0xFF808080),
                           fontFamily: 'monospace',
@@ -936,8 +1044,8 @@ class _PluginOperationProgressDialogState
                 Expanded(
                   child: Text(
                     isOperating
-                        ? (isZh ? '正在执行…' : 'Executing…')
-                        : (isZh ? '操作完成' : 'Completed'),
+                        ? l10n.pluginServiceExecuting
+                        : l10n.pluginServiceCompleted,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -953,8 +1061,8 @@ class _PluginOperationProgressDialogState
                   icon: Icon(isOperating ? Icons.close : Icons.done, size: 16),
                   label: Text(
                     isOperating
-                        ? (isZh ? '强制关闭' : 'Force Close')
-                        : (isZh ? '关闭' : 'Close'),
+                        ? l10n.pluginServiceForceClose
+                        : l10n.commonClose,
                   ),
                 ),
               ],
@@ -978,7 +1086,7 @@ class _PluginMetaRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     final metaStyle = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
@@ -997,7 +1105,7 @@ class _PluginMetaRow extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Text(
-                '${isZh ? "版本" : "Version"}: ${plugin.installedVersion}',
+                '${l10n.pluginServiceVersion}: ${plugin.installedVersion}',
                 style: metaStyle,
               ),
             ],
@@ -1013,7 +1121,7 @@ class _PluginMetaRow extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Text(
-                '${isZh ? "可更新到" : "Update available"}: ${plugin.latestVersion}',
+                '${l10n.pluginServiceUpdateAvailable}: ${plugin.latestVersion}',
                 style: metaStyle?.copyWith(color: OpenHandStatusColors.warning),
               ),
             ],
@@ -1049,7 +1157,7 @@ class _DependencyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = openHandIsChineseLocale(context);
+    final l10n = AppLocalizations.of(context)!;
     return Row(
       children: [
         Icon(
@@ -1059,7 +1167,7 @@ class _DependencyRow extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Text(
-          isZh ? '依赖: ' : 'Depends on: ',
+          '${l10n.pluginServiceDependsOn}: ',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -1137,17 +1245,16 @@ class _StatusDot extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PluginDetailDialog extends StatefulWidget {
-  const _PluginDetailDialog({required this.plugin, required this.isZh});
+  const _PluginDetailDialog({required this.plugin});
 
   final PluginInfo plugin;
-  final bool isZh;
 
   @override
   State<_PluginDetailDialog> createState() => _PluginDetailDialogState();
 }
 
 class _PluginDetailDialogState extends State<_PluginDetailDialog> {
-  Map<String, String> _envInfo = {};
+  Map<String, Object?> _envInfo = {};
   bool _loading = true;
 
   @override
@@ -1157,25 +1264,25 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
   }
 
   Future<void> _loadEnvInfo() async {
-    final info = <String, String>{};
+    final info = <String, Object?>{};
     try {
       info['OS'] =
           '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
       info['Arch'] = Platform.version.split(' ').last;
       info['Dart'] = Platform.version.split(' ').first;
       info['PID'] = '$pid';
-      info[widget.isZh ? '处理器数' : 'Processors'] =
-          '${Platform.numberOfProcessors}';
-      if (widget.plugin.installPath != null) {
-        info[widget.isZh ? '安装路径' : 'Install Path'] =
-            widget.plugin.installPath!;
+      info['processors'] = Platform.numberOfProcessors;
+      final installPath = widget.plugin.installPath;
+      if (installPath != null) {
+        info['install_path'] = installPath;
       }
-      if (widget.plugin.installedVersion != null) {
-        info[widget.isZh ? '当前版本' : 'Version'] =
-            widget.plugin.installedVersion!;
+      final installedVersion = widget.plugin.installedVersion;
+      if (installedVersion != null) {
+        info['current_version'] = installedVersion;
       }
-      if (widget.plugin.latestVersion != null) {
-        info[widget.isZh ? '最新版本' : 'Latest'] = widget.plugin.latestVersion!;
+      final latestVersion = widget.plugin.latestVersion;
+      if (latestVersion != null) {
+        info['latest_version'] = latestVersion;
       }
       // 获取额外运行时信息
       if (widget.plugin.id == 'nodejs' && widget.plugin.isInstalled) {
@@ -1228,7 +1335,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
           if (pipResult.exitCode == 0) {
             info['pip'] = '${pipResult.stdout}${pipResult.stderr}'.trim();
           }
-          info[widget.isZh ? '绑定解释器' : 'Bound Python'] = pythonExecutable;
+          info['bound_python'] = pythonExecutable;
         } catch (error, stack) {
           silentLog('plugin_service_view', 'load pip env info', error, stack);
         }
@@ -1260,7 +1367,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
             ? value.map((item) => '$item').join(', ')
             : '$value';
         if (text.trim().isNotEmpty) {
-          info[key] = text;
+          info[key] = value;
         }
       }
     } catch (error, stack) {
@@ -1277,7 +1384,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = widget.isZh;
+    final l10n = AppLocalizations.of(context)!;
     final plugin = widget.plugin;
 
     return buildOpenHandToolDialogShell(
@@ -1291,7 +1398,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.info_outline_rounded,
-            title: '${plugin.name} ${isZh ? "详情" : "Details"}',
+            title: l10n.pluginServiceDetailTitle(plugin.name),
           ),
           Divider(height: 1, color: theme.colorScheme.outlineVariant),
           // 内容
@@ -1303,50 +1410,53 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
                     children: [
                       // 基本信息
                       _DetailSection(
-                        title: isZh ? '基本信息' : 'Basic Info',
+                        title: l10n.pluginServiceDetailBasicInfo,
                         icon: Icons.extension_rounded,
                         children: [
                           _DetailRow(
-                            label: isZh ? '名称' : 'Name',
+                            label: l10n.pluginServiceDetailName,
                             value: plugin.name,
                           ),
                           _DetailRow(label: 'ID', value: plugin.id),
                           _DetailRow(
-                            label: isZh ? '描述' : 'Description',
-                            value: plugin.description,
+                            label: l10n.pluginServiceDetailDescription,
+                            value: _localizedPluginDescription(l10n, plugin),
                           ),
                           _DetailRow(
-                            label: isZh ? '状态' : 'Status',
-                            value: plugin.status.name,
+                            label: l10n.pluginServiceDetailStatus,
+                            value: plugin.status.label(l10n),
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
                       // 环境信息
                       _DetailSection(
-                        title: isZh ? '环境信息' : 'Environment',
+                        title: l10n.pluginServiceDetailEnvironment,
                         icon: Icons.computer_rounded,
                         children: [
                           for (final entry in _envInfo.entries)
-                            _DetailRow(label: entry.key, value: entry.value),
+                            _DetailRow(
+                              label: _localizedDetailLabel(l10n, entry.key),
+                              value: _localizedDetailValue(l10n, entry.value),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 16),
                       // 依赖关系
                       _DetailSection(
-                        title: isZh ? '依赖关系' : 'Dependencies',
+                        title: l10n.pluginServiceDetailDependencies,
                         icon: Icons.account_tree_rounded,
                         children: [
                           _DetailRow(
-                            label: isZh ? '依赖' : 'Depends on',
+                            label: l10n.pluginServiceDependsOn,
                             value: plugin.dependencies.isEmpty
-                                ? (isZh ? '无' : 'None')
+                                ? l10n.pluginServiceNone
                                 : plugin.dependencies.join(', '),
                           ),
                           _DetailRow(
-                            label: isZh ? '被依赖' : 'Required by',
+                            label: l10n.pluginServiceRequiredBy,
                             value: plugin.dependents.isEmpty
-                                ? (isZh ? '无' : 'None')
+                                ? l10n.pluginServiceNone
                                 : plugin.dependents.join(', '),
                           ),
                         ],
@@ -1356,18 +1466,21 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
                       ).isNotEmpty) ...[
                         const SizedBox(height: 16),
                         _DetailSection(
-                          title: isZh ? '线程模板关联' : 'Thread templates',
+                          title: l10n.pluginServiceThreadTemplates,
                           icon: Icons.dashboard_customize_rounded,
                           children: [
                             _DetailRow(
-                              label: isZh ? '关联模板' : 'Templates',
+                              label: l10n.pluginServiceTemplates,
                               value:
                                   TemplateRuntimeDependencyRegistry.specsForPlugin(
                                         plugin.id,
                                       )
                                       .map(
                                         (spec) =>
-                                            isZh ? spec.labelZh : spec.labelEn,
+                                            _localizedTemplateDependencyLabel(
+                                              l10n,
+                                              spec,
+                                            ),
                                       )
                                       .join(', '),
                             ),
@@ -1381,14 +1494,12 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
                           icon: Icons.hub_rounded,
                           children: [
                             _DetailRow(
-                              label: isZh ? 'MCP 包' : 'MCP Package',
+                              label: l10n.pluginServiceMcpPackage,
                               value: '@playwright/mcp',
                             ),
                             _DetailRow(
-                              label: isZh ? '说明' : 'Description',
-                              value: isZh
-                                  ? '提供浏览器自动化能力的 MCP 服务'
-                                  : 'MCP server for browser automation',
+                              label: l10n.pluginServiceDetailDescription,
+                              value: l10n.pluginServiceMcpBrowserDescription,
                             ),
                           ],
                         ),
@@ -1494,15 +1605,10 @@ class _DetailRow extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PluginMcpDialog extends StatefulWidget {
-  const _PluginMcpDialog({
-    required this.plugin,
-    required this.controller,
-    required this.isZh,
-  });
+  const _PluginMcpDialog({required this.plugin, required this.controller});
 
   final PluginInfo plugin;
   final PluginServiceController controller;
-  final bool isZh;
 
   @override
   State<_PluginMcpDialog> createState() => _PluginMcpDialogState();
@@ -1608,7 +1714,12 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     if (mounted) setState(() => _checking = false);
   }
 
-  Future<void> _runMcpOperation(String action, List<String> args) async {
+  Future<void> _runMcpOperation(
+    _PluginServiceAction action,
+    List<String> args,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final actionLabel = action.label(l10n);
     setState(() {
       _operating = true;
       _error = null;
@@ -1626,36 +1737,39 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
         tag: 'plugin_service_view',
         onStdoutLine: _addLog,
         onStderrLine: _addLog,
-        onTimeout: () => _addLog('[timeout] 操作超时，已终止进程'),
+        onTimeout: () => _addLog(l10n.pluginServiceMcpOperationTimeout),
       );
       final exitCode = result.exitCode;
       if (exitCode == 0) {
         _addLog('');
-        _addLog('✓ $action 完成 (exit code: 0)');
+        _addLog(l10n.pluginServiceMcpOperationCompleted(actionLabel, exitCode));
         await _checkMcpStatus();
         // 同步到 MCP 板块
         if (mounted) _syncMcpController(action);
       } else {
         _addLog('');
-        _addLog('✗ $action 失败 (exit code: $exitCode)');
-        _error = '$action 失败 (exit code: $exitCode)';
+        final message = l10n.pluginServiceMcpOperationFailed(
+          actionLabel,
+          exitCode,
+        );
+        _addLog(message);
+        _error = message;
       }
     } catch (e) {
       _addLog('');
-      _addLog('✗ 异常: $e');
-      _error = '$e';
+      final message = l10n.pluginServiceMcpOperationError('$e');
+      _addLog(message);
+      _error = message;
     }
     if (mounted) setState(() => _operating = false);
   }
 
-  void _syncMcpController(String action) {
+  void _syncMcpController(_PluginServiceAction action) {
     try {
       final mcpController = context.read<McpController>();
       const mcpName = 'Playwright MCP';
-      if (action == '安装' ||
-          action == 'Install' ||
-          action == '更新' ||
-          action == 'Update') {
+      if (action == _PluginServiceAction.install ||
+          action == _PluginServiceAction.update) {
         // 注册/更新 MCP 服务到 MCP 板块
         const server = McpServer(
           name: mcpName,
@@ -1665,7 +1779,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
           args: ['@playwright/mcp'],
         );
         mcpController.saveServer(server, previousName: mcpName);
-      } else if (action == '卸载' || action == 'Uninstall') {
+      } else if (action == _PluginServiceAction.uninstall) {
         // 从 MCP 板块移除
         final existing = mcpController.servers
             .where((s) => s.name == mcpName)
@@ -1679,26 +1793,27 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     }
   }
 
-  Future<void> _installMcp() => _runMcpOperation(
-    widget.isZh ? '安装' : 'Install',
-    ['install', '-g', '@playwright/mcp'],
-  );
+  Future<void> _installMcp() => _runMcpOperation(_PluginServiceAction.install, [
+    'install',
+    '-g',
+    '@playwright/mcp',
+  ]);
 
-  Future<void> _updateMcp() => _runMcpOperation(widget.isZh ? '更新' : 'Update', [
+  Future<void> _updateMcp() => _runMcpOperation(_PluginServiceAction.update, [
     'update',
     '-g',
     '@playwright/mcp',
   ]);
 
   Future<void> _uninstallMcp() => _runMcpOperation(
-    widget.isZh ? '卸载' : 'Uninstall',
+    _PluginServiceAction.uninstall,
     ['uninstall', '-g', '@playwright/mcp'],
   );
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isZh = widget.isZh;
+    final l10n = AppLocalizations.of(context)!;
 
     return buildOpenHandToolDialogShell(
       context: context,
@@ -1732,8 +1847,12 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                       const SizedBox(width: 8),
                       Text(
                         _mcpInstalled
-                            ? '${isZh ? "已安装" : "Installed"}${_mcpVersion != null ? " v$_mcpVersion" : ""}'
-                            : (isZh ? '未安装' : 'Not Installed'),
+                            ? _mcpVersion != null
+                                  ? l10n.pluginServiceMcpInstalledVersion(
+                                      _mcpVersion!,
+                                    )
+                                  : l10n.pluginServiceStatusInstalled
+                            : l10n.pluginServiceStatusNotInstalled,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -1741,13 +1860,13 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                       const Spacer(),
                       if (!_mcpInstalled)
                         IconButton.filled(
-                          tooltip: isZh ? '安装' : 'Install',
+                          tooltip: l10n.pluginServiceActionInstall,
                           onPressed: _operating ? null : _installMcp,
                           icon: const Icon(Icons.download_rounded, size: 18),
                         )
                       else ...[
                         IconButton.filledTonal(
-                          tooltip: isZh ? '更新' : 'Update',
+                          tooltip: l10n.pluginServiceActionUpdate,
                           onPressed: _operating ? null : _updateMcp,
                           icon: const Icon(
                             Icons.system_update_alt_rounded,
@@ -1756,7 +1875,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                         ),
                         const SizedBox(width: 6),
                         IconButton.filledTonal(
-                          tooltip: isZh ? '卸载' : 'Uninstall',
+                          tooltip: l10n.pluginServiceActionUninstall,
                           onPressed: _operating ? null : _uninstallMcp,
                           style: IconButton.styleFrom(
                             foregroundColor: theme.colorScheme.error,

@@ -120,6 +120,242 @@
   "mcpStdioCacheResetCancel": "取消",
   "mcpStdioCacheResetDone": "隔离缓存已重置。",
   "mcpStdioCacheResetFailed": "重置失败，请手动删除 ~/.openhand/mcp/package-cache。",
+  "pluginServiceTitle": "插件",
+  "pluginServiceSubtitle": "管理可选插件的安装、更新与卸载。插件为 OpenHand 提供额外的运行时能力。",
+  "pluginServiceRescan": "重新扫描",
+  "pluginServiceScanning": "正在扫描本机插件环境…",
+  "pluginServiceScanFailed": "插件扫描失败",
+  "pluginServiceActionInstall": "安装",
+  "pluginServiceActionUpdate": "更新",
+  "pluginServiceActionUninstall": "卸载",
+  "pluginServiceActionEnable": "启用",
+  "pluginServiceActionDisable": "禁用",
+  "pluginServiceStatusInstalled": "已安装",
+  "pluginServiceStatusNotInstalled": "未安装",
+  "pluginServiceStatusInstalling": "安装中…",
+  "pluginServiceStatusUpdating": "更新中…",
+  "pluginServiceStatusUninstalling": "卸载中…",
+  "pluginServiceStatusError": "错误",
+  "pluginServiceCheckUpdates": "检查更新",
+  "pluginServiceMcpService": "MCP 服务",
+  "pluginServiceInstallDependencyRequired": "需要先安装 {dependency}",
+  "@pluginServiceInstallDependencyRequired": {
+    "placeholders": {
+      "dependency": {}
+    }
+  },
+  "pluginServiceInstallConfirmTitle": "安装 {plugin}？",
+  "@pluginServiceInstallConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallConfirmMessage": "将在本机安装 {plugin}，可能需要下载依赖文件。",
+  "@pluginServiceInstallConfirmMessage": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallSuccess": "{plugin} 安装成功",
+  "@pluginServiceInstallSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceInstallFailure": "{plugin} 安装失败",
+  "@pluginServiceInstallFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateConfirmTitle": "更新 {plugin}？",
+  "@pluginServiceUpdateConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateConfirmMessage": "将 {plugin} 从 {currentVersion} 更新到 {latestVersion}。",
+  "@pluginServiceUpdateConfirmMessage": {
+    "placeholders": {
+      "plugin": {},
+      "currentVersion": {},
+      "latestVersion": {}
+    }
+  },
+  "pluginServiceUpdateSuccess": "{plugin} 更新成功",
+  "@pluginServiceUpdateSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUpdateFailure": "{plugin} 更新失败",
+  "@pluginServiceUpdateFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceCheckUpdateFailed": "检查更新失败",
+  "pluginServiceNewVersionAvailable": "发现新版本：{version}",
+  "@pluginServiceNewVersionAvailable": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginServiceNoUpdatesAvailable": "未发现新版本",
+  "pluginServiceUninstallBlocked": "{dependent} 依赖 {plugin}，请先卸载 {dependent}",
+  "@pluginServiceUninstallBlocked": {
+    "placeholders": {
+      "dependent": {},
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallConfirmTitle": "卸载 {plugin}？",
+  "@pluginServiceUninstallConfirmTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallConfirmMessage": "将从本机卸载 {plugin}，此操作不可撤销。",
+  "@pluginServiceUninstallConfirmMessage": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallSuccess": "{plugin} 已卸载",
+  "@pluginServiceUninstallSuccess": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceUninstallFailure": "{plugin} 卸载失败",
+  "@pluginServiceUninstallFailure": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceOperationTitle": "{action} {plugin}",
+  "@pluginServiceOperationTitle": {
+    "placeholders": {
+      "action": {},
+      "plugin": {}
+    }
+  },
+  "pluginServiceRuntimePid": "PID",
+  "pluginServiceRuntimeOs": "OS",
+  "pluginServiceRuntimeArch": "架构",
+  "pluginServiceLogLineCount": "日志：{count} 行",
+  "@pluginServiceLogLineCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "pluginServiceWaitingForOutput": "等待输出…",
+  "pluginServiceExecuting": "正在执行…",
+  "pluginServiceCompleted": "操作完成",
+  "pluginServiceForceClose": "强制关闭",
+  "pluginServiceVersion": "版本",
+  "pluginServiceUpdateAvailable": "可更新到",
+  "pluginServiceDependsOn": "依赖",
+  "pluginServiceRequiredBy": "被依赖",
+  "pluginServiceNone": "无",
+  "pluginServiceDetailTitle": "{plugin} 详情",
+  "@pluginServiceDetailTitle": {
+    "placeholders": {
+      "plugin": {}
+    }
+  },
+  "pluginServiceDetailBasicInfo": "基本信息",
+  "pluginServiceDetailName": "名称",
+  "pluginServiceDetailDescription": "描述",
+  "pluginServiceDetailStatus": "状态",
+  "pluginServiceDetailEnvironment": "环境信息",
+  "pluginServiceDetailDependencies": "依赖关系",
+  "pluginServiceThreadTemplates": "线程模板关联",
+  "pluginServiceTemplates": "关联模板",
+  "pluginServiceMcpPackage": "MCP 包",
+  "pluginServiceMcpBrowserDescription": "提供浏览器自动化能力的 MCP 服务",
+  "pluginServiceDetailProcessors": "处理器数",
+  "pluginServiceDetailInstallPath": "安装路径",
+  "pluginServiceDetailCurrentVersion": "当前版本",
+  "pluginServiceDetailLatestVersion": "最新版本",
+  "pluginServiceDetailBoundPython": "绑定解释器",
+  "pluginServiceDetailDesktopAppDetected": "检测到桌面应用",
+  "pluginServiceDetailDaemonRunning": "Daemon 运行中",
+  "pluginServiceDetailCliAvailable": "CLI 可用",
+  "pluginServiceDetailDockerContext": "Docker 上下文",
+  "pluginServiceDetailServerVersion": "服务端版本",
+  "pluginServiceDetailDockerOs": "Docker OS",
+  "pluginServiceDetailDockerRootDir": "Docker 根目录",
+  "pluginServiceDetailDaemonName": "Daemon 名称",
+  "pluginServiceDetailOsType": "OS 类型",
+  "pluginServiceDetailArchitecture": "架构",
+  "pluginServiceDetailComposeVersion": "Compose 版本",
+  "pluginServiceDetailDockerDaemonRunning": "Docker daemon 运行中",
+  "pluginServiceDetailOpenHandManaged": "OpenHand 管理",
+  "pluginServiceDetailContainerId": "容器 ID",
+  "pluginServiceDetailContainerName": "容器名称",
+  "pluginServiceDetailContainerStatus": "容器状态",
+  "pluginServiceDetailRunning": "运行中",
+  "pluginServiceDetailStartedAt": "启动时间",
+  "pluginServiceDetailFinishedAt": "结束时间",
+  "pluginServiceDetailRestartCount": "重启次数",
+  "pluginServiceDetailExitCode": "退出码",
+  "pluginServiceDetailImage": "镜像",
+  "pluginServiceDetailImageId": "镜像 ID",
+  "pluginServiceDetailPorts": "端口",
+  "pluginServiceDetailRestartPolicy": "重启策略",
+  "pluginServiceDetailRestEndpoint": "REST 端点",
+  "pluginServiceDetailGrpcEndpoint": "gRPC 端点",
+  "pluginServiceDetailDataDirectory": "数据目录",
+  "pluginServiceDetailHealthResponse": "健康响应",
+  "pluginServiceDetailHealthTitle": "健康标题",
+  "pluginServiceDetailCollectionCount": "集合数量",
+  "pluginServiceMcpInstalledVersion": "已安装 v{version}",
+  "@pluginServiceMcpInstalledVersion": {
+    "placeholders": {
+      "version": {}
+    }
+  },
+  "pluginServiceMcpOperationTimeout": "[timeout] 操作超时，已终止进程",
+  "pluginServiceMcpOperationCompleted": "✓ {action} 完成 (exit code: {exitCode})",
+  "@pluginServiceMcpOperationCompleted": {
+    "placeholders": {
+      "action": {},
+      "exitCode": {}
+    }
+  },
+  "pluginServiceMcpOperationFailed": "✗ {action} 失败 (exit code: {exitCode})",
+  "@pluginServiceMcpOperationFailed": {
+    "placeholders": {
+      "action": {},
+      "exitCode": {}
+    }
+  },
+  "pluginServiceMcpOperationError": "✗ 异常：{error}",
+  "@pluginServiceMcpOperationError": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "pluginServiceDescriptionNodejs": "JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链",
+  "pluginServiceDescriptionPlaywright": "浏览器自动化测试框架，支持 Chromium / Firefox / WebKit",
+  "pluginServiceDescriptionHermesAgent": "Hermes Agent 运行时，用于智能体编排、自我学习与技能沉淀",
+  "pluginServiceDescriptionPython": "Python 运行时环境，用于执行 Python 脚本、库与扩展能力",
+  "pluginServiceDescriptionPip": "Python 包管理工具，用于安装、升级与管理 Python 库",
+  "pluginServiceDescriptionJava": "JDK 运行时，用于 apktool / jadx 等 Android 静态分析工具",
+  "pluginServiceDescriptionFrida": "动态插桩与 Hook 工具链，用于 Android 运行时验证",
+  "pluginServiceDescriptionMitmproxy": "HTTP(S) 代理抓包工具，用于 Web / Android 流量取证",
+  "pluginServiceDescriptionApktool": "APK 解包与 smali 分析工具",
+  "pluginServiceDescriptionJadx": "DEX / APK Java 反编译工具",
+  "pluginServiceDescriptionRadare2": "二进制静态分析与 ELF / native so 逆向工具",
+  "pluginServiceDescriptionBlutter": "Flutter Dart AOT 快速还原工具，用于 libapp.so 分析",
+  "pluginServiceDescriptionDoldrums": "Flutter snapshot / ELF 辅助分析工具",
+  "pluginServiceDescriptionAnythingAnalyzer": "协议分析与 MCP Server 工具，用于抓包、分析和 Agent 联动",
+  "pluginServiceDescriptionDocker": "容器运行环境，用于运行 Qdrant 本地向量数据库服务",
+  "pluginServiceDescriptionQdrant": "本地向量数据库，用于知识库 embedding 向量索引与检索",
+  "pluginServiceTemplateWebReverseExpert": "Web 逆向专家",
+  "pluginServiceTemplateAndroidReverseExpert": "Android 逆向专家",
+  "pluginServiceTemplateHermesTalker": "Hermes Talker",
   "mcpStdioMirrorModeLabel": "镜像源模式",
   "mcpStdioMirrorModeBody": "stdio MCP 服务首启时，是否注入国内镜像源（npmmirror / 清华 PyPI）。auto = 按系统语言自判；强制开启 / 关闭 = 无视 locale。环变 OPENHAND_MCP_MIRROR=on/off 能运行时再覆盖一次。",
   "mcpStdioMirrorModeAuto": "跟随语言",
