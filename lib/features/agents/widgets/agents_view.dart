@@ -870,9 +870,26 @@ Future<void> _showAgentClusterDialog(BuildContext context, AgentProfile agent) {
   return showAnimatedDialog<void>(
     context: context,
     builder: (_) => Consumer<AgentsController>(
-      builder: (context, controller, _) {
+      builder: (dialogContext, controller, _) {
         final currentAgent = controller.agentById(agent.id) ?? agent;
         final settings = currentAgent.scaleSettings;
+        final idleWorkers = _agentWorkerStatusCount(
+          currentAgent,
+          AgentWorkerStatus.idle,
+        );
+        final busyWorkers = _agentWorkerStatusCount(
+          currentAgent,
+          AgentWorkerStatus.busy,
+        );
+        final queuedTasks =
+            _agentTasksByStatusCount(currentAgent, AgentTaskStatus.backlog) +
+            _agentTasksByStatusCount(currentAgent, AgentTaskStatus.ready);
+        final blockedTasks =
+            _agentTasksByStatusCount(
+              currentAgent,
+              AgentTaskStatus.waitingApproval,
+            ) +
+            _agentTasksByStatusCount(currentAgent, AgentTaskStatus.paused);
         return buildOpenHandDialog(
           maxWidth: 880,
           maxHeight: 700,
@@ -912,6 +929,63 @@ Future<void> _showAgentClusterDialog(BuildContext context, AgentProfile agent) {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
+                    _MetricTile(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: 'Worker',
+                        en: 'Workers',
+                      ),
+                      value:
+                          '${currentAgent.workers.length}/${settings.maxWorkers}',
+                    ),
+                    _MetricTile(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '空闲 / 忙碌',
+                        en: 'Idle / busy',
+                      ),
+                      value: '$idleWorkers / $busyWorkers',
+                    ),
+                    _MetricTile(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '待执行',
+                        en: 'Queued',
+                      ),
+                      value: '$queuedTasks',
+                    ),
+                    _MetricTile(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '执行中',
+                        en: 'Running',
+                      ),
+                      value: '${currentAgent.runningTaskCount}',
+                    ),
+                    _MetricTile(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '待处理',
+                        en: 'Blocked',
+                      ),
+                      value: '$blockedTasks',
+                    ),
+                    _MetricTile(
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '利用率',
+                        en: 'Utilization',
+                      ),
+                      value:
+                          '${(currentAgent.workerUtilization * 100).round()}%',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
                     _AgentPill(
                       icon: Icons.compress_rounded,
                       label: l10n.agentsMinWorkersCount(settings.minWorkers),
@@ -925,33 +999,33 @@ Future<void> _showAgentClusterDialog(BuildContext context, AgentProfile agent) {
                     _AgentPill(
                       icon: Icons.route_rounded,
                       label: _agentPolicyOptionLabel(
-                        context,
+                        dialogContext,
                         settings.schedulerPolicy,
                       ),
-                      color: Theme.of(context).colorScheme.tertiary,
+                      color: Theme.of(dialogContext).colorScheme.tertiary,
                     ),
                     _AgentPill(
                       icon: Icons.repeat_rounded,
                       label:
-                          '${_agentPolicyOptionLabel(context, settings.retryPolicy)} · ${settings.maxRetries}',
-                      color: Theme.of(context).colorScheme.primary,
+                          '${_agentPolicyOptionLabel(dialogContext, settings.retryPolicy)} · ${settings.maxRetries}',
+                      color: Theme.of(dialogContext).colorScheme.primary,
                     ),
                     _AgentPill(
                       icon: Icons.compare_arrows_rounded,
                       label:
                           '${(settings.scaleOutThreshold * 100).round()}% / ${(settings.scaleInThreshold * 100).round()}%',
-                      color: Theme.of(context).colorScheme.secondary,
+                      color: Theme.of(dialogContext).colorScheme.secondary,
                     ),
                     _AgentPill(
                       icon: Icons.low_priority_rounded,
                       label: settings.workerRemovalPolicy,
-                      color: Theme.of(context).colorScheme.tertiary,
+                      color: Theme.of(dialogContext).colorScheme.tertiary,
                     ),
                     if (settings.tags.isNotEmpty)
                       _AgentPill(
                         icon: Icons.label_outline_rounded,
                         label: settings.tags.join(', '),
-                        color: Theme.of(context).colorScheme.primary,
+                        color: Theme.of(dialogContext).colorScheme.primary,
                       ),
                   ],
                 ),
@@ -964,33 +1038,9 @@ Future<void> _showAgentClusterDialog(BuildContext context, AgentProfile agent) {
                   )
                 else
                   ...currentAgent.workers.map(
-                    (worker) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        worker.status == AgentWorkerStatus.busy
-                            ? Icons.sync_rounded
-                            : Icons.check_circle_outline_rounded,
-                      ),
-                      title: Text(
-                        worker.name.isEmpty ? worker.id : worker.name,
-                      ),
-                      subtitle: Text(
-                        [
-                          l10n.agentsWorkerSubtitle(
-                            _agentWorkerStatusLabel(l10n, worker.status),
-                            worker.executedTaskCount,
-                            worker.priority,
-                          ),
-                          _agentWorkerCurrentTaskLabel(
-                            l10n,
-                            currentAgent,
-                            worker,
-                          ),
-                          if (worker.labels.isNotEmpty)
-                            worker.labels.join(', '),
-                        ].where((item) => item.trim().isNotEmpty).join(' · '),
-                      ),
-                      trailing: Text('${(worker.busyScore * 100).round()}%'),
+                    (worker) => _AgentWorkerStatusTile(
+                      agent: currentAgent,
+                      worker: worker,
                     ),
                   ),
               ],
@@ -1000,6 +1050,106 @@ Future<void> _showAgentClusterDialog(BuildContext context, AgentProfile agent) {
       },
     ),
   );
+}
+
+class _AgentWorkerStatusTile extends StatelessWidget {
+  const _AgentWorkerStatusTile({required this.agent, required this.worker});
+
+  final AgentProfile agent;
+  final AgentWorker worker;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final statusColor = switch (worker.status) {
+      AgentWorkerStatus.idle => colors.primary,
+      AgentWorkerStatus.busy => colors.tertiary,
+      AgentWorkerStatus.draining => colors.secondary,
+      AgentWorkerStatus.offline => colors.outline,
+    };
+    final currentTask = _agentWorkerCurrentTaskLabel(l10n, agent, worker);
+    final labelLine = [
+      l10n.agentsWorkerSubtitle(
+        _agentWorkerStatusLabel(l10n, worker.status),
+        worker.executedTaskCount,
+        worker.priority,
+      ),
+      if (currentTask.isNotEmpty) currentTask,
+      if (worker.labels.isNotEmpty) worker.labels.join(', '),
+    ].where((item) => item.trim().isNotEmpty).join(' · ');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest.withValues(alpha: 0.42),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colors.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(
+                worker.status == AgentWorkerStatus.busy
+                    ? Icons.sync_rounded
+                    : Icons.check_circle_outline_rounded,
+                color: statusColor,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            worker.name.isEmpty ? worker.id : worker.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${(worker.busyScore * 100).round()}%',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: statusColor,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      labelLine,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(
+                      value: worker.busyScore.clamp(0, 1).toDouble(),
+                      minHeight: 5,
+                      borderRadius: BorderRadius.circular(999),
+                      color: statusColor,
+                      backgroundColor: colors.surfaceContainerHighest,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 Future<AgentScaleSettings?> _showAgentClusterSettingsDialog(
@@ -1070,6 +1220,7 @@ class _AgentClusterSettingsDialogState
     final l10n = AppLocalizations.of(context)!;
     return buildOpenHandDialog(
       maxWidth: 820,
+      maxHeight: 680,
       child: _AgentDialogScaffold(
         icon: Icons.account_tree_rounded,
         title: openHandLocalizedText(context, zh: '调整集群', en: 'Tune cluster'),
@@ -1105,6 +1256,16 @@ class _AgentClusterSettingsDialogState
               l10n.agentsMaxRetriesLabel,
               _maxRetries,
               (value) => setState(() => _maxRetries = value.clamp(0, 20)),
+            ),
+            _FormGridItem(
+              fullWidth: true,
+              child: _clusterTagEditor(
+                label: openHandLocalizedText(
+                  context,
+                  zh: 'Worker 标签',
+                  en: 'Worker tags',
+                ),
+              ),
             ),
             _clusterRatioSlider(
               openHandLocalizedText(
@@ -1150,16 +1311,6 @@ class _AgentClusterSettingsDialogState
               value: _retryPolicy,
               values: _agentRetryPolicyOptions,
               onChanged: (value) => setState(() => _retryPolicy = value),
-            ),
-            _FormGridItem(
-              fullWidth: true,
-              child: _clusterTagEditor(
-                label: openHandLocalizedText(
-                  context,
-                  zh: 'Worker 标签',
-                  en: 'Worker tags',
-                ),
-              ),
             ),
           ],
         ),
@@ -1289,6 +1440,7 @@ class _AgentClusterSettingsDialogState
               ),
               const SizedBox(width: 10),
               IconButton.filledTonal(
+                key: const ValueKey<String>('agent-cluster-tag-add'),
                 tooltip: openHandLocalizedText(context, zh: '添加', en: 'Add'),
                 onPressed: _addClusterTag,
                 icon: const Icon(Icons.add_rounded),
@@ -5370,6 +5522,14 @@ String _agentWorkerCurrentTaskLabel(
   final task = _agentTaskById(agent, taskId);
   final title = task?.title.trim().isNotEmpty == true ? task!.title : taskId;
   return _agentInlineText(l10n, zh: '当前任务 $title', en: 'Current task $title');
+}
+
+int _agentWorkerStatusCount(AgentProfile agent, AgentWorkerStatus status) {
+  return agent.workers.where((worker) => worker.status == status).length;
+}
+
+int _agentTasksByStatusCount(AgentProfile agent, AgentTaskStatus status) {
+  return agent.tasks.where((task) => task.status == status).length;
 }
 
 String _agentTaskAssignedWorkerLabel(AppLocalizations l10n, AgentTask task) {
