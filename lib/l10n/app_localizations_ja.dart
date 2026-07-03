@@ -5347,16 +5347,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commonCopiedToClipboard => 'クリップボードにコピーしました';
 
   @override
-  String get structuredErrorWhy => 'Why:';
+  String get structuredErrorWhy => '理由:';
 
   @override
-  String get structuredErrorTry => 'Try:';
+  String get structuredErrorTry => '試すこと:';
 
   @override
-  String get structuredErrorServerSays => 'Server says:';
+  String get structuredErrorServerSays => 'サーバー応答:';
 
   @override
-  String get structuredErrorRaw => 'Raw:';
+  String get structuredErrorRaw => '元のエラー:';
 
   @override
   String get sessMetaPresented => '表示';

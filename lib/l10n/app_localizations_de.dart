@@ -5561,16 +5561,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get commonCopiedToClipboard => 'In die Zwischenablage kopiert';
 
   @override
-  String get structuredErrorWhy => 'Why:';
+  String get structuredErrorWhy => 'Warum:';
 
   @override
-  String get structuredErrorTry => 'Try:';
+  String get structuredErrorTry => 'Vorschlag:';
 
   @override
-  String get structuredErrorServerSays => 'Server says:';
+  String get structuredErrorServerSays => 'Serverantwort:';
 
   @override
-  String get structuredErrorRaw => 'Raw:';
+  String get structuredErrorRaw => 'Rohfehler:';
 
   @override
   String get sessMetaPresented => 'Angezeigt';

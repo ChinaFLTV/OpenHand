@@ -12,8 +12,24 @@ abstract final class StructuredErrorText {
   static AppLocalizations get _l10n =>
       lookupAppLocalizations(AppRuntimeContext.appLocale);
 
-  static String pick({required String zh, required String en}) {
-    return AppRuntimeContext.pickText(zh: zh, en: en);
+  static String pick({
+    required String zh,
+    required String en,
+    String? zhHans,
+    String? zhHant,
+    String? fr,
+    String? de,
+    String? ja,
+  }) {
+    return AppRuntimeContext.pickText(
+      zh: zh,
+      en: en,
+      zhHans: zhHans,
+      zhHant: zhHant,
+      fr: fr,
+      de: de,
+      ja: ja,
+    );
   }
 
   static String whyLabel() => _l10n.structuredErrorWhy;

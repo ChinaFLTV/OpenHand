@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' show Locale, PlatformDispatcher;
 
+import '../../shared/util/localized_text.dart';
 import '../model/app_info.dart';
 import 'openhand_paths.dart';
 
@@ -44,8 +45,25 @@ abstract final class AppRuntimeContext {
 
   static bool get isChineseLocale => _appLocale.languageCode == 'zh';
 
-  static String pickText({required String zh, required String en}) {
-    return isChineseLocale ? zh : en;
+  static String pickText({
+    required String zh,
+    required String en,
+    String? zhHans,
+    String? zhHant,
+    String? fr,
+    String? de,
+    String? ja,
+  }) {
+    return openHandLocalizedTextForLocale(
+      _appLocale,
+      zh: zh,
+      en: en,
+      zhHans: zhHans,
+      zhHant: zhHant,
+      fr: fr,
+      de: de,
+      ja: ja,
+    );
   }
 
   static void updateAppLocale(Locale locale) {

@@ -5580,16 +5580,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get commonCopiedToClipboard => 'Copié dans le presse-papiers';
 
   @override
-  String get structuredErrorWhy => 'Why:';
+  String get structuredErrorWhy => 'Pourquoi :';
 
   @override
-  String get structuredErrorTry => 'Try:';
+  String get structuredErrorTry => 'À essayer :';
 
   @override
-  String get structuredErrorServerSays => 'Server says:';
+  String get structuredErrorServerSays => 'Réponse du serveur :';
 
   @override
-  String get structuredErrorRaw => 'Raw:';
+  String get structuredErrorRaw => 'Erreur brute :';
 
   @override
   String get sessMetaPresented => 'Affiché';
