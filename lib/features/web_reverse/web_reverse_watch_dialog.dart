@@ -254,7 +254,7 @@ class _WatchDialogState extends State<_WatchDialog> {
         context,
         m,
         webReverseClipboardSnackMessage(
-          isZh: loc?.localeName.startsWith('zh') ?? false,
+          context: context,
           base: loc?.webReverseWatchCopiedJson ?? 'JSON copied',
           result: copied,
         ),

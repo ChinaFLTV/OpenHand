@@ -196,7 +196,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
         context,
         m,
         webReverseClipboardSnackMessage(
-          isZh: loc?.localeName.startsWith('zh') ?? false,
+          context: context,
           base: loc?.webReverseCssCovJsonCopied ?? 'JSON copied',
           result: copied,
         ),

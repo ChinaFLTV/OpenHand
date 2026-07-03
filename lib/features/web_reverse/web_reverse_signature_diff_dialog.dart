@@ -570,7 +570,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
       context,
       messenger,
       webReverseClipboardSnackMessage(
-        isZh: loc?.localeName.startsWith('zh') ?? false,
+        context: context,
         base:
             loc?.webReverseSignatureDiffReportCopied ??
             'Report copied to clipboard',

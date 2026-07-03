@@ -183,7 +183,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
     _toast(
       true,
       webReverseClipboardSnackMessage(
-        isZh: loc?.localeName.startsWith('zh') ?? false,
+        context: context,
         base: loc?.webReverseCoverageReportCopied ?? 'Report copied',
         result: copied,
       ),
@@ -476,7 +476,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
               _toast(
                 true,
                 webReverseClipboardSnackMessage(
-                  isZh: loc?.localeName.startsWith('zh') ?? false,
+                  context: context,
                   base: loc?.webReverseCoverageCopied ?? 'Copied',
                   result: copied,
                 ),

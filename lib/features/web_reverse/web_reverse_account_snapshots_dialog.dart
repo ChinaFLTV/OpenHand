@@ -131,7 +131,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
         context,
         messenger,
         webReverseClipboardSnackMessage(
-          isZh: loc?.localeName.startsWith('zh') ?? false,
+          context: context,
           base:
               loc?.webReverseAccountSnapCopiedCount(list.length) ??
               'Copied ${list.length} snapshots JSON to clipboard',

@@ -295,7 +295,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         context,
         m,
         webReverseClipboardSnackMessage(
-          isZh: Localizations.localeOf(context).languageCode.startsWith('zh'),
+          context: context,
           base:
               loc?.webReverseDomMutCopiedRecords(_records.length) ??
               'Copied ${_records.length} records',

@@ -155,7 +155,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
           context,
           m,
           webReverseClipboardSnackMessage(
-            isZh: loc?.localeName.startsWith('zh') ?? false,
+            context: context,
             base: loc?.webReverseReplayJsonCopied ?? 'JSON copied',
             result: copied,
           ),

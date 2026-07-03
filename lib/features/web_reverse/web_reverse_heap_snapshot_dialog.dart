@@ -108,7 +108,7 @@ class _HeapDialogState extends State<_HeapDialog> {
         context,
         m,
         webReverseClipboardSnackMessage(
-          isZh: loc?.localeName.startsWith('zh') ?? false,
+          context: context,
           base: loc?.webReverseHeapPathCopied ?? 'Path copied',
           result: copied,
         ),

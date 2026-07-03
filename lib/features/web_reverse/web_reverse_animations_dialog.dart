@@ -341,7 +341,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
         context,
         m,
         webReverseClipboardSnackMessage(
-          isZh: loc?.localeName.startsWith('zh') ?? false,
+          context: context,
           base: loc?.webReverseAnimationsJsonCopied ?? 'JSON copied',
           result: copied,
         ),

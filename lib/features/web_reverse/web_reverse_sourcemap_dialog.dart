@@ -311,7 +311,7 @@ class _SmDialogState extends State<_SmDialog> {
         context,
         m,
         webReverseClipboardSnackMessage(
-          isZh: loc?.localeName.startsWith('zh') ?? false,
+          context: context,
           base: loc?.webReverseSmCopied ?? 'Copied',
           result: copied,
         ),

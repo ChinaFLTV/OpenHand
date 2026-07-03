@@ -175,7 +175,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
         context,
         m,
         webReverseClipboardSnackMessage(
-          isZh: loc?.localeName.startsWith('zh') ?? false,
+          context: context,
           base: loc?.webReversePerfPathCopied ?? 'Path copied',
           result: copied,
         ),

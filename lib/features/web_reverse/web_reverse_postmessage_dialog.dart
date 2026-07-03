@@ -299,7 +299,7 @@ class _PmDialogState extends State<_PmDialog> {
         context,
         messenger,
         webReverseClipboardSnackMessage(
-          isZh: loc?.localeName.startsWith('zh') ?? false,
+          context: context,
           base:
               loc?.webReversePmCopiedCount(filtered.length) ??
               'Copied ${filtered.length} records',
