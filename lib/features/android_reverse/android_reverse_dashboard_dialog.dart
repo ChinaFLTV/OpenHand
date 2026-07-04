@@ -808,30 +808,67 @@ class _AndroidReverseDashboardDialogState
       final launcher = await launcherFuture;
       final dumpsys = await dumpsysFuture;
       if (!mounted) return;
-      final isZh = openHandIsChineseLocale(context);
       final summary = _summarizePackageDumpsys(dumpsys.stdout);
       final buf = StringBuffer()
-        ..writeln('${isZh ? "包名" : "Package"}: $packageName')
-        ..writeln('${isZh ? "安装路径" : "APK path"}: ${path ?? "-"}')
-        ..writeln('${isZh ? "版本" : "Version"}: ${version ?? "-"}')
-        ..writeln('${isZh ? "启动入口" : "Launcher"}: ${launcher ?? "-"}')
+        ..writeln(
+          '${_arText(context, zh: "包名", zhHant: "套件名稱", en: "Package", fr: "Package", de: "Paket", ja: "パッケージ")}: $packageName',
+        )
+        ..writeln(
+          '${_arText(context, zh: "安装路径", zhHant: "安裝路徑", en: "APK path", fr: "Chemin APK", de: "APK-Pfad", ja: "APK パス")}: ${path ?? "-"}',
+        )
+        ..writeln(
+          '${_arText(context, zh: "版本", zhHant: "版本", en: "Version", fr: "Version", de: "Version", ja: "バージョン")}: ${version ?? "-"}',
+        )
+        ..writeln(
+          '${_arText(context, zh: "启动入口", zhHant: "啟動入口", en: "Launcher", fr: "Lanceur", de: "Launcher", ja: "ランチャー")}: ${launcher ?? "-"}',
+        )
         ..writeln()
-        ..writeln(isZh ? 'dumpsys 摘要:' : 'dumpsys summary:')
-        ..write(summary.isEmpty ? (isZh ? '(无输出)' : '(no output)') : summary);
+        ..writeln(
+          _arText(
+            context,
+            zh: 'dumpsys 摘要:',
+            zhHant: 'dumpsys 摘要:',
+            en: 'dumpsys summary:',
+            fr: 'Résumé dumpsys :',
+            de: 'dumpsys-Zusammenfassung:',
+            ja: 'dumpsys 要約:',
+          ),
+        )
+        ..write(
+          summary.isEmpty
+              ? _arText(
+                  context,
+                  zh: '(无输出)',
+                  zhHant: '（無輸出）',
+                  en: '(no output)',
+                  fr: '(aucune sortie)',
+                  de: '(keine Ausgabe)',
+                  ja: '（出力なし）',
+                )
+              : summary,
+        );
       if (dumpsys.timedOut) {
         buf
           ..writeln()
           ..writeln(
-            isZh
-                ? '(dumpsys 已超时，已展示可用输出)'
-                : '(dumpsys timed out; usable output shown)',
+            _arText(
+              context,
+              zh: '(dumpsys 已超时，已展示可用输出)',
+              zhHant: '（dumpsys 已逾時，已顯示可用輸出）',
+              en: '(dumpsys timed out; usable output shown)',
+              fr: '(dumpsys a expiré ; sortie disponible affichée)',
+              de: '(dumpsys-Timeout; verfügbare Ausgabe wird angezeigt)',
+              ja: '（dumpsys がタイムアウトしました。利用可能な出力を表示しています）',
+            ),
           );
       }
       final err = dumpsys.stderr.trim();
       if (!dumpsys.ok && err.isNotEmpty) {
         buf
           ..writeln()
-          ..writeln('${isZh ? "错误" : "Error"}: $err');
+          ..writeln(
+            '${_arText(context, zh: "错误", zhHant: "錯誤", en: "Error", fr: "Erreur", de: "Fehler", ja: "エラー")}: $err',
+          );
       }
       setState(() => _packageAnalysisOutput = buf.toString());
     } finally {
@@ -841,7 +878,6 @@ class _AndroidReverseDashboardDialogState
 
   Future<void> _capturePackageReport(String packageName) async {
     if (_capturingPackageReport) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _selectedPackageName = packageName;
       _capturingPackageReport = true;
@@ -855,7 +891,15 @@ class _AndroidReverseDashboardDialogState
       setState(() => _packageAnalysisOutput = _formatAdbResult(result));
       if (result.ok || result.partialOk) {
         _showSnack(
-          isZh ? '已生成 APP 信息报告工件。' : 'APP report artifacts saved.',
+          _arText(
+            context,
+            zh: '已生成 APP 信息报告工件。',
+            zhHant: '已產生 APP 資訊報告工件。',
+            en: 'APP report artifacts saved.',
+            fr: 'Artefacts du rapport APP enregistrés.',
+            de: 'APP-Berichtsartefakte gespeichert.',
+            ja: 'APP レポート成果物を保存しました。',
+          ),
           kind: OpenHandSnackKind.success,
           duration: const Duration(seconds: 3),
         );
@@ -864,7 +908,7 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _packageAnalysisOutput =
-            '${isZh ? "生成 APP 信息报告失败" : "Failed to generate APP report"}: $error';
+            '${_arText(context, zh: "生成 APP 信息报告失败", zhHant: "產生 APP 資訊報告失敗", en: "Failed to generate APP report", fr: "Échec de génération du rapport APP", de: "APP-Bericht konnte nicht erstellt werden", ja: "APP レポートの生成に失敗しました")}: $error';
       });
     } finally {
       if (mounted) setState(() => _capturingPackageReport = false);
@@ -1009,9 +1053,8 @@ class _AndroidReverseDashboardDialogState
       if (!silent) _logcatError = null;
     });
     try {
-      final isZh = openHandIsChineseLocale(context);
       final tag = _logcatFilterCtrl.text.trim();
-      final pidFilter = await _resolveLogcatPidFilter(isZh: isZh);
+      final pidFilter = await _resolveLogcatPidFilter();
       final result = await _ctrl.logcatDetailed(
         lines: append ? _kAutoLogcatLines : _kDefaultLogcatLines,
         tag: tag.isEmpty ? null : tag,
@@ -1031,9 +1074,15 @@ class _AndroidReverseDashboardDialogState
             : _replaceLogcatLines(incoming);
         setState(() {
           if (incoming.isNotEmpty && result.timedOut) {
-            _logcatError = isZh
-                ? 'Logcat 读取超时，已展示可用输出。'
-                : 'Logcat timed out; usable output is shown.';
+            _logcatError = _arText(
+              context,
+              zh: 'Logcat 读取超时，已展示可用输出。',
+              zhHant: 'Logcat 讀取逾時，已顯示可用輸出。',
+              en: 'Logcat timed out; usable output is shown.',
+              fr: 'Logcat a expiré ; la sortie disponible est affichée.',
+              de: 'Logcat-Timeout; verfügbare Ausgabe wird angezeigt.',
+              ja: 'Logcat の読み取りがタイムアウトしました。利用可能な出力を表示しています。',
+            );
           } else if (incoming.isNotEmpty && pidFilter.notice != null) {
             _logcatError = pidFilter.notice;
           } else if (incoming.isNotEmpty) {
@@ -1041,9 +1090,15 @@ class _AndroidReverseDashboardDialogState
           } else if (err.isNotEmpty) {
             _logcatError = err;
           } else if (!silent && !append) {
-            _logcatError = isZh
-                ? '没有读取到 Logcat 输出。请确认设备在线，或清空 Tag 过滤后重试。'
-                : 'No Logcat output was read. Check the device or clear the tag filter and retry.';
+            _logcatError = _arText(
+              context,
+              zh: '没有读取到 Logcat 输出。请确认设备在线，或清空 Tag 过滤后重试。',
+              zhHant: '沒有讀取到 Logcat 輸出。請確認裝置在線，或清空 Tag 篩選後重試。',
+              en: 'No Logcat output was read. Check the device or clear the tag filter and retry.',
+              fr: 'Aucune sortie Logcat lue. Vérifiez l’appareil ou effacez le filtre Tag puis réessayez.',
+              de: 'Keine Logcat-Ausgabe gelesen. Prüfen Sie das Gerät oder leeren Sie den Tag-Filter und versuchen Sie es erneut.',
+              ja: 'Logcat 出力を読み取れませんでした。デバイスを確認するか Tag フィルターをクリアして再試行してください。',
+            );
           }
         });
         if (added > 0 || !append) {
@@ -1118,15 +1173,44 @@ class _AndroidReverseDashboardDialogState
 
   Future<void> _clearLogcat() async {
     if (_clearingLogcat) return;
-    final isZh = openHandIsChineseLocale(context);
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '清空 Logcat？' : 'Clear Logcat?',
-      message: isZh
-          ? '将清空当前面板日志，并尝试清空设备 Logcat 缓冲区。自动刷新开启时会继续读取清空后的新日志。'
-          : 'This clears the panel logs and tries to clear the device logcat buffer. Auto refresh will continue reading new logs afterwards.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '清空' : 'Clear',
+      title: _arText(
+        context,
+        zh: '清空 Logcat？',
+        zhHant: '清空 Logcat？',
+        en: 'Clear Logcat?',
+        fr: 'Effacer Logcat ?',
+        de: 'Logcat leeren?',
+        ja: 'Logcat をクリアしますか？',
+      ),
+      message: _arText(
+        context,
+        zh: '将清空当前面板日志，并尝试清空设备 Logcat 缓冲区。自动刷新开启时会继续读取清空后的新日志。',
+        zhHant: '將清空目前面板日誌，並嘗試清空裝置 Logcat 緩衝區。自動重新整理開啟時會繼續讀取清空後的新日誌。',
+        en: 'This clears the panel logs and tries to clear the device logcat buffer. Auto refresh will continue reading new logs afterwards.',
+        fr: 'Efface les journaux du panneau et tente de vider le tampon Logcat de l’appareil. L’actualisation automatique continuera à lire les nouveaux journaux.',
+        de: 'Leert die Panel-Logs und versucht, den Logcat-Puffer des Geräts zu leeren. Auto-Aktualisierung liest danach weiter neue Logs.',
+        ja: '現在のパネルログを消去し、デバイスの Logcat バッファーもクリアします。自動更新が有効な場合は新しいログを読み続けます。',
+      ),
+      cancelLabel: _arText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _arText(
+        context,
+        zh: '清空',
+        zhHant: '清空',
+        en: 'Clear',
+        fr: 'Effacer',
+        de: 'Leeren',
+        ja: 'クリア',
+      ),
       destructive: true,
     );
     if (!confirmed || !mounted) return;
@@ -1135,22 +1219,37 @@ class _AndroidReverseDashboardDialogState
       _logcatLines.clear();
       _logcatParseCache.clear();
       _logcatMutationGeneration++;
-      _logcatError = isZh ? '正在清空设备 Logcat...' : 'Clearing device logcat...';
+      _logcatError = _arText(
+        context,
+        zh: '正在清空设备 Logcat...',
+        zhHant: '正在清空裝置 Logcat...',
+        en: 'Clearing device logcat...',
+        fr: 'Effacement du Logcat de l’appareil...',
+        de: 'Geräte-Logcat wird geleert...',
+        ja: 'デバイス Logcat をクリアしています...',
+      );
     });
     try {
       final result = await _ctrl.clearLogcatDetailed(serial: _targetSerial);
       if (!mounted) return;
       setState(() {
         _logcatError = result.ok
-            ? (isZh ? '已清空设备 Logcat。' : 'Device logcat was cleared.')
+            ? _arText(
+                context,
+                zh: '已清空设备 Logcat。',
+                zhHant: '已清空裝置 Logcat。',
+                en: 'Device logcat was cleared.',
+                fr: 'Logcat de l’appareil effacé.',
+                de: 'Geräte-Logcat wurde geleert.',
+                ja: 'デバイス Logcat をクリアしました。',
+              )
             : _formatAdbResult(result);
       });
     } catch (error) {
       if (!mounted) return;
-      final isZh = openHandIsChineseLocale(context);
       setState(() {
         _logcatError =
-            '${isZh ? "清空 Logcat 失败" : "Failed to clear logcat"}: $error';
+            '${_arText(context, zh: "清空 Logcat 失败", zhHant: "清空 Logcat 失敗", en: "Failed to clear logcat", fr: "Échec de l’effacement de Logcat", de: "Logcat konnte nicht geleert werden", ja: "Logcat のクリアに失敗しました")}: $error';
       });
     } finally {
       if (mounted) setState(() => _clearingLogcat = false);
@@ -1216,14 +1315,62 @@ class _AndroidReverseDashboardDialogState
     return _logcatParseCache.putIfAbsent(raw, () => _parseLogcatLine(raw));
   }
 
-  String _logcatLevelOptionLabel(String level, bool isZh) {
+  String _logcatLevelOptionLabel(String level, BuildContext context) {
     return switch (level) {
-      'V' => isZh ? '详细' : 'Verbose',
-      'D' => isZh ? '调试' : 'Debug',
-      'I' => isZh ? '信息' : 'Info',
-      'W' => isZh ? '警告' : 'Warning',
-      'E' => isZh ? '错误' : 'Error',
-      'F' => isZh ? '致命' : 'Fatal',
+      'V' => _arText(
+        context,
+        zh: '详细',
+        zhHant: '詳細',
+        en: 'Verbose',
+        fr: 'Verbeux',
+        de: 'Ausführlich',
+        ja: '詳細',
+      ),
+      'D' => _arText(
+        context,
+        zh: '调试',
+        zhHant: '除錯',
+        en: 'Debug',
+        fr: 'Débogage',
+        de: 'Debug',
+        ja: 'デバッグ',
+      ),
+      'I' => _arText(
+        context,
+        zh: '信息',
+        zhHant: '資訊',
+        en: 'Info',
+        fr: 'Info',
+        de: 'Info',
+        ja: '情報',
+      ),
+      'W' => _arText(
+        context,
+        zh: '警告',
+        zhHant: '警告',
+        en: 'Warning',
+        fr: 'Avertissement',
+        de: 'Warnung',
+        ja: '警告',
+      ),
+      'E' => _arText(
+        context,
+        zh: '错误',
+        zhHant: '錯誤',
+        en: 'Error',
+        fr: 'Erreur',
+        de: 'Fehler',
+        ja: 'エラー',
+      ),
+      'F' => _arText(
+        context,
+        zh: '致命',
+        zhHant: '致命',
+        en: 'Fatal',
+        fr: 'Fatal',
+        de: 'Fatal',
+        ja: '致命的',
+      ),
       _ => level,
     };
   }
@@ -1232,7 +1379,6 @@ class _AndroidReverseDashboardDialogState
     int index,
     String line,
     Offset position,
-    bool isZh,
   ) async {
     if (!mounted) return;
     final overlay =
@@ -1251,7 +1397,17 @@ class _AndroidReverseDashboardDialogState
             children: [
               const Icon(Icons.copy_rounded, size: 16),
               const SizedBox(width: 8),
-              Text(isZh ? '复制日志' : 'Copy log'),
+              Text(
+                _arText(
+                  context,
+                  zh: '复制日志',
+                  zhHant: '複製日誌',
+                  en: 'Copy log',
+                  fr: 'Copier le log',
+                  de: 'Log kopieren',
+                  ja: 'ログをコピー',
+                ),
+              ),
             ],
           ),
         ),
@@ -1265,7 +1421,17 @@ class _AndroidReverseDashboardDialogState
                 color: Theme.of(context).colorScheme.error,
               ),
               const SizedBox(width: 8),
-              Text(isZh ? '删除此条' : 'Delete row'),
+              Text(
+                _arText(
+                  context,
+                  zh: '删除此条',
+                  zhHant: '刪除此列',
+                  en: 'Delete row',
+                  fr: 'Supprimer la ligne',
+                  de: 'Zeile löschen',
+                  ja: 'この行を削除',
+                ),
+              ),
             ],
           ),
         ),
@@ -1287,7 +1453,6 @@ class _AndroidReverseDashboardDialogState
 
   Future<void> _saveLogcatSnapshot() async {
     if (_logcatLines.isEmpty || _savingLogcatFile) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() => _savingLogcatFile = true);
     String? path;
     Object? failure;
@@ -1306,27 +1471,32 @@ class _AndroidReverseDashboardDialogState
     if (!mounted) return;
     if (failure != null) {
       _showSnack(
-        '${isZh ? "保存 Logcat 失败" : "Failed to save Logcat"}: $failure',
+        '${_arText(context, zh: "保存 Logcat 失败", zhHant: "儲存 Logcat 失敗", en: "Failed to save Logcat", fr: "Échec de l’enregistrement Logcat", de: "Logcat konnte nicht gespeichert werden", ja: "Logcat の保存に失敗しました")}: $failure',
       );
     } else if (path != null) {
       _showSnack(
-        isZh
-            ? '已保存 ${_logcatLines.length} 行到 $path'
-            : 'Saved ${_logcatLines.length} lines to $path',
+        _arText(
+          context,
+          zh: '已保存 ${_logcatLines.length} 行到 $path',
+          zhHant: '已儲存 ${_logcatLines.length} 行到 $path',
+          en: 'Saved ${_logcatLines.length} lines to $path',
+          fr: '${_logcatLines.length} lignes enregistrées dans $path',
+          de: '${_logcatLines.length} Zeilen in $path gespeichert',
+          ja: '${_logcatLines.length} 行を $path に保存しました',
+        ),
       );
     }
   }
 
   Future<void> _captureLogcatArtifactSnapshot() async {
     if (_capturingLogcatSnapshot) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _capturingLogcatSnapshot = true;
       _logcatArtifactOutput = null;
     });
     try {
       final tag = _logcatFilterCtrl.text.trim();
-      final pidFilter = await _resolveLogcatPidFilter(isZh: isZh);
+      final pidFilter = await _resolveLogcatPidFilter();
       final result = await _ctrl.captureLogcatSnapshotToArtifacts(
         tag: tag.isEmpty ? null : tag,
         level: _logcatLevel,
@@ -1350,7 +1520,15 @@ class _AndroidReverseDashboardDialogState
       });
       if (result.ok || result.partialOk) {
         _showSnack(
-          isZh ? '已生成 Logcat 快照工件。' : 'Logcat snapshot artifacts saved.',
+          _arText(
+            context,
+            zh: '已生成 Logcat 快照工件。',
+            zhHant: '已產生 Logcat 快照工件。',
+            en: 'Logcat snapshot artifacts saved.',
+            fr: 'Artefacts du snapshot Logcat enregistrés.',
+            de: 'Logcat-Snapshot-Artefakte gespeichert.',
+            ja: 'Logcat スナップショット成果物を保存しました。',
+          ),
           kind: OpenHandSnackKind.success,
           duration: const Duration(seconds: 3),
         );
@@ -1359,7 +1537,7 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _logcatArtifactOutput =
-            '${isZh ? "生成 Logcat 快照失败" : "Failed to capture Logcat snapshot"}: $error';
+            '${_arText(context, zh: "生成 Logcat 快照失败", zhHant: "產生 Logcat 快照失敗", en: "Failed to capture Logcat snapshot", fr: "Échec de capture du snapshot Logcat", de: "Logcat-Snapshot konnte nicht erstellt werden", ja: "Logcat スナップショットの取得に失敗しました")}: $error';
         _logcatError = _logcatArtifactOutput;
       });
     } finally {
@@ -1368,7 +1546,7 @@ class _AndroidReverseDashboardDialogState
   }
 
   Future<({String? pid, String? notice, String? packageName})>
-  _resolveLogcatPidFilter({required bool isZh}) async {
+  _resolveLogcatPidFilter() async {
     final explicitPid = _logcatPidCtrl.text.trim();
     final packageName = _logcatPackageFilterEnabled
         ? _logcatPackageTarget()
@@ -1380,9 +1558,15 @@ class _AndroidReverseDashboardDialogState
     if (explicitPid.isNotEmpty) {
       return (
         pid: null,
-        notice: isZh
-            ? 'PID 只能填写数字，已忽略该 PID 过滤。'
-            : 'PID must be numeric; PID filter was ignored.',
+        notice: _arText(
+          context,
+          zh: 'PID 只能填写数字，已忽略该 PID 过滤。',
+          zhHant: 'PID 只能填寫數字，已忽略該 PID 篩選。',
+          en: 'PID must be numeric; PID filter was ignored.',
+          fr: 'Le PID doit être numérique ; le filtre PID a été ignoré.',
+          de: 'PID muss numerisch sein; der PID-Filter wurde ignoriert.',
+          ja: 'PID は数字のみです。PID フィルターを無視しました。',
+        ),
         packageName: packageName,
       );
     }
@@ -1399,29 +1583,44 @@ class _AndroidReverseDashboardDialogState
     }
     return (
       pid: null,
-      notice: _logcatPidLookupNotice(lookup, isZh: isZh),
+      notice: _logcatPidLookupNotice(lookup),
       packageName: packageName,
     );
   }
 
-  String _logcatPidLookupNotice(
-    AndroidPackagePidLookupResult lookup, {
-    required bool isZh,
-  }) {
+  String _logcatPidLookupNotice(AndroidPackagePidLookupResult lookup) {
     final stderr = lookup.stderr.trim();
     if (lookup.timedOut) {
-      return isZh
-          ? '解析目标包 PID 超时，已按当前等级读取全局 Logcat。'
-          : 'Resolving the target package PID timed out; loaded global logcat with the selected level.';
+      return _arText(
+        context,
+        zh: '解析目标包 PID 超时，已按当前等级读取全局 Logcat。',
+        zhHant: '解析目標套件 PID 逾時，已按目前等級讀取全域 Logcat。',
+        en: 'Resolving the target package PID timed out; loaded global logcat with the selected level.',
+        fr: 'La résolution du PID du package cible a expiré ; Logcat global chargé au niveau sélectionné.',
+        de: 'PID des Zielpakets konnte nicht rechtzeitig ermittelt werden; globales Logcat mit der gewählten Stufe geladen.',
+        ja: '対象パッケージの PID 解決がタイムアウトしました。選択レベルで全体 Logcat を読み込みました。',
+      );
     }
     if (stderr.isNotEmpty) {
-      return isZh
-          ? '解析目标包 PID 失败：$stderr。已按当前等级读取全局 Logcat。'
-          : 'Failed to resolve the target package PID: $stderr. Loaded global logcat with the selected level.';
+      return _arText(
+        context,
+        zh: '解析目标包 PID 失败：$stderr。已按当前等级读取全局 Logcat。',
+        zhHant: '解析目標套件 PID 失敗：$stderr。已按目前等級讀取全域 Logcat。',
+        en: 'Failed to resolve the target package PID: $stderr. Loaded global logcat with the selected level.',
+        fr: 'Échec de résolution du PID du package cible : $stderr. Logcat global chargé au niveau sélectionné.',
+        de: 'PID des Zielpakets konnte nicht ermittelt werden: $stderr. Globales Logcat mit der gewählten Stufe geladen.',
+        ja: '対象パッケージの PID 解決に失敗しました: $stderr。選択レベルで全体 Logcat を読み込みました。',
+      );
     }
-    return isZh
-        ? '目标包未运行或无法解析 PID，已按当前等级读取全局 Logcat。'
-        : 'Target package is not running or PID was unavailable; loaded global logcat with the selected level.';
+    return _arText(
+      context,
+      zh: '目标包未运行或无法解析 PID，已按当前等级读取全局 Logcat。',
+      zhHant: '目標套件未執行或無法解析 PID，已按目前等級讀取全域 Logcat。',
+      en: 'Target package is not running or PID was unavailable; loaded global logcat with the selected level.',
+      fr: 'Le package cible n’est pas en cours d’exécution ou le PID est indisponible ; Logcat global chargé au niveau sélectionné.',
+      de: 'Zielpaket läuft nicht oder PID ist nicht verfügbar; globales Logcat mit der gewählten Stufe geladen.',
+      ja: '対象パッケージが実行中でないか PID を取得できません。選択レベルで全体 Logcat を読み込みました。',
+    );
   }
 
   Future<void> _runStaticQuickScan() async {
@@ -5792,7 +5991,15 @@ fi
                   _DashboardActionButton(
                     onPressed: _loadingLogcat ? null : _fetchLogcat,
                     icon: const Icon(Icons.refresh_rounded),
-                    label: isZh ? '刷新' : 'Refresh',
+                    label: _arText(
+                      context,
+                      zh: '刷新',
+                      zhHant: '重新整理',
+                      en: 'Refresh',
+                      fr: 'Actualiser',
+                      de: 'Aktualisieren',
+                      ja: '更新',
+                    ),
                   ),
                   _DashboardActionButton(
                     onPressed: () => _setLogcatAutoRefresh(!_logcatAutoRefresh),
@@ -5802,8 +6009,24 @@ fi
                           : Icons.play_circle_outline_rounded,
                     ),
                     label: _logcatAutoRefresh
-                        ? (isZh ? '停止自动' : 'Stop auto')
-                        : (isZh ? '自动刷新' : 'Auto refresh'),
+                        ? _arText(
+                            context,
+                            zh: '停止自动',
+                            zhHant: '停止自動',
+                            en: 'Stop auto',
+                            fr: 'Arrêter auto',
+                            de: 'Auto stoppen',
+                            ja: '自動停止',
+                          )
+                        : _arText(
+                            context,
+                            zh: '自动刷新',
+                            zhHant: '自動重新整理',
+                            en: 'Auto refresh',
+                            fr: 'Actualisation auto',
+                            de: 'Auto-Aktualisierung',
+                            ja: '自動更新',
+                          ),
                     filled: _logcatAutoRefresh,
                   ),
                   _DashboardActionButton(
@@ -5817,7 +6040,15 @@ fi
                             child: CircularProgressIndicator(strokeWidth: 1.6),
                           )
                         : const Icon(Icons.snippet_folder_rounded),
-                    label: isZh ? '快照' : 'Snapshot',
+                    label: _arText(
+                      context,
+                      zh: '快照',
+                      zhHant: '快照',
+                      en: 'Snapshot',
+                      fr: 'Snapshot',
+                      de: 'Snapshot',
+                      ja: 'スナップショット',
+                    ),
                   ),
                   _DashboardActionButton(
                     onPressed: _logcatLines.isEmpty || _savingLogcatFile
@@ -5830,14 +6061,30 @@ fi
                             child: CircularProgressIndicator(strokeWidth: 1.6),
                           )
                         : const Icon(Icons.save_alt_rounded),
-                    label: isZh ? '保存' : 'Save',
+                    label: _arText(
+                      context,
+                      zh: '保存',
+                      zhHant: '儲存',
+                      en: 'Save',
+                      fr: 'Enregistrer',
+                      de: 'Speichern',
+                      ja: '保存',
+                    ),
                   ),
                   _DashboardActionButton(
                     onPressed: _logcatLines.isEmpty
                         ? null
                         : () => _copyText(_logcatLines.join('\n')),
                     icon: const Icon(Icons.copy_rounded),
-                    label: isZh ? '复制' : 'Copy',
+                    label: _arText(
+                      context,
+                      zh: '复制',
+                      zhHant: '複製',
+                      en: 'Copy',
+                      fr: 'Copier',
+                      de: 'Kopieren',
+                      ja: 'コピー',
+                    ),
                   ),
                   _DashboardActionButton(
                     onPressed: _clearingLogcat ? null : _clearLogcat,
@@ -5848,7 +6095,15 @@ fi
                             child: CircularProgressIndicator(strokeWidth: 1.6),
                           )
                         : const Icon(Icons.delete_sweep_rounded),
-                    label: isZh ? '清空' : 'Clear',
+                    label: _arText(
+                      context,
+                      zh: '清空',
+                      zhHant: '清空',
+                      en: 'Clear',
+                      fr: 'Effacer',
+                      de: 'Leeren',
+                      ja: 'クリア',
+                    ),
                   ),
                 ],
               ),
@@ -5861,7 +6116,15 @@ fi
                     controller: _logcatFilterCtrl,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: isZh ? 'Tag 过滤' : 'Tag filter',
+                      hintText: _arText(
+                        context,
+                        zh: 'Tag 过滤',
+                        zhHant: 'Tag 篩選',
+                        en: 'Tag filter',
+                        fr: 'Filtre Tag',
+                        de: 'Tag-Filter',
+                        ja: 'Tag フィルター',
+                      ),
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -5870,7 +6133,15 @@ fi
                       suffixIcon: _clearFieldSuffix(
                         cs: cs,
                         visible: _logcatFilterCtrl.text.trim().isNotEmpty,
-                        tooltip: isZh ? '清空过滤' : 'Clear filter',
+                        tooltip: _arText(
+                          context,
+                          zh: '清空过滤',
+                          zhHant: '清空篩選',
+                          en: 'Clear filter',
+                          fr: 'Effacer le filtre',
+                          de: 'Filter leeren',
+                          ja: 'フィルターをクリア',
+                        ),
                         onPressed: () {
                           setState(() => _logcatFilterCtrl.clear());
                           _fetchLogcat();
@@ -5892,7 +6163,15 @@ fi
                     initialValue: _logcatLevel,
                     decoration: InputDecoration(
                       isDense: true,
-                      labelText: isZh ? '等级' : 'Level',
+                      labelText: _arText(
+                        context,
+                        zh: '等级',
+                        zhHant: '等級',
+                        en: 'Level',
+                        fr: 'Niveau',
+                        de: 'Stufe',
+                        ja: 'レベル',
+                      ),
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -5903,7 +6182,7 @@ fi
                       for (final level in _kLogcatLevels)
                         DropdownMenuItem<String>(
                           value: level,
-                          child: Text(_logcatLevelOptionLabel(level, isZh)),
+                          child: Text(_logcatLevelOptionLabel(level, context)),
                         ),
                     ],
                     onChanged: (value) {
@@ -5919,7 +6198,15 @@ fi
                     initialValue: _logcatCacheLimit,
                     decoration: InputDecoration(
                       isDense: true,
-                      labelText: isZh ? '缓存' : 'Cache',
+                      labelText: _arText(
+                        context,
+                        zh: '缓存',
+                        zhHant: '快取',
+                        en: 'Cache',
+                        fr: 'Cache',
+                        de: 'Cache',
+                        ja: 'キャッシュ',
+                      ),
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -5968,7 +6255,15 @@ fi
                       suffixIcon: _clearFieldSuffix(
                         cs: cs,
                         visible: _logcatPidCtrl.text.trim().isNotEmpty,
-                        tooltip: isZh ? '清空 PID' : 'Clear PID',
+                        tooltip: _arText(
+                          context,
+                          zh: '清空 PID',
+                          zhHant: '清空 PID',
+                          en: 'Clear PID',
+                          fr: 'Effacer le PID',
+                          de: 'PID leeren',
+                          ja: 'PID をクリア',
+                        ),
                         onPressed: () {
                           setState(() => _logcatPidCtrl.clear());
                           _fetchLogcat();
@@ -6014,9 +6309,15 @@ fi
                       const SizedBox(height: 8),
                       Text(
                         _logcatError ??
-                            (isZh
-                                ? '尚未加载 Logcat'
-                                : 'Logcat has not been loaded yet'),
+                            _arText(
+                              context,
+                              zh: '尚未加载 Logcat',
+                              zhHant: '尚未載入 Logcat',
+                              en: 'Logcat has not been loaded yet',
+                              fr: 'Logcat n’est pas encore chargé',
+                              de: 'Logcat wurde noch nicht geladen',
+                              ja: 'Logcat はまだ読み込まれていません',
+                            ),
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: cs.onSurfaceVariant,
@@ -6026,7 +6327,15 @@ fi
                       _DashboardActionButton(
                         onPressed: _loadingLogcat ? null : _fetchLogcat,
                         icon: const Icon(Icons.download_rounded),
-                        label: isZh ? '加载 Logcat' : 'Load logcat',
+                        label: _arText(
+                          context,
+                          zh: '加载 Logcat',
+                          zhHant: '載入 Logcat',
+                          en: 'Load logcat',
+                          fr: 'Charger Logcat',
+                          de: 'Logcat laden',
+                          ja: 'Logcat を読み込む',
+                        ),
                       ),
                     ],
                   ),
@@ -6050,7 +6359,7 @@ fi
                         theme: theme,
                         isZh: isZh,
                         onMenu: (position) =>
-                            _showLogcatLineMenu(i, line, position, isZh),
+                            _showLogcatLineMenu(i, line, position),
                       );
                     },
                   ),
