@@ -15,6 +15,10 @@ final class AiOperationHttp {
   static const String _xApiKeyHeader = 'x-api-key';
   static const String _xGoogApiKeyHeader = 'x-goog-api-key';
   static const int _maxExtractedErrorMessageLength = 4000;
+  static const String _emptyErrorResponseMessage = 'Empty error response.';
+
+  static final RegExp _htmlTagPattern = RegExp(r'<[^>]*>');
+  static final RegExp _whitespacePattern = RegExp(r'\s+');
 
   static const String extrasGlobalKey = 'global';
   static const String extrasBodyKey = 'body';
@@ -38,8 +42,8 @@ final class AiOperationHttp {
       ...endpointHeaders,
       ...extraHeaders,
     };
-    final token = model.token.trim();
-    if (token.isEmpty || model.authScheme == AiAuthScheme.none) {
+    final token = nullIfBlank(model.token);
+    if (token == null || model.authScheme == AiAuthScheme.none) {
       return headers;
     }
     final headerName = switch (model.authScheme) {
@@ -106,9 +110,9 @@ final class AiOperationHttp {
     final entries = map.entries.toList(growable: false)
       ..sort((left, right) => left.key.compareTo(right.key));
     for (final entry in entries) {
-      final key = entry.key.trim();
-      final value = '${entry.value ?? ''}'.trim();
-      if (key.isEmpty || value.isEmpty) continue;
+      final key = nullIfBlank(entry.key);
+      final value = optionalStringFromValue(entry.value);
+      if (key == null || value == null) continue;
       result[key] = value;
     }
     return result;
@@ -188,34 +192,37 @@ final class AiOperationHttp {
   }
 
   static String extractErrorMessage(String body) {
-    final trimmed = body.trim();
-    if (trimmed.isEmpty) return 'Empty error response.';
+    final trimmed = nullIfBlank(body);
+    if (trimmed == null) return _emptyErrorResponseMessage;
     try {
       final decoded = jsonDecode(trimmed);
       if (decoded is Map<String, Object?>) {
         final error = decoded['error'];
-        if (error is String && error.trim().isNotEmpty) {
-          return _boundedErrorMessage(error.trim());
+        final errorText = optionalStringFromValue(error);
+        if (errorText != null) {
+          return _boundedErrorMessage(errorText);
         }
         if (error is Map) {
           final map = stringKeyedMapFromValue(error);
-          final message = '${map['message'] ?? map['error'] ?? ''}'.trim();
-          if (message.isNotEmpty) return _boundedErrorMessage(message);
-          final code = '${map['code'] ?? ''}'.trim();
-          if (code.isNotEmpty) return _boundedErrorMessage(code);
+          final message =
+              optionalStringFromValue(map['message']) ??
+              optionalStringFromValue(map['error']);
+          if (message != null) return _boundedErrorMessage(message);
+          final code = optionalStringFromValue(map['code']);
+          if (code != null) return _boundedErrorMessage(code);
         }
         final message =
-            '${decoded['message'] ?? decoded['error_description'] ?? ''}'
-                .trim();
-        if (message.isNotEmpty) return _boundedErrorMessage(message);
+            optionalStringFromValue(decoded['message']) ??
+            optionalStringFromValue(decoded['error_description']);
+        if (message != null) return _boundedErrorMessage(message);
       }
     } catch (_) {
       // Plain text or HTML error response.
     }
     if (trimmed.contains('<html') || trimmed.contains('<HTML')) {
       final stripped = trimmed
-          .replaceAll(RegExp(r'<[^>]*>'), ' ')
-          .replaceAll(RegExp(r'\s+'), ' ')
+          .replaceAll(_htmlTagPattern, ' ')
+          .replaceAll(_whitespacePattern, ' ')
           .trim();
       return _boundedErrorMessage(stripped.isEmpty ? trimmed : stripped);
     }
@@ -223,7 +230,7 @@ final class AiOperationHttp {
   }
 
   static String _boundedErrorMessage(String message) {
-    final normalized = message.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final normalized = message.replaceAll(_whitespacePattern, ' ').trim();
     if (normalized.length <= _maxExtractedErrorMessageLength) {
       return normalized;
     }
