@@ -386,11 +386,17 @@ class _BuiltinToolTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    final displayName = config.displayName?.trim().isNotEmpty == true
-        ? config.displayName!.trim()
+    final customDisplayName = config.displayName?.trim();
+    final customSummary = config.summary?.trim();
+    final displayName = customDisplayName?.isNotEmpty == true
+        ? customDisplayName!
+        : config.kind.isAgentCoordinationTool
+        ? agentBuiltinToolLabel(context, config.kind)
         : config.kind.name;
-    final summaryText = config.summary?.trim().isNotEmpty == true
-        ? config.summary!.trim()
+    final summaryText = customSummary?.isNotEmpty == true
+        ? customSummary!
+        : config.kind.isAgentCoordinationTool
+        ? '${agentBuiltinToolCanonicalName(config.kind)} · ${agentBuiltinToolSummary(context, config.kind)}'
         : null;
 
     return DecoratedBox(
