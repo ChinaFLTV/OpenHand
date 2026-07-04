@@ -1,9 +1,15 @@
 part of 'settings_view.dart';
 
 class _AgentBuiltinToolSummaryCard extends StatelessWidget {
-  const _AgentBuiltinToolSummaryCard({required this.configs});
+  const _AgentBuiltinToolSummaryCard({
+    required this.configs,
+    required this.onEnableAll,
+    required this.onDisableAll,
+  });
 
   final List<AiBuiltinToolConfig> configs;
+  final VoidCallback? onEnableAll;
+  final VoidCallback? onDisableAll;
 
   @override
   Widget build(BuildContext context) {
@@ -18,6 +24,8 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
         .length;
     final readOnlyCount = configs.length - mutationCount;
     final enabledReadOnlyCount = enabledCount - enabledMutationCount;
+    final allEnabled = configs.isNotEmpty && enabledCount == configs.length;
+    final allDisabled = configs.isNotEmpty && enabledCount == 0;
     final groupSummaries = AiAgentBuiltinToolGroup.values
         .map((group) {
           final groupConfigs = configs
@@ -82,6 +90,35 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
                       color: cs.onSurfaceVariant,
                       height: 1.35,
                     ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilledButton.tonalIcon(
+                        onPressed: allEnabled ? null : onEnableAll,
+                        icon: const Icon(Icons.check_circle_outline_rounded),
+                        label: Text(
+                          _localizedText(
+                            context,
+                            zh: '启用智能体工具',
+                            en: 'Enable agent tools',
+                          ),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: allDisabled ? null : onDisableAll,
+                        icon: const Icon(Icons.remove_circle_outline_rounded),
+                        label: Text(
+                          _localizedText(
+                            context,
+                            zh: '禁用智能体工具',
+                            en: 'Disable agent tools',
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   Wrap(
