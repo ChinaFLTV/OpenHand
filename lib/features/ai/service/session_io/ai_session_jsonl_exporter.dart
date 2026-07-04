@@ -13,6 +13,9 @@ import '../../model/ai_session_message.dart';
 const String _aiSessionJsonlSchema = 'openhand.ai_session.jsonl';
 const int _aiSessionJsonlVersion = 2;
 const int _maxJsonSanitizeDepth = 96;
+const String _jsonlExtension = '.jsonl';
+const String _defaultJsonlExportFilename = 'session.jsonl';
+final RegExp _jsonlExtensionPattern = RegExp(r'\.jsonl$', caseSensitive: false);
 
 /// A simple cooperative cancellation token for export operations.
 class ExportCancelToken {
@@ -677,7 +680,7 @@ Map<String, Object?> _buildMessageCardsPayload(AiSessionMessage message) {
   final cards = <String, Object?>{};
   void put(String key, Object? value) {
     if (value == null) return;
-    if (value is String && value.trim().isEmpty) return;
+    if (value is String && nullIfBlank(value) == null) return;
     if (value is Iterable && value.isEmpty) return;
     if (value is Map && value.isEmpty) return;
     cards[key] = value;
@@ -859,30 +862,24 @@ String encodeAiSessionToJsonlText({
 
 String normalizeJsonlExportFilename(String input) {
   final trimmed = input.trim();
-  if (trimmed.isEmpty) return 'session.jsonl';
+  if (trimmed.isEmpty) return _defaultJsonlExportFilename;
 
-  final trailingSuffixMatch = RegExp(
-    r'\.jsonl$',
-    caseSensitive: false,
-  ).firstMatch(trimmed);
+  final trailingSuffixMatch = _jsonlExtensionPattern.firstMatch(trimmed);
   if (trailingSuffixMatch == null) {
-    return '$trimmed.jsonl';
+    return '$trimmed$_jsonlExtension';
   }
 
   final suffix = trailingSuffixMatch.group(0)!;
   var base = trimmed.substring(0, trimmed.length - suffix.length);
-  while (base.toLowerCase().endsWith('.jsonl')) {
-    base = base.substring(0, base.length - '.jsonl'.length);
+  while (base.toLowerCase().endsWith(_jsonlExtension)) {
+    base = base.substring(0, base.length - _jsonlExtension.length);
   }
   return '${base.isEmpty ? 'session' : base}$suffix';
 }
 
 String jsonlExportPickerSuggestedName(String input) {
   final normalized = normalizeJsonlExportFilename(input);
-  final trailingSuffixMatch = RegExp(
-    r'\.jsonl$',
-    caseSensitive: false,
-  ).firstMatch(normalized);
+  final trailingSuffixMatch = _jsonlExtensionPattern.firstMatch(normalized);
   if (trailingSuffixMatch == null) {
     return normalized;
   }
