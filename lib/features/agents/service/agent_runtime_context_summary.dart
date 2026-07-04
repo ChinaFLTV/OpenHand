@@ -1,8 +1,50 @@
 import '../model/agent_models.dart';
 
-Map<String, Object?> agentCapabilityBindingsJson(AgentProfile agent) {
+const List<(String normalized, String display)>
+agentCoordinationToolDisplayNames = <(String, String)>[
+  ('agentlist', 'AgentList'),
+  ('agentdetail', 'AgentDetail'),
+  ('agentactivitylog', 'AgentActivityLog'),
+  ('agentauditreport', 'AgentAuditReport'),
+  ('agentauditrecord', 'AgentAuditRecord'),
+  ('agentapprovalrequest', 'AgentApprovalRequest'),
+  ('agentkpiupsert', 'AgentKpiUpsert'),
+  ('agentresourceupdate', 'AgentResourceUpdate'),
+  ('agentclusterconfigure', 'AgentClusterConfigure'),
+  ('agentclusterstatus', 'AgentClusterStatus'),
+  ('agenttasklist', 'AgentTaskList'),
+  ('agenttaskpublish', 'AgentTaskPublish'),
+  ('agenttasktrack', 'AgentTaskTrack'),
+  ('agenttaskprogress', 'AgentTaskProgress'),
+  ('agenttaskcancel', 'AgentTaskCancel'),
+  ('agenttaskpause', 'AgentTaskPause'),
+  ('agenttaskterminate', 'AgentTaskTerminate'),
+  ('agenttaskresume', 'AgentTaskResume'),
+  ('agenttaskcomplete', 'AgentTaskComplete'),
+  ('agenttaskresult', 'AgentTaskResult'),
+];
+
+Map<String, Object?> agentCapabilityBindingsJson(
+  AgentProfile agent, {
+  Set<String>? callableAgentToolNames,
+}) {
   final automationCount = agent.cronIds.length + agent.hookIds.length;
-  final builtinToolNames = agentVisibleBuiltinToolNames(agent.builtinToolNames);
+  final configured = normalizeAgentBuiltinToolNames(agent.builtinToolNames);
+  final sourceBuiltinToolNames =
+      callableAgentToolNames != null &&
+          configured.isEmpty &&
+          !agentHasNoCoordinationToolsBinding(configured)
+      ? agentCoordinationToolDisplayNames.map((tool) => tool.$2)
+      : agentVisibleBuiltinToolNames(configured);
+  final builtinToolNames = sourceBuiltinToolNames
+      .where((name) {
+        if (callableAgentToolNames == null ||
+            !isAgentCoordinationBuiltinToolName(name)) {
+          return true;
+        }
+        return callableAgentToolNames.contains(_normalizeToolName(name));
+      })
+      .toList(growable: false);
   final agentBuiltinToolCount = builtinToolNames
       .where(isAgentCoordinationBuiltinToolName)
       .length;

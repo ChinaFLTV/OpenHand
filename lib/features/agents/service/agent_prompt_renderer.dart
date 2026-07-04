@@ -157,65 +157,12 @@ Map<String, Object?> _capabilitiesJson(
   Set<String>? callableAgentToolNames,
 }) {
   return <String, Object?>{
-    ..._agentCapabilityBindingsJson(
+    ...agentCapabilityBindingsJson(
       agent,
       callableAgentToolNames: callableAgentToolNames,
     ),
     'cron_ids': agent.cronIds,
     'hook_ids': agent.hookIds,
-  };
-}
-
-Map<String, Object?> _agentCapabilityBindingsJson(
-  AgentProfile agent, {
-  Set<String>? callableAgentToolNames,
-}) {
-  if (callableAgentToolNames == null) {
-    return agentCapabilityBindingsJson(agent);
-  }
-  final configured = normalizeAgentBuiltinToolNames(agent.builtinToolNames);
-  final sourceBuiltinToolNames =
-      configured.isEmpty && !agentHasNoCoordinationToolsBinding(configured)
-      ? _agentCoordinationToolDisplayNames.map((tool) => tool.$2)
-      : agentVisibleBuiltinToolNames(configured);
-  final builtinToolNames = sourceBuiltinToolNames
-      .where((name) {
-        if (!isAgentCoordinationBuiltinToolName(name)) return true;
-        return callableAgentToolNames.contains(_normalizeAgentToolName(name));
-      })
-      .toList(growable: false);
-  final agentBuiltinToolNames = builtinToolNames
-      .where(isAgentCoordinationBuiltinToolName)
-      .toList(growable: false);
-  final agentToolGroups = <String, int>{};
-  for (final toolName in agentBuiltinToolNames) {
-    final group = _agentToolGroupName(toolName);
-    if (group == null) continue;
-    agentToolGroups[group] = (agentToolGroups[group] ?? 0) + 1;
-  }
-  final automationCount = agent.cronIds.length + agent.hookIds.length;
-  return <String, Object?>{
-    'skills': agent.skillNames,
-    'knowledge_sources': agent.knowledgeSourceIds,
-    'memories': agent.memoryIds,
-    'mcp_servers': agent.mcpServerNames,
-    'builtin_tools': builtinToolNames,
-    'summary': <String, Object?>{
-      'skills': agent.skillNames.length,
-      'knowledge_sources': agent.knowledgeSourceIds.length,
-      'memories': agent.memoryIds.length,
-      'mcp_servers': agent.mcpServerNames.length,
-      'builtin_tools': builtinToolNames.length,
-      'agent_coordination_tools': agentBuiltinToolNames.length,
-      'agent_coordination_tool_groups': agentToolGroups,
-      'automations': automationCount,
-      'has_external_actions':
-          agent.mcpServerNames.isNotEmpty || builtinToolNames.isNotEmpty,
-      'has_self_learning_inputs':
-          agent.skillNames.isNotEmpty ||
-          agent.knowledgeSourceIds.isNotEmpty ||
-          agent.memoryIds.isNotEmpty,
-    },
   };
 }
 
@@ -619,30 +566,6 @@ const Set<String> _agentPromptSensitiveMetadataKeys = <String>{
 String _json(Object? value) =>
     const JsonEncoder.withIndent('  ').convert(value);
 
-const List<(String normalized, String display)>
-_agentCoordinationToolDisplayNames = <(String, String)>[
-  ('agentlist', 'AgentList'),
-  ('agentdetail', 'AgentDetail'),
-  ('agentactivitylog', 'AgentActivityLog'),
-  ('agentauditreport', 'AgentAuditReport'),
-  ('agentauditrecord', 'AgentAuditRecord'),
-  ('agentapprovalrequest', 'AgentApprovalRequest'),
-  ('agentkpiupsert', 'AgentKpiUpsert'),
-  ('agentresourceupdate', 'AgentResourceUpdate'),
-  ('agentclusterconfigure', 'AgentClusterConfigure'),
-  ('agentclusterstatus', 'AgentClusterStatus'),
-  ('agenttasklist', 'AgentTaskList'),
-  ('agenttaskpublish', 'AgentTaskPublish'),
-  ('agenttasktrack', 'AgentTaskTrack'),
-  ('agenttaskprogress', 'AgentTaskProgress'),
-  ('agenttaskcancel', 'AgentTaskCancel'),
-  ('agenttaskpause', 'AgentTaskPause'),
-  ('agenttaskterminate', 'AgentTaskTerminate'),
-  ('agenttaskresume', 'AgentTaskResume'),
-  ('agenttaskcomplete', 'AgentTaskComplete'),
-  ('agenttaskresult', 'AgentTaskResult'),
-];
-
 String _agentCoordinationGuidance(
   AgentProfile agent, {
   Set<String>? callableAgentToolNames,
@@ -653,7 +576,7 @@ String _agentCoordinationGuidance(
   final visibleTools = agentVisibleBuiltinToolNames(configured);
   final agentTools =
       defaultAll
-            ? _agentCoordinationToolDisplayNames.map((tool) => tool.$1).toSet()
+            ? agentCoordinationToolDisplayNames.map((tool) => tool.$1).toSet()
             : visibleTools
                   .where(isAgentCoordinationBuiltinToolName)
                   .map(_normalizeAgentToolName)
@@ -749,26 +672,6 @@ ${lines.join('\n')}
 
 String _normalizeAgentToolName(String value) {
   return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
-}
-
-String? _agentToolGroupName(String name) {
-  if (!isAgentCoordinationBuiltinToolName(name)) return null;
-  final normalized = _normalizeAgentToolName(name);
-  if (normalized == 'agentlist' || normalized == 'agentdetail') {
-    return 'discovery';
-  }
-  if (normalized.startsWith('agenttask')) return 'task_lifecycle';
-  if (normalized.startsWith('agentactivity') ||
-      normalized.startsWith('agentaudit') ||
-      normalized.startsWith('agentapproval')) {
-    return 'governance';
-  }
-  if (normalized.startsWith('agentkpi') ||
-      normalized.startsWith('agentresource')) {
-    return 'operations';
-  }
-  if (normalized.startsWith('agentcluster')) return 'cluster';
-  return null;
 }
 
 List<String> _availableAgentToolNames(

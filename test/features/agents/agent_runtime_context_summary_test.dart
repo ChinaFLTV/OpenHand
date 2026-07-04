@@ -84,6 +84,53 @@ void main() {
     },
   );
 
+  test('filters capabilities by callable agent tools', () {
+    const explicit = AgentProfile(
+      id: 'agent-1',
+      name: 'Ops Agent',
+      builtinToolNames: <String>[
+        'AgentTaskPublish',
+        'AgentTaskProgress',
+        'AgentTaskResult',
+        'Bash',
+      ],
+    );
+    const defaultAll = AgentProfile(id: 'agent-2', name: 'Default Agent');
+
+    final explicitBindings = agentCapabilityBindingsJson(
+      explicit,
+      callableAgentToolNames: const <String>{
+        'agenttaskpublish',
+        'agenttaskprogress',
+      },
+    );
+    final explicitSummary = explicitBindings['summary'] as Map<String, Object?>;
+    final defaultBindings = agentCapabilityBindingsJson(
+      defaultAll,
+      callableAgentToolNames: const <String>{'agentlist', 'agentdetail'},
+    );
+    final defaultSummary = defaultBindings['summary'] as Map<String, Object?>;
+
+    expect(explicitBindings['builtin_tools'], <String>[
+      'AgentTaskPublish',
+      'AgentTaskProgress',
+      'Bash',
+    ]);
+    expect(explicitSummary['builtin_tools'], 3);
+    expect(explicitSummary['agent_coordination_tools'], 2);
+    expect(explicitSummary['agent_coordination_tool_groups'], <String, int>{
+      'task_lifecycle': 2,
+    });
+    expect(defaultBindings['builtin_tools'], <String>[
+      'AgentList',
+      'AgentDetail',
+    ]);
+    expect(defaultSummary['agent_coordination_tools'], 2);
+    expect(defaultSummary['agent_coordination_tool_groups'], <String, int>{
+      'discovery': 2,
+    });
+  });
+
   test('builds workspace policy from workspace path and scoped roots', () {
     const scoped = AgentProfile(
       id: 'agent-1',

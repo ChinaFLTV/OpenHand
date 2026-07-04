@@ -2284,7 +2284,7 @@ Map<String, Object?> _agentSummaryJson(
       'pending_approvals': agent.pendingApprovalCount,
     },
     'worker_count': agent.workers.length,
-    'capabilities': _agentCapabilityBindingsJson(
+    'capabilities': agentCapabilityBindingsJson(
       agent,
       callableAgentToolNames: callableAgentToolNames,
     ),
@@ -2296,59 +2296,6 @@ Map<String, Object?> _agentSummaryJson(
     'routing': routing.toJson(includeRawPreview: false),
     'operational_summary': _agentOperationalSummaryJson(agent),
     'updated_at': _iso(agent.updatedAt),
-  };
-}
-
-Map<String, Object?> _agentCapabilityBindingsJson(
-  AgentProfile agent, {
-  Set<String>? callableAgentToolNames,
-}) {
-  if (callableAgentToolNames == null) {
-    return agentCapabilityBindingsJson(agent);
-  }
-  final configured = normalizeAgentBuiltinToolNames(agent.builtinToolNames);
-  final sourceBuiltinToolNames =
-      configured.isEmpty && !agentHasNoCoordinationToolsBinding(configured)
-      ? _agentCoordinationToolKinds.map(_agentToolNameForKind)
-      : agentVisibleBuiltinToolNames(configured);
-  final builtinToolNames = sourceBuiltinToolNames
-      .where((name) {
-        if (!isAgentCoordinationBuiltinToolName(name)) return true;
-        return callableAgentToolNames.contains(_normalizedAgentToolName(name));
-      })
-      .toList(growable: false);
-  final agentBuiltinToolNames = builtinToolNames
-      .where(isAgentCoordinationBuiltinToolName)
-      .toList(growable: false);
-  final agentToolGroups = <String, int>{};
-  for (final kind in _agentToolKindsFromNames(agentBuiltinToolNames)) {
-    final group = _agentToolGroupStorageName(kind.agentToolGroup);
-    if (group == null) continue;
-    agentToolGroups[group] = (agentToolGroups[group] ?? 0) + 1;
-  }
-  final automationCount = agent.cronIds.length + agent.hookIds.length;
-  return <String, Object?>{
-    'skills': agent.skillNames,
-    'knowledge_sources': agent.knowledgeSourceIds,
-    'memories': agent.memoryIds,
-    'mcp_servers': agent.mcpServerNames,
-    'builtin_tools': builtinToolNames,
-    'summary': <String, Object?>{
-      'skills': agent.skillNames.length,
-      'knowledge_sources': agent.knowledgeSourceIds.length,
-      'memories': agent.memoryIds.length,
-      'mcp_servers': agent.mcpServerNames.length,
-      'builtin_tools': builtinToolNames.length,
-      'agent_coordination_tools': agentBuiltinToolNames.length,
-      'agent_coordination_tool_groups': agentToolGroups,
-      'automations': automationCount,
-      'has_external_actions':
-          agent.mcpServerNames.isNotEmpty || builtinToolNames.isNotEmpty,
-      'has_self_learning_inputs':
-          agent.skillNames.isNotEmpty ||
-          agent.knowledgeSourceIds.isNotEmpty ||
-          agent.memoryIds.isNotEmpty,
-    },
   };
 }
 
