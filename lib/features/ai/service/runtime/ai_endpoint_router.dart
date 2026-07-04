@@ -5,6 +5,7 @@ import '../../model/ai_model_config.dart';
 
 const String _defaultEndpointMethod = 'POST';
 const String _defaultEndpointTransport = 'json';
+final RegExp _apiVersionSegmentPattern = RegExp(r'^v[0-9]+(beta|alpha)?$');
 
 class AiResolvedEndpoint {
   const AiResolvedEndpoint({
@@ -243,7 +244,7 @@ class AiEndpointRouter {
         segment == 'v2' ||
         segment == 'v3' ||
         segment == 'v4' ||
-        RegExp(r'^v[0-9]+(beta|alpha)?$').hasMatch(segment);
+        _apiVersionSegmentPattern.hasMatch(segment);
   }
 
   String _replaceModelPlaceholders(

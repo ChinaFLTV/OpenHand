@@ -159,6 +159,7 @@ const Set<String> _webQualityStopWords = <String>{
 
 final RegExp _webQualitySplitPattern = RegExp(r'[^\w\u4e00-\u9fff]+');
 final RegExp _webQualityWhitespacePattern = RegExp(r'\s+');
+final RegExp _webQualityLineBreakPattern = RegExp(r'\r?\n');
 final RegExp _webQualityAlphaNumericPattern = RegExp(
   r'[A-Za-z0-9\u4e00-\u9fff]',
 );
@@ -298,7 +299,7 @@ List<String> _webQualityNormalizedLines(
 }) {
   return input
       .trim()
-      .split(RegExp(r'\r?\n'))
+      .split(_webQualityLineBreakPattern)
       .map(_normalizeWebQualityWhitespace)
       .where((line) => line.length >= minLength)
       .toList(growable: false);
