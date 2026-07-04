@@ -628,7 +628,11 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       timeout,
       onTimeout: () {
         timedOut = true;
-        onTimeout?.call();
+        try {
+          onTimeout?.call();
+        } catch (error, stack) {
+          silentLog(tag, 'timeout handler $executable', error, stack);
+        }
         process.kill(ProcessSignal.sigkill);
         return -1;
       },
