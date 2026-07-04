@@ -35,10 +35,16 @@ const Duration _processTreeFinalWait = Duration(milliseconds: 250);
 bool _isMissingExecutableProcessException(Object error) {
   if (error is! ProcessException) return false;
   if (error.errorCode == 2 || error.errorCode == 3) return true;
-  final message = error.message.toLowerCase();
-  return message.contains('no such file or directory') ||
-      message.contains('cannot find the file') ||
-      message.contains('the system cannot find');
+  final haystack = <String>[
+    error.message,
+    error.executable,
+    error.toString(),
+  ].join('\n').toLowerCase();
+  return haystack.contains('no such file or directory') ||
+      haystack.contains('cannot find the file') ||
+      haystack.contains('the system cannot find') ||
+      haystack.contains('failed to start') ||
+      haystack.contains('executable not found');
 }
 
 void _registerTrackedChild(Process process) {

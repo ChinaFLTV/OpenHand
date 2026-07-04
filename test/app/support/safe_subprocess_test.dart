@@ -27,6 +27,33 @@ void main() {
   });
 
   test(
+    'missing absolute executable paths fail without debug stack noise',
+    () async {
+      final logs = <String>[];
+      final previousDebugPrint = debugPrint;
+      debugPrint = (String? message, {int? wrapWidth}) {
+        if (message != null) logs.add(message);
+      };
+      addTearDown(() {
+        debugPrint = previousDebugPrint;
+      });
+
+      final missingPath = Platform.isWindows
+          ? r'C:\openhand\missing\hermes-agent.exe'
+          : '/tmp/openhand/missing/hermes-agent';
+      final result = await runTrackedProcessOrFailed(
+        missingPath,
+        const <String>['--version'],
+        tag: 'plugin_lifecycle.verify.hermes-agent',
+        timeout: const Duration(milliseconds: 500),
+      );
+
+      expect(result.exitCode, -1);
+      expect(logs, isEmpty);
+    },
+  );
+
+  test(
     'line logging still kills timed out process when timeout callback throws',
     () async {
       if (Platform.isWindows) {
