@@ -4653,93 +4653,188 @@ Future<void> _showAgentApprovalRequestDialog(
   BuildContext context,
   AgentProfile agent,
 ) async {
-  final l10n = AppLocalizations.of(context)!;
-  final title = TextEditingController();
-  final reason = TextEditingController();
-  final requestedAction = TextEditingController();
-  try {
-    final submitted = await showAnimatedDialog<bool>(
-      context: context,
-      builder: (dialogContext) => buildOpenHandDialog(
-        maxWidth: 680,
-        child: _AgentDialogScaffold(
-          icon: Icons.add_moderator_outlined,
-          title: openHandLocalizedText(
-            context,
-            zh: '发起审批',
-            en: 'Request approval',
-          ),
-          footer: buildOpenHandDialogActionsBar(
-            actions: [
-              OpenHandDialogActionButton.secondary(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                label: l10n.commonCancel,
-              ),
-              OpenHandDialogActionButton.primary(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                label: openHandLocalizedText(context, zh: '提交', en: 'Submit'),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              TextField(
-                controller: title,
-                decoration: InputDecoration(labelText: l10n.agentsFieldName),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: reason,
-                minLines: 3,
-                maxLines: 6,
-                decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh: '审批原因',
-                    en: 'Reason',
-                  ),
+  final draft = await showAnimatedDialog<_AgentApprovalRequestDraft>(
+    context: context,
+    builder: (_) => const _AgentApprovalRequestDialog(),
+  );
+  if (draft != null && context.mounted) {
+    await context.read<AgentsController>().requestApproval(
+      agent.id,
+      title: draft.title,
+      reason: draft.reason,
+      requestedAction: draft.requestedAction,
+      extra: draft.extra,
+    );
+  }
+}
+
+class _AgentApprovalRequestDraft {
+  const _AgentApprovalRequestDraft({
+    required this.title,
+    required this.reason,
+    required this.requestedAction,
+    required this.extra,
+  });
+
+  final String title;
+  final String reason;
+  final String requestedAction;
+  final Map<String, Object?> extra;
+}
+
+class _AgentApprovalRequestDialog extends StatefulWidget {
+  const _AgentApprovalRequestDialog();
+
+  @override
+  State<_AgentApprovalRequestDialog> createState() =>
+      _AgentApprovalRequestDialogState();
+}
+
+class _AgentApprovalRequestDialogState
+    extends State<_AgentApprovalRequestDialog> {
+  late final TextEditingController _title;
+  late final TextEditingController _reason;
+  late final TextEditingController _requestedAction;
+  final List<_KeyValueDraft> _extraEntries = <_KeyValueDraft>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _title = TextEditingController();
+    _reason = TextEditingController();
+    _requestedAction = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _reason.dispose();
+    _requestedAction.dispose();
+    for (final entry in _extraEntries) {
+      entry.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return buildOpenHandDialog(
+      maxWidth: 680,
+      child: _AgentDialogScaffold(
+        icon: Icons.add_moderator_outlined,
+        title: openHandLocalizedText(
+          context,
+          zh: '发起审批',
+          en: 'Request approval',
+        ),
+        footer: buildOpenHandDialogActionsBar(
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(context).pop(),
+              label: l10n.commonCancel,
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: _submit,
+              label: openHandLocalizedText(context, zh: '提交', en: 'Submit'),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            TextField(
+              controller: _title,
+              decoration: InputDecoration(labelText: l10n.agentsFieldName),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _reason,
+              minLines: 3,
+              maxLines: 6,
+              decoration: InputDecoration(
+                labelText: openHandLocalizedText(
+                  context,
+                  zh: '审批原因',
+                  en: 'Reason',
                 ),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: requestedAction,
-                decoration: InputDecoration(
-                  labelText: openHandLocalizedText(
-                    context,
-                    zh: '请求动作',
-                    en: 'Requested action',
-                  ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _requestedAction,
+              decoration: InputDecoration(
+                labelText: openHandLocalizedText(
+                  context,
+                  zh: '请求动作',
+                  en: 'Requested action',
                 ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 12),
+            _AgentKeyValueEditor(
+              title: openHandLocalizedText(
+                context,
+                zh: '审批元数据',
+                en: 'Approval metadata',
+              ),
+              entries: _extraEntries,
+              keyLabel: openHandLocalizedText(context, zh: '键', en: 'Key'),
+              valueLabel: openHandLocalizedText(context, zh: '值', en: 'Value'),
+              emptyText: openHandLocalizedText(
+                context,
+                zh: '暂无审批元数据。可补充风险等级、权限、范围、任务 ID 等字段。',
+                en: 'No approval metadata yet. Add risk level, permissions, scope, task ID, or evidence fields.',
+              ),
+              onAdd: () => setState(() => _extraEntries.add(_KeyValueDraft())),
+              onRemove: _removeExtraEntry,
+              framed: false,
+            ),
+          ],
         ),
       ),
     );
-    if (submitted == true && context.mounted) {
-      final titleText = title.text.trim();
-      if (titleText.isEmpty) {
-        OpenHandSnackBar.showInfo(
+  }
+
+  void _removeExtraEntry(_KeyValueDraft entry) {
+    setState(() {
+      _extraEntries.remove(entry);
+      entry.dispose();
+    });
+  }
+
+  void _submit() {
+    final title = _title.text.trim();
+    if (title.isEmpty) {
+      OpenHandSnackBar.showInfo(
+        context,
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '请先填写审批标题。',
-            en: 'Enter an approval title first.',
-          ),
-        );
-        return;
-      }
-      await context.read<AgentsController>().requestApproval(
-        agent.id,
-        title: titleText,
-        reason: reason.text,
-        requestedAction: requestedAction.text,
+          zh: '请先填写审批标题。',
+          en: 'Enter an approval title first.',
+        ),
       );
+      return;
     }
-  } finally {
-    title.dispose();
-    reason.dispose();
-    requestedAction.dispose();
+    final duplicate = _agentFirstDuplicateKey(_extraEntries);
+    if (duplicate != null) {
+      OpenHandSnackBar.showError(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '审批元数据字段重复：$duplicate',
+          en: 'Duplicate approval metadata field: $duplicate',
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).pop(
+      _AgentApprovalRequestDraft(
+        title: title,
+        reason: _reason.text.trim(),
+        requestedAction: _requestedAction.text.trim(),
+        extra: _agentKeyValueDraftMapFromEntries(_extraEntries),
+      ),
+    );
   }
 }
 

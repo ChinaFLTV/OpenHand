@@ -871,6 +871,54 @@ void main() {
           .firstWhere((item) => item.id == 'approval-1');
       expect(updated.status, AgentApprovalStatus.approved);
 
+      await tester.tap(find.text('发起审批'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, '名称'),
+        'Write audit log',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, '审批原因'),
+        'Need to persist the audit evidence.',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, '请求动作'),
+        'Append audit.jsonl',
+      );
+      final addFieldButton = find.byTooltip('添加字段');
+      await tester.ensureVisible(addFieldButton);
+      await tester.pumpAndSettle();
+      await tester.tap(addFieldButton);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, '键').last,
+        'risk_level',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, '值').last,
+        'medium',
+      );
+      await tester.ensureVisible(addFieldButton);
+      await tester.tap(addFieldButton);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, '键').last,
+        'permissions',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, '值').last,
+        '["filesystem","write"]',
+      );
+      await tester.tap(find.text('提交'));
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      final created = controller.agentById('agent-1')!.approvals.first;
+      expect(created.title, 'Write audit log');
+      expect(created.extra['risk_level'], 'medium');
+      expect(created.extra['permissions'], <Object?>['filesystem', 'write']);
+
       await tester.tap(find.byIcon(Icons.close_rounded).last);
       await tester.pump(const Duration(milliseconds: 300));
     });
