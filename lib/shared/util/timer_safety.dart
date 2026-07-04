@@ -26,8 +26,9 @@ class OpenHandDebouncer {
   final Duration _maxDelay;
   final OpenHandTimerErrorHandler? _onError;
   Timer? _timer;
+  bool _isRunning = false;
 
-  bool get isActive => _timer?.isActive ?? false;
+  bool get isActive => (_timer?.isActive ?? false) || _isRunning;
 
   void schedule(
     FutureOr<void> Function() callback, {
@@ -64,7 +65,12 @@ class OpenHandDebouncer {
       delay ?? _delay,
       () async {
         _timer = null;
-        await callback();
+        _isRunning = true;
+        try {
+          await callback();
+        } finally {
+          _isRunning = false;
+        }
       },
       min: _minDelay,
       max: _maxDelay,

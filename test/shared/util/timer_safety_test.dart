@@ -99,5 +99,30 @@ void main() {
 
       debouncer.dispose();
     });
+
+    test('scheduleIfIdle refuses while an async callback is running', () async {
+      final debouncer = OpenHandDebouncer(delay: Duration.zero);
+      final started = Completer<void>();
+      final gate = Completer<void>();
+
+      expect(
+        debouncer.scheduleIfIdle(() async {
+          started.complete();
+          await gate.future;
+        }),
+        isTrue,
+      );
+
+      await started.future.timeout(const Duration(seconds: 1));
+      expect(debouncer.isActive, isTrue);
+      expect(debouncer.scheduleIfIdle(() {}), isFalse);
+
+      gate.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(debouncer.isActive, isFalse);
+      expect(debouncer.scheduleIfIdle(() {}), isTrue);
+
+      debouncer.dispose();
+    });
   });
 }
