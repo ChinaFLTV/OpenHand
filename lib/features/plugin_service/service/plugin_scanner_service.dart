@@ -69,6 +69,40 @@ class PluginScannerService {
   static const String qdrantDefaultTag = 'latest';
   static const int qdrantRestPort = 6333;
   static const int qdrantGrpcPort = 6334;
+  static final RegExp _nvmMajorAliasPattern = RegExp(r'^v?\d+$');
+  static final RegExp _nvmFullVersionAliasPattern = RegExp(
+    r'^v?\d+\.\d+\.\d+$',
+  );
+  static final RegExp _nodeVersionOutputPattern = RegExp(r'v(\d+\.\d+\.\d+)');
+  static final RegExp _nodeMajorVersionPattern = RegExp(r'v?(\d+)');
+  static final RegExp _strictNodeVersionPattern = RegExp(r'^v\d+\.\d+\.\d+$');
+  static final RegExp _pythonVersionOutputPattern = RegExp(
+    r'Python\s+(\d+\.\d+\.\d+)',
+  );
+  static final RegExp _pipVersionOutputPattern = RegExp(
+    r'pip\s+(\d+(?:\.\d+)+)',
+  );
+  static final RegExp _pyenvVersionPathPattern = RegExp(
+    r'/.pyenv/versions/([^/]+)/',
+  );
+  static final RegExp _brewPythonFormulaPathPattern = RegExp(
+    r'/(python(?:@[\d.]+)?)(?:/|$)',
+  );
+  static final RegExp _semverSearchPattern = RegExp(r'(\d+\.\d+\.\d+)');
+  static final RegExp _shellWhitespacePattern = RegExp(r'\s+');
+  static final RegExp _playwrightVersionPrefixPattern = RegExp(
+    r'^Version\s+',
+    caseSensitive: false,
+  );
+  static final RegExp _stablePyenvVersionLinePattern = RegExp(
+    r'^\s*(\d+\.\d+\.\d+)\s*$',
+  );
+  static final RegExp _looseVersionPattern = RegExp(
+    r'(\d+(?:\.\d+)+(?:[-+._A-Za-z0-9]*)?)',
+  );
+  static final RegExp _quotedJavaVersionPattern = RegExp(
+    r'version\s+"([^"]+)"',
+  );
 
   Future<_PythonRuntimeScan?>? _pythonRuntimeProbe;
   final Map<String, Future<String?>> _brewLatestVersionProbes =
@@ -169,13 +203,13 @@ class PluginScannerService {
         (v) => versionMajorFromText(v)?.isEven ?? false,
         orElse: () => versions.last,
       );
-    } else if (RegExp(r'^v?\d+$').hasMatch(alias)) {
+    } else if (_nvmMajorAliasPattern.hasMatch(alias)) {
       final major = alias.replaceFirst('v', '');
       resolvedVersion = versions.lastWhere(
         (v) => v.substring(1).split('.').first == major,
         orElse: () => versions.last,
       );
-    } else if (RegExp(r'^v?\d+\.\d+\.\d+$').hasMatch(alias)) {
+    } else if (_nvmFullVersionAliasPattern.hasMatch(alias)) {
       resolvedVersion = alias.startsWith('v') ? alias : 'v$alias';
       if (!versions.contains(resolvedVersion)) resolvedVersion = versions.last;
     } else {
@@ -197,7 +231,7 @@ class PluginScannerService {
   }
 
   static String? _extractVersion(String output) {
-    final match = RegExp(r'v(\d+\.\d+\.\d+)').firstMatch(output);
+    final match = _nodeVersionOutputPattern.firstMatch(output);
     return match?.group(0);
   }
 
@@ -260,12 +294,12 @@ class PluginScannerService {
   }
 
   static int? _extractNodeMajor(String version) {
-    final match = RegExp(r'v?(\d+)').firstMatch(version);
+    final match = _nodeMajorVersionPattern.firstMatch(version);
     return optionalNonNegativeIntFromValue(match?.group(1));
   }
 
   static bool _isNodeVersion(String value) {
-    return RegExp(r'^v\d+\.\d+\.\d+$').hasMatch(value);
+    return _strictNodeVersionPattern.hasMatch(value);
   }
 
   static String? _pickHigherNodeVersion(
@@ -281,12 +315,12 @@ class PluginScannerService {
   }
 
   static String? _extractPythonVersion(String output) {
-    final match = RegExp(r'Python\s+(\d+\.\d+\.\d+)').firstMatch(output);
+    final match = _pythonVersionOutputPattern.firstMatch(output);
     return match?.group(1);
   }
 
   static String? _extractPipVersion(String output) {
-    final match = RegExp(r'pip\s+(\d+(?:\.\d+)+)').firstMatch(output);
+    final match = _pipVersionOutputPattern.firstMatch(output);
     return match?.group(1);
   }
 
@@ -304,14 +338,14 @@ class PluginScannerService {
   }
 
   static String? _extractPyenvVersionFromPath(String path) {
-    final match = RegExp(r'/.pyenv/versions/([^/]+)/').firstMatch(path);
+    final match = _pyenvVersionPathPattern.firstMatch(path);
     final value = match?.group(1);
     if (value != null && isStrictSemanticVersionText(value)) return value;
     return null;
   }
 
   static String? _extractBrewPythonFormulaFromPath(String path) {
-    final matches = RegExp(r'/(python(?:@[\d.]+)?)(?:/|$)').allMatches(path);
+    final matches = _brewPythonFormulaPathPattern.allMatches(path);
     if (matches.isEmpty) return null;
     return matches.last.group(1);
   }
@@ -427,7 +461,7 @@ class PluginScannerService {
   }
 
   static String? _extractFirstSemver(String output, {String? prefix}) {
-    final matches = RegExp(r'(\d+\.\d+\.\d+)').allMatches(output);
+    final matches = _semverSearchPattern.allMatches(output);
     for (final match in matches) {
       final value = match.group(1);
       if (value == null) continue;
@@ -441,7 +475,7 @@ class PluginScannerService {
     String? prefix,
   }) {
     final versions = <String>{};
-    for (final match in RegExp(r'^\s*(\d+\.\d+\.\d+)\s*$').allMatches(output)) {
+    for (final match in _stablePyenvVersionLinePattern.allMatches(output)) {
       final value = match.group(1);
       if (value == null) continue;
       if (prefix != null && !value.startsWith(prefix)) continue;
@@ -451,9 +485,7 @@ class PluginScannerService {
   }
 
   static String? _extractLooseVersion(String output) {
-    final match = RegExp(
-      r'(\d+(?:\.\d+)+(?:[-+._A-Za-z0-9]*)?)',
-    ).firstMatch(output);
+    final match = _looseVersionPattern.firstMatch(output);
     return match?.group(1);
   }
 
@@ -462,7 +494,7 @@ class PluginScannerService {
   }
 
   static String? _extractJavaVersion(String output) {
-    final quoted = RegExp(r'version\s+"([^"]+)"').firstMatch(output);
+    final quoted = _quotedJavaVersionPattern.firstMatch(output);
     if (quoted != null) return quoted.group(1);
     return _extractLooseVersion(output);
   }
@@ -549,7 +581,11 @@ class PluginScannerService {
   Future<_PythonRuntimeScan?> _resolvePyenvPython() async {
     final versionNameResult = await _shellRun('pyenv version-name');
     final selectedVersionName = versionNameResult.exitCode == 0
-        ? versionNameResult.stdout.toString().trim().split(RegExp(r'\s+')).first
+        ? versionNameResult.stdout
+              .toString()
+              .trim()
+              .split(_shellWhitespacePattern)
+              .first
         : null;
     for (final command in const ['python3', 'python']) {
       final whichResult = await _shellRun('pyenv which $command');
@@ -798,15 +834,13 @@ class PluginScannerService {
       if (versionResult.exitCode == 0) {
         final output = versionResult.stdout.toString().trim();
         final version = output
-            .replaceFirst(RegExp(r'^Version\s+', caseSensitive: false), '')
+            .replaceFirst(_playwrightVersionPrefixPattern, '')
             .trim();
         String? latestVersion;
         try {
           final r = await _shellRun('npm view playwright version');
           if (r.exitCode == 0) {
-            final m = RegExp(
-              r'(\d+\.\d+\.\d+)',
-            ).firstMatch(r.stdout.toString());
+            final m = _semverSearchPattern.firstMatch(r.stdout.toString());
             if (m != null) latestVersion = m.group(1);
           }
         } catch (error, stack) {
