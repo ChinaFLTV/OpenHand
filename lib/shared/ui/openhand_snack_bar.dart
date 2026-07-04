@@ -120,13 +120,16 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
     if (!mounted || _currentSnackBar != null || _queue.isEmpty) return;
     final next = _queue.removeFirst();
     final settings = _resolveMotionSettings();
+    final motionEnabled = _motionEnabled(settings);
     _dismissTimer?.cancel();
     _isDismissing = false;
     _visibleNotified = false;
-    _controller.duration = settings.duration;
-    _controller.reverseDuration = settings.duration;
+    _controller.duration = motionEnabled ? settings.duration : Duration.zero;
+    _controller.reverseDuration = motionEnabled
+        ? settings.duration
+        : Duration.zero;
     setState(() => _currentSnackBar = next);
-    if (openHandMotionDisabled(settings)) {
+    if (!motionEnabled) {
       _controller.value = 1;
       _visibleNotified = true;
       next.onVisible?.call();
@@ -157,7 +160,7 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
     if (current == null || _isDismissing) return;
     _dismissTimer?.cancel();
     final settings = _resolveMotionSettings();
-    if (openHandMotionDisabled(settings) || _controller.value <= 0) {
+    if (!_motionEnabled(settings) || _controller.value <= 0) {
       _removeCurrentAndContinue();
       return;
     }
@@ -173,6 +176,11 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
     _controller.value = 0;
     setState(() => _currentSnackBar = null);
     _showNextIfIdle();
+  }
+
+  bool _motionEnabled(DialogAnimationSettings settings) {
+    return !openHandMotionDisabled(settings) &&
+        openHandTickerMotionEnabled(context);
   }
 
   @override
@@ -296,7 +304,9 @@ class OpenHandSnackBar {
     ScaffoldMessengerState messenger,
     SnackBar snackBar,
   ) {
-    final motionSettings = _resolveMotionSettings(context);
+    final motionSettings = openHandTickerMotionEnabled(context)
+        ? _resolveMotionSettings(context)
+        : OpenHandMotionDefaults.disabled;
     final wrapped = _ensureMotionWrapped(context, snackBar, motionSettings);
     messenger.showSnackBar(
       wrapped,
@@ -693,7 +703,9 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
       ),
     );
 
-    if (!openHandMotionDisabled(settings) && animation.value >= 0) {
+    if (!openHandMotionDisabled(settings) &&
+        openHandTickerMotionEnabled(context) &&
+        animation.value >= 0) {
       child = AnimatedBuilder(
         animation: animation,
         child: child,
@@ -839,7 +851,8 @@ class _OpenHandSnackBarMotion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (openHandReduceMotionOf(context) || openHandMotionDisabled(settings)) {
+    if (!openHandTickerMotionEnabled(context) ||
+        openHandMotionDisabled(settings)) {
       return child;
     }
     final animation = context

@@ -37,8 +37,36 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('safe width'), findsOneWidget);
   });
+
+  testWidgets('global snack bar shows immediately when ticker is disabled', (
+    tester,
+  ) async {
+    var visible = false;
+    await tester.pumpWidget(_buildHost(tickerEnabled: false));
+
+    OpenHandGlobalSnackBarHost.showSnackBar(
+      SnackBar(
+        content: const Text('instant snack'),
+        onVisible: () => visible = true,
+      ),
+    );
+    await tester.pump();
+
+    expect(visible, isTrue);
+    expect(find.text('instant snack'), findsOneWidget);
+
+    OpenHandGlobalSnackBarHost.hideCurrent();
+    await tester.pump();
+
+    expect(find.text('instant snack'), findsNothing);
+  });
 }
 
-Widget _buildHost() {
-  return const MaterialApp(home: Scaffold(body: OpenHandGlobalSnackBarHost()));
+Widget _buildHost({bool tickerEnabled = true}) {
+  return MaterialApp(
+    home: TickerMode(
+      enabled: tickerEnabled,
+      child: const Scaffold(body: OpenHandGlobalSnackBarHost()),
+    ),
+  );
 }
