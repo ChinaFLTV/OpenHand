@@ -1,5 +1,7 @@
 part of '../openhand_home_page.dart';
 
+const Duration _kCacheHitTrendRevealDuration = Duration(milliseconds: 520);
+
 class _SessionMetadataDialog extends StatelessWidget {
   const _SessionMetadataDialog({
     required this.session,
@@ -1958,7 +1960,7 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final motionDisabled = !openHandTickerMotionEnabled(context);
 
     // 同步收集 primary / alt 两条曲线;长度对齐,缺失点为 null。
     final primary = widget.trend.points
@@ -2211,12 +2213,13 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
                         Positioned.fill(
                           child: TweenAnimationBuilder<double>(
                             tween: Tween(
-                              begin: reduceMotion ? 1.0 : 0.0,
+                              begin: motionDisabled ? 1.0 : 0.0,
                               end: 1.0,
                             ),
-                            duration: reduceMotion
-                                ? Duration.zero
-                                : const Duration(milliseconds: 520),
+                            duration: openHandMotionDuration(
+                              context,
+                              _kCacheHitTrendRevealDuration,
+                            ),
                             curve: Curves.easeOutCubic,
                             builder: (context, t, _) {
                               return CustomPaint(
