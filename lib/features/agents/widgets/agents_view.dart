@@ -3313,6 +3313,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
   late final TextEditingController _name;
   late final TextEditingController _target;
   late final TextEditingController _plan;
+  late final List<_KeyValueDraft> _extraEntries;
   late double _progress;
   late String _status;
 
@@ -3323,6 +3324,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
     _name = TextEditingController(text: initial?.name ?? '');
     _target = TextEditingController(text: initial?.target ?? '');
     _plan = TextEditingController(text: initial?.plan ?? '');
+    _extraEntries = _keyValueEntriesFromMap(initial?.extra);
     _progress = (initial?.progress ?? 0).clamp(0, 1).toDouble();
     _status = _agentKpiStatusOptions.contains(initial?.status)
         ? initial!.status
@@ -3334,6 +3336,9 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
     _name.dispose();
     _target.dispose();
     _plan.dispose();
+    for (final entry in _extraEntries) {
+      entry.dispose();
+    }
     super.dispose();
   }
 
@@ -3354,9 +3359,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
               label: l10n.commonCancel,
             ),
             OpenHandDialogActionButton.primary(
-              onPressed: _name.text.trim().isEmpty
-                  ? null
-                  : () => Navigator.of(context).pop(_buildKpi()),
+              onPressed: _name.text.trim().isEmpty ? null : _submitKpi,
               label: l10n.commonSave,
             ),
           ],
@@ -3436,10 +3439,52 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
                 ],
               ),
             ),
+            const SizedBox(height: 12),
+            _AgentKeyValueEditor(
+              title: openHandLocalizedText(
+                context,
+                zh: 'KPI 元数据',
+                en: 'KPI metadata',
+              ),
+              entries: _extraEntries,
+              keyLabel: openHandLocalizedText(context, zh: '键', en: 'Key'),
+              valueLabel: openHandLocalizedText(context, zh: '值', en: 'Value'),
+              emptyText: openHandLocalizedText(
+                context,
+                zh: '暂无 KPI 元数据。可补充负责人、周期、截止日期、证据来源等字段。',
+                en: 'No KPI metadata yet. Add owner, cadence, deadline, evidence, or source fields.',
+              ),
+              onAdd: () => setState(() => _extraEntries.add(_KeyValueDraft())),
+              onRemove: _removeExtraEntry,
+              framed: false,
+            ),
           ],
         ),
       ),
     );
+  }
+
+  void _removeExtraEntry(_KeyValueDraft entry) {
+    setState(() {
+      _extraEntries.remove(entry);
+      entry.dispose();
+    });
+  }
+
+  void _submitKpi() {
+    final duplicate = _agentFirstDuplicateKey(_extraEntries);
+    if (duplicate != null) {
+      OpenHandSnackBar.showError(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: 'KPI 元数据字段重复：$duplicate',
+          en: 'Duplicate KPI metadata field: $duplicate',
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).pop(_buildKpi());
   }
 
   AgentKpiItem _buildKpi() {
@@ -3452,7 +3497,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
       progress: _progress.clamp(0, 1).toDouble(),
       status: _status,
       createdAt: initial?.createdAt,
-      extra: initial?.extra ?? const <String, Object?>{},
+      extra: _agentKeyValueDraftMapFromEntries(_extraEntries),
     );
   }
 }
@@ -6749,10 +6794,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   }
 
   List<_KeyValueDraft> _metadataEntriesFromMap(Map<String, Object?>? map) {
-    if (map == null || map.isEmpty) return <_KeyValueDraft>[];
-    return map.entries
-        .map((entry) => _KeyValueDraft(key: entry.key, value: entry.value))
-        .toList(growable: false);
+    return _keyValueEntriesFromMap(map);
   }
 
   List<_KeyValueDraft> _routeExtraEntries(Map<String, Object?> route) {
@@ -7382,6 +7424,13 @@ class _KeyValueDraft {
       return '$value';
     }
   }
+}
+
+List<_KeyValueDraft> _keyValueEntriesFromMap(Map<String, Object?>? map) {
+  if (map == null || map.isEmpty) return <_KeyValueDraft>[];
+  return map.entries
+      .map((entry) => _KeyValueDraft(key: entry.key, value: entry.value))
+      .toList();
 }
 
 Map<String, Object?> _agentKeyValueDraftMapFromEntries(

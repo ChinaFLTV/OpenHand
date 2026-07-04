@@ -936,6 +936,42 @@ void main() {
       expect(find.text('deadline: 2026-07-05'), findsOneWidget);
       expect(find.byTooltip('编辑 KPI'), findsAtLeastNWidgets(1));
 
+      await tester.tap(find.byTooltip('编辑 KPI').first);
+      await tester.pumpAndSettle();
+      expect(find.text('KPI 元数据'), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextField, '值').first,
+        'Worker 2',
+      );
+      final addFieldButton = find.byTooltip('添加字段');
+      await tester.ensureVisible(addFieldButton);
+      await tester.pumpAndSettle();
+      await tester.tap(addFieldButton);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, '键').last,
+        'deadline',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, '值').last,
+        '2026-07-11',
+      );
+      final saveButton = find.ancestor(
+        of: find.text('保存').last,
+        matching: find.byType(FilledButton),
+      );
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      final updatedKpi = controller
+          .agentById('agent-1')!
+          .kpis
+          .firstWhere((item) => item.id == 'kpi-1');
+      expect(updatedKpi.extra['owner'], 'Worker 2');
+      expect(updatedKpi.extra['deadline'], '2026-07-11');
+
       await tester.tap(find.byIcon(Icons.close_rounded).last);
       await tester.pump(const Duration(milliseconds: 300));
     });
