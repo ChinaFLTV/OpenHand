@@ -1638,7 +1638,7 @@ class _AgentClusterDialogContentState
               currentAgent.name,
             ),
             footer: _editing
-                ? buildOpenHandDialogActionsBar(
+                ? _agentDialogActionsFooter(
                     actions: [
                       OpenHandDialogActionButton.secondary(
                         onPressed: () => setState(() => _editing = false),
@@ -3309,7 +3309,7 @@ Future<void> _showCompleteTaskDialog(
             zh: '完成任务',
             en: 'Complete task',
           ),
-          footer: buildOpenHandDialogActionsBar(
+          footer: _agentDialogActionsFooter(
             actions: [
               OpenHandDialogActionButton.secondary(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -3808,7 +3808,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
         title: widget.initial == null
             ? openHandLocalizedText(context, zh: '新增 KPI', en: 'Add KPI')
             : openHandLocalizedText(context, zh: '编辑 KPI', en: 'Edit KPI'),
-        footer: buildOpenHandDialogActionsBar(
+        footer: _agentDialogActionsFooter(
           actions: [
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(context).pop(),
@@ -4420,7 +4420,7 @@ class _AgentResourceEditorDialogState
       child: _AgentDialogScaffold(
         icon: Icons.storage_rounded,
         title: openHandLocalizedText(context, zh: '校准资源', en: 'Edit resources'),
-        footer: buildOpenHandDialogActionsBar(
+        footer: _agentDialogActionsFooter(
           actions: [
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(context).pop(),
@@ -5240,7 +5240,7 @@ class _AgentApprovalRequestDialogState
           zh: '发起审批',
           en: 'Request approval',
         ),
-        footer: buildOpenHandDialogActionsBar(
+        footer: _agentDialogActionsFooter(
           actions: [
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(context).pop(),
@@ -5558,7 +5558,7 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
           l10n.agentsPublishTask,
           widget.agent.name,
         ),
-        footer: buildOpenHandDialogActionsBar(
+        footer: _agentDialogActionsFooter(
           actions: [
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(context).pop(),
@@ -5846,13 +5846,27 @@ Widget _agentDialogPrimaryActionFooter({
   required VoidCallback? onPressed,
   required String label,
 }) {
-  return Padding(
-    padding: _agentDialogActionPadding,
-    child: Align(
-      child: OpenHandDialogActionButton.primary(
+  return _agentDialogActionsFooter(
+    actions: [
+      OpenHandDialogActionButton.primary(
         icon: icon,
         onPressed: onPressed,
         label: label,
+      ),
+    ],
+  );
+}
+
+Widget _agentDialogActionsFooter({required List<Widget> actions}) {
+  return Padding(
+    padding: _agentDialogActionPadding,
+    child: SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: kOpenHandDialogActionSpacing,
+        runSpacing: kOpenHandDialogActionSpacing,
+        children: actions,
       ),
     ),
   );
@@ -6227,7 +6241,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  buildOpenHandDialogActionsBar(
+                  _agentDialogActionsFooter(
                     actions: [
                       OpenHandDialogActionButton.secondary(
                         onPressed: () => Navigator.of(
