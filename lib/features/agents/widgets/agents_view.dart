@@ -1357,6 +1357,7 @@ class _AgentApprovalsBody extends StatelessWidget {
           (item) => _agentApprovalIsHighRisk(_agentApprovalRiskLevel(item)),
         )
         .length;
+    final visibleApprovals = _sortedAgentApprovals(approvals);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1382,17 +1383,56 @@ class _AgentApprovalsBody extends StatelessWidget {
         ListView.separated(
           shrinkWrap: true,
           primary: false,
-          itemCount: approvals.length,
+          itemCount: visibleApprovals.length,
           separatorBuilder: (_, _) => const SizedBox(height: 10),
-          itemBuilder: (context, index) => _AgentApprovalRequestCard(
-            approval: approvals[index],
-            onApproved: () => onApproved(approvals[index]),
-            onRejected: () => onRejected(approvals[index]),
-          ),
+          itemBuilder: (context, index) {
+            final approval = visibleApprovals[index];
+            return _AgentApprovalRequestCard(
+              approval: approval,
+              onApproved: () => onApproved(approval),
+              onRejected: () => onRejected(approval),
+            );
+          },
         ),
       ],
     );
   }
+}
+
+List<AgentApprovalRequest> _sortedAgentApprovals(
+  List<AgentApprovalRequest> approvals,
+) {
+  return List<AgentApprovalRequest>.from(approvals)..sort((left, right) {
+    final pendingCompare = _approvalPendingRank(
+      left.status,
+    ).compareTo(_approvalPendingRank(right.status));
+    if (pendingCompare != 0) return pendingCompare;
+    final riskCompare = _approvalRiskRank(
+      _agentApprovalRiskLevel(right),
+    ).compareTo(_approvalRiskRank(_agentApprovalRiskLevel(left)));
+    if (riskCompare != 0) return riskCompare;
+    return _approvalSortTime(right).compareTo(_approvalSortTime(left));
+  });
+}
+
+int _approvalPendingRank(AgentApprovalStatus status) {
+  return status == AgentApprovalStatus.pending ? 0 : 1;
+}
+
+int _approvalRiskRank(String riskLevel) {
+  return switch (riskLevel.toLowerCase()) {
+    'critical' => 4,
+    'high' => 3,
+    'medium' => 2,
+    'low' => 1,
+    _ => 0,
+  };
+}
+
+DateTime _approvalSortTime(AgentApprovalRequest approval) {
+  return approval.resolvedAt ??
+      approval.createdAt ??
+      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 }
 
 class _AgentApprovalRequestCard extends StatelessWidget {

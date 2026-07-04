@@ -1367,6 +1367,13 @@ void main() {
           lifecycleState: AgentLifecycleState.running,
           approvals: <AgentApprovalRequest>[
             AgentApprovalRequest(
+              id: 'approval-2',
+              title: 'Read knowledge base',
+              requestedAction: 'Read kb://ops',
+              status: AgentApprovalStatus.approved,
+              extra: <String, Object?>{'risk_level': 'low'},
+            ),
+            AgentApprovalRequest(
               id: 'approval-1',
               title: 'Allow workspace write',
               reason: 'Needs to update generated report files.',
@@ -1377,13 +1384,6 @@ void main() {
                 'scope': '/tmp/openhand',
                 'task_id': 'task-1',
               },
-            ),
-            AgentApprovalRequest(
-              id: 'approval-2',
-              title: 'Read knowledge base',
-              requestedAction: 'Read kb://ops',
-              status: AgentApprovalStatus.approved,
-              extra: <String, Object?>{'risk_level': 'low'},
             ),
           ],
         ),
@@ -1406,6 +1406,10 @@ void main() {
       expect(
         find.text('Needs to update generated report files.'),
         findsOneWidget,
+      );
+      expect(
+        tester.getTopLeft(find.text('Allow workspace write')).dy,
+        lessThan(tester.getTopLeft(find.text('Read knowledge base')).dy),
       );
       expect(find.text('permissions: filesystem, write'), findsOneWidget);
       expect(find.text('scope: /tmp/openhand'), findsOneWidget);
@@ -1463,7 +1467,10 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pump();
 
-      final created = controller.agentById('agent-1')!.approvals.first;
+      final created = controller
+          .agentById('agent-1')!
+          .approvals
+          .firstWhere((item) => item.title == 'Write audit log');
       expect(created.title, 'Write audit log');
       expect(created.extra['risk_level'], 'medium');
       expect(created.extra['permissions'], <Object?>['filesystem', 'write']);
