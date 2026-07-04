@@ -2976,7 +2976,15 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
                   ),
                 ),
               IconButton(
-                tooltip: isZh ? '刷新' : 'Refresh',
+                tooltip: _panelsText(
+                  context,
+                  zh: '刷新',
+                  zhHant: '重新整理',
+                  en: 'Refresh',
+                  fr: 'Actualiser',
+                  de: 'Aktualisieren',
+                  ja: '更新',
+                ),
                 onPressed: _loading ? null : _refresh,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
               ),
@@ -2988,7 +2996,6 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
               _AppTab.cookies => _CookiesTable(
                 cookies: _cookies,
                 controller: widget.controller,
-                isZh: isZh,
                 onChanged: _refresh,
               ),
               _AppTab.localStorage || _AppTab.sessionStorage => _StorageTable(
@@ -2996,24 +3003,18 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
                 controller: widget.controller,
                 origin: _origin,
                 isLocalStorage: _tab == _AppTab.localStorage,
-                isZh: isZh,
                 onChanged: _refresh,
               ),
               _AppTab.indexedDb => _IndexedDbTable(
                 controller: widget.controller,
                 names: _idbNames,
                 described: _idbDescribed,
-                isZh: isZh,
                 onChanged: _refresh,
               ),
-              _AppTab.cacheStorage => _NameListPanel(
-                names: _cacheNames,
-                isZh: isZh,
-              ),
+              _AppTab.cacheStorage => _NameListPanel(names: _cacheNames),
               _AppTab.serviceWorkers => _ServiceWorkersTable(
                 versions: _swVersions,
                 controller: widget.controller,
-                isZh: isZh,
                 onChanged: _refresh,
               ),
             },
@@ -3078,12 +3079,10 @@ class _CookiesTable extends StatefulWidget {
   const _CookiesTable({
     required this.cookies,
     required this.controller,
-    required this.isZh,
     required this.onChanged,
   });
   final List<Map<String, Object?>> cookies;
   final WebReverseSessionController controller;
-  final bool isZh;
   final Future<void> Function() onChanged;
 
   @override
@@ -3103,7 +3102,6 @@ class _CookiesTableState extends State<_CookiesTable> {
     final saved = await _showCookieEditor(
       context,
       initial: const <String, Object?>{},
-      isZh: widget.isZh,
     );
     if (saved == null || !mounted) return;
     final ok = await widget.controller.setCookie(
@@ -3118,11 +3116,7 @@ class _CookiesTableState extends State<_CookiesTable> {
   }
 
   Future<void> _editCookie(Map<String, Object?> c) async {
-    final saved = await _showCookieEditor(
-      context,
-      initial: c,
-      isZh: widget.isZh,
-    );
+    final saved = await _showCookieEditor(context, initial: c);
     if (saved == null || !mounted) return;
     final ok = await widget.controller.setCookie(
       name: '${saved['name'] ?? ''}',
@@ -3148,12 +3142,42 @@ class _CookiesTableState extends State<_CookiesTable> {
     if (widget.cookies.isEmpty) return;
     final ok = await showOpenHandConfirmDialog(
       context: context,
-      title: widget.isZh ? '清空全部 cookie？' : 'Clear all cookies?',
-      message: widget.isZh
-          ? '将删除当前页可见的 ${widget.cookies.length} 条 cookie，无法撤销。'
-          : 'Will delete ${widget.cookies.length} cookies. This cannot be undone.',
-      cancelLabel: widget.isZh ? '取消' : 'Cancel',
-      confirmLabel: widget.isZh ? '清空' : 'Clear',
+      title: _panelsText(
+        context,
+        zh: '清空全部 cookie？',
+        zhHant: '清空全部 cookie？',
+        en: 'Clear all cookies?',
+        fr: 'Effacer tous les cookies ?',
+        de: 'Alle Cookies löschen?',
+        ja: 'すべての cookie をクリアしますか？',
+      ),
+      message: _panelsText(
+        context,
+        zh: '将删除当前页可见的 ${widget.cookies.length} 条 cookie，无法撤销。',
+        zhHant: '將刪除目前頁面可見的 ${widget.cookies.length} 筆 cookie，無法復原。',
+        en: 'Will delete ${widget.cookies.length} cookies. This cannot be undone.',
+        fr: 'Supprime ${widget.cookies.length} cookies. Cette action est irréversible.',
+        de: 'Löscht ${widget.cookies.length} Cookies. Dies kann nicht rückgängig gemacht werden.',
+        ja: '${widget.cookies.length} 件の cookie を削除します。元に戻せません。',
+      ),
+      cancelLabel: _panelsText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _panelsText(
+        context,
+        zh: '清空',
+        zhHant: '清空',
+        en: 'Clear',
+        fr: 'Effacer',
+        de: 'Leeren',
+        ja: 'クリア',
+      ),
       destructive: true,
     );
     if (!ok || !mounted) return;
@@ -3174,10 +3198,16 @@ class _CookiesTableState extends State<_CookiesTable> {
     OpenHandSnackBar.showSuccess(
       context,
       webReverseClipboardSnackMessage(
-        isZh: widget.isZh,
-        base: widget.isZh
-            ? '已复制 ${widget.cookies.length} 条 cookie 到剪贴板'
-            : 'Copied ${widget.cookies.length} cookies to clipboard',
+        context: context,
+        base: _panelsText(
+          context,
+          zh: '已复制 ${widget.cookies.length} 条 cookie 到剪贴板',
+          zhHant: '已複製 ${widget.cookies.length} 筆 cookie 到剪貼簿',
+          en: 'Copied ${widget.cookies.length} cookies to clipboard',
+          fr: '${widget.cookies.length} cookies copiés dans le presse-papiers',
+          de: '${widget.cookies.length} Cookies in die Zwischenablage kopiert',
+          ja: '${widget.cookies.length} 件の cookie をクリップボードにコピーしました',
+        ),
         result: copied,
       ),
     );
@@ -3195,20 +3225,50 @@ class _CookiesTableState extends State<_CookiesTable> {
             TextButton.icon(
               onPressed: _addCookie,
               icon: const Icon(Icons.add_rounded, size: 16),
-              label: Text(widget.isZh ? '新增 cookie' : 'Add cookie'),
+              label: Text(
+                _panelsText(
+                  context,
+                  zh: '新增 cookie',
+                  zhHant: '新增 cookie',
+                  en: 'Add cookie',
+                  fr: 'Ajouter un cookie',
+                  de: 'Cookie hinzufügen',
+                  ja: 'cookie を追加',
+                ),
+              ),
             ),
             const SizedBox(width: 4),
             TextButton.icon(
               onPressed: cookies.isEmpty ? null : _exportJson,
               icon: const Icon(Icons.copy_all_rounded, size: 16),
-              label: Text(widget.isZh ? '导出 JSON' : 'Export JSON'),
+              label: Text(
+                _panelsText(
+                  context,
+                  zh: '导出 JSON',
+                  zhHant: '匯出 JSON',
+                  en: 'Export JSON',
+                  fr: 'Exporter JSON',
+                  de: 'JSON exportieren',
+                  ja: 'JSON をエクスポート',
+                ),
+              ),
             ),
             const SizedBox(width: 4),
             TextButton.icon(
               style: TextButton.styleFrom(foregroundColor: cs.error),
               onPressed: cookies.isEmpty ? null : _clearAll,
               icon: const Icon(Icons.delete_sweep_rounded, size: 16),
-              label: Text(widget.isZh ? '清空' : 'Clear all'),
+              label: Text(
+                _panelsText(
+                  context,
+                  zh: '清空',
+                  zhHant: '清空',
+                  en: 'Clear all',
+                  fr: 'Tout effacer',
+                  de: 'Alle leeren',
+                  ja: 'すべてクリア',
+                ),
+              ),
             ),
           ],
         ),
@@ -3216,7 +3276,15 @@ class _CookiesTableState extends State<_CookiesTable> {
           child: cookies.isEmpty
               ? Center(
                   child: Text(
-                    '(empty)',
+                    _panelsText(
+                      context,
+                      zh: '（空）',
+                      zhHant: '（空）',
+                      en: '(empty)',
+                      fr: '(vide)',
+                      de: '(leer)',
+                      ja: '（空）',
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -3269,7 +3337,15 @@ class _CookiesTableState extends State<_CookiesTable> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       IconButton(
-                                        tooltip: widget.isZh ? '编辑' : 'Edit',
+                                        tooltip: _panelsText(
+                                          context,
+                                          zh: '编辑',
+                                          zhHant: '編輯',
+                                          en: 'Edit',
+                                          fr: 'Modifier',
+                                          de: 'Bearbeiten',
+                                          ja: '編集',
+                                        ),
                                         visualDensity: VisualDensity.compact,
                                         iconSize: 16,
                                         padding: const EdgeInsets.all(6),
@@ -3282,7 +3358,15 @@ class _CookiesTableState extends State<_CookiesTable> {
                                       ),
                                       const SizedBox(width: 4),
                                       IconButton(
-                                        tooltip: widget.isZh ? '删除' : 'Delete',
+                                        tooltip: _panelsText(
+                                          context,
+                                          zh: '删除',
+                                          zhHant: '刪除',
+                                          en: 'Delete',
+                                          fr: 'Supprimer',
+                                          de: 'Löschen',
+                                          ja: '削除',
+                                        ),
                                         visualDensity: VisualDensity.compact,
                                         iconSize: 16,
                                         padding: const EdgeInsets.all(6),
@@ -3327,7 +3411,6 @@ class _CookiesTableState extends State<_CookiesTable> {
 Future<Map<String, Object?>?> _showCookieEditor(
   BuildContext context, {
   required Map<String, Object?> initial,
-  required bool isZh,
 }) async {
   final name = TextEditingController(text: '${initial['name'] ?? ''}');
   final value = TextEditingController(text: '${initial['value'] ?? ''}');
@@ -3336,9 +3419,43 @@ Future<Map<String, Object?>?> _showCookieEditor(
   try {
     return await showOpenHandFormDialog<Map<String, Object?>>(
       context: context,
-      title: isZh ? (initial.isEmpty ? '新增 cookie' : '编辑 cookie') : 'Cookie',
-      submitLabel: isZh ? '保存' : 'Save',
-      cancelLabel: isZh ? '取消' : 'Cancel',
+      title: initial.isEmpty
+          ? _panelsText(
+              context,
+              zh: '新增 cookie',
+              zhHant: '新增 cookie',
+              en: 'Add cookie',
+              fr: 'Ajouter un cookie',
+              de: 'Cookie hinzufügen',
+              ja: 'cookie を追加',
+            )
+          : _panelsText(
+              context,
+              zh: '编辑 cookie',
+              zhHant: '編輯 cookie',
+              en: 'Edit cookie',
+              fr: 'Modifier cookie',
+              de: 'Cookie bearbeiten',
+              ja: 'cookie を編集',
+            ),
+      submitLabel: _panelsText(
+        context,
+        zh: '保存',
+        zhHant: '儲存',
+        en: 'Save',
+        fr: 'Enregistrer',
+        de: 'Speichern',
+        ja: '保存',
+      ),
+      cancelLabel: _panelsText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
       maxWidth: 360,
       onSubmit: (_) => <String, Object?>{
         'name': name.text.trim(),
@@ -3389,7 +3506,6 @@ class _StorageTable extends StatefulWidget {
     required this.controller,
     required this.origin,
     required this.isLocalStorage,
-    required this.isZh,
     required this.onChanged,
   });
 
@@ -3397,7 +3513,6 @@ class _StorageTable extends StatefulWidget {
   final WebReverseSessionController controller;
   final String? origin;
   final bool isLocalStorage;
-  final bool isZh;
   final Future<void> Function() onChanged;
 
   @override
@@ -3412,7 +3527,6 @@ class _StorageTableState extends State<_StorageTable> {
       context,
       initialKey: '',
       initialValue: '',
-      isZh: widget.isZh,
     );
     if (saved == null || !mounted) return;
     await widget.controller.setDomStorageItem(
@@ -3431,7 +3545,6 @@ class _StorageTableState extends State<_StorageTable> {
       context,
       initialKey: r.key,
       initialValue: r.value,
-      isZh: widget.isZh,
     );
     if (saved == null || !mounted) return;
     if (saved.key != r.key) {
@@ -3470,12 +3583,42 @@ class _StorageTableState extends State<_StorageTable> {
         : 'sessionStorage';
     final ok = await showOpenHandConfirmDialog(
       context: context,
-      title: widget.isZh ? '清空全部条目？' : 'Clear all entries?',
-      message: widget.isZh
-          ? '将删除 ${widget.rows.length} 条 $storageKind 条目，无法撤销。'
-          : 'Will delete ${widget.rows.length} entries. This cannot be undone.',
-      cancelLabel: widget.isZh ? '取消' : 'Cancel',
-      confirmLabel: widget.isZh ? '清空' : 'Clear',
+      title: _panelsText(
+        context,
+        zh: '清空全部条目？',
+        zhHant: '清空全部項目？',
+        en: 'Clear all entries?',
+        fr: 'Effacer toutes les entrées ?',
+        de: 'Alle Einträge leeren?',
+        ja: 'すべてのエントリをクリアしますか？',
+      ),
+      message: _panelsText(
+        context,
+        zh: '将删除 ${widget.rows.length} 条 $storageKind 条目，无法撤销。',
+        zhHant: '將刪除 ${widget.rows.length} 筆 $storageKind 項目，無法復原。',
+        en: 'Will delete ${widget.rows.length} entries. This cannot be undone.',
+        fr: 'Supprime ${widget.rows.length} entrées. Cette action est irréversible.',
+        de: 'Löscht ${widget.rows.length} Einträge. Dies kann nicht rückgängig gemacht werden.',
+        ja: '${widget.rows.length} 件のエントリを削除します。元に戻せません。',
+      ),
+      cancelLabel: _panelsText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _panelsText(
+        context,
+        zh: '清空',
+        zhHant: '清空',
+        en: 'Clear',
+        fr: 'Effacer',
+        de: 'Leeren',
+        ja: 'クリア',
+      ),
       destructive: true,
     );
     if (!ok || !mounted) return;
@@ -3497,10 +3640,16 @@ class _StorageTableState extends State<_StorageTable> {
     OpenHandSnackBar.showSuccess(
       context,
       webReverseClipboardSnackMessage(
-        isZh: widget.isZh,
-        base: widget.isZh
-            ? '已复制 ${widget.rows.length} 条到剪贴板'
-            : 'Copied ${widget.rows.length} entries to clipboard',
+        context: context,
+        base: _panelsText(
+          context,
+          zh: '已复制 ${widget.rows.length} 条到剪贴板',
+          zhHant: '已複製 ${widget.rows.length} 筆到剪貼簿',
+          en: 'Copied ${widget.rows.length} entries to clipboard',
+          fr: '${widget.rows.length} entrées copiées dans le presse-papiers',
+          de: '${widget.rows.length} Einträge in die Zwischenablage kopiert',
+          ja: '${widget.rows.length} 件をクリップボードにコピーしました',
+        ),
         result: copied,
       ),
     );
@@ -3519,20 +3668,50 @@ class _StorageTableState extends State<_StorageTable> {
             TextButton.icon(
               onPressed: !originOk ? null : _add,
               icon: const Icon(Icons.add_rounded, size: 16),
-              label: Text(widget.isZh ? '新增条目' : 'Add entry'),
+              label: Text(
+                _panelsText(
+                  context,
+                  zh: '新增条目',
+                  zhHant: '新增項目',
+                  en: 'Add entry',
+                  fr: 'Ajouter une entrée',
+                  de: 'Eintrag hinzufügen',
+                  ja: 'エントリを追加',
+                ),
+              ),
             ),
             const SizedBox(width: 4),
             TextButton.icon(
               onPressed: rows.isEmpty ? null : _exportJson,
               icon: const Icon(Icons.copy_all_rounded, size: 16),
-              label: Text(widget.isZh ? '导出 JSON' : 'Export JSON'),
+              label: Text(
+                _panelsText(
+                  context,
+                  zh: '导出 JSON',
+                  zhHant: '匯出 JSON',
+                  en: 'Export JSON',
+                  fr: 'Exporter JSON',
+                  de: 'JSON exportieren',
+                  ja: 'JSON をエクスポート',
+                ),
+              ),
             ),
             const SizedBox(width: 4),
             TextButton.icon(
               style: TextButton.styleFrom(foregroundColor: cs.error),
               onPressed: rows.isEmpty || !originOk ? null : _clearAll,
               icon: const Icon(Icons.delete_sweep_rounded, size: 16),
-              label: Text(widget.isZh ? '清空' : 'Clear all'),
+              label: Text(
+                _panelsText(
+                  context,
+                  zh: '清空',
+                  zhHant: '清空',
+                  en: 'Clear all',
+                  fr: 'Tout effacer',
+                  de: 'Alle leeren',
+                  ja: 'すべてクリア',
+                ),
+              ),
             ),
           ],
         ),
@@ -3540,7 +3719,15 @@ class _StorageTableState extends State<_StorageTable> {
           child: rows.isEmpty
               ? Center(
                   child: Text(
-                    '(empty)',
+                    _panelsText(
+                      context,
+                      zh: '（空）',
+                      zhHant: '（空）',
+                      en: '(empty)',
+                      fr: '(vide)',
+                      de: '(leer)',
+                      ja: '（空）',
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -3582,7 +3769,15 @@ class _StorageTableState extends State<_StorageTable> {
                             ),
                           ),
                           IconButton(
-                            tooltip: widget.isZh ? '编辑' : 'Edit',
+                            tooltip: _panelsText(
+                              context,
+                              zh: '编辑',
+                              zhHant: '編輯',
+                              en: 'Edit',
+                              fr: 'Modifier',
+                              de: 'Bearbeiten',
+                              ja: '編集',
+                            ),
                             visualDensity: VisualDensity.compact,
                             iconSize: 16,
                             padding: const EdgeInsets.all(6),
@@ -3595,7 +3790,15 @@ class _StorageTableState extends State<_StorageTable> {
                           ),
                           const SizedBox(width: 4),
                           IconButton(
-                            tooltip: widget.isZh ? '删除' : 'Delete',
+                            tooltip: _panelsText(
+                              context,
+                              zh: '删除',
+                              zhHant: '刪除',
+                              en: 'Delete',
+                              fr: 'Supprimer',
+                              de: 'Löschen',
+                              ja: '削除',
+                            ),
                             visualDensity: VisualDensity.compact,
                             iconSize: 16,
                             padding: const EdgeInsets.all(6),
@@ -3624,16 +3827,39 @@ Future<({String key, String value})?> _showStorageEditor(
   BuildContext context, {
   required String initialKey,
   required String initialValue,
-  required bool isZh,
 }) async {
   final keyCtrl = TextEditingController(text: initialKey);
   final valueCtrl = TextEditingController(text: initialValue);
   try {
     return await showOpenHandFormDialog<({String key, String value})>(
       context: context,
-      title: isZh ? '存储条目' : 'Storage entry',
-      submitLabel: isZh ? '保存' : 'Save',
-      cancelLabel: isZh ? '取消' : 'Cancel',
+      title: _panelsText(
+        context,
+        zh: '存储条目',
+        zhHant: '儲存項目',
+        en: 'Storage entry',
+        fr: 'Entrée de stockage',
+        de: 'Speichereintrag',
+        ja: 'ストレージ項目',
+      ),
+      submitLabel: _panelsText(
+        context,
+        zh: '保存',
+        zhHant: '儲存',
+        en: 'Save',
+        fr: 'Enregistrer',
+        de: 'Speichern',
+        ja: '保存',
+      ),
+      cancelLabel: _panelsText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
       maxWidth: 380,
       onSubmit: (_) => (key: keyCtrl.text.trim(), value: valueCtrl.text),
       contentBuilder: (_) => SizedBox(
@@ -3671,14 +3897,12 @@ class _IndexedDbTable extends StatefulWidget {
     required this.controller,
     required this.names,
     required this.described,
-    required this.isZh,
     required this.onChanged,
   });
 
   final WebReverseSessionController controller;
   final List<String> names;
   final Map<String, ({int version, List<String> stores})> described;
-  final bool isZh;
   final Future<void> Function() onChanged;
 
   @override
@@ -3735,32 +3959,89 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
   Future<bool> _confirmDestructiveAction({
     required String titleZh,
     required String titleEn,
+    required String titleZhHant,
+    required String titleFr,
+    required String titleDe,
+    required String titleJa,
     required String messageZh,
     required String messageEn,
+    required String messageZhHant,
+    required String messageFr,
+    required String messageDe,
+    required String messageJa,
     required String confirmZh,
     required String confirmEn,
+    required String confirmZhHant,
+    required String confirmFr,
+    required String confirmDe,
+    required String confirmJa,
   }) {
     return showOpenHandConfirmDialog(
       context: context,
-      title: widget.isZh ? titleZh : titleEn,
-      message: widget.isZh ? messageZh : messageEn,
-      cancelLabel: widget.isZh ? '取消' : 'Cancel',
-      confirmLabel: widget.isZh ? confirmZh : confirmEn,
+      title: _panelsText(
+        context,
+        zh: titleZh,
+        zhHant: titleZhHant,
+        en: titleEn,
+        fr: titleFr,
+        de: titleDe,
+        ja: titleJa,
+      ),
+      message: _panelsText(
+        context,
+        zh: messageZh,
+        zhHant: messageZhHant,
+        en: messageEn,
+        fr: messageFr,
+        de: messageDe,
+        ja: messageJa,
+      ),
+      cancelLabel: _panelsText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _panelsText(
+        context,
+        zh: confirmZh,
+        zhHant: confirmZhHant,
+        en: confirmEn,
+        fr: confirmFr,
+        de: confirmDe,
+        ja: confirmJa,
+      ),
       destructive: true,
     );
   }
 
   /// 删除整个数据库。弹二次确认。
   Future<void> _confirmDeleteDb(String dbName) async {
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     final ok = await _confirmDestructiveAction(
       titleZh: '删除数据库',
       titleEn: 'Delete database',
+      titleZhHant: '刪除資料庫',
+      titleFr: 'Supprimer la base',
+      titleDe: 'Datenbank löschen',
+      titleJa: 'データベースを削除',
       messageZh: '确定删除数据库 “$dbName” 及其全部 store ？此操作不可撤销。',
       messageEn: 'Delete database “$dbName” and all stores? Irreversible.',
+      messageZhHant: '確定刪除資料庫「$dbName」及其全部 store？此操作無法復原。',
+      messageFr:
+          'Supprimer la base “$dbName” et tous ses stores ? Action irréversible.',
+      messageDe:
+          'Datenbank “$dbName” und alle Stores löschen? Dies kann nicht rückgängig gemacht werden.',
+      messageJa: 'データベース「$dbName」とすべての store を削除しますか？元に戻せません。',
       confirmZh: '删除',
       confirmEn: 'Delete',
+      confirmZhHant: '刪除',
+      confirmFr: 'Supprimer',
+      confirmDe: 'Löschen',
+      confirmJa: '削除',
     );
     if (!mounted || !ok) return;
     final success = await widget.controller.deleteIndexedDb(dbName);
@@ -3777,14 +4058,30 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh ? '已删除 $dbName' : 'Deleted',
+        _panelsText(
+          context,
+          zh: '已删除 $dbName',
+          zhHant: '已刪除 $dbName',
+          en: 'Deleted $dbName',
+          fr: '$dbName supprimée',
+          de: '$dbName gelöscht',
+          ja: '$dbName を削除しました',
+        ),
       );
       await widget.onChanged();
     } else {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '删除失败' : 'Delete failed',
+        _panelsText(
+          context,
+          zh: '删除失败',
+          zhHant: '刪除失敗',
+          en: 'Delete failed',
+          fr: 'Échec de la suppression',
+          de: 'Löschen fehlgeschlagen',
+          ja: '削除に失敗しました',
+        ),
       );
     }
   }
@@ -3793,15 +4090,28 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
   Future<void> _confirmClearStore() async {
     final selected = _selected;
     if (selected == null) return;
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     final ok = await _confirmDestructiveAction(
       titleZh: '清空 Object Store',
       titleEn: 'Clear object store',
+      titleZhHant: '清空 Object Store',
+      titleFr: 'Vider l’object store',
+      titleDe: 'Object Store leeren',
+      titleJa: 'Object Store をクリア',
       messageZh: '确定清空 “${selected.db} / ${selected.store}” 的全部记录？',
       messageEn: 'Clear all records in “${selected.db} / ${selected.store}”?',
+      messageZhHant: '確定清空「${selected.db} / ${selected.store}」的全部記錄？',
+      messageFr:
+          'Vider tous les enregistrements dans “${selected.db} / ${selected.store}” ?',
+      messageDe:
+          'Alle Datensätze in “${selected.db} / ${selected.store}” leeren?',
+      messageJa: '「${selected.db} / ${selected.store}」の全レコードをクリアしますか？',
       confirmZh: '清空',
       confirmEn: 'Clear',
+      confirmZhHant: '清空',
+      confirmFr: 'Vider',
+      confirmDe: 'Leeren',
+      confirmJa: 'クリア',
     );
     if (!mounted || !ok) return;
     final success = await widget.controller.clearIndexedDbStore(
@@ -3815,14 +4125,30 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          isZh ? '已清空' : 'Cleared',
+          _panelsText(
+            context,
+            zh: '已清空',
+            zhHant: '已清空',
+            en: 'Cleared',
+            fr: 'Vidée',
+            de: 'Geleert',
+            ja: 'クリアしました',
+          ),
         );
       }
     } else {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '清空失败' : 'Clear failed',
+        _panelsText(
+          context,
+          zh: '清空失败',
+          zhHant: '清空失敗',
+          en: 'Clear failed',
+          fr: 'Échec du vidage',
+          de: 'Leeren fehlgeschlagen',
+          ja: 'クリアに失敗しました',
+        ),
       );
     }
   }
@@ -3837,20 +4163,39 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
       OpenHandSnackBar.showErrorOn(
         context,
         ScaffoldMessenger.of(context),
-        widget.isZh ? '不支持的 key 类型' : 'Unsupported key type',
+        _panelsText(
+          context,
+          zh: '不支持的 key 类型',
+          zhHant: '不支援的 key 類型',
+          en: 'Unsupported key type',
+          fr: 'Type de key non pris en charge',
+          de: 'Nicht unterstützter key-Typ',
+          ja: '未対応の key 型です',
+        ),
       );
       return;
     }
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     final keyDescription = _describeRemoteObject(keyRaw);
     final ok = await _confirmDestructiveAction(
       titleZh: '删除记录',
       titleEn: 'Delete record',
+      titleZhHant: '刪除記錄',
+      titleFr: 'Supprimer l’enregistrement',
+      titleDe: 'Datensatz löschen',
+      titleJa: 'レコードを削除',
       messageZh: '确定删除 key = $keyDescription ？',
       messageEn: 'Delete record with key = $keyDescription?',
+      messageZhHant: '確定刪除 key = $keyDescription？',
+      messageFr: 'Supprimer l’enregistrement avec key = $keyDescription ?',
+      messageDe: 'Datensatz mit key = $keyDescription löschen?',
+      messageJa: 'key = $keyDescription のレコードを削除しますか？',
       confirmZh: '删除',
       confirmEn: 'Delete',
+      confirmZhHant: '刪除',
+      confirmFr: 'Supprimer',
+      confirmDe: 'Löschen',
+      confirmJa: '削除',
     );
     if (!mounted || !ok) return;
     final success = await widget.controller.deleteIndexedDbEntry(
@@ -3865,14 +4210,30 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          isZh ? '已删除' : 'Deleted',
+          _panelsText(
+            context,
+            zh: '已删除',
+            zhHant: '已刪除',
+            en: 'Deleted',
+            fr: 'Supprimé',
+            de: 'Gelöscht',
+            ja: '削除しました',
+          ),
         );
       }
     } else {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '删除失败' : 'Delete failed',
+        _panelsText(
+          context,
+          zh: '删除失败',
+          zhHant: '刪除失敗',
+          en: 'Delete failed',
+          fr: 'Échec de la suppression',
+          de: 'Löschen fehlgeschlagen',
+          ja: '削除に失敗しました',
+        ),
       );
     }
   }
@@ -3904,7 +4265,15 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
     if (widget.names.isEmpty) {
       return Center(
         child: Text(
-          '(empty)',
+          _panelsText(
+            context,
+            zh: '（空）',
+            zhHant: '（空）',
+            en: '(empty)',
+            fr: '(vide)',
+            de: '(leer)',
+            ja: '（空）',
+          ),
           style: theme.textTheme.bodySmall?.copyWith(
             color: cs.onSurfaceVariant,
           ),
@@ -3960,7 +4329,15 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                               ),
                             ),
                           IconButton(
-                            tooltip: widget.isZh ? '删除数据库' : 'Delete database',
+                            tooltip: _panelsText(
+                              context,
+                              zh: '删除数据库',
+                              zhHant: '刪除資料庫',
+                              en: 'Delete database',
+                              fr: 'Supprimer la base',
+                              de: 'Datenbank löschen',
+                              ja: 'データベースを削除',
+                            ),
                             iconSize: 14,
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
@@ -4030,7 +4407,15 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
           child: selected == null
               ? Center(
                   child: Text(
-                    '点击左侧 store 查看记录',
+                    _panelsText(
+                      context,
+                      zh: '点击左侧 store 查看记录',
+                      zhHant: '點選左側 store 查看記錄',
+                      en: 'Select a store on the left to view records',
+                      fr: 'Sélectionnez un store à gauche pour voir les enregistrements',
+                      de: 'Wählen Sie links einen Store aus, um Datensätze anzuzeigen',
+                      ja: '左側の store を選択してレコードを表示',
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -4068,15 +4453,27 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                                 size: 16,
                               ),
                               label: Text(
-                                openHandIsChineseLocale(context)
-                                    ? '加载更多'
-                                    : 'Load more',
+                                _panelsText(
+                                  context,
+                                  zh: '加载更多',
+                                  zhHant: '載入更多',
+                                  en: 'Load more',
+                                  fr: 'Charger plus',
+                                  de: 'Mehr laden',
+                                  ja: 'さらに読み込む',
+                                ),
                               ),
                             ),
                           IconButton(
-                            tooltip: widget.isZh
-                                ? '清空当前 store'
-                                : 'Clear current store',
+                            tooltip: _panelsText(
+                              context,
+                              zh: '清空当前 store',
+                              zhHant: '清空目前 store',
+                              en: 'Clear current store',
+                              fr: 'Vider le store actuel',
+                              de: 'Aktuellen Store leeren',
+                              ja: '現在の store をクリア',
+                            ),
                             iconSize: 16,
                             visualDensity: VisualDensity.compact,
                             onPressed: _loading ? null : _confirmClearStore,
@@ -4092,7 +4489,15 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                       child: _entries.isEmpty && !_loading
                           ? Center(
                               child: Text(
-                                '(empty)',
+                                _panelsText(
+                                  context,
+                                  zh: '（空）',
+                                  zhHant: '（空）',
+                                  en: '(empty)',
+                                  fr: '(vide)',
+                                  de: '(leer)',
+                                  ja: '（空）',
+                                ),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: cs.onSurfaceVariant,
                                 ),
@@ -4123,7 +4528,6 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                                 }
                                 return _IndexedDbEntryRow(
                                   entry: _entries[i],
-                                  isZh: widget.isZh,
                                   onDelete: () =>
                                       _confirmDeleteEntry(_entries[i]),
                                 );
@@ -4141,13 +4545,8 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
 /// IndexedDB.requestData 回来的单条记录视图。CDP 的 key/value 是嵌套 RemoteObject，
 /// 直接 jsonEncode 即可读到 description 字段；展开/收起避免一行撑爆。
 class _IndexedDbEntryRow extends StatefulWidget {
-  const _IndexedDbEntryRow({
-    required this.entry,
-    required this.isZh,
-    required this.onDelete,
-  });
+  const _IndexedDbEntryRow({required this.entry, required this.onDelete});
   final Map<String, Object?> entry;
-  final bool isZh;
   final VoidCallback onDelete;
 
   @override
@@ -4205,7 +4604,15 @@ class _IndexedDbEntryRowState extends State<_IndexedDbEntryRow> {
                   ),
                 ),
                 IconButton(
-                  tooltip: widget.isZh ? '删除记录' : 'Delete record',
+                  tooltip: _panelsText(
+                    context,
+                    zh: '删除记录',
+                    zhHant: '刪除記錄',
+                    en: 'Delete record',
+                    fr: 'Supprimer l’enregistrement',
+                    de: 'Datensatz löschen',
+                    ja: 'レコードを削除',
+                  ),
                   iconSize: 16,
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
@@ -4245,9 +4652,8 @@ String _describeRemoteObject(Object? raw) {
 }
 
 class _NameListPanel extends StatelessWidget {
-  const _NameListPanel({required this.names, required this.isZh});
+  const _NameListPanel({required this.names});
   final List<String> names;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -4256,7 +4662,15 @@ class _NameListPanel extends StatelessWidget {
     if (names.isEmpty) {
       return Center(
         child: Text(
-          '(empty)',
+          _panelsText(
+            context,
+            zh: '（空）',
+            zhHant: '（空）',
+            en: '(empty)',
+            fr: '(vide)',
+            de: '(leer)',
+            ja: '（空）',
+          ),
           style: theme.textTheme.bodySmall?.copyWith(
             color: cs.onSurfaceVariant,
           ),
@@ -4288,21 +4702,43 @@ class _ServiceWorkersTable extends StatelessWidget {
   const _ServiceWorkersTable({
     required this.versions,
     required this.controller,
-    required this.isZh,
     required this.onChanged,
   });
   final List<Map<String, Object?>> versions;
   final WebReverseSessionController controller;
-  final bool isZh;
   final Future<void> Function() onChanged;
 
   Future<void> _registerNew(BuildContext context) async {
     final ok = await showOpenHandTextInputDialog(
       context: context,
-      title: isZh ? '注册 Service Worker' : 'Register SW',
+      title: _panelsText(
+        context,
+        zh: '注册 Service Worker',
+        zhHant: '註冊 Service Worker',
+        en: 'Register SW',
+        fr: 'Enregistrer un SW',
+        de: 'SW registrieren',
+        ja: 'SW を登録',
+      ),
       hintText: 'scopeURL',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '注册' : 'Register',
+      cancelLabel: _panelsText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _panelsText(
+        context,
+        zh: '注册',
+        zhHant: '註冊',
+        en: 'Register',
+        fr: 'Enregistrer',
+        de: 'Registrieren',
+        ja: '登録',
+      ),
       decoration: const InputDecoration(labelText: 'scopeURL'),
     );
     if (ok == null || ok.isEmpty) return;
@@ -4321,14 +4757,32 @@ class _ServiceWorkersTable extends StatelessWidget {
           child: TextButton.icon(
             onPressed: () => _registerNew(context),
             icon: const Icon(Icons.add_rounded, size: 16),
-            label: Text(isZh ? '注册新 SW' : 'Register new SW'),
+            label: Text(
+              _panelsText(
+                context,
+                zh: '注册新 SW',
+                zhHant: '註冊新 SW',
+                en: 'Register new SW',
+                fr: 'Enregistrer un nouveau SW',
+                de: 'Neuen SW registrieren',
+                ja: '新しい SW を登録',
+              ),
+            ),
           ),
         ),
         Expanded(
           child: versions.isEmpty
               ? Center(
                   child: Text(
-                    '(empty)',
+                    _panelsText(
+                      context,
+                      zh: '（空）',
+                      zhHant: '（空）',
+                      en: '(empty)',
+                      fr: '(vide)',
+                      de: '(leer)',
+                      ja: '（空）',
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -4386,7 +4840,15 @@ class _ServiceWorkersTable extends StatelessWidget {
                                 ),
                               ),
                               IconButton(
-                                tooltip: isZh ? '更新' : 'Update',
+                                tooltip: _panelsText(
+                                  context,
+                                  zh: '更新',
+                                  zhHant: '更新',
+                                  en: 'Update',
+                                  fr: 'Mettre à jour',
+                                  de: 'Aktualisieren',
+                                  ja: '更新',
+                                ),
                                 visualDensity: VisualDensity.compact,
                                 iconSize: 16,
                                 padding: const EdgeInsets.all(6),
@@ -4406,7 +4868,15 @@ class _ServiceWorkersTable extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               IconButton(
-                                tooltip: isZh ? '卸载' : 'Unregister',
+                                tooltip: _panelsText(
+                                  context,
+                                  zh: '卸载',
+                                  zhHant: '解除註冊',
+                                  en: 'Unregister',
+                                  fr: 'Désenregistrer',
+                                  de: 'Austragen',
+                                  ja: '登録解除',
+                                ),
                                 visualDensity: VisualDensity.compact,
                                 iconSize: 16,
                                 padding: const EdgeInsets.all(6),
