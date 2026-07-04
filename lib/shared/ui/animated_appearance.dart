@@ -70,6 +70,7 @@ class AnimatedAppearance extends StatefulWidget {
 class _AnimatedAppearanceState extends State<AnimatedAppearance>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
+  bool _dismissCallbackQueued = false;
 
   @override
   void initState() {
@@ -86,9 +87,22 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
     }
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_motionAvailable(context)) {
+      _ctrl
+        ..stop()
+        ..value = widget.present ? 1.0 : 0.0;
+      if (!widget.present) {
+        _notifyDismissedSoon();
+      }
+    }
+  }
+
   void _onStatus(AnimationStatus status) {
     if (status == AnimationStatus.dismissed && !widget.present) {
-      widget.onDismissed?.call();
+      _notifyDismissedNow();
     }
   }
 
@@ -100,6 +114,18 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
       _ctrl.reverseDuration = widget.settings.duration;
     }
     if (widget.present != oldWidget.present) {
+      if (widget.present) {
+        _dismissCallbackQueued = false;
+      }
+      if (!_motionAvailable(context)) {
+        _ctrl
+          ..stop()
+          ..value = widget.present ? 1.0 : 0.0;
+        if (!widget.present) {
+          _notifyDismissedSoon();
+        }
+        return;
+      }
       if (widget.present) {
         _ctrl.forward();
       } else {
@@ -115,8 +141,36 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
     super.dispose();
   }
 
+  bool _motionAvailable(BuildContext context) {
+    return openHandTickerMotionEnabled(context) &&
+        !openHandMotionDisabled(widget.settings) &&
+        widget.settings.duration > Duration.zero;
+  }
+
+  void _notifyDismissedSoon() {
+    if (_dismissCallbackQueued) return;
+    _dismissCallbackQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.present) return;
+      widget.onDismissed?.call();
+    });
+  }
+
+  void _notifyDismissedNow() {
+    if (_dismissCallbackQueued) return;
+    _dismissCallbackQueued = true;
+    widget.onDismissed?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!_motionAvailable(context)) {
+      if (!widget.present) {
+        _notifyDismissedSoon();
+        return const SizedBox.shrink();
+      }
+      return widget.child;
+    }
     Widget content = buildAnimationStyleTransition(
       animation: _ctrl,
       settings: widget.settings,
