@@ -1420,9 +1420,10 @@ class _FileTreeTile extends StatelessWidget {
                 if (node.isDirectory)
                   AnimatedRotation(
                     turns: node.isExpanded ? 0.25 : 0,
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 200),
+                    duration: openHandMotionDuration(
+                      context,
+                      const Duration(milliseconds: 200),
+                    ),
                     curve: Curves.easeOutCubic,
                     child: Icon(
                       Icons.chevron_right_rounded,
@@ -11369,9 +11370,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     // ── Find / Replace bar ──
                     ClipRect(
                       child: AnimatedSize(
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 220),
+                        duration: openHandMotionDuration(
+                          context,
+                          const Duration(milliseconds: 220),
+                        ),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.bottomCenter,
                         child: _buildFindBar(colorScheme),
@@ -11380,9 +11382,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     // ── Go-to-Line bar ──
                     ClipRect(
                       child: AnimatedSize(
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 220),
+                        duration: openHandMotionDuration(
+                          context,
+                          const Duration(milliseconds: 220),
+                        ),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.bottomCenter,
                         child: _buildGoToLineBar(colorScheme),
@@ -11391,9 +11394,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     // ── Symbol navigation bar ──
                     ClipRect(
                       child: AnimatedSize(
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 220),
+                        duration: openHandMotionDuration(
+                          context,
+                          const Duration(milliseconds: 220),
+                        ),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.bottomCenter,
                         child: _buildSymbolBar(colorScheme),
@@ -11422,9 +11426,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     // Wrapped in AnimatedSize for smooth slide-in / slide-out.
                     ClipRect(
                       child: AnimatedSize(
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 250),
+                        duration: openHandMotionDuration(
+                          context,
+                          const Duration(milliseconds: 250),
+                        ),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.topCenter,
                         child: _buildProjectToolchainBar(colorScheme),
@@ -11432,9 +11437,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ),
                     ClipRect(
                       child: AnimatedSize(
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 250),
+                        duration: openHandMotionDuration(
+                          context,
+                          const Duration(milliseconds: 250),
+                        ),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.topCenter,
                         child: _buildDiagnosticsBar(colorScheme),
@@ -11442,9 +11448,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ),
                     ClipRect(
                       child: AnimatedSize(
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 250),
+                        duration: openHandMotionDuration(
+                          context,
+                          const Duration(milliseconds: 250),
+                        ),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.topCenter,
                         child: _buildLspResultBar(colorScheme),
@@ -15709,9 +15716,10 @@ class _EditorTab extends StatelessWidget {
                 colorScheme.primary.withValues(alpha: 0.08),
               ),
               child: AnimatedContainer(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 200),
+                duration: openHandMotionDuration(
+                  context,
+                  const Duration(milliseconds: 200),
+                ),
                 curve: Curves.easeOutCubic,
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
