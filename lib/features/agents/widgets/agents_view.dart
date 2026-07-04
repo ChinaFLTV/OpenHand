@@ -4777,7 +4777,7 @@ class _AgentAuditReportBody extends StatelessWidget {
         if (agent.auditEvents.isEmpty)
           Text(l10n.agentsNoAuditData)
         else
-          ...agent.auditEvents
+          ..._recentAgentAuditEvents(agent.auditEvents)
               .take(8)
               .map(
                 (event) => ListTile(
@@ -4800,6 +4800,22 @@ class _AgentAuditReportBody extends StatelessWidget {
       ],
     );
   }
+}
+
+List<AgentAuditEvent> _recentAgentAuditEvents(List<AgentAuditEvent> events) {
+  final indexed = events.indexed.toList(growable: false);
+  indexed.sort((left, right) {
+    final timeCompare = _agentAuditEventSortTime(
+      right.$2,
+    ).compareTo(_agentAuditEventSortTime(left.$2));
+    if (timeCompare != 0) return timeCompare;
+    return left.$1.compareTo(right.$1);
+  });
+  return indexed.map((entry) => entry.$2).toList(growable: false);
+}
+
+DateTime _agentAuditEventSortTime(AgentAuditEvent event) {
+  return event.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 }
 
 class _AgentAuditSection extends StatelessWidget {
@@ -7982,29 +7998,77 @@ class _AnimatedReorderableChipStrip extends StatefulWidget {
 class _AnimatedReorderableChipStripState
     extends State<_AnimatedReorderableChipStrip> {
   String? _activeDragValue;
+  int? _hoverInsertIndex;
   String? _lastMoveSignature;
+  final Map<String, GlobalKey> _chipKeys = <String, GlobalKey>{};
+
+  @override
+  void didUpdateWidget(covariant _AnimatedReorderableChipStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final activeValues = widget.values.toSet();
+    _chipKeys.removeWhere((value, _) => !activeValues.contains(value));
+  }
+
+  GlobalKey _keyForValue(String value) {
+    return _chipKeys.putIfAbsent(value, GlobalKey.new);
+  }
 
   void _startDrag(String value) {
-    _activeDragValue = value;
-    _lastMoveSignature = null;
+    setState(() {
+      _activeDragValue = value;
+      _hoverInsertIndex = null;
+      _lastMoveSignature = null;
+    });
   }
 
   void _finishDrag() {
-    _activeDragValue = null;
-    _lastMoveSignature = null;
+    if (_activeDragValue == null &&
+        _hoverInsertIndex == null &&
+        _lastMoveSignature == null) {
+      return;
+    }
+    setState(() {
+      _activeDragValue = null;
+      _hoverInsertIndex = null;
+      _lastMoveSignature = null;
+    });
   }
 
-  void _reorderAround(
-    _AgentChipDragPayload payload,
-    String targetValue,
-    _AgentChipDropPlacement placement,
-  ) {
-    final targetIndex = widget.values.indexOf(targetValue);
-    if (targetIndex < 0) return;
-    final insertIndex = placement == _AgentChipDropPlacement.after
-        ? targetIndex + 1
-        : targetIndex;
-    _reorderToSlot(payload, insertIndex);
+  void _handleDragMove(DragTargetDetails<_AgentChipDragPayload> details) {
+    if (widget.values.length < 2) return;
+    final insertIndex = _insertIndexForDragOffset(
+      details.data.value,
+      details.offset,
+    );
+    if (_hoverInsertIndex == insertIndex) return;
+    setState(() => _hoverInsertIndex = insertIndex);
+  }
+
+  void _handleDragAccept(DragTargetDetails<_AgentChipDragPayload> details) {
+    final insertIndex = _insertIndexForDragOffset(
+      details.data.value,
+      details.offset,
+    );
+    _reorderToSlot(details.data, insertIndex);
+    _finishDrag();
+  }
+
+  void _handleDragEnd(String value, Offset feedbackTopLeft) {
+    if (_activeDragValue != value) return;
+    final rect = _globalRectFor(_keyForValue(value));
+    final dropOffset = rect == null
+        ? feedbackTopLeft
+        : feedbackTopLeft + Offset(rect.width / 2, rect.height / 2);
+    _reorderToSlot(
+      _AgentChipDragPayload(value: value),
+      _insertIndexForDragOffset(value, dropOffset),
+    );
+    _finishDrag();
+  }
+
+  void _handleDragLeave(_AgentChipDragPayload? _) {
+    if (_hoverInsertIndex == null) return;
+    setState(() => _hoverInsertIndex = null);
   }
 
   void _reorderToSlot(_AgentChipDragPayload payload, int insertIndex) {
@@ -8030,6 +8094,74 @@ class _AnimatedReorderableChipStripState
     widget.onReorder(oldIndex, boundedInsertIndex);
   }
 
+  int _insertIndexForDragOffset(String value, Offset globalOffset) {
+    final preciseIndex = _insertIndexForOffset(globalOffset);
+    final oldIndex = widget.values.indexOf(value);
+    final rect = _globalRectFor(_keyForValue(value));
+    if (oldIndex < 0 || rect == null) return preciseIndex;
+    if (globalOffset.dx < rect.left - _agentChipSpacing &&
+        preciseIndex >= oldIndex) {
+      return (oldIndex - 1).clamp(0, widget.values.length).toInt();
+    }
+    if (globalOffset.dx > rect.right + _agentChipSpacing &&
+        preciseIndex <= oldIndex) {
+      return (oldIndex + 2).clamp(0, widget.values.length).toInt();
+    }
+    return preciseIndex;
+  }
+
+  int _insertIndexForOffset(Offset globalOffset) {
+    final slots = <({int index, Rect rect})>[];
+    for (final entry in widget.values.indexed) {
+      final rect = _globalRectFor(_keyForValue(entry.$2));
+      if (rect == null) continue;
+      slots.add((index: entry.$1, rect: rect));
+    }
+    if (slots.isEmpty) return widget.values.length;
+
+    ({int index, Rect rect}) nearestRowAnchor = slots.first;
+    var nearestDistance = _verticalDistanceToRect(
+      globalOffset.dy,
+      nearestRowAnchor.rect,
+    );
+    for (final slot in slots.skip(1)) {
+      final distance = _verticalDistanceToRect(globalOffset.dy, slot.rect);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestRowAnchor = slot;
+      }
+    }
+
+    final anchorCenterY = nearestRowAnchor.rect.center.dy;
+    final row =
+        slots
+            .where(
+              (slot) =>
+                  (slot.rect.center.dy - anchorCenterY).abs() <=
+                  slot.rect.height + _agentChipSpacing,
+            )
+            .toList()
+          ..sort((left, right) => left.rect.left.compareTo(right.rect.left));
+
+    for (final slot in row) {
+      if (globalOffset.dx < slot.rect.center.dx) return slot.index;
+    }
+    return (row.isEmpty ? slots.last.index : row.last.index) + 1;
+  }
+
+  Rect? _globalRectFor(GlobalKey key) {
+    final renderObject = key.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+    final topLeft = renderObject.localToGlobal(Offset.zero);
+    return topLeft & renderObject.size;
+  }
+
+  double _verticalDistanceToRect(double y, Rect rect) {
+    if (y < rect.top) return rect.top - y;
+    if (y > rect.bottom) return y - rect.bottom;
+    return 0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final animationSettings = _agentChipAnimationSettings(context);
@@ -8047,36 +8179,120 @@ class _AnimatedReorderableChipStripState
     }
     return _AgentChipStripSwitcher(
       settings: animationSettings,
-      child: AnimatedSize(
-        key: const ValueKey<String>('agent-chip-strip-list'),
-        duration: animationSettings.duration,
-        curve: animationSettings.curve.curve,
-        alignment: AlignmentDirectional.topStart,
-        child: Wrap(
-          spacing: _agentChipSpacing,
-          runSpacing: _agentChipSpacing,
-          children: [
-            for (final entry in widget.values.indexed)
-              _AgentReorderableChipDropTarget(
-                key: ValueKey<String>('${widget.keyPrefix}-${entry.$2}'),
-                value: entry.$2,
-                label: widget.labelBuilder?.call(entry.$2) ?? entry.$2,
-                settings: animationSettings,
-                onRemove: widget.onRemove,
-                onReorderAround: _reorderAround,
-                onDragStarted: _startDrag,
-                onDragFinished: _finishDrag,
-                keyPrefix: widget.keyPrefix,
-              ),
-            _AgentChipInsertionDropTarget(
-              key: ValueKey<String>('${widget.keyPrefix}-drop-end'),
-              settings: animationSettings,
-              onAccept: (payload) =>
-                  _reorderToSlot(payload, widget.values.length),
+      child: DragTarget<_AgentChipDragPayload>(
+        onWillAcceptWithDetails: (details) =>
+            widget.values.contains(details.data.value),
+        onMove: _handleDragMove,
+        onAcceptWithDetails: _handleDragAccept,
+        onLeave: _handleDragLeave,
+        builder: (context, candidateData, rejectedData) {
+          final targeted = candidateData.isNotEmpty;
+          return AnimatedSize(
+            key: const ValueKey<String>('agent-chip-strip-list'),
+            duration: animationSettings.duration,
+            curve: animationSettings.curve.curve,
+            alignment: AlignmentDirectional.topStart,
+            child: Wrap(
+              spacing: _agentChipSpacing,
+              runSpacing: _agentChipSpacing,
+              children: [
+                for (final entry in widget.values.indexed) ...[
+                  if (targeted && _hoverInsertIndex == entry.$1)
+                    _AgentChipInsertionIndicator(settings: animationSettings),
+                  _AgentReorderableChip(
+                    key: ValueKey<String>('${widget.keyPrefix}-${entry.$2}'),
+                    bodyGlobalKey: _keyForValue(entry.$2),
+                    value: entry.$2,
+                    label: widget.labelBuilder?.call(entry.$2) ?? entry.$2,
+                    settings: animationSettings,
+                    onRemove: widget.onRemove,
+                    onDragStarted: _startDrag,
+                    onDragEnded: _handleDragEnd,
+                    keyPrefix: widget.keyPrefix,
+                  ),
+                ],
+                if (targeted && _hoverInsertIndex == widget.values.length)
+                  _AgentChipInsertionIndicator(settings: animationSettings)
+                else
+                  const SizedBox(
+                    width: _agentChipSpacing,
+                    height: _agentChipDropSlotExtent,
+                  ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
+    );
+  }
+}
+
+class _AgentChipInsertionIndicator extends StatelessWidget {
+  const _AgentChipInsertionIndicator({required this.settings});
+
+  final DialogAnimationSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: settings.duration,
+      curve: settings.curve.curve,
+      width: _agentChipDropSlotExtent,
+      height: _agentChipDropSlotExtent,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Icon(
+        Icons.keyboard_double_arrow_right_rounded,
+        size: 16,
+        color: Theme.of(context).colorScheme.primary,
+      ),
+    );
+  }
+}
+
+class _AgentReorderableChip extends StatelessWidget {
+  const _AgentReorderableChip({
+    super.key,
+    required this.bodyGlobalKey,
+    required this.value,
+    required this.label,
+    required this.settings,
+    required this.onRemove,
+    required this.onDragStarted,
+    required this.onDragEnded,
+    required this.keyPrefix,
+  });
+
+  final GlobalKey bodyGlobalKey;
+  final String value;
+  final String label;
+  final DialogAnimationSettings settings;
+  final ValueChanged<String> onRemove;
+  final ValueChanged<String> onDragStarted;
+  final void Function(String value, Offset feedbackTopLeft) onDragEnded;
+  final String keyPrefix;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedRemovableChip(
+      settings: settings,
+      onRemove: () => onRemove(value),
+      builder: (context, requestRemove) {
+        return KeyedSubtree(
+          key: bodyGlobalKey,
+          child: _AgentDraggableChip(
+            key: ValueKey<String>('$keyPrefix-drag-$value'),
+            label: label,
+            value: value,
+            onDeleted: requestRemove,
+            onDragStarted: onDragStarted,
+            onDragEnded: onDragEnded,
+            bodyKey: ValueKey<String>('$keyPrefix-body-$value'),
+          ),
+        );
+      },
     );
   }
 }
@@ -8116,173 +8332,6 @@ class _AgentChipDragPayload {
   final String value;
 }
 
-enum _AgentChipDropPlacement { before, after }
-
-class _AgentReorderableChipDropTarget extends StatefulWidget {
-  const _AgentReorderableChipDropTarget({
-    super.key,
-    required this.value,
-    required this.label,
-    required this.settings,
-    required this.onRemove,
-    required this.onReorderAround,
-    required this.onDragStarted,
-    required this.onDragFinished,
-    required this.keyPrefix,
-  });
-
-  final String value;
-  final String label;
-  final DialogAnimationSettings settings;
-  final ValueChanged<String> onRemove;
-  final void Function(
-    _AgentChipDragPayload payload,
-    String targetValue,
-    _AgentChipDropPlacement placement,
-  )
-  onReorderAround;
-  final ValueChanged<String> onDragStarted;
-  final VoidCallback onDragFinished;
-  final String keyPrefix;
-
-  @override
-  State<_AgentReorderableChipDropTarget> createState() =>
-      _AgentReorderableChipDropTargetState();
-}
-
-class _AgentReorderableChipDropTargetState
-    extends State<_AgentReorderableChipDropTarget> {
-  final GlobalKey _targetKey = GlobalKey();
-  _AgentChipDropPlacement? _hoverPlacement;
-
-  _AgentChipDropPlacement _placementFor(Offset globalOffset) {
-    final renderObject = _targetKey.currentContext?.findRenderObject();
-    if (renderObject is! RenderBox || !renderObject.hasSize) {
-      return _AgentChipDropPlacement.before;
-    }
-    final local = renderObject.globalToLocal(globalOffset);
-    return local.dx >= renderObject.size.width / 2
-        ? _AgentChipDropPlacement.after
-        : _AgentChipDropPlacement.before;
-  }
-
-  void _handleMove(DragTargetDetails<_AgentChipDragPayload> details) {
-    if (details.data.value == widget.value) return;
-    final placement = _placementFor(details.offset);
-    if (_hoverPlacement != placement) {
-      setState(() => _hoverPlacement = placement);
-    }
-    widget.onReorderAround(details.data, widget.value, placement);
-  }
-
-  void _handleAccept(DragTargetDetails<_AgentChipDragPayload> details) {
-    if (details.data.value == widget.value) return;
-    final placement = _hoverPlacement ?? _placementFor(details.offset);
-    widget.onReorderAround(details.data, widget.value, placement);
-    if (mounted) setState(() => _hoverPlacement = null);
-  }
-
-  void _clearHover(_AgentChipDragPayload? _) {
-    if (_hoverPlacement == null) return;
-    setState(() => _hoverPlacement = null);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return DragTarget<_AgentChipDragPayload>(
-      onWillAcceptWithDetails: (details) => details.data.value != widget.value,
-      onMove: _handleMove,
-      onAcceptWithDetails: _handleAccept,
-      onLeave: _clearHover,
-      builder: (context, candidateData, rejectedData) {
-        final targeted = candidateData.isNotEmpty;
-        final placement = _hoverPlacement ?? _AgentChipDropPlacement.before;
-        return AnimatedContainer(
-          duration: widget.settings.duration,
-          curve: widget.settings.curve.curve,
-          padding: targeted
-              ? EdgeInsetsDirectional.only(
-                  start: placement == _AgentChipDropPlacement.before ? 6 : 2,
-                  end: placement == _AgentChipDropPlacement.after ? 6 : 2,
-                  top: 2,
-                  bottom: 2,
-                )
-              : EdgeInsets.zero,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            color: targeted
-                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.10)
-                : Colors.transparent,
-          ),
-          child: AnimatedRemovableChip(
-            settings: widget.settings,
-            onRemove: () => widget.onRemove(widget.value),
-            builder: (context, requestRemove) {
-              return KeyedSubtree(
-                key: _targetKey,
-                child: _AgentDraggableChip(
-                  key: ValueKey<String>(
-                    '${widget.keyPrefix}-drag-${widget.value}',
-                  ),
-                  label: widget.label,
-                  value: widget.value,
-                  onDeleted: requestRemove,
-                  onDragStarted: widget.onDragStarted,
-                  onDragFinished: widget.onDragFinished,
-                  bodyKey: ValueKey<String>(
-                    '${widget.keyPrefix}-body-${widget.value}',
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _AgentChipInsertionDropTarget extends StatelessWidget {
-  const _AgentChipInsertionDropTarget({
-    super.key,
-    required this.settings,
-    required this.onAccept,
-  });
-
-  final DialogAnimationSettings settings;
-  final ValueChanged<_AgentChipDragPayload> onAccept;
-
-  @override
-  Widget build(BuildContext context) {
-    return DragTarget<_AgentChipDragPayload>(
-      onWillAcceptWithDetails: (_) => true,
-      onAcceptWithDetails: (details) => onAccept(details.data),
-      builder: (context, candidateData, rejectedData) {
-        final targeted = candidateData.isNotEmpty;
-        return AnimatedContainer(
-          duration: settings.duration,
-          curve: settings.curve.curve,
-          width: targeted ? _agentChipDropSlotExtent : _agentChipSpacing,
-          height: _agentChipDropSlotExtent,
-          decoration: BoxDecoration(
-            color: targeted
-                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.14)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: targeted
-              ? Icon(
-                  Icons.keyboard_double_arrow_right_rounded,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.primary,
-                )
-              : const SizedBox.shrink(),
-        );
-      },
-    );
-  }
-}
-
 class _AgentDraggableChip extends StatelessWidget {
   const _AgentDraggableChip({
     super.key,
@@ -8290,7 +8339,7 @@ class _AgentDraggableChip extends StatelessWidget {
     required this.value,
     required this.onDeleted,
     required this.onDragStarted,
-    required this.onDragFinished,
+    required this.onDragEnded,
     required this.bodyKey,
   });
 
@@ -8298,7 +8347,7 @@ class _AgentDraggableChip extends StatelessWidget {
   final String value;
   final VoidCallback onDeleted;
   final ValueChanged<String> onDragStarted;
-  final VoidCallback onDragFinished;
+  final void Function(String value, Offset feedbackTopLeft) onDragEnded;
   final Key bodyKey;
 
   @override
@@ -8313,9 +8362,7 @@ class _AgentDraggableChip extends StatelessWidget {
       data: _AgentChipDragPayload(value: value),
       hitTestBehavior: HitTestBehavior.translucent,
       onDragStarted: () => onDragStarted(value),
-      onDragEnd: (_) => onDragFinished(),
-      onDraggableCanceled: (_, _) => onDragFinished(),
-      onDragCompleted: onDragFinished,
+      onDragEnd: (details) => onDragEnded(value, details.offset),
       rootOverlay: true,
       feedback: _AgentDraggableChipFeedback(
         child: _AgentDraggableChipBody(

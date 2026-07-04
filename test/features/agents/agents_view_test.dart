@@ -1855,14 +1855,14 @@ void main() {
       final dependencies = _AgentEditorDependencies.empty();
       addTearDown(dependencies.dispose);
       controller.dispose();
-      controller = _testAgentsController(const <AgentProfile>[
+      controller = _testAgentsController(<AgentProfile>[
         AgentProfile(
           id: 'agent-1',
           name: 'Ops Agent',
           enabled: true,
           lifecycleState: AgentLifecycleState.running,
           workers: <AgentWorker>[
-            AgentWorker(
+            const AgentWorker(
               id: 'worker-1',
               name: 'Worker 1',
               status: AgentWorkerStatus.busy,
@@ -1872,25 +1872,25 @@ void main() {
             ),
           ],
           tasks: <AgentTask>[
-            AgentTask(
+            const AgentTask(
               id: 'task-1',
               title: 'Collect cloud billing evidence',
               status: AgentTaskStatus.running,
               extra: <String, Object?>{'assigned_worker_id': 'worker-1'},
             ),
-            AgentTask(
+            const AgentTask(
               id: 'task-2',
               title: 'Publish weekly report',
               status: AgentTaskStatus.completed,
               extra: <String, Object?>{'assigned_worker_id': 'worker-1'},
             ),
-            AgentTask(
+            const AgentTask(
               id: 'task-3',
               title: 'Wait for approval',
               status: AgentTaskStatus.waitingApproval,
             ),
           ],
-          resourceUsage: AgentResourceUsage(
+          resourceUsage: const AgentResourceUsage(
             cpuPercent: 0.4,
             tokenBudget: 1000,
             tokenUsed: 250,
@@ -1905,10 +1905,21 @@ void main() {
               toolName: 'SkillRunner',
               requestCount: 2,
               tokenUsage: 100,
+              createdAt: DateTime.utc(2026, 7, 4, 1),
               metadata: <String, Object?>{
                 'task_id': 'task-1',
                 'worker_id': 'worker-1',
               },
+            ),
+            AgentAuditEvent(
+              id: 'audit-2',
+              kind: 'mcp_call',
+              summary: 'mcp_call: query latest incidents',
+              toolName: 'IncidentMcp',
+              requestCount: 1,
+              tokenUsage: 20,
+              createdAt: DateTime.utc(2026, 7, 4, 2),
+              metadata: <String, Object?>{'worker_id': 'worker-1'},
             ),
           ],
         ),
@@ -1933,6 +1944,14 @@ void main() {
       expect(find.text('Worker 1'), findsOneWidget);
       expect(find.textContaining('100 Token'), findsAtLeastNWidgets(1));
       expect(find.textContaining('2 请求'), findsAtLeastNWidgets(1));
+      expect(
+        tester.getTopLeft(find.text('mcp_call: query latest incidents')).dy,
+        lessThan(
+          tester
+              .getTopLeft(find.text('skill_call: collect billing evidence'))
+              .dy,
+        ),
+      );
 
       await tester.tap(find.byIcon(Icons.close_rounded).last);
       await tester.pump(const Duration(milliseconds: 300));
