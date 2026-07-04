@@ -121,7 +121,7 @@ abstract class WebEngineBase<
   Future<bool> _isCancelRequested(Future<void>? cancelSignal) async {
     if (cancelSignal == null) return false;
     return Future.any<bool>([
-      cancelSignal.then((_) => true),
+      _cancelSignalAsTrue(cancelSignal),
       Future<void>.delayed(Duration.zero).then((_) => false),
     ]);
   }
@@ -131,7 +131,7 @@ abstract class WebEngineBase<
     final fetchFuture = fetch(request).timeout(fetchTimeout);
     if (cancelSignal == null) return fetchFuture;
     final outcome = await Future.any<Object>([
-      cancelSignal.then<Object>((_) => const _WebEngineCancelled()),
+      _cancelSignalAsCancelled(cancelSignal),
       fetchFuture,
     ]);
     return outcome is _WebEngineCancelled ? null : outcome as List<TItem>;
@@ -147,9 +147,22 @@ abstract class WebEngineBase<
       return false;
     }
     return Future.any<bool>([
-      cancelSignal.then((_) => true),
+      _cancelSignalAsTrue(cancelSignal),
       Future<void>.delayed(backoff).then((_) => false),
     ]);
+  }
+
+  Future<bool> _cancelSignalAsTrue(Future<void> cancelSignal) {
+    return cancelSignal.then((_) => true, onError: (_) => true);
+  }
+
+  Future<_WebEngineCancelled> _cancelSignalAsCancelled(
+    Future<void> cancelSignal,
+  ) {
+    return cancelSignal.then(
+      (_) => const _WebEngineCancelled(),
+      onError: (_) => const _WebEngineCancelled(),
+    );
   }
 }
 
