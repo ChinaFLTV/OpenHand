@@ -1771,8 +1771,12 @@ domains: finance, cloud billing
       expect(publishedState['terminal'], isFalse);
       expect(publishedState['needs_polling'], isTrue);
       expect(publishedState['next_action'], 'poll');
+      expect(publishedTask['next_action'], 'poll');
+      expect(publishedTask['result_available'], isFalse);
+      expect(publishedTask['handoff'], isA<Map<String, Object?>>());
+      expect(publishedTask['next_poll'], isA<Map<String, Object?>>());
       expect(
-        publishedState['allowed_tools'],
+        publishedTask['allowed_tools'],
         containsAll(<String>[
           'AgentTaskPause',
           'AgentTaskCancel',
@@ -1815,6 +1819,16 @@ domains: finance, cloud billing
       expect(progressWorker['current_task_id'], financeAgent.tasks.single.id);
       expect(progressState['needs_polling'], isTrue);
       expect(progressState['next_action'], 'poll');
+      expect(progressPayload['next_action'], 'poll');
+      expect(
+        progressPayload['allowed_tools'],
+        containsAll(<String>[
+          'AgentTaskPause',
+          'AgentTaskCancel',
+          'AgentTaskTerminate',
+          'AgentTaskComplete',
+        ]),
+      );
 
       final track = await runtime.execute(
         sessionId: 'session-1',
@@ -1844,6 +1858,16 @@ domains: finance, cloud billing
       expect(trackPayload['result_available'], isFalse);
       expect(trackState['needs_polling'], isTrue);
       expect(trackState['next_action'], 'poll');
+      expect(trackPayload['next_action'], 'poll');
+      expect(
+        trackPayload['allowed_tools'],
+        containsAll(<String>[
+          'AgentTaskPause',
+          'AgentTaskCancel',
+          'AgentTaskTerminate',
+          'AgentTaskComplete',
+        ]),
+      );
       expect(trackHandoff['message'], 'result_not_ready_poll');
       expect(trackHandoff['next_action'], 'poll');
       expect(trackNextPoll['tool'], 'AgentTaskProgress');
@@ -1908,6 +1932,10 @@ domains: finance, cloud billing
       expect(resultState['next_action'], 'read_result');
       expect(resultState['terminal_reason'], 'completed');
       expect(resultState['allowed_tools'], isEmpty);
+      expect(resultTask['next_action'], 'read_result');
+      expect(resultTask['terminal_reason'], 'completed');
+      expect(resultTask['result_available'], isTrue);
+      expect(resultTask['allowed_tools'], isEmpty);
       expect(resultWorker['id'], assignedWorkerId);
       expect(resultWorker['status'], 'idle');
 
@@ -1934,6 +1962,9 @@ domains: finance, cloud billing
       final handoff = taskResultPayload['handoff'] as Map<String, Object?>;
       expect(taskResult.status, BashToolExecutionStatus.success);
       expect(taskResultPayload['result_available'], isTrue);
+      expect(taskResultPayload['next_action'], 'read_result');
+      expect(taskResultPayload['terminal_reason'], 'completed');
+      expect(taskResultPayload['allowed_tools'], isEmpty);
       expect(handoff['result_available'], isTrue);
       expect(handoff['message'], 'result_ready');
       expect(handoff['next_action'], 'read_result');
@@ -2195,6 +2226,16 @@ domains: finance, cloud billing
         expect(resultExtra['assigned_worker_id'], assignedWorkerId);
         expect(payload['result_available'], isFalse);
         expect(resultState['needs_polling'], isTrue);
+        expect(payload['next_action'], 'poll');
+        expect(
+          payload['allowed_tools'],
+          containsAll(<String>[
+            'AgentTaskPause',
+            'AgentTaskCancel',
+            'AgentTaskTerminate',
+            'AgentTaskComplete',
+          ]),
+        );
         expect(handoff['message'], 'result_not_ready_poll');
         expect(handoff['result_available'], isFalse);
         expect(handoff['next_action'], 'poll');

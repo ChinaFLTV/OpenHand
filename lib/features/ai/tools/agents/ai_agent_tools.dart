@@ -1334,11 +1334,16 @@ class AiAgentTool extends AiTool {
     if (resolved.error != null) return resolved.error!;
     final task = resolved.task!;
     final assignedWorker = _assignedWorkerJson(resolved.agent!, task);
+    final state = _taskStateJson(task);
     return _success(
       <String, Object?>{
         'agent': _agentSummaryJson(resolved.agent!),
         'task': _taskJson(task, agent: resolved.agent),
-        'state': _taskStateJson(task),
+        'state': state,
+        'next_action': state['next_action'],
+        'allowed_tools': state['allowed_tools'],
+        if (state['terminal_reason'] != null)
+          'terminal_reason': state['terminal_reason'],
         'result_available': _taskResultAvailable(task),
         'handoff': _taskHandoffJson(task),
         if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
@@ -1374,6 +1379,10 @@ class AiAgentTool extends AiTool {
         'status': task.status.storageValue,
         'progress': task.progress,
         'state': state,
+        'next_action': state['next_action'],
+        'allowed_tools': state['allowed_tools'],
+        if (state['terminal_reason'] != null)
+          'terminal_reason': state['terminal_reason'],
         'result_available': _taskResultAvailable(task),
         if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
         if (assignedWorker != null) 'assigned_worker': assignedWorker,
@@ -1483,6 +1492,10 @@ class AiAgentTool extends AiTool {
         'status': task.status.storageValue,
         'progress': task.progress,
         'state': state,
+        'next_action': state['next_action'],
+        'allowed_tools': state['allowed_tools'],
+        if (state['terminal_reason'] != null)
+          'terminal_reason': state['terminal_reason'],
         'result_available': _taskResultAvailable(task),
         'handoff': _taskHandoffJson(task),
         'result': task.result,
@@ -1969,6 +1982,8 @@ Map<String, Object?> _taskJson(AgentTask task, {AgentProfile? agent}) {
   final assignedWorker = agent == null
       ? null
       : _assignedWorkerJson(agent, task);
+  final state = _taskStateJson(task);
+  final resultAvailable = _taskResultAvailable(task);
   return <String, Object?>{
     'id': task.id,
     'title': task.title,
@@ -1976,7 +1991,14 @@ Map<String, Object?> _taskJson(AgentTask task, {AgentProfile? agent}) {
     'content': task.content,
     'status': task.status.storageValue,
     'progress': task.progress,
-    'state': _taskStateJson(task),
+    'state': state,
+    'next_action': state['next_action'],
+    'allowed_tools': state['allowed_tools'],
+    if (state['terminal_reason'] != null)
+      'terminal_reason': state['terminal_reason'],
+    'result_available': resultAvailable,
+    'handoff': _taskHandoffJson(task),
+    if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
     'result': task.result,
     'note': task.note,
     if (assignedWorker != null) 'assigned_worker': assignedWorker,

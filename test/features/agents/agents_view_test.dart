@@ -956,8 +956,8 @@ void main() {
       expect(find.text('70%'), findsAtLeastNWidgets(1));
       expect(find.text('900/1000'), findsOneWidget);
       expect(find.text('900 / 1000'), findsOneWidget);
-      expect(find.text('3.50 KB / 4.00 KB'), findsOneWidget);
-      expect(find.text('1.00 MB'), findsOneWidget);
+      expect(find.text('3.5 KB / 4 KB'), findsOneWidget);
+      expect(find.text('1 MB'), findsOneWidget);
       expect(find.text('12'), findsOneWidget);
       expect(find.text('workspace_path: /tmp/openhand'), findsOneWidget);
       expect(find.text('artifact_count: 5'), findsOneWidget);
