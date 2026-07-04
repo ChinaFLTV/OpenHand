@@ -17,10 +17,14 @@ bool isRedirectStatusCode(int statusCode) {
 /// [source] (different scheme, host, or effective port). Used to decide
 /// whether to strip sensitive headers before replaying the request.
 bool isCrossOriginRedirect(Uri source, Uri target) {
-  return source.scheme != target.scheme ||
-      source.host != target.host ||
+  return _normalizedOriginScheme(source) != _normalizedOriginScheme(target) ||
+      _normalizedOriginHost(source) != _normalizedOriginHost(target) ||
       effectivePort(source) != effectivePort(target);
 }
+
+String _normalizedOriginScheme(Uri uri) => uri.scheme.toLowerCase();
+
+String _normalizedOriginHost(Uri uri) => uri.host.toLowerCase();
 
 /// Returns the effective port for [uri]: the explicit port if present,
 /// otherwise the scheme's default (80 for http, 443 for https). Unknown
