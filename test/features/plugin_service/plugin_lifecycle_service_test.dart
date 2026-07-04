@@ -86,6 +86,78 @@ printf 'openhand-hermes-test 1.2.3\\n'
       }
     });
 
+    test('probes missing managed command paths without stderr noise', () async {
+      if (Platform.isWindows) return;
+
+      const missingCommand = '__openhand_missing_lifecycle_path_test__';
+      final result = await Process.run(
+        '/bin/sh',
+        ['-c', pluginLifecycleManagedCommandPathScript(missingCommand)],
+        environment: <String, String>{
+          'PATH': '/usr/bin:/bin',
+          'NVM_DIR': '/tmp/openhand-empty-nvm',
+          'PYENV_ROOT': '/tmp/openhand-empty-pyenv',
+          'VOLTA_HOME': '/tmp/openhand-empty-volta',
+        },
+        includeParentEnvironment: false,
+      );
+
+      expect(result.exitCode, isNot(0));
+      expect(result.stdout.toString().trim(), isEmpty);
+      expect(result.stderr.toString(), isNot(contains('not found')));
+    });
+
+    test('resolves lifecycle command paths through npm global bin', () async {
+      if (Platform.isWindows) return;
+
+      final temp = Directory.systemTemp.createTempSync(
+        'openhand_plugin_lifecycle_path_',
+      );
+      try {
+        final pyenvBin = Directory('${temp.path}/pyenv/bin')
+          ..createSync(recursive: true);
+        final npmPrefixBin = Directory('${temp.path}/npm-prefix/bin')
+          ..createSync(recursive: true);
+        final npm = File('${pyenvBin.path}/npm');
+        npm.writeAsStringSync('''
+#!/bin/sh
+if [ "\$1" = "prefix" ] && [ "\$2" = "-g" ]; then
+  printf '%s\\n' '${temp.path}/npm-prefix'
+  exit 0
+fi
+exit 1
+''');
+        final command = File('${npmPrefixBin.path}/openhand-hermes-path-test');
+        command.writeAsStringSync('''
+#!/bin/sh
+printf 'openhand-hermes-path-test 4.5.6\\n'
+''');
+        await Process.run('/bin/chmod', ['+x', npm.path, command.path]);
+
+        final result = await Process.run(
+          '/bin/sh',
+          [
+            '-c',
+            pluginLifecycleManagedCommandPathScript(
+              'openhand-hermes-path-test',
+            ),
+          ],
+          environment: <String, String>{
+            'PATH': '/usr/bin:/bin',
+            'NVM_DIR': '${temp.path}/nvm',
+            'PYENV_ROOT': '${temp.path}/pyenv',
+            'VOLTA_HOME': '${temp.path}/volta',
+          },
+          includeParentEnvironment: false,
+        );
+
+        expect(result.exitCode, 0);
+        expect(result.stdout.toString().trim(), command.path);
+      } finally {
+        temp.deleteSync(recursive: true);
+      }
+    });
+
     test('resolves npm global bin command paths for scanners', () async {
       if (Platform.isWindows) return;
 

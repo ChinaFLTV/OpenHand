@@ -90,6 +90,13 @@ String pluginLifecycleManagedToolchainCommandScript(
 String pluginLifecycleExecutableAvailabilityScript(String executable) =>
     pluginToolchainExecutableAvailabilityScript(executable);
 
+@visibleForTesting
+String pluginLifecycleManagedCommandPathScript(String executable) =>
+    pluginToolchainCommandPathScript(
+      executable,
+      includeNpmGlobalBinFallback: true,
+    );
+
 /// 插件生命周期操作结果。
 class PluginOperationResult {
   const PluginOperationResult({
@@ -203,6 +210,21 @@ class PluginLifecycleService {
       timeout: timeout,
       environment: environment ?? _proxyEnv(),
     );
+  }
+
+  Future<String?> _resolveManagedToolchainCommandPath(
+    String executable, {
+    Map<String, String>? environment,
+  }) async {
+    final result = await runTrackedProcessOrFailed(
+      _pickShell(),
+      ['-c', pluginLifecycleManagedCommandPathScript(executable)],
+      timeout: _pluginLifecycleProbeTimeout,
+      tag: 'plugin_lifecycle.command_path.$executable',
+      environment: environment ?? _proxyEnv(),
+    );
+    if (result.exitCode != 0) return null;
+    return _extractAbsolutePathFromOutput(result.stdout.toString());
   }
 
   Future<bool> _isExecutableAvailable(String executable) async {
@@ -1026,7 +1048,10 @@ fi
         message: '$label 依赖 npm，请先确认 npm 已随 Node.js 安装并可执行。',
       );
     }
-    final preexisting = await _verifyAnyCommandVersion(verifyCommands);
+    final preexisting = await _verifyAnyCommandVersion(
+      verifyCommands,
+      environment: environment,
+    );
     onProgress?.call('通过 npm 安装/更新 $label…');
     var result = await _runManagedToolchainCommandWithProgress(
       'npm',
@@ -1078,7 +1103,10 @@ fi
       );
     }
 
-    final verified = await _verifyAnyCommandVersion(verifyCommands);
+    final verified = await _verifyAnyCommandVersion(
+      verifyCommands,
+      environment: _npmGlobalPackageEnv(tlsBundle: tlsBundle),
+    );
     if (verified == null) {
       return PluginOperationResult(
         success: false,
@@ -1109,7 +1137,11 @@ fi
     );
     if (npmCheck.exitCode != 0) {
       if (verifyCommands.isNotEmpty &&
-          await _verifyAnyCommandVersion(verifyCommands) == null) {
+          await _verifyAnyCommandVersion(
+                verifyCommands,
+                environment: environment,
+              ) ==
+              null) {
         return PluginOperationResult(
           success: true,
           message: '$label 未检测到可执行命令，无需卸载。',
@@ -1133,7 +1165,11 @@ fi
       return PluginOperationResult(success: true, message: '$label 已卸载');
     }
     if (verifyCommands.isNotEmpty &&
-        await _verifyAnyCommandVersion(verifyCommands) == null) {
+        await _verifyAnyCommandVersion(
+              verifyCommands,
+              environment: environment,
+            ) ==
+            null) {
       onProgress?.call('$label 可执行命令已不存在，视为已卸载');
       return PluginOperationResult(success: true, message: '$label 已卸载');
     }
@@ -1144,13 +1180,20 @@ fi
   }
 
   Future<({String command, String? version})?> _verifyAnyCommandVersion(
-    List<String> commands,
-  ) async {
+    List<String> commands, {
+    Map<String, String>? environment,
+  }) async {
+    final effectiveEnvironment = environment ?? _proxyEnv();
     for (final command in commands) {
-      final result = await _runManagedToolchainCommand(
+      final commandPath = await _resolveManagedToolchainCommandPath(
         command,
+        environment: effectiveEnvironment,
+      );
+      if (commandPath == null) continue;
+      final result = await _runManagedToolchainCommand(
+        commandPath,
         ['--version'],
-        environment: _proxyEnv(),
+        environment: effectiveEnvironment,
         tag: 'plugin_lifecycle.verify.$command',
       );
       if (result.exitCode != 0) continue;
@@ -2774,6 +2817,14 @@ String? _extractFirstSemver(String output, {String? prefix}) {
     final value = match.group(1);
     if (value == null) continue;
     if (prefix == null || value.startsWith(prefix)) return value;
+  }
+  return null;
+}
+
+String? _extractAbsolutePathFromOutput(String output) {
+  for (final line in output.split('\n').reversed) {
+    final trimmed = line.trim();
+    if (trimmed.startsWith('/')) return trimmed;
   }
   return null;
 }
