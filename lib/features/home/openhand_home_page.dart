@@ -7496,7 +7496,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _scheduleComposerTransitionMeasurements() {
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = openHandReduceMotionOf(context);
     _composerTransitionMeasurePassesRemaining = math.max(
       _composerTransitionMeasurePassesRemaining,
       reduceMotion ? 2 : 24,
