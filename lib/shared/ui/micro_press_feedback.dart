@@ -11,8 +11,8 @@ const double kOpenHandMicroPressMaxScale = 1.0;
 /// it uses [Listener] with translucent hit-test behavior so the inner
 /// child still receives the actual gesture and runs its `onPressed`.
 ///
-/// Honors `MediaQuery.disableAnimationsOf(context)` (reduceMotion):
-/// when on, the animation is skipped and the child renders unscaled.
+/// Honors `MediaQuery.disableAnimationsOf(context)` and `TickerMode`: when
+/// motion is unavailable, the child renders directly and unscaled.
 ///
 /// Use sparingly on toolbar buttons / chip actions where a brief
 /// tactile "click" feel is desired.
@@ -64,9 +64,31 @@ class _MicroPressFeedbackState extends State<MicroPressFeedback>
     super.dispose();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!openHandTickerMotionEnabled(context)) {
+      _reset();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant MicroPressFeedback oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.enabled != widget.enabled && !widget.enabled) {
+      _reset();
+    }
+  }
+
+  void _reset() {
+    _ctrl
+      ..stop()
+      ..value = 0;
+  }
+
   void _onDown() {
     if (!widget.enabled) return;
-    if (openHandReduceMotionOf(context)) return;
+    if (!openHandTickerMotionEnabled(context)) return;
     _ctrl.forward();
   }
 
@@ -77,6 +99,9 @@ class _MicroPressFeedbackState extends State<MicroPressFeedback>
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.enabled || !openHandTickerMotionEnabled(context)) {
+      return widget.child;
+    }
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (_) => _onDown(),

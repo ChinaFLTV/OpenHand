@@ -5,6 +5,13 @@ import 'package:openhand/shared/ui/hover_lift.dart';
 import 'package:openhand/shared/ui/micro_press_feedback.dart';
 
 void main() {
+  Finder microPressTransform() {
+    return find.descendant(
+      of: find.byType(MicroPressFeedback),
+      matching: find.byWidgetPredicate((widget) => widget is Transform),
+    );
+  }
+
   testWidgets('MicroPressFeedback normalizes invalid scale values', (
     tester,
   ) async {
@@ -35,16 +42,62 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 80));
       await gesture.up();
-      final transform = tester.widget<Transform>(
-        find.byWidgetPredicate(
-          (widget) => widget is Transform && widget.child is Text,
-        ),
-      );
+      final transform = tester.widget<Transform>(microPressTransform());
       return transform.transform.storage.first;
     }
 
     expect(await pressedScaleFor(10), 1.0);
     expect(await pressedScaleFor(0.01), kOpenHandMicroPressMinScale);
+  });
+
+  testWidgets('MicroPressFeedback resets when disabled while pressed', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Center(
+          child: MicroPressFeedback(scale: 0.8, child: Text('press')),
+        ),
+      ),
+    );
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('press')),
+    );
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(microPressTransform(), findsOneWidget);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Center(
+          child: MicroPressFeedback(
+            enabled: false,
+            scale: 0.8,
+            child: Text('press'),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('press'), findsOneWidget);
+    expect(microPressTransform(), findsNothing);
+    await gesture.up();
+  });
+
+  testWidgets('MicroPressFeedback renders directly when ticker is disabled', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: TickerMode(
+          enabled: false,
+          child: MicroPressFeedback(child: Text('press')),
+        ),
+      ),
+    );
+
+    expect(find.text('press'), findsOneWidget);
+    expect(microPressTransform(), findsNothing);
   });
 
   testWidgets('HoverLift normalizes invalid lift distances', (tester) async {
