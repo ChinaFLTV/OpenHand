@@ -126,9 +126,11 @@ class _AppearOnceState extends State<AppearOnce>
       // zero overhead per frame from here on out.
       return widget.child;
     }
-    if (openHandReduceMotionOf(context)) {
+    if (!openHandTickerMotionEnabled(context)) {
       // Honor user / OS reduce-motion without mutating the controller during
       // build; cleanup is deferred to avoid build-phase setState hazards.
+      // TickerMode-off subtrees use the same fast path so content never stays
+      // invisible at the animation's first frame while tickers are muted.
       _disposeControllerAfterBuild();
       return widget.child;
     }

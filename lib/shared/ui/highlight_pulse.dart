@@ -1,13 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'motion_preference.dart';
+
 /// Generic top-edge / inline highlight pulse driven by an external
 /// `ValueListenable<int>` signal. Each time the signal increments the
 /// pulse fades in and decays over ~660 ms, drawing a soft primary-tinted
 /// gradient bar (with optional box-shadow halo). Used to give positive
 /// confirmation after an action lands without stealing focus or layout.
 ///
-/// Honors `MediaQuery.maybeDisableAnimationsOf` (reduceMotion).
+/// Honors reduce-motion and `TickerMode`.
 class HighlightPulse extends StatefulWidget {
   const HighlightPulse({
     super.key,
@@ -70,7 +72,8 @@ class _HighlightPulseState extends State<HighlightPulse>
     final next = widget.signal.value;
     if (_lastSeen == next) return;
     _lastSeen = next;
-    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+    if (!openHandTickerMotionEnabled(context)) {
+      _ctrl.stop();
       return;
     }
     _ctrl.forward(from: 0);

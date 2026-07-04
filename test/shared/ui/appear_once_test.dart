@@ -21,4 +21,21 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('ready'), findsOneWidget);
   });
+
+  testWidgets('AppearOnce renders directly when ticker is disabled', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const Directionality(
+        textDirection: TextDirection.ltr,
+        child: TickerMode(
+          enabled: false,
+          child: AppearOnce(child: Text('ready')),
+        ),
+      ),
+    );
+
+    expect(find.text('ready'), findsOneWidget);
+    expect(find.byType(FadeTransition), findsNothing);
+  });
 }

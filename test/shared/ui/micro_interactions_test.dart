@@ -126,4 +126,27 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(HighlightPulse), findsOneWidget);
   });
+
+  testWidgets('HighlightPulse ignores signals when ticker is disabled', (
+    tester,
+  ) async {
+    final signal = ValueNotifier<int>(0);
+    addTearDown(signal.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TickerMode(enabled: false, child: HighlightPulse(signal: signal)),
+      ),
+    );
+    signal.value += 1;
+    await tester.pump(const Duration(milliseconds: 660));
+
+    expect(
+      find.descendant(
+        of: find.byType(HighlightPulse),
+        matching: find.byType(Container),
+      ),
+      findsNothing,
+    );
+  });
 }
