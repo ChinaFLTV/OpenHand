@@ -2696,7 +2696,10 @@ domains: FinOps, 成本治理
             enabled: true,
             routeFrontMatter: 'keywords: finance, reconciliation',
             taskLabels: const <String>['finance'],
-            builtinToolNames: const <String>['AgentTaskPublish'],
+            builtinToolNames: const <String>[
+              'AgentTaskPublish',
+              'AgentTaskResult',
+            ],
           ),
         );
         await controller.saveAgent(
@@ -2706,7 +2709,10 @@ domains: FinOps, 成本治理
             enabled: true,
             routeFrontMatter: 'keywords: finance, reconciliation',
             taskLabels: const <String>['finance'],
-            builtinToolNames: const <String>['AgentTaskPublish'],
+            builtinToolNames: const <String>[
+              'AgentTaskPublish',
+              'AgentTaskResult',
+            ],
           ),
         );
         await controller.saveAgent(
@@ -2721,7 +2727,15 @@ domains: FinOps, 成本治理
         );
 
         final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
-          runtimeContext: _runtimeContext(),
+          runtimeContext: _runtimeContext(
+            builtinToolConfigs: const <AiBuiltinToolConfig>[
+              AiBuiltinToolConfig(kind: AiBuiltinToolKind.agentTaskPublish),
+              AiBuiltinToolConfig(
+                kind: AiBuiltinToolKind.agentTaskResult,
+                enabled: false,
+              ),
+            ],
+          ),
         );
         final result = await runtime.execute(
           sessionId: 'session-route-binding',
@@ -2761,6 +2775,8 @@ domains: FinOps, 成本治理
           'finance-publisher-b',
         ]);
         expect(firstAgentTools['tools'], <Object?>['AgentTaskPublish']);
+        expect(firstAgentTools['configured_count'], 2);
+        expect(firstAgentTools['runtime_filtered'], isTrue);
         expect(firstAgentTools['groups'], <String, Object?>{
           'task_lifecycle': <Object?>['AgentTaskPublish'],
         });

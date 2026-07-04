@@ -1103,11 +1103,13 @@ class AiAgentTool extends AiTool {
     final labels = stringListFromValueOrJsonText(
       args['labels'] ?? args['tags'],
     );
+    final callableAgentToolNames = _callableAgentToolNames(context.catalog);
     final resolution = _resolveKpiAgent(
       controller,
       args,
       name: name,
       labels: labels,
+      callableAgentToolNames: callableAgentToolNames,
     );
     if (resolution.error != null) return resolution.error!;
 
@@ -1177,7 +1179,6 @@ class AiAgentTool extends AiTool {
     }
 
     final currentAgent = controller.agentById(agent.id);
-    final callableAgentToolNames = _callableAgentToolNames(context.catalog);
     return _success(
       <String, Object?>{
         'agent': _agentSummaryJson(
@@ -1212,11 +1213,13 @@ class AiAgentTool extends AiTool {
     final labels = stringListFromValueOrJsonText(
       args['labels'] ?? args['tags'],
     );
+    final callableAgentToolNames = _callableAgentToolNames(context.catalog);
     final resolution = _resolveApprovalAgent(
       controller,
       args,
       title: title,
       labels: labels,
+      callableAgentToolNames: callableAgentToolNames,
     );
     if (resolution.error != null) return resolution.error!;
     final rawExtra = optionalStringKeyedMapFromValueOrJsonText(args['extra']);
@@ -1243,7 +1246,6 @@ class AiAgentTool extends AiTool {
       );
     }
     final currentAgent = controller.agentById(resolution.agent!.id);
-    final callableAgentToolNames = _callableAgentToolNames(context.catalog);
     return _success(
       <String, Object?>{
         'agent': _agentSummaryJson(
@@ -1354,16 +1356,18 @@ class AiAgentTool extends AiTool {
     final labels = stringListFromValueOrJsonText(
       args['labels'] ?? args['tags'],
     );
+    final callableAgentToolNames = _callableAgentToolNames(context.catalog);
     final resolution = _resolvePublishAgent(
       controller,
       args,
       title: title,
       labels: labels,
+      callableAgentToolNames: callableAgentToolNames,
     );
     if (resolution.error != null) return resolution.error!;
     final promptSnapshot = await _promptRenderer.render(
       agent: resolution.agent!,
-      callableAgentToolNames: _callableAgentToolNames(context.catalog),
+      callableAgentToolNames: callableAgentToolNames,
       taskContext: <String, Object?>{
         'incoming_task': <String, Object?>{
           'title': title,
@@ -1401,7 +1405,6 @@ class AiAgentTool extends AiTool {
       );
     }
     final currentAgent = controller.agentById(resolution.agent!.id);
-    final callableAgentToolNames = _callableAgentToolNames(context.catalog);
     final payload = <String, Object?>{
       'agent': _agentSummaryJson(
         currentAgent ?? resolution.agent!,
@@ -1738,6 +1741,7 @@ class AiAgentTool extends AiTool {
     Map<String, Object?> args, {
     required String name,
     required List<String> labels,
+    required Set<String> callableAgentToolNames,
   }) {
     final identifier =
         '${args['agent_id'] ?? args['agent_name'] ?? args['agent'] ?? ''}'
@@ -1779,6 +1783,7 @@ class AiAgentTool extends AiTool {
         content: '${args['plan'] ?? ''}',
         note: '${args['status'] ?? ''}',
         labels: labels,
+        callableAgentToolNames: callableAgentToolNames,
       ),
     );
   }
@@ -1788,6 +1793,7 @@ class AiAgentTool extends AiTool {
     Map<String, Object?> args, {
     required String title,
     required List<String> labels,
+    required Set<String> callableAgentToolNames,
   }) {
     final identifier =
         '${args['agent_id'] ?? args['agent_name'] ?? args['agent'] ?? ''}'
@@ -1829,6 +1835,7 @@ class AiAgentTool extends AiTool {
         content: '${args['requested_action'] ?? ''}',
         note: '',
         labels: labels,
+        callableAgentToolNames: callableAgentToolNames,
       ),
     );
   }
@@ -1838,6 +1845,7 @@ class AiAgentTool extends AiTool {
     Map<String, Object?> args, {
     required String title,
     required List<String> labels,
+    required Set<String> callableAgentToolNames,
   }) {
     final identifier =
         '${args['agent_id'] ?? args['agent_name'] ?? args['agent'] ?? ''}'
@@ -1879,6 +1887,7 @@ class AiAgentTool extends AiTool {
         content: '${args['content'] ?? ''}',
         note: '${args['note'] ?? ''}',
         labels: labels,
+        callableAgentToolNames: callableAgentToolNames,
       ),
     );
   }
@@ -1915,6 +1924,7 @@ class AiAgentTool extends AiTool {
     required String content,
     required String note,
     required List<String> labels,
+    required Set<String> callableAgentToolNames,
   }) {
     final diagnostics = _routingDiagnosticsJson(
       candidates,
@@ -1923,6 +1933,7 @@ class AiAgentTool extends AiTool {
       content: content,
       note: note,
       labels: labels,
+      callableAgentToolNames: callableAgentToolNames,
     );
     final payload = <String, Object?>{
       'status': BashToolExecutionStatus.invalidArguments.storageValue,
@@ -1978,6 +1989,7 @@ class AiAgentTool extends AiTool {
     required String content,
     required String note,
     required List<String> labels,
+    required Set<String> callableAgentToolNames,
   }) {
     final matches = _routeMatchesForTask(
       agents,
@@ -2000,6 +2012,7 @@ class AiAgentTool extends AiTool {
                   score: 0,
                   reason: '',
                   matched: false,
+                  callableAgentToolNames: callableAgentToolNames,
                 ),
               )
               .toList(growable: false)
@@ -2011,6 +2024,7 @@ class AiAgentTool extends AiTool {
                   score: match.score,
                   reason: match.reason,
                   matched: true,
+                  callableAgentToolNames: callableAgentToolNames,
                 ),
               )
               .toList(growable: false);
@@ -2422,6 +2436,7 @@ Map<String, Object?> _routeCandidateJson(
   required int score,
   required String reason,
   required bool matched,
+  required Set<String> callableAgentToolNames,
 }) {
   final routing = AgentRoutingMetadata.fromAgent(agent);
   return <String, Object?>{
@@ -2434,7 +2449,10 @@ Map<String, Object?> _routeCandidateJson(
     if (agent.department.trim().isNotEmpty) 'department': agent.department,
     if (agent.taskLabels.isNotEmpty) 'task_labels': agent.taskLabels,
     if (agent.skillNames.isNotEmpty) 'skills': agent.skillNames,
-    'agent_tools': _agentToolBindingSummaryJson(agent),
+    'agent_tools': _agentToolBindingSummaryJson(
+      agent,
+      callableAgentToolNames: callableAgentToolNames,
+    ),
     if (routing.keywords.isNotEmpty)
       'routing_keywords': routing.keywords.take(12).toList(growable: false),
   };
