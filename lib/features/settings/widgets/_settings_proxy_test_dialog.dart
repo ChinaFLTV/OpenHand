@@ -70,7 +70,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     _cursorBlinkController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
-    )..repeat(reverse: true);
+    );
     _totalStopwatch.start();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -588,6 +588,8 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
 
   @override
   Widget build(BuildContext context) {
+    final motionEnabled = _settingsMotionEnabled(context);
+    _syncCursorBlinkController(motionEnabled);
     final l10n = AppLocalizations.of(context)!;
     final mediaSize = MediaQuery.sizeOf(context);
     // 最大化/还原通过同一动画因子插值尺寸与边距，避免窗口生硬跳变。
@@ -597,7 +599,10 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     final hMax = mediaSize.height - 32;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: _maximized ? 1.0 : 0.0),
-      duration: const Duration(milliseconds: 380),
+      duration: _settingsMotionDuration(
+        context,
+        const Duration(milliseconds: 380),
+      ),
       curve: Curves.easeOutBack,
       builder: (context, t, _) {
         // easeOutBack 会短暂越界；保留少量弹性，最终仍由外层约束兜底。
@@ -616,9 +621,12 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                 children: <Widget>[
                   _buildHeader(context),
                   if (_running)
-                    const SizedBox(
+                    SizedBox(
                       height: 2,
-                      child: LinearProgressIndicator(minHeight: 2),
+                      child: LinearProgressIndicator(
+                        minHeight: 2,
+                        value: motionEnabled ? null : 1,
+                      ),
                     )
                   else
                     const Divider(height: 1),
@@ -817,29 +825,36 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   }
 
   Widget _buildBlinkingCursor() {
+    final motionEnabled = _settingsMotionEnabled(context);
+    if (!motionEnabled) {
+      return _buildCursor(t: 0.5);
+    }
     // 双色闪烁用于传达诊断仍在运行。
     return AnimatedBuilder(
       animation: _cursorBlinkController,
       builder: (_, _) {
-        final t = _cursorBlinkController.value;
-        final color = Color.lerp(
-          const Color(0xFF8AE234), // green
-          const Color(0xFFFCD34D), // amber
-          t,
-        )!;
-        final opacity = 0.35 + 0.65 * t;
-        return Padding(
-          padding: const EdgeInsets.only(top: 4, left: 2),
-          child: Row(
-            children: <Widget>[
-              Opacity(
-                opacity: opacity,
-                child: Container(width: 9, height: 16, color: color),
-              ),
-            ],
-          ),
-        );
+        return _buildCursor(t: _cursorBlinkController.value);
       },
+    );
+  }
+
+  Widget _buildCursor({required double t}) {
+    final color = Color.lerp(
+      const Color(0xFF8AE234), // green
+      const Color(0xFFFCD34D), // amber
+      t,
+    )!;
+    final opacity = 0.35 + 0.65 * t;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, left: 2),
+      child: Row(
+        children: <Widget>[
+          Opacity(
+            opacity: opacity,
+            child: Container(width: 9, height: 16, color: color),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1128,11 +1143,21 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     _totalStopwatch
       ..reset()
       ..start();
-    _cursorBlinkController.repeat(reverse: true);
+    _syncCursorBlinkController(_settingsMotionEnabled(context));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _runDiagnostics();
     });
+  }
+
+  void _syncCursorBlinkController(bool motionEnabled) {
+    if (_running && motionEnabled) {
+      if (!_cursorBlinkController.isAnimating) {
+        _cursorBlinkController.repeat(reverse: true);
+      }
+      return;
+    }
+    _cursorBlinkController.stop();
   }
 }
 
