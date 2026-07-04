@@ -308,6 +308,8 @@ class AiLspClientService {
   AiLspClientService._();
 
   static final AiLspClientService instance = AiLspClientService._();
+  static final RegExp _markdownFenceStartPattern = RegExp(r'^```[\w-]*\n');
+  static final RegExp _markdownFenceEndPattern = RegExp(r'\n```$');
 
   final Map<String, _AiLspSession> _sessions = <String, _AiLspSession>{};
   final Map<String, String?> _commandPathCache = <String, String?>{};
@@ -1711,8 +1713,8 @@ class AiLspClientService {
 
   static String _stripMarkdownFences(String value) {
     return value
-        .replaceAll(RegExp(r'^```[\w-]*\n'), '')
-        .replaceAll(RegExp(r'\n```$'), '')
+        .replaceAll(_markdownFenceStartPattern, '')
+        .replaceAll(_markdownFenceEndPattern, '')
         .trim();
   }
 }
@@ -1749,6 +1751,9 @@ class _AiLspSession {
   // grows beyond this bound. Each request is ≤15s so under normal load it
   // is exceedingly unlikely to reach this ceiling.
   static const int _maxPendingRequests = 256;
+  static final RegExp _contentLengthHeaderPattern = RegExp(
+    r'Content-Length:\s*(\d+)',
+  );
 
   bool get isAlive => _process != null;
 
@@ -2268,7 +2273,7 @@ class _AiLspSession {
         break;
       }
       final header = data.substring(offset, headerEnd);
-      final lengthMatch = RegExp(r'Content-Length:\s*(\d+)').firstMatch(header);
+      final lengthMatch = _contentLengthHeaderPattern.firstMatch(header);
       if (lengthMatch == null) {
         break;
       }
