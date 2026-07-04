@@ -943,9 +943,16 @@ void main() {
       final publishedTask = publishPayload['task'] as Map<String, Object?>;
       final publishedState = publishedTask['state'] as Map<String, Object?>;
       final publishedHandoff = publishedTask['handoff'] as Map<String, Object?>;
+      final publishedNextPoll =
+          publishedTask['next_poll'] as Map<String, Object?>;
       expect(publishedTask['allowed_tools'], <Object?>['AgentTaskCancel']);
       expect(publishedState['allowed_tools'], <Object?>['AgentTaskCancel']);
       expect(publishedHandoff['allowed_tools'], <Object?>['AgentTaskCancel']);
+      expect(publishedTask['next_action'], 'poll');
+      expect(publishedNextPoll['available'], isTrue);
+      expect(publishedNextPoll['tool'], 'AgentTaskProgress');
+      expect(publishedNextPoll.containsKey('result_tool'), isFalse);
+      expect(publishedNextPoll['missing_tools'], <Object?>['AgentTaskResult']);
 
       final progress = await runtime.execute(
         sessionId: 'session-agent-allowed-tools',
@@ -970,8 +977,73 @@ void main() {
       final progressPayload =
           jsonDecode(progress.resultText) as Map<String, Object?>;
       final progressState = progressPayload['state'] as Map<String, Object?>;
+      final progressNextPoll =
+          progressPayload['next_poll'] as Map<String, Object?>;
       expect(progressPayload['allowed_tools'], <Object?>['AgentTaskCancel']);
       expect(progressState['allowed_tools'], <Object?>['AgentTaskCancel']);
+      expect(progressPayload['next_action'], 'poll');
+      expect(progressNextPoll['available'], isTrue);
+      expect(progressNextPoll['tool'], 'AgentTaskProgress');
+      expect(progressNextPoll.containsKey('result_tool'), isFalse);
+      expect(progressNextPoll['missing_tools'], <Object?>['AgentTaskResult']);
+    });
+
+    test('task handoff reports when no polling tools are bound', () async {
+      await controller.saveAgent(
+        _agent(
+          enabled: true,
+          builtinToolNames: const <String>[
+            'AgentTaskPublish',
+            'AgentTaskCancel',
+          ],
+        ),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(),
+      );
+      final publish = await runtime.execute(
+        sessionId: 'session-agent-no-poll-tools',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-publish-no-poll',
+          name: 'AgentTaskPublish',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-1',
+            'title': 'Publish task without polling tools',
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(publish.status, BashToolExecutionStatus.success);
+      final payload = jsonDecode(publish.resultText) as Map<String, Object?>;
+      final task = payload['task'] as Map<String, Object?>;
+      final state = task['state'] as Map<String, Object?>;
+      final handoff = task['handoff'] as Map<String, Object?>;
+      final nextPoll = task['next_poll'] as Map<String, Object?>;
+
+      expect(task['next_action'], 'enable_task_polling_tool');
+      expect(state['next_action'], 'enable_task_polling_tool');
+      expect(state.containsKey('recommended_poll_ms'), isFalse);
+      expect(handoff['next_action'], 'enable_task_polling_tool');
+      expect(handoff['message'], 'polling_tools_not_bound');
+      expect(nextPoll['available'], isFalse);
+      expect(nextPoll.containsKey('tool'), isFalse);
+      expect(nextPoll.containsKey('result_tool'), isFalse);
+      expect(nextPoll['missing_tools'], <Object?>[
+        'AgentTaskProgress',
+        'AgentTaskResult',
+      ]);
+      expect(
+        nextPoll['blocked_reason'],
+        contains('Enable AgentTaskProgress or AgentTaskResult'),
+      );
     });
 
     test('approval request tool records pending approval and audit', () async {

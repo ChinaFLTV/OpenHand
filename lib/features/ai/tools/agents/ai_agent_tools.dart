@@ -12,6 +12,8 @@ import '../ai_tool_utils.dart';
 
 const int _agentTaskRecommendedPollMs = 1500;
 const int _agentOpenHandlePressureLimit = 128;
+const String _agentTaskProgressToolName = 'AgentTaskProgress';
+const String _agentTaskResultToolName = 'AgentTaskResult';
 const List<String> _agentTaskActiveTools = <String>[
   'AgentTaskPause',
   'AgentTaskCancel',
@@ -1371,7 +1373,8 @@ class AiAgentTool extends AiTool {
           'terminal_reason': state['terminal_reason'],
         'result_available': _taskResultAvailable(task),
         'handoff': _taskHandoffJson(task, agent: resolved.agent),
-        if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
+        if (_taskNextPollJson(task, agent: resolved.agent) case final nextPoll?)
+          'next_poll': nextPoll,
         if (assignedWorker != null) 'assigned_worker': assignedWorker,
         'operational_summary': _taskOperationalSummaryJson(
           resolved.agent!,
@@ -1409,7 +1412,8 @@ class AiAgentTool extends AiTool {
         if (state['terminal_reason'] != null)
           'terminal_reason': state['terminal_reason'],
         'result_available': _taskResultAvailable(task),
-        if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
+        if (_taskNextPollJson(task, agent: resolved.agent) case final nextPoll?)
+          'next_poll': nextPoll,
         if (assignedWorker != null) 'assigned_worker': assignedWorker,
         'operational_summary': _taskOperationalSummaryJson(
           resolved.agent!,
@@ -1530,7 +1534,8 @@ class AiAgentTool extends AiTool {
         'result': task.result,
         'note': task.note,
         'extra': _taskExtraJson(task.extra),
-        if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
+        if (_taskNextPollJson(task, agent: resolved.agent) case final nextPoll?)
+          'next_poll': nextPoll,
         if (assignedWorker != null) 'assigned_worker': assignedWorker,
         'operational_summary': _taskOperationalSummaryJson(
           resolved.agent!,
@@ -2352,7 +2357,8 @@ Map<String, Object?> _taskJson(AgentTask task, {AgentProfile? agent}) {
       'terminal_reason': state['terminal_reason'],
     'result_available': resultAvailable,
     'handoff': _taskHandoffJson(task, agent: agent),
-    if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
+    if (_taskNextPollJson(task, agent: agent) case final nextPoll?)
+      'next_poll': nextPoll,
     'result': task.result,
     'note': task.note,
     if (assignedWorker != null) 'assigned_worker': assignedWorker,
@@ -2369,16 +2375,21 @@ Map<String, Object?> _taskStateJson(AgentTask task, {AgentProfile? agent}) {
       task.status == AgentTaskStatus.paused ||
       task.status == AgentTaskStatus.failed;
   final needsPolling = !terminal && !requiresAttention;
+  final canPoll = needsPolling && _taskPollingAvailable(agent);
   final terminalReason = _taskTerminalReason(task);
   return <String, Object?>{
     'terminal': terminal,
     'needs_polling': needsPolling,
     'requires_attention': requiresAttention,
-    'next_action': _taskNextAction(task, needsPolling: needsPolling),
+    'next_action': _taskNextAction(
+      task,
+      needsPolling: needsPolling,
+      agent: agent,
+    ),
     'allowed_tools': _allowedTaskTools(task.status, agent: agent),
     if (_taskRetryJson(task) case final retry?) 'retry': retry,
     if (terminalReason != null) 'terminal_reason': terminalReason,
-    if (needsPolling) 'recommended_poll_ms': _agentTaskRecommendedPollMs,
+    if (canPoll) 'recommended_poll_ms': _agentTaskRecommendedPollMs,
   };
 }
 
@@ -2392,7 +2403,11 @@ Map<String, Object?> _taskHandoffJson(AgentTask task, {AgentProfile? agent}) {
   final resultAvailable = _taskResultAvailable(task);
   return <String, Object?>{
     'result_available': resultAvailable,
-    'message': _taskHandoffMessage(task, resultAvailable: resultAvailable),
+    'message': _taskHandoffMessage(
+      task,
+      resultAvailable: resultAvailable,
+      agent: agent,
+    ),
     'status': task.status.storageValue,
     'next_action': state['next_action'],
     'needs_polling': state['needs_polling'],
@@ -2404,7 +2419,8 @@ Map<String, Object?> _taskHandoffJson(AgentTask task, {AgentProfile? agent}) {
       'terminal_reason': state['terminal_reason'],
     if (resultAvailable) 'result': task.result,
     if (task.note.trim().isNotEmpty) 'note': task.note,
-    if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
+    if (_taskNextPollJson(task, agent: agent) case final nextPoll?)
+      'next_poll': nextPoll,
   };
 }
 
@@ -2425,7 +2441,11 @@ Map<String, Object?>? _taskRetryJson(AgentTask task) {
   };
 }
 
-String _taskHandoffMessage(AgentTask task, {required bool resultAvailable}) {
+String _taskHandoffMessage(
+  AgentTask task, {
+  required bool resultAvailable,
+  AgentProfile? agent,
+}) {
   if (resultAvailable) return 'result_ready';
   if (!_taskIsTerminal(task.status)) {
     return switch (task.status) {
@@ -2433,7 +2453,10 @@ String _taskHandoffMessage(AgentTask task, {required bool resultAvailable}) {
       AgentTaskStatus.paused => 'paused_requires_resume_or_cancel',
       AgentTaskStatus.backlog ||
       AgentTaskStatus.ready ||
-      AgentTaskStatus.running => 'result_not_ready_poll',
+      AgentTaskStatus.running =>
+        _taskPollingAvailable(agent)
+            ? 'result_not_ready_poll'
+            : 'polling_tools_not_bound',
       AgentTaskStatus.completed ||
       AgentTaskStatus.failed ||
       AgentTaskStatus.canceled => 'result_not_available',
@@ -2454,21 +2477,41 @@ String _taskHandoffMessage(AgentTask task, {required bool resultAvailable}) {
   };
 }
 
-Map<String, Object?>? _taskNextPollJson(AgentTask task) {
+Map<String, Object?>? _taskNextPollJson(AgentTask task, {AgentProfile? agent}) {
   if (_taskIsTerminal(task.status) ||
       task.status == AgentTaskStatus.waitingApproval ||
       task.status == AgentTaskStatus.paused) {
     return null;
   }
-  return const <String, Object?>{
-    'tool': 'AgentTaskProgress',
-    'result_tool': 'AgentTaskResult',
+  final progressAvailable = _agentToolAvailable(
+    agent,
+    _agentTaskProgressToolName,
+  );
+  final resultAvailable = _agentToolAvailable(agent, _agentTaskResultToolName);
+  return <String, Object?>{
+    'available': progressAvailable || resultAvailable,
+    if (progressAvailable) 'tool': _agentTaskProgressToolName,
+    if (resultAvailable) 'result_tool': _agentTaskResultToolName,
+    if (!progressAvailable || !resultAvailable)
+      'missing_tools': <String>[
+        if (!progressAvailable) _agentTaskProgressToolName,
+        if (!resultAvailable) _agentTaskResultToolName,
+      ],
+    if (!progressAvailable && !resultAvailable)
+      'blocked_reason':
+          'No task polling tools are bound for this agent. Enable AgentTaskProgress or AgentTaskResult in the agent configuration.',
     'recommended_poll_ms': _agentTaskRecommendedPollMs,
   };
 }
 
-String _taskNextAction(AgentTask task, {required bool needsPolling}) {
-  if (needsPolling) return 'poll';
+String _taskNextAction(
+  AgentTask task, {
+  required bool needsPolling,
+  AgentProfile? agent,
+}) {
+  if (needsPolling) {
+    return _taskPollingAvailable(agent) ? 'poll' : 'enable_task_polling_tool';
+  }
   return switch (task.status) {
     AgentTaskStatus.waitingApproval => 'review_approval',
     AgentTaskStatus.paused => 'resume_or_cancel',
@@ -2481,6 +2524,18 @@ String _taskNextAction(AgentTask task, {required bool needsPolling}) {
     AgentTaskStatus.ready ||
     AgentTaskStatus.running => 'poll',
   };
+}
+
+bool _taskPollingAvailable(AgentProfile? agent) {
+  return _agentToolAvailable(agent, _agentTaskProgressToolName) ||
+      _agentToolAvailable(agent, _agentTaskResultToolName);
+}
+
+bool _agentToolAvailable(AgentProfile? agent, String toolName) {
+  return agent == null ||
+      _agentAllowsToolNames(agent, <String>{
+        _normalizedAgentToolName(toolName),
+      });
 }
 
 String? _taskTerminalReason(AgentTask task) {
