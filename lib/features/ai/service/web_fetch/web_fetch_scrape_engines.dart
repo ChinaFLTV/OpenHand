@@ -19,12 +19,12 @@ class WebFetchFirecrawlEngine extends WebFetchEngine {
   WebFetchFirecrawlEngine({required super.config, required super.httpClient});
 
   @override
-  bool get isReady => (config.apiKey ?? '').isNotEmpty;
+  bool get isReady => nullIfBlank(config.apiKey) != null;
 
   @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
-    final base = (config.endpointOverride ?? '').trim();
-    final endpoint = base.isEmpty
+    final base = nullIfBlank(config.endpointOverride);
+    final endpoint = base == null
         ? 'https://api.firecrawl.dev/v1/scrape'
         : '${base.endsWith('/') ? base.substring(0, base.length - 1) : base}'
               '/v1/scrape';
@@ -98,13 +98,14 @@ class WebFetchScraplingEngine extends WebFetchEngine {
       settings: scraplingSettings,
       cancelSignal: req.cancelSignal,
     );
-    if (result.content.trim().isEmpty) {
+    if (nullIfBlank(result.content) == null) {
       return const <WebFetchEngineContent>[];
     }
+    final title = nullIfBlank(result.title) ?? req.url;
     return [
       WebFetchEngineContent(
         url: result.url,
-        title: result.title.trim().isEmpty ? req.url : result.title.trim(),
+        title: title,
         content: result.content,
         contentType: result.contentType,
         statusCode: result.statusCode,
@@ -168,7 +169,7 @@ class WebFetchJinaReaderEngine extends WebFetchEngine {
     final content = utf8
         .decode(response.bodyBytes, allowMalformed: true)
         .trim();
-    if (content.isEmpty) {
+    if (nullIfBlank(content) == null) {
       return const <WebFetchEngineContent>[];
     }
     return [
@@ -184,11 +185,12 @@ class WebFetchJinaReaderEngine extends WebFetchEngine {
   }
 
   Uri _normalizeTargetUri(String rawUrl) {
-    final trimmed = rawUrl.trim();
+    final trimmed = nullIfBlank(rawUrl) ?? '';
     final withScheme = trimmed.contains('://') ? trimmed : 'https://$trimmed';
     final uri = Uri.parse(withScheme);
     final scheme = uri.scheme.toLowerCase();
-    if ((scheme != 'http' && scheme != 'https') || uri.host.trim().isEmpty) {
+    if ((scheme != 'http' && scheme != 'https') ||
+        nullIfBlank(uri.host) == null) {
       throw WebEngineHttpException('Jina Reader invalid URL: $rawUrl');
     }
     return uri;
@@ -205,14 +207,14 @@ class WebFetchJinaReaderEngine extends WebFetchEngine {
     for (final line in const LineSplitter().convert(content)) {
       final trimmed = line.trim();
       if (trimmed.startsWith('Title:')) {
-        final title = trimmed.substring('Title:'.length).trim();
-        if (title.isNotEmpty) return title;
+        final title = nullIfBlank(trimmed.substring('Title:'.length));
+        if (title != null) return title;
       }
       if (trimmed.startsWith('# ')) {
-        final title = trimmed.substring(2).trim();
-        if (title.isNotEmpty) return title;
+        final title = nullIfBlank(trimmed.substring(2));
+        if (title != null) return title;
       }
-      if (trimmed.isNotEmpty) break;
+      if (nullIfBlank(trimmed) != null) break;
     }
     return null;
   }
