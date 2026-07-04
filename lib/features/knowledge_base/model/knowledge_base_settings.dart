@@ -5,6 +5,9 @@ import '../../../shared/util/reader_file_type.dart';
 
 const _skipDualCapabilityRerankJsonKey =
     'skip_model_rerank_when_embedding_supports_rerank';
+final RegExp _knowledgeCollectionNameUnsafeCharsPattern = RegExp(
+  r'[^a-zA-Z0-9_]+',
+);
 
 class KnowledgeChunkStrategy {
   const KnowledgeChunkStrategy._();
@@ -144,7 +147,7 @@ class KnowledgeReaderParserRule {
   bool get usesModel => mode == KnowledgeReaderParserMode.model;
 
   bool get hasModel =>
-      providerConfigId.trim().isNotEmpty && modelId.trim().isNotEmpty;
+      nullIfBlank(providerConfigId) != null && nullIfBlank(modelId) != null;
 
   KnowledgeReaderParserRule copyWith({
     String? mode,
@@ -165,11 +168,13 @@ class KnowledgeReaderParserRule {
   }
 
   Map<String, Object?> toJson() {
+    final normalizedProviderConfigId = nullIfBlank(providerConfigId);
+    final normalizedModelId = nullIfBlank(modelId);
     return <String, Object?>{
       'mode': KnowledgeReaderParserMode.normalize(mode),
-      if (providerConfigId.trim().isNotEmpty)
-        'provider_config_id': providerConfigId.trim(),
-      if (modelId.trim().isNotEmpty) 'model_id': modelId.trim(),
+      if (normalizedProviderConfigId != null)
+        'provider_config_id': normalizedProviderConfigId,
+      if (normalizedModelId != null) 'model_id': normalizedModelId,
       'target_type': _normalizeTargetType(targetType),
     };
   }
@@ -507,13 +512,13 @@ class KnowledgeBaseSettings {
   final bool enableDangerousAdminOperations;
 
   bool get hasEmbeddingModel =>
-      providerConfigId.trim().isNotEmpty && modelId.trim().isNotEmpty;
+      nullIfBlank(providerConfigId) != null && nullIfBlank(modelId) != null;
 
   bool get modelRerankEnabled => rerankMode == KnowledgeRerankMode.model;
 
   bool get hasRerankModel =>
-      rerankProviderConfigId.trim().isNotEmpty &&
-      rerankModelId.trim().isNotEmpty;
+      nullIfBlank(rerankProviderConfigId) != null &&
+      nullIfBlank(rerankModelId) != null;
 
   KnowledgeReaderParserRule readerRuleForSourceType(String sourceType) {
     final normalized = ReaderFileType.normalize(sourceType);
@@ -521,9 +526,10 @@ class KnowledgeBaseSettings {
   }
 
   String get effectiveCollectionName {
-    if (collectionName.trim().isNotEmpty) return collectionName.trim();
+    final normalizedCollectionName = nullIfBlank(collectionName);
+    if (normalizedCollectionName != null) return normalizedCollectionName;
     final raw = '${providerConfigId}_${modelId}_$dimensions'
-        .replaceAll(RegExp(r'[^a-zA-Z0-9_]+'), '_')
+        .replaceAll(_knowledgeCollectionNameUnsafeCharsPattern, '_')
         .toLowerCase();
     return 'openhand_knowledge_$raw';
   }
@@ -834,9 +840,10 @@ class KnowledgeBaseSettings {
   String encode() => jsonEncode(toJson());
 
   static KnowledgeBaseSettings decode(String value) {
-    if (value.trim().isEmpty) return const KnowledgeBaseSettings();
+    final text = nullIfBlank(value);
+    if (text == null) return const KnowledgeBaseSettings();
     try {
-      return KnowledgeBaseSettings.fromJson(stringKeyedMapFromJsonText(value));
+      return KnowledgeBaseSettings.fromJson(stringKeyedMapFromJsonText(text));
     } catch (_) {
       return const KnowledgeBaseSettings();
     }
