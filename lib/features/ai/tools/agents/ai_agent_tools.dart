@@ -1367,6 +1367,8 @@ class AiAgentTool extends AiTool {
         'status': task.status.storageValue,
         'progress': task.progress,
         'state': state,
+        'result_available': _taskResultAvailable(task),
+        if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
         if (assignedWorker != null) 'assigned_worker': assignedWorker,
         'operational_summary': _taskOperationalSummaryJson(
           resolved.agent!,
@@ -1474,9 +1476,12 @@ class AiAgentTool extends AiTool {
         'status': task.status.storageValue,
         'progress': task.progress,
         'state': state,
+        'result_available': _taskResultAvailable(task),
+        'handoff': _taskHandoffJson(task),
         'result': task.result,
         'note': task.note,
         'extra': _taskExtraJson(task.extra),
+        if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
         if (assignedWorker != null) 'assigned_worker': assignedWorker,
         'operational_summary': _taskOperationalSummaryJson(
           resolved.agent!,
@@ -1969,6 +1974,73 @@ Map<String, Object?> _taskStateJson(AgentTask task) {
     'allowed_tools': _allowedTaskTools(task.status),
     if (terminalReason != null) 'terminal_reason': terminalReason,
     if (needsPolling) 'recommended_poll_ms': _agentTaskRecommendedPollMs,
+  };
+}
+
+bool _taskResultAvailable(AgentTask task) {
+  return task.status == AgentTaskStatus.completed &&
+      task.result.trim().isNotEmpty;
+}
+
+Map<String, Object?> _taskHandoffJson(AgentTask task) {
+  final state = _taskStateJson(task);
+  final resultAvailable = _taskResultAvailable(task);
+  return <String, Object?>{
+    'result_available': resultAvailable,
+    'message': _taskHandoffMessage(task, resultAvailable: resultAvailable),
+    'status': task.status.storageValue,
+    'next_action': state['next_action'],
+    'needs_polling': state['needs_polling'],
+    'requires_attention': state['requires_attention'],
+    'terminal': state['terminal'],
+    'allowed_tools': state['allowed_tools'],
+    if (state['terminal_reason'] != null)
+      'terminal_reason': state['terminal_reason'],
+    if (resultAvailable) 'result': task.result,
+    if (task.note.trim().isNotEmpty) 'note': task.note,
+    if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
+  };
+}
+
+String _taskHandoffMessage(AgentTask task, {required bool resultAvailable}) {
+  if (resultAvailable) return 'result_ready';
+  if (!_taskIsTerminal(task.status)) {
+    return switch (task.status) {
+      AgentTaskStatus.waitingApproval => 'waiting_for_approval',
+      AgentTaskStatus.paused => 'paused_requires_resume_or_cancel',
+      AgentTaskStatus.backlog ||
+      AgentTaskStatus.ready ||
+      AgentTaskStatus.running => 'result_not_ready_poll',
+      AgentTaskStatus.completed ||
+      AgentTaskStatus.failed ||
+      AgentTaskStatus.canceled => 'result_not_available',
+    };
+  }
+  return switch (task.status) {
+    AgentTaskStatus.completed => 'completed_without_result',
+    AgentTaskStatus.failed =>
+      _taskTerminalReason(task) == 'terminated'
+          ? 'terminated_without_result'
+          : 'failed_without_result',
+    AgentTaskStatus.canceled => 'canceled_without_result',
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running ||
+    AgentTaskStatus.waitingApproval ||
+    AgentTaskStatus.paused => 'result_not_available',
+  };
+}
+
+Map<String, Object?>? _taskNextPollJson(AgentTask task) {
+  if (_taskIsTerminal(task.status) ||
+      task.status == AgentTaskStatus.waitingApproval ||
+      task.status == AgentTaskStatus.paused) {
+    return null;
+  }
+  return const <String, Object?>{
+    'tool': 'AgentTaskProgress',
+    'result_tool': 'AgentTaskResult',
+    'recommended_poll_ms': _agentTaskRecommendedPollMs,
   };
 }
 

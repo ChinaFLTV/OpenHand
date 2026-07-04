@@ -1778,6 +1778,34 @@ domains: finance, cloud billing
       expect(resultState['allowed_tools'], isEmpty);
       expect(resultWorker['id'], assignedWorkerId);
       expect(resultWorker['status'], 'idle');
+
+      final taskResult = await runtime.execute(
+        sessionId: 'session-1',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-2',
+          name: 'AgentTaskResult',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-1',
+            'task_id': task.id,
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+      final taskResultPayload =
+          jsonDecode(taskResult.resultText) as Map<String, Object?>;
+      final handoff = taskResultPayload['handoff'] as Map<String, Object?>;
+      expect(taskResult.status, BashToolExecutionStatus.success);
+      expect(taskResultPayload['result_available'], isTrue);
+      expect(handoff['result_available'], isTrue);
+      expect(handoff['message'], 'result_ready');
+      expect(handoff['next_action'], 'read_result');
+      expect(handoff['result'], 'Release evidence collected and verified.');
     });
 
     test(
@@ -1908,6 +1936,9 @@ domains: finance, cloud billing
         expect(result.status, BashToolExecutionStatus.success);
         final payload = jsonDecode(result.resultText) as Map<String, Object?>;
         final resultExtra = payload['extra'] as Map<String, Object?>;
+        final resultState = payload['state'] as Map<String, Object?>;
+        final handoff = payload['handoff'] as Map<String, Object?>;
+        final nextPoll = payload['next_poll'] as Map<String, Object?>;
         final summary = payload['operational_summary'] as Map<String, Object?>;
         final taskMetrics = summary['task_metrics'] as Map<String, Object?>;
         final taskStatusCounts =
@@ -1934,6 +1965,15 @@ domains: finance, cloud billing
         expect(resourceUsage['open_handles'], 3);
         expect(resultExtra['handoff'], 'metadata');
         expect(resultExtra['assigned_worker_id'], assignedWorkerId);
+        expect(payload['result_available'], isFalse);
+        expect(resultState['needs_polling'], isTrue);
+        expect(handoff['message'], 'result_not_ready_poll');
+        expect(handoff['result_available'], isFalse);
+        expect(handoff['next_action'], 'poll');
+        expect(handoff['next_poll'], isA<Map<String, Object?>>());
+        expect(nextPoll['tool'], 'AgentTaskProgress');
+        expect(nextPoll['result_tool'], 'AgentTaskResult');
+        expect(nextPoll['recommended_poll_ms'], isPositive);
       },
     );
 
