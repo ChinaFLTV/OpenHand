@@ -54,6 +54,7 @@ if [[ -d "$OUT_DIR" ]]; then
 else
   mkdir -p "$OUT_DIR"
 fi
+mkdir -p "$OUT_DIR/chunks" "$OUT_DIR/assets"
 
 # ---- 工具链 -----------------------------------------------------------------
 if ! command -v pnpm >/dev/null 2>&1; then
@@ -77,10 +78,11 @@ fi
 pnpm build
 popd >/dev/null
 
-# vite 当前不主动产出 assets/，但 pubspec.yaml 已声明 assets/web/assets/，
-# 缺目录会触发 flutter analyze 的 asset_directory_does_not_exist 警告。
-# 在 vite build 之后总是确保该目录存在 + 占位文件，让 rootBundle 永远扫得到。
-mkdir -p "$OUT_DIR/assets"
+# pubspec.yaml 声明了 assets/web/chunks/ 与 assets/web/assets/；两者被
+# .gitignore 忽略且由 Vite 动态生成。构建失败或某些配置未产出对应目录时，
+# 仍保持目录存在，避免 flutter analyze 出现 asset_directory_does_not_exist。
+mkdir -p "$OUT_DIR/chunks" "$OUT_DIR/assets"
+[[ -f "$OUT_DIR/chunks/.gitkeep" ]] || : > "$OUT_DIR/chunks/.gitkeep"
 [[ -f "$OUT_DIR/assets/.gitkeep" ]] || : > "$OUT_DIR/assets/.gitkeep"
 
 # ---- 校验关键产物已生成 -----------------------------------------------------
