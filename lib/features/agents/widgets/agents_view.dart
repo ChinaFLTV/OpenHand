@@ -89,7 +89,6 @@ const List<String> _agentImageExtensions = <String>[
   'bmp',
 ];
 const double _agentChipSpacing = 8;
-const String _agentNoCoordinationToolsBinding = '__openhand_agent_tools_none__';
 
 bool _isAgentCoordinationBuiltinToolId(String id) {
   return AiBuiltinToolKind.values.any(
@@ -7283,10 +7282,10 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       _isAgentCoordinationBuiltinToolId,
     );
     final explicitlyNoAgentTools = _builtinToolNames.contains(
-      _agentNoCoordinationToolsBinding,
+      agentNoCoordinationToolsBinding,
     );
     if (!hasAgentToolSelection && explicitlyNoAgentTools) {
-      builtinToolNames.add(_agentNoCoordinationToolsBinding);
+      builtinToolNames.add(agentNoCoordinationToolsBinding);
     }
     return AgentProfile(
       id: previous?.id ?? '',
@@ -7523,7 +7522,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     final normalized = <String>{};
     for (final raw in _builtinToolNames) {
       final value = raw.trim();
-      if (value.isEmpty || value == _agentNoCoordinationToolsBinding) {
+      if (value.isEmpty || value == agentNoCoordinationToolsBinding) {
         continue;
       }
       normalized.add(aliases[value.toLowerCase()] ?? value);
@@ -7534,8 +7533,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   Set<String> _selectedBuiltinToolsWithInternalBindings(Set<String> selected) {
     return <String>{
       ...selected,
-      if (_builtinToolNames.contains(_agentNoCoordinationToolsBinding))
-        _agentNoCoordinationToolsBinding,
+      if (_builtinToolNames.contains(agentNoCoordinationToolsBinding))
+        agentNoCoordinationToolsBinding,
     };
   }
 }
@@ -8755,10 +8754,10 @@ Set<String> _mergeAgentToolSelection({
     current: current,
     groupSelection: groupSelection,
     groupOptions: groupOptions,
-  )..remove(_agentNoCoordinationToolsBinding);
+  )..remove(agentNoCoordinationToolsBinding);
   if (groupOptions.isNotEmpty &&
       groupSelection.intersection(groupIds).isEmpty) {
-    merged.add(_agentNoCoordinationToolsBinding);
+    merged.add(agentNoCoordinationToolsBinding);
   }
   return merged;
 }

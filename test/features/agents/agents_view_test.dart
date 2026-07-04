@@ -621,7 +621,7 @@ void main() {
 
       final agent = controller.agents.single;
       expect(agent.builtinToolNames, contains('bash'));
-      expect(agent.builtinToolNames, contains('__openhand_agent_tools_none__'));
+      expect(agent.builtinToolNames, contains(agentNoCoordinationToolsBinding));
       expect(agent.builtinToolNames, isNot(contains('agentTaskPublish')));
     });
 

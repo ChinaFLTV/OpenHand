@@ -4,6 +4,8 @@ import '../../../shared/util/input_value_parsing.dart';
 
 final RegExp _agentDelimitedTextSeparatorPattern = RegExp(r'[\r\n,，;；]+');
 
+const String agentNoCoordinationToolsBinding = '__openhand_agent_tools_none__';
+
 enum AgentExecutionMode {
   normal('normal'),
   fullAccess('full_access');

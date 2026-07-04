@@ -11,7 +11,6 @@ import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
 const int _agentTaskRecommendedPollMs = 1500;
-const String _agentNoCoordinationToolsBinding = '__openhand_agent_tools_none__';
 const int _agentOpenHandlePressureLimit = 128;
 const List<String> _agentTaskActiveTools = <String>[
   'AgentTaskPause',
@@ -2039,7 +2038,7 @@ bool _agentAllowsToolNames(AgentProfile agent, Set<String> normalizedNames) {
 }
 
 bool _isNoAgentCoordinationToolsBinding(String value) {
-  return value.trim() == _agentNoCoordinationToolsBinding;
+  return value.trim() == agentNoCoordinationToolsBinding;
 }
 
 class _AgentResolution {

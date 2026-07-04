@@ -599,7 +599,7 @@ void main() {
             enabled: true,
             builtinToolNames: const <String>[
               'bash',
-              '__openhand_agent_tools_none__',
+              agentNoCoordinationToolsBinding,
             ],
           ),
         );

@@ -49,7 +49,7 @@ void main() {
       const agent = AgentProfile(
         id: 'agent-1',
         name: 'Ops Agent',
-        builtinToolNames: <String>['Bash', '__openhand_agent_tools_none__'],
+        builtinToolNames: <String>['Bash', agentNoCoordinationToolsBinding],
       );
 
       final bindings = agentCapabilityBindingsJson(agent);

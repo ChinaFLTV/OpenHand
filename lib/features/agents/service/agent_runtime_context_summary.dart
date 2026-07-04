@@ -1,11 +1,9 @@
 import '../model/agent_models.dart';
 
-const String _agentNoCoordinationToolsBinding = '__openhand_agent_tools_none__';
-
 Map<String, Object?> agentCapabilityBindingsJson(AgentProfile agent) {
   final automationCount = agent.cronIds.length + agent.hookIds.length;
   final builtinToolNames = agent.builtinToolNames
-      .where((name) => name.trim() != _agentNoCoordinationToolsBinding)
+      .where((name) => name.trim() != agentNoCoordinationToolsBinding)
       .toList(growable: false);
   final agentBuiltinToolCount = builtinToolNames
       .where(_looksLikeAgentBuiltinToolName)
