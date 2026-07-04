@@ -5,6 +5,7 @@ import '../../app/model/dialog_animation_settings.dart';
 import 'animated_dialog.dart';
 import 'micro_press_feedback.dart';
 import 'motion_preference.dart';
+import 'openhand_safe_scrollbar.dart';
 
 /// Shows a popup menu with configurable entrance and exit animations.
 ///
@@ -224,13 +225,14 @@ class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
   }) {
     final list = SingleChildScrollView(
       controller: enableScrollbar ? _verticalScrollController : null,
+      primary: false,
       padding: padding,
       child: ListBody(children: children),
     );
     if (!enableScrollbar) {
       return list;
     }
-    return Scrollbar(
+    return OpenHandSafeScrollbar(
       controller: _verticalScrollController,
       thumbVisibility: true,
       thickness: _kScrollbarThickness,
@@ -259,7 +261,7 @@ class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
       bottom: resolvedPadding.bottom + 10,
     );
     return PrimaryScrollController.none(
-      child: Scrollbar(
+      child: OpenHandSafeScrollbar(
         controller: _horizontalScrollController,
         thumbVisibility: true,
         thickness: _kScrollbarThickness,
@@ -270,6 +272,7 @@ class _PopupMenuContentState<T> extends State<_PopupMenuContent<T>> {
         child: SingleChildScrollView(
           controller: _horizontalScrollController,
           scrollDirection: Axis.horizontal,
+          primary: false,
           child: ConstrainedBox(
             constraints: BoxConstraints(minWidth: minWidth),
             child: IntrinsicWidth(

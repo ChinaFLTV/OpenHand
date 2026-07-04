@@ -4,6 +4,34 @@
 // 已 attach 场景的视觉/手感与原生 Scrollbar 完全一致。
 import 'package:flutter/material.dart';
 
+bool openHandPlatformUsesImplicitScrollbars(TargetPlatform platform) {
+  switch (platform) {
+    case TargetPlatform.linux:
+    case TargetPlatform.macOS:
+    case TargetPlatform.windows:
+      return true;
+    case TargetPlatform.android:
+    case TargetPlatform.fuchsia:
+    case TargetPlatform.iOS:
+      return false;
+  }
+}
+
+Widget buildOpenHandImplicitScrollbar({
+  required TargetPlatform platform,
+  required Widget child,
+  required ScrollableDetails details,
+}) {
+  if (!openHandPlatformUsesImplicitScrollbars(platform)) {
+    return child;
+  }
+  final controller = details.controller;
+  if (controller == null) {
+    return child;
+  }
+  return OpenHandSafeScrollbar(controller: controller, child: child);
+}
+
 /// API 与 framework [Scrollbar] 兼容；调用点零认知成本切换。
 ///
 /// 行为说明：
@@ -82,12 +110,25 @@ class _OpenHandSafeScrollbarState extends State<OpenHandSafeScrollbar> {
     return false;
   }
 
+  bool _onScrollNotification(ScrollNotification _) {
+    _scheduleResync();
+    return false;
+  }
+
+  Widget _withoutImplicitScrollbars(BuildContext context, Widget child) {
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = _resolveController(context);
     final safe = _evaluateSafe(controller);
     _lastSafe = safe;
     _scheduleResync();
+    final child = _withoutImplicitScrollbars(context, widget.child);
 
     final Widget content = safe
         ? Scrollbar(
@@ -98,15 +139,19 @@ class _OpenHandSafeScrollbarState extends State<OpenHandSafeScrollbar> {
             radius: widget.radius,
             interactive: widget.interactive,
             scrollbarOrientation: widget.scrollbarOrientation,
-            notificationPredicate: widget.notificationPredicate ??
+            notificationPredicate:
+                widget.notificationPredicate ??
                 defaultScrollNotificationPredicate,
-            child: widget.child,
+            child: child,
           )
-        : widget.child;
+        : child;
 
     return NotificationListener<ScrollMetricsNotification>(
       onNotification: _onScrollMetrics,
-      child: content,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onScrollNotification,
+        child: content,
+      ),
     );
   }
 }

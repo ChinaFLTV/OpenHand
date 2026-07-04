@@ -6576,9 +6576,16 @@ class _SnapshotDiffDialog extends StatefulWidget {
 }
 
 class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
+  final ScrollController _growthScrollController = ScrollController();
   String? _selectedLabel;
   bool _retainerLoading = false;
   _RetainerChainResult? _retainerResult;
+
+  @override
+  void dispose() {
+    _growthScrollController.dispose();
+    super.dispose();
+  }
 
   Future<void> _onRowTap(String label) async {
     setState(() {
@@ -6759,154 +6766,160 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                     children: [
                       Expanded(
                         flex: 3,
-                        child: Scrollbar(
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 12, 16),
-                            child: DataTable(
-                              headingRowHeight: 32,
-                              dataRowMinHeight: 28,
-                              dataRowMaxHeight: 32,
-                              columnSpacing: 24,
-                              showCheckboxColumn: false,
-                              columns: [
-                                DataColumn(
-                                  label: Text(
-                                    _panelsText(
-                                      context,
-                                      zh: '构造器',
-                                      zhHant: '建構子',
-                                      en: 'Constructor',
-                                      fr: 'Constructeur',
-                                      de: 'Konstruktor',
-                                      ja: 'コンストラクター',
+                        child: PrimaryScrollController.none(
+                          child: OpenHandSafeScrollbar(
+                            controller: _growthScrollController,
+                            child: SingleChildScrollView(
+                              controller: _growthScrollController,
+                              primary: false,
+                              padding: const EdgeInsets.fromLTRB(20, 0, 12, 16),
+                              child: DataTable(
+                                headingRowHeight: 32,
+                                dataRowMinHeight: 28,
+                                dataRowMaxHeight: 32,
+                                columnSpacing: 24,
+                                showCheckboxColumn: false,
+                                columns: [
+                                  DataColumn(
+                                    label: Text(
+                                      _panelsText(
+                                        context,
+                                        zh: '构造器',
+                                        zhHant: '建構子',
+                                        en: 'Constructor',
+                                        fr: 'Constructeur',
+                                        de: 'Konstruktor',
+                                        ja: 'コンストラクター',
+                                      ),
                                     ),
                                   ),
-                                ),
-                                DataColumn(
-                                  label: Text(
-                                    _panelsText(
-                                      context,
-                                      zh: '字节增量',
-                                      zhHant: '位元組增量',
-                                      en: 'Δ bytes',
-                                      fr: 'Δ octets',
-                                      de: 'Δ Bytes',
-                                      ja: 'Δ バイト',
+                                  DataColumn(
+                                    label: Text(
+                                      _panelsText(
+                                        context,
+                                        zh: '字节增量',
+                                        zhHant: '位元組增量',
+                                        en: 'Δ bytes',
+                                        fr: 'Δ octets',
+                                        de: 'Δ Bytes',
+                                        ja: 'Δ バイト',
+                                      ),
                                     ),
+                                    numeric: true,
                                   ),
-                                  numeric: true,
-                                ),
-                                DataColumn(
-                                  label: Text(
-                                    _panelsText(
-                                      context,
-                                      zh: '节点增量',
-                                      zhHant: '節點增量',
-                                      en: 'Δ count',
-                                      fr: 'Δ nombre',
-                                      de: 'Δ Anzahl',
-                                      ja: 'Δ 件数',
+                                  DataColumn(
+                                    label: Text(
+                                      _panelsText(
+                                        context,
+                                        zh: '节点增量',
+                                        zhHant: '節點增量',
+                                        en: 'Δ count',
+                                        fr: 'Δ nombre',
+                                        de: 'Δ Anzahl',
+                                        ja: 'Δ 件数',
+                                      ),
                                     ),
+                                    numeric: true,
                                   ),
-                                  numeric: true,
-                                ),
-                                DataColumn(
-                                  label: Text(
-                                    _panelsText(
-                                      context,
-                                      zh: 'A 字节',
-                                      zhHant: 'A 位元組',
-                                      en: 'A bytes',
-                                      fr: 'Octets A',
-                                      de: 'A Bytes',
-                                      ja: 'A バイト',
+                                  DataColumn(
+                                    label: Text(
+                                      _panelsText(
+                                        context,
+                                        zh: 'A 字节',
+                                        zhHant: 'A 位元組',
+                                        en: 'A bytes',
+                                        fr: 'Octets A',
+                                        de: 'A Bytes',
+                                        ja: 'A バイト',
+                                      ),
                                     ),
+                                    numeric: true,
                                   ),
-                                  numeric: true,
-                                ),
-                                DataColumn(
-                                  label: Text(
-                                    _panelsText(
-                                      context,
-                                      zh: 'B 字节',
-                                      zhHant: 'B 位元組',
-                                      en: 'B bytes',
-                                      fr: 'Octets B',
-                                      de: 'B Bytes',
-                                      ja: 'B バイト',
+                                  DataColumn(
+                                    label: Text(
+                                      _panelsText(
+                                        context,
+                                        zh: 'B 字节',
+                                        zhHant: 'B 位元組',
+                                        en: 'B bytes',
+                                        fr: 'Octets B',
+                                        de: 'B Bytes',
+                                        ja: 'B バイト',
+                                      ),
                                     ),
+                                    numeric: true,
                                   ),
-                                  numeric: true,
-                                ),
-                              ],
-                              rows: [
-                                for (final g in result.growth)
-                                  DataRow(
-                                    selected: g.label == _selectedLabel,
-                                    onSelectChanged: (_) => _onRowTap(g.label),
-                                    cells: [
-                                      DataCell(
-                                        SelectableText(
-                                          g.label,
-                                          style: const TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 12,
+                                ],
+                                rows: [
+                                  for (final g in result.growth)
+                                    DataRow(
+                                      selected: g.label == _selectedLabel,
+                                      onSelectChanged: (_) =>
+                                          _onRowTap(g.label),
+                                      cells: [
+                                        DataCell(
+                                          SelectableText(
+                                            g.label,
+                                            style: const TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      DataCell(
-                                        Text(
-                                          _SnapshotDiffDialog._fmtSignedBytes(
-                                            g.bytesDelta,
-                                          ),
-                                          style: TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 12,
-                                            color: g.bytesDelta > 0
-                                                ? cs.error
-                                                : (g.bytesDelta < 0
-                                                      ? Colors.green
-                                                      : cs.onSurfaceVariant),
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        Text(
-                                          _SnapshotDiffDialog._fmtSigned(
-                                            g.countDelta,
-                                          ),
-                                          style: const TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 12,
+                                        DataCell(
+                                          Text(
+                                            _SnapshotDiffDialog._fmtSignedBytes(
+                                              g.bytesDelta,
+                                            ),
+                                            style: TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                              color: g.bytesDelta > 0
+                                                  ? cs.error
+                                                  : (g.bytesDelta < 0
+                                                        ? Colors.green
+                                                        : cs.onSurfaceVariant),
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      DataCell(
-                                        Text(
-                                          _SnapshotDiffDialog._fmtBytes(
-                                            g.bytesA,
-                                          ),
-                                          style: const TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                      DataCell(
-                                        Text(
-                                          _SnapshotDiffDialog._fmtBytes(
-                                            g.bytesB,
-                                          ),
-                                          style: const TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 12,
+                                        DataCell(
+                                          Text(
+                                            _SnapshotDiffDialog._fmtSigned(
+                                              g.countDelta,
+                                            ),
+                                            style: const TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                              ],
+                                        DataCell(
+                                          Text(
+                                            _SnapshotDiffDialog._fmtBytes(
+                                              g.bytesA,
+                                            ),
+                                            style: const TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                        DataCell(
+                                          Text(
+                                            _SnapshotDiffDialog._fmtBytes(
+                                              g.bytesB,
+                                            ),
+                                            style: const TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                         ),

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../features/home/openhand_home_page.dart';
 import '../features/message_gateway/index.dart';
 import '../l10n/app_localizations.dart';
+import '../shared/ui/openhand_safe_scrollbar.dart';
 import '../shared/ui/openhand_snack_bar.dart';
 import 'model/app_language.dart';
 import 'state/settings_controller.dart';
@@ -156,6 +157,19 @@ class _OverlayPortalStabilityBoundary extends StatelessWidget {
 /// avoids that assertion while keeping fling/scroll behaviour functional.
 class _SafeScrollBehavior extends MaterialScrollBehavior {
   const _SafeScrollBehavior();
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return buildOpenHandImplicitScrollbar(
+      platform: getPlatform(context),
+      child: child,
+      details: details,
+    );
+  }
 
   @override
   GestureVelocityTrackerBuilder velocityTrackerBuilder(BuildContext context) {

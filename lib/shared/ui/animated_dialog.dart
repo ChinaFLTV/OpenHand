@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ import '../../app/model/dialog_animation_settings.dart';
 import 'bounded_animation.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
+import 'openhand_safe_scrollbar.dart';
 import 'safe_edge_insets.dart';
 
 const double kOpenHandDialogViewportFraction = 0.95;
@@ -116,6 +118,19 @@ class OpenHandDialogScrollBehavior extends MaterialScrollBehavior {
   const OpenHandDialogScrollBehavior();
 
   @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return buildOpenHandImplicitScrollbar(
+      platform: getPlatform(context),
+      child: child,
+      details: details,
+    );
+  }
+
+  @override
   ScrollPhysics getScrollPhysics(BuildContext context) {
     return kOpenHandDialogScrollPhysics;
   }
@@ -127,6 +142,11 @@ class OpenHandDialogScrollBehavior extends MaterialScrollBehavior {
     ScrollableDetails details,
   ) {
     return child;
+  }
+
+  @override
+  GestureVelocityTrackerBuilder velocityTrackerBuilder(BuildContext context) {
+    return (PointerEvent event) => VelocityTracker.withKind(event.kind);
   }
 }
 

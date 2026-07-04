@@ -957,8 +957,13 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   int? _cachedPaletteSignature;
   bool _highlightScheduled = false;
   bool _highlightIsPlaceholder = false;
+  ScrollController? _internalScrollController;
   TranscriptScrollActivity? _scrollActivity;
   bool _highlightPendingAfterScroll = false;
+
+  ScrollController get _effectiveInternalScrollController {
+    return _internalScrollController ??= ScrollController();
+  }
 
   @override
   void didChangeDependencies() {
@@ -1009,6 +1014,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     _scrollActivity = null;
     _copiedResetTimer?.cancel();
     _downloadedResetTimer?.cancel();
+    _internalScrollController?.dispose();
     super.dispose();
   }
 
@@ -1189,12 +1195,18 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     if (!widget.internalVerticalScroll) {
       return Padding(padding: padding, child: body);
     }
+    final scrollController = _effectiveInternalScrollController;
     return Expanded(
-      child: Scrollbar(
-        child: SingleChildScrollView(
-          padding: padding,
-          physics: openHandDialogAwareScrollPhysics(context),
-          child: body,
+      child: PrimaryScrollController.none(
+        child: OpenHandSafeScrollbar(
+          controller: scrollController,
+          child: SingleChildScrollView(
+            controller: scrollController,
+            primary: false,
+            padding: padding,
+            physics: openHandDialogAwareScrollPhysics(context),
+            child: body,
+          ),
         ),
       ),
     );

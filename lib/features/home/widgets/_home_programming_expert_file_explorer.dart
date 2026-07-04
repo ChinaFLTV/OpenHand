@@ -967,7 +967,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   Widget _buildScrollableTree() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Scrollbar(
+        return OpenHandSafeScrollbar(
           controller: _treeHorizontalScrollController,
           thumbVisibility: true,
           notificationPredicate: (notification) =>
@@ -975,11 +975,13 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
           child: SingleChildScrollView(
             controller: _treeHorizontalScrollController,
             scrollDirection: Axis.horizontal,
+            primary: false,
             padding: const EdgeInsets.only(bottom: 10),
             child: ConstrainedBox(
               constraints: BoxConstraints(minWidth: constraints.maxWidth),
               child: SingleChildScrollView(
                 controller: _treeScrollController,
+                primary: false,
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -15313,7 +15315,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                   }
 
                   return PrimaryScrollController.none(
-                    child: RawScrollbar(
+                    child: OpenHandSafeScrollbar(
                       controller: widget.scrollController,
                       thumbVisibility: true,
                       thickness: 9,
@@ -15594,7 +15596,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                   ),
                   Expanded(
                     child: PrimaryScrollController.none(
-                      child: RawScrollbar(
+                      child: OpenHandSafeScrollbar(
                         controller: widget.scrollController,
                         thumbVisibility: true,
                         thickness: 9,
