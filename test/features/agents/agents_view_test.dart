@@ -252,10 +252,15 @@ void main() {
       await tester.pumpWidget(
         _AgentsViewHarness(controller: controller, dependencies: dependencies),
       );
-      await tester.tap(find.byTooltip('更多'));
+      await tester.tap(
+        find.byKey(const ValueKey<String>('agent-card-more-agent-1')),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('配置'));
+      await tester.tap(
+        find.byKey(const ValueKey<String>('agent-card-edit-agent-1')),
+      );
       await tester.pumpAndSettle();
+      expect(find.text('编辑智能体'), findsOneWidget);
 
       final saveButton = find.ancestor(
         of: find.text('保存'),
@@ -365,12 +370,12 @@ void main() {
       );
       await tester.ensureVisible(addButton);
       await tester.tap(addButton);
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(find.text('urgent'), findsOneWidget);
       expect(find.byType(AnimatedRemovableChip), findsAtLeastNWidgets(2));
       await tester.drag(
         find.byKey(const ValueKey<String>('cluster-tag-drag-urgent')),
-        const Offset(-240, 0),
+        const Offset(-260, 0),
       );
       await tester.pumpAndSettle();
 

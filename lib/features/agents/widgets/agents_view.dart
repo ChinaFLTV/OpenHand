@@ -396,14 +396,19 @@ class _AgentCard extends StatelessWidget {
                       onAction: onAction,
                     ),
                     PopupMenuButton<_AgentCardAction>(
+                      key: ValueKey<String>('agent-card-more-${agent.id}'),
                       tooltip: l10n.agentsMore,
                       onSelected: onAction,
                       itemBuilder: (context) => [
                         PopupMenuItem(
+                          key: ValueKey<String>('agent-card-edit-${agent.id}'),
                           value: _AgentCardAction.edit,
                           child: Text(l10n.agentsEditConfig),
                         ),
                         PopupMenuItem(
+                          key: ValueKey<String>(
+                            'agent-card-delete-${agent.id}',
+                          ),
                           value: _AgentCardAction.delete,
                           child: Text(l10n.agentsDeleteAgent),
                         ),
@@ -6990,23 +6995,33 @@ class _AgentDraggableChip extends StatelessWidget {
                   zh: '拖拽排序',
                   en: 'Drag to reorder',
                 ),
-                child: Icon(
-                  Icons.drag_indicator_rounded,
-                  size: 18,
-                  color: colors.onSurfaceVariant,
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 260),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: colors.onSurface,
-                  fontWeight: FontWeight.w700,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: 28,
+                    maxWidth: 304,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.drag_indicator_rounded,
+                        size: 18,
+                        color: colors.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: colors.onSurface,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
