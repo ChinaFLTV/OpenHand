@@ -1,5 +1,15 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
+String _panelsText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) => _wrText(context, zh: zh, zhHant: zhHant, en: en, fr: fr, de: de, ja: ja);
+
 // ─────────────────────────────────────────────────────────────────────────
 // Performance：实时 Performance.getMetrics 卡片 + Tracing 录制（导出 trace.json）
 // ─────────────────────────────────────────────────────────────────────────
@@ -151,7 +161,6 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   /// 把当前记录的 FPS 历史 + Long task 列表合并成 CSV 落盘。两段数据放
   /// 同一个文件，靠 section 标记区分，方便 Excel / 数据分析工具一次性吃。
   Future<void> _exportCsv() async {
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     final ts = DateTime.now()
         .toIso8601String()
@@ -197,7 +206,15 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh ? '已保存到 ${location.path}' : 'Saved',
+        _panelsText(
+          context,
+          zh: '已保存到 ${location.path}',
+          zhHant: '已儲存到 ${location.path}',
+          en: 'Saved to ${location.path}',
+          fr: 'Enregistre dans ${location.path}',
+          de: 'Gespeichert unter ${location.path}',
+          ja: '${location.path} に保存しました',
+        ),
       );
     } catch (error, stack) {
       silentLog(
@@ -210,14 +227,21 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '保存失败' : 'Save failed',
+        _panelsText(
+          context,
+          zh: '保存失败',
+          zhHant: '儲存失敗',
+          en: 'Save failed',
+          fr: 'Echec de l enregistrement',
+          de: 'Speichern fehlgeschlagen',
+          ja: '保存に失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
     }
   }
 
   Future<void> _record() async {
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     final earlyStop = Completer<void>();
     setState(() {
@@ -242,7 +266,15 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? 'Trace 录制失败' : 'Trace failed',
+        _panelsText(
+          context,
+          zh: 'Trace 录制失败',
+          zhHant: 'Trace 錄製失敗',
+          en: 'Trace failed',
+          fr: 'Echec de la trace',
+          de: 'Trace fehlgeschlagen',
+          ja: 'Trace の記録に失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -292,7 +324,15 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh ? 'Trace 已保存到 ${location.path}' : 'Saved',
+        _panelsText(
+          context,
+          zh: 'Trace 已保存到 ${location.path}',
+          zhHant: 'Trace 已儲存到 ${location.path}',
+          en: 'Trace saved to ${location.path}',
+          fr: 'Trace enregistree dans ${location.path}',
+          de: 'Trace gespeichert unter ${location.path}',
+          ja: 'Trace を ${location.path} に保存しました',
+        ),
       );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'write trace', error, stack);
@@ -300,7 +340,15 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? 'Trace 保存失败' : 'Save failed',
+        _panelsText(
+          context,
+          zh: 'Trace 保存失败',
+          zhHant: 'Trace 儲存失敗',
+          en: 'Trace save failed',
+          fr: 'Echec de l enregistrement de la trace',
+          de: 'Trace konnte nicht gespeichert werden',
+          ja: 'Trace の保存に失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
     }
@@ -329,9 +377,15 @@ class _PerformancePanelState extends State<_PerformancePanel> {
           Row(
             children: [
               Text(
-                isZh
-                    ? '实时性能指标（每 2s 刷新）'
-                    : 'Live Performance Metrics (refresh 2s)',
+                _panelsText(
+                  context,
+                  zh: '实时性能指标（每 2s 刷新）',
+                  zhHant: '即時效能指標（每 2s 重新整理）',
+                  en: 'Live Performance Metrics (refresh 2s)',
+                  fr: 'Metriques de performance live (2 s)',
+                  de: 'Live-Performance-Metriken (alle 2 s)',
+                  ja: 'リアルタイム性能指標（2 秒ごとに更新）',
+                ),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -341,7 +395,15 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                 value: _traceDuration,
                 dense: true,
                 minWidth: 84,
-                tooltip: isZh ? '选择 Trace 时长' : 'Select trace duration',
+                tooltip: _panelsText(
+                  context,
+                  zh: '选择 Trace 时长',
+                  zhHant: '選擇 Trace 時長',
+                  en: 'Select trace duration',
+                  fr: 'Choisir la duree de trace',
+                  de: 'Trace-Dauer auswahlen',
+                  ja: 'Trace 時間を選択',
+                ),
                 onChanged: _tracing
                     ? null
                     : (v) => setState(() => _traceDuration = v),
@@ -378,13 +440,33 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                           if (c != null && !c.isCompleted) c.complete();
                         },
                   icon: const Icon(Icons.stop_rounded, size: 18),
-                  label: Text(isZh ? '停止录制' : 'Stop'),
+                  label: Text(
+                    _panelsText(
+                      context,
+                      zh: '停止录制',
+                      zhHant: '停止錄製',
+                      en: 'Stop',
+                      fr: 'Arreter',
+                      de: 'Stoppen',
+                      ja: '停止',
+                    ),
+                  ),
                 )
               else
                 FilledButton.icon(
                   onPressed: _record,
                   icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                  label: Text(isZh ? '录制 Trace' : 'Record Trace'),
+                  label: Text(
+                    _panelsText(
+                      context,
+                      zh: '录制 Trace',
+                      zhHant: '錄製 Trace',
+                      en: 'Record Trace',
+                      fr: 'Enregistrer trace',
+                      de: 'Trace aufzeichnen',
+                      ja: 'Trace を記録',
+                    ),
+                  ),
                 ),
               const SizedBox(width: 10),
               OutlinedButton.icon(
@@ -392,13 +474,33 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                     ? null
                     : _exportCsv,
                 icon: const Icon(Icons.table_view_rounded, size: 18),
-                label: Text(isZh ? '导出 CSV' : 'Export CSV'),
+                label: Text(
+                  _panelsText(
+                    context,
+                    zh: '导出 CSV',
+                    zhHant: '匯出 CSV',
+                    en: 'Export CSV',
+                    fr: 'Exporter CSV',
+                    de: 'CSV exportieren',
+                    ja: 'CSV をエクスポート',
+                  ),
+                ),
               ),
               const SizedBox(width: 10),
               OutlinedButton.icon(
                 onPressed: _lastTraceJson == null ? null : _showFlameGraph,
                 icon: const Icon(Icons.local_fire_department_rounded, size: 18),
-                label: Text(isZh ? '火焰图' : 'Flame graph'),
+                label: Text(
+                  _panelsText(
+                    context,
+                    zh: '火焰图',
+                    zhHant: '火焰圖',
+                    en: 'Flame graph',
+                    fr: 'Flame graph',
+                    de: 'Flamegraph',
+                    ja: 'フレームグラフ',
+                  ),
+                ),
               ),
             ],
           ),
@@ -483,7 +585,15 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                   child: _metrics.isEmpty
                       ? Center(
                           child: Text(
-                            isZh ? '尚无指标数据。' : 'No metrics yet.',
+                            _panelsText(
+                              context,
+                              zh: '尚无指标数据。',
+                              zhHant: '尚無指標資料。',
+                              en: 'No metrics yet.',
+                              fr: 'Aucune metrique pour le moment.',
+                              de: 'Noch keine Metriken.',
+                              ja: '指標データはまだありません。',
+                            ),
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: cs.onSurfaceVariant,
                             ),
@@ -520,7 +630,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                                   Tooltip(
                                     message: m.$1,
                                     child: Text(
-                                      _localizedMetricName(m.$1, isZh),
+                                      _localizedMetricName(context, m.$1),
                                       style: theme.textTheme.labelSmall
                                           ?.copyWith(
                                             color: cs.onSurfaceVariant,
@@ -554,10 +664,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                 ),
                 const SizedBox(width: 12),
                 // Long tasks 侧栏：固定 320 宽，紧凑列表 + 时长高亮。
-                SizedBox(
-                  width: 320,
-                  child: _LongTasksPane(tasks: _longTasks, isZh: isZh),
-                ),
+                SizedBox(width: 320, child: _LongTasksPane(tasks: _longTasks)),
               ],
             ),
           ),
@@ -586,136 +693,431 @@ class _PerformancePanelState extends State<_PerformancePanel> {
 
 /// CDP `Performance.getMetrics` 指标名 → 本地化展示名。
 /// 仅做覆盖性翻译；未命中名直接回退到原名（保证未来 CDP 新增字段时不会丢字段）。
-String _localizedMetricName(String cdpName, bool isZh) {
-  if (!isZh) {
-    // 英文环境下用更人类可读的展示名替换驼峰原名（如 Frames Per Second）。
-    return _enFriendlyMetricName(cdpName);
-  }
+String _localizedMetricName(BuildContext context, String cdpName) {
   switch (cdpName) {
     // 生命周期 / 时间
     case 'Timestamp':
-      return '时间戳';
+      return _panelsText(
+        context,
+        zh: '时间戳',
+        zhHant: '時間戳',
+        en: 'Timestamp',
+        fr: 'Horodatage',
+        de: 'Zeitstempel',
+        ja: 'タイムスタンプ',
+      );
     case 'AudioHandlers':
-      return '音频处理器';
+      return _panelsText(
+        context,
+        zh: '音频处理器',
+        zhHant: '音訊處理器',
+        en: 'Audio Handlers',
+        fr: 'Handlers audio',
+        de: 'Audio-Handler',
+        ja: 'オーディオハンドラ',
+      );
     case 'AudioWorkletProcessors':
-      return '音频 Worklet 处理器';
+      return _panelsText(
+        context,
+        zh: '音频 Worklet 处理器',
+        zhHant: '音訊 Worklet 處理器',
+        en: 'Audio Worklet Processors',
+        fr: 'Processeurs Audio Worklet',
+        de: 'Audio-Worklet-Prozessoren',
+        ja: 'Audio Worklet プロセッサ',
+      );
     case 'Documents':
-      return 'Document 数';
+      return _panelsText(
+        context,
+        zh: 'Document 数',
+        zhHant: 'Document 數',
+        en: 'Documents',
+        fr: 'Documents',
+        de: 'Dokumente',
+        ja: 'Document 数',
+      );
     case 'Frames':
-      return 'Frame 数';
+      return _panelsText(
+        context,
+        zh: 'Frame 数',
+        zhHant: 'Frame 數',
+        en: 'Frames',
+        fr: 'Frames',
+        de: 'Frames',
+        ja: 'Frame 数',
+      );
     case 'JSEventListeners':
-      return 'JS 事件监听器';
+      return _panelsText(
+        context,
+        zh: 'JS 事件监听器',
+        zhHant: 'JS 事件監聽器',
+        en: 'JS Event Listeners',
+        fr: 'Listeners JS',
+        de: 'JS-Event-Listener',
+        ja: 'JS イベントリスナー',
+      );
     case 'Nodes':
-      return 'DOM 节点数';
+      return _panelsText(
+        context,
+        zh: 'DOM 节点数',
+        zhHant: 'DOM 節點數',
+        en: 'DOM Nodes',
+        fr: 'Noeuds DOM',
+        de: 'DOM-Knoten',
+        ja: 'DOM ノード数',
+      );
     case 'LayoutCount':
-      return '布局次数';
+      return _panelsText(
+        context,
+        zh: '布局次数',
+        zhHant: '版面配置次數',
+        en: 'Layout Count',
+        fr: 'Nombre de layouts',
+        de: 'Layout-Anzahl',
+        ja: 'レイアウト回数',
+      );
     case 'RecalcStyleCount':
-      return '样式重算次数';
+      return _panelsText(
+        context,
+        zh: '样式重算次数',
+        zhHant: '樣式重算次數',
+        en: 'Recalc Style Count',
+        fr: 'Recalculs de style',
+        de: 'Style-Neuberechnungen',
+        ja: 'スタイル再計算回数',
+      );
     case 'LayoutDuration':
-      return '布局耗时';
+      return _panelsText(
+        context,
+        zh: '布局耗时',
+        zhHant: '版面配置耗時',
+        en: 'Layout Duration',
+        fr: 'Duree layout',
+        de: 'Layout-Dauer',
+        ja: 'レイアウト時間',
+      );
     case 'RecalcStyleDuration':
-      return '样式重算耗时';
+      return _panelsText(
+        context,
+        zh: '样式重算耗时',
+        zhHant: '樣式重算耗時',
+        en: 'Recalc Style Duration',
+        fr: 'Duree recalcul style',
+        de: 'Style-Neuberechnungsdauer',
+        ja: 'スタイル再計算時間',
+      );
     case 'DevToolsCommandDuration':
-      return 'DevTools 命令耗时';
+      return _panelsText(
+        context,
+        zh: 'DevTools 命令耗时',
+        zhHant: 'DevTools 命令耗時',
+        en: 'DevTools Cmd Duration',
+        fr: 'Duree commandes DevTools',
+        de: 'DevTools-Befehlsdauer',
+        ja: 'DevTools コマンド時間',
+      );
     case 'ScriptDuration':
-      return '脚本耗时';
+      return _panelsText(
+        context,
+        zh: '脚本耗时',
+        zhHant: '腳本耗時',
+        en: 'Script Duration',
+        fr: 'Duree script',
+        de: 'Script-Dauer',
+        ja: 'スクリプト時間',
+      );
     case 'V8CompileDuration':
-      return 'V8 编译耗时';
+      return _panelsText(
+        context,
+        zh: 'V8 编译耗时',
+        zhHant: 'V8 編譯耗時',
+        en: 'V8 Compile Duration',
+        fr: 'Duree compilation V8',
+        de: 'V8-Kompilierdauer',
+        ja: 'V8 コンパイル時間',
+      );
     case 'TaskDuration':
-      return '任务耗时';
+      return _panelsText(
+        context,
+        zh: '任务耗时',
+        zhHant: '任務耗時',
+        en: 'Task Duration',
+        fr: 'Duree tache',
+        de: 'Task-Dauer',
+        ja: 'タスク時間',
+      );
     case 'TaskOtherDuration':
-      return '其他任务耗时';
+      return _panelsText(
+        context,
+        zh: '其他任务耗时',
+        zhHant: '其他任務耗時',
+        en: 'Task Other Duration',
+        fr: 'Duree autres taches',
+        de: 'Andere Task-Dauer',
+        ja: 'その他タスク時間',
+      );
     case 'ThreadTime':
-      return '线程时间';
+      return _panelsText(
+        context,
+        zh: '线程时间',
+        zhHant: '執行緒時間',
+        en: 'Thread Time',
+        fr: 'Temps thread',
+        de: 'Thread-Zeit',
+        ja: 'スレッド時間',
+      );
     case 'ProcessTime':
-      return '进程时间';
+      return _panelsText(
+        context,
+        zh: '进程时间',
+        zhHant: '行程時間',
+        en: 'Process Time',
+        fr: 'Temps processus',
+        de: 'Prozesszeit',
+        ja: 'プロセス時間',
+      );
     case 'JSHeapUsedSize':
-      return 'JS 堆已用';
+      return _panelsText(
+        context,
+        zh: 'JS 堆已用',
+        zhHant: 'JS 堆已用',
+        en: 'JS Heap Used',
+        fr: 'Tas JS utilise',
+        de: 'JS-Heap genutzt',
+        ja: 'JS Heap 使用済み',
+      );
     case 'JSHeapTotalSize':
-      return 'JS 堆总量';
+      return _panelsText(
+        context,
+        zh: 'JS 堆总量',
+        zhHant: 'JS 堆總量',
+        en: 'JS Heap Total',
+        fr: 'Tas JS total',
+        de: 'JS-Heap gesamt',
+        ja: 'JS Heap 合計',
+      );
     case 'FirstMeaningfulPaint':
-      return '首次有意义绘制';
+      return _panelsText(
+        context,
+        zh: '首次有意义绘制',
+        zhHant: '首次有意義繪製',
+        en: 'First Meaningful Paint',
+        fr: 'Premier rendu significatif',
+        de: 'First Meaningful Paint',
+        ja: 'First Meaningful Paint',
+      );
     case 'DomContentLoaded':
       return 'DOMContentLoaded';
     case 'NavigationStart':
-      return '导航开始';
+      return _panelsText(
+        context,
+        zh: '导航开始',
+        zhHant: '導覽開始',
+        en: 'Navigation Start',
+        fr: 'Debut navigation',
+        de: 'Navigationsstart',
+        ja: 'ナビゲーション開始',
+      );
     case 'AdSubframes':
-      return '广告子框架';
+      return _panelsText(
+        context,
+        zh: '广告子框架',
+        zhHant: '廣告子框架',
+        en: 'Ad Subframes',
+        fr: 'Sous-frames pub',
+        de: 'Ad-Subframes',
+        ja: '広告サブフレーム',
+      );
     case 'ArrayBufferContents':
-      return 'ArrayBuffer 内容';
+      return _panelsText(
+        context,
+        zh: 'ArrayBuffer 内容',
+        zhHant: 'ArrayBuffer 內容',
+        en: 'ArrayBuffer Contents',
+        fr: 'Contenu ArrayBuffer',
+        de: 'ArrayBuffer-Inhalte',
+        ja: 'ArrayBuffer 内容',
+      );
     case 'Resources':
-      return '资源数';
+      return _panelsText(
+        context,
+        zh: '资源数',
+        zhHant: '資源數',
+        en: 'Resources',
+        fr: 'Ressources',
+        de: 'Ressourcen',
+        ja: 'リソース数',
+      );
     case 'ContextLifecycleStateObservers':
-      return '上下文生命周期观察者';
+      return _panelsText(
+        context,
+        zh: '上下文生命周期观察者',
+        zhHant: '上下文生命週期觀察者',
+        en: 'Context Lifecycle Observers',
+        fr: 'Observateurs cycle contexte',
+        de: 'Kontext-Lebenszyklusbeobachter',
+        ja: 'コンテキストライフサイクル監視',
+      );
     case 'V8PerContextDatas':
-      return 'V8 上下文数据';
+      return _panelsText(
+        context,
+        zh: 'V8 上下文数据',
+        zhHant: 'V8 上下文資料',
+        en: 'V8 Context Data',
+        fr: 'Donnees contexte V8',
+        de: 'V8-Kontextdaten',
+        ja: 'V8 コンテキストデータ',
+      );
     case 'WorkerGlobalScopes':
-      return 'Worker 全局作用域';
+      return _panelsText(
+        context,
+        zh: 'Worker 全局作用域',
+        zhHant: 'Worker 全域作用域',
+        en: 'Worker Global Scopes',
+        fr: 'Scopes globaux Worker',
+        de: 'Worker Global Scopes',
+        ja: 'Worker グローバルスコープ',
+      );
     case 'UACSSResources':
-      return 'UA CSS 资源';
+      return _panelsText(
+        context,
+        zh: 'UA CSS 资源',
+        zhHant: 'UA CSS 資源',
+        en: 'UA CSS Resources',
+        fr: 'Ressources CSS UA',
+        de: 'UA-CSS-Ressourcen',
+        ja: 'UA CSS リソース',
+      );
     case 'RTCPeerConnections':
-      return 'WebRTC 连接';
+      return _panelsText(
+        context,
+        zh: 'WebRTC 连接',
+        zhHant: 'WebRTC 連線',
+        en: 'WebRTC Connections',
+        fr: 'Connexions WebRTC',
+        de: 'WebRTC-Verbindungen',
+        ja: 'WebRTC 接続',
+      );
     case 'ResourceFetchers':
-      return '资源 Fetcher';
+      return _panelsText(
+        context,
+        zh: '资源 Fetcher',
+        zhHant: '資源 Fetcher',
+        en: 'Resource Fetchers',
+        fr: 'Fetchers de ressources',
+        de: 'Resource Fetcher',
+        ja: 'リソース Fetcher',
+      );
     case 'AdSubframesEvictions':
-      return '广告子框架淘汰';
+      return _panelsText(
+        context,
+        zh: '广告子框架淘汰',
+        zhHant: '廣告子框架淘汰',
+        en: 'Ad Subframe Evictions',
+        fr: 'Evictions sous-frames pub',
+        de: 'Ad-Subframe-Evictions',
+        ja: '広告サブフレーム削除',
+      );
     case 'NumberOfDocuments':
-      return 'Document 数（细分）';
+      return _panelsText(
+        context,
+        zh: 'Document 数（细分）',
+        zhHant: 'Document 數（細分）',
+        en: 'Documents (detail)',
+        fr: 'Documents (detail)',
+        de: 'Dokumente (Detail)',
+        ja: 'Document 数（詳細）',
+      );
     case 'NumberOfActiveAndInactiveAnimations':
-      return '活动/休眠动画数';
+      return _panelsText(
+        context,
+        zh: '活动/休眠动画数',
+        zhHant: '活動/休眠動畫數',
+        en: 'Active/Inactive Animations',
+        fr: 'Animations actives/inactives',
+        de: 'Aktive/inaktive Animationen',
+        ja: 'アクティブ/非アクティブアニメーション数',
+      );
     case 'NumberOfMediaContexts':
-      return '媒体上下文数';
+      return _panelsText(
+        context,
+        zh: '媒体上下文数',
+        zhHant: '媒體上下文數',
+        en: 'Media Contexts',
+        fr: 'Contextes media',
+        de: 'Medienkontexte',
+        ja: 'メディアコンテキスト数',
+      );
     case 'AdFrameSubframes':
-      return '广告子框架（嵌套）';
+      return _panelsText(
+        context,
+        zh: '广告子框架（嵌套）',
+        zhHant: '廣告子框架（巢狀）',
+        en: 'Ad Frame Subframes',
+        fr: 'Sous-frames pub imbriquees',
+        de: 'Ad-Frame-Subframes',
+        ja: '広告サブフレーム（ネスト）',
+      );
     case 'AnimationCallbackPropertyTreeBuildersTime':
-      return '动画属性树构建耗时';
+      return _panelsText(
+        context,
+        zh: '动画属性树构建耗时',
+        zhHant: '動畫屬性樹建構耗時',
+        en: 'Animation Property Tree Time',
+        fr: 'Temps arbre proprietes animation',
+        de: 'Animations-Property-Tree-Zeit',
+        ja: 'アニメーションプロパティツリー構築時間',
+      );
     case 'PaintingTime':
-      return '绘制耗时';
+      return _panelsText(
+        context,
+        zh: '绘制耗时',
+        zhHant: '繪製耗時',
+        en: 'Painting Time',
+        fr: 'Temps peinture',
+        de: 'Paint-Zeit',
+        ja: '描画時間',
+      );
     case 'CompositingTime':
-      return '合成耗时';
+      return _panelsText(
+        context,
+        zh: '合成耗时',
+        zhHant: '合成耗時',
+        en: 'Compositing Time',
+        fr: 'Temps composition',
+        de: 'Compositing-Zeit',
+        ja: '合成時間',
+      );
     case 'CSSStyleSheets':
-      return 'CSS 样式表';
+      return _panelsText(
+        context,
+        zh: 'CSS 样式表',
+        zhHant: 'CSS 樣式表',
+        en: 'CSS Style Sheets',
+        fr: 'Feuilles CSS',
+        de: 'CSS-Stylesheets',
+        ja: 'CSS スタイルシート',
+      );
     case 'ImageHolders':
-      return '图片占位符';
+      return _panelsText(
+        context,
+        zh: '图片占位符',
+        zhHant: '圖片占位符',
+        en: 'Image Holders',
+        fr: 'Supports image',
+        de: 'Image Holder',
+        ja: '画像ホルダー',
+      );
     case 'CompositorVisibleRectChange':
-      return '合成器可见矩形变更';
-    default:
-      return cdpName;
-  }
-}
-
-String _enFriendlyMetricName(String cdpName) {
-  switch (cdpName) {
-    case 'JSHeapUsedSize':
-      return 'JS Heap Used';
-    case 'JSHeapTotalSize':
-      return 'JS Heap Total';
-    case 'TaskDuration':
-      return 'Task Duration';
-    case 'TaskOtherDuration':
-      return 'Task Other Duration';
-    case 'LayoutDuration':
-      return 'Layout Duration';
-    case 'RecalcStyleDuration':
-      return 'Recalc Style Duration';
-    case 'ScriptDuration':
-      return 'Script Duration';
-    case 'V8CompileDuration':
-      return 'V8 Compile Duration';
-    case 'DevToolsCommandDuration':
-      return 'DevTools Cmd Duration';
-    case 'FirstMeaningfulPaint':
-      return 'First Meaningful Paint';
-    case 'DomContentLoaded':
-      return 'DOMContentLoaded';
-    case 'NavigationStart':
-      return 'Navigation Start';
-    case 'JSEventListeners':
-      return 'JS Event Listeners';
-    case 'LayoutCount':
-      return 'Layout Count';
-    case 'RecalcStyleCount':
-      return 'Recalc Style Count';
+      return _panelsText(
+        context,
+        zh: '合成器可见矩形变更',
+        zhHant: '合成器可見矩形變更',
+        en: 'Compositor Visible Rect Change',
+        fr: 'Changement rect visible compositor',
+        de: 'Compositor Visible-Rect-Anderung',
+        ja: 'コンポジタ表示矩形変更',
+      );
     default:
       return cdpName;
   }
@@ -823,9 +1225,8 @@ class _AnimatedSparklineState extends State<_AnimatedSparkline>
 
 /// Long Task 列表：浏览器主线程 ≥50ms 的任务。颜色按时长分级。
 class _LongTasksPane extends StatelessWidget {
-  const _LongTasksPane({required this.tasks, required this.isZh});
+  const _LongTasksPane({required this.tasks});
   final List<Map<String, Object?>> tasks;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -852,7 +1253,15 @@ class _LongTasksPane extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    isZh ? '长任务（≥50ms 主线程阻塞）' : 'Long Tasks (≥50ms)',
+                    _panelsText(
+                      context,
+                      zh: '长任务（≥50ms 主线程阻塞）',
+                      zhHant: '長任務（≥50ms 主執行緒阻塞）',
+                      en: 'Long Tasks (≥50ms)',
+                      fr: 'Taches longues (≥50ms)',
+                      de: 'Long Tasks (≥50ms)',
+                      ja: 'Long Tasks（≥50ms）',
+                    ),
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -885,9 +1294,15 @@ class _LongTasksPane extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Text(
-                        isZh
-                            ? '暂无长任务。\n刷新页面或交互后此处会实时刷新。'
-                            : 'No long tasks yet.',
+                        _panelsText(
+                          context,
+                          zh: '暂无长任务。\n刷新页面或交互后此处会实时刷新。',
+                          zhHant: '暫無長任務。\n重新整理頁面或互動後此處會即時更新。',
+                          en: 'No long tasks yet.',
+                          fr: 'Aucune tache longue pour le moment.',
+                          de: 'Noch keine Long Tasks.',
+                          ja: 'Long Task はまだありません。',
+                        ),
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: cs.onSurfaceVariant,
@@ -1145,12 +1560,18 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           now.difference(_lastWarnAt!) > const Duration(seconds: 60)) {
         _lastWarnAt = now;
         if (mounted) {
-          final isZh = widget.isZh;
           OpenHandSnackBar.showError(
             context,
-            isZh
-                ? 'V8 堆已用 ${usedMb.toStringAsFixed(1)} MB，超过阈值 ${_heapWarnThresholdMb.toStringAsFixed(0)} MB'
-                : 'V8 heap ${usedMb.toStringAsFixed(1)} MB exceeds threshold ${_heapWarnThresholdMb.toStringAsFixed(0)} MB',
+            _panelsText(
+              context,
+              zh: 'V8 堆已用 ${usedMb.toStringAsFixed(1)} MB，超过阈值 ${_heapWarnThresholdMb.toStringAsFixed(0)} MB',
+              zhHant:
+                  'V8 堆已用 ${usedMb.toStringAsFixed(1)} MB，超過閾值 ${_heapWarnThresholdMb.toStringAsFixed(0)} MB',
+              en: 'V8 heap ${usedMb.toStringAsFixed(1)} MB exceeds threshold ${_heapWarnThresholdMb.toStringAsFixed(0)} MB',
+              fr: 'Tas V8 ${usedMb.toStringAsFixed(1)} MB au-dessus du seuil ${_heapWarnThresholdMb.toStringAsFixed(0)} MB',
+              de: 'V8-Heap ${usedMb.toStringAsFixed(1)} MB uberschreitet Schwelle ${_heapWarnThresholdMb.toStringAsFixed(0)} MB',
+              ja: 'V8 heap ${usedMb.toStringAsFixed(1)} MB がしきい値 ${_heapWarnThresholdMb.toStringAsFixed(0)} MB を超えました',
+            ),
             duration: const Duration(seconds: 3),
           );
         }
@@ -1159,7 +1580,6 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   }
 
   Future<void> _toggleSampling() async {
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     if (widget.controller.isMemorySampling) {
       final r = await widget.controller.stopMemorySampling();
@@ -1169,7 +1589,15 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          isZh ? '采样收尾失败' : 'Stop sampling failed',
+          _panelsText(
+            context,
+            zh: '采样收尾失败',
+            zhHant: '採樣收尾失敗',
+            en: 'Stop sampling failed',
+            fr: 'Echec de l arret de l echantillonnage',
+            de: 'Sampling konnte nicht beendet werden',
+            ja: 'サンプリング停止に失敗しました',
+          ),
           duration: const Duration(seconds: 2),
         );
       }
@@ -1180,7 +1608,15 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          isZh ? '采样启动失败' : 'Start sampling failed',
+          _panelsText(
+            context,
+            zh: '采样启动失败',
+            zhHant: '採樣啟動失敗',
+            en: 'Start sampling failed',
+            fr: 'Echec du demarrage de l echantillonnage',
+            de: 'Sampling konnte nicht gestartet werden',
+            ja: 'サンプリング開始に失敗しました',
+          ),
           duration: const Duration(seconds: 2),
         );
       } else {
@@ -1195,7 +1631,6 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   }
 
   Future<void> _capture() async {
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _capturing = true);
     final r = await widget.controller.takeHeapSnapshot();
@@ -1221,7 +1656,15 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '快照采集失败' : 'Snapshot failed',
+        _panelsText(
+          context,
+          zh: '快照采集失败',
+          zhHant: '快照採集失敗',
+          en: 'Snapshot failed',
+          fr: 'Echec de la capture du snapshot',
+          de: 'Snapshot fehlgeschlagen',
+          ja: 'スナップショット取得に失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
     }
@@ -1237,7 +1680,15 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     if (a == null || b == null) {
       OpenHandSnackBar.showInfo(
         context,
-        isZh ? '需要至少两次快照才能比较' : 'Need at least two snapshots',
+        _panelsText(
+          context,
+          zh: '需要至少两次快照才能比较',
+          zhHant: '需要至少兩次快照才能比較',
+          en: 'Need at least two snapshots',
+          fr: 'Au moins deux snapshots sont necessaires',
+          de: 'Mindestens zwei Snapshots erforderlich',
+          ja: '比較には 2 回以上のスナップショットが必要です',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -1267,7 +1718,6 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   Future<void> _save() async {
     final r = _last;
     if (r == null) return;
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     const typeGroup = XTypeGroup(
       label: 'Heap Snapshot',
@@ -1298,7 +1748,15 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh ? '已保存到 ${location.path}' : 'Saved',
+        _panelsText(
+          context,
+          zh: '已保存到 ${location.path}',
+          zhHant: '已儲存到 ${location.path}',
+          en: 'Saved to ${location.path}',
+          fr: 'Enregistre dans ${location.path}',
+          de: 'Gespeichert unter ${location.path}',
+          ja: '${location.path} に保存しました',
+        ),
       );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'write heap', error, stack);
@@ -1306,7 +1764,15 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '保存失败' : 'Save failed',
+        _panelsText(
+          context,
+          zh: '保存失败',
+          zhHant: '儲存失敗',
+          en: 'Save failed',
+          fr: 'Echec de l enregistrement',
+          de: 'Speichern fehlgeschlagen',
+          ja: '保存に失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
     }
@@ -1326,7 +1792,6 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           _V8HeapLiveCard(
             used: _heapUsed,
             total: _heapTotal,
-            isZh: isZh,
             thresholdMb: _heapWarnThresholdMb,
             breached: _heapBreached,
             onThresholdChanged: (v) => setState(() => _heapWarnThresholdMb = v),
@@ -1337,7 +1802,6 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           // 高度 = 该 tick 的 used 增量（>=0），自动归一化。停止后冻结便
           // 于回顾，下次开启自动清空。
           _HeapSamplingSwitchCard(
-            isZh: isZh,
             isSampling: widget.controller.isMemorySampling,
             deltas: _samplingDeltas,
             onToggle: _toggleSampling,
@@ -1348,7 +1812,15 @@ class _MemoryPanelState extends State<_MemoryPanel> {
           Row(
             children: [
               Text(
-                isZh ? 'V8 堆快照' : 'V8 Heap Snapshot',
+                _panelsText(
+                  context,
+                  zh: 'V8 堆快照',
+                  zhHant: 'V8 堆快照',
+                  en: 'V8 Heap Snapshot',
+                  fr: 'Snapshot du tas V8',
+                  de: 'V8-Heap-Snapshot',
+                  ja: 'V8 Heap Snapshot',
+                ),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -1364,8 +1836,24 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                 ),
                 label: Text(
                   _capturing
-                      ? (isZh ? '采集中…' : 'Capturing…')
-                      : (isZh ? '采集快照' : 'Capture Snapshot'),
+                      ? _panelsText(
+                          context,
+                          zh: '采集中…',
+                          zhHant: '採集中…',
+                          en: 'Capturing…',
+                          fr: 'Capture…',
+                          de: 'Erfassen…',
+                          ja: '取得中…',
+                        )
+                      : _panelsText(
+                          context,
+                          zh: '采集快照',
+                          zhHant: '採集快照',
+                          en: 'Capture Snapshot',
+                          fr: 'Capturer snapshot',
+                          de: 'Snapshot erfassen',
+                          ja: 'スナップショット取得',
+                        ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1374,21 +1862,39 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                     ? _compareSnapshots
                     : null,
                 icon: const Icon(Icons.compare_arrows_rounded, size: 18),
-                label: Text(isZh ? '比较快照' : 'Diff snapshots'),
+                label: Text(
+                  _panelsText(
+                    context,
+                    zh: '比较快照',
+                    zhHant: '比較快照',
+                    en: 'Diff snapshots',
+                    fr: 'Comparer snapshots',
+                    de: 'Snapshots vergleichen',
+                    ja: 'スナップショット比較',
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: _last == null ? null : _save,
                 icon: const Icon(Icons.save_alt_rounded, size: 18),
-                label: Text(isZh ? '保存到文件' : 'Save to File'),
+                label: Text(
+                  _panelsText(
+                    context,
+                    zh: '保存到文件',
+                    zhHant: '儲存到檔案',
+                    en: 'Save to File',
+                    fr: 'Enregistrer fichier',
+                    de: 'In Datei speichern',
+                    ja: 'ファイルに保存',
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
           if (_samplingResult != null)
-            Expanded(
-              child: _SamplingTopList(result: _samplingResult!, isZh: isZh),
-            )
+            Expanded(child: _SamplingTopList(result: _samplingResult!))
           else if (_last != null)
             Container(
               padding: const EdgeInsets.all(14),
@@ -1401,16 +1907,31 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isZh ? '最近一次快照' : 'Latest Snapshot',
+                    _panelsText(
+                      context,
+                      zh: '最近一次快照',
+                      zhHant: '最近一次快照',
+                      en: 'Latest Snapshot',
+                      fr: 'Dernier snapshot',
+                      de: 'Letzter Snapshot',
+                      ja: '最新スナップショット',
+                    ),
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    isZh
-                        ? '原始大小约 ${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · 可保存为 .heapsnapshot 后在 Chrome DevTools → Memory → Load 里打开重放。'
-                        : '~${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · save as .heapsnapshot and load it back in Chrome DevTools.',
+                    _panelsText(
+                      context,
+                      zh: '原始大小约 ${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · 可保存为 .heapsnapshot 后在 Chrome DevTools → Memory → Load 里打开重放。',
+                      zhHant:
+                          '原始大小約 ${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · 可儲存為 .heapsnapshot 後在 Chrome DevTools → Memory → Load 裡開啟重放。',
+                      en: '~${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · save as .heapsnapshot and load it back in Chrome DevTools.',
+                      fr: '~${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · enregistrez en .heapsnapshot puis chargez dans Chrome DevTools.',
+                      de: '~${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · als .heapsnapshot speichern und in Chrome DevTools laden.',
+                      ja: '約 ${(_last!.bytes / 1024 / 1024).toStringAsFixed(2)} MB · .heapsnapshot として保存し Chrome DevTools で読み込めます。',
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                       height: 1.55,
@@ -1421,9 +1942,15 @@ class _MemoryPanelState extends State<_MemoryPanel> {
             )
           else
             Text(
-              isZh
-                  ? '点击「采集快照」拉一次 V8 堆快照；或「开始采样」做分配采样直到停止后看 Top-N。'
-                  : 'Click "Capture Snapshot" to take a heap snapshot, or start sampling for top-N allocation profile.',
+              _panelsText(
+                context,
+                zh: '点击「采集快照」拉一次 V8 堆快照；或「开始采样」做分配采样直到停止后看 Top-N。',
+                zhHant: '點擊「採集快照」拉一次 V8 堆快照；或「開始採樣」做分配採樣直到停止後看 Top-N。',
+                en: 'Click "Capture Snapshot" to take a heap snapshot, or start sampling for top-N allocation profile.',
+                fr: 'Cliquez sur Capturer snapshot, ou lancez l echantillonnage pour voir le Top-N a l arret.',
+                de: 'Snapshot erfassen oder Sampling starten, um danach das Top-N-Allokationsprofil zu sehen.',
+                ja: '「スナップショット取得」で V8 heap snapshot を取得するか、サンプリングを開始して停止後に Top-N を確認します。',
+              ),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: cs.onSurfaceVariant,
                 height: 1.55,
@@ -1442,7 +1969,6 @@ class _V8HeapLiveCard extends StatelessWidget {
   const _V8HeapLiveCard({
     required this.used,
     required this.total,
-    required this.isZh,
     required this.thresholdMb,
     required this.breached,
     required this.onThresholdChanged,
@@ -1450,7 +1976,6 @@ class _V8HeapLiveCard extends StatelessWidget {
 
   final List<double> used;
   final List<double> total;
-  final bool isZh;
   final double thresholdMb;
   final bool breached;
   final ValueChanged<double> onThresholdChanged;
@@ -1489,7 +2014,15 @@ class _V8HeapLiveCard extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      isZh ? 'V8 堆（实时，1.5s 间隔）' : 'V8 Heap (live, 1.5s)',
+                      _panelsText(
+                        context,
+                        zh: 'V8 堆（实时，1.5s 间隔）',
+                        zhHant: 'V8 堆（即時，1.5s 間隔）',
+                        en: 'V8 Heap (live, 1.5s)',
+                        fr: 'Tas V8 (live, 1,5 s)',
+                        de: 'V8-Heap (live, 1,5 s)',
+                        ja: 'V8 Heap（ライブ、1.5s 間隔）',
+                      ),
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -1506,14 +2039,14 @@ class _V8HeapLiveCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${isZh ? "已用" : "Used"}: ${_fmt(lastUsed)}',
+                  '${_panelsText(context, zh: "已用", zhHant: "已用", en: "Used", fr: "Utilise", de: "Genutzt", ja: "使用済み")}: ${_fmt(lastUsed)}',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: usedColor,
                   ),
                 ),
                 Text(
-                  '${isZh ? "总量" : "Total"}: ${_fmt(lastTotal)}',
+                  '${_panelsText(context, zh: "总量", zhHant: "總量", en: "Total", fr: "Total", de: "Gesamt", ja: "合計")}: ${_fmt(lastTotal)}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
@@ -1550,7 +2083,15 @@ class _V8HeapLiveCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        isZh ? '阈值告警' : 'Threshold',
+                        _panelsText(
+                          context,
+                          zh: '阈值告警',
+                          zhHant: '閾值告警',
+                          en: 'Threshold',
+                          fr: 'Seuil',
+                          de: 'Schwelle',
+                          ja: 'しきい値',
+                        ),
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: cs.onSurfaceVariant,
                           fontWeight: FontWeight.w700,
@@ -1790,14 +2331,12 @@ class _AnimatedDualSparklineState extends State<_AnimatedDualSparkline>
 // ─────────────────────────────────────────────────────────────────────────
 class _HeapSamplingSwitchCard extends StatelessWidget {
   const _HeapSamplingSwitchCard({
-    required this.isZh,
     required this.isSampling,
     required this.deltas,
     required this.onToggle,
     required this.reduceMotion,
   });
 
-  final bool isZh;
   final bool isSampling;
   final List<double> deltas;
   final Future<void> Function() onToggle;
@@ -1845,7 +2384,15 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      isZh ? '堆分配采样' : 'Heap allocation sampling',
+                      _panelsText(
+                        context,
+                        zh: '堆分配采样',
+                        zhHant: '堆分配採樣',
+                        en: 'Heap allocation sampling',
+                        fr: 'Echantillonnage allocations heap',
+                        de: 'Heap-Allokationssampling',
+                        ja: 'Heap 割り当てサンプリング',
+                      ),
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: cs.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
@@ -1856,10 +2403,34 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   isSampling
-                      ? (isZh ? '采样中…' : 'Sampling…')
+                      ? _panelsText(
+                          context,
+                          zh: '采样中…',
+                          zhHant: '採樣中…',
+                          en: 'Sampling…',
+                          fr: 'Echantillonnage…',
+                          de: 'Sampling…',
+                          ja: 'サンプリング中…',
+                        )
                       : (deltas.isEmpty
-                            ? (isZh ? '未开启' : 'Off')
-                            : (isZh ? '已停止' : 'Stopped')),
+                            ? _panelsText(
+                                context,
+                                zh: '未开启',
+                                zhHant: '未啟用',
+                                en: 'Off',
+                                fr: 'Desactive',
+                                de: 'Aus',
+                                ja: 'オフ',
+                              )
+                            : _panelsText(
+                                context,
+                                zh: '已停止',
+                                zhHant: '已停止',
+                                en: 'Stopped',
+                                fr: 'Arrete',
+                                de: 'Gestoppt',
+                                ja: '停止済み',
+                              )),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: isSampling ? cs.primary : cs.onSurface,
@@ -1867,9 +2438,15 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                 ),
                 if (deltas.isNotEmpty)
                   Text(
-                    isZh
-                        ? '峰值 ${_fmtBytes(peak)} · 累计 ${_fmtBytes(total)}'
-                        : 'peak ${_fmtBytes(peak)} · sum ${_fmtBytes(total)}',
+                    _panelsText(
+                      context,
+                      zh: '峰值 ${_fmtBytes(peak)} · 累计 ${_fmtBytes(total)}',
+                      zhHant: '峰值 ${_fmtBytes(peak)} · 累計 ${_fmtBytes(total)}',
+                      en: 'peak ${_fmtBytes(peak)} · sum ${_fmtBytes(total)}',
+                      fr: 'pic ${_fmtBytes(peak)} · somme ${_fmtBytes(total)}',
+                      de: 'Peak ${_fmtBytes(peak)} · Summe ${_fmtBytes(total)}',
+                      ja: 'ピーク ${_fmtBytes(peak)} · 合計 ${_fmtBytes(total)}',
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -1885,9 +2462,15 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                 child: deltas.isEmpty
                     ? Center(
                         child: Text(
-                          isZh
-                              ? '开启后每 1.5s 记录一次分配增量'
-                              : 'Records allocation deltas every 1.5s',
+                          _panelsText(
+                            context,
+                            zh: '开启后每 1.5s 记录一次分配增量',
+                            zhHant: '啟用後每 1.5s 記錄一次分配增量',
+                            en: 'Records allocation deltas every 1.5s',
+                            fr: 'Enregistre les deltas d allocation toutes les 1,5 s',
+                            de: 'Erfasst Allokationsdeltas alle 1,5 s',
+                            ja: '有効化後、1.5 秒ごとに割り当て増分を記録します',
+                          ),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
                           ),
@@ -1906,8 +2489,24 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
           ),
           Tooltip(
             message: isSampling
-                ? (isZh ? '关闭后保留窗口柱条' : 'Off keeps bars')
-                : (isZh ? '开启堆分配采样' : 'Start heap sampling'),
+                ? _panelsText(
+                    context,
+                    zh: '关闭后保留窗口柱条',
+                    zhHant: '關閉後保留窗口柱條',
+                    en: 'Off keeps bars',
+                    fr: 'Desactive garde les barres',
+                    de: 'Aus behalt Balken',
+                    ja: 'オフ後もバーを保持',
+                  )
+                : _panelsText(
+                    context,
+                    zh: '开启堆分配采样',
+                    zhHant: '啟用堆分配採樣',
+                    en: 'Start heap sampling',
+                    fr: 'Demarrer echantillonnage heap',
+                    de: 'Heap-Sampling starten',
+                    ja: 'Heap サンプリングを開始',
+                  ),
             child: Switch.adaptive(
               value: isSampling,
               onChanged: (_) => onToggle(),
@@ -1968,13 +2567,12 @@ class _HeapSamplingBarsPainter extends CustomPainter {
 }
 
 class _SamplingTopList extends StatelessWidget {
-  const _SamplingTopList({required this.result, required this.isZh});
+  const _SamplingTopList({required this.result});
   final ({
     int totalSize,
     List<({String label, int size, List<String> stack})> top,
   })
   result;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -1993,16 +2591,31 @@ class _SamplingTopList extends StatelessWidget {
           Row(
             children: [
               Text(
-                isZh ? '采样 Top-N（按 selfSize）' : 'Sampling Top-N (selfSize)',
+                _panelsText(
+                  context,
+                  zh: '采样 Top-N（按 selfSize）',
+                  zhHant: '採樣 Top-N（按 selfSize）',
+                  en: 'Sampling Top-N (selfSize)',
+                  fr: 'Top-N echantillonnage (selfSize)',
+                  de: 'Sampling Top-N (selfSize)',
+                  ja: 'サンプリング Top-N（selfSize）',
+                ),
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const Spacer(),
               Text(
-                isZh
-                    ? '总分配 ${(result.totalSize / 1024).toStringAsFixed(1)} KB'
-                    : 'Total ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
+                _panelsText(
+                  context,
+                  zh: '总分配 ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
+                  zhHant:
+                      '總分配 ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
+                  en: 'Total ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
+                  fr: 'Total ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
+                  de: 'Gesamt ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
+                  ja: '合計 ${(result.totalSize / 1024).toStringAsFixed(1)} KB',
+                ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: cs.onSurfaceVariant,
                 ),
@@ -2101,19 +2714,36 @@ class _SamplingTopList extends StatelessWidget {
     BuildContext context,
     ({String label, int size, List<String> stack}) row,
   ) {
-    final isZh = this.isZh;
     showWebReverseToolDialog<void>(
       context: context,
       builder: (dialogContext) {
         return buildOpenHandAlertDialog(
-          title: Text(isZh ? '调用栈：${row.label}' : 'Call stack: ${row.label}'),
+          title: Text(
+            _panelsText(
+              dialogContext,
+              zh: '调用栈：${row.label}',
+              zhHant: '呼叫堆疊：${row.label}',
+              en: 'Call stack: ${row.label}',
+              fr: 'Pile d appels : ${row.label}',
+              de: 'Call Stack: ${row.label}',
+              ja: 'コールスタック: ${row.label}',
+            ),
+          ),
           content: SizedBox(
             width: 720,
             height: 420,
             child: row.stack.isEmpty
                 ? Center(
                     child: Text(
-                      isZh ? '(此节点无父级链)' : '(no parent stack)',
+                      _panelsText(
+                        dialogContext,
+                        zh: '(此节点无父级链)',
+                        zhHant: '(此節點無父級鏈)',
+                        en: '(no parent stack)',
+                        fr: '(aucune pile parente)',
+                        de: '(kein Parent-Stack)',
+                        ja: '（親スタックなし）',
+                      ),
                       style: TextStyle(
                         color: Theme.of(
                           dialogContext,
@@ -2169,18 +2799,42 @@ class _SamplingTopList extends StatelessWidget {
                 OpenHandSnackBar.showSuccess(
                   context,
                   webReverseClipboardSnackMessage(
-                    isZh: isZh,
-                    base: isZh ? '已复制' : 'Copied',
+                    context: context,
+                    base: _panelsText(
+                      context,
+                      zh: '已复制',
+                      zhHant: '已複製',
+                      en: 'Copied',
+                      fr: 'Copie',
+                      de: 'Kopiert',
+                      ja: 'コピーしました',
+                    ),
                     result: copied,
                   ),
                   duration: const Duration(seconds: 1),
                 );
               },
-              label: isZh ? '复制' : 'Copy',
+              label: _panelsText(
+                dialogContext,
+                zh: '复制',
+                zhHant: '複製',
+                en: 'Copy',
+                fr: 'Copier',
+                de: 'Kopieren',
+                ja: 'コピー',
+              ),
             ),
             OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              label: isZh ? '关闭' : 'Close',
+              label: _panelsText(
+                dialogContext,
+                zh: '关闭',
+                zhHant: '關閉',
+                en: 'Close',
+                fr: 'Fermer',
+                de: 'Schliessen',
+                ja: '閉じる',
+              ),
             ),
           ],
         );
