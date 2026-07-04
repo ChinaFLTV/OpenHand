@@ -1219,7 +1219,7 @@ class _AgentCapabilityLogTile extends StatelessWidget {
     final cs = theme.colorScheme;
     final type = _agentAuditCapabilityType(event);
     final color = _agentCapabilityLogColor(cs, type);
-    final name = _agentAuditCapabilityName(event);
+    final name = _agentAuditCapabilityName(context, event);
     final timeText = event.createdAt == null
         ? ''
         : formatMonthDayHm(event.createdAt!.toLocal());
@@ -1283,7 +1283,7 @@ class _AgentCapabilityLogTile extends StatelessWidget {
                   if (event.summary.trim().isNotEmpty) ...[
                     const SizedBox(height: 5),
                     SelectableText(
-                      event.summary.trim(),
+                      _agentAuditSummaryText(context, event),
                       style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
                     ),
                   ],
@@ -2964,7 +2964,7 @@ List<String> _agentTaskMetadataChips(BuildContext context, AgentTask task) {
   ];
   final chips = <String>[];
   for (final key in keys) {
-    final text = _agentMetadataChipText(key, task.extra[key]);
+    final text = _agentMetadataChipText(context, key, task.extra[key]);
     if (text != null) chips.add(text);
     if (chips.length >= 4) break;
   }
@@ -4005,7 +4005,7 @@ List<String> _agentKpiMetadataChips(BuildContext context, AgentKpiItem item) {
   ];
   final chips = <String>[];
   for (final key in keys) {
-    final text = _agentMetadataChipText(key, item.extra[key]);
+    final text = _agentMetadataChipText(context, key, item.extra[key]);
     if (text != null) chips.add(text);
     if (chips.length >= 4) break;
   }
@@ -4378,7 +4378,7 @@ List<String> _agentResourceMetadataChips(
   ];
   final chips = <String>[];
   for (final key in keys) {
-    final text = _agentMetadataChipText(key, resource.extra[key]);
+    final text = _agentMetadataChipText(context, key, resource.extra[key]);
     if (text != null) chips.add(text);
     if (chips.length >= 4) break;
   }
@@ -4863,14 +4863,12 @@ class _AgentAuditReportBody extends StatelessWidget {
               .map(
                 (event) => ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    event.summary.trim().isEmpty
-                        ? event.kind
-                        : event.summary.trim(),
-                  ),
+                  title: Text(_agentAuditSummaryText(context, event)),
                   subtitle: Text(
                     [
-                      event.toolName.isEmpty ? event.kind : event.toolName,
+                      event.toolName.isEmpty
+                          ? _agentActivityKindLabel(l10n, event.kind)
+                          : event.toolName,
                       if (event.requestCount > 0)
                         openHandLocalizedText(
                           context,
@@ -5516,7 +5514,7 @@ List<String> _agentApprovalMetadataChips(
   ];
   final chips = <String>[];
   for (final key in keys) {
-    final text = _agentMetadataChipText(key, approval.extra[key]);
+    final text = _agentMetadataChipText(context, key, approval.extra[key]);
     if (text != null) chips.add(text);
     if (chips.length >= 5) break;
   }
@@ -9256,29 +9254,57 @@ String _agentPolicyOptionLabel(BuildContext context, String value) {
       context,
       zh: '空闲优先',
       en: 'Least busy',
+      zhHant: '空閒優先',
+      fr: 'Moins occupé',
+      de: 'Am wenigsten beschäftigt',
+      ja: '空き優先',
     ),
     'priority_first' => openHandLocalizedText(
       context,
       zh: '优先级优先',
       en: 'Priority first',
+      zhHant: '優先級優先',
+      fr: 'Priorité d’abord',
+      de: 'Priorität zuerst',
+      ja: '優先度優先',
     ),
     'round_robin' => openHandLocalizedText(
       context,
       zh: '轮询分配',
       en: 'Round robin',
+      zhHant: '輪詢分配',
+      fr: 'Tourniquet',
+      de: 'Round Robin',
+      ja: 'ラウンドロビン',
     ),
     'newest_first' => openHandLocalizedText(
       context,
       zh: '最新优先',
       en: 'Newest first',
+      zhHant: '最新優先',
+      fr: 'Plus récent d’abord',
+      de: 'Neueste zuerst',
+      ja: '新しい順',
     ),
     'bounded_retry' => openHandLocalizedText(
       context,
       zh: '有限重试',
       en: 'Bounded retry',
+      zhHant: '有限重試',
+      fr: 'Relance limitée',
+      de: 'Begrenzte Wiederholung',
+      ja: '制限付き再試行',
     ),
-    'none' => openHandLocalizedText(context, zh: '不重试', en: 'No retry'),
-    _ => value,
+    'none' => openHandLocalizedText(
+      context,
+      zh: '不重试',
+      en: 'No retry',
+      zhHant: '不重試',
+      fr: 'Aucune relance',
+      de: 'Keine Wiederholung',
+      ja: '再試行なし',
+    ),
+    _ => _agentHumanizedMachineLabel(value),
   };
 }
 
@@ -9891,7 +9917,10 @@ List<_AgentAuditCapabilityStat> _agentAuditCapabilityStats(
       >{};
   for (final event in events) {
     final type = _agentAuditCapabilityType(event);
-    final name = _agentAuditCapabilityName(event);
+    final rawName = _agentAuditCapabilityRawName(event);
+    final name = rawName.isEmpty
+        ? _agentHumanizedMachineLabel(event.kind)
+        : rawName;
     final key = '$type::$name';
     final current =
         buckets[key] ??
@@ -10006,18 +10035,44 @@ String _agentAuditCapabilityType(AgentAuditEvent event) {
   return 'other';
 }
 
-String _agentAuditCapabilityName(AgentAuditEvent event) {
+String _agentAuditCapabilityRawName(AgentAuditEvent event) {
   for (final raw in <Object?>[
     event.toolName,
     event.metadata['tool_name'],
     event.metadata['tool'],
     event.metadata['capability_name'],
-    event.kind,
   ]) {
     final text = '$raw'.trim();
     if (text.isNotEmpty) return text;
   }
-  return 'unknown';
+  return '';
+}
+
+String _agentAuditCapabilityName(BuildContext context, AgentAuditEvent event) {
+  final raw = _agentAuditCapabilityRawName(event);
+  if (raw.isNotEmpty) return raw;
+  if (event.kind.trim().isNotEmpty) {
+    return _agentActivityKindLabel(AppLocalizations.of(context)!, event.kind);
+  }
+  return openHandLocalizedText(
+    context,
+    zh: '未知能力',
+    en: 'Unknown capability',
+    fr: 'Capacité inconnue',
+    de: 'Unbekannte Fähigkeit',
+    ja: '不明な能力',
+  );
+}
+
+String _agentAuditSummaryText(BuildContext context, AgentAuditEvent event) {
+  final l10n = AppLocalizations.of(context)!;
+  final summary = event.summary.trim();
+  if (summary.isEmpty ||
+      summary == event.kind ||
+      _agentLooksLikeMachineToken(summary)) {
+    return _agentActivityKindLabel(l10n, event.kind);
+  }
+  return _agentLocalizedPrefixedMessage(l10n, summary);
 }
 
 IconData _agentCapabilityLogIcon(String type) {
@@ -10056,27 +10111,77 @@ String _agentCapabilityTypeLabel(BuildContext context, String type) {
   return switch (type) {
     'skill' => 'Skill',
     'mcp' => 'MCP',
-    'memory' => openHandLocalizedText(context, zh: '记忆', en: 'Memory'),
-    'knowledge' => openHandLocalizedText(context, zh: '知识库', en: 'Knowledge'),
+    'memory' => openHandLocalizedText(
+      context,
+      zh: '记忆',
+      en: 'Memory',
+      zhHant: '記憶',
+      fr: 'Mémoire',
+      de: 'Speicher',
+      ja: 'メモリ',
+    ),
+    'knowledge' => openHandLocalizedText(
+      context,
+      zh: '知识库',
+      en: 'Knowledge',
+      fr: 'Connaissance',
+      de: 'Wissen',
+      ja: 'ナレッジ',
+    ),
     'builtin_tool' => openHandLocalizedText(
       context,
       zh: '内建工具',
       en: 'Built-in tool',
+      zhHant: '內建工具',
+      fr: 'Outil intégré',
+      de: 'Integriertes Tool',
+      ja: '組み込みツール',
     ),
     'model_request' => openHandLocalizedText(
       context,
       zh: '模型请求',
       en: 'Model request',
+      zhHant: '模型請求',
+      fr: 'Requête modèle',
+      de: 'Modellanfrage',
+      ja: 'モデルリクエスト',
     ),
-    'resource' => openHandLocalizedText(context, zh: '资源', en: 'Resource'),
-    'approval' => openHandLocalizedText(context, zh: '审批', en: 'Approval'),
+    'resource' => openHandLocalizedText(
+      context,
+      zh: '资源',
+      en: 'Resource',
+      fr: 'Ressource',
+      de: 'Ressource',
+      ja: 'リソース',
+    ),
+    'approval' => openHandLocalizedText(
+      context,
+      zh: '审批',
+      en: 'Approval',
+      zhHant: '審批',
+      fr: 'Approbation',
+      de: 'Genehmigung',
+      ja: '承認',
+    ),
     'kpi' => 'KPI',
     'worker_execution' => openHandLocalizedText(
       context,
       zh: 'Worker 执行',
       en: 'Worker execution',
+      zhHant: 'Worker 執行',
+      fr: 'Exécution worker',
+      de: 'Worker-Ausführung',
+      ja: 'Worker 実行',
     ),
-    _ => openHandLocalizedText(context, zh: '其他', en: 'Other'),
+    _ => openHandLocalizedText(
+      context,
+      zh: '其他',
+      en: 'Other',
+      zhHant: '其他',
+      fr: 'Autre',
+      de: 'Andere',
+      ja: 'その他',
+    ),
   };
 }
 
@@ -10097,7 +10202,7 @@ List<String> _agentAuditMetadataChips(
   final chips = <String>[];
   for (final key in keys) {
     final value = event.metadata[key];
-    final text = _agentMetadataChipText(key, value);
+    final text = _agentMetadataChipText(context, key, value);
     if (text != null) chips.add(text);
     if (chips.length >= 4) break;
   }
@@ -10362,7 +10467,7 @@ String _agentActivitySubtitle(AppLocalizations l10n, AgentActivityEvent event) {
     'approval_approved' ||
     'approval_rejected' ||
     'approval_expired' => '',
-    _ => _agentActivityMetadataFallback(event),
+    _ => _agentActivityMetadataFallback(l10n, event),
   };
 }
 
@@ -10474,46 +10579,82 @@ String _agentActivityMessageTypeLabel(
       l10n,
       zh: '思考',
       en: 'Thought',
+      zhHant: '思考',
+      fr: 'Réflexion',
+      de: 'Gedanke',
+      ja: '思考',
     ),
     AgentActivityMessageType.toolCall => _agentInlineText(
       l10n,
       zh: '工具',
       en: 'Tool',
+      zhHant: '工具',
+      fr: 'Outil',
+      de: 'Tool',
+      ja: 'ツール',
     ),
     AgentActivityMessageType.response => _agentInlineText(
       l10n,
       zh: '响应',
       en: 'Response',
+      zhHant: '回應',
+      fr: 'Réponse',
+      de: 'Antwort',
+      ja: '応答',
     ),
     AgentActivityMessageType.multimedia => _agentInlineText(
       l10n,
       zh: '多媒体',
       en: 'Media',
+      zhHant: '多媒體',
+      fr: 'Média',
+      de: 'Medien',
+      ja: 'メディア',
     ),
     AgentActivityMessageType.task => _agentInlineText(
       l10n,
       zh: '任务',
       en: 'Task',
+      zhHant: '任務',
+      fr: 'Tâche',
+      de: 'Aufgabe',
+      ja: 'タスク',
     ),
     AgentActivityMessageType.approval => _agentInlineText(
       l10n,
       zh: '审批',
       en: 'Approval',
+      zhHant: '審批',
+      fr: 'Approbation',
+      de: 'Genehmigung',
+      ja: '承認',
     ),
     AgentActivityMessageType.lifecycle => _agentInlineText(
       l10n,
       zh: '生命周期',
       en: 'Lifecycle',
+      zhHant: '生命週期',
+      fr: 'Cycle de vie',
+      de: 'Lebenszyklus',
+      ja: 'ライフサイクル',
     ),
     AgentActivityMessageType.system => _agentInlineText(
       l10n,
       zh: '系统',
       en: 'System',
+      zhHant: '系統',
+      fr: 'Système',
+      de: 'System',
+      ja: 'システム',
     ),
     AgentActivityMessageType.event => _agentInlineText(
       l10n,
       zh: '事件',
       en: 'Event',
+      zhHant: '事件',
+      fr: 'Événement',
+      de: 'Ereignis',
+      ja: 'イベント',
     ),
   };
 }
@@ -10562,35 +10703,639 @@ List<String> _agentActivityMetadataChips(
   final chips = <String>[];
   for (final key in keys) {
     final value = event.metadata[key];
-    final text = _agentMetadataChipText(key, value);
+    final text = _agentMetadataChipText(context, key, value);
     if (text != null) chips.add(text);
     if (chips.length >= 4) break;
   }
   return chips;
 }
 
-String? _agentMetadataChipText(String key, Object? value) {
-  final raw = switch (value) {
-    null => '',
-    Iterable<Object?> values =>
-      values
-          .map((item) => '$item'.trim())
-          .where((item) => item.isNotEmpty)
-          .take(3)
-          .join(', '),
-    _ => '$value'.trim(),
-  };
+String? _agentMetadataChipText(
+  BuildContext context,
+  String key,
+  Object? value,
+) {
+  final raw = _agentMetadataValueText(context, key, value);
   if (raw.isEmpty) return null;
   final compact = raw.length > 64 ? '${raw.substring(0, 61)}...' : raw;
-  return '$key: $compact';
+  return '${_agentMetadataKeyLabel(context, key)}: $compact';
 }
 
-String _agentActivityMetadataFallback(AgentActivityEvent event) {
+String _agentMetadataValueText(
+  BuildContext context,
+  String key,
+  Object? value,
+) {
+  if (value == null) return '';
+  if (value is bool) return _agentBooleanLabel(context, key, value);
+  if (value is DateTime) return formatMonthDayHm(value.toLocal());
+  if (value is Iterable<Object?>) {
+    return value
+        .map((item) => _agentMetadataValueText(context, key, item))
+        .where((item) => item.isNotEmpty)
+        .take(3)
+        .join(', ');
+  }
+  if (value is Map<Object?, Object?>) {
+    return value.entries
+        .map((entry) {
+          final entryKey = '${entry.key}'.trim();
+          final entryValue = _agentMetadataValueText(
+            context,
+            entryKey,
+            entry.value,
+          );
+          if (entryKey.isEmpty || entryValue.isEmpty) return '';
+          return '${_agentMetadataKeyLabel(context, entryKey)}: $entryValue';
+        })
+        .where((item) => item.isNotEmpty)
+        .take(2)
+        .join(', ');
+  }
+  final raw = '$value'.trim();
+  if (raw.isEmpty) return '';
+  final parsedBool = _agentBoolFromText(raw);
+  if (parsedBool != null && _agentMetadataBooleanKey(key)) {
+    return _agentBooleanLabel(context, key, parsedBool);
+  }
+  return _agentMetadataDateValue(key, raw) ??
+      _agentKnownMetadataValueLabel(context, key, raw) ??
+      raw;
+}
+
+String _agentMetadataKeyLabel(BuildContext context, String key) {
+  return switch (_agentMetadataKey(key)) {
+    'assigned_worker_id' => openHandLocalizedText(
+      context,
+      zh: '分配 Worker',
+      en: 'Assigned worker',
+      fr: 'Worker attribué',
+      de: 'Zugewiesener Worker',
+      ja: '割り当て Worker',
+    ),
+    'worker_id' || 'removed_worker_ids' => openHandLocalizedText(
+      context,
+      zh: 'Worker ID',
+      en: 'Worker ID',
+      fr: 'ID worker',
+      de: 'Worker-ID',
+      ja: 'Worker ID',
+    ),
+    'task_id' => openHandLocalizedText(
+      context,
+      zh: '任务 ID',
+      en: 'Task ID',
+      fr: 'ID de tâche',
+      de: 'Aufgaben-ID',
+      ja: 'タスク ID',
+    ),
+    'audit_id' => openHandLocalizedText(
+      context,
+      zh: '审计 ID',
+      en: 'Audit ID',
+      fr: 'ID audit',
+      de: 'Audit-ID',
+      ja: '監査 ID',
+    ),
+    'kpi_id' => openHandLocalizedText(
+      context,
+      zh: 'KPI ID',
+      en: 'KPI ID',
+      fr: 'ID KPI',
+      de: 'KPI-ID',
+      ja: 'KPI ID',
+    ),
+    'priority' => openHandLocalizedText(
+      context,
+      zh: '优先级',
+      en: 'Priority',
+      fr: 'Priorité',
+      de: 'Priorität',
+      ja: '優先度',
+    ),
+    'schedule' => openHandLocalizedText(
+      context,
+      zh: '调度',
+      en: 'Schedule',
+      fr: 'Planification',
+      de: 'Zeitplan',
+      ja: 'スケジュール',
+    ),
+    'retryable' => openHandLocalizedText(
+      context,
+      zh: '重试',
+      en: 'Retry',
+      fr: 'Nouvelle tentative',
+      de: 'Wiederholung',
+      ja: '再試行',
+    ),
+    'retry_count' => openHandLocalizedText(
+      context,
+      zh: '重试次数',
+      en: 'Retries',
+      fr: 'Tentatives',
+      de: 'Wiederholungen',
+      ja: '再試行回数',
+    ),
+    'deadline' => openHandLocalizedText(
+      context,
+      zh: '截止时间',
+      en: 'Deadline',
+      fr: 'Échéance',
+      de: 'Frist',
+      ja: '期限',
+    ),
+    'source' => openHandLocalizedText(
+      context,
+      zh: '来源',
+      en: 'Source',
+      fr: 'Source',
+      de: 'Quelle',
+      ja: 'ソース',
+    ),
+    'owner' => openHandLocalizedText(
+      context,
+      zh: '负责人',
+      en: 'Owner',
+      fr: 'Responsable',
+      de: 'Verantwortlich',
+      ja: '所有者',
+    ),
+    'cadence' => openHandLocalizedText(
+      context,
+      zh: '节奏',
+      en: 'Cadence',
+      fr: 'Cadence',
+      de: 'Rhythmus',
+      ja: '周期',
+    ),
+    'evidence' => openHandLocalizedText(
+      context,
+      zh: '证据',
+      en: 'Evidence',
+      fr: 'Preuve',
+      de: 'Nachweis',
+      ja: '根拠',
+    ),
+    'workspace_path' || 'resource_path' => openHandLocalizedText(
+      context,
+      zh: '路径',
+      en: 'Path',
+      fr: 'Chemin',
+      de: 'Pfad',
+      ja: 'パス',
+    ),
+    'artifact_count' => openHandLocalizedText(
+      context,
+      zh: '产物数',
+      en: 'Artifacts',
+      fr: 'Artefacts',
+      de: 'Artefakte',
+      ja: '成果物',
+    ),
+    'cache_bytes' => openHandLocalizedText(
+      context,
+      zh: '缓存',
+      en: 'Cache',
+      fr: 'Cache',
+      de: 'Cache',
+      ja: 'キャッシュ',
+    ),
+    'last_gc_at' => openHandLocalizedText(
+      context,
+      zh: '上次清理',
+      en: 'Last cleanup',
+      fr: 'Dernier nettoyage',
+      de: 'Letzte Bereinigung',
+      ja: '最終クリーンアップ',
+    ),
+    'quota' => openHandLocalizedText(
+      context,
+      zh: '配额',
+      en: 'Quota',
+      fr: 'Quota',
+      de: 'Kontingent',
+      ja: 'クォータ',
+    ),
+    'permissions' || 'permission' => openHandLocalizedText(
+      context,
+      zh: '权限',
+      en: 'Permission',
+      fr: 'Autorisation',
+      de: 'Berechtigung',
+      ja: '権限',
+    ),
+    'scope' => openHandLocalizedText(
+      context,
+      zh: '范围',
+      en: 'Scope',
+      fr: 'Périmètre',
+      de: 'Umfang',
+      ja: '範囲',
+    ),
+    'resource' => openHandLocalizedText(
+      context,
+      zh: '资源',
+      en: 'Resource',
+      fr: 'Ressource',
+      de: 'Ressource',
+      ja: 'リソース',
+    ),
+    'tool_name' || 'tool' => openHandLocalizedText(
+      context,
+      zh: '工具',
+      en: 'Tool',
+      fr: 'Outil',
+      de: 'Tool',
+      ja: 'ツール',
+    ),
+    'mcp_server' => 'MCP',
+    'skill_name' => 'Skill',
+    'memory_id' => openHandLocalizedText(
+      context,
+      zh: '记忆 ID',
+      en: 'Memory ID',
+      fr: 'ID mémoire',
+      de: 'Speicher-ID',
+      ja: 'メモリ ID',
+    ),
+    'capability_type' => openHandLocalizedText(
+      context,
+      zh: '能力类型',
+      en: 'Capability',
+      fr: 'Capacité',
+      de: 'Fähigkeit',
+      ja: '能力',
+    ),
+    'audit_kind' => openHandLocalizedText(
+      context,
+      zh: '审计类型',
+      en: 'Audit type',
+      fr: 'Type d’audit',
+      de: 'Audit-Typ',
+      ja: '監査タイプ',
+    ),
+    'status' ||
+    'task_status' ||
+    'kpi_status' ||
+    'worker_execution_status' => openHandLocalizedText(
+      context,
+      zh: '状态',
+      en: 'Status',
+      fr: 'Statut',
+      de: 'Status',
+      ja: 'ステータス',
+    ),
+    'enabled' => openHandLocalizedText(
+      context,
+      zh: '启用状态',
+      en: 'Enabled',
+      fr: 'Activé',
+      de: 'Aktiviert',
+      ja: '有効',
+    ),
+    'lifecycle_state' => openHandLocalizedText(
+      context,
+      zh: '生命周期',
+      en: 'Lifecycle',
+      fr: 'Cycle de vie',
+      de: 'Lebenszyklus',
+      ja: 'ライフサイクル',
+    ),
+    'paused_task_count' => openHandLocalizedText(
+      context,
+      zh: '暂停任务',
+      en: 'Paused tasks',
+      fr: 'Tâches en pause',
+      de: 'Pausierte Aufgaben',
+      ja: '一時停止タスク',
+    ),
+    'released_worker_count' => openHandLocalizedText(
+      context,
+      zh: '释放 Worker',
+      en: 'Released workers',
+      fr: 'Workers libérés',
+      de: 'Freigegebene Worker',
+      ja: '解放 Worker',
+    ),
+    'delta' => openHandLocalizedText(
+      context,
+      zh: '变化',
+      en: 'Delta',
+      fr: 'Variation',
+      de: 'Änderung',
+      ja: '差分',
+    ),
+    'worker_count' => openHandLocalizedText(
+      context,
+      zh: 'Worker 数',
+      en: 'Workers',
+      fr: 'Workers',
+      de: 'Worker',
+      ja: 'Worker 数',
+    ),
+    'ready_task_count' => openHandLocalizedText(
+      context,
+      zh: '就绪任务',
+      en: 'Ready tasks',
+      fr: 'Tâches prêtes',
+      de: 'Bereite Aufgaben',
+      ja: '準備済みタスク',
+    ),
+    'scale_out_threshold' => openHandLocalizedText(
+      context,
+      zh: '扩容阈值',
+      en: 'Scale-out threshold',
+      fr: 'Seuil de montée',
+      de: 'Skalierungsschwelle',
+      ja: 'スケールアウトしきい値',
+    ),
+    'scale_in_threshold' => openHandLocalizedText(
+      context,
+      zh: '缩容阈值',
+      en: 'Scale-in threshold',
+      fr: 'Seuil de réduction',
+      de: 'Herunterskalierungsschwelle',
+      ja: 'スケールインしきい値',
+    ),
+    'worker_removal_policy' => openHandLocalizedText(
+      context,
+      zh: '缩容策略',
+      en: 'Removal policy',
+      fr: 'Stratégie de retrait',
+      de: 'Entfernungsrichtlinie',
+      ja: '削除ポリシー',
+    ),
+    'expires_at' => openHandLocalizedText(
+      context,
+      zh: '过期时间',
+      en: 'Expires',
+      fr: 'Expiration',
+      de: 'Läuft ab',
+      ja: '有効期限',
+    ),
+    'duration_ms' => openHandLocalizedText(
+      context,
+      zh: '耗时',
+      en: 'Duration',
+      fr: 'Durée',
+      de: 'Dauer',
+      ja: '所要時間',
+    ),
+    'rounds' => openHandLocalizedText(
+      context,
+      zh: '轮次',
+      en: 'Rounds',
+      fr: 'Tours',
+      de: 'Runden',
+      ja: 'ラウンド',
+    ),
+    'tool_call_count' => openHandLocalizedText(
+      context,
+      zh: '工具调用',
+      en: 'Tool calls',
+      fr: 'Appels d’outil',
+      de: 'Tool-Aufrufe',
+      ja: 'ツール呼び出し',
+    ),
+    'model_config_id' => openHandLocalizedText(
+      context,
+      zh: '模型配置',
+      en: 'Model config',
+      fr: 'Config modèle',
+      de: 'Modellkonfiguration',
+      ja: 'モデル設定',
+    ),
+    'model_id' => openHandLocalizedText(
+      context,
+      zh: '模型',
+      en: 'Model',
+      fr: 'Modèle',
+      de: 'Modell',
+      ja: 'モデル',
+    ),
+    'error' => openHandLocalizedText(
+      context,
+      zh: '错误',
+      en: 'Error',
+      fr: 'Erreur',
+      de: 'Fehler',
+      ja: 'エラー',
+    ),
+    'task_progress' || 'kpi_progress' => openHandLocalizedText(
+      context,
+      zh: '进度',
+      en: 'Progress',
+      fr: 'Progression',
+      de: 'Fortschritt',
+      ja: '進捗',
+    ),
+    'updated_by_session_id' => openHandLocalizedText(
+      context,
+      zh: '会话',
+      en: 'Session',
+      fr: 'Session',
+      de: 'Sitzung',
+      ja: 'セッション',
+    ),
+    _ => _agentHumanizedMachineLabel(key),
+  };
+}
+
+String? _agentKnownMetadataValueLabel(
+  BuildContext context,
+  String key,
+  String raw,
+) {
+  final normalizedKey = _agentMetadataKey(key);
+  final normalizedValue = raw.trim().toLowerCase();
+  final l10n = AppLocalizations.of(context)!;
+  if (normalizedKey.endsWith('_threshold') ||
+      normalizedKey.endsWith('_progress')) {
+    final numeric = double.tryParse(raw);
+    if (numeric != null && numeric >= 0 && numeric <= 1) {
+      return '${(numeric * 100).round()}%';
+    }
+  }
+  if (normalizedKey == 'duration_ms') {
+    final millis = int.tryParse(raw);
+    if (millis != null) return '${millis}ms';
+  }
+  if (normalizedKey == 'worker_removal_policy' ||
+      normalizedKey == 'scheduler_policy' ||
+      normalizedKey == 'retry_policy') {
+    return _agentPolicyOptionLabel(context, raw);
+  }
+  if (normalizedKey == 'capability_type') {
+    return _agentCapabilityTypeLabel(context, normalizedValue);
+  }
+  if (normalizedKey == 'audit_kind') {
+    return _agentActivityKindLabel(l10n, raw);
+  }
+  if (normalizedKey == 'kpi_status') {
+    return _agentKpiStatusLabel(context, raw);
+  }
+  if (normalizedKey == 'lifecycle_state') {
+    return _agentLifecycleStateValueLabel(l10n, raw);
+  }
+  return _agentStatusTokenLabel(l10n, raw);
+}
+
+String? _agentMetadataDateValue(String key, String raw) {
+  final normalizedKey = _agentMetadataKey(key);
+  if (!normalizedKey.endsWith('_at') && normalizedKey != 'deadline') {
+    return null;
+  }
+  final parsed = DateTime.tryParse(raw);
+  if (parsed == null) return raw;
+  return formatMonthDayHm(parsed.toLocal());
+}
+
+String _agentBooleanLabel(BuildContext context, String key, bool value) {
+  final normalizedKey = _agentMetadataKey(key);
+  if (normalizedKey == 'retryable') {
+    return value
+        ? openHandLocalizedText(
+            context,
+            zh: '可重试',
+            en: 'Retryable',
+            fr: 'Réessayable',
+            de: 'Wiederholbar',
+            ja: '再試行可',
+          )
+        : openHandLocalizedText(
+            context,
+            zh: '不可重试',
+            en: 'Not retryable',
+            fr: 'Non réessayable',
+            de: 'Nicht wiederholbar',
+            ja: '再試行不可',
+          );
+  }
+  if (normalizedKey == 'enabled') {
+    return value
+        ? openHandLocalizedText(
+            context,
+            zh: '已启用',
+            en: 'Enabled',
+            fr: 'Activé',
+            de: 'Aktiviert',
+            ja: '有効',
+          )
+        : openHandLocalizedText(
+            context,
+            zh: '已停用',
+            en: 'Disabled',
+            fr: 'Désactivé',
+            de: 'Deaktiviert',
+            ja: '無効',
+          );
+  }
+  return value
+      ? openHandLocalizedText(
+          context,
+          zh: '是',
+          en: 'Yes',
+          fr: 'Oui',
+          de: 'Ja',
+          ja: 'はい',
+        )
+      : openHandLocalizedText(
+          context,
+          zh: '否',
+          en: 'No',
+          fr: 'Non',
+          de: 'Nein',
+          ja: 'いいえ',
+        );
+}
+
+bool _agentMetadataBooleanKey(String key) {
+  final normalizedKey = _agentMetadataKey(key);
+  return normalizedKey == 'retryable' ||
+      normalizedKey == 'enabled' ||
+      normalizedKey.endsWith('_enabled') ||
+      normalizedKey.endsWith('_required') ||
+      normalizedKey.startsWith('allow_');
+}
+
+bool? _agentBoolFromText(String raw) {
+  return switch (raw.trim().toLowerCase()) {
+    'true' || 'yes' || '1' => true,
+    'false' || 'no' || '0' => false,
+    _ => null,
+  };
+}
+
+String _agentMetadataKey(String key) {
+  return key.trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+}
+
+String _agentLifecycleStateValueLabel(AppLocalizations l10n, String value) {
+  return switch (value.trim().toLowerCase()) {
+    'running' => _agentInlineText(
+      l10n,
+      zh: '运行中',
+      en: 'Running',
+      zhHant: '執行中',
+      fr: 'En cours',
+      de: 'Läuft',
+      ja: '実行中',
+    ),
+    'paused' => _agentInlineText(
+      l10n,
+      zh: '已暂停',
+      en: 'Paused',
+      zhHant: '已暫停',
+      fr: 'En pause',
+      de: 'Pausiert',
+      ja: '一時停止',
+    ),
+    'degraded' => _agentInlineText(
+      l10n,
+      zh: '降级',
+      en: 'Degraded',
+      zhHant: '降級',
+      fr: 'Dégradé',
+      de: 'Beeinträchtigt',
+      ja: '縮退',
+    ),
+    _ => _agentInlineText(
+      l10n,
+      zh: '已停止',
+      en: 'Stopped',
+      zhHant: '已停止',
+      fr: 'Arrêté',
+      de: 'Gestoppt',
+      ja: '停止済み',
+    ),
+  };
+}
+
+String _agentActivityMetadataFallback(
+  AppLocalizations l10n,
+  AgentActivityEvent event,
+) {
   final taskId = event.metadata['task_id'];
   if (taskId != null && '$taskId'.trim().isNotEmpty) {
-    return 'task_id: ${'$taskId'.trim()}';
+    final id = '$taskId'.trim();
+    return _agentInlineText(
+      l10n,
+      zh: '任务 ID: $id',
+      en: 'Task ID: $id',
+      zhHant: '任務 ID: $id',
+      fr: 'ID de tâche: $id',
+      de: 'Aufgaben-ID: $id',
+      ja: 'タスク ID: $id',
+    );
   }
-  return event.title.trim();
+  final title = event.title.trim();
+  if (title.isEmpty ||
+      title == event.kind ||
+      _agentLooksLikeMachineToken(title)) {
+    return '';
+  }
+  return _agentLocalizedPrefixedMessage(l10n, title);
 }
 
 String _agentTaskStatusLabel(AppLocalizations l10n, AgentTaskStatus status) {
