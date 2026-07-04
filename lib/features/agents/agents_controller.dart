@@ -1631,12 +1631,13 @@ class AgentsController extends ManagedChangeNotifier {
               worker.currentTaskId == task.id ||
               (assignedWorkerId.isNotEmpty && worker.id == assignedWorkerId);
           if (!ownsTask) return worker;
+          final wasActivelyRunningTask = worker.currentTaskId == task.id;
           return worker.copyWith(
             status: AgentWorkerStatus.idle,
             busyScore: 0,
             currentTaskId: '',
             executedTaskCount: countExecution
-                ? worker.executedTaskCount + 1
+                ? worker.executedTaskCount + (wasActivelyRunningTask ? 1 : 0)
                 : worker.executedTaskCount,
             updatedAt: now,
             extra: <String, Object?>{

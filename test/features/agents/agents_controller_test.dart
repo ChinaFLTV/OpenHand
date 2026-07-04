@@ -168,6 +168,39 @@ void main() {
     );
 
     test(
+      'canceling paused work does not count an already released worker twice',
+      () async {
+        await controller.saveAgent(_runningAgent());
+        final task = await controller.publishTaskWithResult(
+          'agent-1',
+          title: 'Pause then cancel report',
+        );
+        final paused = await controller.updateTaskState(
+          'agent-1',
+          task!.id,
+          status: AgentTaskStatus.paused,
+        );
+        expect(paused, isNotNull);
+
+        final canceled = await controller.updateTaskState(
+          'agent-1',
+          task.id,
+          status: AgentTaskStatus.canceled,
+          note: 'operator canceled after pause',
+        );
+
+        expect(canceled, isNotNull);
+        expect(canceled!.status, AgentTaskStatus.canceled);
+        final agent = controller.agentById('agent-1')!;
+        final worker = agent.workers.single;
+        expect(worker.status, AgentWorkerStatus.idle);
+        expect(worker.currentTaskId, isEmpty);
+        expect(worker.executedTaskCount, 0);
+        expect(agent.tasks.single.note, 'operator canceled after pause');
+      },
+    );
+
+    test(
       'task state updates reject invalid transitions without side effects',
       () async {
         await controller.saveAgent(_runningAgent());
