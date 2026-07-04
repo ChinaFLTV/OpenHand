@@ -670,9 +670,7 @@ Future<void> _handleAgentAction(
               (item) => _DialogRow(
                 title: _agentActivityTitle(l10n, item),
                 subtitle: _agentActivitySubtitle(l10n, item),
-                trailing: item.createdAt == null
-                    ? ''
-                    : formatMonthDayHm(item.createdAt!.toLocal()),
+                trailing: _agentActivityTrailing(l10n, item),
               ),
             )
             .toList(),
@@ -6366,6 +6364,67 @@ String _agentActivitySubtitle(AppLocalizations l10n, AgentActivityEvent event) {
     'approval_rejected' ||
     'approval_expired' => '',
     _ => _agentActivityMetadataFallback(event),
+  };
+}
+
+String _agentActivityTrailing(AppLocalizations l10n, AgentActivityEvent event) {
+  final parts = <String>[
+    _agentActivityMessageTypeLabel(l10n, event.effectiveMessageType),
+    if (event.createdAt != null) formatMonthDayHm(event.createdAt!.toLocal()),
+  ].where((item) => item.trim().isNotEmpty).toList(growable: false);
+  return parts.join(' · ');
+}
+
+String _agentActivityMessageTypeLabel(
+  AppLocalizations l10n,
+  AgentActivityMessageType type,
+) {
+  return switch (type) {
+    AgentActivityMessageType.thought => _agentInlineText(
+      l10n,
+      zh: '思考',
+      en: 'Thought',
+    ),
+    AgentActivityMessageType.toolCall => _agentInlineText(
+      l10n,
+      zh: '工具',
+      en: 'Tool',
+    ),
+    AgentActivityMessageType.response => _agentInlineText(
+      l10n,
+      zh: '响应',
+      en: 'Response',
+    ),
+    AgentActivityMessageType.multimedia => _agentInlineText(
+      l10n,
+      zh: '多媒体',
+      en: 'Media',
+    ),
+    AgentActivityMessageType.task => _agentInlineText(
+      l10n,
+      zh: '任务',
+      en: 'Task',
+    ),
+    AgentActivityMessageType.approval => _agentInlineText(
+      l10n,
+      zh: '审批',
+      en: 'Approval',
+    ),
+    AgentActivityMessageType.lifecycle => _agentInlineText(
+      l10n,
+      zh: '生命周期',
+      en: 'Lifecycle',
+    ),
+    AgentActivityMessageType.system => _agentInlineText(
+      l10n,
+      zh: '系统',
+      en: 'System',
+    ),
+    AgentActivityMessageType.event => _agentInlineText(
+      l10n,
+      zh: '事件',
+      en: 'Event',
+    ),
   };
 }
 

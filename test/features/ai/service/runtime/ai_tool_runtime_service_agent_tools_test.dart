@@ -831,6 +831,7 @@ void main() {
           name: 'AgentActivityLog',
           arguments: jsonEncode(<String, Object?>{
             'agent_id': 'agent-1',
+            'message_type': 'task',
             'task_id': 'task-123',
             'worker_id': 'worker-1',
             'tool_name': 'SkillRunner',
@@ -854,15 +855,20 @@ void main() {
       final filters = payload['filters'] as Map<String, Object?>;
       final activitySummary =
           payload['activity_summary'] as Map<String, Object?>;
+      final messageTypeCounts =
+          activitySummary['message_type_counts'] as Map<String, Object?>;
       final auditSummary = payload['audit_summary'] as Map<String, Object?>;
       final toolCounts = auditSummary['tool_counts'] as Map<String, Object?>;
 
       expect(filters['task_id'], 'task-123');
+      expect(filters['message_type'], 'task');
       expect(activity['id'], 'act-1');
       expect(activity['kind'], 'task_assigned');
+      expect(activity['message_type'], 'task');
       expect(audit['id'], 'audit-1');
       expect(audit['tool_name'], 'SkillRunner');
       expect(activitySummary['event_count'], 1);
+      expect(messageTypeCounts['task'], 1);
       expect(auditSummary['event_count'], 1);
       expect(auditSummary['request_count'], 2);
       expect(auditSummary['token_usage'], 128);

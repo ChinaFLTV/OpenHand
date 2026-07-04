@@ -238,6 +238,10 @@ domains: cloud, finops
     expect(terminalTasks, hasLength(1));
     expect(kpiState, hasLength(1));
     expect(recentActivity, hasLength(1));
+    expect(
+      (recentActivity.single as Map<String, Object?>)['message_type'],
+      'thought',
+    );
     expect(recentAudit, hasLength(1));
     expect(
       (activeTasks.first as Map<String, Object?>)['extra'],

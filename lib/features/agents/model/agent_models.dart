@@ -104,6 +104,34 @@ enum AgentApprovalStatus {
   }
 }
 
+enum AgentActivityMessageType {
+  thought('thought'),
+  toolCall('tool_call'),
+  response('response'),
+  multimedia('multimedia'),
+  task('task'),
+  approval('approval'),
+  lifecycle('lifecycle'),
+  system('system'),
+  event('event');
+
+  const AgentActivityMessageType(this.storageValue);
+
+  final String storageValue;
+
+  static AgentActivityMessageType? fromStorage(String? raw) {
+    final normalized = raw?.trim().toLowerCase() ?? '';
+    if (normalized.isEmpty) return null;
+    for (final value in values) {
+      if (value.storageValue == normalized ||
+          value.name.toLowerCase() == normalized) {
+        return value;
+      }
+    }
+    return null;
+  }
+}
+
 enum AgentWorkerStatus {
   idle('idle'),
   busy('busy'),
@@ -468,6 +496,7 @@ class AgentActivityEvent {
     required this.id,
     required this.kind,
     required this.title,
+    this.messageType,
     this.content = '',
     this.createdAt,
     this.metadata = const <String, Object?>{},
@@ -479,6 +508,15 @@ class AgentActivityEvent {
       id: _nonEmpty(json['id'], ''),
       kind: _nonEmpty(json['kind'], 'response'),
       title: _nonEmpty(json['title'], 'Activity'),
+      messageType: AgentActivityMessageType.fromStorage(
+        optionalStringFromValue(json['message_type']) ??
+            optionalStringFromValue(
+              stringKeyedMapFromValue(json['metadata'])['message_type'],
+            ) ??
+            optionalStringFromValue(
+              stringKeyedMapFromValue(json['metadata'])['activity_type'],
+            ),
+      ),
       content: stringFromValue(json['content']),
       createdAt: _dateFromValue(json['created_at']),
       metadata: stringKeyedMapFromValue(json['metadata']),
@@ -488,20 +526,75 @@ class AgentActivityEvent {
   final String id;
   final String kind;
   final String title;
+  final AgentActivityMessageType? messageType;
   final String content;
   final DateTime? createdAt;
   final Map<String, Object?> metadata;
+
+  AgentActivityMessageType get effectiveMessageType {
+    final explicit =
+        messageType ??
+        AgentActivityMessageType.fromStorage(
+          optionalStringFromValue(metadata['message_type']) ??
+              optionalStringFromValue(metadata['activity_type']),
+        );
+    if (explicit != null) return explicit;
+    return inferAgentActivityMessageType(kind: kind, metadata: metadata);
+  }
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'id': id,
       'kind': kind,
+      'message_type': effectiveMessageType.storageValue,
       'title': title,
       'content': content,
       'created_at': createdAt?.toUtc().toIso8601String(),
       'metadata': metadata,
     };
   }
+}
+
+AgentActivityMessageType inferAgentActivityMessageType({
+  required String kind,
+  Map<String, Object?> metadata = const <String, Object?>{},
+}) {
+  final explicit = AgentActivityMessageType.fromStorage(
+    optionalStringFromValue(metadata['message_type']) ??
+        optionalStringFromValue(metadata['activity_type']),
+  );
+  if (explicit != null) return explicit;
+  final normalized = kind.trim().toLowerCase();
+  if (normalized.contains('thought') || normalized.contains('reasoning')) {
+    return AgentActivityMessageType.thought;
+  }
+  if (normalized.contains('tool') ||
+      normalized.contains('skill') ||
+      normalized.contains('mcp') ||
+      normalized.contains('memory') ||
+      normalized.contains('knowledge') ||
+      normalized.contains('capability')) {
+    return AgentActivityMessageType.toolCall;
+  }
+  if (normalized.contains('media') ||
+      normalized.contains('image') ||
+      normalized.contains('audio') ||
+      normalized.contains('video') ||
+      normalized.contains('attachment')) {
+    return AgentActivityMessageType.multimedia;
+  }
+  if (normalized.contains('approval')) return AgentActivityMessageType.approval;
+  if (normalized.startsWith('task_')) return AgentActivityMessageType.task;
+  if (normalized.startsWith('agent_')) {
+    return AgentActivityMessageType.lifecycle;
+  }
+  if (normalized.contains('response') ||
+      normalized.contains('answer') ||
+      normalized.contains('report')) {
+    return AgentActivityMessageType.response;
+  }
+  if (normalized.contains('system')) return AgentActivityMessageType.system;
+  return AgentActivityMessageType.event;
 }
 
 class AgentAuditEvent {

@@ -497,6 +497,9 @@ class AiAgentTool extends AiTool {
       defaultValue: true,
     );
     final kind = _optionalText(args['kind'] ?? args['activity_kind']);
+    final messageType = AgentActivityMessageType.fromStorage(
+      _optionalText(args['message_type'] ?? args['activity_type']),
+    );
     final toolName = _optionalText(args['tool_name'] ?? args['tool']);
     final taskId = _optionalText(args['task_id'] ?? args['id']);
     final workerId = _optionalText(args['worker_id']);
@@ -507,6 +510,7 @@ class AiAgentTool extends AiTool {
                 (event) => _activityMatches(
                   event,
                   kind: kind,
+                  messageType: messageType,
                   toolName: toolName,
                   taskId: taskId,
                   workerId: workerId,
@@ -537,6 +541,7 @@ class AiAgentTool extends AiTool {
         'include_audit': includeAudit,
         'limit': limit,
         if (kind != null) 'kind': kind,
+        if (messageType != null) 'message_type': messageType.storageValue,
         if (toolName != null) 'tool_name': toolName,
         if (taskId != null) 'task_id': taskId,
         if (workerId != null) 'worker_id': workerId,
@@ -779,6 +784,9 @@ class AiAgentTool extends AiTool {
     final taskId = _optionalText(args['task_id'] ?? args['id']);
     final workerId = _optionalText(args['worker_id']);
     final kind = _optionalText(args['kind'] ?? args['activity_kind']);
+    final messageType = AgentActivityMessageType.fromStorage(
+      _optionalText(args['message_type'] ?? args['activity_type']),
+    );
     final toolName = _optionalText(args['tool_name'] ?? args['tool']);
     final limit = clampedIntFromValue(
       args['limit'],
@@ -811,6 +819,7 @@ class AiAgentTool extends AiTool {
           (event) => _activityMatches(
             event,
             kind: kind,
+            messageType: messageType,
             toolName: toolName,
             taskId: taskId,
             workerId: workerId,
@@ -825,6 +834,7 @@ class AiAgentTool extends AiTool {
         if (taskId != null) 'task_id': taskId,
         if (workerId != null) 'worker_id': workerId,
         if (kind != null) 'kind': kind,
+        if (messageType != null) 'message_type': messageType.storageValue,
         if (toolName != null) 'tool_name': toolName,
       },
       'task_metrics': _taskMetricsForTasksJson(tasks),
@@ -2635,14 +2645,18 @@ int _intValue(Object? raw) {
 
 Map<String, Object?> _activitySummaryJson(List<AgentActivityEvent> events) {
   final kindCounts = <String, int>{};
+  final messageTypeCounts = <String, int>{};
   for (final event in events) {
     final kind = event.kind.trim();
     if (kind.isEmpty) continue;
     kindCounts[kind] = (kindCounts[kind] ?? 0) + 1;
+    final messageType = event.effectiveMessageType.storageValue;
+    messageTypeCounts[messageType] = (messageTypeCounts[messageType] ?? 0) + 1;
   }
   return <String, Object?>{
     'event_count': events.length,
     if (kindCounts.isNotEmpty) 'kind_counts': kindCounts,
+    if (messageTypeCounts.isNotEmpty) 'message_type_counts': messageTypeCounts,
     'recent_events': events
         .take(5)
         .map(_activityEventSummaryJson)
@@ -2654,6 +2668,7 @@ Map<String, Object?> _activityEventSummaryJson(AgentActivityEvent event) {
   return <String, Object?>{
     'id': event.id,
     'kind': event.kind,
+    'message_type': event.effectiveMessageType.storageValue,
     'title': event.title,
     'content': event.content,
     'created_at': _iso(event.createdAt),
@@ -2677,11 +2692,15 @@ Map<String, Object?> _auditEventSummaryJson(AgentAuditEvent event) {
 bool _activityMatches(
   AgentActivityEvent event, {
   required String? kind,
+  required AgentActivityMessageType? messageType,
   required String? toolName,
   required String? taskId,
   required String? workerId,
 }) {
   if (!_matchesText(event.kind, kind)) return false;
+  if (messageType != null && event.effectiveMessageType != messageType) {
+    return false;
+  }
   if (!_matchesMetadata(event.metadata, 'task_id', taskId)) return false;
   if (!_matchesMetadata(event.metadata, 'worker_id', workerId)) return false;
   if (toolName != null &&

@@ -378,6 +378,7 @@ Map<String, Object?> _activityJson(AgentActivityEvent event) {
   return <String, Object?>{
     'id': event.id,
     'kind': event.kind,
+    'message_type': event.effectiveMessageType.storageValue,
     'title': event.title,
     'content': event.content,
     'created_at': event.createdAt?.toUtc().toIso8601String(),
