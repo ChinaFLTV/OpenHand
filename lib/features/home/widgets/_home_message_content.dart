@@ -210,7 +210,7 @@ class _CollapsedPreviewFade extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final transcriptScrolling = context.read<TranscriptScrollActivity>().value;
+    final transcriptScrolling = _isTranscriptScrollActive(context);
     final duration = transcriptScrolling || !animate
         ? Duration.zero
         : openHandMotionDuration(context, _collapsedMessageFadeDuration);
@@ -2037,13 +2037,13 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   }
 
   void _bindScrollActivity() {
-    final activity = context.read<TranscriptScrollActivity>();
+    final activity = _maybeTranscriptScrollActivityOf(context);
     if (identical(activity, _scrollActivity)) {
       return;
     }
     _scrollActivity?.removeListener(_handleScrollActivityChanged);
     _scrollActivity = activity;
-    activity.addListener(_handleScrollActivityChanged);
+    activity?.addListener(_handleScrollActivityChanged);
   }
 
   void _handleScrollActivityChanged() {
@@ -4206,14 +4206,14 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final activity = context.read<TranscriptScrollActivity>();
+    final activity = _maybeTranscriptScrollActivityOf(context);
     if (identical(activity, _scrollActivity)) {
       return;
     }
     _scrollActivity?.removeListener(_handleScrollActivityChanged);
     _scrollActivity = activity;
-    _transcriptScrolling = activity.value;
-    activity.addListener(_handleScrollActivityChanged);
+    _transcriptScrolling = activity?.value ?? false;
+    activity?.addListener(_handleScrollActivityChanged);
   }
 
   void _handleScrollActivityChanged() {
@@ -4491,13 +4491,17 @@ class _DeferredHtmlBubbleWebViewState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final activity = context.read<TranscriptScrollActivity>();
+    final activity = _maybeTranscriptScrollActivityOf(context);
     if (identical(activity, _scrollActivity)) {
       return;
     }
     _scrollActivity?.removeListener(_handleScrollActivityChanged);
     _scrollActivity = activity;
-    activity.addListener(_handleScrollActivityChanged);
+    activity?.addListener(_handleScrollActivityChanged);
+    if (activity == null && _pendingMountAfterScroll && !_mountWebView) {
+      _pendingMountAfterScroll = false;
+      _scheduleMount();
+    }
   }
 
   @override
@@ -5271,12 +5275,18 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     // 变化以在用户滚动期间冻结高度应用。didChangeDependencies 可能
     // 多次触发，但 Provider 拿到的是同一个实例，重复 addListener 不会
     // 出问题——不过为安全起见，先 remove 再 add。
-    final activity = context.read<TranscriptScrollActivity>();
+    final activity = _maybeTranscriptScrollActivityOf(context);
     if (!identical(activity, _scrollActivity)) {
       _scrollActivity?.removeListener(_onScrollActivityChanged);
       _scrollActivity = activity;
-      _scrollActive = activity.value;
-      activity.addListener(_onScrollActivityChanged);
+      final wasScrollActive = _scrollActive;
+      _scrollActive = activity?.value ?? false;
+      activity?.addListener(_onScrollActivityChanged);
+      if (activity == null && wasScrollActive) {
+        _postScrollHeightApplyTimer?.cancel();
+        _postScrollHeightApplyTimer = null;
+        _schedulePostScrollHeightApply();
+      }
     }
   }
 
@@ -6269,7 +6279,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       );
     }
 
-    final transcriptScrolling = context.read<TranscriptScrollActivity>().value;
+    final transcriptScrolling = _isTranscriptScrollActive(context);
     final shouldAnimateBodySwitch = isStreaming || contentMotionKey != null;
     final motionEnabled =
         shouldAnimateBodySwitch &&

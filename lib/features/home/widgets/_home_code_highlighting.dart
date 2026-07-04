@@ -959,11 +959,11 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final activity = context.read<TranscriptScrollActivity>();
+    final activity = _maybeTranscriptScrollActivityOf(context);
     if (!identical(activity, _scrollActivity)) {
       _scrollActivity?.removeListener(_handleScrollActivityChanged);
       _scrollActivity = activity;
-      activity.addListener(_handleScrollActivityChanged);
+      activity?.addListener(_handleScrollActivityChanged);
     }
     _ensureHighlightedSpan();
   }

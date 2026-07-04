@@ -1128,9 +1128,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   ),
               ],
             );
-            final transcriptScrollActive = context
-                .read<TranscriptScrollActivity>()
-                .value;
+            final transcriptScrollActive = _isTranscriptScrollActive(context);
             final allowBubbleSizeMotion =
                 (!transcriptScrollActive || _responseVariantSizeMotionActive) &&
                 ((isReasoning && !isStreamingReasoning) ||

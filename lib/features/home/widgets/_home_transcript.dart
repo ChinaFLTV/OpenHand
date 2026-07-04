@@ -480,14 +480,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _warmupTheme = Theme.of(context);
     _warmupSettings ??= context.read<SettingsController>();
     _warmupDependenciesReady = _warmupSettings != null;
-    final activity = context.read<TranscriptScrollActivity>();
+    final activity = _maybeTranscriptScrollActivityOf(context);
     if (identical(activity, _scrollActivity)) {
       _warmCurrentRenderEntriesIfReady();
       return;
     }
     _scrollActivity?.removeListener(_handleRevealScrollActivityChanged);
     _scrollActivity = activity;
-    activity.addListener(_handleRevealScrollActivityChanged);
+    activity?.addListener(_handleRevealScrollActivityChanged);
     _warmCurrentRenderEntriesIfReady();
   }
 
@@ -1774,7 +1774,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         final position = scrollController.positions.isNotEmpty
             ? scrollController.positions.last
             : null;
-        final scrollActive = context.read<TranscriptScrollActivity>().value;
+        final scrollActive = _isTranscriptScrollActive(context);
         if (position != null &&
             !scrollActive &&
             !position.isScrollingNotifier.value) {
@@ -1930,7 +1930,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (anchor == null || _pendingPrependAnchorFrames <= 0) {
         return;
       }
-      if (context.read<TranscriptScrollActivity>().value) {
+      if (_isTranscriptScrollActive(context)) {
         _pendingPrependAnchor = null;
         _pendingPrependAnchorFrames = 0;
         return;

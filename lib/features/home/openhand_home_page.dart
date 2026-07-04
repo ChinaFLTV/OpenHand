@@ -157,6 +157,20 @@ class TranscriptScrollActivity extends ValueNotifier<bool> {
   }
 }
 
+TranscriptScrollActivity? _maybeTranscriptScrollActivityOf(
+  BuildContext context,
+) {
+  try {
+    return context.read<TranscriptScrollActivity>();
+  } on ProviderNotFoundException {
+    return null;
+  }
+}
+
+bool _isTranscriptScrollActive(BuildContext context) {
+  return _maybeTranscriptScrollActivityOf(context)?.value ?? false;
+}
+
 class OpenHandHomePage extends StatefulWidget {
   const OpenHandHomePage({super.key});
 
@@ -9066,7 +9080,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final palette = theme.extension<OpenHandPalette>()!;
     final sessionController = context.watch<AiSessionController>();
     // 顶层注入滚动活动信号：让 transcript 子树里的 `_HtmlBubbleWebView`
-    // 通过 `context.read<TranscriptScrollActivity>()` 订阅，滚动期间冻结
+    // 通过安全 helper 订阅，滚动期间冻结
     // 高度应用，滚动结束再一次性应用累积的最新值。
     final homeContent = Scaffold(
       body: Stack(
