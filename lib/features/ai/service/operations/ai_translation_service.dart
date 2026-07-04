@@ -16,6 +16,12 @@ import '../../model/ai_translation_settings.dart';
 import '../chat/ai_chat_service.dart';
 import '../chat/ai_protocol_adapter.dart';
 
+final RegExp _aiTranslationFencePattern = RegExp(
+  r'^```(?:[a-zA-Z0-9_-]+)?\s*([\s\S]*?)\s*```$',
+);
+final RegExp _translationWhitespacePattern = RegExp(r'\s+');
+final RegExp _translationErrorPrefixPattern = RegExp(r'^[^:]+:\s*');
+
 class AiTranslationResult {
   const AiTranslationResult({
     required this.text,
@@ -734,9 +740,7 @@ class AiTranslationService {
 
   String _cleanAiTranslationOutput(String value) {
     var text = value.trim();
-    final fenced = RegExp(
-      r'^```(?:[a-zA-Z0-9_-]+)?\s*([\s\S]*?)\s*```$',
-    ).firstMatch(text);
+    final fenced = _aiTranslationFencePattern.firstMatch(text);
     if (fenced != null) {
       text = fenced.group(1)?.trim() ?? text;
     }
@@ -744,14 +748,19 @@ class AiTranslationService {
   }
 
   String _preview(String value) {
-    final compact = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final compact = value.replaceAll(_translationWhitespacePattern, ' ').trim();
     if (compact.length <= _networkPreviewLength) return compact;
     return '${compact.substring(0, _networkPreviewLength)}...';
   }
 
   String _friendlyTranslationError(Object error) {
-    final text = error.toString().replaceFirst(RegExp(r'^[^:]+:\s*'), '');
-    final normalized = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final text = error.toString().replaceFirst(
+      _translationErrorPrefixPattern,
+      '',
+    );
+    final normalized = text
+        .replaceAll(_translationWhitespacePattern, ' ')
+        .trim();
     if (normalized.isEmpty) return 'translation failed';
     if (normalized.length <= _networkPreviewLength) return normalized;
     return '${normalized.substring(0, _networkPreviewLength)}...';
