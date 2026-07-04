@@ -62,6 +62,9 @@ enum _AgentCardAction {
 const double _agentCardRadius = 22;
 const double _agentDialogMaxWidth = 1040;
 const double _agentDialogMaxHeight = 780;
+const EdgeInsets _agentDialogPadding = EdgeInsets.all(22);
+const double _agentDialogTitleGap = 10;
+const double _agentDialogSectionGap = 18;
 const List<String> _agentSchedulerPolicyOptions = <String>[
   'least_busy',
   'priority_first',
@@ -1292,20 +1295,16 @@ Future<void> _showAgentApprovalsDialog(
                 l10n.agentsApprovals,
                 currentAgent.name,
               ),
-              actions: [
-                FilledButton.icon(
-                  onPressed: () =>
-                      _showAgentApprovalRequestDialog(context, currentAgent),
-                  icon: const Icon(Icons.add_moderator_outlined),
-                  label: Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '发起审批',
-                      en: 'Request approval',
-                    ),
-                  ),
+              footer: _agentDialogPrimaryActionFooter(
+                icon: Icons.add_moderator_outlined,
+                onPressed: () =>
+                    _showAgentApprovalRequestDialog(context, currentAgent),
+                label: openHandLocalizedText(
+                  context,
+                  zh: '发起审批',
+                  en: 'Request approval',
                 ),
-              ],
+              ),
               child: currentAgent.approvals.isEmpty
                   ? FeatureStateCard.inline(
                       icon: Icons.verified_user_outlined,
@@ -1601,32 +1600,6 @@ class _AgentClusterDialogContentState
               l10n.agentsCluster,
               currentAgent.name,
             ),
-            actions: [
-              if (_editing)
-                TextButton.icon(
-                  onPressed: () => setState(() => _editing = false),
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  label: Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '返回状态',
-                      en: 'Back to status',
-                    ),
-                  ),
-                )
-              else
-                FilledButton.icon(
-                  onPressed: () => setState(() => _editing = true),
-                  icon: const Icon(Icons.tune_rounded),
-                  label: Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '调整集群',
-                      en: 'Tune cluster',
-                    ),
-                  ),
-                ),
-            ],
             footer: _editing
                 ? buildOpenHandDialogActionsBar(
                     actions: [
@@ -1644,17 +1617,37 @@ class _AgentClusterDialogContentState
                       ),
                     ],
                   )
-                : null,
-            child: AnimatedSize(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
-              child: _editing
-                  ? _AgentClusterSettingsEditor(
-                      key: _clusterEditorKey,
-                      initial: settings,
-                    )
-                  : _buildClusterStatus(dialogContext, currentAgent),
+                : _agentDialogPrimaryActionFooter(
+                    icon: Icons.tune_rounded,
+                    onPressed: () => setState(() => _editing = true),
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '调整集群',
+                      en: 'Tune cluster',
+                    ),
+                  ),
+            child: Builder(
+              builder: (context) {
+                final motionSettings = _agentDialogAnimationSettings(context);
+                return AnimatedSwitcher(
+                  duration: motionSettings.duration,
+                  reverseDuration: motionSettings.duration,
+                  switchInCurve: motionSettings.curve.curve,
+                  switchOutCurve: motionSettings.curve.reverseCurve,
+                  transitionBuilder: (child, animation) =>
+                      _agentDialogSwitchTransition(
+                        settings: motionSettings,
+                        animation: animation,
+                        child: child,
+                      ),
+                  child: _editing
+                      ? _AgentClusterSettingsEditor(
+                          key: _clusterEditorKey,
+                          initial: settings,
+                        )
+                      : _buildClusterStatus(dialogContext, currentAgent),
+                );
+              },
             ),
           ),
         );
@@ -2267,13 +2260,11 @@ Future<void> _showAgentTasksDialog(BuildContext context, AgentProfile agent) {
               l10n.agentsTaskDesk,
               currentAgent.name,
             ),
-            actions: [
-              FilledButton.icon(
-                onPressed: () => _showPublishTaskDialog(context, currentAgent),
-                icon: const Icon(Icons.add_task_rounded),
-                label: Text(l10n.agentsPublishTask),
-              ),
-            ],
+            footer: _agentDialogPrimaryActionFooter(
+              icon: Icons.add_task_rounded,
+              onPressed: () => _showPublishTaskDialog(context, currentAgent),
+              label: l10n.agentsPublishTask,
+            ),
             child: currentAgent.tasks.isEmpty
                 ? FeatureStateCard.inline(
                     icon: Icons.task_alt_rounded,
@@ -3391,22 +3382,22 @@ Future<void> _showAgentKpiDialog(BuildContext context, AgentProfile agent) {
               l10n.agentsKpi,
               currentAgent.name,
             ),
-            actions: [
-              FilledButton.icon(
-                onPressed: () async {
-                  final draft = await _showAgentKpiEditorDialog(context);
-                  if (draft == null || !context.mounted) return;
-                  await context.read<AgentsController>().saveKpi(
-                    currentAgent.id,
-                    draft,
-                  );
-                },
-                icon: const Icon(Icons.add_rounded),
-                label: Text(
-                  openHandLocalizedText(context, zh: '新增 KPI', en: 'Add KPI'),
-                ),
+            footer: _agentDialogPrimaryActionFooter(
+              icon: Icons.add_rounded,
+              onPressed: () async {
+                final draft = await _showAgentKpiEditorDialog(context);
+                if (draft == null || !context.mounted) return;
+                await context.read<AgentsController>().saveKpi(
+                  currentAgent.id,
+                  draft,
+                );
+              },
+              label: openHandLocalizedText(
+                context,
+                zh: '新增 KPI',
+                en: 'Add KPI',
               ),
-            ],
+            ),
             child: currentAgent.kpis.isEmpty
                 ? FeatureStateCard.inline(
                     icon: Icons.flag_outlined,
@@ -3995,29 +3986,25 @@ Future<void> _showAgentResourcesDialog(
               l10n.agentsResources,
               currentAgent.name,
             ),
-            actions: [
-              FilledButton.icon(
-                onPressed: () async {
-                  final updated = await _showAgentResourceEditorDialog(
-                    context,
-                    resource,
-                  );
-                  if (updated == null || !context.mounted) return;
-                  await context.read<AgentsController>().saveResourceUsage(
-                    currentAgent.id,
-                    updated,
-                  );
-                },
-                icon: const Icon(Icons.edit_rounded),
-                label: Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '校准资源',
-                    en: 'Edit resources',
-                  ),
-                ),
+            footer: _agentDialogPrimaryActionFooter(
+              icon: Icons.edit_rounded,
+              onPressed: () async {
+                final updated = await _showAgentResourceEditorDialog(
+                  context,
+                  resource,
+                );
+                if (updated == null || !context.mounted) return;
+                await context.read<AgentsController>().saveResourceUsage(
+                  currentAgent.id,
+                  updated,
+                );
+              },
+              label: openHandLocalizedText(
+                context,
+                zh: '校准资源',
+                en: 'Edit resources',
               ),
-            ],
+            ),
             child: _AgentResourceBody(resource: resource),
           ),
         );
@@ -5742,21 +5729,20 @@ class _AgentDialogScaffold extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.child,
-    this.actions = const <Widget>[],
     this.footer,
   });
 
   final IconData icon;
   final String title;
   final Widget child;
-  final List<Widget> actions;
   final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final motionSettings = _agentDialogAnimationSettings(context);
     return Padding(
-      padding: const EdgeInsets.all(22),
+      padding: _agentDialogPadding,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -5764,9 +5750,8 @@ class _AgentDialogScaffold extends StatelessWidget {
           Row(
             children: [
               Icon(icon, color: theme.colorScheme.primary),
-              const SizedBox(width: 10),
+              const SizedBox(width: _agentDialogTitleGap),
               Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
-              ...actions,
               IconButton(
                 tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                 onPressed: () => Navigator.of(context).maybePop(),
@@ -5774,18 +5759,88 @@ class _AgentDialogScaffold extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: _agentDialogSectionGap),
           Flexible(
             child: SingleChildScrollView(
               physics: openHandDialogAwareScrollPhysics(context),
               child: child,
             ),
           ),
-          if (footer != null) ...[const SizedBox(height: 18), footer!],
+          _AgentDialogFooterSlot(footer: footer, settings: motionSettings),
         ],
       ),
     );
   }
+}
+
+class _AgentDialogFooterSlot extends StatelessWidget {
+  const _AgentDialogFooterSlot({required this.footer, required this.settings});
+
+  final Widget? footer;
+  final DialogAnimationSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: settings.duration,
+      reverseDuration: settings.duration,
+      switchInCurve: settings.curve.curve,
+      switchOutCurve: settings.curve.reverseCurve,
+      transitionBuilder: (child, animation) => _agentDialogSwitchTransition(
+        settings: settings,
+        animation: animation,
+        child: child,
+      ),
+      child: footer == null
+          ? const SizedBox.shrink(
+              key: ValueKey<String>('agent-dialog-footer-empty'),
+            )
+          : Padding(
+              key: const ValueKey<String>('agent-dialog-footer-content'),
+              padding: const EdgeInsets.only(top: _agentDialogSectionGap),
+              child: footer,
+            ),
+    );
+  }
+}
+
+Widget _agentDialogPrimaryActionFooter({
+  required IconData icon,
+  required VoidCallback? onPressed,
+  required String label,
+}) {
+  return buildOpenHandDialogActionsBar(
+    actions: [
+      OpenHandDialogActionButton.primary(
+        icon: icon,
+        onPressed: onPressed,
+        label: label,
+      ),
+    ],
+  );
+}
+
+DialogAnimationSettings _agentDialogAnimationSettings(BuildContext context) {
+  if (!openHandTickerMotionEnabled(context)) {
+    return OpenHandMotionDefaults.disabled;
+  }
+  return openHandMotionSettingsOf(context, OpenHandMotionSettingsScope.dialog);
+}
+
+Widget _agentDialogSwitchTransition({
+  required DialogAnimationSettings settings,
+  required Animation<double> animation,
+  required Widget child,
+}) {
+  return SizeTransition(
+    axisAlignment: -1,
+    sizeFactor: animation,
+    child: buildAnimationStyleTransition(
+      animation: animation,
+      settings: settings,
+      child: child,
+    ),
+  );
 }
 
 Future<void> _showAgentEditor(
