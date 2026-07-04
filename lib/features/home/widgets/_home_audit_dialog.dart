@@ -121,6 +121,12 @@ AiSessionMessage? _auditRelatedTelemetryMessage(
   return null;
 }
 
+const Duration _auditShimmerPeriod = Duration(milliseconds: 1400);
+const Duration _auditShellSizeDuration = Duration(milliseconds: 260);
+const Duration _auditToggleRotationDuration = Duration(milliseconds: 200);
+const Duration _auditContentSizeDuration = Duration(milliseconds: 220);
+const Curve _auditMotionCurve = Curves.easeInOutCubic;
+
 /// Gemini-style greyscale sweep shimmer placeholder for audit fields that are
 /// still being populated (e.g. while the AI response is streaming).
 class _AuditShimmerPlaceholder extends StatefulWidget {
@@ -140,10 +146,8 @@ class _AuditShimmerPlaceholderState extends State<_AuditShimmerPlaceholder>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat();
+    _ctrl = AnimationController(vsync: this, duration: _auditShimmerPeriod)
+      ..repeat();
   }
 
   @override
@@ -157,9 +161,7 @@ class _AuditShimmerPlaceholderState extends State<_AuditShimmerPlaceholder>
     final cs = Theme.of(context).colorScheme;
     final baseColor = cs.surfaceContainerHighest;
     final highlightColor = cs.surfaceContainerLow;
-    final animationsEnabled =
-        TickerMode.valuesOf(context).enabled &&
-        !MediaQuery.disableAnimationsOf(context);
+    final animationsEnabled = openHandTickerMotionEnabled(context);
     if (!animationsEnabled) {
       _ctrl.stop();
       return _buildBar(baseColor, highlightColor, 0.5);
@@ -218,10 +220,8 @@ class _AuditDialogSizeAnimator extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRect(
       child: AnimatedSize(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 260),
-        curve: Curves.easeInOutCubic,
+        duration: openHandMotionDuration(context, _auditShellSizeDuration),
+        curve: _auditMotionCurve,
         alignment: Alignment.topCenter,
         child: child,
       ),
@@ -302,10 +302,11 @@ class _AuditSectionCardState extends State<_AuditSectionCard> {
                 if (widget.collapsible)
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 200),
-                    curve: Curves.easeInOutCubic,
+                    duration: openHandMotionDuration(
+                      context,
+                      _auditToggleRotationDuration,
+                    ),
+                    curve: _auditMotionCurve,
                     child: Icon(
                       Icons.expand_more_rounded,
                       size: 20,
@@ -326,10 +327,11 @@ class _AuditSectionCardState extends State<_AuditSectionCard> {
           ],
           ClipRect(
             child: AnimatedSize(
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 220),
-              curve: Curves.easeInOutCubic,
+              duration: openHandMotionDuration(
+                context,
+                _auditContentSizeDuration,
+              ),
+              curve: _auditMotionCurve,
               alignment: Alignment.topLeft,
               child: !widget.collapsible || _expanded
                   ? KeyedSubtree(
@@ -467,10 +469,11 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
                 children: [
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 200),
-                    curve: Curves.easeInOutCubic,
+                    duration: openHandMotionDuration(
+                      context,
+                      _auditToggleRotationDuration,
+                    ),
+                    curve: _auditMotionCurve,
                     child: Icon(
                       Icons.expand_more_rounded,
                       size: 18,
@@ -522,10 +525,11 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
           else
             ClipRect(
               child: AnimatedSize(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 220),
-                curve: Curves.easeInOutCubic,
+                duration: openHandMotionDuration(
+                  context,
+                  _auditContentSizeDuration,
+                ),
+                curve: _auditMotionCurve,
                 alignment: Alignment.topLeft,
                 child: _expanded
                     ? KeyedSubtree(
