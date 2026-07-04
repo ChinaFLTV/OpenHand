@@ -907,6 +907,88 @@ void main() {
       },
     );
 
+    test(
+      'task follow-up tools reject an unbound target agent without mutation',
+      () async {
+        const taskTools = <String>[
+          'AgentTaskTrack',
+          'AgentTaskProgress',
+          'AgentTaskCancel',
+          'AgentTaskPause',
+          'AgentTaskTerminate',
+          'AgentTaskResume',
+          'AgentTaskComplete',
+          'AgentTaskResult',
+        ];
+        for (final tool in taskTools) {
+          await controller.saveAgent(
+            _agent(
+              id: 'agent-exposer-$tool',
+              name: '$tool Exposer',
+              enabled: true,
+              builtinToolNames: <String>[tool],
+            ),
+          );
+        }
+        await controller.saveAgent(
+          _agent(
+            id: 'agent-target',
+            name: 'Target Agent',
+            enabled: true,
+            builtinToolNames: const <String>['AgentTaskPublish'],
+          ).copyWith(
+            tasks: <AgentTask>[
+              AgentTask(
+                id: 'task-1',
+                title: 'Protected task',
+                status: AgentTaskStatus.running,
+                progress: 0.2,
+                createdAt: DateTime.utc(2026, 7, 4),
+              ),
+            ],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        for (final tool in taskTools) {
+          expect(catalog.find(tool), isNotNull, reason: tool);
+          final result = await runtime.execute(
+            sessionId: 'session-agent-task-binding',
+            catalog: catalog,
+            toolCall: AiToolCall(
+              id: 'call-unbound-$tool',
+              name: tool,
+              arguments: jsonEncode(<String, Object?>{
+                'agent_id': 'agent-target',
+                'task_id': 'task-1',
+                if (tool == 'AgentTaskComplete') 'result': 'done',
+                if (tool != 'AgentTaskTrack' &&
+                    tool != 'AgentTaskProgress' &&
+                    tool != 'AgentTaskResult')
+                  'note': 'should not mutate',
+              }),
+            ),
+            model: _model(),
+            previouslyReadFiles: const <String>{},
+            denyCommandRules: const <AiDenyCommandRule>[],
+            requireWriteCommandConfirmation: false,
+            confirmWriteCommand: (request) async =>
+                BashCommandApprovalDecision.approved,
+          );
+
+          expect(result.status, BashToolExecutionStatus.invalidArguments);
+          expect(result.resultText, contains('has not bound $tool'));
+          final task = controller.taskById('agent-target', 'task-1')!;
+          expect(task.status, AgentTaskStatus.running, reason: tool);
+          expect(task.progress, 0.2, reason: tool);
+          expect(task.result, isEmpty, reason: tool);
+          expect(task.note, isEmpty, reason: tool);
+        }
+      },
+    );
+
     test('filters task allowed tools by the target agent bindings', () async {
       await controller.saveAgent(
         _agent(
