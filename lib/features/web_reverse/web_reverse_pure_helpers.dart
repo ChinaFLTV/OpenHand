@@ -9,6 +9,14 @@ import '../../shared/util/input_value_parsing.dart';
 const String _vlqAlphabet =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 const int _maxJwtNumericDateSeconds = 253402300799; // 9999-12-31T23:59:59Z.
+final RegExp _consoleIsoTimestampPattern = RegExp(
+  r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\s]*',
+);
+final RegExp _consoleHexPattern = RegExp(r'\b0x[0-9a-fA-F]+\b');
+final RegExp _consoleLongNumberPattern = RegExp(r'\b\d{3,}\b');
+final RegExp _consolePathHashPattern = RegExp(r'/[A-Fa-f0-9]{8,}');
+final RegExp _consoleLocationTailPattern = RegExp(r':\d+:\d+\)');
+final RegExp _consoleWhitespacePattern = RegExp(r'\s+');
 
 /// 解码 source-map 中的 Base64 VLQ 段（不含 `,` 与 `;` 分隔符），
 /// 返回该段内全部带符号整数。空串返回空列表，未知字符直接跳过。
@@ -42,15 +50,12 @@ List<int> vlqDecode(String s) {
 String normalizeConsoleSignature(String text) {
   final firstLine = text.split('\n').first.trim();
   return firstLine
-      .replaceAll(
-        RegExp(r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\s]*'),
-        '<ts>',
-      )
-      .replaceAll(RegExp(r'\b0x[0-9a-fA-F]+\b'), '<hex>')
-      .replaceAll(RegExp(r'\b\d{3,}\b'), '<num>')
-      .replaceAll(RegExp(r'/[A-Fa-f0-9]{8,}'), '/<hash>')
-      .replaceAll(RegExp(r':\d+:\d+\)'), ':L:C)')
-      .replaceAll(RegExp(r'\s+'), ' ');
+      .replaceAll(_consoleIsoTimestampPattern, '<ts>')
+      .replaceAll(_consoleHexPattern, '<hex>')
+      .replaceAll(_consoleLongNumberPattern, '<num>')
+      .replaceAll(_consolePathHashPattern, '/<hash>')
+      .replaceAll(_consoleLocationTailPattern, ':L:C)')
+      .replaceAll(_consoleWhitespacePattern, ' ');
 }
 
 Object? cdpResultValue(Object? response) {

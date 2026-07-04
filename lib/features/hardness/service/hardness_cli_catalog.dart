@@ -9,6 +9,8 @@ import '../../../shared/util/input_value_parsing.dart';
 
 enum HardnessCliAuthProbeMode { commandExitCode, localStateFile }
 
+final RegExp _nodeMajorVersionPattern = RegExp(r'^v?(\d+)');
+
 /// Describes a known AI CLI client usable in Harness Engineering.
 class HardnessCli {
   const HardnessCli({
@@ -626,13 +628,12 @@ Future<bool?> probeCliAuth(CliScanEntry entry) async {
 }
 
 Future<bool?> _probeCliAuthFromLocalState(HardnessCli cli) async {
-  final relativePath = cli.localAuthStateFilePath;
-  if (relativePath == null || relativePath.trim().isEmpty) {
-    return null;
-  }
-  final homeDirectory =
-      Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
-  if (homeDirectory == null || homeDirectory.trim().isEmpty) {
+  final relativePath = nullIfBlank(cli.localAuthStateFilePath);
+  if (relativePath == null) return null;
+  final homeDirectory = nullIfBlank(
+    Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'],
+  );
+  if (homeDirectory == null) {
     return null;
   }
   final absolutePath = _resolveHomeRelativePath(homeDirectory, relativePath);
@@ -643,11 +644,11 @@ Future<bool?> _probeCliAuthFromLocalState(HardnessCli cli) async {
 
   try {
     final raw = await file.readAsString();
-    if (raw.trim().isEmpty) {
+    if (nullIfBlank(raw) == null) {
       return false;
     }
-    final key = cli.localAuthStateJsonKey;
-    if (key == null || key.trim().isEmpty) {
+    final key = nullIfBlank(cli.localAuthStateJsonKey);
+    if (key == null) {
       return true;
     }
     final decoded = jsonDecode(raw);
@@ -656,7 +657,7 @@ Future<bool?> _probeCliAuthFromLocalState(HardnessCli cli) async {
     }
     final value = stringKeyedMapFromValue(decoded)[key];
     if (value is String) {
-      return value.trim().isNotEmpty;
+      return nullIfBlank(value) != null;
     }
     if (value is List) {
       return value.isNotEmpty;
@@ -712,9 +713,10 @@ Future<({bool success, String message})> _performLocalStateLogout(
     return (success: false, message: 'No local auth state files configured.');
   }
 
-  final homeDirectory =
-      Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
-  if (homeDirectory == null || homeDirectory.trim().isEmpty) {
+  final homeDirectory = nullIfBlank(
+    Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'],
+  );
+  if (homeDirectory == null) {
     return (success: false, message: 'Cannot determine home directory.');
   }
 
@@ -1066,7 +1068,9 @@ Map<String, String> _extractHardnessCliDiagnostics(String stdout) {
 }
 
 int? _tryParseNodeMajorVersion(String version) {
-  final match = RegExp(r'^v?(\d+)').firstMatch(version.trim());
+  final normalized = nullIfBlank(version);
+  if (normalized == null) return null;
+  final match = _nodeMajorVersionPattern.firstMatch(normalized);
   if (match == null) {
     return null;
   }
