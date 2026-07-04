@@ -1,6 +1,3 @@
-import 'dart:ui' show Locale;
-
-import '../../../../shared/util/localized_text.dart';
 import '../../model/ai_thread_template_icon_names.dart';
 
 class AiPromptSharedSectionSpec {
@@ -117,7 +114,7 @@ class AiPromptTemplateInfo {
   final String promptAssetDirectory;
   final AiPromptTemplateAvailabilityScope availability;
 
-  String nameForLocale(Locale locale) => openHandLocalizedTextForLocale(
+  String nameForLocale(Object locale) => _templateTextForLocale(
     locale,
     zh: name,
     zhHant: nameZhHant,
@@ -127,7 +124,7 @@ class AiPromptTemplateInfo {
     ja: nameJa,
   );
 
-  String descriptionForLocale(Locale locale) => openHandLocalizedTextForLocale(
+  String descriptionForLocale(Object locale) => _templateTextForLocale(
     locale,
     zh: description,
     zhHant: descriptionZhHant,
@@ -136,6 +133,46 @@ class AiPromptTemplateInfo {
     de: descriptionDe,
     ja: descriptionJa,
   );
+}
+
+String _templateTextForLocale(
+  Object locale, {
+  required String zh,
+  required String en,
+  String? zhHans,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  final (:languageCode, :scriptCode) = _localeParts(locale);
+  switch (languageCode) {
+    case 'zh':
+      if (scriptCode == 'hant') return zhHant ?? zh;
+      return zhHans ?? zh;
+    case 'fr':
+      return fr ?? en;
+    case 'de':
+      return de ?? en;
+    case 'ja':
+      return ja ?? en;
+    default:
+      return en;
+  }
+}
+
+({String languageCode, String? scriptCode}) _localeParts(Object locale) {
+  try {
+    final dynamic value = locale;
+    final languageCode = '${value.languageCode}'.toLowerCase();
+    final script = value.scriptCode;
+    return (
+      languageCode: languageCode,
+      scriptCode: script == null ? null : '$script'.toLowerCase(),
+    );
+  } catch (_) {
+    return (languageCode: 'en', scriptCode: null);
+  }
 }
 
 class AiPromptTemplateCatalogEntry {
