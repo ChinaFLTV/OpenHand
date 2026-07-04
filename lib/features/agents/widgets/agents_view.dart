@@ -380,14 +380,16 @@ class _AgentCard extends StatelessWidget {
                       action: _AgentCardAction.audit,
                       onAction: onAction,
                     ),
+                    _AgentIconAction(
+                      icon: Icons.flag_rounded,
+                      tooltip: l10n.agentsKpi,
+                      action: _AgentCardAction.kpi,
+                      onAction: onAction,
+                    ),
                     PopupMenuButton<_AgentCardAction>(
                       tooltip: l10n.agentsMore,
                       onSelected: onAction,
                       itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: _AgentCardAction.kpi,
-                          child: Text(l10n.agentsKpi),
-                        ),
                         PopupMenuItem(
                           value: _AgentCardAction.resources,
                           child: Text(l10n.agentsResources),
@@ -2861,70 +2863,249 @@ Future<void> _showAgentKpiDialog(BuildContext context, AgentProfile agent) {
                     title: l10n.agentsNoKpiTitle,
                     body: l10n.agentsNoKpiBody,
                   )
-                : Column(
-                    children: [
-                      for (final item in currentAgent.kpis)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(item.name),
-                          subtitle: Text(
-                            [
-                              item.target,
-                              item.plan,
-                              _agentKpiStatusLabel(context, item.status),
-                              if (item.updatedAt != null)
-                                formatMonthDayHm(item.updatedAt!.toLocal()),
-                            ].where((v) => v.trim().isNotEmpty).join(' · '),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('${(item.progress * 100).round()}%'),
-                              const SizedBox(width: 8),
-                              _AgentSmallIconButton(
-                                icon: Icons.edit_rounded,
-                                tooltip: openHandLocalizedText(
-                                  context,
-                                  zh: '编辑 KPI',
-                                  en: 'Edit KPI',
-                                ),
-                                onPressed: () async {
-                                  final draft = await _showAgentKpiEditorDialog(
-                                    context,
-                                    initial: item,
-                                  );
-                                  if (draft == null || !context.mounted) {
-                                    return;
-                                  }
-                                  await context
-                                      .read<AgentsController>()
-                                      .saveKpi(currentAgent.id, draft);
-                                },
-                              ),
-                              const SizedBox(width: 6),
-                              _AgentSmallIconButton(
-                                icon: Icons.delete_outline_rounded,
-                                tooltip: openHandLocalizedText(
-                                  context,
-                                  zh: '删除 KPI',
-                                  en: 'Delete KPI',
-                                ),
-                                onPressed: () => _deleteAgentKpi(
-                                  context,
-                                  currentAgent,
-                                  item,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
+                : _AgentKpiBody(agent: currentAgent, kpis: currentAgent.kpis),
           ),
         );
       },
     ),
   );
+}
+
+class _AgentKpiBody extends StatelessWidget {
+  const _AgentKpiBody({required this.agent, required this.kpis});
+
+  final AgentProfile agent;
+  final List<AgentKpiItem> kpis;
+
+  @override
+  Widget build(BuildContext context) {
+    final tracking = kpis
+        .where((item) => item.status.trim().toLowerCase() == 'tracking')
+        .length;
+    final atRisk = kpis
+        .where((item) => item.status.trim().toLowerCase() == 'at_risk')
+        .length;
+    final done = kpis
+        .where((item) => item.status.trim().toLowerCase() == 'done')
+        .length;
+    final averageProgress = kpis.isEmpty
+        ? 0
+        : (kpis.fold<double>(0, (sum, item) => sum + item.progress) /
+                  kpis.length *
+                  100)
+              .round();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _MetricTile(
+              label: openHandLocalizedText(context, zh: 'KPI', en: 'KPI'),
+              value: '${kpis.length}',
+            ),
+            _MetricTile(
+              label: openHandLocalizedText(context, zh: '跟进中', en: 'Tracking'),
+              value: '$tracking',
+            ),
+            _MetricTile(
+              label: openHandLocalizedText(context, zh: '有风险', en: 'At risk'),
+              value: '$atRisk',
+            ),
+            _MetricTile(
+              label: openHandLocalizedText(context, zh: '已完成', en: 'Done'),
+              value: '$done',
+            ),
+            _MetricTile(
+              label: openHandLocalizedText(
+                context,
+                zh: '平均进度',
+                en: 'Avg. progress',
+              ),
+              value: '$averageProgress%',
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        ListView.separated(
+          shrinkWrap: true,
+          primary: false,
+          itemCount: kpis.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          itemBuilder: (context, index) {
+            return _AgentKpiCard(agent: agent, item: kpis[index]);
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _AgentKpiCard extends StatelessWidget {
+  const _AgentKpiCard({required this.agent, required this.item});
+
+  final AgentProfile agent;
+  final AgentKpiItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final statusColor = _agentKpiStatusColor(cs, item.status);
+    final updated = item.updatedAt == null
+        ? ''
+        : formatMonthDayHm(item.updatedAt!.toLocal());
+    final metadata = _agentKpiMetadataChips(item);
+    final progress = item.progress.clamp(0, 1).toDouble();
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                _agentKpiStatusIcon(item.status),
+                color: statusColor,
+                size: 19,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _AgentActivityTypeChip(
+                        label: _agentKpiStatusLabel(context, item.status),
+                        color: statusColor,
+                      ),
+                      if (updated.isNotEmpty)
+                        Text(
+                          updated,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    item.name,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (item.target.trim().isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      item.target,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                  if (item.plan.trim().isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      item.plan,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 7,
+                            color: statusColor,
+                            backgroundColor: cs.surfaceContainerHighest,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 46,
+                        child: Text(
+                          '${(progress * 100).round()}%',
+                          textAlign: TextAlign.end,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (metadata.isNotEmpty) ...[
+                    const SizedBox(height: 9),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final chip in metadata)
+                          _AgentActivityMetadataChip(text: chip),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _AgentSmallIconButton(
+                  icon: Icons.edit_rounded,
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '编辑 KPI',
+                    en: 'Edit KPI',
+                  ),
+                  onPressed: () => _editAgentKpi(context, agent, item),
+                ),
+                const SizedBox(width: 6),
+                _AgentSmallIconButton(
+                  icon: Icons.delete_outline_rounded,
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '删除 KPI',
+                    en: 'Delete KPI',
+                  ),
+                  onPressed: () => _deleteAgentKpi(context, agent, item),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 Future<AgentKpiItem?> _showAgentKpiEditorDialog(
@@ -2935,6 +3116,16 @@ Future<AgentKpiItem?> _showAgentKpiEditorDialog(
     context: context,
     builder: (_) => _AgentKpiEditorDialog(initial: initial),
   );
+}
+
+Future<void> _editAgentKpi(
+  BuildContext context,
+  AgentProfile agent,
+  AgentKpiItem item,
+) async {
+  final draft = await _showAgentKpiEditorDialog(context, initial: item);
+  if (draft == null || !context.mounted) return;
+  await context.read<AgentsController>().saveKpi(agent.id, draft);
 }
 
 Future<void> _deleteAgentKpi(
@@ -3122,6 +3313,42 @@ String _agentKpiStatusLabel(BuildContext context, String status) {
     'paused' => openHandLocalizedText(context, zh: '已暂停', en: 'Paused'),
     _ => openHandLocalizedText(context, zh: '跟进中', en: 'Tracking'),
   };
+}
+
+IconData _agentKpiStatusIcon(String status) {
+  return switch (status.trim().toLowerCase()) {
+    'done' => Icons.check_circle_rounded,
+    'at_risk' => Icons.warning_amber_rounded,
+    'paused' => Icons.pause_circle_outline_rounded,
+    _ => Icons.flag_rounded,
+  };
+}
+
+Color _agentKpiStatusColor(ColorScheme cs, String status) {
+  return switch (status.trim().toLowerCase()) {
+    'done' => cs.tertiary,
+    'at_risk' => cs.error,
+    'paused' => cs.onSurfaceVariant,
+    _ => cs.primary,
+  };
+}
+
+List<String> _agentKpiMetadataChips(AgentKpiItem item) {
+  const keys = <String>[
+    'owner',
+    'cadence',
+    'deadline',
+    'task_id',
+    'evidence',
+    'source',
+  ];
+  final chips = <String>[];
+  for (final key in keys) {
+    final text = _agentMetadataChipText(key, item.extra[key]);
+    if (text != null) chips.add(text);
+    if (chips.length >= 4) break;
+  }
+  return chips;
 }
 
 Future<void> _showAgentResourcesDialog(

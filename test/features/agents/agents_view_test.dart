@@ -558,6 +558,71 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
     });
 
+    testWidgets('renders kpis as operational progress cards', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          enabled: true,
+          lifecycleState: AgentLifecycleState.running,
+          kpis: <AgentKpiItem>[
+            AgentKpiItem(
+              id: 'kpi-1',
+              name: 'Weekly report SLA',
+              target: 'Publish every Friday before 18:00.',
+              plan: 'Collect evidence, draft, review, then publish.',
+              progress: 0.6,
+              extra: <String, Object?>{
+                'owner': 'Worker 1',
+                'cadence': 'weekly',
+                'task_id': 'task-1',
+              },
+            ),
+            AgentKpiItem(
+              id: 'kpi-2',
+              name: 'Incident response',
+              target: 'Close P1 triage within 15 minutes.',
+              progress: 0.25,
+              status: 'at_risk',
+              extra: <String, Object?>{'deadline': '2026-07-05'},
+            ),
+          ],
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('KPI').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('KPI · Ops Agent'), findsOneWidget);
+      expect(find.text('跟进中'), findsAtLeastNWidgets(1));
+      expect(find.text('有风险'), findsAtLeastNWidgets(1));
+      expect(find.text('平均进度'), findsOneWidget);
+      expect(find.text('Weekly report SLA'), findsOneWidget);
+      expect(find.text('Publish every Friday before 18:00.'), findsOneWidget);
+      expect(
+        find.text('Collect evidence, draft, review, then publish.'),
+        findsOneWidget,
+      );
+      expect(find.text('60%'), findsOneWidget);
+      expect(find.text('owner: Worker 1'), findsOneWidget);
+      expect(find.text('cadence: weekly'), findsOneWidget);
+      expect(find.text('task_id: task-1'), findsOneWidget);
+      expect(find.text('deadline: 2026-07-05'), findsOneWidget);
+      expect(find.byTooltip('编辑 KPI'), findsAtLeastNWidgets(1));
+
+      await tester.tap(find.byIcon(Icons.close_rounded).last);
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
     testWidgets('publishes a task with structured extra fields', (
       tester,
     ) async {
