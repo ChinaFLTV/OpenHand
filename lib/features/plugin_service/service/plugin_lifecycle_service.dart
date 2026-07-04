@@ -295,7 +295,7 @@ String? _localizedPluginLifecycleMessage(String? message) {
       ja: '$item をアンインストールしました',
     );
   }
-  match = RegExp(r'^(.+?) (安装|更新|卸载|安装/启动)失败: (.+)$').firstMatch(message);
+  match = RegExp(r'^(.+?) (安装|更新|卸载|安装/启动|引导|升级)失败: (.+)$').firstMatch(message);
   if (match != null) {
     final item = match.group(1)!;
     final action = match.group(2)!;
@@ -304,6 +304,8 @@ String? _localizedPluginLifecycleMessage(String? message) {
       '安装' => 'installation',
       '更新' => 'update',
       '卸载' => 'uninstall',
+      '引导' => 'bootstrap',
+      '升级' => 'upgrade',
       _ => 'install/start',
     };
     return text(
@@ -338,6 +340,70 @@ String? _localizedPluginLifecycleMessage(String? message) {
       ja: '$dependency が見つからないため、$item を処理できません。',
     );
   }
+  match = RegExp(r'^(.+?) 已就绪$').firstMatch(message);
+  if (match != null) {
+    final item = match.group(1)!;
+    return text(
+      en: '$item is ready',
+      fr: '$item est prêt',
+      de: '$item ist bereit',
+      ja: '$item の準備ができました',
+    );
+  }
+  match = RegExp(r'^(.+?) 后验证失败$').firstMatch(message);
+  if (match != null) {
+    final item = match.group(1)!;
+    return text(
+      en: '$item verification failed',
+      fr: 'La vérification de $item a échoué',
+      de: '$item-Verifizierung fehlgeschlagen',
+      ja: '$item の検証に失敗しました',
+    );
+  }
+  match = RegExp(r'^(.+?) 未检测到可执行命令，无需卸载。$').firstMatch(message);
+  if (match != null) {
+    final item = match.group(1)!;
+    return text(
+      en: '$item has no executable command detected; uninstall is not needed.',
+      fr: 'Aucune commande exécutable détectée pour $item ; désinstallation inutile.',
+      de: 'Für $item wurde kein ausführbarer Befehl gefunden; Deinstallation ist nicht nötig.',
+      ja: '$item の実行コマンドが見つからないため、アンインストールは不要です。',
+    );
+  }
+  match = RegExp(r'^(.+?) 已启动，数据目录：(.+)$').firstMatch(message);
+  if (match != null) {
+    final item = match.group(1)!;
+    final dir = match.group(2)!;
+    return text(
+      en: '$item started. Data directory: $dir',
+      fr: '$item a démarré. Dossier de données : $dir',
+      de: '$item gestartet. Datenverzeichnis: $dir',
+      ja: '$item を起動しました。データディレクトリ: $dir',
+    );
+  }
+  match = RegExp(r'^(.+?) 容器已移除，数据目录已保留：(.+)$').firstMatch(message);
+  if (match != null) {
+    final item = match.group(1)!;
+    final dir = match.group(2)!;
+    return text(
+      en: '$item container removed. Data directory kept: $dir',
+      fr: 'Conteneur $item supprimé. Dossier de données conservé : $dir',
+      de: '$item-Container entfernt. Datenverzeichnis behalten: $dir',
+      ja: '$item コンテナを削除しました。データディレクトリは保持されています: $dir',
+    );
+  }
+  match = RegExp(r'^(更新|卸载)失败: (.+)$').firstMatch(message);
+  if (match != null) {
+    final action = match.group(1)!;
+    final detail = match.group(2)!;
+    final actionEn = action == '更新' ? 'Update' : 'Uninstall';
+    return text(
+      en: '$actionEn failed: $detail',
+      fr: 'Échec de l’opération : $detail',
+      de: '$actionEn fehlgeschlagen: $detail',
+      ja: '$actionEn に失敗しました: $detail',
+    );
+  }
 
   switch (message) {
     case '未检测到可用的 Python 运行时，请先安装 Python。':
@@ -361,6 +427,55 @@ String? _localizedPluginLifecycleMessage(String? message) {
         fr: 'La vérification de pip a échoué après installation',
         de: 'pip-Verifizierung nach Installation fehlgeschlagen',
         ja: 'pip インストール後の検証に失敗しました',
+      );
+    case 'pip 升级后验证失败':
+      return text(
+        en: 'pip verification failed after upgrade',
+        fr: 'La vérification de pip a échoué après la mise à niveau',
+        de: 'pip-Verifizierung nach Upgrade fehlgeschlagen',
+        ja: 'pip アップグレード後の検証に失敗しました',
+      );
+    case '无法识别当前 pyenv Python 版本。':
+      return text(
+        en: 'Could not identify the current pyenv Python version.',
+        fr: 'Impossible d’identifier la version Python pyenv actuelle.',
+        de: 'Aktuelle pyenv-Python-Version konnte nicht erkannt werden.',
+        ja: '現在の pyenv Python バージョンを識別できません。',
+      );
+    case '无法查询 pyenv 的最新 Python 版本。':
+      return text(
+        en: 'Could not query the latest Python version from pyenv.',
+        fr: 'Impossible de consulter la dernière version Python via pyenv.',
+        de: 'Neueste Python-Version konnte über pyenv nicht abgefragt werden.',
+        ja: 'pyenv から最新の Python バージョンを取得できません。',
+      );
+    case '当前 Python 来自系统环境，暂不支持自动升级，请手动维护。':
+      return text(
+        en: 'The current Python comes from the system environment. Automatic upgrade is not supported; maintain it manually.',
+        fr: 'Le Python actuel vient de l’environnement système. Mise à niveau automatique non prise en charge.',
+        de: 'Das aktuelle Python stammt aus der Systemumgebung. Automatisches Upgrade wird nicht unterstützt.',
+        ja: '現在の Python はシステム環境由来です。自動アップグレードには対応していません。',
+      );
+    case '当前 Python 安装来源未知，暂不支持自动升级，请手动维护。':
+      return text(
+        en: 'The current Python installation source is unknown. Automatic upgrade is not supported; maintain it manually.',
+        fr: 'La source d’installation Python est inconnue. Mise à niveau automatique non prise en charge.',
+        de: 'Die Python-Installationsquelle ist unbekannt. Automatisches Upgrade wird nicht unterstützt.',
+        ja: '現在の Python のインストール元が不明です。自動アップグレードには対応していません。',
+      );
+    case '当前 Python 来自系统环境，暂不支持自动卸载。':
+      return text(
+        en: 'The current Python comes from the system environment and cannot be uninstalled automatically.',
+        fr: 'Le Python actuel vient de l’environnement système et ne peut pas être désinstallé automatiquement.',
+        de: 'Das aktuelle Python stammt aus der Systemumgebung und kann nicht automatisch deinstalliert werden.',
+        ja: '現在の Python はシステム環境由来のため、自動アンインストールできません。',
+      );
+    case '当前 Python 安装来源未知，暂不支持自动卸载。':
+      return text(
+        en: 'The current Python installation source is unknown and cannot be uninstalled automatically.',
+        fr: 'La source d’installation Python est inconnue ; désinstallation automatique non prise en charge.',
+        de: 'Die Python-Installationsquelle ist unbekannt; automatische Deinstallation wird nicht unterstützt.',
+        ja: '現在の Python のインストール元が不明なため、自動アンインストールできません。',
       );
     case 'Playwright 依赖 Node.js，请先安装 Node.js':
     case 'Playwright 依赖 Node.js，请先卸载 Playwright':
@@ -411,6 +526,62 @@ String? _localizedPluginLifecycleMessage(String? message) {
         fr: 'Docker Desktop a démarré et le daemon est disponible.',
         de: 'Docker Desktop wurde gestartet und der Daemon ist verfügbar.',
         ja: 'Docker Desktop が起動し、daemon を利用できます。',
+      );
+    case 'docker CLI 已安装，但 daemon 未运行。请启动 Docker Desktop 后重新扫描。':
+      return text(
+        en: 'docker CLI is installed, but the daemon is not running. Start Docker Desktop and rescan.',
+        fr: 'docker CLI est installé, mais le daemon ne fonctionne pas. Démarrez Docker Desktop puis relancez le scan.',
+        de: 'docker CLI ist installiert, aber der Daemon läuft nicht. Starte Docker Desktop und scanne erneut.',
+        ja: 'docker CLI はインストール済みですが daemon が実行されていません。Docker Desktop を起動して再スキャンしてください。',
+      );
+    case 'Docker Desktop 已更新或已经是最新版本。':
+      return text(
+        en: 'Docker Desktop was updated or is already current.',
+        fr: 'Docker Desktop a été mis à jour ou est déjà à jour.',
+        de: 'Docker Desktop wurde aktualisiert oder ist bereits aktuell.',
+        ja: 'Docker Desktop は更新済み、またはすでに最新です。',
+      );
+    case '无法自动更新 Docker。请通过 Docker Desktop 或系统包管理器更新。':
+      return text(
+        en: 'Docker cannot be updated automatically. Update it through Docker Desktop or your system package manager.',
+        fr: 'Docker ne peut pas être mis à jour automatiquement. Utilisez Docker Desktop ou le gestionnaire système.',
+        de: 'Docker kann nicht automatisch aktualisiert werden. Nutze Docker Desktop oder den Paketmanager.',
+        ja: 'Docker を自動更新できません。Docker Desktop またはシステムのパッケージマネージャーで更新してください。',
+      );
+    case '无法自动卸载 Docker。请通过 Docker Desktop 或系统包管理器卸载。':
+      return text(
+        en: 'Docker cannot be uninstalled automatically. Use Docker Desktop or your system package manager.',
+        fr: 'Docker ne peut pas être désinstallé automatiquement. Utilisez Docker Desktop ou le gestionnaire système.',
+        de: 'Docker kann nicht automatisch deinstalliert werden. Nutze Docker Desktop oder den Paketmanager.',
+        ja: 'Docker を自動アンインストールできません。Docker Desktop またはシステムのパッケージマネージャーを使用してください。',
+      );
+    case 'docker CLI 不存在，Qdrant 容器无需卸载。':
+      return text(
+        en: 'docker CLI is not present. No Qdrant container uninstall is needed.',
+        fr: 'docker CLI est absent. Aucun conteneur Qdrant à désinstaller.',
+        de: 'docker CLI ist nicht vorhanden. Qdrant-Container muss nicht deinstalliert werden.',
+        ja: 'docker CLI が存在しないため、Qdrant コンテナのアンインストールは不要です。',
+      );
+    case 'Docker daemon 未运行，无法安全检查并卸载 Qdrant 容器。':
+      return text(
+        en: 'Docker daemon is not running, so the Qdrant container cannot be safely checked and removed.',
+        fr: 'Le daemon Docker ne fonctionne pas ; le conteneur Qdrant ne peut pas être vérifié et supprimé en sécurité.',
+        de: 'Der Docker-Daemon läuft nicht; der Qdrant-Container kann nicht sicher geprüft und entfernt werden.',
+        ja: 'Docker daemon が実行されていないため、Qdrant コンテナを安全に確認して削除できません。',
+      );
+    case 'Qdrant 镜像已更新，容器已安全重建并保留数据目录。':
+      return text(
+        en: 'Qdrant image updated. The container was safely rebuilt and the data directory was kept.',
+        fr: 'Image Qdrant mise à jour. Le conteneur a été reconstruit et les données conservées.',
+        de: 'Qdrant-Image aktualisiert. Container sicher neu erstellt, Datenverzeichnis behalten.',
+        ja: 'Qdrant イメージを更新しました。コンテナは安全に再作成され、データディレクトリは保持されています。',
+      );
+    case '未找到可用的包管理器来卸载 Node.js，请手动卸载':
+      return text(
+        en: 'No package manager is available to uninstall Node.js. Uninstall it manually.',
+        fr: 'Aucun gestionnaire de paquets disponible pour désinstaller Node.js. Désinstallez-le manuellement.',
+        de: 'Kein Paketmanager zum Deinstallieren von Node.js verfügbar. Bitte manuell entfernen.',
+        ja: 'Node.js をアンインストールできるパッケージマネージャーがありません。手動でアンインストールしてください。',
       );
     case 'pip 不支持卸载，仅支持安装与升级。':
       return text(
