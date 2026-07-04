@@ -32,8 +32,9 @@ class RollingText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final children = <Widget>[];
-    for (var i = 0; i < text.length; i += 1) {
-      final ch = text[i];
+    final graphemes = text.characters.toList(growable: false);
+    for (var i = 0; i < graphemes.length; i += 1) {
+      final ch = graphemes[i];
       children.add(
         _RollingChar(char: ch, slot: i, style: style, duration: duration),
       );
