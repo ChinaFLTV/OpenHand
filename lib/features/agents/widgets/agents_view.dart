@@ -75,6 +75,7 @@ const List<String> _agentKpiStatusOptions = <String>[
   'paused',
 ];
 const int _agentTaskRecommendedPollMs = 1500;
+const int _agentOpenHandlePressureLimit = 128;
 const int _agentRoutePreviewKeywordLimit = 10;
 const List<String> _agentImageExtensions = <String>[
   'jpg',
@@ -3848,12 +3849,25 @@ class _AgentResourceBody extends StatelessWidget {
       resource.persistedBytes,
       resource.diskBytes,
     );
+    final handlePressure = _agentResourceRatio(
+      resource.openHandles,
+      _agentOpenHandlePressureLimit,
+    );
     final maxPressure = [
       cpu,
       tokenPressure,
       persistedPressure,
+      handlePressure,
     ].reduce(math.max);
     final metadata = _agentResourceMetadataChips(resource);
+    final remainingTokens = _agentResourceRemaining(
+      resource.tokenBudget,
+      resource.tokenUsed,
+    );
+    final remainingPersistedBytes = _agentResourceRemaining(
+      resource.diskBytes,
+      resource.persistedBytes,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -3872,10 +3886,28 @@ class _AgentResourceBody extends StatelessWidget {
                   ? '${resource.tokenUsed}/-'
                   : '${resource.tokenUsed}/${resource.tokenBudget}',
             ),
+            if (resource.tokenBudget > 0)
+              _MetricTile(
+                label: openHandLocalizedText(
+                  context,
+                  zh: '剩余 Token',
+                  en: 'Token left',
+                ),
+                value: '$remainingTokens',
+              ),
             _MetricTile(
               label: l10n.agentsMetricHandles,
               value: '${resource.openHandles}',
             ),
+            if (resource.diskBytes > 0)
+              _MetricTile(
+                label: openHandLocalizedText(
+                  context,
+                  zh: '剩余空间',
+                  en: 'Storage left',
+                ),
+                value: formatByteSize(remainingPersistedBytes),
+              ),
           ],
         ),
         const SizedBox(height: 14),
@@ -3913,6 +3945,14 @@ class _AgentResourceBody extends StatelessWidget {
           valueLabel:
               '${formatByteSize(resource.persistedBytes)} / ${formatByteSize(resource.diskBytes)}',
           pressure: persistedPressure,
+        ),
+        const SizedBox(height: 10),
+        _AgentResourcePressureCard(
+          icon: Icons.hub_outlined,
+          label: l10n.agentsMetricHandles,
+          valueLabel:
+              '${resource.openHandles} / $_agentOpenHandlePressureLimit',
+          pressure: handlePressure,
         ),
         const SizedBox(height: 14),
         Wrap(
@@ -4050,6 +4090,11 @@ class _AgentResourcePressureCard extends StatelessWidget {
 double _agentResourceRatio(int used, int budget) {
   if (budget <= 0) return 0;
   return (used / budget).clamp(0, 1).toDouble();
+}
+
+int _agentResourceRemaining(int budget, int used) {
+  if (budget <= 0) return 0;
+  return math.max(0, budget - used);
 }
 
 Color _agentResourcePressureColor(ColorScheme cs, double pressure) {

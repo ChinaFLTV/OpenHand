@@ -1146,10 +1146,15 @@ void main() {
       expect(find.text('预警'), findsAtLeastNWidgets(1));
       expect(find.text('70%'), findsAtLeastNWidgets(1));
       expect(find.text('900/1000'), findsOneWidget);
+      expect(find.text('剩余 Token'), findsOneWidget);
+      expect(find.text('100'), findsOneWidget);
       expect(find.text('900 / 1000'), findsOneWidget);
       expect(find.text('3.5 KB / 4 KB'), findsOneWidget);
+      expect(find.text('剩余空间'), findsOneWidget);
+      expect(find.text('512 B'), findsOneWidget);
       expect(find.text('1 MB'), findsOneWidget);
       expect(find.text('12'), findsOneWidget);
+      expect(find.text('12 / 128'), findsOneWidget);
       expect(find.text('workspace_path: /tmp/openhand'), findsOneWidget);
       expect(find.text('artifact_count: 5'), findsOneWidget);
       expect(find.text('cache_bytes: 2048'), findsOneWidget);
