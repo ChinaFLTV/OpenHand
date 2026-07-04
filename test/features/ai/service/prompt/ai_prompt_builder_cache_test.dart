@@ -561,6 +561,62 @@ void main() {
       expect(firstListing, contains('- Task tool: Task_Alpha'));
     },
   );
+
+  test('post-compact restore includes Hermes agent tool result anchors', () {
+    final now = DateTime.utc(2026);
+    final session = _session(
+      messages: <AiSessionMessage>[
+        AiSessionMessage.toolResult(
+          id: 'agent-result-1',
+          content: '''
+{
+  "agent_id": "finance-agent",
+  "task_id": "task-1",
+  "next_action": "poll",
+  "routing_diagnostics": {
+    "next_action": "select_agent_id"
+  }
+}
+''',
+          createdAt: now,
+          metadata: const <String, Object?>{
+            'tool_name': 'AgentTaskProgress',
+            'action': 'progress_task',
+            'agent_id': 'finance-agent',
+            'task_id': 'task-1',
+            'status': 'success',
+            'duration_ms': 18,
+          },
+        ),
+        AiSessionMessage.compressionPoint(
+          id: 'compact-1',
+          content: 'Checkpoint',
+          createdAt: now.add(const Duration(seconds: 1)),
+          metadata: const <String, Object?>{},
+        ),
+        AiSessionMessage.user(
+          id: 'user-1',
+          content: '继续追踪智能体任务',
+          createdAt: now.add(const Duration(seconds: 2)),
+        ),
+      ],
+      now: now,
+    );
+
+    final result = _buildPrompt(const <AiToolDefinition>[], session: session);
+    final restored = _sectionText(
+      result,
+      AiPromptSectionHeaders.restoredAgentResultContext,
+    );
+
+    expect(restored, contains('Hermes Agent Tool: AgentTaskProgress'));
+    expect(restored, contains('- tool: AgentTaskProgress'));
+    expect(restored, contains('- action: progress_task'));
+    expect(restored, contains('- agent_id: finance-agent'));
+    expect(restored, contains('- task_id: task-1'));
+    expect(restored, contains('"next_action": "poll"'));
+    expect(restored, contains('"routing_diagnostics"'));
+  });
 }
 
 AiPromptBuildResult _buildPrompt(

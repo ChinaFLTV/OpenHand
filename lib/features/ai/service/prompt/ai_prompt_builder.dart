@@ -1105,7 +1105,7 @@ class AiPromptBuilder {
       historyMessages: historyMessages,
       latestCompressionPoint: latestCompressionPoint,
     );
-    final recentAgentResults = _recentTaskAgentResultAnchors(
+    final recentAgentResults = _recentAgentResultAnchors(
       historyMessages: historyMessages,
       latestCompressionPoint: latestCompressionPoint,
     );
@@ -1181,6 +1181,8 @@ class AiPromptBuilder {
               (message) => <String, Object?>{
                 'message_id': message.id,
                 'created_at': message.createdAt.toUtc().toIso8601String(),
+                'tool_name': '${message.metadata['tool_name'] ?? ''}'.trim(),
+                'action': '${message.metadata['action'] ?? ''}'.trim(),
                 'subagent_type': '${message.metadata['subagent_type'] ?? ''}'
                     .trim(),
                 'status': '${message.metadata['status'] ?? ''}'.trim(),
@@ -4572,7 +4574,7 @@ $content
     required List<AiSessionMessage> historyMessages,
     required AiSessionMessage? latestCompressionPoint,
   }) {
-    final agentResults = _recentTaskAgentResultAnchors(
+    final agentResults = _recentAgentResultAnchors(
       historyMessages: historyMessages,
       latestCompressionPoint: latestCompressionPoint,
     );
@@ -4581,11 +4583,15 @@ $content
     }
     final buffer = StringBuffer()
       ..writeln(
-        'Background agent results restored after compaction. Treat these as completed Task/subagent observations that may no longer be present in the compressed transcript.',
+        'Agent results restored after compaction. Treat these as prior Task/subagent or Hermes Agent tool observations that may no longer be present in the compressed transcript.',
       );
     for (final message in agentResults) {
       final metadata = message.metadata;
       final subagentType = '${metadata['subagent_type'] ?? ''}'.trim();
+      final toolName = '${metadata['tool_name'] ?? ''}'.trim();
+      final action = '${metadata['action'] ?? ''}'.trim();
+      final agentId = '${metadata['agent_id'] ?? ''}'.trim();
+      final taskId = '${metadata['task_id'] ?? ''}'.trim();
       final status =
           '${metadata['status'] ?? metadata['tool_execution_status'] ?? ''}'
               .trim();
@@ -4598,11 +4604,26 @@ $content
       );
       buffer
         ..writeln()
-        ..writeln('## ${subagentType.isEmpty ? 'Task Subagent' : subagentType}')
+        ..writeln('## ${_restoredAgentResultTitle(metadata)}')
         ..writeln('- message_id: ${message.id}')
         ..writeln(
           '- created_at: ${message.createdAt.toUtc().toIso8601String()}',
         );
+      if (toolName.isNotEmpty) {
+        buffer.writeln('- tool: $toolName');
+      }
+      if (subagentType.isNotEmpty) {
+        buffer.writeln('- subagent_type: $subagentType');
+      }
+      if (action.isNotEmpty) {
+        buffer.writeln('- action: $action');
+      }
+      if (agentId.isNotEmpty) {
+        buffer.writeln('- agent_id: $agentId');
+      }
+      if (taskId.isNotEmpty) {
+        buffer.writeln('- task_id: $taskId');
+      }
       if (status.isNotEmpty) {
         buffer.writeln('- status: $status');
       }
@@ -4625,7 +4646,7 @@ $content
     );
   }
 
-  List<AiSessionMessage> _recentTaskAgentResultAnchors({
+  List<AiSessionMessage> _recentAgentResultAnchors({
     required List<AiSessionMessage> historyMessages,
     required AiSessionMessage? latestCompressionPoint,
     int maxResults = _postCompactRestoreMaxAgentResults,
@@ -4642,21 +4663,39 @@ $content
     final results = <AiSessionMessage>[];
     for (var i = searchEnd - 1; i >= 0 && results.length < maxResults; i--) {
       final message = historyMessages[i];
-      if (_isTaskAgentResultMessage(message)) {
+      if (_isRestorableAgentResultMessage(message)) {
         results.add(message);
       }
     }
     return results.reversed.toList(growable: false);
   }
 
-  bool _isTaskAgentResultMessage(AiSessionMessage message) {
+  bool _isRestorableAgentResultMessage(AiSessionMessage message) {
     if (message.kind != AiSessionMessageKind.tool) {
       return false;
     }
     final toolName = '${message.metadata['tool_name'] ?? ''}'.trim();
     final subagentType = '${message.metadata['subagent_type'] ?? ''}'.trim();
     final isolated = message.metadata['subagent_session_isolated'] == true;
-    return toolName == 'Task' || (subagentType.isNotEmpty && isolated);
+    return toolName == 'Task' ||
+        (subagentType.isNotEmpty && isolated) ||
+        _isHermesAgentToolResult(toolName);
+  }
+
+  bool _isHermesAgentToolResult(String toolName) {
+    if (!toolName.startsWith('Agent')) return false;
+    if (toolName == 'Agent') return false;
+    return true;
+  }
+
+  String _restoredAgentResultTitle(Map<String, Object?> metadata) {
+    final subagentType = '${metadata['subagent_type'] ?? ''}'.trim();
+    if (subagentType.isNotEmpty) return subagentType;
+    final toolName = '${metadata['tool_name'] ?? ''}'.trim();
+    if (_isHermesAgentToolResult(toolName)) {
+      return 'Hermes Agent Tool: $toolName';
+    }
+    return 'Task Subagent';
   }
 
   String _renderPostCompactRestoredToolAgentContext({
