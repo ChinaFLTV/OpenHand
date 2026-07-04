@@ -35,7 +35,6 @@ const int _transcriptInitialWindowSize = 10;
 const int _transcriptWindowIncrement = 6;
 const int _transcriptWindowingThreshold = 14;
 const int _transcriptPreparationThreshold = 16;
-const double _transcriptListCacheExtent = 520;
 const int _transcriptWarmupMaxPerFrame = 1;
 const int _transcriptWarmupSignatureCacheLimit = 256;
 const int _transcriptWarmupCharacterBudget = 14000;

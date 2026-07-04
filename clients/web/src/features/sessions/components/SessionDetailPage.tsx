@@ -140,16 +140,6 @@ import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from '
 const PAGE_SIZE = 24;
 // 首屏加载最近一页消息；更早历史只在用户点击“加载更早”时进入当前滚动范围。
 const INITIAL_PAGE_SIZE = 12;
-const MESSAGE_ROW_VIRTUALIZATION_THRESHOLD = 36;
-const MESSAGE_ROW_VIRTUALIZATION_ROOT_MARGIN_PX = 1600;
-const MESSAGE_ROW_HEIGHT_CACHE_LIMIT = 1400;
-const MESSAGE_ROW_ESTIMATED_MIN_HEIGHT_PX = 84;
-const MESSAGE_ROW_ESTIMATED_MAX_HEIGHT_PX = 560;
-const MESSAGE_ROW_ESTIMATED_CHARS_PER_LINE = 76;
-const MESSAGE_ROW_ESTIMATED_LINE_HEIGHT_PX = 22;
-const MESSAGE_ROW_ESTIMATED_BASE_HEIGHT_PX = 74;
-const MESSAGE_ROW_ESTIMATED_TOOL_EXTRA_PX = 44;
-const MESSAGE_ROW_ESTIMATED_HTML_EXTRA_PX = 72;
 
 function supportsTitleGeneration(model: ApiMetaModel | undefined): boolean {
   return !!model && model.supports_text_title_generation !== false;
@@ -1674,161 +1664,6 @@ function messageWindowShapeKey(sessionId: string, windowOffset: number, ordered:
     ordered[0]!.id,
     ordered[count - 1]!.id,
   ].join('|');
-}
-
-const messageRowHeightCache = new Map<string, number>();
-
-function rememberMessageRowHeight(key: string, height: number): void {
-  if (!Number.isFinite(height) || height <= 0) return;
-  const normalized = Math.max(
-    MESSAGE_ROW_ESTIMATED_MIN_HEIGHT_PX,
-    Math.min(MESSAGE_ROW_ESTIMATED_MAX_HEIGHT_PX * 2, Math.ceil(height)),
-  );
-  if (messageRowHeightCache.has(key)) messageRowHeightCache.delete(key);
-  messageRowHeightCache.set(key, normalized);
-  while (messageRowHeightCache.size > MESSAGE_ROW_HEIGHT_CACHE_LIMIT) {
-    const first = messageRowHeightCache.keys().next().value;
-    if (first == null) break;
-    messageRowHeightCache.delete(first);
-  }
-}
-
-function cachedMessageRowHeight(key: string): number | null {
-  const cached = messageRowHeightCache.get(key);
-  if (cached == null) return null;
-  messageRowHeightCache.delete(key);
-  messageRowHeightCache.set(key, cached);
-  return cached;
-}
-
-function messageRowHeightKey(message: SessionMessage): string {
-  return messageRenderSignature(message);
-}
-
-function estimateMessageRowHeight(message: SessionMessage): number {
-  const content = message.content ?? '';
-  let hardBreaks = 0;
-  const scanLength = Math.min(content.length, 16_000);
-  for (let index = 0; index < scanLength; index += 1) {
-    if (content.charCodeAt(index) === 10) hardBreaks += 1;
-  }
-  if (content.length > scanLength && scanLength > 0) {
-    hardBreaks = Math.round(hardBreaks * (content.length / scanLength));
-  }
-  const softLines = Math.ceil(Math.max(1, content.length) / MESSAGE_ROW_ESTIMATED_CHARS_PER_LINE);
-  const lineCount = Math.max(1, softLines + hardBreaks);
-  const metadata = recordOrNullFromUnknown(message.metadata);
-  const contentFormat = normalizeMetaMessageContentFormat(metadata?.['content_format']);
-  const toolLike =
-    message.kind === 'tool' ||
-    message.kind === 'tool_call' ||
-    message.kind === 'mcp' ||
-    message.kind === 'hook' ||
-    message.kind === 'skill';
-  const estimated =
-    MESSAGE_ROW_ESTIMATED_BASE_HEIGHT_PX +
-    lineCount * MESSAGE_ROW_ESTIMATED_LINE_HEIGHT_PX +
-    (toolLike ? MESSAGE_ROW_ESTIMATED_TOOL_EXTRA_PX : 0) +
-    (contentFormat === 'html' ? MESSAGE_ROW_ESTIMATED_HTML_EXTRA_PX : 0);
-  return Math.max(
-    MESSAGE_ROW_ESTIMATED_MIN_HEIGHT_PX,
-    Math.min(MESSAGE_ROW_ESTIMATED_MAX_HEIGHT_PX, estimated),
-  );
-}
-
-function VirtualizedMessageRow({
-  message,
-  rootRef,
-  enabled,
-  forceMount,
-  children,
-}: {
-  message: SessionMessage;
-  rootRef: { current: HTMLElement | null };
-  enabled: boolean;
-  forceMount: boolean;
-  children: () => ComponentChildren;
-}) {
-  const rowRef = useRef<HTMLLIElement | null>(null);
-  const heightKey = useMemo(() => messageRowHeightKey(message), [message]);
-  const estimatedHeight = useMemo(() => estimateMessageRowHeight(message), [heightKey, message]);
-  const [rowHeight, setRowHeight] = useState(() => cachedMessageRowHeight(heightKey) ?? estimatedHeight);
-  const [nearViewport, setNearViewport] = useState(() => {
-    return !enabled || forceMount || typeof IntersectionObserver !== 'function';
-  });
-
-  useEffect(() => {
-    setRowHeight(cachedMessageRowHeight(heightKey) ?? estimatedHeight);
-  }, [estimatedHeight, heightKey]);
-
-  useEffect(() => {
-    if (!enabled || forceMount) {
-      setNearViewport(true);
-      return;
-    }
-    const element = rowRef.current;
-    if (element == null || typeof IntersectionObserver !== 'function') {
-      setNearViewport(true);
-      return;
-    }
-    const observer = new IntersectionObserver((entries) => {
-      const next = entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0);
-      setNearViewport((current) => (current === next ? current : next));
-    }, {
-      root: rootRef.current,
-      rootMargin: `${MESSAGE_ROW_VIRTUALIZATION_ROOT_MARGIN_PX}px 0px`,
-      threshold: 0,
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [enabled, forceMount, heightKey, rootRef]);
-
-  useLayoutEffect(() => {
-    if (!nearViewport) return;
-    const element = rowRef.current;
-    if (element == null || typeof window === 'undefined') return;
-    let frame: number | null = null;
-    const measure = () => {
-      frame = null;
-      const next = element.getBoundingClientRect().height;
-      if (!Number.isFinite(next) || next <= 0) return;
-      rememberMessageRowHeight(heightKey, next);
-      setRowHeight((current) => (Math.abs(current - next) < 1 ? current : Math.ceil(next)));
-    };
-    const scheduleMeasure = () => {
-      if (frame != null) return;
-      frame = window.requestAnimationFrame(measure);
-    };
-    scheduleMeasure();
-    if (typeof ResizeObserver === 'undefined') {
-      return () => {
-        if (frame != null) window.cancelAnimationFrame(frame);
-      };
-    }
-    const observer = new ResizeObserver(scheduleMeasure);
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-      if (frame != null) window.cancelAnimationFrame(frame);
-    };
-  }, [heightKey, nearViewport]);
-
-  if (!nearViewport) {
-    return (
-      <li
-        ref={rowRef}
-        class="oh-session-message-row"
-        aria-hidden="true"
-        style={{ minHeight: `${Math.max(MESSAGE_ROW_ESTIMATED_MIN_HEIGHT_PX, rowHeight)}px` }}
-      />
-    );
-  }
-
-  return (
-    <li ref={rowRef} class="oh-session-message-row">
-      {children()}
-    </li>
-  );
 }
 
 function messagesWindowLooksIdentical(prev: SessionMessage[], next: SessionMessage[], prevOffset: number, nextOffset: number): boolean {
@@ -5631,8 +5466,6 @@ export function SessionDetailPage() {
   }, [applyTtsPlayback, readAloudEnabled, ttsPlayback.playing]);
 
   const visibleSortedMessages = sortedMessages;
-  const virtualizeMessageRows =
-    visibleSortedMessages.length > MESSAGE_ROW_VIRTUALIZATION_THRESHOLD;
   const associatedKnowledgeBaseByMessageId = useMemo(
     () => stabilizeAssociatedKnowledgeBaseMetadataByMessageId(
       buildAssociatedKnowledgeBaseMetadataByMessageId(visibleSortedMessages),
@@ -5818,23 +5651,8 @@ export function SessionDetailPage() {
                           translation.settingsFingerprint === translationRequestFingerprint;
                         const associatedKnowledgeBaseMetadata = associatedKnowledgeBaseByMessageId.get(m.id) ?? null;
                         const streaming = m.id === latestStreamingTextMessageId || messageMetadataStreaming(m);
-                        const forceMount =
-                          !virtualizeMessageRows ||
-                          activeMessageId === m.id ||
-                          streaming ||
-                          (stableResponseRunning && m === messageWindowView.tail) ||
-                          (translationMatches && (translation.loading || translation.visible)) ||
-                          feedbackBusyMessageIds.has(m.id) ||
-                          regeneratingMessageIds.has(m.id);
                         return (
-                          <VirtualizedMessageRow
-                            key={m.id}
-                            message={m}
-                            rootRef={mainRef}
-                            enabled={virtualizeMessageRows}
-                            forceMount={forceMount}
-                          >
-                            {() => (
+                          <li key={m.id} class="oh-session-message-row">
                             <MessageCard
                               message={m}
                               active={activeMessageId === m.id}
@@ -5865,8 +5683,7 @@ export function SessionDetailPage() {
                               onSetFeedback={handleSetMessageFeedback}
                               onRegenerate={handleRegenerateMessage}
                             />
-                            )}
-                          </VirtualizedMessageRow>
+                          </li>
                         );
                       })}
                     </ul>
