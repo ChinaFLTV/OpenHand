@@ -2812,7 +2812,7 @@ class _ConnectivityTargetCard extends StatelessWidget {
         ],
       ),
     );
-    if (MediaQuery.disableAnimationsOf(context)) return content;
+    if (!openHandTickerMotionEnabled(context)) return content;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
       duration: Duration(milliseconds: 220 + math.min(index, 6) * 30),
@@ -6627,7 +6627,7 @@ class _MultiSelectDropdownMenuState<T>
       ..duration = settings.duration
       ..reverseDuration = settings.duration;
     if (_transitionController.value == 0 && !_closing) {
-      if (MediaQuery.disableAnimationsOf(context) ||
+      if (!openHandTickerMotionEnabled(context) ||
           settings.duration == Duration.zero) {
         _transitionController.value = 1;
       } else {
@@ -7020,7 +7020,7 @@ class _MultiSelectDropdownMenuState<T>
   void _applyAndClose() {
     if (_closing) return;
     widget.onApply(Set<T>.from(_selected));
-    if (MediaQuery.disableAnimationsOf(context) ||
+    if (!openHandTickerMotionEnabled(context) ||
         _transitionController.duration == Duration.zero) {
       widget.onClose();
       return;
@@ -7738,7 +7738,7 @@ class _AnimatedLogLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (!openHandTickerMotionEnabled(context)) {
       return _LogLine(entry: entry);
     }
     final curved = CurvedAnimation(
