@@ -1,63 +1,17 @@
 part of 'harness_session_dashboard.dart';
 
-class _HePhaseCardEntrance extends StatefulWidget {
+class _HePhaseCardEntrance extends StatelessWidget {
   const _HePhaseCardEntrance({required this.child});
 
   final Widget child;
 
   @override
-  State<_HePhaseCardEntrance> createState() => _HePhaseCardEntranceState();
-}
-
-class _HePhaseCardEntranceState extends State<_HePhaseCardEntrance>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _opacity;
-  late final Animation<double> _scale;
-  late final Animation<Offset> _slide;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      duration: const Duration(milliseconds: 520),
-      vsync: this,
-    );
-    // Opacity: linear 0→1 in the first 60 % of the animation.
-    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _ctrl,
-        curve: const Interval(0.0, 0.60, curve: Curves.easeOut),
-      ),
-    );
-    // Scale: 0.94→1.0 with an elastic overshoot — the Q弹 feel.
-    _scale = Tween<double>(
-      begin: 0.94,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
-    // Slide: starts 18 px below its final position and rises to 0.
-    _slide = Tween<Offset>(
-      begin: const Offset(0.0, 0.06),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
-    _ctrl.forward();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _opacity,
-      child: ScaleTransition(
-        scale: _scale,
-        alignment: Alignment.topCenter,
-        child: SlideTransition(position: _slide, child: widget.child),
-      ),
+    return OpenHandSpringEntrance(
+      duration: const Duration(milliseconds: 520),
+      opacityIntervalEnd: 0.60,
+      slideBegin: const Offset(0.0, 0.06),
+      child: child,
     );
   }
 }

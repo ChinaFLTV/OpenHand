@@ -703,64 +703,14 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
   }
 }
 
-class _HeAnimatedSegmentEntry extends StatefulWidget {
+class _HeAnimatedSegmentEntry extends StatelessWidget {
   const _HeAnimatedSegmentEntry({super.key, required this.child});
 
   final Widget child;
 
   @override
-  State<_HeAnimatedSegmentEntry> createState() =>
-      _HeAnimatedSegmentEntryState();
-}
-
-class _HeAnimatedSegmentEntryState extends State<_HeAnimatedSegmentEntry>
-    with SingleTickerProviderStateMixin {
-  static const _entranceDuration = Duration(milliseconds: 420);
-
-  late final AnimationController _entranceCtrl;
-  late final Animation<double> _opacity;
-  late final Animation<double> _scale;
-  late final Animation<Offset> _slide;
-
-  @override
-  void initState() {
-    super.initState();
-    _entranceCtrl = AnimationController(
-      duration: _entranceDuration,
-      vsync: this,
-    );
-    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _entranceCtrl,
-        curve: const Interval(0.0, 0.55, curve: Curves.easeOut),
-      ),
-    );
-    _scale = Tween<double>(begin: 0.94, end: 1.0).animate(
-      CurvedAnimation(parent: _entranceCtrl, curve: Curves.easeOutBack),
-    );
-    _slide = Tween<Offset>(begin: const Offset(0.0, 0.04), end: Offset.zero)
-        .animate(
-          CurvedAnimation(parent: _entranceCtrl, curve: Curves.easeOutCubic),
-        );
-    _entranceCtrl.forward();
-  }
-
-  @override
-  void dispose() {
-    _entranceCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _opacity,
-      child: ScaleTransition(
-        scale: _scale,
-        alignment: Alignment.topCenter,
-        child: SlideTransition(position: _slide, child: widget.child),
-      ),
-    );
+    return OpenHandSpringEntrance(child: child);
   }
 }
 
