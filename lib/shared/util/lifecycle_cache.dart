@@ -3,6 +3,9 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 
+const int _defaultLifecycleCacheEntryCost = 1;
+const int _maxLifecycleCacheEntryCost = 1 << 62;
+
 class LifecycleLruCache<V> {
   LifecycleLruCache({
     required this.maxEntries,
@@ -43,7 +46,10 @@ class LifecycleLruCache<V> {
     _totalCost = 0;
   }
 
-  int _entryCost(V value) => (_costOf?.call(value) ?? 1).clamp(0, 1 << 62);
+  int _entryCost(V value) {
+    final cost = _costOf?.call(value) ?? _defaultLifecycleCacheEntryCost;
+    return cost.clamp(0, _maxLifecycleCacheEntryCost);
+  }
 
   void _evictOverflow() {
     final costLimit = maxCost;
