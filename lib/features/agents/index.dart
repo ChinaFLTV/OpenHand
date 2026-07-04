@@ -1,6 +1,7 @@
 export 'agents_controller.dart';
 export 'agents_module.dart';
 export 'model/agent_models.dart';
+export 'service/agent_ordering.dart';
 export 'service/agent_prompt_renderer.dart';
 export 'service/agent_routing_metadata.dart';
 export 'service/agent_runtime_availability.dart';

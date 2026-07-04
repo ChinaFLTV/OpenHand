@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/agent_models.dart';
+import 'agent_ordering.dart';
 import 'agent_routing_metadata.dart';
 import 'agent_runtime_context_summary.dart';
 
@@ -171,7 +172,7 @@ Map<String, Object?> _capabilitiesJson(
 
 Map<String, Object?> _runtimePolicyJson(AgentProfile agent) {
   final scopePaths = agent.normalizedWorkspaceScopePaths;
-  final kpis = _sortedAgentPromptKpis(agent.kpis);
+  final kpis = sortedAgentKpisForAttention(agent.kpis);
   return <String, Object?>{
     'enabled': agent.enabled,
     'lifecycle_state': agent.lifecycleState.storageValue,
@@ -191,9 +192,9 @@ Map<String, Object?> _runtimePolicyJson(AgentProfile agent) {
 }
 
 Map<String, Object?> _operationalStateJson(AgentProfile agent) {
-  final tasks = _sortedAgentPromptTasks(agent.tasks);
-  final approvals = _sortedAgentPromptApprovals(agent.approvals);
-  final kpis = _sortedAgentPromptKpis(agent.kpis);
+  final tasks = sortedAgentTasksForAttention(agent.tasks);
+  final approvals = sortedAgentApprovalsForAttention(agent.approvals);
+  final kpis = sortedAgentKpisForAttention(agent.kpis);
   final activeTasks = tasks
       .where((task) => !_taskIsTerminal(task.status))
       .take(12)
@@ -204,7 +205,7 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
       .take(10)
       .map(_taskJson)
       .toList(growable: false);
-  final recentTerminalTasks = _recentAgentPromptTasks(agent.tasks)
+  final recentTerminalTasks = recentAgentTasks(agent.tasks)
       .where((task) => _taskIsTerminal(task.status))
       .take(6)
       .map(_taskJson)
@@ -241,14 +242,8 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
     0,
     (sum, event) => sum + event.tokenUsage,
   );
-  final recentActivities = _recentAgentPromptEvents(
-    agent.activities,
-    (event) => event.createdAt,
-  );
-  final recentAuditEvents = _recentAgentPromptEvents(
-    agent.auditEvents,
-    (event) => event.createdAt,
-  );
+  final recentActivities = recentAgentActivities(agent.activities);
+  final recentAuditEvents = recentAgentAuditEvents(agent.auditEvents);
   return <String, Object?>{
     'task_counts': <String, Object?>{
       'total': agent.tasks.length,
@@ -325,164 +320,6 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
           .toList(growable: false),
     },
   };
-}
-
-List<T> _recentAgentPromptEvents<T>(
-  Iterable<T> events,
-  DateTime? Function(T event) createdAtOf,
-) {
-  final indexed = events.indexed.toList(growable: false);
-  indexed.sort((left, right) {
-    final timeCompare = _agentPromptEventSortTime(
-      right.$2,
-      createdAtOf,
-    ).compareTo(_agentPromptEventSortTime(left.$2, createdAtOf));
-    if (timeCompare != 0) return timeCompare;
-    return left.$1.compareTo(right.$1);
-  });
-  return indexed.map((entry) => entry.$2).toList(growable: false);
-}
-
-DateTime _agentPromptEventSortTime<T>(
-  T event,
-  DateTime? Function(T event) createdAtOf,
-) {
-  return createdAtOf(event) ??
-      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-}
-
-List<AgentTask> _sortedAgentPromptTasks(List<AgentTask> tasks) {
-  final indexed = tasks.indexed.toList(growable: false);
-  indexed.sort((left, right) {
-    final statusCompare = _agentPromptTaskStatusRank(
-      left.$2.status,
-    ).compareTo(_agentPromptTaskStatusRank(right.$2.status));
-    if (statusCompare != 0) return statusCompare;
-    final timeCompare = _agentPromptTaskSortTime(
-      right.$2,
-    ).compareTo(_agentPromptTaskSortTime(left.$2));
-    if (timeCompare != 0) return timeCompare;
-    return left.$1.compareTo(right.$1);
-  });
-  return indexed.map((entry) => entry.$2).toList(growable: false);
-}
-
-List<AgentTask> _recentAgentPromptTasks(List<AgentTask> tasks) {
-  final indexed = tasks.indexed.toList(growable: false);
-  indexed.sort((left, right) {
-    final timeCompare = _agentPromptTaskSortTime(
-      right.$2,
-    ).compareTo(_agentPromptTaskSortTime(left.$2));
-    if (timeCompare != 0) return timeCompare;
-    return left.$1.compareTo(right.$1);
-  });
-  return indexed.map((entry) => entry.$2).toList(growable: false);
-}
-
-int _agentPromptTaskStatusRank(AgentTaskStatus status) {
-  return switch (status) {
-    AgentTaskStatus.waitingApproval => 0,
-    AgentTaskStatus.running => 1,
-    AgentTaskStatus.ready => 2,
-    AgentTaskStatus.backlog => 3,
-    AgentTaskStatus.paused => 4,
-    AgentTaskStatus.completed => 5,
-    AgentTaskStatus.failed => 6,
-    AgentTaskStatus.canceled => 7,
-  };
-}
-
-DateTime _agentPromptTaskSortTime(AgentTask task) {
-  return task.updatedAt ??
-      task.createdAt ??
-      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-}
-
-List<AgentApprovalRequest> _sortedAgentPromptApprovals(
-  List<AgentApprovalRequest> approvals,
-) {
-  final indexed = approvals.indexed.toList(growable: false);
-  indexed.sort((left, right) {
-    final pendingCompare = _agentPromptApprovalPendingRank(
-      left.$2.status,
-    ).compareTo(_agentPromptApprovalPendingRank(right.$2.status));
-    if (pendingCompare != 0) return pendingCompare;
-    final riskCompare =
-        _agentPromptApprovalRiskRank(
-          _agentPromptApprovalRiskLevel(right.$2),
-        ).compareTo(
-          _agentPromptApprovalRiskRank(_agentPromptApprovalRiskLevel(left.$2)),
-        );
-    if (riskCompare != 0) return riskCompare;
-    final timeCompare = _agentPromptApprovalSortTime(
-      right.$2,
-    ).compareTo(_agentPromptApprovalSortTime(left.$2));
-    if (timeCompare != 0) return timeCompare;
-    return left.$1.compareTo(right.$1);
-  });
-  return indexed.map((entry) => entry.$2).toList(growable: false);
-}
-
-int _agentPromptApprovalPendingRank(AgentApprovalStatus status) {
-  return status == AgentApprovalStatus.pending ? 0 : 1;
-}
-
-String _agentPromptApprovalRiskLevel(AgentApprovalRequest approval) {
-  final raw =
-      approval.extra['risk_level'] ??
-      approval.extra['riskLevel'] ??
-      approval.extra['risk'];
-  return '$raw'.trim().toLowerCase();
-}
-
-int _agentPromptApprovalRiskRank(String riskLevel) {
-  return switch (riskLevel) {
-    'critical' || 'destructive' => 4,
-    'high' => 3,
-    'medium' => 2,
-    'low' => 1,
-    _ => 0,
-  };
-}
-
-DateTime _agentPromptApprovalSortTime(AgentApprovalRequest approval) {
-  return approval.resolvedAt ??
-      approval.createdAt ??
-      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-}
-
-List<AgentKpiItem> _sortedAgentPromptKpis(List<AgentKpiItem> kpis) {
-  final indexed = kpis.indexed.toList(growable: false);
-  indexed.sort((left, right) {
-    final statusCompare = _agentPromptKpiStatusRank(
-      left.$2.status,
-    ).compareTo(_agentPromptKpiStatusRank(right.$2.status));
-    if (statusCompare != 0) return statusCompare;
-    final progressCompare = left.$2.progress.compareTo(right.$2.progress);
-    if (progressCompare != 0) return progressCompare;
-    final timeCompare = _agentPromptKpiSortTime(
-      right.$2,
-    ).compareTo(_agentPromptKpiSortTime(left.$2));
-    if (timeCompare != 0) return timeCompare;
-    return left.$1.compareTo(right.$1);
-  });
-  return indexed.map((entry) => entry.$2).toList(growable: false);
-}
-
-int _agentPromptKpiStatusRank(String status) {
-  return switch (status.trim().toLowerCase()) {
-    'at_risk' => 0,
-    'tracking' => 1,
-    'paused' => 2,
-    'done' => 3,
-    _ => 4,
-  };
-}
-
-DateTime _agentPromptKpiSortTime(AgentKpiItem item) {
-  return item.updatedAt ??
-      item.createdAt ??
-      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 }
 
 bool _taskIsTerminal(AgentTaskStatus status) {

@@ -562,7 +562,7 @@ class AiAgentTool extends AiTool {
     final workerId = _optionalText(args['worker_id']);
 
     final activities = includeActivities
-        ? _recentAgentToolActivities(agent.activities)
+        ? recentAgentActivities(agent.activities)
               .where(
                 (event) => _activityMatches(
                   event,
@@ -577,7 +577,7 @@ class AiAgentTool extends AiTool {
               .toList(growable: false)
         : const <AgentActivityEvent>[];
     final auditEvents = includeAudit
-        ? _recentAgentToolAuditEvents(agent.auditEvents)
+        ? recentAgentAuditEvents(agent.auditEvents)
               .where(
                 (event) => _auditMatches(
                   event,
@@ -660,13 +660,13 @@ class AiAgentTool extends AiTool {
         .where((worker) => _workerMatches(worker, workerId))
         .toList(growable: false);
     final tasks = includeTasks
-        ? _sortedAgentToolTasks(agent.tasks)
+        ? sortedAgentTasksForAttention(agent.tasks)
               .where((task) => _clusterTaskMatches(task, workerId: workerId))
               .take(limit)
               .toList(growable: false)
         : const <AgentTask>[];
     final clusterActivities = includeAudit
-        ? _recentAgentToolActivities(agent.activities)
+        ? recentAgentActivities(agent.activities)
               .where(_isClusterActivity)
               .where(
                 (event) =>
@@ -676,7 +676,7 @@ class AiAgentTool extends AiTool {
               .toList(growable: false)
         : const <AgentActivityEvent>[];
     final clusterAuditEvents = includeAudit
-        ? _recentAgentToolAuditEvents(agent.auditEvents)
+        ? recentAgentAuditEvents(agent.auditEvents)
               .where(_isClusterAuditEvent)
               .where(
                 (event) =>
@@ -868,7 +868,7 @@ class AiAgentTool extends AiTool {
       min: 1,
       max: 100,
     );
-    final tasks = _sortedAgentToolTasks(agent.tasks)
+    final tasks = sortedAgentTasksForAttention(agent.tasks)
         .where(
           (task) => _taskMatchesReportFilter(
             task,
@@ -877,7 +877,7 @@ class AiAgentTool extends AiTool {
           ),
         )
         .toList(growable: false);
-    final auditEvents = _recentAgentToolAuditEvents(agent.auditEvents)
+    final auditEvents = recentAgentAuditEvents(agent.auditEvents)
         .where(
           (event) => _auditMatches(
             event,
@@ -888,7 +888,7 @@ class AiAgentTool extends AiTool {
           ),
         )
         .toList(growable: false);
-    final activities = _recentAgentToolActivities(agent.activities)
+    final activities = recentAgentActivities(agent.activities)
         .where(
           (event) => _activityMatches(
             event,
@@ -919,11 +919,11 @@ class AiAgentTool extends AiTool {
       'worker_capacity': _workerCapacityJsonForAgent(agent),
       if (workerId != null) 'worker': _workerSummaryById(agent, workerId),
       'kpi_summary': _kpiSummaryJson(agent.kpis),
-      'kpi_state': _sortedAgentToolKpis(
+      'kpi_state': sortedAgentKpisForAttention(
         agent.kpis,
       ).take(limit).map((item) => item.toJson()).toList(growable: false),
       'approval_summary': _approvalSummaryJson(agent.approvals),
-      'pending_approvals': _sortedAgentToolApprovals(agent.approvals)
+      'pending_approvals': sortedAgentApprovalsForAttention(agent.approvals)
           .where((item) => item.status == AgentApprovalStatus.pending)
           .take(limit)
           .map((item) => item.toJson())
@@ -1294,7 +1294,7 @@ class AiAgentTool extends AiTool {
       min: 1,
       max: 200,
     );
-    final tasks = _sortedAgentToolTasks(agent.tasks)
+    final tasks = sortedAgentTasksForAttention(agent.tasks)
         .where(
           (task) => _taskMatchesListFilter(
             task,
@@ -2489,20 +2489,20 @@ Map<String, Object?> _agentDetailJson(
     'kpi_summary': _kpiSummaryJson(agent.kpis),
     'approval_summary': _approvalSummaryJson(agent.approvals),
     'resource_summary': _resourceUsageSummaryJson(agent.resourceUsage),
-    'kpis': _sortedAgentToolKpis(
+    'kpis': sortedAgentKpisForAttention(
       agent.kpis,
     ).map((item) => item.toJson()).toList(growable: false),
     'workers': agent.workers
         .map((item) => item.toJson())
         .toList(growable: false),
-    'approvals': _sortedAgentToolApprovals(
+    'approvals': sortedAgentApprovalsForAttention(
       agent.approvals,
     ).map((item) => item.toJson()).toList(growable: false),
-    'recent_activities': _recentAgentToolActivities(
+    'recent_activities': recentAgentActivities(
       agent.activities,
     ).take(20).map((item) => item.toJson()).toList(growable: false),
     if (includeTasks)
-      'tasks': _sortedAgentToolTasks(agent.tasks)
+      'tasks': sortedAgentTasksForAttention(agent.tasks)
           .map(
             (task) => _taskJson(
               task,
@@ -2512,7 +2512,7 @@ Map<String, Object?> _agentDetailJson(
           )
           .toList(growable: false),
     if (includeAudit)
-      'audit_events': _recentAgentToolAuditEvents(
+      'audit_events': recentAgentAuditEvents(
         agent.auditEvents,
       ).take(50).map((item) => item.toJson()).toList(growable: false),
     if (includeResources) 'resource_usage': agent.resourceUsage.toJson(),
@@ -3197,169 +3197,11 @@ bool _isClusterEventKind(String kind) {
       normalized == 'task_terminated';
 }
 
-List<AgentTask> _sortedAgentToolTasks(List<AgentTask> tasks) {
-  final indexed = tasks.indexed.toList(growable: false);
-  indexed.sort((left, right) {
-    final statusCompare = _agentToolTaskStatusRank(
-      left.$2.status,
-    ).compareTo(_agentToolTaskStatusRank(right.$2.status));
-    if (statusCompare != 0) return statusCompare;
-    final timeCompare = _agentToolTaskSortTime(
-      right.$2,
-    ).compareTo(_agentToolTaskSortTime(left.$2));
-    if (timeCompare != 0) return timeCompare;
-    return left.$1.compareTo(right.$1);
-  });
-  return indexed.map((entry) => entry.$2).toList(growable: false);
-}
-
-int _agentToolTaskStatusRank(AgentTaskStatus status) {
-  return switch (status) {
-    AgentTaskStatus.waitingApproval => 0,
-    AgentTaskStatus.running => 1,
-    AgentTaskStatus.ready => 2,
-    AgentTaskStatus.backlog => 3,
-    AgentTaskStatus.paused => 4,
-    AgentTaskStatus.completed => 5,
-    AgentTaskStatus.failed => 6,
-    AgentTaskStatus.canceled => 7,
-  };
-}
-
-DateTime _agentToolTaskSortTime(AgentTask task) {
-  return task.updatedAt ??
-      task.createdAt ??
-      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-}
-
-List<AgentActivityEvent> _recentAgentToolActivities(
-  List<AgentActivityEvent> activities,
-) {
-  final indexed = activities.indexed.toList(growable: false);
-  indexed.sort((left, right) {
-    final timeCompare = _agentToolActivitySortTime(
-      right.$2,
-    ).compareTo(_agentToolActivitySortTime(left.$2));
-    if (timeCompare != 0) return timeCompare;
-    return left.$1.compareTo(right.$1);
-  });
-  return indexed.map((entry) => entry.$2).toList(growable: false);
-}
-
-DateTime _agentToolActivitySortTime(AgentActivityEvent event) {
-  return event.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-}
-
-List<AgentAuditEvent> _recentAgentToolAuditEvents(
-  List<AgentAuditEvent> events,
-) {
-  final indexed = events.indexed.toList(growable: false);
-  indexed.sort((left, right) {
-    final timeCompare = _agentToolAuditSortTime(
-      right.$2,
-    ).compareTo(_agentToolAuditSortTime(left.$2));
-    if (timeCompare != 0) return timeCompare;
-    return left.$1.compareTo(right.$1);
-  });
-  return indexed.map((entry) => entry.$2).toList(growable: false);
-}
-
-DateTime _agentToolAuditSortTime(AgentAuditEvent event) {
-  return event.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-}
-
-List<AgentApprovalRequest> _sortedAgentToolApprovals(
-  List<AgentApprovalRequest> approvals,
-) {
-  final indexed = approvals.indexed.toList(growable: false);
-  indexed.sort((left, right) {
-    final pendingCompare = _agentToolApprovalPendingRank(
-      left.$2.status,
-    ).compareTo(_agentToolApprovalPendingRank(right.$2.status));
-    if (pendingCompare != 0) return pendingCompare;
-    final riskCompare =
-        _agentToolApprovalRiskRank(
-          _agentToolApprovalRiskLevel(right.$2),
-        ).compareTo(
-          _agentToolApprovalRiskRank(_agentToolApprovalRiskLevel(left.$2)),
-        );
-    if (riskCompare != 0) return riskCompare;
-    final timeCompare = _agentToolApprovalSortTime(
-      right.$2,
-    ).compareTo(_agentToolApprovalSortTime(left.$2));
-    if (timeCompare != 0) return timeCompare;
-    return left.$1.compareTo(right.$1);
-  });
-  return indexed.map((entry) => entry.$2).toList(growable: false);
-}
-
-int _agentToolApprovalPendingRank(AgentApprovalStatus status) {
-  return status == AgentApprovalStatus.pending ? 0 : 1;
-}
-
-String _agentToolApprovalRiskLevel(AgentApprovalRequest approval) {
-  final raw =
-      approval.extra['risk_level'] ??
-      approval.extra['riskLevel'] ??
-      approval.extra['risk'];
-  return '$raw'.trim().toLowerCase();
-}
-
-int _agentToolApprovalRiskRank(String riskLevel) {
-  return switch (riskLevel) {
-    'critical' || 'destructive' => 4,
-    'high' => 3,
-    'medium' => 2,
-    'low' => 1,
-    _ => 0,
-  };
-}
-
-DateTime _agentToolApprovalSortTime(AgentApprovalRequest approval) {
-  return approval.resolvedAt ??
-      approval.createdAt ??
-      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-}
-
-List<AgentKpiItem> _sortedAgentToolKpis(List<AgentKpiItem> kpis) {
-  final indexed = kpis.indexed.toList(growable: false);
-  indexed.sort((left, right) {
-    final statusCompare = _agentToolKpiStatusRank(
-      left.$2.status,
-    ).compareTo(_agentToolKpiStatusRank(right.$2.status));
-    if (statusCompare != 0) return statusCompare;
-    final progressCompare = left.$2.progress.compareTo(right.$2.progress);
-    if (progressCompare != 0) return progressCompare;
-    final timeCompare = _agentToolKpiSortTime(
-      right.$2,
-    ).compareTo(_agentToolKpiSortTime(left.$2));
-    if (timeCompare != 0) return timeCompare;
-    return left.$1.compareTo(right.$1);
-  });
-  return indexed.map((entry) => entry.$2).toList(growable: false);
-}
-
-int _agentToolKpiStatusRank(String status) {
-  return switch (status.trim().toLowerCase()) {
-    'at_risk' => 0,
-    'tracking' => 1,
-    'paused' => 2,
-    'done' => 3,
-    _ => 4,
-  };
-}
-
-DateTime _agentToolKpiSortTime(AgentKpiItem item) {
-  return item.updatedAt ??
-      item.createdAt ??
-      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-}
-
 List<AgentAuditEvent> _auditEventsForTask(
   List<AgentAuditEvent> events,
   String taskId,
 ) {
-  return _recentAgentToolAuditEvents(events)
+  return recentAgentAuditEvents(events)
       .where((event) => '${event.metadata['task_id'] ?? ''}'.trim() == taskId)
       .toList(growable: false);
 }
