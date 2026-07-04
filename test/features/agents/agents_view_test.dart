@@ -1257,6 +1257,50 @@ void main() {
       expect(tasks.single.extra['retryable'], isTrue);
     });
 
+    testWidgets('keeps publish task dialog open when title is blank', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          enabled: true,
+          lifecycleState: AgentLifecycleState.running,
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('任务台').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('发布任务').first);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, '介绍'),
+        'This should stay in the draft.',
+      );
+
+      final publishButton = find.ancestor(
+        of: find.text('发布').last,
+        matching: find.byType(FilledButton),
+      );
+      await tester.tap(publishButton);
+      await tester.pump();
+
+      expect(find.text('请先填写任务标题。'), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('发布任务 · Ops Agent'), findsOneWidget);
+      expect(find.text('This should stay in the draft.'), findsOneWidget);
+      expect(controller.agentById('agent-1')!.tasks, isEmpty);
+    });
+
     testWidgets('audit dialog renders capability and worker reports', (
       tester,
     ) async {

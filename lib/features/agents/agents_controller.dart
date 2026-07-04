@@ -234,13 +234,15 @@ class AgentsController extends ManagedChangeNotifier {
     Map<String, Object?> extra = const <String, Object?>{},
     String auditToolName = 'AgentTaskDesk',
   }) async {
+    final normalizedTitle = title.trim();
+    if (normalizedTitle.isEmpty) return null;
     AgentTask? createdTask;
     final changed = await updateAgent(agentId, (agent) {
       if (!agent.enabled) return agent;
       final now = DateTime.now().toUtc();
       final task = AgentTask(
         id: _uuid.v4(),
-        title: title.trim().isEmpty ? 'Untitled task' : title.trim(),
+        title: normalizedTitle,
         description: description.trim(),
         content: content.trim(),
         note: note.trim(),

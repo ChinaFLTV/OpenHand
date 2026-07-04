@@ -5400,6 +5400,17 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
 
   void _submit() {
     FocusScope.of(context).unfocus();
+    if (_title.text.trim().isEmpty) {
+      OpenHandSnackBar.showInfo(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '请先填写任务标题。',
+          en: 'Enter a task title first.',
+        ),
+      );
+      return;
+    }
     Navigator.of(context).pop(
       _AgentPublishTaskDraft(
         title: _title.text,

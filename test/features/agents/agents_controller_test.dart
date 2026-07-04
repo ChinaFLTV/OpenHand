@@ -119,6 +119,26 @@ void main() {
       );
     });
 
+    test(
+      'publishing a task rejects blank titles before mutating state',
+      () async {
+        await controller.saveAgent(_runningAgent());
+
+        final task = await controller.publishTaskWithResult(
+          'agent-1',
+          title: '   ',
+          description: 'Should not enter the task desk.',
+        );
+
+        final agent = controller.agentById('agent-1')!;
+        expect(task, isNull);
+        expect(agent.tasks, isEmpty);
+        expect(agent.activities, isEmpty);
+        expect(agent.auditEvents, isEmpty);
+        expect(agent.workers.single.status, AgentWorkerStatus.idle);
+      },
+    );
+
     test('publishing a task preserves caller extra metadata', () async {
       await controller.saveAgent(_runningAgent());
 
