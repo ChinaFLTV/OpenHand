@@ -495,10 +495,11 @@ void main() {
       await tester.pumpAndSettle();
 
       final bashChip = find.widgetWithText(FilterChip, 'bash');
-      final publishChip = find.widgetWithText(FilterChip, 'agentTaskPublish');
+      final publishChip = find.widgetWithText(FilterChip, '任务发布');
       expect(find.text('发现路由'), findsOneWidget);
       expect(find.text('任务生命周期'), findsOneWidget);
       expect(find.text('治理审计'), findsOneWidget);
+      expect(find.text('agentTaskPublish'), findsNothing);
       expect(find.text('已选 0/1'), findsOneWidget);
       expect(find.textContaining('变更 1'), findsAtLeastNWidgets(1));
       final selectAllButton = find.text('全选');
