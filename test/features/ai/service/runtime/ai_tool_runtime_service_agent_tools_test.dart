@@ -217,6 +217,21 @@ void main() {
       );
       expect(approvalRequired, contains('title'));
 
+      for (final kind in const <AiBuiltinToolKind>[
+        AiBuiltinToolKind.agentActivityLog,
+        AiBuiltinToolKind.agentAuditReport,
+      ]) {
+        final parameters = AiToolRuntimeService.builtinToolDefault(
+          kind,
+        )!.definition.parameters;
+        final properties = parameters['properties'] as Map<String, Object?>;
+        final messageType = properties['message_type'] as Map<String, Object?>;
+        expect(messageType['enum'], contains('thought'));
+        expect(messageType['enum'], contains('tool_call'));
+        expect(messageType['enum'], contains('multimedia'));
+        expect(properties['activity_type'], isA<Map<String, Object?>>());
+      }
+
       final kpiParameters = AiToolRuntimeService.builtinToolDefault(
         AiBuiltinToolKind.agentKpiUpsert,
       )!.definition.parameters;

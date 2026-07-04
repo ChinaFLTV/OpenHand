@@ -3663,6 +3663,26 @@ class AiToolRuntimeService {
             'type': 'string',
             'description': 'Alias for kind.',
           },
+          'message_type': <String, Object?>{
+            'type': 'string',
+            'enum': <String>[
+              'thought',
+              'tool_call',
+              'response',
+              'multimedia',
+              'task',
+              'approval',
+              'lifecycle',
+              'system',
+              'event',
+            ],
+            'description':
+                'Optional activity message type filter. Use task for task lifecycle items, tool_call for capability/tool use, thought for reasoning, response for final answers, and multimedia for media output.',
+          },
+          'activity_type': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for message_type.',
+          },
           'tool_name': <String, Object?>{
             'type': 'string',
             'description':
@@ -3722,6 +3742,26 @@ class AiToolRuntimeService {
           'activity_kind': <String, Object?>{
             'type': 'string',
             'description': 'Alias for kind.',
+          },
+          'message_type': <String, Object?>{
+            'type': 'string',
+            'enum': <String>[
+              'thought',
+              'tool_call',
+              'response',
+              'multimedia',
+              'task',
+              'approval',
+              'lifecycle',
+              'system',
+              'event',
+            ],
+            'description':
+                'Optional recent activity message type filter for the activity side of the audit report.',
+          },
+          'activity_type': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for message_type.',
           },
           'tool_name': <String, Object?>{
             'type': 'string',
