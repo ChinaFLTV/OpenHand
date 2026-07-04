@@ -15,6 +15,7 @@ import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -512,9 +513,10 @@ class _InstructionToggleCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           onTap: onChanged == null ? null : () => onChanged!(!value),
           child: AnimatedContainer(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 180),
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 180),
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: value

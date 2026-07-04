@@ -75,9 +75,10 @@ class CronsView extends StatelessWidget {
         // pop when entries arrive or are removed.
         Expanded(
           child: AnimatedSwitcher(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 220),
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 220),
+            ),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             child: (isLoading && entries.isEmpty)
@@ -1822,9 +1823,10 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
           borderRadius: BorderRadius.circular(20),
           onTap: () => onChanged(!value),
           child: AnimatedContainer(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 180),
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 180),
+            ),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(

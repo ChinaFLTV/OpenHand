@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/model/app_settings_snapshot.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_model_selector_field.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -598,9 +599,10 @@ class _McpOptInTile extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return AnimatedContainer(
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 220),
+      duration: openHandMotionDuration(
+        context,
+        const Duration(milliseconds: 220),
+      ),
       curve: Curves.easeOutCubic,
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(

@@ -13,6 +13,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -306,9 +307,10 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
         if (_isSearching && result != null) const SizedBox(height: 10),
         Expanded(
           child: AnimatedSwitcher(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 180),
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 180),
+            ),
             child: _searchError != null
                 ? _MarketStateMessage(
                     key: const ValueKey<String>('market-search-error'),

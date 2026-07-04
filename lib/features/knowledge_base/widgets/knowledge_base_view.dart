@@ -11,6 +11,7 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -1329,7 +1330,7 @@ class _KnowledgeSourceStatusDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final motionEnabled = openHandTickerMotionEnabled(context);
     return Container(
       width: 16,
       height: 16,
@@ -1340,15 +1341,15 @@ class _KnowledgeSourceStatusDot extends StatelessWidget {
           color: Theme.of(context).colorScheme.surface,
           width: 3,
         ),
-        boxShadow: reduceMotion
-            ? null
-            : [
+        boxShadow: motionEnabled
+            ? [
                 BoxShadow(
                   color: color.withValues(alpha: 0.32),
                   blurRadius: 8,
                   spreadRadius: 1,
                 ),
-              ],
+              ]
+            : null,
       ),
     );
   }

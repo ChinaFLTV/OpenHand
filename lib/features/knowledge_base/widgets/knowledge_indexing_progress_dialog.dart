@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/localized_text.dart';
 import '../service/knowledge_indexing_control.dart';
@@ -296,12 +297,12 @@ class _KnowledgeIndexingProgressBarState
     if (widget.indeterminate || widget.value == null) {
       return const LinearProgressIndicator(minHeight: 9);
     }
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: _begin, end: _end),
-      duration: reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 380),
+      duration: openHandMotionDuration(
+        context,
+        const Duration(milliseconds: 380),
+      ),
       curve: Curves.easeOutCubic,
       builder: (context, value, _) {
         return LinearProgressIndicator(minHeight: 9, value: value);
@@ -325,7 +326,7 @@ class _KnowledgeIndexingPulseIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final motionEnabled = openHandTickerMotionEnabled(context);
     return SizedBox(
       width: 54,
       height: 54,
@@ -349,7 +350,7 @@ class _KnowledgeIndexingPulseIcon extends StatelessWidget {
               size: 28,
             ),
           ),
-          if (!reduceMotion && !cancelling)
+          if (motionEnabled && !cancelling)
             Positioned.fill(
               child: CircularProgressIndicator(
                 strokeWidth: 2.4,
