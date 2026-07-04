@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../runtime/ai_endpoint_router.dart';
@@ -54,10 +55,8 @@ class AiFilesService {
       for (final item in data) {
         if (item is Map) {
           final payload = AiOperationHttp.stringKeyedMap(item);
-          final id = '${payload['id'] ?? ''}'.trim();
-          if (id.isNotEmpty) {
-            items.add(AiFileRecord(id: id, payload: payload));
-          }
+          final record = _recordFromPayload(payload);
+          if (record != null) items.add(record);
         }
       }
     }
@@ -87,8 +86,7 @@ class AiFilesService {
     );
     final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
     if (payload.isEmpty) return null;
-    final id = '${payload['id'] ?? fileId}'.trim();
-    return id.isEmpty ? null : AiFileRecord(id: id, payload: payload);
+    return _recordFromPayload(payload, fallbackId: fileId);
   }
 
   Future<AiFileRecord?> uploadFile({
@@ -115,8 +113,7 @@ class AiFilesService {
     );
     final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
     if (payload.isEmpty) return null;
-    final id = '${payload['id'] ?? ''}'.trim();
-    return id.isEmpty ? null : AiFileRecord(id: id, payload: payload);
+    return _recordFromPayload(payload);
   }
 
   Future<void> deleteFile({
@@ -160,8 +157,17 @@ class AiFilesService {
     return AiFileContentResult(
       content: response.body,
       rawResponse: response.body,
-      contentType: (response.headers['content-type'] ?? '').trim(),
+      contentType: stringFromValue(response.headers['content-type']),
     );
+  }
+
+  AiFileRecord? _recordFromPayload(
+    Map<String, Object?> payload, {
+    String? fallbackId,
+  }) {
+    final id =
+        optionalStringFromValue(payload['id']) ?? nullIfBlank(fallbackId);
+    return id == null ? null : AiFileRecord(id: id, payload: payload);
   }
 
   Map<String, String> _buildHeaders(

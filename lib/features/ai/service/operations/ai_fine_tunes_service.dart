@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../runtime/ai_endpoint_router.dart';
@@ -46,10 +47,8 @@ class AiFineTunesService {
       for (final item in data) {
         if (item is Map) {
           final payload = AiOperationHttp.stringKeyedMap(item);
-          final id = '${payload['id'] ?? ''}'.trim();
-          if (id.isNotEmpty) {
-            items.add(AiFineTuneJob(id: id, payload: payload));
-          }
+          final job = _jobFromPayload(payload);
+          if (job != null) items.add(job);
         }
       }
     }
@@ -76,8 +75,7 @@ class AiFineTunesService {
     );
     final responsePayload = AiOperationHttp.jsonMapOrEmpty(decoded);
     if (responsePayload.isEmpty) return null;
-    final id = '${responsePayload['id'] ?? ''}'.trim();
-    return id.isEmpty ? null : AiFineTuneJob(id: id, payload: responsePayload);
+    return _jobFromPayload(responsePayload);
   }
 
   Future<AiFineTuneJob?> retrieveJob({
@@ -103,8 +101,7 @@ class AiFineTunesService {
     );
     final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
     if (payload.isEmpty) return null;
-    final id = '${payload['id'] ?? jobId}'.trim();
-    return id.isEmpty ? null : AiFineTuneJob(id: id, payload: payload);
+    return _jobFromPayload(payload, fallbackId: jobId);
   }
 
   Future<List<Map<String, Object?>>> listEvents({
@@ -134,6 +131,15 @@ class AiFineTunesService {
         .whereType<Map>()
         .map(AiOperationHttp.stringKeyedMap)
         .toList(growable: false);
+  }
+
+  AiFineTuneJob? _jobFromPayload(
+    Map<String, Object?> payload, {
+    String? fallbackId,
+  }) {
+    final id =
+        optionalStringFromValue(payload['id']) ?? nullIfBlank(fallbackId);
+    return id == null ? null : AiFineTuneJob(id: id, payload: payload);
   }
 
   Map<String, String> _buildHeaders(
