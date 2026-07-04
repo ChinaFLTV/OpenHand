@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/features/agents/model/agent_models.dart';
 import 'package:openhand/features/ai/model/ai_builtin_tool_config.dart';
+import 'package:openhand/features/ai/util/agent_builtin_tool_display.dart';
 
 void main() {
   group('AiBuiltinToolKind agent metadata', () {
@@ -81,5 +83,55 @@ void main() {
 
       expect(AiBuiltinToolKind.bash.isAgentMutationTool, isFalse);
     });
+
+    test('keeps agent profile builtin normalization in sync', () {
+      final agentTools = AiBuiltinToolKind.values.where(
+        (kind) => kind.isAgentCoordinationTool,
+      );
+
+      for (final kind in agentTools) {
+        final canonical = agentBuiltinToolCanonicalName(kind);
+        expect(
+          isAgentCoordinationBuiltinToolName(canonical),
+          isTrue,
+          reason: '$canonical should be recognized from canonical name',
+        );
+        expect(
+          isAgentCoordinationBuiltinToolName(kind.name),
+          isTrue,
+          reason: '${kind.name} should be recognized from enum name',
+        );
+        expect(
+          isAgentCoordinationBuiltinToolName(_snakeCase(canonical)),
+          isTrue,
+          reason: '$canonical should be recognized from snake_case alias',
+        );
+      }
+
+      expect(isAgentCoordinationBuiltinToolName('bash'), isFalse);
+      expect(isAgentCoordinationBuiltinToolName('web_search'), isFalse);
+      expect(
+        normalizeAgentBuiltinToolNames(<String>[
+          'Bash',
+          agentBuiltinToolCanonicalName(AiBuiltinToolKind.agentTaskPublish),
+          agentNoCoordinationToolsBinding,
+          _snakeCase(
+            agentBuiltinToolCanonicalName(AiBuiltinToolKind.agentList),
+          ),
+        ]),
+        <String>['Bash', agentNoCoordinationToolsBinding],
+      );
+    });
   });
+}
+
+String _snakeCase(String value) {
+  final buffer = StringBuffer();
+  for (var i = 0; i < value.length; i++) {
+    final code = value.codeUnitAt(i);
+    final isUpper = code >= 0x41 && code <= 0x5A;
+    if (isUpper && i > 0) buffer.write('_');
+    buffer.writeCharCode(isUpper ? code | 0x20 : code);
+  }
+  return buffer.toString();
 }
