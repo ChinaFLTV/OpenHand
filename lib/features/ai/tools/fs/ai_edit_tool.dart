@@ -18,7 +18,7 @@ class AiEditTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
-    final rawFilePath = '${args['file_path'] ?? ''}'.trim();
+    final rawFilePath = AiToolUtils.readString(args['file_path']);
     final oldString = '${args['old_string'] ?? ''}';
     final newString = '${args['new_string'] ?? ''}';
     final replaceAll = AiToolUtils.readBool(args['replace_all']) == true;

@@ -20,7 +20,7 @@ class AiNotebookEditTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
-    final rawNotebookPath = '${args['notebook_path'] ?? ''}'.trim();
+    final rawNotebookPath = AiToolUtils.readString(args['notebook_path']);
     if (rawNotebookPath.isEmpty) {
       return AiToolUtils.invalidResult(
         'NotebookEdit',
@@ -35,9 +35,13 @@ class AiNotebookEditTool extends AiTool {
       );
     }
     final newSource = '${args['new_source'] ?? ''}';
-    final editMode = _normalizeEditMode('${args['edit_mode'] ?? 'replace'}');
-    final cellId = '${args['cell_id'] ?? ''}'.trim();
-    final cellType = _normalizeCellType('${args['cell_type'] ?? ''}');
+    final editMode = _normalizeEditMode(
+      AiToolUtils.readString(args['edit_mode'], fallback: 'replace'),
+    );
+    final cellId = AiToolUtils.readString(args['cell_id']);
+    final cellType = _normalizeCellType(
+      AiToolUtils.readString(args['cell_type']),
+    );
     final file = File(notebookPath);
     if (!await file.exists()) {
       return AiToolUtils.invalidResult(

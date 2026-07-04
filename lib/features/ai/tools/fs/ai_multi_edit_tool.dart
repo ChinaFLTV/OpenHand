@@ -19,7 +19,7 @@ class AiMultiEditTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
-    final rawFilePath = '${args['file_path'] ?? ''}'.trim();
+    final rawFilePath = AiToolUtils.readString(args['file_path']);
     if (rawFilePath.isEmpty) {
       return AiToolUtils.invalidResult(
         'MultiEdit',

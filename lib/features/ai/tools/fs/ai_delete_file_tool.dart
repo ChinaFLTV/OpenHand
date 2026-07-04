@@ -33,7 +33,10 @@ class AiDeleteFileTool extends AiTool {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
 
-    final rawPath = '${args['file_path'] ?? args['target_file'] ?? ''}'.trim();
+    final rawPath = AiToolUtils.readFirstString(args, const <String>[
+      'file_path',
+      'target_file',
+    ]);
     if (rawPath.isEmpty) {
       return AiToolUtils.invalidResult('DeleteFile', 'file_path is required.');
     }
