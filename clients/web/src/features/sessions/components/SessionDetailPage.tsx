@@ -650,6 +650,104 @@ function toolMessageHasOutput(metadata: Record<string, unknown> | null): boolean
   );
 }
 
+const TRANSCRIPT_MEDIA_METADATA_KEYS = [
+  'image_path',
+  'image_paths',
+  'generated_image_path',
+  'generated_image_paths',
+  'video_path',
+  'video_paths',
+  'generated_video_path',
+  'generated_video_paths',
+  'audio_path',
+  'audio_paths',
+  'generated_audio_path',
+  'generated_audio_paths',
+  'media_path',
+  'media_paths',
+] as const;
+
+const TRANSCRIPT_STRUCTURED_METADATA_KEYS = [
+  'machine_expert_request_card',
+  'web_reverse_request_card',
+  'android_reverse_request_card',
+  'goal_id',
+  'goal_objective',
+  'goal_evaluation_id',
+  'goal_auto_follow_up',
+  'goal_evaluation_message',
+] as const;
+
+const TRANSCRIPT_TOOL_METADATA_KEYS = [
+  'tool_call_id',
+  'tool_name',
+  'tool_arguments',
+  'tool_calls',
+  'tool_arguments_streaming',
+  'tool_preparing',
+  'tool_execution_status',
+  'tool_status',
+  'status',
+  'tool_execution_command',
+  'tool_execution_stdout',
+  'tool_execution_stderr',
+  'tool_execution_result',
+  'result_text',
+] as const;
+
+const TRANSCRIPT_FILE_MUTATION_METADATA_KEYS = [
+  'file_mutation_path',
+  'file_mutation_paths',
+  'file_mutation_kind',
+  'round_summary_tool_call_ids',
+  'round_summary_source_message_ids',
+  'round_summary_record_count',
+] as const;
+
+function metadataHasRenderableValue(value: unknown): boolean {
+  if (value == null) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return Number.isFinite(value) && value > 0;
+  if (Array.isArray(value)) return value.some(metadataHasRenderableValue);
+  if (typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).some(metadataHasRenderableValue);
+  }
+  return true;
+}
+
+function metadataHasAnyRenderableValue(
+  metadata: Record<string, unknown> | null,
+  keys: readonly string[],
+): boolean {
+  if (!metadata) return false;
+  return keys.some((key) => metadataHasRenderableValue(metadata[key]));
+}
+
+function messageHasRenderableTranscriptOutput(message: SessionMessage): boolean {
+  const content = (message.content ?? '').trim();
+  if (content.length > 0) return true;
+  const metadata = recordOrNullFromUnknown(message.metadata);
+  if (metadataHasRenderableValue(metadata?.['attachments'])) return true;
+  if (metadataHasAnyRenderableValue(metadata, TRANSCRIPT_MEDIA_METADATA_KEYS)) return true;
+
+  switch (message.kind) {
+    case 'tool_call':
+    case 'tool':
+    case 'mcp':
+    case 'skill':
+    case 'hook':
+      return metadataHasAnyRenderableValue(metadata, TRANSCRIPT_TOOL_METADATA_KEYS);
+    case 'file_mutation_summary':
+      return metadataHasAnyRenderableValue(metadata, TRANSCRIPT_FILE_MUTATION_METADATA_KEYS);
+    case 'status':
+      return metadata?.['round_file_mutation_summary'] === true &&
+        metadataHasAnyRenderableValue(metadata, TRANSCRIPT_FILE_MUTATION_METADATA_KEYS);
+    default:
+      return metadataHasAnyRenderableValue(metadata, TRANSCRIPT_STRUCTURED_METADATA_KEYS);
+  }
+}
+
 function isActiveFollowMessage(message: SessionMessage): boolean {
   if (messageMetadataStreaming(message)) return true;
   if (message.kind !== 'tool_call' && message.kind !== 'hook') return false;
@@ -1595,7 +1693,7 @@ function creationModeFromMessage(message: SessionMessage): string {
 }
 
 function deriveMessageWindowView(items: SessionMessage[]): SessionMessageWindowView {
-  const ordered = messagesInDisplayOrder(items);
+  const ordered = messagesInDisplayOrder(items).filter(messageHasRenderableTranscriptOutput);
   let lastCreationModeAwaitingAssistant: AwaitingCreationMode | null = null;
   let hasUserMessage = false;
   let latestAssistantMessage: SessionMessage | null = null;
@@ -1623,7 +1721,7 @@ function deriveMessageWindowView(items: SessionMessage[]): SessionMessageWindowV
         }
         latestTextLikeAssistantResolved = true;
       }
-      if (!creationRequestResolved && message.content.trim().length > 10) {
+      if (!creationRequestResolved && messageHasRenderableTranscriptOutput(message)) {
         creationRequestResolved = true;
       }
       continue;

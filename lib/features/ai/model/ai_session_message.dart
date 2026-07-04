@@ -1,6 +1,8 @@
 import 'package:characters/characters.dart';
 
 import '../../../shared/util/input_value_parsing.dart';
+import 'ai_attachment.dart';
+import 'ai_session_goal.dart';
 import 'ai_token_usage.dart';
 
 enum AiSessionMessageKind {
@@ -98,6 +100,56 @@ const int aiSessionMachineExpertRequestCardSchemaVersion =
     aiSessionExpertRequestCardSchemaVersion;
 const int aiSessionMachineExpertRequestCardMaxFieldCharacters =
     aiSessionExpertRequestCardMaxFieldCharacters;
+const Set<String> _aiSessionTranscriptMediaMetadataKeys = <String>{
+  'image_path',
+  'image_paths',
+  'generated_image_path',
+  'generated_image_paths',
+  'video_path',
+  'video_paths',
+  'generated_video_path',
+  'generated_video_paths',
+  'audio_path',
+  'audio_paths',
+  'generated_audio_path',
+  'generated_audio_paths',
+  'media_path',
+  'media_paths',
+};
+const Set<String> _aiSessionTranscriptStructuredMetadataKeys = <String>{
+  aiSessionMachineExpertRequestCardMetadataKey,
+  aiSessionWebReverseRequestCardMetadataKey,
+  aiSessionAndroidReverseRequestCardMetadataKey,
+  aiSessionGoalIdMetadataKey,
+  aiSessionGoalObjectiveMetadataKey,
+  aiSessionGoalEvaluationIdMetadataKey,
+  aiSessionGoalAutoFollowUpMetadataKey,
+  aiSessionGoalEvaluationMessageMetadataKey,
+};
+const Set<String> _aiSessionTranscriptToolMetadataKeys = <String>{
+  'tool_call_id',
+  'tool_name',
+  'tool_arguments',
+  'tool_calls',
+  'tool_arguments_streaming',
+  'tool_preparing',
+  'tool_execution_status',
+  'tool_status',
+  'status',
+  'tool_execution_command',
+  'tool_execution_stdout',
+  'tool_execution_stderr',
+  'tool_execution_result',
+  'result_text',
+};
+const Set<String> _aiSessionTranscriptFileMutationMetadataKeys = <String>{
+  'file_mutation_path',
+  'file_mutation_paths',
+  'file_mutation_kind',
+  'round_summary_tool_call_ids',
+  'round_summary_source_message_ids',
+  'round_summary_record_count',
+};
 
 enum AiSessionMessageFeedback {
   liked('liked'),
@@ -475,6 +527,90 @@ class AiSessionMessage {
       !isDeleted &&
       (kind != AiSessionMessageKind.status ||
           metadata['round_file_mutation_summary'] == true);
+
+  bool get isTranscriptRenderable {
+    if (!isVisible) {
+      return false;
+    }
+    if (content.trim().isNotEmpty) {
+      return true;
+    }
+    if (_metadataHasRenderableValue(
+      metadata[aiSessionMessageAttachmentsMetadataKey],
+    )) {
+      return true;
+    }
+    if (_metadataHasAnyRenderableValue(_aiSessionTranscriptMediaMetadataKeys)) {
+      return true;
+    }
+
+    return switch (kind) {
+      AiSessionMessageKind.toolCall ||
+      AiSessionMessageKind.tool ||
+      AiSessionMessageKind.mcp ||
+      AiSessionMessageKind.skill ||
+      AiSessionMessageKind.hook => _metadataHasAnyRenderableValue(
+        _aiSessionTranscriptToolMetadataKeys,
+      ),
+      AiSessionMessageKind.fileMutationSummary =>
+        _metadataHasAnyRenderableValue(
+          _aiSessionTranscriptFileMutationMetadataKeys,
+        ),
+      AiSessionMessageKind.status =>
+        metadata['round_file_mutation_summary'] == true &&
+            _metadataHasAnyRenderableValue(
+              _aiSessionTranscriptFileMutationMetadataKeys,
+            ),
+      AiSessionMessageKind.user ||
+      AiSessionMessageKind.assistant ||
+      AiSessionMessageKind.reasoning ||
+      AiSessionMessageKind.compressionPoint ||
+      AiSessionMessageKind.selfLearning => _metadataHasAnyRenderableValue(
+        _aiSessionTranscriptStructuredMetadataKeys,
+      ),
+    };
+  }
+
+  bool _metadataHasAnyRenderableValue(Set<String> keys) {
+    for (final key in keys) {
+      if (_metadataHasRenderableValue(metadata[key])) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool _metadataHasRenderableValue(Object? value) {
+    if (value == null) {
+      return false;
+    }
+    if (value is String) {
+      return value.trim().isNotEmpty;
+    }
+    if (value is bool) {
+      return value;
+    }
+    if (value is num) {
+      return value > 0;
+    }
+    if (value is Iterable) {
+      for (final item in value) {
+        if (_metadataHasRenderableValue(item)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    if (value is Map) {
+      for (final entry in value.entries) {
+        if (_metadataHasRenderableValue(entry.value)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    return true;
+  }
 
   bool get isConversationTurn {
     if (isDeleted) {

@@ -140,6 +140,115 @@ void main() {
       'AgentTaskProgress',
     ]);
   });
+
+  test('display messages suppress empty transient text placeholders', () {
+    final now = DateTime.utc(2026, 7, 4, 12);
+    final emptyAssistant = AiSessionMessage.assistant(
+      id: 'a-empty',
+      content: '',
+      createdAt: now.add(const Duration(seconds: 1)),
+      metadata: const <String, Object?>{
+        aiSessionMessageMetadataStreamingKey: true,
+      },
+    );
+    final emptyReasoning = AiSessionMessage.reasoning(
+      id: 'r-empty',
+      content: '',
+      createdAt: now.add(const Duration(seconds: 2)),
+      metadata: const <String, Object?>{
+        aiSessionMessageMetadataStreamingKey: true,
+      },
+    );
+    final preparingTool = AiSessionMessage.toolCall(
+      id: 'tool-preparing',
+      content: '',
+      createdAt: now.add(const Duration(seconds: 3)),
+      metadata: const <String, Object?>{
+        'tool_call_id': 'tc1',
+        'tool_name': 'AgentList',
+        'tool_preparing': true,
+      },
+    );
+
+    final session = _session(<AiSessionMessage>[
+      _user('u1', now),
+      emptyAssistant,
+      emptyReasoning,
+      preparingTool,
+    ]);
+
+    expect(session.displayMessages.map((message) => message.id), <String>[
+      'u1',
+      'tool-preparing',
+    ]);
+
+    final materialized = _session(<AiSessionMessage>[
+      _user('u1', now),
+      emptyAssistant.copyWith(content: 'Done.'),
+      emptyReasoning.copyWith(content: 'Thinking.'),
+    ]);
+
+    expect(materialized.displayMessages.map((message) => message.id), <String>[
+      'u1',
+      'a-empty',
+      'r-empty',
+    ]);
+  });
+
+  test('display messages keep structured empty-body cards', () {
+    final now = DateTime.utc(2026, 7, 4, 13);
+    final attachmentOnlyUser = AiSessionMessage.user(
+      id: 'u-attachment',
+      content: '',
+      createdAt: now,
+      metadata: <String, Object?>{
+        aiSessionMessageAttachmentsMetadataKey:
+            AiMessageAttachment.listToMetadata(const <AiMessageAttachment>[
+              AiMessageAttachment(
+                id: 'att1',
+                name: 'diagram.png',
+                storagePath: '/tmp/diagram.png',
+                kind: AiAttachmentKind.image,
+                mimeType: 'image/png',
+                sizeBytes: 128,
+              ),
+            ]),
+      },
+    );
+    final mediaOnlyAssistant = AiSessionMessage.assistant(
+      id: 'a-media',
+      content: '',
+      createdAt: now.add(const Duration(seconds: 1)),
+      metadata: const <String, Object?>{
+        'generated_image_path': '/tmp/generated.png',
+      },
+    );
+    final emptyFileSummary = AiSessionMessage.fileMutationSummary(
+      id: 'file-empty',
+      createdAt: now.add(const Duration(seconds: 2)),
+    );
+    final fileSummary = AiSessionMessage.fileMutationSummary(
+      id: 'file-summary',
+      createdAt: now.add(const Duration(seconds: 3)),
+      metadata: const <String, Object?>{
+        'round_summary_tool_call_ids': <String>['tc1'],
+        'round_summary_record_count': 1,
+      },
+    );
+
+    final session = _session(<AiSessionMessage>[
+      attachmentOnlyUser,
+      mediaOnlyAssistant,
+      emptyFileSummary,
+      fileSummary,
+    ]);
+
+    expect(session.displayMessages.map((message) => message.id), <String>[
+      'u-attachment',
+      'a-media',
+      'file-summary',
+    ]);
+  });
 }
 
 AiResolvedTool _builtin(AiBuiltinToolKind kind, String name) {
