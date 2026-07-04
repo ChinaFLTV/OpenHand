@@ -267,10 +267,7 @@ class AiAgentTool extends AiTool {
       );
     }
     if (controller.enabledAgents.isEmpty) {
-      return AiToolUtils.invalidResult(
-        _name,
-        'No enabled agents are available. Start an agent before using agent tools.',
-      );
+      return _noEnabledAgentsResult(controller);
     }
 
     try {
@@ -398,6 +395,26 @@ class AiAgentTool extends AiTool {
         resultText: 'status: failure\nerror: $error',
       );
     }
+  }
+
+  AiToolExecutionResult _noEnabledAgentsResult(AgentsController controller) {
+    final runtime = controller.runtimeAvailability;
+    if (!runtime.canRun) {
+      return AiToolUtils.invalidResult(
+        _name,
+        'Agent runtime is unavailable: ${runtime.blockingReason}',
+      );
+    }
+    if (controller.agents.isEmpty) {
+      return AiToolUtils.invalidResult(
+        _name,
+        'No agents are configured. Create and start an agent before using agent tools.',
+      );
+    }
+    return AiToolUtils.invalidResult(
+      _name,
+      'No enabled agents are available. Start an agent before using agent tools.',
+    );
   }
 
   AiToolExecutionResult _list(
