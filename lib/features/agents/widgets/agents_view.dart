@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -386,14 +387,16 @@ class _AgentCard extends StatelessWidget {
                       action: _AgentCardAction.kpi,
                       onAction: onAction,
                     ),
+                    _AgentIconAction(
+                      icon: Icons.storage_rounded,
+                      tooltip: l10n.agentsResources,
+                      action: _AgentCardAction.resources,
+                      onAction: onAction,
+                    ),
                     PopupMenuButton<_AgentCardAction>(
                       tooltip: l10n.agentsMore,
                       onSelected: onAction,
                       itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: _AgentCardAction.resources,
-                          child: Text(l10n.agentsResources),
-                        ),
                         PopupMenuItem(
                           value: _AgentCardAction.edit,
                           child: Text(l10n.agentsEditConfig),
@@ -3394,41 +3397,267 @@ Future<void> _showAgentResourcesDialog(
                 ),
               ),
             ],
-            child: Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _MetricTile(
-                  label: 'CPU',
-                  value: '${(resource.cpuPercent * 100).round()}%',
-                ),
-                _MetricTile(
-                  label: l10n.agentsMetricMemory,
-                  value: formatByteSize(resource.memoryBytes),
-                ),
-                _MetricTile(
-                  label: l10n.agentsMetricDisk,
-                  value: formatByteSize(resource.diskBytes),
-                ),
-                _MetricTile(
-                  label: l10n.agentsMetricPersisted,
-                  value: formatByteSize(resource.persistedBytes),
-                ),
-                _MetricTile(
-                  label: 'Token',
-                  value: '${resource.tokenUsed}/${resource.tokenBudget}',
-                ),
-                _MetricTile(
-                  label: l10n.agentsMetricHandles,
-                  value: '${resource.openHandles}',
-                ),
-              ],
-            ),
+            child: _AgentResourceBody(resource: resource),
           ),
         );
       },
     ),
   );
+}
+
+class _AgentResourceBody extends StatelessWidget {
+  const _AgentResourceBody({required this.resource});
+
+  final AgentResourceUsage resource;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final cpu = resource.cpuPercent.clamp(0, 1).toDouble();
+    final tokenPressure = _agentResourceRatio(
+      resource.tokenUsed,
+      resource.tokenBudget,
+    );
+    final persistedPressure = _agentResourceRatio(
+      resource.persistedBytes,
+      resource.diskBytes,
+    );
+    final maxPressure = [
+      cpu,
+      tokenPressure,
+      persistedPressure,
+    ].reduce(math.max);
+    final metadata = _agentResourceMetadataChips(resource);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _MetricTile(
+              label: openHandLocalizedText(context, zh: '资源压力', en: 'Pressure'),
+              value: _agentResourcePressureLabel(context, maxPressure),
+            ),
+            _MetricTile(label: 'CPU', value: '${(cpu * 100).round()}%'),
+            _MetricTile(
+              label: 'Token',
+              value: resource.tokenBudget <= 0
+                  ? '${resource.tokenUsed}/-'
+                  : '${resource.tokenUsed}/${resource.tokenBudget}',
+            ),
+            _MetricTile(
+              label: l10n.agentsMetricHandles,
+              value: '${resource.openHandles}',
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _AgentResourcePressureCard(
+          icon: Icons.memory_rounded,
+          label: 'CPU',
+          valueLabel: '${(cpu * 100).round()}%',
+          pressure: cpu,
+        ),
+        const SizedBox(height: 10),
+        _AgentResourcePressureCard(
+          icon: Icons.auto_awesome_rounded,
+          label: openHandLocalizedText(
+            context,
+            zh: 'Token 预算',
+            en: 'Token budget',
+          ),
+          valueLabel: resource.tokenBudget <= 0
+              ? openHandLocalizedText(
+                  context,
+                  zh: '${resource.tokenUsed} / 未设置',
+                  en: '${resource.tokenUsed} / unset',
+                )
+              : '${resource.tokenUsed} / ${resource.tokenBudget}',
+          pressure: tokenPressure,
+        ),
+        const SizedBox(height: 10),
+        _AgentResourcePressureCard(
+          icon: Icons.inventory_2_rounded,
+          label: openHandLocalizedText(
+            context,
+            zh: '持久化占用',
+            en: 'Persisted storage',
+          ),
+          valueLabel:
+              '${formatByteSize(resource.persistedBytes)} / ${formatByteSize(resource.diskBytes)}',
+          pressure: persistedPressure,
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _MetricTile(
+              label: l10n.agentsMetricMemory,
+              value: formatByteSize(resource.memoryBytes),
+            ),
+            _MetricTile(
+              label: l10n.agentsMetricDisk,
+              value: formatByteSize(resource.diskBytes),
+            ),
+            _MetricTile(
+              label: l10n.agentsMetricPersisted,
+              value: formatByteSize(resource.persistedBytes),
+            ),
+          ],
+        ),
+        if (metadata.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final chip in metadata)
+                _AgentActivityMetadataChip(text: chip),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _AgentResourcePressureCard extends StatelessWidget {
+  const _AgentResourcePressureCard({
+    required this.icon,
+    required this.label,
+    required this.valueLabel,
+    required this.pressure,
+  });
+
+  final IconData icon;
+  final String label;
+  final String valueLabel;
+  final double pressure;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final normalized = pressure.clamp(0, 1).toDouble();
+    final color = _agentResourcePressureColor(cs, normalized);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: color, size: 19),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          label,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      _AgentActivityTypeChip(
+                        label: _agentResourcePressureLabel(context, normalized),
+                        color: color,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            value: normalized,
+                            minHeight: 7,
+                            color: color,
+                            backgroundColor: cs.surfaceContainerHighest,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 92,
+                        child: Text(
+                          valueLabel,
+                          textAlign: TextAlign.end,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+double _agentResourceRatio(int used, int budget) {
+  if (budget <= 0) return 0;
+  return (used / budget).clamp(0, 1).toDouble();
+}
+
+Color _agentResourcePressureColor(ColorScheme cs, double pressure) {
+  if (pressure >= 0.85) return cs.error;
+  if (pressure >= 0.65) return cs.tertiary;
+  return cs.primary;
+}
+
+String _agentResourcePressureLabel(BuildContext context, double pressure) {
+  if (pressure >= 0.85) {
+    return openHandLocalizedText(context, zh: '高压力', en: 'High');
+  }
+  if (pressure >= 0.65) {
+    return openHandLocalizedText(context, zh: '预警', en: 'Watch');
+  }
+  return openHandLocalizedText(context, zh: '正常', en: 'Normal');
+}
+
+List<String> _agentResourceMetadataChips(AgentResourceUsage resource) {
+  const keys = <String>[
+    'workspace_path',
+    'artifact_count',
+    'cache_bytes',
+    'last_gc_at',
+    'quota',
+    'owner',
+  ];
+  final chips = <String>[];
+  for (final key in keys) {
+    final text = _agentMetadataChipText(key, resource.extra[key]);
+    if (text != null) chips.add(text);
+    if (chips.length >= 4) break;
+  }
+  return chips;
 }
 
 Future<AgentResourceUsage?> _showAgentResourceEditorDialog(

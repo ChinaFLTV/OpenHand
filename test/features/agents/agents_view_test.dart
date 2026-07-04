@@ -623,6 +623,60 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
     });
 
+    testWidgets('renders resource usage as pressure cards', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          enabled: true,
+          lifecycleState: AgentLifecycleState.running,
+          resourceUsage: AgentResourceUsage(
+            cpuPercent: 0.7,
+            memoryBytes: 1048576,
+            diskBytes: 4096,
+            persistedBytes: 3584,
+            tokenBudget: 1000,
+            tokenUsed: 900,
+            openHandles: 12,
+            extra: <String, Object?>{
+              'workspace_path': '/tmp/openhand',
+              'artifact_count': 5,
+              'cache_bytes': 2048,
+            },
+          ),
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('资源管理').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('资源管理 · Ops Agent'), findsOneWidget);
+      expect(find.text('资源压力'), findsOneWidget);
+      expect(find.text('高压力'), findsAtLeastNWidgets(1));
+      expect(find.text('预警'), findsAtLeastNWidgets(1));
+      expect(find.text('70%'), findsAtLeastNWidgets(1));
+      expect(find.text('900/1000'), findsOneWidget);
+      expect(find.text('900 / 1000'), findsOneWidget);
+      expect(find.text('3.50 KB / 4.00 KB'), findsOneWidget);
+      expect(find.text('1.00 MB'), findsOneWidget);
+      expect(find.text('12'), findsOneWidget);
+      expect(find.text('workspace_path: /tmp/openhand'), findsOneWidget);
+      expect(find.text('artifact_count: 5'), findsOneWidget);
+      expect(find.text('cache_bytes: 2048'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close_rounded).last);
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
     testWidgets('publishes a task with structured extra fields', (
       tester,
     ) async {
