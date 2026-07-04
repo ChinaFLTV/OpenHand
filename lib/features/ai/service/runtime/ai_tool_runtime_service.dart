@@ -4175,7 +4175,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.agentTaskTrack,
       name: 'AgentTaskTrack',
       description:
-          'Read one agent task with status, progress, result, state, assigned worker, operational summary, timestamps, and metadata. Use after AgentTaskPublish when you need the full task record.',
+          'Read one agent task with status, progress, state, result_available, handoff, next_poll, assigned worker, operational summary, timestamps, and metadata. Use after AgentTaskPublish when you need the full task record plus the next polling or result-handoff action.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -4196,7 +4196,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.agentTaskProgress,
       name: 'AgentTaskProgress',
       description:
-          'Read lightweight status, progress, state, assigned worker, and operational summary for one agent task. Use for polling while state.needs_polling is true.',
+          'Read lightweight status, progress, state, next_poll, assigned worker, and operational summary for one agent task. Use for polling while state.needs_polling is true.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -4330,7 +4330,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.agentTaskResult,
       name: 'AgentTaskResult',
       description:
-          'Read the final or latest task result, note, status, progress, assigned worker, and operational summary. Use when a task is terminal, requires attention, or the user asks for the current handoff.',
+          'Read the final or latest task result, note, status, progress, result_available, handoff, next_poll, assigned worker, and operational summary. Use when a task is terminal, requires attention, or the user asks for the current handoff.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{

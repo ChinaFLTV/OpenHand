@@ -105,6 +105,13 @@ void main() {
         contains('state.needs_polling is true'),
       );
       expect(track.definition.description, contains('operational summary'));
+      expect(track.definition.description, contains('result_available'));
+      expect(track.definition.description, contains('handoff'));
+      expect(track.definition.description, contains('next_poll'));
+      expect(
+        track.definition.description,
+        contains('next polling or result-handoff action'),
+      );
       expect(activity.definition.description, contains('history stream'));
       expect(activity.definition.description, contains('audit trail'));
       expect(
@@ -159,6 +166,9 @@ void main() {
         result.definition.description,
         contains('terminal, requires attention'),
       );
+      expect(result.definition.description, contains('result_available'));
+      expect(result.definition.description, contains('handoff'));
+      expect(result.definition.description, contains('next_poll'));
     });
 
     test('agent task schemas allow task id aliases and update extra', () {
