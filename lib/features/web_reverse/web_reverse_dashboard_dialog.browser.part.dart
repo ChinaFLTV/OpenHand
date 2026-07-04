@@ -1669,11 +1669,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
         await ctrl.reload();
       case 'inspect':
         if (mounted) {
-          await _openOfficialDevToolsForController(
-            context,
-            ctrl,
-            openHandIsChineseLocale(context),
-          );
+          await _openOfficialDevToolsForController(context, ctrl);
         }
       case 'openExternal':
         final url = await ctrl.currentUrl();

@@ -431,14 +431,21 @@ class _WebReverseDashboardDialogState
     if (updater == null) {
       OpenHandSnackBar.showError(
         context,
-        _isZh() ? '当前窗口无法更新 MCP 设置' : 'This window cannot update MCP settings',
+        _wrText(
+          context,
+          zh: '当前窗口无法更新 MCP 设置',
+          zhHant: '目前視窗無法更新 MCP 設定',
+          en: 'This window cannot update MCP settings',
+          fr: 'Cette fenetre ne peut pas mettre a jour les reglages MCP',
+          de: 'Dieses Fenster kann die MCP-Einstellungen nicht aktualisieren',
+          ja: 'このウィンドウでは MCP 設定を更新できません',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
     }
     setState(() => _cdpMcpToggleBusy = true);
     final messenger = ScaffoldMessenger.of(context);
-    final isZh = _isZh();
     var ok = false;
     try {
       ok = await updater(enabled).timeout(const Duration(seconds: 12));
@@ -457,7 +464,15 @@ class _WebReverseDashboardDialogState
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? 'AI 侧 CDP MCP 设置更新失败' : 'Failed to update AI-side CDP MCP',
+        _wrText(
+          context,
+          zh: 'AI 侧 CDP MCP 设置更新失败',
+          zhHant: 'AI 側 CDP MCP 設定更新失敗',
+          en: 'Failed to update AI-side CDP MCP',
+          fr: 'Echec de la mise a jour du MCP CDP cote IA',
+          de: 'AI-seitiges CDP-MCP konnte nicht aktualisiert werden',
+          ja: 'AI 側 CDP MCP 設定の更新に失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
       return;
@@ -466,12 +481,24 @@ class _WebReverseDashboardDialogState
       context,
       messenger,
       enabled
-          ? (isZh
-                ? '已启用 AI 侧 CDP MCP，正在后台准备工具目录'
-                : 'AI-side CDP MCP enabled; preparing tools in background')
-          : (isZh
-                ? '已禁用 AI 侧 CDP MCP，并停止本会话临时 MCP'
-                : 'AI-side CDP MCP disabled; transient MCP stopped'),
+          ? _wrText(
+              context,
+              zh: '已启用 AI 侧 CDP MCP，正在后台准备工具目录',
+              zhHant: '已啟用 AI 側 CDP MCP，正在背景準備工具目錄',
+              en: 'AI-side CDP MCP enabled; preparing tools in background',
+              fr: 'MCP CDP cote IA active ; preparation des outils en arriere-plan',
+              de: 'AI-seitiges CDP-MCP aktiviert; Tools werden im Hintergrund vorbereitet',
+              ja: 'AI 側 CDP MCP を有効化しました。バックグラウンドでツールを準備しています',
+            )
+          : _wrText(
+              context,
+              zh: '已禁用 AI 侧 CDP MCP，并停止本会话临时 MCP',
+              zhHant: '已停用 AI 側 CDP MCP，並停止本會話臨時 MCP',
+              en: 'AI-side CDP MCP disabled; transient MCP stopped',
+              fr: 'MCP CDP cote IA desactive ; MCP temporaire arrete',
+              de: 'AI-seitiges CDP-MCP deaktiviert; temporares MCP gestoppt',
+              ja: 'AI 側 CDP MCP を無効化し、このセッションの一時 MCP を停止しました',
+            ),
       duration: const Duration(seconds: 2),
     );
   }
@@ -1038,7 +1065,6 @@ class _WebReverseDashboardDialogState
                     ? _DiagnosisBanner(
                         key: const ValueKey('diagnosis-banner'),
                         controller: ctrl,
-                        isZh: isZh,
                         reduceMotion: reduceMotion,
                       )
                     : const SizedBox.shrink(
@@ -1078,10 +1104,9 @@ class _WebReverseDashboardDialogState
   /// Shift + ? 打开快捷键速查面板：分类列出 dashboard / 浏览器面板 /
   /// recorder / network 等所有键盘快捷键。
   void _showShortcutsHelp() {
-    final isZh = _isZh();
     showWebReverseToolDialog<void>(
       context: context,
-      builder: (_) => _ShortcutsHelpDialog(isZh: isZh),
+      builder: (_) => const _ShortcutsHelpDialog(),
     );
   }
 
@@ -1092,12 +1117,27 @@ class _WebReverseDashboardDialogState
       await ctrl.startRecording();
     }
     if (!mounted) return;
-    final isZh = _isZh();
     OpenHandSnackBar.showInfo(
       context,
       ctrl.isRecording
-          ? (isZh ? '已开始录制（Cmd+Shift+R 再次按下停止）' : 'Recording started')
-          : (isZh ? '已停止录制' : 'Recording stopped'),
+          ? _wrText(
+              context,
+              zh: '已开始录制（Cmd+Shift+R 再次按下停止）',
+              zhHant: '已開始錄製（Cmd+Shift+R 再次按下停止）',
+              en: 'Recording started',
+              fr: 'Enregistrement demarre',
+              de: 'Aufzeichnung gestartet',
+              ja: '録画を開始しました',
+            )
+          : _wrText(
+              context,
+              zh: '已停止录制',
+              zhHant: '已停止錄製',
+              en: 'Recording stopped',
+              fr: 'Enregistrement arrete',
+              de: 'Aufzeichnung gestoppt',
+              ja: '録画を停止しました',
+            ),
       duration: const Duration(seconds: 2),
     );
   }
@@ -1116,9 +1156,9 @@ class _WebReverseDashboardDialogState
       return null;
     });
     final bridgeStatus = _CdpMcpBridgeHeaderStatus.fromRuntime(
+      context,
       cdpRuntimeMeta,
       controller: ctrl,
-      isZh: isZh,
     );
     final cdpMcpEnabled = _cdpMcpEnabled;
     return Padding(
@@ -1145,14 +1185,22 @@ class _WebReverseDashboardDialogState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isZh ? 'Web 逆向调试面板' : 'Web Reverse Debugger',
+                  _wrText(
+                    context,
+                    zh: 'Web 逆向调试面板',
+                    zhHant: 'Web 逆向除錯面板',
+                    en: 'Web Reverse Debugger',
+                    fr: 'Debogueur Web reverse',
+                    de: 'Web-Reverse-Debugger',
+                    ja: 'Web リバースデバッガー',
+                  ),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _cdpHeaderSubtitle(ctrl, version, isZh),
+                  _cdpHeaderSubtitle(ctrl, version),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
@@ -1164,7 +1212,6 @@ class _WebReverseDashboardDialogState
           _CdpMcpBridgeToggle(
             enabled: cdpMcpEnabled,
             busy: _cdpMcpToggleBusy,
-            isZh: isZh,
             reduceMotion: MediaQuery.disableAnimationsOf(context),
             onChanged: _setCdpMcpEnabled,
           ),
@@ -1175,7 +1222,15 @@ class _WebReverseDashboardDialogState
           ),
           const SizedBox(width: 6),
           IconButton(
-            tooltip: isZh ? '关闭' : 'Close',
+            tooltip: _wrText(
+              context,
+              zh: '关闭',
+              zhHant: '關閉',
+              en: 'Close',
+              fr: 'Fermer',
+              de: 'Schliessen',
+              ja: '閉じる',
+            ),
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close_rounded),
           ),
@@ -1184,20 +1239,40 @@ class _WebReverseDashboardDialogState
     );
   }
 
-  String _cdpHeaderSubtitle(
-    WebReverseSessionController ctrl,
-    String version,
-    bool isZh,
-  ) {
+  String _cdpHeaderSubtitle(WebReverseSessionController ctrl, String version) {
     final normalizedVersion = version.trim().isEmpty ? '-' : version.trim();
     final port = ctrl.cdpPort;
     final cdpLabel = ctrl.isBrowserAlive
         ? port == null
-              ? (isZh ? 'CDP 待同步' : 'CDP pending')
+              ? _wrText(
+                  context,
+                  zh: 'CDP 待同步',
+                  zhHant: 'CDP 待同步',
+                  en: 'CDP pending',
+                  fr: 'CDP en attente',
+                  de: 'CDP ausstehend',
+                  ja: 'CDP 同期待ち',
+                )
               : 'CDP :$port'
         : port == null
-        ? (isZh ? 'CDP 离线' : 'CDP offline')
-        : (isZh ? 'CDP 离线 · 上次 :$port' : 'CDP offline · last :$port');
+        ? _wrText(
+            context,
+            zh: 'CDP 离线',
+            zhHant: 'CDP 離線',
+            en: 'CDP offline',
+            fr: 'CDP hors ligne',
+            de: 'CDP offline',
+            ja: 'CDP オフライン',
+          )
+        : _wrText(
+            context,
+            zh: 'CDP 离线 · 上次 :$port',
+            zhHant: 'CDP 離線 · 上次 :$port',
+            en: 'CDP offline · last :$port',
+            fr: 'CDP hors ligne · dernier :$port',
+            de: 'CDP offline · zuletzt :$port',
+            ja: 'CDP オフライン · 前回 :$port',
+          );
     return '$normalizedVersion · $cdpLabel';
   }
 
@@ -1210,7 +1285,7 @@ class _WebReverseDashboardDialogState
   ) {
     return switch (_tab) {
       _Tab.browser => _BrowserBody(controller: ctrl),
-      _Tab.overview => _OverviewBody(controller: ctrl, isZh: isZh),
+      _Tab.overview => _OverviewBody(controller: ctrl),
       _Tab.network => _NetworkBody(
         state: this,
         controller: ctrl,
@@ -1275,7 +1350,7 @@ class _WebReverseDashboardDialogState
   }
 
   Future<void> _openOfficialDevTools(WebReverseSessionController ctrl) async {
-    await _openOfficialDevToolsForController(context, ctrl, _isZh());
+    await _openOfficialDevToolsForController(context, ctrl);
   }
 }
 
@@ -1285,7 +1360,6 @@ class _WebReverseDashboardDialogState
 Future<void> _openOfficialDevToolsForController(
   BuildContext context,
   WebReverseSessionController ctrl,
-  bool isZh,
 ) async {
   final port = ctrl.cdpPort;
   if (port == null) return;
@@ -1365,9 +1439,15 @@ Future<void> _openOfficialDevToolsForController(
     OpenHandSnackBar.showInfoOn(
       context,
       messenger,
-      isZh
-          ? '未找到可用的 DevTools 前端，已退到 /json/list 列表页'
-          : 'No DevTools frontend found; opened /json/list fallback',
+      _wrText(
+        context,
+        zh: '未找到可用的 DevTools 前端，已退到 /json/list 列表页',
+        zhHant: '未找到可用的 DevTools 前端，已退到 /json/list 列表頁',
+        en: 'No DevTools frontend found; opened /json/list fallback',
+        fr: 'Aucun frontend DevTools trouve ; ouverture de /json/list',
+        de: 'Kein DevTools-Frontend gefunden; /json/list wurde geoffnet',
+        ja: '利用可能な DevTools フロントエンドが見つからないため /json/list を開きました',
+      ),
     );
   }
 }
@@ -1388,9 +1468,9 @@ class _CdpMcpBridgeHeaderStatus {
   final String tooltip;
 
   static _CdpMcpBridgeHeaderStatus fromRuntime(
+    BuildContext context,
     Object? runtime, {
     required WebReverseSessionController controller,
-    required bool isZh,
   }) {
     final runtimeStatus = WebReverseCdpMcpRuntimeStatus.fromRuntime(
       runtime,
@@ -1404,44 +1484,98 @@ class _CdpMcpBridgeHeaderStatus {
     if (runtimeStatus.rawStatus == 'disabled') {
       tone = _CdpMcpBridgeHeaderTone.disabled;
       icon = Icons.hub_outlined;
-      label = isZh ? 'AI CDP 未启用' : 'AI CDP disabled';
+      label = _wrText(
+        context,
+        zh: 'AI CDP 未启用',
+        zhHant: 'AI CDP 未啟用',
+        en: 'AI CDP disabled',
+        fr: 'CDP IA desactive',
+        de: 'AI-CDP deaktiviert',
+        ja: 'AI CDP 無効',
+      );
     } else if (runtimeStatus.ready) {
       tone = _CdpMcpBridgeHeaderTone.ready;
       icon = Icons.hub_rounded;
-      label = isZh
-          ? 'AI CDP 就绪 · ${runtimeStatus.toolCount}'
-          : 'AI CDP ready · ${runtimeStatus.toolCount}';
+      label = _wrText(
+        context,
+        zh: 'AI CDP 就绪 · ${runtimeStatus.toolCount}',
+        zhHant: 'AI CDP 就緒 · ${runtimeStatus.toolCount}',
+        en: 'AI CDP ready · ${runtimeStatus.toolCount}',
+        fr: 'CDP IA pret · ${runtimeStatus.toolCount}',
+        de: 'AI-CDP bereit · ${runtimeStatus.toolCount}',
+        ja: 'AI CDP 準備完了 · ${runtimeStatus.toolCount}',
+      );
     } else if (!runtimeStatus.browserAlive) {
       tone = _CdpMcpBridgeHeaderTone.unavailable;
       icon = Icons.power_off_rounded;
-      label = isZh ? 'AI CDP 离线' : 'AI CDP offline';
+      label = _wrText(
+        context,
+        zh: 'AI CDP 离线',
+        zhHant: 'AI CDP 離線',
+        en: 'AI CDP offline',
+        fr: 'CDP IA hors ligne',
+        de: 'AI-CDP offline',
+        ja: 'AI CDP オフライン',
+      );
     } else if (runtimeStatus.rawStatus == 'preparing') {
       tone = _CdpMcpBridgeHeaderTone.preparing;
       icon = Icons.sync_rounded;
-      label = isZh ? 'AI CDP 准备中' : 'AI CDP preparing';
+      label = _wrText(
+        context,
+        zh: 'AI CDP 准备中',
+        zhHant: 'AI CDP 準備中',
+        en: 'AI CDP preparing',
+        fr: 'Preparation du CDP IA',
+        de: 'AI-CDP wird vorbereitet',
+        ja: 'AI CDP 準備中',
+      );
     } else if (runtimeStatus.rawStatus == 'failed') {
       tone = _CdpMcpBridgeHeaderTone.failed;
       icon = Icons.error_outline_rounded;
-      label = isZh ? 'AI CDP 异常' : 'AI CDP failed';
+      label = _wrText(
+        context,
+        zh: 'AI CDP 异常',
+        zhHant: 'AI CDP 異常',
+        en: 'AI CDP failed',
+        fr: 'Echec du CDP IA',
+        de: 'AI-CDP fehlgeschlagen',
+        ja: 'AI CDP 異常',
+      );
     } else {
       tone = _CdpMcpBridgeHeaderTone.unavailable;
       icon = Icons.link_off_rounded;
-      label = isZh ? 'AI CDP 待同步' : 'AI CDP pending';
+      label = _wrText(
+        context,
+        zh: 'AI CDP 待同步',
+        zhHant: 'AI CDP 待同步',
+        en: 'AI CDP pending',
+        fr: 'CDP IA en attente',
+        de: 'AI-CDP ausstehend',
+        ja: 'AI CDP 同期待ち',
+      );
     }
 
     final lines = <String>[
-      isZh ? 'AI 侧 CDP MCP 桥接状态' : 'AI-side CDP MCP bridge',
-      '${isZh ? '状态' : 'Status'}: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
-      '${isZh ? '可调用工具' : 'Callable tools'}: ${runtimeStatus.toolCount}',
+      _wrText(
+        context,
+        zh: 'AI 侧 CDP MCP 桥接状态',
+        zhHant: 'AI 側 CDP MCP 橋接狀態',
+        en: 'AI-side CDP MCP bridge',
+        fr: 'Pont MCP CDP cote IA',
+        de: 'AI-seitige CDP-MCP-Bridge',
+        ja: 'AI 側 CDP MCP ブリッジ状態',
+      ),
+      '${_wrText(context, zh: '状态', zhHant: '狀態', en: 'Status', fr: 'Etat', de: 'Status', ja: '状態')}: ${runtimeStatus.rawStatus.isEmpty ? 'unknown' : runtimeStatus.rawStatus}',
+      '${_wrText(context, zh: '可调用工具', zhHant: '可呼叫工具', en: 'Callable tools', fr: 'Outils appelables', de: 'Aufrufbare Tools', ja: '呼び出し可能ツール')}: ${runtimeStatus.toolCount}',
       if (runtimeStatus.port != null)
-        '${isZh ? 'CDP 端口' : 'CDP port'}: ${runtimeStatus.port}',
+        '${_wrText(context, zh: 'CDP 端口', zhHant: 'CDP 連接埠', en: 'CDP port', fr: 'Port CDP', de: 'CDP-Port', ja: 'CDP ポート')}: ${runtimeStatus.port}',
       if (runtimeStatus.serverName.isNotEmpty)
         'MCP: ${runtimeStatus.serverName}',
       if (runtimeStatus.message.isNotEmpty) runtimeStatus.message,
       if (runtimeStatus.warningMessage.isNotEmpty)
-        '${isZh ? '提示' : 'Warning'}: ${runtimeStatus.warningMessage}',
+        '${_wrText(context, zh: '提示', zhHant: '提示', en: 'Warning', fr: 'Avertissement', de: 'Warnung', ja: '警告')}: ${runtimeStatus.warningMessage}',
       if (runtimeStatus.errorMessage.isNotEmpty)
-        '${isZh ? '错误' : 'Error'}: ${runtimeStatus.errorMessage}',
+        '${_wrText(context, zh: '错误', zhHant: '錯誤', en: 'Error', fr: 'Erreur', de: 'Fehler', ja: 'エラー')}: ${runtimeStatus.errorMessage}',
     ];
     return _CdpMcpBridgeHeaderStatus(
       tone: tone,
@@ -1456,14 +1590,12 @@ class _CdpMcpBridgeToggle extends StatelessWidget {
   const _CdpMcpBridgeToggle({
     required this.enabled,
     required this.busy,
-    required this.isZh,
     required this.reduceMotion,
     required this.onChanged,
   });
 
   final bool enabled;
   final bool busy;
-  final bool isZh;
   final bool reduceMotion;
   final ValueChanged<bool> onChanged;
 
@@ -1473,9 +1605,15 @@ class _CdpMcpBridgeToggle extends StatelessWidget {
     final cs = theme.colorScheme;
     final color = enabled ? cs.primary : cs.onSurfaceVariant;
     return Tooltip(
-      message: isZh
-          ? '手动启用后，本会话才会通过 npx 准备 chrome-devtools-mcp；关闭会停止临时 MCP。'
-          : 'Enable manually to prepare chrome-devtools-mcp through npx for this session; disabling stops the transient MCP.',
+      message: _wrText(
+        context,
+        zh: '手动启用后，本会话才会通过 npx 准备 chrome-devtools-mcp；关闭会停止临时 MCP。',
+        zhHant: '手動啟用後，本會話才會透過 npx 準備 chrome-devtools-mcp；關閉會停止臨時 MCP。',
+        en: 'Enable manually to prepare chrome-devtools-mcp through npx for this session; disabling stops the transient MCP.',
+        fr: 'Activez manuellement pour preparer chrome-devtools-mcp via npx pour cette session ; la desactivation arrete le MCP temporaire.',
+        de: 'Manuell aktivieren, um chrome-devtools-mcp per npx fur diese Sitzung vorzubereiten; Deaktivieren stoppt das temporare MCP.',
+        ja: '手動で有効化すると、このセッション用に npx 経由で chrome-devtools-mcp を準備します。無効化すると一時 MCP を停止します。',
+      ),
       waitDuration: const Duration(milliseconds: 350),
       child: AnimatedContainer(
         duration: reduceMotion ? Duration.zero : _kSwitchDuration,
@@ -1514,8 +1652,24 @@ class _CdpMcpBridgeToggle extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               enabled
-                  ? (isZh ? 'MCP 开' : 'MCP on')
-                  : (isZh ? 'MCP 关' : 'MCP off'),
+                  ? _wrText(
+                      context,
+                      zh: 'MCP 开',
+                      zhHant: 'MCP 開',
+                      en: 'MCP on',
+                      fr: 'MCP actif',
+                      de: 'MCP ein',
+                      ja: 'MCP オン',
+                    )
+                  : _wrText(
+                      context,
+                      zh: 'MCP 关',
+                      zhHant: 'MCP 關',
+                      en: 'MCP off',
+                      fr: 'MCP inactif',
+                      de: 'MCP aus',
+                      ja: 'MCP オフ',
+                    ),
               style: theme.textTheme.labelMedium?.copyWith(
                 color: color,
                 fontWeight: FontWeight.w800,
@@ -1594,9 +1748,8 @@ class _CdpMcpBridgeStatusPill extends StatelessWidget {
 }
 
 class _OverviewBody extends StatefulWidget {
-  const _OverviewBody({required this.controller, required this.isZh});
+  const _OverviewBody({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
 
   @override
   State<_OverviewBody> createState() => _OverviewBodyState();
@@ -1606,7 +1759,6 @@ class _OverviewBodyState extends State<_OverviewBody> {
   bool _busy = false;
 
   WebReverseSessionController get controller => widget.controller;
-  bool get isZh => widget.isZh;
 
   Future<void> _exportSnapshot() async {
     if (_busy) return;
@@ -1630,7 +1782,15 @@ class _OverviewBodyState extends State<_OverviewBody> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh ? '快照已保存到 ${location.path}' : 'Snapshot saved to ${location.path}',
+        _wrText(
+          context,
+          zh: '快照已保存到 ${location.path}',
+          zhHant: '快照已儲存到 ${location.path}',
+          en: 'Snapshot saved to ${location.path}',
+          fr: 'Instantane enregistre dans ${location.path}',
+          de: 'Snapshot gespeichert unter ${location.path}',
+          ja: 'スナップショットを ${location.path} に保存しました',
+        ),
         duration: const Duration(seconds: 3),
       );
     } catch (error, stack) {
@@ -1639,7 +1799,15 @@ class _OverviewBodyState extends State<_OverviewBody> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '快照导出失败' : 'Snapshot export failed',
+        _wrText(
+          context,
+          zh: '快照导出失败',
+          zhHant: '快照匯出失敗',
+          en: 'Snapshot export failed',
+          fr: 'Echec de l export de l instantane',
+          de: 'Snapshot-Export fehlgeschlagen',
+          ja: 'スナップショットのエクスポートに失敗しました',
+        ),
         duration: const Duration(seconds: 3),
       );
     } finally {
@@ -1661,7 +1829,10 @@ class _OverviewBodyState extends State<_OverviewBody> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          webReverseTextFileTooLargeMessage(read.tooLargeBytes!, isZh: isZh),
+          webReverseTextFileTooLargeMessage(
+            read.tooLargeBytes!,
+            context: context,
+          ),
           duration: const Duration(seconds: 3),
         );
         return;
@@ -1673,7 +1844,15 @@ class _OverviewBodyState extends State<_OverviewBody> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          isZh ? '快照格式无效' : 'Invalid snapshot format',
+          _wrText(
+            context,
+            zh: '快照格式无效',
+            zhHant: '快照格式無效',
+            en: 'Invalid snapshot format',
+            fr: 'Format d instantane invalide',
+            de: 'Ungultiges Snapshot-Format',
+            ja: 'スナップショット形式が無効です',
+          ),
           duration: const Duration(seconds: 3),
         );
         return;
@@ -1684,14 +1863,30 @@ class _OverviewBodyState extends State<_OverviewBody> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          isZh ? '快照版本不兼容' : 'Snapshot version unsupported',
+          _wrText(
+            context,
+            zh: '快照版本不兼容',
+            zhHant: '快照版本不相容',
+            en: 'Snapshot version unsupported',
+            fr: 'Version d instantane non prise en charge',
+            de: 'Snapshot-Version wird nicht unterstutzt',
+            ja: 'スナップショットのバージョンはサポートされていません',
+          ),
           duration: const Duration(seconds: 3),
         );
       } else {
         OpenHandSnackBar.showSuccessOn(
           context,
           messenger,
-          isZh ? '已导入 $count 条网络记录' : 'Imported $count network entries',
+          _wrText(
+            context,
+            zh: '已导入 $count 条网络记录',
+            zhHant: '已匯入 $count 筆網路記錄',
+            en: 'Imported $count network entries',
+            fr: '$count entrees reseau importees',
+            de: '$count Netzwerkeintrage importiert',
+            ja: '$count 件のネットワーク記録をインポートしました',
+          ),
           duration: const Duration(seconds: 3),
         );
       }
@@ -1701,7 +1896,15 @@ class _OverviewBodyState extends State<_OverviewBody> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '快照导入失败' : 'Snapshot import failed',
+        _wrText(
+          context,
+          zh: '快照导入失败',
+          zhHant: '快照匯入失敗',
+          en: 'Snapshot import failed',
+          fr: 'Echec de l import de l instantane',
+          de: 'Snapshot-Import fehlgeschlagen',
+          ja: 'スナップショットのインポートに失敗しました',
+        ),
         duration: const Duration(seconds: 3),
       );
     } finally {
@@ -1716,20 +1919,96 @@ class _OverviewBodyState extends State<_OverviewBody> {
     final ctrl = controller;
     final antiBot = ctrl.detectAntiBot();
     final stats = <(String, String)>[
-      (isZh ? '请求数' : 'Requests', '${ctrl.networkRequests.length}'),
       (
-        isZh ? '错误' : 'Errors',
+        _wrText(
+          context,
+          zh: '请求数',
+          zhHant: '請求數',
+          en: 'Requests',
+          fr: 'Requetes',
+          de: 'Anfragen',
+          ja: 'リクエスト数',
+        ),
+        '${ctrl.networkRequests.length}',
+      ),
+      (
+        _wrText(
+          context,
+          zh: '错误',
+          zhHant: '錯誤',
+          en: 'Errors',
+          fr: 'Erreurs',
+          de: 'Fehler',
+          ja: 'エラー',
+        ),
         '${ctrl.networkRequests.where((e) => e.isError).length}',
       ),
-      (isZh ? '控制台条目' : 'Console', '${ctrl.consoleMessages.length}'),
       (
-        isZh ? '运行状态' : 'Status',
-        ctrl.isRunning
-            ? (isZh ? '运行中' : 'Running')
-            : (isZh ? '已停止' : 'Stopped'),
+        _wrText(
+          context,
+          zh: '控制台条目',
+          zhHant: '主控台項目',
+          en: 'Console',
+          fr: 'Console',
+          de: 'Konsole',
+          ja: 'コンソール',
+        ),
+        '${ctrl.consoleMessages.length}',
       ),
-      (isZh ? '浏览器' : 'Browser', ctrl.browserVersion ?? '-'),
-      (isZh ? 'CDP 端口' : 'CDP Port', '${ctrl.cdpPort ?? '-'}'),
+      (
+        _wrText(
+          context,
+          zh: '运行状态',
+          zhHant: '執行狀態',
+          en: 'Status',
+          fr: 'Etat',
+          de: 'Status',
+          ja: '状態',
+        ),
+        ctrl.isRunning
+            ? _wrText(
+                context,
+                zh: '运行中',
+                zhHant: '執行中',
+                en: 'Running',
+                fr: 'En cours',
+                de: 'Aktiv',
+                ja: '実行中',
+              )
+            : _wrText(
+                context,
+                zh: '已停止',
+                zhHant: '已停止',
+                en: 'Stopped',
+                fr: 'Arrete',
+                de: 'Gestoppt',
+                ja: '停止済み',
+              ),
+      ),
+      (
+        _wrText(
+          context,
+          zh: '浏览器',
+          zhHant: '瀏覽器',
+          en: 'Browser',
+          fr: 'Navigateur',
+          de: 'Browser',
+          ja: 'ブラウザ',
+        ),
+        ctrl.browserVersion ?? '-',
+      ),
+      (
+        _wrText(
+          context,
+          zh: 'CDP 端口',
+          zhHant: 'CDP 連接埠',
+          en: 'CDP Port',
+          fr: 'Port CDP',
+          de: 'CDP-Port',
+          ja: 'CDP ポート',
+        ),
+        '${ctrl.cdpPort ?? '-'}',
+      ),
     ];
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -1756,7 +2035,15 @@ class _OverviewBodyState extends State<_OverviewBody> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isZh ? '检测到反爬指纹' : 'Anti-bot signals detected',
+                        _wrText(
+                          context,
+                          zh: '检测到反爬指纹',
+                          zhHant: '偵測到反爬指紋',
+                          en: 'Anti-bot signals detected',
+                          fr: 'Signaux anti-bot detectes',
+                          de: 'Anti-Bot-Signale erkannt',
+                          ja: 'ボット対策シグナルを検出しました',
+                        ),
                         style: theme.textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                           color: cs.onTertiaryContainer,
@@ -1772,9 +2059,16 @@ class _OverviewBodyState extends State<_OverviewBody> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        isZh
-                            ? '此站点使用反爬服务，纯 curl/fetch 复现可能失败。建议保留浏览器流程，或为请求脚本叠加 cookie / TLS 指纹工具。'
-                            : 'This site uses anti-bot services. Bare curl/fetch may fail; keep the browser flow or add cookie / TLS fingerprint tooling.',
+                        _wrText(
+                          context,
+                          zh: '此站点使用反爬服务，纯 curl/fetch 复现可能失败。建议保留浏览器流程，或为请求脚本叠加 cookie / TLS 指纹工具。',
+                          zhHant:
+                              '此站點使用反爬服務，純 curl/fetch 重現可能失敗。建議保留瀏覽器流程，或為請求腳本疊加 cookie / TLS 指紋工具。',
+                          en: 'This site uses anti-bot services. Bare curl/fetch may fail; keep the browser flow or add cookie / TLS fingerprint tooling.',
+                          fr: 'Ce site utilise une protection anti-bot. Un simple curl/fetch peut echouer ; conservez le flux navigateur ou ajoutez des cookies / empreintes TLS au script.',
+                          de: 'Diese Site nutzt Anti-Bot-Schutz. Reines curl/fetch kann fehlschlagen; behalten Sie den Browserfluss bei oder erganzen Sie Cookies / TLS-Fingerprints.',
+                          ja: 'このサイトはボット対策サービスを使用しています。単純な curl/fetch では失敗する可能性があります。ブラウザフローを維持するか、リクエストスクリプトに cookie / TLS フィンガープリントを追加してください。',
+                        ),
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: cs.onTertiaryContainer,
                           height: 1.5,
@@ -1847,7 +2141,15 @@ class _OverviewBodyState extends State<_OverviewBody> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    isZh ? '会话快照' : 'Session snapshot',
+                    _wrText(
+                      context,
+                      zh: '会话快照',
+                      zhHant: '會話快照',
+                      en: 'Session snapshot',
+                      fr: 'Instantane de session',
+                      de: 'Sitzungs-Snapshot',
+                      ja: 'セッションスナップショット',
+                    ),
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -1856,9 +2158,16 @@ class _OverviewBodyState extends State<_OverviewBody> {
               ),
               const SizedBox(height: 6),
               Text(
-                isZh
-                    ? '把当前 target 的网络/控制台/WebSocket 帧导出为 JSON，便于离线重放、Issue 复现、跨机器协作。导入会覆盖现有缓冲。'
-                    : 'Export current target network / console / WebSocket frames to JSON for offline replay, issue reproduction or hand-off. Import overwrites the current buffer.',
+                _wrText(
+                  context,
+                  zh: '把当前 target 的网络/控制台/WebSocket 帧导出为 JSON，便于离线重放、Issue 复现、跨机器协作。导入会覆盖现有缓冲。',
+                  zhHant:
+                      '將目前 target 的網路 / 主控台 / WebSocket 幀匯出為 JSON，便於離線重放、Issue 重現、跨機器協作。匯入會覆蓋現有緩衝。',
+                  en: 'Export current target network / console / WebSocket frames to JSON for offline replay, issue reproduction or hand-off. Import overwrites the current buffer.',
+                  fr: 'Exportez les trames reseau / console / WebSocket de la cible en JSON pour rejouer hors ligne, reproduire un ticket ou collaborer. L import remplace le tampon actuel.',
+                  de: 'Exportiert Netzwerk-, Konsolen- und WebSocket-Frames des aktuellen Targets als JSON fur Offline-Replay, Fehlerreproduktion oder Ubergabe. Import uberschreibt den aktuellen Puffer.',
+                  ja: '現在の target のネットワーク / コンソール / WebSocket フレームを JSON にエクスポートし、オフライン再生、Issue 再現、引き継ぎに使えます。インポートすると現在のバッファを上書きします。',
+                ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: cs.onSurfaceVariant,
                   height: 1.45,
@@ -1870,13 +2179,33 @@ class _OverviewBodyState extends State<_OverviewBody> {
                   FilledButton.tonalIcon(
                     onPressed: _busy ? null : _exportSnapshot,
                     icon: const Icon(Icons.file_download_outlined, size: 18),
-                    label: Text(isZh ? '导出快照' : 'Export snapshot'),
+                    label: Text(
+                      _wrText(
+                        context,
+                        zh: '导出快照',
+                        zhHant: '匯出快照',
+                        en: 'Export snapshot',
+                        fr: 'Exporter',
+                        de: 'Snapshot exportieren',
+                        ja: 'スナップショットをエクスポート',
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   FilledButton.tonalIcon(
                     onPressed: _busy ? null : _importSnapshot,
                     icon: const Icon(Icons.file_upload_outlined, size: 18),
-                    label: Text(isZh ? '导入快照' : 'Import snapshot'),
+                    label: Text(
+                      _wrText(
+                        context,
+                        zh: '导入快照',
+                        zhHant: '匯入快照',
+                        en: 'Import snapshot',
+                        fr: 'Importer',
+                        de: 'Snapshot importieren',
+                        ja: 'スナップショットをインポート',
+                      ),
+                    ),
                   ),
                   if (_busy) ...[
                     const SizedBox(width: 12),
@@ -1907,12 +2236,10 @@ class _DiagnosisBanner extends StatefulWidget {
   const _DiagnosisBanner({
     super.key,
     required this.controller,
-    required this.isZh,
     required this.reduceMotion,
   });
 
   final WebReverseSessionController controller;
-  final bool isZh;
   final bool reduceMotion;
 
   @override
@@ -2008,8 +2335,16 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
       context,
       messenger,
       webReverseClipboardSnackMessage(
-        isZh: widget.isZh,
-        base: widget.isZh ? '已复制原始报错' : 'Raw error copied',
+        context: context,
+        base: _wrText(
+          context,
+          zh: '已复制原始报错',
+          zhHant: '已複製原始錯誤',
+          en: 'Raw error copied',
+          fr: 'Erreur brute copiee',
+          de: 'Rohfehler kopiert',
+          ja: '原始エラーをコピーしました',
+        ),
         result: copied,
       ),
       duration: const Duration(seconds: 1),
@@ -2020,9 +2355,11 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     final raw = widget.controller.errorMessage ?? '';
-    final diagnosis = WebReverseLaunchDiagnosis.parse(raw);
+    final diagnosis = WebReverseLaunchDiagnosis.parse(
+      raw,
+      locale: Localizations.localeOf(context),
+    );
     return AnimatedSize(
       duration: widget.reduceMotion
           ? Duration.zero
@@ -2062,8 +2399,24 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                 ),
                 IconButton(
                   tooltip: _expanded
-                      ? (isZh ? '收起' : 'Collapse')
-                      : (isZh ? '展开' : 'Expand'),
+                      ? _wrText(
+                          context,
+                          zh: '收起',
+                          zhHant: '收合',
+                          en: 'Collapse',
+                          fr: 'Replier',
+                          de: 'Einklappen',
+                          ja: '折りたたむ',
+                        )
+                      : _wrText(
+                          context,
+                          zh: '展开',
+                          zhHant: '展開',
+                          en: 'Expand',
+                          fr: 'Deplier',
+                          de: 'Aufklappen',
+                          ja: '展開',
+                        ),
                   visualDensity: VisualDensity.compact,
                   iconSize: 18,
                   padding: const EdgeInsets.all(6),
@@ -2080,7 +2433,15 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                 ),
                 const SizedBox(width: 4),
                 IconButton(
-                  tooltip: isZh ? '关闭诊断' : 'Dismiss',
+                  tooltip: _wrText(
+                    context,
+                    zh: '关闭诊断',
+                    zhHant: '關閉診斷',
+                    en: 'Dismiss',
+                    fr: 'Fermer le diagnostic',
+                    de: 'Diagnose schliessen',
+                    ja: '診断を閉じる',
+                  ),
                   visualDensity: VisualDensity.compact,
                   iconSize: 18,
                   padding: const EdgeInsets.all(6),
@@ -2096,7 +2457,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
             if (_expanded) ...[
               const SizedBox(height: 8),
               for (var i = 0; i < diagnosis.causes.length; i++) ...[
-                _CauseEntry(cause: diagnosis.causes[i], index: i, isZh: isZh),
+                _CauseEntry(cause: diagnosis.causes[i], index: i),
                 if (i != diagnosis.causes.length - 1) const SizedBox(height: 8),
               ],
               const SizedBox(height: 12),
@@ -2117,12 +2478,34 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                     ),
                     label: Text(
                       _busy
-                          ? (isZh ? '处理中…' : 'Working…')
+                          ? _wrText(
+                              context,
+                              zh: '处理中…',
+                              zhHant: '處理中…',
+                              en: 'Working…',
+                              fr: 'Traitement…',
+                              de: 'Wird verarbeitet…',
+                              ja: '処理中…',
+                            )
                           : _onCooldown
-                          ? (isZh
-                                ? '冷却中（${_cooldownLeftSec}s）'
-                                : 'Cool-down ${_cooldownLeftSec}s')
-                          : (isZh ? '解决 Profile 冲突' : 'Resolve profile lock'),
+                          ? _wrText(
+                              context,
+                              zh: '冷却中（${_cooldownLeftSec}s）',
+                              zhHant: '冷卻中（${_cooldownLeftSec}s）',
+                              en: 'Cool-down ${_cooldownLeftSec}s',
+                              fr: 'Pause ${_cooldownLeftSec}s',
+                              de: 'Abklingzeit ${_cooldownLeftSec}s',
+                              ja: 'クールダウン ${_cooldownLeftSec}s',
+                            )
+                          : _wrText(
+                              context,
+                              zh: '解决 Profile 冲突',
+                              zhHant: '解決 Profile 衝突',
+                              en: 'Resolve profile lock',
+                              fr: 'Resoudre le verrou du profil',
+                              de: 'Profilsperre beheben',
+                              ja: 'プロファイルロックを解消',
+                            ),
                     ),
                     style: FilledButton.styleFrom(
                       visualDensity: VisualDensity.compact,
@@ -2131,7 +2514,17 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
                   OutlinedButton.icon(
                     onPressed: () => _copyRaw(diagnosis),
                     icon: const Icon(Icons.copy_all_rounded, size: 16),
-                    label: Text(isZh ? '复制原始报错' : 'Copy raw error'),
+                    label: Text(
+                      _wrText(
+                        context,
+                        zh: '复制原始报错',
+                        zhHant: '複製原始錯誤',
+                        en: 'Copy raw error',
+                        fr: 'Copier l erreur brute',
+                        de: 'Rohfehler kopieren',
+                        ja: '原始エラーをコピー',
+                      ),
+                    ),
                     style: OutlinedButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                     ),
@@ -2147,15 +2540,10 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner> {
 }
 
 class _CauseEntry extends StatelessWidget {
-  const _CauseEntry({
-    required this.cause,
-    required this.index,
-    required this.isZh,
-  });
+  const _CauseEntry({required this.cause, required this.index});
 
   final WebReverseLaunchCause cause;
   final int index;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -2179,7 +2567,15 @@ class _CauseEntry extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  isZh ? '可能根因 ${index + 1}' : 'Cause ${index + 1}',
+                  _wrText(
+                    context,
+                    zh: '可能根因 ${index + 1}',
+                    zhHant: '可能根因 ${index + 1}',
+                    en: 'Cause ${index + 1}',
+                    fr: 'Cause ${index + 1}',
+                    de: 'Ursache ${index + 1}',
+                    ja: '原因 ${index + 1}',
+                  ),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onPrimaryContainer,
                     fontWeight: FontWeight.w800,
@@ -2215,9 +2611,7 @@ class _CauseEntry extends StatelessWidget {
 /// dashboard 全局快捷键速查面板：按 Shift+? 打开，分类列出所有热键。
 /// macOS 上 Cmd 用 ⌘ 渲染；其它平台用 Ctrl。
 class _ShortcutsHelpDialog extends StatelessWidget {
-  const _ShortcutsHelpDialog({required this.isZh});
-
-  final bool isZh;
+  const _ShortcutsHelpDialog();
 
   @override
   Widget build(BuildContext context) {
@@ -2226,45 +2620,242 @@ class _ShortcutsHelpDialog extends StatelessWidget {
     final cmd = Platform.isMacOS ? '⌘' : 'Ctrl';
     final groups = <({String title, List<({String keys, String desc})> rows})>[
       (
-        title: isZh ? 'Dashboard' : 'Dashboard',
+        title: _wrText(
+          context,
+          zh: 'Dashboard',
+          zhHant: 'Dashboard',
+          en: 'Dashboard',
+          fr: 'Dashboard',
+          de: 'Dashboard',
+          ja: 'Dashboard',
+        ),
         rows: [
-          (keys: 'Shift + ?', desc: isZh ? '打开本面板' : 'Open this panel'),
+          (
+            keys: 'Shift + ?',
+            desc: _wrText(
+              context,
+              zh: '打开本面板',
+              zhHant: '開啟本面板',
+              en: 'Open this panel',
+              fr: 'Ouvrir ce panneau',
+              de: 'Dieses Panel offnen',
+              ja: 'このパネルを開く',
+            ),
+          ),
           (
             keys: '$cmd + Shift + R',
-            desc: isZh ? '启停 Recorder' : 'Toggle Recorder',
+            desc: _wrText(
+              context,
+              zh: '启停 Recorder',
+              zhHant: '啟停 Recorder',
+              en: 'Toggle Recorder',
+              fr: 'Basculer Recorder',
+              de: 'Recorder umschalten',
+              ja: 'Recorder を切り替え',
+            ),
           ),
         ],
       ),
       (
-        title: isZh ? '浏览器面板' : 'Browser surface',
-        rows: [
-          (keys: '$cmd + T', desc: isZh ? '新标签页' : 'New tab'),
-          (keys: '$cmd + W', desc: isZh ? '关闭当前标签页' : 'Close tab'),
-          (keys: '$cmd + R', desc: isZh ? '刷新' : 'Reload'),
-          (keys: '$cmd + Shift + R', desc: isZh ? '强制刷新' : 'Hard reload'),
-          (keys: '$cmd + L', desc: isZh ? '聚焦地址栏' : 'Focus address bar'),
-          (keys: '$cmd + F', desc: isZh ? '页面查找' : 'Find in page'),
-          (keys: 'Esc', desc: isZh ? '关闭查找条' : 'Close find bar'),
-          (keys: '$cmd + +', desc: isZh ? '放大' : 'Zoom in'),
-          (keys: '$cmd + -', desc: isZh ? '缩小' : 'Zoom out'),
-          (keys: '$cmd + 0', desc: isZh ? '复位 100%' : 'Zoom 100%'),
-        ],
-      ),
-      (
-        title: isZh ? '控制台' : 'Console',
-        rows: [
-          (keys: '↑ / ↓', desc: isZh ? '浏览历史命令' : 'Browse history'),
-          (keys: 'Enter', desc: isZh ? '执行' : 'Run'),
-        ],
-      ),
-      (
-        title: isZh ? '通用' : 'General',
+        title: _wrText(
+          context,
+          zh: '浏览器面板',
+          zhHant: '瀏覽器面板',
+          en: 'Browser surface',
+          fr: 'Surface navigateur',
+          de: 'Browserflache',
+          ja: 'ブラウザ面',
+        ),
         rows: [
           (
-            keys: isZh ? '右键' : 'Right-click',
-            desc: isZh
-                ? '浏览器面板上下文菜单（复制 / 粘贴 / 检查 / 框选导出 …）'
-                : 'Browser surface context menu',
+            keys: '$cmd + T',
+            desc: _wrText(
+              context,
+              zh: '新标签页',
+              zhHant: '新分頁',
+              en: 'New tab',
+              fr: 'Nouvel onglet',
+              de: 'Neuer Tab',
+              ja: '新しいタブ',
+            ),
+          ),
+          (
+            keys: '$cmd + W',
+            desc: _wrText(
+              context,
+              zh: '关闭当前标签页',
+              zhHant: '關閉目前分頁',
+              en: 'Close tab',
+              fr: 'Fermer l onglet',
+              de: 'Tab schliessen',
+              ja: 'タブを閉じる',
+            ),
+          ),
+          (
+            keys: '$cmd + R',
+            desc: _wrText(
+              context,
+              zh: '刷新',
+              zhHant: '重新整理',
+              en: 'Reload',
+              fr: 'Recharger',
+              de: 'Neu laden',
+              ja: '再読み込み',
+            ),
+          ),
+          (
+            keys: '$cmd + Shift + R',
+            desc: _wrText(
+              context,
+              zh: '强制刷新',
+              zhHant: '強制重新整理',
+              en: 'Hard reload',
+              fr: 'Rechargement force',
+              de: 'Hart neu laden',
+              ja: '強制再読み込み',
+            ),
+          ),
+          (
+            keys: '$cmd + L',
+            desc: _wrText(
+              context,
+              zh: '聚焦地址栏',
+              zhHant: '聚焦網址列',
+              en: 'Focus address bar',
+              fr: 'Focus barre d adresse',
+              de: 'Adressleiste fokussieren',
+              ja: 'アドレスバーにフォーカス',
+            ),
+          ),
+          (
+            keys: '$cmd + F',
+            desc: _wrText(
+              context,
+              zh: '页面查找',
+              zhHant: '頁面搜尋',
+              en: 'Find in page',
+              fr: 'Rechercher dans la page',
+              de: 'Auf Seite suchen',
+              ja: 'ページ内検索',
+            ),
+          ),
+          (
+            keys: 'Esc',
+            desc: _wrText(
+              context,
+              zh: '关闭查找条',
+              zhHant: '關閉搜尋列',
+              en: 'Close find bar',
+              fr: 'Fermer la recherche',
+              de: 'Suchleiste schliessen',
+              ja: '検索バーを閉じる',
+            ),
+          ),
+          (
+            keys: '$cmd + +',
+            desc: _wrText(
+              context,
+              zh: '放大',
+              zhHant: '放大',
+              en: 'Zoom in',
+              fr: 'Zoom avant',
+              de: 'Vergrossern',
+              ja: '拡大',
+            ),
+          ),
+          (
+            keys: '$cmd + -',
+            desc: _wrText(
+              context,
+              zh: '缩小',
+              zhHant: '縮小',
+              en: 'Zoom out',
+              fr: 'Zoom arriere',
+              de: 'Verkleinern',
+              ja: '縮小',
+            ),
+          ),
+          (
+            keys: '$cmd + 0',
+            desc: _wrText(
+              context,
+              zh: '复位 100%',
+              zhHant: '重設 100%',
+              en: 'Zoom 100%',
+              fr: 'Zoom 100 %',
+              de: 'Zoom 100 %',
+              ja: 'ズーム 100%',
+            ),
+          ),
+        ],
+      ),
+      (
+        title: _wrText(
+          context,
+          zh: '控制台',
+          zhHant: '主控台',
+          en: 'Console',
+          fr: 'Console',
+          de: 'Konsole',
+          ja: 'コンソール',
+        ),
+        rows: [
+          (
+            keys: '↑ / ↓',
+            desc: _wrText(
+              context,
+              zh: '浏览历史命令',
+              zhHant: '瀏覽歷史命令',
+              en: 'Browse history',
+              fr: 'Parcourir l historique',
+              de: 'Verlauf durchsuchen',
+              ja: '履歴を移動',
+            ),
+          ),
+          (
+            keys: 'Enter',
+            desc: _wrText(
+              context,
+              zh: '执行',
+              zhHant: '執行',
+              en: 'Run',
+              fr: 'Executer',
+              de: 'Ausfuhren',
+              ja: '実行',
+            ),
+          ),
+        ],
+      ),
+      (
+        title: _wrText(
+          context,
+          zh: '通用',
+          zhHant: '通用',
+          en: 'General',
+          fr: 'General',
+          de: 'Allgemein',
+          ja: '全般',
+        ),
+        rows: [
+          (
+            keys: _wrText(
+              context,
+              zh: '右键',
+              zhHant: '右鍵',
+              en: 'Right-click',
+              fr: 'Clic droit',
+              de: 'Rechtsklick',
+              ja: '右クリック',
+            ),
+            desc: _wrText(
+              context,
+              zh: '浏览器面板上下文菜单（复制 / 粘贴 / 检查 / 框选导出 …）',
+              zhHant: '瀏覽器面板內容選單（複製 / 貼上 / 檢查 / 框選匯出 …）',
+              en: 'Browser surface context menu',
+              fr: 'Menu contextuel de la surface navigateur',
+              de: 'Kontextmenu der Browserflache',
+              ja: 'ブラウザ面のコンテキストメニュー',
+            ),
           ),
         ],
       ),
@@ -2280,7 +2871,15 @@ class _ShortcutsHelpDialog extends StatelessWidget {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.keyboard_rounded,
-            title: isZh ? '快捷键速查' : 'Keyboard shortcuts',
+            title: _wrText(
+              context,
+              zh: '快捷键速查',
+              zhHant: '快捷鍵速查',
+              en: 'Keyboard shortcuts',
+              fr: 'Raccourcis clavier',
+              de: 'Tastenkurzel',
+              ja: 'キーボードショートカット',
+            ),
             onClose: () => Navigator.of(context).pop(),
           ),
           Divider(height: 1, color: cs.outlineVariant),

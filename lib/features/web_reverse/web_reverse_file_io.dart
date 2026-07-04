@@ -1,8 +1,10 @@
 import 'dart:convert';
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/widgets.dart';
 
 import '../../shared/util/byte_size_format.dart';
+import '../../shared/util/localized_text.dart';
 
 const int kWebReverseJsonFileMaxBytes = 32 * kBytesPerMiB;
 
@@ -41,11 +43,23 @@ Future<WebReverseTextFileReadResult> readWebReverseTextFile(
 
 String webReverseTextFileTooLargeMessage(
   int bytes, {
-  required bool isZh,
+  BuildContext? context,
+  bool isZh = false,
   int maxBytes = kWebReverseJsonFileMaxBytes,
 }) {
   final size = formatByteSize(bytes);
   final max = formatByteSize(maxBytes);
+  if (context != null) {
+    return openHandLocalizedText(
+      context,
+      zh: 'JSON 文件过大：$size，上限 $max',
+      zhHant: 'JSON 檔案過大：$size，上限 $max',
+      en: 'JSON file is too large: $size (limit $max)',
+      fr: 'Fichier JSON trop volumineux : $size (limite $max)',
+      de: 'JSON-Datei ist zu gross: $size (Limit $max)',
+      ja: 'JSON ファイルが大きすぎます: $size（上限 $max）',
+    );
+  }
   return isZh
       ? 'JSON 文件过大：$size，上限 $max'
       : 'JSON file is too large: $size (limit $max)';
