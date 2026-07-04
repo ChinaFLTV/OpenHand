@@ -621,6 +621,58 @@ void main() {
       },
     );
 
+    test(
+      'rejects executing a catalog-exposed agent tool against an unbound target agent',
+      () async {
+        await controller.saveAgent(
+          _agent(
+            id: 'agent-publisher',
+            name: 'Publisher Agent',
+            enabled: true,
+            builtinToolNames: const <String>['AgentTaskPublish'],
+          ),
+        );
+        await controller.saveAgent(
+          _agent(
+            id: 'agent-reader',
+            name: 'Reader Agent',
+            enabled: true,
+            builtinToolNames: const <String>['AgentList'],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        expect(catalog.find('AgentTaskPublish'), isNotNull);
+
+        final result = await runtime.execute(
+          sessionId: 'session-agent-binding',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-publish-unbound',
+            name: 'AgentTaskPublish',
+            arguments: jsonEncode(<String, Object?>{
+              'agent_id': 'agent-reader',
+              'title': 'Should not be published',
+              'content': 'This target agent did not bind AgentTaskPublish.',
+            }),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
+
+        expect(result.status, BashToolExecutionStatus.invalidArguments);
+        expect(result.resultText, contains('has not bound AgentTaskPublish'));
+        expect(controller.agentById('agent-reader')!.tasks, isEmpty);
+        expect(controller.agentById('agent-publisher')!.tasks, isEmpty);
+      },
+    );
+
     test('approval request tool records pending approval and audit', () async {
       await controller.saveAgent(_agent(enabled: true));
 

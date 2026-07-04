@@ -1539,7 +1539,17 @@ class AiAgentTool extends AiTool {
       identifier,
       includeDisabled: includeDisabled,
     );
-    if (agent != null) return _AgentResolution.agent(agent);
+    if (agent != null) {
+      if (!includeDisabled && !_agentAllowsCurrentTool(agent)) {
+        return _AgentResolution.error(
+          AiToolUtils.invalidResult(
+            _name,
+            'Agent "${agent.name}" has not bound $_name. Enable this tool in the agent configuration before using it for that agent.',
+          ),
+        );
+      }
+      return _AgentResolution.agent(agent);
+    }
     final disabled = controller.findAgent(identifier, includeDisabled: true);
     if (disabled != null && !disabled.enabled) {
       return _AgentResolution.error(
@@ -1568,7 +1578,8 @@ class AiAgentTool extends AiTool {
             .trim();
     if (identifier.isNotEmpty) return _resolveAgent(controller, args);
 
-    final candidates = controller.enabledAgents;
+    final candidates = _enabledAgentsForCurrentTool(controller);
+    if (candidates.isEmpty) return _noAgentBoundCurrentToolResult();
     if (candidates.length == 1) {
       return _AgentResolution.agent(
         candidates.single,
@@ -1617,7 +1628,8 @@ class AiAgentTool extends AiTool {
             .trim();
     if (identifier.isNotEmpty) return _resolveAgent(controller, args);
 
-    final candidates = controller.enabledAgents;
+    final candidates = _enabledAgentsForCurrentTool(controller);
+    if (candidates.isEmpty) return _noAgentBoundCurrentToolResult();
     if (candidates.length == 1) {
       return _AgentResolution.agent(
         candidates.single,
@@ -1666,7 +1678,8 @@ class AiAgentTool extends AiTool {
             .trim();
     if (identifier.isNotEmpty) return _resolveAgent(controller, args);
 
-    final candidates = controller.enabledAgents;
+    final candidates = _enabledAgentsForCurrentTool(controller);
+    if (candidates.isEmpty) return _noAgentBoundCurrentToolResult();
     if (candidates.length == 1) {
       return _AgentResolution.agent(
         candidates.single,
@@ -1701,6 +1714,34 @@ class AiAgentTool extends AiTool {
         note: '${args['note'] ?? ''}',
         labels: labels,
       ),
+    );
+  }
+
+  List<AgentProfile> _enabledAgentsForCurrentTool(AgentsController controller) {
+    return controller.enabledAgents
+        .where(_agentAllowsCurrentTool)
+        .toList(growable: false);
+  }
+
+  _AgentResolution _noAgentBoundCurrentToolResult() {
+    return _AgentResolution.error(
+      AiToolUtils.invalidResult(
+        _name,
+        'No enabled agent has bound $_name. Enable this tool in an agent configuration before using it.',
+      ),
+    );
+  }
+
+  bool _agentAllowsCurrentTool(AgentProfile agent) {
+    final configured = trimmedNonEmptyStrings(agent.builtinToolNames);
+    if (configured.isEmpty) return true;
+    final allowed = <String>{
+      _normalizedAgentToolName(_name),
+      _normalizedAgentToolName(_kind.name),
+      _normalizedAgentToolName(_snakeName(_name)),
+    };
+    return configured.any(
+      (name) => allowed.contains(_normalizedAgentToolName(name)),
     );
   }
 
@@ -1955,6 +1996,10 @@ class AiAgentTool extends AiTool {
     }
     return buffer.toString();
   }
+}
+
+String _normalizedAgentToolName(String value) {
+  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
 }
 
 class _AgentResolution {
