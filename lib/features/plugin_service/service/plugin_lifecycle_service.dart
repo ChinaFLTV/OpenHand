@@ -9,6 +9,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/version_compare.dart';
 import 'plugin_toolchain_shell.dart';
@@ -125,13 +126,301 @@ String pluginLifecycleManagedCommandPathScript(String executable) =>
 class PluginOperationResult {
   const PluginOperationResult({
     required this.success,
-    this.message,
+    String? message,
     this.newVersion,
-  });
+  }) : _message = message;
 
   final bool success;
-  final String? message;
+  final String? _message;
   final String? newVersion;
+
+  String? get message => _localizedPluginLifecycleMessage(_message);
+}
+
+String _pluginLifecycleText({
+  required String zh,
+  required String en,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedTextForLocaleName(
+    Platform.localeName,
+    zh: zh,
+    zhHant: zhHant,
+    en: en,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
+String? _localizedPluginLifecycleMessage(String? message) {
+  if (message == null || message.trim().isEmpty) {
+    return message;
+  }
+  final locale = Platform.localeName;
+  if (locale.toLowerCase().startsWith('zh')) {
+    return message;
+  }
+
+  String text({required String en, String? fr, String? de, String? ja}) {
+    return _pluginLifecycleText(zh: message, en: en, fr: fr, de: de, ja: ja);
+  }
+
+  Match? match;
+  match = RegExp(
+    r'^(.+?) 已通过 (nvm|fnm|pyenv|volta|Homebrew) 安装$',
+  ).firstMatch(message);
+  if (match != null) {
+    final item = match.group(1)!;
+    final manager = match.group(2)!;
+    return text(
+      en: '$item was installed with $manager',
+      fr: '$item a été installé avec $manager',
+      de: '$item wurde mit $manager installiert',
+      ja: '$item は $manager でインストールされました',
+    );
+  }
+  match = RegExp(
+    r'^(.+?) 已通过 (nvm|fnm|pyenv|volta|Homebrew) 更新(?:到 (.+))?$',
+  ).firstMatch(message);
+  if (match != null) {
+    final item = match.group(1)!;
+    final manager = match.group(2)!;
+    final version = match.group(3);
+    final suffix = version == null ? '' : ' to $version';
+    return text(
+      en: '$item was updated$suffix with $manager',
+      fr: '$item a été mis à jour$suffix avec $manager',
+      de: '$item wurde$suffix mit $manager aktualisiert',
+      ja: '$item は $manager で更新されました${version == null ? '' : ' ($version)'}',
+    );
+  }
+  match = RegExp(r'^(.+?) 已通过 (pyenv|Homebrew) 卸载$').firstMatch(message);
+  if (match != null) {
+    final item = match.group(1)!;
+    final manager = match.group(2)!;
+    return text(
+      en: '$item was uninstalled with $manager',
+      fr: '$item a été désinstallé avec $manager',
+      de: '$item wurde mit $manager deinstalliert',
+      ja: '$item は $manager でアンインストールされました',
+    );
+  }
+  match = RegExp(
+    r'^(nvm|fnm|pyenv|volta|Homebrew) (安装|更新|卸载)失败: (.+)$',
+  ).firstMatch(message);
+  if (match != null) {
+    final manager = match.group(1)!;
+    final action = match.group(2)!;
+    final detail = match.group(3)!;
+    final actionEn = switch (action) {
+      '安装' => 'install',
+      '更新' => 'update',
+      _ => 'uninstall',
+    };
+    return text(
+      en: '$manager $actionEn failed: $detail',
+      fr: 'Échec $actionEn de $manager : $detail',
+      de: '$manager $actionEn fehlgeschlagen: $detail',
+      ja: '$manager の $actionEn に失敗しました: $detail',
+    );
+  }
+  match = RegExp(r'^Homebrew (安装|更新|卸载) (.+?) 失败: (.+)$').firstMatch(message);
+  if (match != null) {
+    final action = match.group(1)!;
+    final item = match.group(2)!;
+    final detail = match.group(3)!;
+    final actionEn = switch (action) {
+      '安装' => 'install',
+      '更新' => 'update',
+      _ => 'uninstall',
+    };
+    return text(
+      en: 'Homebrew $actionEn of $item failed: $detail',
+      fr: 'Échec $actionEn de $item avec Homebrew : $detail',
+      de: 'Homebrew $actionEn von $item fehlgeschlagen: $detail',
+      ja: 'Homebrew による $item の $actionEn に失敗しました: $detail',
+    );
+  }
+  match = RegExp(r'^未找到 Homebrew，无法自动(安装|更新|卸载) (.+)。$').firstMatch(message);
+  if (match != null) {
+    final action = match.group(1)!;
+    final item = match.group(2)!;
+    final actionEn = switch (action) {
+      '安装' => 'install',
+      '更新' => 'update',
+      _ => 'uninstall',
+    };
+    return text(
+      en: 'Homebrew was not found, so $item cannot be $actionEn automatically.',
+      fr: 'Homebrew est introuvable ; $item ne peut pas être traité automatiquement.',
+      de: 'Homebrew wurde nicht gefunden; $item kann nicht automatisch verarbeitet werden.',
+      ja: 'Homebrew が見つからないため、$item を自動処理できません。',
+    );
+  }
+  match = RegExp(r'^(.+?) 已安装或更新(?::|：)?(.+)?$').firstMatch(message);
+  if (match != null) {
+    final item = match.group(1)!;
+    final path = (match.group(2) ?? '').trim();
+    final suffix = path.isEmpty ? '' : ': $path';
+    return text(
+      en: '$item installed or updated$suffix',
+      fr: '$item installé ou mis à jour$suffix',
+      de: '$item installiert oder aktualisiert$suffix',
+      ja: '$item をインストールまたは更新しました$suffix',
+    );
+  }
+  match = RegExp(r'^(.+?) 已更新(?:到 (.+))?$').firstMatch(message);
+  if (match != null) {
+    final item = match.group(1)!;
+    final version = match.group(2);
+    final suffix = version == null ? '' : ' to $version';
+    return text(
+      en: '$item updated$suffix',
+      fr: '$item mis à jour$suffix',
+      de: '$item aktualisiert$suffix',
+      ja: '$item を更新しました${version == null ? '' : ' ($version)'}',
+    );
+  }
+  match = RegExp(r'^(.+?) 已卸载$').firstMatch(message);
+  if (match != null) {
+    final item = match.group(1)!;
+    return text(
+      en: '$item uninstalled',
+      fr: '$item désinstallé',
+      de: '$item deinstalliert',
+      ja: '$item をアンインストールしました',
+    );
+  }
+  match = RegExp(r'^(.+?) (安装|更新|卸载|安装/启动)失败: (.+)$').firstMatch(message);
+  if (match != null) {
+    final item = match.group(1)!;
+    final action = match.group(2)!;
+    final detail = match.group(3)!;
+    final actionEn = switch (action) {
+      '安装' => 'installation',
+      '更新' => 'update',
+      '卸载' => 'uninstall',
+      _ => 'install/start',
+    };
+    return text(
+      en: '$item $actionEn failed: $detail',
+      fr: 'Échec $actionEn de $item : $detail',
+      de: '$item $actionEn fehlgeschlagen: $detail',
+      ja: '$item の $actionEn に失敗しました: $detail',
+    );
+  }
+  match = RegExp(
+    r'^(.+?) (依赖|需要) (Node\.js|npm|Python|pip)，(.+)$',
+  ).firstMatch(message);
+  if (match != null) {
+    final item = match.group(1)!;
+    final dependency = match.group(3)!;
+    return text(
+      en: '$item requires $dependency. Install $dependency first.',
+      fr: '$item nécessite $dependency. Installez d’abord $dependency.',
+      de: '$item benötigt $dependency. Installiere zuerst $dependency.',
+      ja: '$item には $dependency が必要です。先にインストールしてください。',
+    );
+  }
+  match = RegExp(r'^未检测到 (Python|npm)，无法(.+?) (.+)。$').firstMatch(message);
+  if (match != null) {
+    final dependency = match.group(1)!;
+    final action = match.group(2)!;
+    final item = match.group(3)!;
+    return text(
+      en: '$dependency was not detected, so $item cannot be $action.',
+      fr: '$dependency est introuvable ; $item ne peut pas être traité.',
+      de: '$dependency wurde nicht gefunden; $item kann nicht verarbeitet werden.',
+      ja: '$dependency が見つからないため、$item を処理できません。',
+    );
+  }
+
+  switch (message) {
+    case '未检测到可用的 Python 运行时，请先安装 Python。':
+    case '未检测到可用的 Python 运行时。':
+      return text(
+        en: 'No usable Python runtime was detected. Install Python first.',
+        fr: 'Aucun runtime Python utilisable n’a été détecté. Installez Python d’abord.',
+        de: 'Keine nutzbare Python-Laufzeit gefunden. Installiere zuerst Python.',
+        ja: '利用可能な Python ランタイムが見つかりません。先に Python をインストールしてください。',
+      );
+    case '当前 pip 由 Homebrew Python 管理，请通过 Homebrew 更新对应 Python。':
+      return text(
+        en: 'The current pip is managed by Homebrew Python. Update the matching Python via Homebrew.',
+        fr: 'Le pip actuel est géré par Homebrew Python. Mettez à jour le Python correspondant via Homebrew.',
+        de: 'Das aktuelle pip wird von Homebrew Python verwaltet. Aktualisiere das passende Python über Homebrew.',
+        ja: '現在の pip は Homebrew Python によって管理されています。対応する Python を Homebrew で更新してください。',
+      );
+    case 'pip 安装后验证失败':
+      return text(
+        en: 'pip verification failed after installation',
+        fr: 'La vérification de pip a échoué après installation',
+        de: 'pip-Verifizierung nach Installation fehlgeschlagen',
+        ja: 'pip インストール後の検証に失敗しました',
+      );
+    case 'Playwright 依赖 Node.js，请先安装 Node.js':
+    case 'Playwright 依赖 Node.js，请先卸载 Playwright':
+      return text(
+        en: 'Playwright requires Node.js. Install Node.js first.',
+        fr: 'Playwright nécessite Node.js. Installez d’abord Node.js.',
+        de: 'Playwright benötigt Node.js. Installiere zuerst Node.js.',
+        ja: 'Playwright には Node.js が必要です。先に Node.js をインストールしてください。',
+      );
+    case 'Playwright 安装后验证失败':
+      return text(
+        en: 'Playwright verification failed after installation',
+        fr: 'La vérification de Playwright a échoué après installation',
+        de: 'Playwright-Verifizierung nach Installation fehlgeschlagen',
+        ja: 'Playwright インストール後の検証に失敗しました',
+      );
+    case '当前平台不支持自动安装 Docker。':
+      return text(
+        en: 'Automatic Docker installation is not supported on this platform.',
+        fr: 'L’installation automatique de Docker n’est pas prise en charge sur cette plateforme.',
+        de: 'Automatische Docker-Installation wird auf dieser Plattform nicht unterstützt.',
+        ja: 'このプラットフォームでは Docker の自動インストールに対応していません。',
+      );
+    case 'Docker daemon 未运行，请先启动 Docker。':
+      return text(
+        en: 'Docker daemon is not running. Start Docker first.',
+        fr: 'Le daemon Docker ne fonctionne pas. Démarrez Docker d’abord.',
+        de: 'Der Docker-Daemon läuft nicht. Starte zuerst Docker.',
+        ja: 'Docker daemon が実行されていません。先に Docker を起動してください。',
+      );
+    case 'Docker CLI 与 daemon 已就绪。':
+      return text(
+        en: 'Docker CLI and daemon are ready.',
+        fr: 'Docker CLI et daemon sont prêts.',
+        de: 'Docker CLI und Daemon sind bereit.',
+        ja: 'Docker CLI と daemon の準備ができました。',
+      );
+    case 'Docker Desktop 已安装。首次使用可能需要手动打开并完成授权。':
+      return text(
+        en: 'Docker Desktop is installed. First use may require opening it manually and completing authorization.',
+        fr: 'Docker Desktop est installé. La première utilisation peut nécessiter une ouverture manuelle et une autorisation.',
+        de: 'Docker Desktop ist installiert. Beim ersten Start kann manuelles Öffnen und Autorisierung nötig sein.',
+        ja: 'Docker Desktop はインストール済みです。初回利用時は手動で開いて認証を完了する必要があります。',
+      );
+    case 'Docker Desktop 已启动，daemon 可用。':
+      return text(
+        en: 'Docker Desktop started and the daemon is available.',
+        fr: 'Docker Desktop a démarré et le daemon est disponible.',
+        de: 'Docker Desktop wurde gestartet und der Daemon ist verfügbar.',
+        ja: 'Docker Desktop が起動し、daemon を利用できます。',
+      );
+    case 'pip 不支持卸载，仅支持安装与升级。':
+      return text(
+        en: 'pip cannot be uninstalled here. Only install and update are supported.',
+        fr: 'pip ne peut pas être désinstallé ici. Seules installation et mise à jour sont prises en charge.',
+        de: 'pip kann hier nicht deinstalliert werden. Nur Installation und Update werden unterstützt.',
+        ja: 'ここでは pip をアンインストールできません。インストールと更新のみ対応しています。',
+      );
+  }
+  return message;
 }
 
 /// 管理插件的安装、更新、卸载操作。
