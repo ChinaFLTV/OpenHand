@@ -495,8 +495,12 @@ class AiAgentTool extends AiTool {
     final includeResources = boolFromValue(args['include_resources']);
     final includePrompt = boolFromValue(args['include_prompt']);
     final includePromptText = boolFromValue(args['include_prompt_text']);
+    final callableAgentToolNames = _callableAgentToolNames(context.catalog);
     final promptSnapshot = includePrompt || includePromptText
-        ? await _promptRenderer.render(agent: resolution.agent!)
+        ? await _promptRenderer.render(
+            agent: resolution.agent!,
+            callableAgentToolNames: callableAgentToolNames,
+          )
         : null;
     final payload = <String, Object?>{
       'agent': _agentDetailJson(
@@ -504,7 +508,7 @@ class AiAgentTool extends AiTool {
         includeTasks: includeTasks,
         includeAudit: includeAudit,
         includeResources: includeResources,
-        callableAgentToolNames: _callableAgentToolNames(context.catalog),
+        callableAgentToolNames: callableAgentToolNames,
       ),
       if (promptSnapshot != null)
         'agent_prompt': promptSnapshot.metadataJson(
@@ -1359,6 +1363,7 @@ class AiAgentTool extends AiTool {
     if (resolution.error != null) return resolution.error!;
     final promptSnapshot = await _promptRenderer.render(
       agent: resolution.agent!,
+      callableAgentToolNames: _callableAgentToolNames(context.catalog),
       taskContext: <String, Object?>{
         'incoming_task': <String, Object?>{
           'title': title,

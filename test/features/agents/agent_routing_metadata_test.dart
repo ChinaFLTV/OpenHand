@@ -201,7 +201,7 @@ domains: cloud, finops
     final recentAudit =
         operationalState['recent_audit_events'] as List<Object?>;
 
-    expect(snapshot.version, '1.2.14');
+    expect(snapshot.version, '1.2.15');
     expect(routing['has_route'], isTrue);
     expect(routing['keywords'], <Object?>[
       'release',
@@ -350,7 +350,7 @@ domains: cloud, finops
       final omittedPrompt =
           extra['agent_system_prompt'] as Map<String, Object?>;
 
-      expect(snapshot.version, '1.2.14');
+      expect(snapshot.version, '1.2.15');
       expect(task['content'], isA<String>());
       expect(task['content'], contains('[truncated:'));
       expect(task['content'], isNot(longContent));
@@ -427,7 +427,7 @@ domains: cloud, finops
     final agentSystemPrompt =
         auditMetadata['agent_system_prompt'] as Map<String, Object?>;
 
-    expect(snapshot.version, '1.2.14');
+    expect(snapshot.version, '1.2.15');
     expect(activity['content'], contains('[truncated:'));
     expect(audit['summary'], contains('[truncated:'));
     expect(activityMetadata['tool_output'], contains('[truncated:'));
@@ -501,7 +501,7 @@ domains: cloud, finops
             as Map<String, Object?>;
     final stateKpiExtra = stateKpi['extra'] as Map<String, Object?>;
 
-    expect(snapshot.version, '1.2.14');
+    expect(snapshot.version, '1.2.15');
     expect(profile['archive'], contains('[truncated:'));
     expect(profile['persona'], contains('[truncated:'));
     expect(profile['route_front_matter'], contains('[truncated:'));
@@ -559,7 +559,7 @@ domains: cloud, finops
       final omittedPrompt =
           incomingTask['rendered_prompt'] as Map<String, Object?>;
 
-      expect(snapshot.version, '1.2.14');
+      expect(snapshot.version, '1.2.15');
       expect(explicitTask['id'], 'task-explicit');
       expect(explicitTask['title'], 'Explicit task wins');
       expect(incomingTask['content'], contains('[truncated:'));
@@ -584,7 +584,7 @@ domains: cloud, finops
         ),
       );
 
-      expect(snapshot.version, '1.2.14');
+      expect(snapshot.version, '1.2.15');
       expect(snapshot.renderedPrompt, contains('<operating_contract>'));
       expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
       expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));
@@ -616,7 +616,7 @@ domains: cloud, finops
         ),
       );
 
-      expect(snapshot.version, '1.2.14');
+      expect(snapshot.version, '1.2.15');
       expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));
       expect(
         snapshot.renderedPrompt,
@@ -642,7 +642,7 @@ domains: cloud, finops
       ),
     );
 
-    expect(snapshot.version, '1.2.14');
+    expect(snapshot.version, '1.2.15');
     expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));
     expect(snapshot.renderedPrompt, contains('AgentTaskTrack'));
     expect(snapshot.renderedPrompt, isNot(contains('AgentTaskProgress')));
@@ -652,6 +652,44 @@ domains: cloud, finops
       contains('use only returned next_poll tools and intervals'),
     );
   });
+
+  test(
+    'prompt renderer filters agent tools by callable runtime catalog',
+    () async {
+      final snapshot = await AgentPromptRenderer().render(
+        agent: const AgentProfile(
+          id: 'agent-runtime-filtered',
+          name: 'Runtime Filtered Agent',
+          builtinToolNames: <String>[
+            'AgentTaskPublish',
+            'AgentTaskProgress',
+            'AgentTaskResult',
+            'Bash',
+          ],
+        ),
+        callableAgentToolNames: const <String>{
+          'agenttaskpublish',
+          'agenttaskprogress',
+        },
+      );
+
+      expect(snapshot.version, '1.2.15');
+      expect(snapshot.renderedPrompt, contains('AgentTaskPublish'));
+      expect(snapshot.renderedPrompt, contains('AgentTaskProgress'));
+      expect(snapshot.renderedPrompt, isNot(contains('AgentTaskResult')));
+      expect(snapshot.capabilities['builtin_tools'], <Object?>[
+        'AgentTaskPublish',
+        'AgentTaskProgress',
+        'Bash',
+      ]);
+      final summary = snapshot.capabilities['summary'] as Map<String, Object?>;
+      expect(summary['builtin_tools'], 3);
+      expect(summary['agent_coordination_tools'], 2);
+      expect(summary['agent_coordination_tool_groups'], <String, int>{
+        'task_lifecycle': 2,
+      });
+    },
+  );
 
   test(
     'bundled digital employee prompt stays structured and compact',
@@ -665,7 +703,7 @@ domains: cloud, finops
       );
 
       expect(snapshot.assetPath, AgentPromptRenderer.defaultAssetPath);
-      expect(snapshot.version, '1.2.14');
+      expect(snapshot.version, '1.2.15');
       expect(snapshot.renderedPrompt, contains('<identity>'));
       expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
       expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));

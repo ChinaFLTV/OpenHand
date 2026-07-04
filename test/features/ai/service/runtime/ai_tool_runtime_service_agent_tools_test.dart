@@ -1189,6 +1189,73 @@ void main() {
       );
     });
 
+    test('publish prompt filters globally disabled agent task tools', () async {
+      await controller.saveAgent(
+        _agent(
+          enabled: true,
+          builtinToolNames: const <String>[
+            'AgentTaskPublish',
+            'AgentTaskProgress',
+            'AgentTaskResult',
+          ],
+        ),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(
+          builtinToolConfigs: const <AiBuiltinToolConfig>[
+            AiBuiltinToolConfig(kind: AiBuiltinToolKind.agentTaskPublish),
+            AiBuiltinToolConfig(kind: AiBuiltinToolKind.agentTaskProgress),
+            AiBuiltinToolConfig(
+              kind: AiBuiltinToolKind.agentTaskResult,
+              enabled: false,
+            ),
+          ],
+        ),
+      );
+      final publish = await runtime.execute(
+        sessionId: 'session-agent-filtered-prompt',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-publish-filtered-prompt',
+          name: 'AgentTaskPublish',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-1',
+            'title': 'Publish task with filtered prompt tools',
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(publish.status, BashToolExecutionStatus.success);
+      expect(catalog.find('AgentTaskResult'), isNull);
+      final payload = jsonDecode(publish.resultText) as Map<String, Object?>;
+      final task = payload['task'] as Map<String, Object?>;
+      final nextPoll = task['next_poll'] as Map<String, Object?>;
+      expect(nextPoll['tool'], 'AgentTaskProgress');
+      expect(nextPoll.containsKey('result_tool'), isFalse);
+      expect(nextPoll['missing_tools'], <Object?>['AgentTaskResult']);
+
+      final storedTask = controller.agentById('agent-1')!.tasks.single;
+      final prompt = storedTask.extra['agent_system_prompt'] as String;
+      final promptSnapshot =
+          storedTask.extra['agent_prompt_snapshot'] as Map<String, Object?>;
+      final capabilities =
+          promptSnapshot['capabilities'] as Map<String, Object?>;
+      expect(prompt, contains('AgentTaskPublish'));
+      expect(prompt, contains('AgentTaskProgress'));
+      expect(prompt, isNot(contains('AgentTaskResult')));
+      expect(capabilities['builtin_tools'], <Object?>[
+        'AgentTaskPublish',
+        'AgentTaskProgress',
+      ]);
+    });
+
     test('approval request tool records pending approval and audit', () async {
       await controller.saveAgent(_agent(enabled: true));
 
