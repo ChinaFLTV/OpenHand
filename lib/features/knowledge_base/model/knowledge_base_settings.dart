@@ -9,6 +9,15 @@ final RegExp _knowledgeCollectionNameUnsafeCharsPattern = RegExp(
   r'[^a-zA-Z0-9_]+',
 );
 
+String _normalizeKnownValue(
+  String value, {
+  required List<String> allowedValues,
+  required String fallback,
+}) {
+  final normalized = value.trim();
+  return allowedValues.contains(normalized) ? normalized : fallback;
+}
+
 class KnowledgeChunkStrategy {
   const KnowledgeChunkStrategy._();
 
@@ -25,8 +34,11 @@ class KnowledgeChunkStrategy {
   ];
 
   static String normalize(String value) {
-    final normalized = value.trim();
-    return values.contains(normalized) ? normalized : markdownHeadingRecursive;
+    return _normalizeKnownValue(
+      value,
+      allowedValues: values,
+      fallback: markdownHeadingRecursive,
+    );
   }
 }
 
@@ -41,8 +53,11 @@ class KnowledgeRerankMode {
   static const values = <String>[off, localHybrid, mmr, model];
 
   static String normalize(String value) {
-    final normalized = value.trim();
-    return values.contains(normalized) ? normalized : localHybrid;
+    return _normalizeKnownValue(
+      value,
+      allowedValues: values,
+      fallback: localHybrid,
+    );
   }
 }
 
@@ -56,8 +71,7 @@ class KnowledgeDistanceMetric {
   static const values = <String>[cosine, dot, euclidean];
 
   static String normalize(String value) {
-    final normalized = value.trim();
-    return values.contains(normalized) ? normalized : cosine;
+    return _normalizeKnownValue(value, allowedValues: values, fallback: cosine);
   }
 }
 
@@ -70,8 +84,7 @@ class KnowledgeTagFilterMode {
   static const values = <String>[any, all];
 
   static String normalize(String value) {
-    final normalized = value.trim();
-    return values.contains(normalized) ? normalized : any;
+    return _normalizeKnownValue(value, allowedValues: values, fallback: any);
   }
 }
 
@@ -85,8 +98,11 @@ class KnowledgeDateFilterMode {
   static const values = <String>[hardWhenExplicit, softBoost, off];
 
   static String normalize(String value) {
-    final normalized = value.trim();
-    return values.contains(normalized) ? normalized : hardWhenExplicit;
+    return _normalizeKnownValue(
+      value,
+      allowedValues: values,
+      fallback: hardWhenExplicit,
+    );
   }
 }
 
@@ -99,8 +115,11 @@ class KnowledgeFailureStrategy {
   static const values = <String>[failOpen, failClosed];
 
   static String normalize(String value) {
-    final normalized = value.trim();
-    return values.contains(normalized) ? normalized : failOpen;
+    return _normalizeKnownValue(
+      value,
+      allowedValues: values,
+      fallback: failOpen,
+    );
   }
 }
 
@@ -113,8 +132,7 @@ class KnowledgeReaderParserMode {
   static const values = <String>[local, model];
 
   static String normalize(String value) {
-    final normalized = value.trim();
-    return values.contains(normalized) ? normalized : local;
+    return _normalizeKnownValue(value, allowedValues: values, fallback: local);
   }
 }
 
