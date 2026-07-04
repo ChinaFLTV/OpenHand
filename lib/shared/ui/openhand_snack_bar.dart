@@ -8,6 +8,7 @@ import '../../app/theme/openhand_status_colors.dart';
 import '../util/timer_safety.dart';
 import 'animated_dialog.dart';
 import 'motion_preference.dart';
+import 'safe_edge_insets.dart';
 
 const EdgeInsets _kDefaultSnackBarFloatingMargin = EdgeInsets.symmetric(
   horizontal: 20,
@@ -612,13 +613,13 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
     final behavior =
         snackBar.behavior ?? snackBarTheme.behavior ?? SnackBarBehavior.fixed;
     final margin = behavior == SnackBarBehavior.floating
-        ? _safeSnackBarInsets(
+        ? openHandResolvedInsetsOrFallback(
             context,
             snackBar.margin ?? snackBarTheme.insetPadding,
             _kDefaultSnackBarFloatingMargin,
           )
         : EdgeInsets.zero;
-    final padding = _safeSnackBarInsets(
+    final padding = openHandResolvedInsetsOrFallback(
       context,
       snackBar.padding,
       _kDefaultSnackBarContentPadding,
@@ -724,25 +725,6 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
 
     return child;
   }
-}
-
-EdgeInsets _safeSnackBarInsets(
-  BuildContext context,
-  EdgeInsetsGeometry? insets,
-  EdgeInsets fallback,
-) {
-  final resolved = insets?.resolve(Directionality.of(context)) ?? fallback;
-  if (!_isSafeSnackBarInset(resolved.left) ||
-      !_isSafeSnackBarInset(resolved.top) ||
-      !_isSafeSnackBarInset(resolved.right) ||
-      !_isSafeSnackBarInset(resolved.bottom)) {
-    return fallback;
-  }
-  return resolved;
-}
-
-bool _isSafeSnackBarInset(double value) {
-  return value.isFinite && value >= 0;
 }
 
 double? _safeSnackBarWidth(double? width) {

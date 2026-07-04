@@ -9,6 +9,7 @@ import '../../app/model/dialog_animation_settings.dart';
 import 'bounded_animation.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
+import 'safe_edge_insets.dart';
 
 const double kOpenHandDialogViewportFraction = 0.95;
 const double kOpenHandDialogDefaultMaxWidth = 520;
@@ -87,27 +88,6 @@ double? _validDialogDimension(double? value) {
 double? _validDialogViewportFraction(double? value) {
   if (value == null || !value.isFinite || value <= 0) return null;
   return value.clamp(0.05, 1.0).toDouble();
-}
-
-double _nonNegativeFiniteInset(double value) {
-  return value.isFinite && value > 0 ? value : 0;
-}
-
-EdgeInsets _nonNegativeInsets(EdgeInsets value) {
-  return EdgeInsets.fromLTRB(
-    _nonNegativeFiniteInset(value.left),
-    _nonNegativeFiniteInset(value.top),
-    _nonNegativeFiniteInset(value.right),
-    _nonNegativeFiniteInset(value.bottom),
-  );
-}
-
-EdgeInsets _nonNegativeResolvedInsets(
-  BuildContext context,
-  EdgeInsetsGeometry value,
-) {
-  final resolved = value.resolve(Directionality.of(context));
-  return _nonNegativeInsets(resolved);
 }
 
 double _safeDialogMaxDimension(double? maxValue, double minValue) {
@@ -277,7 +257,7 @@ Dialog buildOpenHandDialog({
     elevation: elevation,
     shape: shape,
     clipBehavior: clipBehavior,
-    insetPadding: _nonNegativeInsets(
+    insetPadding: openHandNonNegativeInsets(
       insetPadding ?? kOpenHandDialogDefaultInsetPadding,
     ),
     alignment: alignment,
@@ -912,7 +892,7 @@ Widget buildOpenHandResponsiveDialogShell({
   );
 
   return SafeArea(
-    minimum: _nonNegativeInsets(safeAreaMinimum),
+    minimum: openHandNonNegativeInsets(safeAreaMinimum),
     child: buildOpenHandDialog(
       backgroundColor: backgroundColor,
       surfaceTintColor: surfaceTintColor,
@@ -1159,7 +1139,10 @@ Future<T?> showAnimatedModalSheet<T>({
       final theme = Theme.of(sheetContext);
       final colorScheme = theme.colorScheme;
       final sheetWidth = openHandModalSheetWidth(sheetContext);
-      final sheetMargin = _nonNegativeResolvedInsets(sheetContext, margin);
+      final sheetMargin = openHandResolvedNonNegativeInsets(
+        sheetContext,
+        margin,
+      );
       final sheetShape =
           shape ??
           RoundedRectangleBorder(
