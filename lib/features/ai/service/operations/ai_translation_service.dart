@@ -75,11 +75,11 @@ class AiTranslationService {
     AiModelConfig? fallbackModel,
   }) async {
     final normalizedSettings = settings.normalized();
-    final normalizedText = text.trim();
+    final normalizedText = nullIfBlank(text);
     if (!normalizedSettings.enabled) {
       throw const AiTranslationException('文本翻译未开启。');
     }
-    if (normalizedText.isEmpty) {
+    if (normalizedText == null) {
       throw const AiTranslationException('没有可翻译的文本。');
     }
     final boundedText = _truncateText(
@@ -228,8 +228,8 @@ class AiTranslationService {
         timeout: timeout,
       ),
     };
-    final cleanText = translated.trim();
-    if (cleanText.isEmpty) {
+    final cleanText = nullIfBlank(translated);
+    if (cleanText == null) {
       throw AiTranslationException(
         '${provider.storageKey} returned an empty translation.',
         provider: provider,
@@ -601,9 +601,9 @@ class AiTranslationService {
     required List<AiModelConfig> availableModels,
     required AiModelConfig? fallbackModel,
   }) {
-    final configId = providerSettings.modelConfigId.trim();
-    final modelId = providerSettings.modelId.trim();
-    if (configId.isNotEmpty && modelId.isNotEmpty) {
+    final configId = nullIfBlank(providerSettings.modelConfigId);
+    final modelId = nullIfBlank(providerSettings.modelId);
+    if (configId != null && modelId != null) {
       for (final config in availableModels) {
         if (config.id == configId && config.allModelIds.contains(modelId)) {
           return config.copyWith(modelId: modelId);
