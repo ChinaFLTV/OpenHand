@@ -45,6 +45,8 @@ class AiCompletionsService {
     String? user,
   }) async {
     const family = AiApiFamily.completions;
+    final suffixValue = nullIfBlank(suffix);
+    final userValue = nullIfBlank(user);
     final endpoint = _router.resolve(
       model,
       family,
@@ -54,7 +56,7 @@ class AiCompletionsService {
         AiOperationHttp.mergeBodyExtras(model, family, <String, Object?>{
           'model': model.resolveOperationModelId(family),
           'prompt': prompt,
-          if (suffix?.trim().isNotEmpty == true) 'suffix': suffix!.trim(),
+          if (suffixValue != null) 'suffix': suffixValue,
           if (maxTokens != null && maxTokens > 0) 'max_tokens': maxTokens,
           if (maxTokens == null && model.maxTokens != null)
             'max_tokens': model.maxTokens,
@@ -72,7 +74,7 @@ class AiCompletionsService {
             'presence_penalty': presencePenalty,
           if (frequencyPenalty != null && frequencyPenalty.isFinite)
             'frequency_penalty': frequencyPenalty,
-          if (user?.trim().isNotEmpty == true) 'user': user!.trim(),
+          if (userValue != null) 'user': userValue,
         });
     final response = await _transport.sendJson(
       uri: AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family),

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../runtime/ai_endpoint_router.dart';
@@ -34,26 +35,32 @@ class AiImageEditService {
     String? user,
   }) async {
     const family = AiApiFamily.imageEdit;
+    final maskPath = nullIfBlank(maskFilePath);
+    final sizeValue = nullIfBlank(size);
+    final responseFormatValue = nullIfBlank(responseFormat);
+    final qualityValue = nullIfBlank(quality);
+    final userValue = nullIfBlank(user);
     final endpoint = _router.resolve(
       model,
       family,
       method: model.requestMethod,
       transport: 'multipart',
     );
-    final body =
-        AiOperationHttp.mergeBodyExtras(model, family, <String, Object?>{
-          'model': model.resolveOperationModelId(family),
-          'prompt': prompt,
-          'image': AiMultipartUploadFile(filePath: imageFilePath),
-          if (maskFilePath?.trim().isNotEmpty == true)
-            'mask': AiMultipartUploadFile(filePath: maskFilePath!.trim()),
-          if (count != null && count > 0) 'n': count,
-          if (size?.trim().isNotEmpty == true) 'size': size!.trim(),
-          if (responseFormat?.trim().isNotEmpty == true)
-            'response_format': responseFormat!.trim(),
-          if (quality?.trim().isNotEmpty == true) 'quality': quality!.trim(),
-          if (user?.trim().isNotEmpty == true) 'user': user!.trim(),
-        });
+    final body = AiOperationHttp.mergeBodyExtras(
+      model,
+      family,
+      <String, Object?>{
+        'model': model.resolveOperationModelId(family),
+        'prompt': prompt,
+        'image': AiMultipartUploadFile(filePath: imageFilePath),
+        if (maskPath != null) 'mask': AiMultipartUploadFile(filePath: maskPath),
+        if (count != null && count > 0) 'n': count,
+        if (sizeValue != null) 'size': sizeValue,
+        if (responseFormatValue != null) 'response_format': responseFormatValue,
+        if (qualityValue != null) 'quality': qualityValue,
+        if (userValue != null) 'user': userValue,
+      },
+    );
     final response = await _transport.sendMultipart(
       uri: AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family),
       method: endpoint.method,
