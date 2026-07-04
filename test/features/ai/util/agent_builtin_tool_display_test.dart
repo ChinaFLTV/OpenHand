@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:openhand/features/ai/index.dart' show AiBuiltinToolKind;
-import 'package:openhand/features/ai/util/agent_builtin_tool_display.dart';
+import 'package:openhand/features/ai/index.dart'
+    show
+        AiBuiltinToolKind,
+        agentBuiltinToolCanonicalName,
+        agentBuiltinToolLabel,
+        agentBuiltinToolSummary;
 
 void main() {
   testWidgets('localizes agent builtin tool labels and summaries', (

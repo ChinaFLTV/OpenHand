@@ -30,8 +30,10 @@ import '../../ai/index.dart'
         AiAgentBuiltinToolGroup,
         AiBuiltinToolConfig,
         AiBuiltinToolKind,
-        AiBuiltinToolKindAgentMetadata;
-import '../../ai/util/agent_builtin_tool_display.dart';
+        AiBuiltinToolKindAgentMetadata,
+        agentBuiltinToolCanonicalName,
+        agentBuiltinToolLabel,
+        agentBuiltinToolSummary;
 import '../../crons/index.dart';
 import '../../hooks/index.dart';
 import '../../knowledge_base/index.dart';
