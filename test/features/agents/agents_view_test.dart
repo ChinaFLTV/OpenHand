@@ -290,7 +290,10 @@ void main() {
         AgentProfile(
           id: 'agent-1',
           name: 'Ops Agent',
-          metadata: <String, Object?>{'nullable': null},
+          metadata: <String, Object?>{
+            'nullable': null,
+            'legacyNullable': 'null',
+          },
         ),
       ]);
       await controller.refresh();
@@ -309,6 +312,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('nullable'), findsOneWidget);
+      expect(find.text('legacyNullable'), findsOneWidget);
       expect(
         tester
             .widget<TextField>(find.widgetWithText(TextField, '值').first)
@@ -316,7 +320,113 @@ void main() {
             .text,
         isEmpty,
       );
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, '值').at(1))
+            .controller!
+            .text,
+        isEmpty,
+      );
       expect(find.text('null'), findsNothing);
+    });
+
+    testWidgets('reorders workspace scope and governance chips in editor', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          workspaceScopePaths: <String>[
+            '/tmp/openhand/docs',
+            '/tmp/openhand/src',
+          ],
+          taskLabels: <String>['slow', 'urgent'],
+          scaleSettings: AgentScaleSettings(tags: <String>['ops', 'billing']),
+        ),
+      ]);
+      controller.setRuntimeAvailabilityProvider(
+        () => const AgentRuntimeAvailability(
+          isLoading: false,
+          isInstalled: true,
+          isEnabled: true,
+          pluginName: 'Hermes Agent',
+        ),
+      );
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      final editButton = find.byTooltip('编辑配置').last;
+      await tester.ensureVisible(editButton);
+      await tester.tap(editButton);
+      await tester.pumpAndSettle();
+
+      DefaultTabController.of(
+        tester.element(find.byType(TabBar)),
+      ).animateTo(2, duration: Duration.zero);
+      await tester.pumpAndSettle();
+      final srcScopeChip = find.byKey(
+        const ValueKey<String>('agent-workspace-scope-drag-/tmp/openhand/src'),
+      );
+      await tester.ensureVisible(srcScopeChip);
+      await tester.pumpAndSettle();
+      await tester.timedDrag(
+        srcScopeChip,
+        const Offset(-260, 0),
+        const Duration(milliseconds: 450),
+      );
+      await tester.pumpAndSettle();
+
+      DefaultTabController.of(
+        tester.element(find.byType(TabBar)),
+      ).animateTo(3, duration: Duration.zero);
+      await tester.pumpAndSettle();
+      final billingTagChip = find.byKey(
+        const ValueKey<String>('agent-worker-tag-drag-billing'),
+      );
+      await tester.ensureVisible(billingTagChip);
+      await tester.pumpAndSettle();
+      await tester.timedDrag(
+        billingTagChip,
+        const Offset(-220, 0),
+        const Duration(milliseconds: 450),
+      );
+      await tester.pumpAndSettle();
+      final urgentLabelChip = find.byKey(
+        const ValueKey<String>('agent-task-label-drag-urgent'),
+      );
+      await tester.ensureVisible(urgentLabelChip);
+      await tester.pumpAndSettle();
+      await tester.timedDrag(
+        urgentLabelChip,
+        const Offset(-220, 0),
+        const Duration(milliseconds: 450),
+      );
+      await tester.pumpAndSettle();
+
+      final saveButton = find.ancestor(
+        of: find.text('保存'),
+        matching: find.byType(FilledButton),
+      );
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      final agent = controller.agentById('agent-1')!;
+      expect(agent.workspaceScopePaths, <String>[
+        '/tmp/openhand/src',
+        '/tmp/openhand/docs',
+      ]);
+      expect(agent.scaleSettings.tags, <String>['billing', 'ops']);
+      expect(agent.taskLabels, <String>['urgent', 'slow']);
     });
 
     testWidgets('preserves builtin selections across tool groups', (
@@ -410,9 +520,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('urgent'), findsOneWidget);
       expect(find.byType(AnimatedRemovableChip), findsAtLeastNWidgets(2));
-      await tester.drag(
-        find.byKey(const ValueKey<String>('cluster-tag-drag-urgent')),
+      final urgentChip = find.byKey(
+        const ValueKey<String>('cluster-tag-drag-urgent'),
+      );
+      await tester.ensureVisible(urgentChip);
+      await tester.pumpAndSettle();
+      await tester.timedDrag(
+        urgentChip,
         const Offset(-260, 0),
+        const Duration(milliseconds: 450),
       );
       await tester.pumpAndSettle();
 

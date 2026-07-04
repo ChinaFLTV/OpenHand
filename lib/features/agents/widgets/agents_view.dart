@@ -79,6 +79,7 @@ const List<String> _agentImageExtensions = <String>[
   'gif',
   'bmp',
 ];
+const double _agentChipStripHeight = 44;
 
 bool _isAgentCoordinationBuiltinToolId(String id) {
   return AiBuiltinToolKind.values.any(
@@ -5649,6 +5650,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           onReorder: (oldIndex, newIndex) => setState(
             () => _reorderStringList(_workspaceScopePaths, oldIndex, newIndex),
           ),
+          keyPrefix: 'agent-workspace-scope',
         ),
       ],
     );
@@ -5798,6 +5800,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           onReorder: (oldIndex, newIndex) => setState(
             () => _reorderStringList(_workerTagValues, oldIndex, newIndex),
           ),
+          keyPrefix: 'agent-worker-tag',
         ),
         const SizedBox(height: 14),
         _editableStringChips(
@@ -5815,6 +5818,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           onReorder: (oldIndex, newIndex) => setState(
             () => _reorderStringList(_taskLabelValues, oldIndex, newIndex),
           ),
+          keyPrefix: 'agent-task-label',
         ),
         const SizedBox(height: 14),
         Text(l10n.agentsKpi, style: Theme.of(context).textTheme.titleMedium),
@@ -6012,6 +6016,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             onReorder: (oldIndex, newIndex) => setState(
               () => _reorderStringList(_routeKeywords, oldIndex, newIndex),
             ),
+            keyPrefix: 'agent-route-keyword',
           ),
           const SizedBox(height: 12),
           _editableStringChips(
@@ -6029,6 +6034,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             onReorder: (oldIndex, newIndex) => setState(
               () => _reorderStringList(_routeDomains, oldIndex, newIndex),
             ),
+            keyPrefix: 'agent-route-domain',
           ),
           const SizedBox(height: 12),
           _editableStringChips(
@@ -6046,6 +6052,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             onReorder: (oldIndex, newIndex) => setState(
               () => _reorderStringList(_routeIntents, oldIndex, newIndex),
             ),
+            keyPrefix: 'agent-route-intent',
           ),
           const SizedBox(height: 12),
           _keyValueEditor(
@@ -6139,6 +6146,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     required VoidCallback onAdd,
     required ValueChanged<String> onRemove,
     required void Function(int oldIndex, int newIndex) onReorder,
+    String keyPrefix = 'agent-directory',
   }) {
     return InputDecorator(
       decoration: InputDecoration(labelText: label),
@@ -6166,6 +6174,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             onRemove: onRemove,
             onReorder: onReorder,
             labelBuilder: OpenHandPaths.shortenHomePath,
+            keyPrefix: keyPrefix,
           ),
         ],
       ),
@@ -6182,6 +6191,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     required ValueChanged<String> onRemove,
     required void Function(int oldIndex, int newIndex) onReorder,
     IconData addIcon = Icons.add_rounded,
+    String keyPrefix = 'agent-chip',
   }) {
     return InputDecorator(
       decoration: InputDecoration(labelText: label),
@@ -6217,6 +6227,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             emptyText: emptyText,
             onRemove: onRemove,
             onReorder: onReorder,
+            keyPrefix: keyPrefix,
           ),
         ],
       ),
@@ -6229,6 +6240,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     required ValueChanged<String> onRemove,
     required void Function(int oldIndex, int newIndex) onReorder,
     String Function(String value)? labelBuilder,
+    String keyPrefix = 'agent-chip',
   }) {
     return _AnimatedReorderableChipStrip(
       values: values,
@@ -6236,6 +6248,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       onRemove: onRemove,
       onReorder: onReorder,
       labelBuilder: labelBuilder,
+      keyPrefix: keyPrefix,
     );
   }
 
@@ -7092,135 +7105,55 @@ class _AnimatedReorderableChipStrip extends StatelessWidget {
     }
     return _AgentChipStripSwitcher(
       settings: animationSettings,
-      child: SingleChildScrollView(
+      child: SizedBox(
         key: const ValueKey<String>('agent-chip-strip-list'),
-        scrollDirection: Axis.horizontal,
-        physics: openHandDialogAwareScrollPhysics(context),
-        child: Row(
-          children: [
-            for (var index = 0; index < values.length; index++)
-              _AgentDraggableChipSlot(
-                key: ValueKey<String>('$keyPrefix-${values[index]}'),
-                index: index,
-                itemCount: values.length,
-                value: values[index],
+        height: _agentChipStripHeight,
+        child: ReorderableListView.builder(
+          scrollDirection: Axis.horizontal,
+          primary: false,
+          buildDefaultDragHandles: false,
+          physics: openHandDialogAwareScrollPhysics(context),
+          proxyDecorator: (child, index, animation) {
+            return AnimatedBuilder(
+              animation: animation,
+              child: child,
+              builder: (context, child) {
+                final lift = Curves.easeOutCubic.transform(animation.value);
+                return Transform.scale(
+                  scale: 1 + (0.05 * lift),
+                  child: Material(
+                    color: Colors.transparent,
+                    elevation: 4 * lift,
+                    borderRadius: BorderRadius.circular(999),
+                    child: child,
+                  ),
+                );
+              },
+            );
+          },
+          itemCount: values.length,
+          onReorder: onReorder,
+          itemBuilder: (context, index) {
+            final value = values[index];
+            return Padding(
+              key: ValueKey<String>('$keyPrefix-$value'),
+              padding: const EdgeInsets.only(right: 8),
+              child: AnimatedRemovableChip(
                 settings: animationSettings,
-                dragHandleKey: ValueKey<String>(
-                  '$keyPrefix-drag-${values[index]}',
-                ),
-                label: labelBuilder?.call(values[index]) ?? values[index],
-                onMove: (oldIndex, targetIndex) {
-                  final reorderIndex = oldIndex < targetIndex
-                      ? targetIndex + 1
-                      : targetIndex;
-                  onReorder(oldIndex, reorderIndex);
+                onRemove: () => onRemove(value),
+                builder: (context, requestRemove) {
+                  return _AgentDraggableChip(
+                    label: labelBuilder?.call(value) ?? value,
+                    onDeleted: requestRemove,
+                    dragIndex: index,
+                    dragKey: ValueKey<String>('$keyPrefix-drag-$value'),
+                  );
                 },
-                onRemove: onRemove,
               ),
-          ],
+            );
+          },
         ),
       ),
-    );
-  }
-}
-
-class _AgentDraggableChipSlot extends StatefulWidget {
-  const _AgentDraggableChipSlot({
-    super.key,
-    required this.index,
-    required this.itemCount,
-    required this.value,
-    required this.settings,
-    required this.dragHandleKey,
-    required this.label,
-    required this.onMove,
-    required this.onRemove,
-  });
-
-  final int index;
-  final int itemCount;
-  final String value;
-  final DialogAnimationSettings settings;
-  final Key dragHandleKey;
-  final String label;
-  final void Function(int oldIndex, int targetIndex) onMove;
-  final ValueChanged<String> onRemove;
-
-  @override
-  State<_AgentDraggableChipSlot> createState() =>
-      _AgentDraggableChipSlotState();
-}
-
-class _AgentDraggableChipSlotState extends State<_AgentDraggableChipSlot> {
-  double? _dragStartDx;
-  bool _dropAccepted = false;
-
-  void _markDragStart() {
-    _dropAccepted = false;
-    final box = context.findRenderObject();
-    if (box is RenderBox && box.hasSize) {
-      _dragStartDx = box.localToGlobal(Offset.zero).dx;
-    } else {
-      _dragStartDx = null;
-    }
-  }
-
-  void _moveFromTo(int oldIndex, int targetIndex) {
-    if (oldIndex == targetIndex) return;
-    _dropAccepted = true;
-    widget.onMove(oldIndex, targetIndex);
-  }
-
-  void _handleDragEnd(DraggableDetails details) {
-    if (_dropAccepted) return;
-    final startDx = _dragStartDx;
-    _dragStartDx = null;
-    if (startDx == null) return;
-    final delta = details.offset.dx - startDx;
-    if (delta.abs() < 32) return;
-    final slots = (delta / 96).round();
-    if (slots == 0) return;
-    final targetIndex =
-        (widget.index + slots).clamp(0, math.max(0, widget.itemCount - 1))
-            as int;
-    _moveFromTo(widget.index, targetIndex);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return DragTarget<int>(
-      onWillAcceptWithDetails: (details) => details.data != widget.index,
-      onAcceptWithDetails: (details) => _moveFromTo(details.data, widget.index),
-      builder: (context, candidateData, rejectedData) {
-        final highlighted = candidateData.isNotEmpty;
-        return Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: AnimatedRemovableChip(
-            settings: widget.settings,
-            onRemove: () => widget.onRemove(widget.value),
-            builder: (context, requestRemove) {
-              final chip = _AgentDraggableChip(
-                highlighted: highlighted,
-                label: widget.label,
-                onDeleted: requestRemove,
-              );
-              return Draggable<int>(
-                key: widget.dragHandleKey,
-                data: widget.index,
-                axis: Axis.horizontal,
-                onDragStarted: _markDragStart,
-                onDragEnd: _handleDragEnd,
-                feedback: Material(
-                  color: Colors.transparent,
-                  child: Transform.scale(scale: 1.06, child: chip),
-                ),
-                childWhenDragging: Opacity(opacity: 0.36, child: chip),
-                child: chip,
-              );
-            },
-          ),
-        );
-      },
     );
   }
 }
@@ -7256,14 +7189,16 @@ class _AgentChipStripSwitcher extends StatelessWidget {
 
 class _AgentDraggableChip extends StatelessWidget {
   const _AgentDraggableChip({
-    required this.highlighted,
     required this.label,
     required this.onDeleted,
+    required this.dragIndex,
+    required this.dragKey,
   });
 
-  final bool highlighted;
   final String label;
   final VoidCallback onDeleted;
+  final int dragIndex;
+  final Key dragKey;
 
   @override
   Widget build(BuildContext context) {
@@ -7271,13 +7206,9 @@ class _AgentDraggableChip extends StatelessWidget {
     final colors = theme.colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: highlighted
-            ? colors.primaryContainer.withValues(alpha: 0.62)
-            : colors.surfaceContainerHighest.withValues(alpha: 0.46),
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.46),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: highlighted ? colors.primary : colors.outlineVariant,
-        ),
+        border: Border.all(color: colors.outlineVariant),
       ),
       child: Padding(
         padding: const EdgeInsetsDirectional.only(
@@ -7289,42 +7220,52 @@ class _AgentDraggableChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            MouseRegion(
-              cursor: SystemMouseCursors.grab,
-              child: Tooltip(
-                message: openHandLocalizedText(
-                  context,
-                  zh: '拖拽排序',
-                  en: 'Drag to reorder',
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    minHeight: 28,
-                    maxWidth: 304,
+            ReorderableDragStartListener(
+              key: dragKey,
+              index: dragIndex,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.grab,
+                child: Tooltip(
+                  message: openHandLocalizedText(
+                    context,
+                    zh: '拖拽排序',
+                    en: 'Drag to reorder',
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.drag_indicator_rounded,
-                        size: 18,
-                        color: highlighted
-                            ? colors.primary
-                            : colors.onSurfaceVariant,
+                  child: Semantics(
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '拖拽排序 $label',
+                      en: 'Drag to reorder $label',
+                    ),
+                    button: true,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minHeight: 28,
+                        maxWidth: 304,
                       ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: colors.onSurface,
-                            fontWeight: FontWeight.w700,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.drag_indicator_rounded,
+                            size: 18,
+                            color: colors.onSurfaceVariant,
                           ),
-                        ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: colors.onSurface,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -7430,7 +7371,9 @@ class _KeyValueDraft {
 
   static String _valueText(Object? value) {
     if (value == null) return '';
-    if (value is String) return value;
+    if (value is String) {
+      return value.trim().toLowerCase() == 'null' ? '' : value;
+    }
     try {
       return jsonEncode(value);
     } catch (_) {
