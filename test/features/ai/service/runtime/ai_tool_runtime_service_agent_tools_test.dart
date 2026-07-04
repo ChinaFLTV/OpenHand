@@ -822,6 +822,13 @@ void main() {
         expect(usage['memory_bytes'], 2048);
         expect(summary['token_remaining'], 360);
         expect(summary['token_usage_ratio'], 0.64);
+        expect(summary['persisted_remaining_bytes'], isNull);
+        expect(summary['persisted_disk_ratio'], 0);
+        expect(summary['open_handle_limit'], 128);
+        expect(summary['open_handle_ratio'], closeTo(5 / 128, 0.0001));
+        expect(summary['max_pressure'], 1);
+        expect(summary['pressure_level'], 'high');
+        expect(summary['has_pressure'], isTrue);
         expect(agent.activities.first.kind, 'resource_updated');
         expect(agent.auditEvents.first.kind, 'resource_updated');
         expect(agent.auditEvents.first.toolName, 'AgentResourceUpdate');
@@ -1186,6 +1193,11 @@ void main() {
         expect(pendingApprovals.single, isA<Map<String, Object?>>());
         expect(resourceUsage['token_remaining'], 750);
         expect(resourceUsage['token_usage_ratio'], 0.25);
+        expect(resourceUsage['persisted_remaining_bytes'], 1536);
+        expect(resourceUsage['persisted_disk_ratio'], 0.25);
+        expect(resourceUsage['open_handle_limit'], 128);
+        expect(resourceUsage['open_handle_ratio'], closeTo(2 / 128, 0.0001));
+        expect(resourceUsage['pressure_level'], 'normal');
         expect(auditSummary['event_count'], 1);
         expect(auditSummary['request_count'], 2);
         expect(auditSummary['token_usage'], 100);
@@ -2221,7 +2233,11 @@ domains: finance, cloud billing
         expect(toolCounts['AgentTaskDesk'], 2);
         expect(resourceUsage['token_remaining'], 400);
         expect(resourceUsage['token_usage_ratio'], 0.6);
+        expect(resourceUsage['persisted_remaining_bytes'], 1024);
+        expect(resourceUsage['persisted_disk_ratio'], 0.5);
         expect(resourceUsage['open_handles'], 3);
+        expect(resourceUsage['open_handle_limit'], 128);
+        expect(resourceUsage['pressure_level'], 'normal');
         expect(resultExtra['handoff'], 'metadata');
         expect(resultExtra['assigned_worker_id'], assignedWorkerId);
         expect(payload['result_available'], isFalse);

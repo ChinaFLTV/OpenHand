@@ -9,6 +9,7 @@ import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
 const int _agentTaskRecommendedPollMs = 1500;
+const int _agentOpenHandlePressureLimit = 128;
 const List<String> _agentTaskActiveTools = <String>[
   'AgentTaskPause',
   'AgentTaskCancel',
@@ -2774,22 +2775,28 @@ DateTime? _latestDateTime(DateTime? left, DateTime? right) {
 }
 
 Map<String, Object?> _resourcePressureJson(AgentResourceUsage usage) {
-  final tokenRatio = usage.tokenBudget > 0
-      ? (usage.tokenUsed / usage.tokenBudget).clamp(0, 1).toDouble()
-      : 0.0;
-  final diskPressure = usage.diskBytes > 0
-      ? (usage.persistedBytes / usage.diskBytes).clamp(0, 1).toDouble()
-      : 0.0;
+  final tokenRatio = _resourceRatio(usage.tokenUsed, usage.tokenBudget);
+  final diskPressure = _resourceRatio(usage.persistedBytes, usage.diskBytes);
+  final handlePressure = _resourceRatio(
+    usage.openHandles,
+    _agentOpenHandlePressureLimit,
+  );
+  final maxPressure = _maxResourcePressure(
+    usage.cpuPercent,
+    tokenRatio,
+    diskPressure,
+    handlePressure,
+  );
   return <String, Object?>{
     'cpu_percent': usage.cpuPercent,
     'token_usage_ratio': tokenRatio,
     'persisted_disk_ratio': diskPressure,
+    'open_handle_ratio': handlePressure,
+    'open_handle_limit': _agentOpenHandlePressureLimit,
     'open_handles': usage.openHandles,
-    'has_pressure':
-        usage.cpuPercent >= 0.85 ||
-        tokenRatio >= 0.85 ||
-        diskPressure >= 0.85 ||
-        usage.openHandles >= 100,
+    'max_pressure': maxPressure,
+    'pressure_level': _resourcePressureLevel(maxPressure),
+    'has_pressure': maxPressure >= 0.85,
   };
 }
 
@@ -2913,17 +2920,72 @@ bool _matchesText(String actual, String? expected) {
 
 Map<String, Object?> _resourceUsageSummaryJson(AgentResourceUsage usage) {
   final payload = Map<String, Object?>.from(usage.toJson());
+  final tokenRatio = _resourceRatio(usage.tokenUsed, usage.tokenBudget);
+  final persistedRatio = _resourceRatio(usage.persistedBytes, usage.diskBytes);
+  final handleRatio = _resourceRatio(
+    usage.openHandles,
+    _agentOpenHandlePressureLimit,
+  );
+  final maxPressure = _maxResourcePressure(
+    usage.cpuPercent,
+    tokenRatio,
+    persistedRatio,
+    handleRatio,
+  );
   if (usage.tokenBudget > 0) {
-    final remaining = usage.tokenBudget - usage.tokenUsed;
-    payload['token_remaining'] = remaining < 0 ? 0 : remaining;
-    payload['token_usage_ratio'] = (usage.tokenUsed / usage.tokenBudget)
-        .clamp(0, 1)
-        .toDouble();
+    payload['token_remaining'] = _resourceRemaining(
+      usage.tokenBudget,
+      usage.tokenUsed,
+    );
   } else {
     payload['token_remaining'] = null;
-    payload['token_usage_ratio'] = 0;
   }
+  payload['token_usage_ratio'] = tokenRatio;
+  if (usage.diskBytes > 0) {
+    payload['persisted_remaining_bytes'] = _resourceRemaining(
+      usage.diskBytes,
+      usage.persistedBytes,
+    );
+  } else {
+    payload['persisted_remaining_bytes'] = null;
+  }
+  payload['persisted_disk_ratio'] = persistedRatio;
+  payload['open_handle_limit'] = _agentOpenHandlePressureLimit;
+  payload['open_handle_ratio'] = handleRatio;
+  payload['max_pressure'] = maxPressure;
+  payload['pressure_level'] = _resourcePressureLevel(maxPressure);
+  payload['has_pressure'] = maxPressure >= 0.85;
   return payload;
+}
+
+double _resourceRatio(int used, int budget) {
+  if (budget <= 0) return 0;
+  return (used / budget).clamp(0, 1).toDouble();
+}
+
+int _resourceRemaining(int budget, int used) {
+  if (budget <= 0) return 0;
+  final remaining = budget - used;
+  return remaining < 0 ? 0 : remaining;
+}
+
+double _maxResourcePressure(
+  double cpu,
+  double token,
+  double persisted,
+  double handles,
+) {
+  var maxPressure = cpu.clamp(0, 1).toDouble();
+  if (token > maxPressure) maxPressure = token;
+  if (persisted > maxPressure) maxPressure = persisted;
+  if (handles > maxPressure) maxPressure = handles;
+  return maxPressure;
+}
+
+String _resourcePressureLevel(double pressure) {
+  if (pressure >= 0.85) return 'high';
+  if (pressure >= 0.65) return 'watch';
+  return 'normal';
 }
 
 Map<String, Object?> _taskExtraJson(Map<String, Object?> extra) {
