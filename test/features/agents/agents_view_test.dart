@@ -153,6 +153,93 @@ void main() {
       expect(agent.metadata['quota'], 42);
     });
 
+    testWidgets('confirms full access execution mode before saving', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.setRuntimeAvailabilityProvider(
+        () => const AgentRuntimeAvailability(
+          isLoading: false,
+          isInstalled: true,
+          isEnabled: true,
+          pluginName: 'Hermes Agent',
+        ),
+      );
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.text('创建智能体'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, '名称 *'),
+        'Ops Agent',
+      );
+
+      DefaultTabController.of(
+        tester.element(find.byType(TabBar)),
+      ).animateTo(2, duration: Duration.zero);
+      await tester.pumpAndSettle();
+
+      expect(find.text('审批策略'), findsOneWidget);
+      expect(find.textContaining('特权能力'), findsOneWidget);
+      expect(
+        tester
+            .widget<SegmentedButton<AgentExecutionMode>>(
+              find.byType(SegmentedButton<AgentExecutionMode>),
+            )
+            .selected,
+        <AgentExecutionMode>{AgentExecutionMode.normal},
+      );
+
+      await tester.tap(find.text('完全访问模式'));
+      await tester.pumpAndSettle();
+      expect(find.text('启用完全访问模式？'), findsOneWidget);
+
+      await tester.tap(find.text('取消').last);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<SegmentedButton<AgentExecutionMode>>(
+              find.byType(SegmentedButton<AgentExecutionMode>),
+            )
+            .selected,
+        <AgentExecutionMode>{AgentExecutionMode.normal},
+      );
+
+      await tester.tap(find.text('完全访问模式'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('是，仍然继续'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('常规文件与命令操作可自动执行'), findsOneWidget);
+      expect(
+        tester
+            .widget<SegmentedButton<AgentExecutionMode>>(
+              find.byType(SegmentedButton<AgentExecutionMode>),
+            )
+            .selected,
+        <AgentExecutionMode>{AgentExecutionMode.fullAccess},
+      );
+
+      final saveButton = find.ancestor(
+        of: find.text('保存').last,
+        matching: find.byType(FilledButton),
+      );
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      expect(
+        controller.agents.single.executionMode,
+        AgentExecutionMode.fullAccess,
+      );
+    });
+
     testWidgets('rejects duplicate metadata keys before saving', (
       tester,
     ) async {

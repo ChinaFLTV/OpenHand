@@ -6170,9 +6170,12 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               ),
           ],
           selected: {_executionMode},
-          onSelectionChanged: (value) =>
-              setState(() => _executionMode = value.first),
+          onSelectionChanged: (value) {
+            _handleExecutionModeChanged(value.first);
+          },
         ),
+        const SizedBox(height: 10),
+        _executionModePolicyCard(l10n),
         const SizedBox(height: 14),
         SwitchListTile(
           value: canEnable && _enabled,
@@ -6217,6 +6220,35 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           keyPrefix: 'agent-workspace-scope',
         ),
       ],
+    );
+  }
+
+  Widget _executionModePolicyCard(AppLocalizations l10n) {
+    final fullAccess = _executionMode == AgentExecutionMode.fullAccess;
+    return FeatureStateCard.inline(
+      icon: fullAccess
+          ? Icons.warning_amber_rounded
+          : Icons.verified_user_outlined,
+      tone: fullAccess ? FeatureStateTone.error : FeatureStateTone.neutral,
+      title: openHandLocalizedText(context, zh: '审批策略', en: 'Approval policy'),
+      body: fullAccess
+          ? openHandLocalizedText(
+              context,
+              zh: '常规文件与命令操作可自动执行；越权目录、凭据或密钥访问、不可逆外部副作用、缺少证据的生产变更仍需审批。',
+              en: 'Routine file and command actions can run automatically; scope violations, credential or secret access, irreversible external side effects, and production changes without evidence still require approval.',
+            )
+          : openHandLocalizedText(
+              context,
+              zh: '特权能力、外部副作用、破坏性或不可逆操作、敏感数据访问、职责边界不清时都需要先审批。',
+              en: 'Privileged capability use, external side effects, destructive or irreversible actions, sensitive data access, and unclear scope boundaries require approval first.',
+            ),
+      trailing: Text(
+        _agentExecutionModeLabel(l10n, _executionMode),
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 
@@ -7065,6 +7097,35 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     } finally {
       if (mounted) setState(() => _refreshingCapabilities = false);
     }
+  }
+
+  Future<void> _handleExecutionModeChanged(AgentExecutionMode next) async {
+    if (next == _executionMode) return;
+    if (next == AgentExecutionMode.fullAccess) {
+      final confirmed = await showOpenHandConfirmDialog(
+        context: context,
+        title: openHandLocalizedText(
+          context,
+          zh: '启用完全访问模式？',
+          en: 'Enable full access mode?',
+        ),
+        message: openHandLocalizedText(
+          context,
+          zh: '完全访问模式会让智能体在工作循环中自动执行常规文件与命令操作，减少审批打断。\n\n越权目录、凭据或密钥访问、不可逆外部副作用、缺少证据的生产变更仍需审批。启用前请确认该智能体的职责边界与工作目录范围已配置清楚。',
+          en: 'Full access lets the agent automatically run routine file and command actions during its work loop, reducing approval interruptions.\n\nScope violations, credential or secret access, irreversible external side effects, and production changes without evidence still require approval. Confirm the agent boundary and workspace scope before enabling it.',
+        ),
+        cancelLabel: openHandLocalizedText(context, zh: '取消', en: 'Cancel'),
+        confirmLabel: openHandLocalizedText(
+          context,
+          zh: '是，仍然继续',
+          en: 'Yes, continue',
+        ),
+        destructive: true,
+      );
+      if (!confirmed || !mounted) return;
+    }
+    if (!mounted) return;
+    setState(() => _executionMode = next);
   }
 
   void _addRouteKeyword() {
