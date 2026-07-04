@@ -32,6 +32,15 @@ const Duration _directChildEnumerationTimeout = Duration(seconds: 2);
 const Duration _directChildTerminateGrace = Duration(milliseconds: 120);
 const Duration _processTreeFinalWait = Duration(milliseconds: 250);
 
+bool _isMissingExecutableProcessException(Object error) {
+  if (error is! ProcessException) return false;
+  if (error.errorCode == 2 || error.errorCode == 3) return true;
+  final message = error.message.toLowerCase();
+  return message.contains('no such file or directory') ||
+      message.contains('cannot find the file') ||
+      message.contains('the system cannot find');
+}
+
 void _registerTrackedChild(Process process) {
   _trackedChildren[process.pid] = process;
   // 用 block + void 返回值，避免 dart_async 备忘录里的「whenComplete 返回
@@ -457,7 +466,14 @@ Future<ProcessResult?> runProcessWithTimeout(
     return ProcessResult(process.pid, exitCode, stdoutText, stderrText);
   } catch (error, stack) {
     process?.kill(ProcessSignal.sigkill);
-    silentLog(tag, '$executable ${arguments.take(1).join(' ')}', error, stack);
+    if (!_isMissingExecutableProcessException(error)) {
+      silentLog(
+        tag,
+        '$executable ${arguments.take(1).join(' ')}',
+        error,
+        stack,
+      );
+    }
     return null;
   }
 }
@@ -736,7 +752,14 @@ Future<ProcessResult?> runBinaryProcessWithTimeout(
     } catch (killError, killStack) {
       silentLog(tag, 'kill after failure', killError, killStack);
     }
-    silentLog(tag, '$executable ${arguments.take(1).join(' ')}', error, stack);
+    if (!_isMissingExecutableProcessException(error)) {
+      silentLog(
+        tag,
+        '$executable ${arguments.take(1).join(' ')}',
+        error,
+        stack,
+      );
+    }
     return null;
   } finally {
     await stdoutSub?.cancel();
@@ -825,7 +848,14 @@ Future<bool> runDetachedSystemOpen(
     }
     return true;
   } catch (error, stack) {
-    silentLog(tag, '$executable ${arguments.take(1).join(' ')}', error, stack);
+    if (!_isMissingExecutableProcessException(error)) {
+      silentLog(
+        tag,
+        '$executable ${arguments.take(1).join(' ')}',
+        error,
+        stack,
+      );
+    }
     return false;
   }
 }
