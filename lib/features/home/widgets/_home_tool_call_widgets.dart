@@ -1016,6 +1016,27 @@ _ToolOutputPreview _buildToolOutputPreview(String content) {
 // _ToolContentFullDialog — full-screen dialog showing complete tool output
 // ─────────────────────────────────────────────────────────────────────────────
 
+const double _kToolContentDialogMaxWidth = 1180;
+const double _kToolContentDialogRadius = 26;
+const double _kToolContentDialogActionSize = 40;
+const double _kToolContentDialogCompactBreakpoint = 720;
+const Duration _kToolContentDialogActionResetDelay = Duration(
+  milliseconds: 1400,
+);
+const EdgeInsets _kToolContentDialogHeaderPadding = EdgeInsets.fromLTRB(
+  22,
+  18,
+  14,
+  14,
+);
+const EdgeInsets _kToolContentDialogMetaPadding = EdgeInsets.fromLTRB(
+  22,
+  10,
+  22,
+  12,
+);
+const EdgeInsets _kToolContentDialogBodyPadding = EdgeInsets.all(18);
+
 class _ToolContentFullDialog extends StatefulWidget {
   const _ToolContentFullDialog({
     required this.label,
@@ -1037,122 +1058,497 @@ class _ToolContentFullDialog extends StatefulWidget {
 
 class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
   bool _wrapLines = true;
+  bool _loadingFile = false;
+  bool _fileLoadAttempted = false;
+  bool _copied = false;
+  bool _downloaded = false;
+  _FormattedToolContent? _fileContent;
+  String? _cachedStatsText;
+  _ToolContentDialogStats? _cachedStats;
+  Timer? _copiedResetTimer;
+  Timer? _downloadedResetTimer;
+
+  _FormattedToolContent get _effectiveContent => _fileContent ?? widget.content;
+
+  bool get _hasText => _effectiveContent.text.trim().isNotEmpty;
+
+  bool get _usingLoadedFile => _fileContent != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _tryLoadFullContent();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ToolContentFullDialog oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.fullContentFile != widget.fullContentFile) {
+      _fileLoadAttempted = false;
+      _fileContent = null;
+      _cachedStatsText = null;
+      _cachedStats = null;
+      _tryLoadFullContent();
+    }
+  }
+
+  @override
+  void dispose() {
+    _copiedResetTimer?.cancel();
+    _downloadedResetTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _tryLoadFullContent() async {
+    final filePath = widget.fullContentFile?.trim();
+    if (filePath == null || filePath.isEmpty || _fileLoadAttempted) return;
+    _fileLoadAttempted = true;
+    setState(() => _loadingFile = true);
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        if (!mounted) return;
+        setState(() => _loadingFile = false);
+        return;
+      }
+      final raw = await file.readAsString();
+      if (!mounted) return;
+      setState(() {
+        _fileContent = _formatToolContent(raw);
+        _cachedStatsText = null;
+        _cachedStats = null;
+        _loadingFile = false;
+      });
+    } catch (error, stack) {
+      silentLog('home_tool_call', 'load full tool content', error, stack);
+      if (!mounted) return;
+      setState(() => _loadingFile = false);
+    }
+  }
+
+  void _toggleWrap() {
+    setState(() => _wrapLines = !_wrapLines);
+  }
+
+  Future<void> _copyContent() async {
+    final text = _effectiveContent.text;
+    if (text.isEmpty || _loadingFile) return;
+    try {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (!mounted) return;
+      _copiedResetTimer?.cancel();
+      setState(() => _copied = true);
+      _showToolContentSnackBar(
+        openHandLocalizedText(
+          context,
+          zh: '完整内容已复制。',
+          zhHant: '完整內容已複製。',
+          en: 'Full content copied.',
+          fr: 'Contenu complet copié.',
+          de: 'Vollständiger Inhalt kopiert.',
+          ja: '完全な内容をコピーしました。',
+        ),
+      );
+      _copiedResetTimer = startSafeTimer(
+        _kToolContentDialogActionResetDelay,
+        () {
+          if (mounted) setState(() => _copied = false);
+        },
+      );
+    } catch (error, stack) {
+      silentLog('home_tool_call', 'copy full tool content', error, stack);
+      if (!mounted) return;
+      _showToolContentSnackBar(
+        openHandLocalizedText(
+          context,
+          zh: '复制完整内容失败。',
+          zhHant: '複製完整內容失敗。',
+          en: 'Failed to copy full content.',
+          fr: 'Échec de la copie du contenu complet.',
+          de: 'Vollständiger Inhalt konnte nicht kopiert werden.',
+          ja: '完全な内容のコピーに失敗しました。',
+        ),
+      );
+    }
+  }
+
+  Future<void> _downloadContent() async {
+    final content = _effectiveContent;
+    final text = content.text;
+    if (text.isEmpty || _loadingFile) return;
+    try {
+      final selectedLocation = await getSaveLocation(
+        suggestedName: _toolContentDownloadFileName(
+          widget.label,
+          content.language,
+        ),
+      );
+      final selectedPath = selectedLocation?.path;
+      if (!mounted || selectedPath == null || selectedPath.isEmpty) return;
+      await File(selectedPath).writeAsString(text);
+      if (!mounted) return;
+      _downloadedResetTimer?.cancel();
+      setState(() => _downloaded = true);
+      _showToolContentSnackBar(
+        openHandLocalizedText(
+          context,
+          zh: '完整内容已下载为 ${p.basename(selectedPath)}',
+          zhHant: '完整內容已下載為 ${p.basename(selectedPath)}',
+          en: 'Full content downloaded as ${p.basename(selectedPath)}',
+          fr: 'Contenu complet téléchargé sous ${p.basename(selectedPath)}',
+          de: 'Vollständiger Inhalt als ${p.basename(selectedPath)} gespeichert',
+          ja: '完全な内容を ${p.basename(selectedPath)} として保存しました',
+        ),
+      );
+      _downloadedResetTimer = startSafeTimer(
+        _kToolContentDialogActionResetDelay,
+        () {
+          if (mounted) setState(() => _downloaded = false);
+        },
+      );
+    } catch (error, stack) {
+      silentLog('home_tool_call', 'download full tool content', error, stack);
+      if (!mounted) return;
+      _showToolContentSnackBar(
+        openHandLocalizedText(
+          context,
+          zh: '下载完整内容失败。',
+          zhHant: '下載完整內容失敗。',
+          en: 'Failed to download full content.',
+          fr: 'Échec du téléchargement du contenu complet.',
+          de: 'Vollständiger Inhalt konnte nicht gespeichert werden.',
+          ja: '完全な内容の保存に失敗しました。',
+        ),
+      );
+    }
+  }
+
+  void _showToolContentSnackBar(String message) {
+    final messenger = ScaffoldMessenger.of(context);
+    OpenHandSnackBar.hideCurrentOn(messenger);
+    _showHomeSnackBarWithMessenger(
+      context,
+      messenger,
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  _ToolContentDialogStats _statsFor(String text) {
+    if (identical(_cachedStatsText, text) && _cachedStats != null) {
+      return _cachedStats!;
+    }
+    final stats = _ToolContentDialogStats(
+      lineCount: _countToolContentLines(text),
+      charCount: text.length,
+    );
+    _cachedStatsText = text;
+    _cachedStats = stats;
+    return stats;
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final content = _effectiveContent;
+    final text = content.text;
+    final stats = _statsFor(text);
+    final normalizedLanguage = _normalizeCodeLanguage(content.language);
+    final languageLabel =
+        normalizedLanguage ??
+        openHandLocalizedText(
+          context,
+          zh: '纯文本',
+          zhHant: '純文字',
+          en: 'Plain text',
+          fr: 'Texte brut',
+          de: 'Klartext',
+          ja: 'プレーンテキスト',
+        );
+    final sourceLabel = _loadingFile
+        ? openHandLocalizedText(
+            context,
+            zh: '加载中',
+            zhHant: '載入中',
+            en: 'Loading',
+            fr: 'Chargement',
+            de: 'Wird geladen',
+            ja: '読み込み中',
+          )
+        : _usingLoadedFile
+        ? openHandLocalizedText(
+            context,
+            zh: '完整文件',
+            zhHant: '完整檔案',
+            en: 'Full file',
+            fr: 'Fichier complet',
+            de: 'Vollständige Datei',
+            ja: '完全なファイル',
+          )
+        : widget.fullContentFile == null
+        ? openHandLocalizedText(
+            context,
+            zh: '消息内容',
+            zhHant: '訊息內容',
+            en: 'Message content',
+            fr: 'Contenu du message',
+            de: 'Nachrichteninhalt',
+            ja: 'メッセージ内容',
+          )
+        : openHandLocalizedText(
+            context,
+            zh: '已回退',
+            zhHant: '已回退',
+            en: 'Fallback',
+            fr: 'Repli',
+            de: 'Fallback',
+            ja: 'フォールバック',
+          );
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
-      maxWidth: 960,
+      maxWidth: _kToolContentDialogMaxWidth,
       maxHeight: double.infinity,
-      horizontalMargin: 48,
-      verticalMargin: 80,
-      safeAreaMinimum: const EdgeInsets.all(24),
-      backgroundColor: colorScheme.surface,
+      maxWidthFraction: 0.94,
+      maxHeightFraction: 0.9,
+      minAvailableWidth: 320,
+      minAvailableHeight: 420,
+      horizontalMargin: 56,
+      verticalMargin: 56,
+      safeAreaMinimum: const EdgeInsets.all(20),
+      expandToMax: true,
+      backgroundColor: colorScheme.surfaceContainerLowest,
+      surfaceTintColor: colorScheme.surfaceTint,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(24)),
+        borderRadius: BorderRadius.all(
+          Radius.circular(_kToolContentDialogRadius),
+        ),
       ),
       child: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(24)),
+        borderRadius: const BorderRadius.all(
+          Radius.circular(_kToolContentDialogRadius),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Header ──
             Container(
-              padding: const EdgeInsets.fromLTRB(24, 16, 8, 16),
-              color: colorScheme.surfaceContainerLow,
-              child: Row(
-                children: [
-                  Icon(
-                    widget.isError
-                        ? Icons.error_outline_rounded
-                        : Icons.code_rounded,
-                    color: widget.isError
-                        ? colorScheme.error
-                        : colorScheme.primary,
-                    size: 22,
+              padding: _kToolContentDialogHeaderPadding,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerLow,
+                border: Border(
+                  bottom: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.55),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      widget.label,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: widget.isError
-                            ? colorScheme.error
-                            : colorScheme.onSurface,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _wrapLines = !_wrapLines;
-                      });
-                    },
-                    icon: Icon(
-                      _wrapLines
-                          ? Icons.wrap_text_rounded
-                          : Icons.segment_rounded,
-                      size: 16,
-                    ),
-                    label: Text(
-                      _wrapLines
-                          ? openHandLocalizedText(
-                              context,
-                              zh: '取消换行',
-                              zhHant: '取消換行',
-                              en: 'Unwrap',
-                              fr: 'Sans retour',
-                              de: 'Umbruch aus',
-                              ja: '折り返し解除',
-                            )
-                          : openHandLocalizedText(
-                              context,
-                              zh: '自动换行',
-                              zhHant: '自動換行',
-                              en: 'Wrap',
-                              fr: 'Retour auto',
-                              de: 'Umbrechen',
-                              ja: '折り返し',
+                ),
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact =
+                      constraints.hasBoundedWidth &&
+                      constraints.maxWidth <
+                          _kToolContentDialogCompactBreakpoint;
+                  final title = Row(
+                    children: [
+                      _ToolContentDialogLeadingIcon(isError: widget.isError),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: widget.isError
+                                    ? colorScheme.error
+                                    : colorScheme.onSurface,
+                              ),
                             ),
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: colorScheme.primary,
-                      textStyle: theme.textTheme.labelSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+                            const SizedBox(height: 2),
+                            Text(
+                              openHandLocalizedText(
+                                context,
+                                zh: '工具输出完整内容',
+                                zhHant: '工具輸出完整內容',
+                                en: 'Complete tool output',
+                                fr: 'Sortie complète de l’outil',
+                                de: 'Vollständige Tool-Ausgabe',
+                                ja: 'ツール出力の完全な内容',
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                    ],
+                  );
+                  final actions = Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.end,
+                    children: [
+                      _ToolContentDialogIconButton(
+                        tooltip: _wrapLines
+                            ? AppLocalizations.of(context)!.tlCallUnwrap
+                            : AppLocalizations.of(context)!.tlCallWrapLines,
+                        icon: _wrapLines
+                            ? Icons.wrap_text_rounded
+                            : Icons.segment_rounded,
+                        selected: _wrapLines,
+                        onPressed: _toggleWrap,
+                      ),
+                      _ToolContentDialogIconButton(
+                        tooltip: _copied
+                            ? openHandLocalizedText(
+                                context,
+                                zh: '已复制',
+                                zhHant: '已複製',
+                                en: 'Copied',
+                                fr: 'Copié',
+                                de: 'Kopiert',
+                                ja: 'コピー済み',
+                              )
+                            : openHandLocalizedText(
+                                context,
+                                zh: '复制',
+                                zhHant: '複製',
+                                en: 'Copy',
+                                fr: 'Copier',
+                                de: 'Kopieren',
+                                ja: 'コピー',
+                              ),
+                        icon: _copied
+                            ? Icons.check_rounded
+                            : Icons.content_copy_rounded,
+                        selected: _copied,
+                        onPressed: _hasText && !_loadingFile
+                            ? () => unawaited(_copyContent())
+                            : null,
+                      ),
+                      _ToolContentDialogIconButton(
+                        tooltip: _downloaded
+                            ? openHandLocalizedText(
+                                context,
+                                zh: '已下载',
+                                zhHant: '已下載',
+                                en: 'Downloaded',
+                                fr: 'Téléchargé',
+                                de: 'Gespeichert',
+                                ja: '保存済み',
+                              )
+                            : openHandLocalizedText(
+                                context,
+                                zh: '下载',
+                                zhHant: '下載',
+                                en: 'Download',
+                                fr: 'Télécharger',
+                                de: 'Speichern',
+                                ja: '保存',
+                              ),
+                        icon: _downloaded
+                            ? Icons.check_rounded
+                            : Icons.download_rounded,
+                        selected: _downloaded,
+                        onPressed: _hasText && !_loadingFile
+                            ? () => unawaited(_downloadContent())
+                            : null,
+                      ),
+                      _ToolContentDialogIconButton(
+                        tooltip: MaterialLocalizations.of(
+                          context,
+                        ).closeButtonTooltip,
+                        icon: Icons.close_rounded,
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  );
+                  if (compact) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        title,
+                        const SizedBox(height: 12),
+                        Align(alignment: Alignment.centerRight, child: actions),
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: title),
+                      const SizedBox(width: 16),
+                      actions,
+                    ],
+                  );
+                },
+              ),
+            ),
+            Container(
+              padding: _kToolContentDialogMetaPadding,
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                border: Border(
+                  bottom: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.42),
+                  ),
+                ),
+              ),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _ToolContentDialogChip(
+                    icon: Icons.code_rounded,
+                    label: languageLabel,
+                    emphasized: normalizedLanguage != null,
+                  ),
+                  _ToolContentDialogChip(
+                    icon: Icons.format_list_numbered_rounded,
+                    label: openHandLocalizedText(
+                      context,
+                      zh: '${_compactToolContentCount(stats.lineCount)} 行',
+                      zhHant: '${_compactToolContentCount(stats.lineCount)} 行',
+                      en: '${_compactToolContentCount(stats.lineCount)} lines',
+                      fr: '${_compactToolContentCount(stats.lineCount)} lignes',
+                      de: '${_compactToolContentCount(stats.lineCount)} Zeilen',
+                      ja: '${_compactToolContentCount(stats.lineCount)} 行',
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                    tooltip: openHandLocalizedText(
+                  _ToolContentDialogChip(
+                    icon: Icons.data_object_rounded,
+                    label: openHandLocalizedText(
                       context,
-                      zh: '关闭',
-                      zhHant: '關閉',
-                      en: 'Close',
-                      fr: 'Fermer',
-                      de: 'Schließen',
-                      ja: '閉じる',
+                      zh: '${_compactToolContentCount(stats.charCount)} 字符',
+                      zhHant: '${_compactToolContentCount(stats.charCount)} 字元',
+                      en: '${_compactToolContentCount(stats.charCount)} chars',
+                      fr: '${_compactToolContentCount(stats.charCount)} car.',
+                      de: '${_compactToolContentCount(stats.charCount)} Zeichen',
+                      ja: '${_compactToolContentCount(stats.charCount)} 文字',
                     ),
+                  ),
+                  _ToolContentDialogChip(
+                    icon: _usingLoadedFile
+                        ? Icons.insert_drive_file_rounded
+                        : Icons.article_outlined,
+                    label: sourceLabel,
+                    emphasized: _usingLoadedFile,
                   ),
                 ],
               ),
             ),
-
-            // ── Body ──
             Expanded(
               child: _ToolContentFullDialogBody(
-                content: widget.content,
+                content: content,
                 isError: widget.isError,
+                loading: _loadingFile,
                 wrapLines: _wrapLines,
-                fullContentFile: widget.fullContentFile,
               ),
             ),
           ],
@@ -1162,172 +1558,331 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
   }
 }
 
-/// Renders full content inside the dialog. When [fullContentFile] is provided,
-/// reads the file to get non-truncated content. Falls back to in-memory
-/// [content] on any error. Handles empty, loading, and render-failure states.
-class _ToolContentFullDialogBody extends StatefulWidget {
-  const _ToolContentFullDialogBody({
-    required this.content,
-    required this.isError,
-    required this.wrapLines,
-    this.fullContentFile,
+class _ToolContentDialogStats {
+  const _ToolContentDialogStats({
+    required this.lineCount,
+    required this.charCount,
   });
 
-  final _FormattedToolContent content;
-  final bool isError;
-  final bool wrapLines;
-  final String? fullContentFile;
-
-  @override
-  State<_ToolContentFullDialogBody> createState() =>
-      _ToolContentFullDialogBodyState();
+  final int lineCount;
+  final int charCount;
 }
 
-class _ToolContentFullDialogBodyState
-    extends State<_ToolContentFullDialogBody> {
-  bool _renderFailed = false;
-  bool _loadingFile = false;
-  _FormattedToolContent? _fileContent;
-  bool _fileLoadAttempted = false;
+class _ToolContentDialogLeadingIcon extends StatelessWidget {
+  const _ToolContentDialogLeadingIcon({required this.isError});
 
-  @override
-  void initState() {
-    super.initState();
-    _tryLoadFullContent();
-  }
-
-  @override
-  void didUpdateWidget(covariant _ToolContentFullDialogBody oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.fullContentFile != widget.fullContentFile) {
-      _fileLoadAttempted = false;
-      _fileContent = null;
-      _tryLoadFullContent();
-    }
-  }
-
-  Future<void> _tryLoadFullContent() async {
-    final filePath = widget.fullContentFile;
-    if (filePath == null || filePath.isEmpty) return;
-    if (_fileLoadAttempted) return;
-    _fileLoadAttempted = true;
-    setState(() => _loadingFile = true);
-    try {
-      final file = File(filePath);
-      if (await file.exists()) {
-        final raw = await file.readAsString();
-        if (!mounted) return;
-        final formatted = _formatToolContent(raw);
-        setState(() {
-          _fileContent = formatted;
-          _loadingFile = false;
-        });
-      } else {
-        if (!mounted) return;
-        setState(() => _loadingFile = false);
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _loadingFile = false);
-    }
-  }
+  final bool isError;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final effectiveContent = _fileContent ?? widget.content;
-    final text = effectiveContent.text;
-
-    if (_loadingFile) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (text.trim().isEmpty) {
-      return Center(
-        child: Text(
-          AppLocalizations.of(context)!.tlCallEmptyContent,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = isError ? colorScheme.error : colorScheme.primary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.10),
+          colorScheme.surfaceContainerHigh,
         ),
-      );
-    }
-
-    if (_renderFailed) {
-      // Graceful fallback: plain selectable text when highlighted panel fails.
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: SelectableText(
-          text,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontFamily: 'monospace',
-            height: 1.5,
-            color: widget.isError
-                ? colorScheme.onErrorContainer
-                : colorScheme.onSurface,
-          ),
-        ),
-      );
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: _ToolContentSafeRender(
-        onRenderError: () {
-          if (mounted) {
-            // Schedule setState for next frame to avoid build-phase conflicts.
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) setState(() => _renderFailed = true);
-            });
-          }
-        },
-        child: _HighlightedCodePanel(
-          content: text,
-          theme: theme,
-          language: effectiveContent.language,
-          selectable: true,
-          baseColor: widget.isError
-              ? colorScheme.onErrorContainer
-              : colorScheme.onSurface,
-          accentColor: widget.isError ? colorScheme.error : null,
-          wrapLines: widget.wrapLines,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: SizedBox.square(
+        dimension: 42,
+        child: Icon(
+          isError ? Icons.error_outline_rounded : Icons.terminal_rounded,
+          color: color,
+          size: 22,
         ),
       ),
     );
   }
 }
 
-/// Error boundary widget: catches render errors in child and calls [onRenderError].
-class _ToolContentSafeRender extends StatefulWidget {
-  const _ToolContentSafeRender({
-    required this.child,
-    required this.onRenderError,
+class _ToolContentDialogIconButton extends StatelessWidget {
+  const _ToolContentDialogIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.selected = false,
   });
 
-  final Widget child;
-  final VoidCallback onRenderError;
-
-  @override
-  State<_ToolContentSafeRender> createState() => _ToolContentSafeRenderState();
-}
-
-class _ToolContentSafeRenderState extends State<_ToolContentSafeRender> {
-  bool _hasError = false;
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
-    if (_hasError) {
-      return const SizedBox.shrink();
-    }
-    return widget.child;
+    final colorScheme = Theme.of(context).colorScheme;
+    final enabled = onPressed != null;
+    final foreground = selected
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
+    final background = selected
+        ? colorScheme.primaryContainer
+        : colorScheme.surfaceContainerHigh;
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 350),
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 20),
+        style: IconButton.styleFrom(
+          fixedSize: const Size.square(_kToolContentDialogActionSize),
+          minimumSize: const Size.square(_kToolContentDialogActionSize),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          foregroundColor: enabled
+              ? foreground
+              : colorScheme.onSurfaceVariant.withValues(alpha: 0.48),
+          backgroundColor: enabled
+              ? background
+              : colorScheme.surfaceContainer.withValues(alpha: 0.62),
+          disabledForegroundColor: colorScheme.onSurfaceVariant.withValues(
+            alpha: 0.44,
+          ),
+          disabledBackgroundColor: colorScheme.surfaceContainer.withValues(
+            alpha: 0.58,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      ),
+    );
   }
+}
+
+class _ToolContentDialogChip extends StatelessWidget {
+  const _ToolContentDialogChip({
+    required this.icon,
+    required this.label,
+    this.emphasized = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool emphasized;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _hasError = false;
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final tint = emphasized
+        ? colorScheme.primary
+        : colorScheme.onSurfaceVariant;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          tint.withValues(alpha: emphasized ? 0.10 : 0.06),
+          colorScheme.surfaceContainerLow,
+        ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: tint.withValues(alpha: 0.16)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: tint),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: emphasized ? colorScheme.primary : colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
+}
+
+class _ToolContentFullDialogBody extends StatelessWidget {
+  const _ToolContentFullDialogBody({
+    required this.content,
+    required this.isError,
+    required this.loading,
+    required this.wrapLines,
+  });
+
+  final _FormattedToolContent content;
+  final bool isError;
+  final bool loading;
+  final bool wrapLines;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final text = content.text;
+
+    if (loading) {
+      return _ToolContentDialogStatePane(
+        icon: SizedBox.square(
+          dimension: 26,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.6,
+            color: colorScheme.primary,
+          ),
+        ),
+        title: openHandLocalizedText(
+          context,
+          zh: '正在加载完整内容',
+          zhHant: '正在載入完整內容',
+          en: 'Loading full content',
+          fr: 'Chargement du contenu complet',
+          de: 'Vollständiger Inhalt wird geladen',
+          ja: '完全な内容を読み込み中',
+        ),
+      );
+    }
+
+    if (text.trim().isEmpty) {
+      return _ToolContentDialogStatePane(
+        icon: Icon(
+          Icons.article_outlined,
+          color: colorScheme.onSurfaceVariant,
+          size: 28,
+        ),
+        title: AppLocalizations.of(context)!.tlCallEmptyContent,
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minContentWidth = constraints.maxWidth.isFinite
+            ? math.max(
+                0.0,
+                constraints.maxWidth -
+                    _kToolContentDialogBodyPadding.horizontal,
+              )
+            : 0.0;
+        final minContentHeight = constraints.maxHeight.isFinite
+            ? math.max(
+                0.0,
+                constraints.maxHeight - _kToolContentDialogBodyPadding.vertical,
+              )
+            : 0.0;
+        return Scrollbar(
+          child: SingleChildScrollView(
+            padding: _kToolContentDialogBodyPadding,
+            physics: openHandDialogAwareScrollPhysics(context),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: minContentWidth,
+                minHeight: minContentHeight,
+              ),
+              child: _HighlightedCodePanel(
+                content: text,
+                theme: theme,
+                language: content.language,
+                selectable: true,
+                baseColor: isError
+                    ? colorScheme.onErrorContainer
+                    : colorScheme.onSurface,
+                accentColor: isError ? colorScheme.error : null,
+                wrapLines: wrapLines,
+                showToolbar: false,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ToolContentDialogStatePane extends StatelessWidget {
+  const _ToolContentDialogStatePane({required this.icon, required this.title});
+
+  final Widget icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Center(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              icon,
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _compactToolContentCount(int value) {
+  if (value < 1000) return '$value';
+  if (value < 1000000) {
+    final scaled = value / 1000;
+    return '${_trimToolContentCount(scaled, value < 10000 ? 1 : 0)}K';
+  }
+  final scaled = value / 1000000;
+  return '${_trimToolContentCount(scaled, value < 10000000 ? 1 : 0)}M';
+}
+
+String _trimToolContentCount(double value, int fractionDigits) {
+  final fixed = value.toStringAsFixed(fractionDigits);
+  if (!fixed.contains('.')) return fixed;
+  return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
+}
+
+int _countToolContentLines(String text) {
+  if (text.isEmpty) return 0;
+  var count = 1;
+  var index = 0;
+  while (index < text.length) {
+    final unit = text.codeUnitAt(index);
+    if (unit == 0x0A) {
+      count += 1;
+    } else if (unit == 0x0D) {
+      count += 1;
+      if (index + 1 < text.length && text.codeUnitAt(index + 1) == 0x0A) {
+        index += 1;
+      }
+    }
+    index += 1;
+  }
+  return count;
+}
+
+String _toolContentDownloadFileName(String label, String? language) {
+  final extension = _getFileExtensionForLanguage(language);
+  final normalized = label.trim().toLowerCase();
+  final token = normalized
+      .replaceAll(RegExp(r'[^a-z0-9._-]+'), '_')
+      .replaceAll(RegExp(r'_+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
+  final baseName = token.isEmpty ? 'tool_output' : token;
+  if (baseName.endsWith(extension)) return baseName;
+  return '$baseName$extension';
 }
 
 /// WebSearch 工具卡片专用：将本次调用是否命中本地持久化缓存以一颗

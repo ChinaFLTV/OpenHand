@@ -923,6 +923,7 @@ class _HighlightedCodePanel extends StatefulWidget {
     this.accentColor,
     this.allowAutoDetection = false,
     this.wrapLines = false,
+    this.showToolbar = true,
   });
 
   final String content;
@@ -934,6 +935,7 @@ class _HighlightedCodePanel extends StatefulWidget {
   final Color? accentColor;
   final bool allowAutoDetection;
   final bool wrapLines;
+  final bool showToolbar;
 
   @override
   State<_HighlightedCodePanel> createState() => _HighlightedCodePanelState();
@@ -977,6 +979,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         oldWidget.baseColor != widget.baseColor ||
         oldWidget.forceDarkSurface != widget.forceDarkSurface ||
         oldWidget.allowAutoDetection != widget.allowAutoDetection ||
+        oldWidget.showToolbar != widget.showToolbar ||
         oldWidget.theme.brightness != widget.theme.brightness ||
         oldWidget.theme.textTheme.bodyMedium?.fontSize !=
             widget.theme.textTheme.bodyMedium?.fontSize ||
@@ -1079,87 +1082,88 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            decoration: BoxDecoration(
-              color: palette.headerColor,
-              border: Border(bottom: BorderSide(color: palette.dividerColor)),
-            ),
-            child: Row(
-              children: [
-                if (effectiveLanguage != null)
+          if (widget.showToolbar)
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              decoration: BoxDecoration(
+                color: palette.headerColor,
+                border: Border(bottom: BorderSide(color: palette.dividerColor)),
+              ),
+              child: Row(
+                children: [
+                  if (effectiveLanguage != null)
+                    _buildToolPill(
+                      label: effectiveLanguage,
+                      icon: Icons.code_rounded,
+                      backgroundColor: palette.badgeColor,
+                      foregroundColor: palette.badgeTextColor,
+                    )
+                  else
+                    const SizedBox(height: 32),
+                  const Spacer(),
+                  if (isMermaidLanguage) ...[
+                    _buildToolPill(
+                      label: viewLabel,
+                      icon: _mermaidViewActive
+                          ? Icons.code_rounded
+                          : Icons.visibility_outlined,
+                      backgroundColor: _mermaidViewActive
+                          ? palette.actionColor
+                          : palette.actionColor,
+                      foregroundColor: palette.actionTextColor,
+                      onTap: _toggleMermaidView,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   _buildToolPill(
-                    label: effectiveLanguage,
-                    icon: Icons.code_rounded,
-                    backgroundColor: palette.badgeColor,
-                    foregroundColor: palette.badgeTextColor,
-                  )
-                else
-                  const SizedBox(height: 32),
-                const Spacer(),
-                if (isMermaidLanguage) ...[
-                  _buildToolPill(
-                    label: viewLabel,
-                    icon: _mermaidViewActive
-                        ? Icons.code_rounded
-                        : Icons.visibility_outlined,
-                    backgroundColor: _mermaidViewActive
-                        ? palette.actionColor
-                        : palette.actionColor,
-                    foregroundColor: palette.actionTextColor,
-                    onTap: _toggleMermaidView,
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                _buildToolPill(
-                  label: copyLabel,
-                  icon: _copied
-                      ? Icons.check_rounded
-                      : Icons.content_copy_rounded,
-                  backgroundColor: palette.actionColor,
-                  foregroundColor: palette.actionTextColor,
-                  onTap: () {
-                    _BubbleHtmlInteractiveScope.maybeOf(
-                      context,
-                    )?.markInteractiveTap();
-                    _copyCodeBlock();
-                  },
-                ),
-                const SizedBox(width: 8),
-                _buildToolPill(
-                  label: downloadLabel,
-                  icon: _downloaded
-                      ? Icons.check_rounded
-                      : Icons.download_rounded,
-                  backgroundColor: palette.actionColor,
-                  foregroundColor: palette.actionTextColor,
-                  onTap: () {
-                    _BubbleHtmlInteractiveScope.maybeOf(
-                      context,
-                    )?.markInteractiveTap();
-                    _downloadCodeBlock(effectiveLanguage);
-                  },
-                ),
-                if (isHtmlLanguage) ...[
-                  const SizedBox(width: 8),
-                  _buildToolPill(
-                    label: runLabel,
-                    icon: Icons.play_arrow_rounded,
+                    label: copyLabel,
+                    icon: _copied
+                        ? Icons.check_rounded
+                        : Icons.content_copy_rounded,
                     backgroundColor: palette.actionColor,
                     foregroundColor: palette.actionTextColor,
                     onTap: () {
                       _BubbleHtmlInteractiveScope.maybeOf(
                         context,
                       )?.markInteractiveTap();
-                      _runHtmlPreview();
+                      _copyCodeBlock();
                     },
                   ),
+                  const SizedBox(width: 8),
+                  _buildToolPill(
+                    label: downloadLabel,
+                    icon: _downloaded
+                        ? Icons.check_rounded
+                        : Icons.download_rounded,
+                    backgroundColor: palette.actionColor,
+                    foregroundColor: palette.actionTextColor,
+                    onTap: () {
+                      _BubbleHtmlInteractiveScope.maybeOf(
+                        context,
+                      )?.markInteractiveTap();
+                      _downloadCodeBlock(effectiveLanguage);
+                    },
+                  ),
+                  if (isHtmlLanguage) ...[
+                    const SizedBox(width: 8),
+                    _buildToolPill(
+                      label: runLabel,
+                      icon: Icons.play_arrow_rounded,
+                      backgroundColor: palette.actionColor,
+                      foregroundColor: palette.actionTextColor,
+                      onTap: () {
+                        _BubbleHtmlInteractiveScope.maybeOf(
+                          context,
+                        )?.markInteractiveTap();
+                        _runHtmlPreview();
+                      },
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
           Padding(
-            padding: const EdgeInsets.all(14),
+            padding: EdgeInsets.all(widget.showToolbar ? 14 : 16),
             child: isMermaidLanguage && _mermaidViewActive
                 // 外层 Column 是 CrossAxisAlignment.start，子节点只拿到松约束。
                 // _MermaidDiagramView 内层 Column 用 stretch，但实际宽度按
