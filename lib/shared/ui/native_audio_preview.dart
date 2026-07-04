@@ -11,6 +11,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../util/input_value_parsing.dart';
 import '../util/timer_safety.dart';
+import 'motion_preference.dart';
 
 const Duration kNativeAudioLoadTimeout = Duration(seconds: 18);
 const Duration kNativeAudioControlTimeout = Duration(seconds: 8);
@@ -1038,9 +1039,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   Widget build(BuildContext context) {
     final meta = widget.meta;
     final colorScheme = Theme.of(context).colorScheme;
-    final motionDur = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : widget.motionDuration;
+    final motionDur = openHandTickerMotionEnabled(context)
+        ? widget.motionDuration
+        : Duration.zero;
     final baseColor = colorScheme.surface;
     final quietTint = Color.alphaBlend(
       colorScheme.primary.withValues(alpha: 0.045),
@@ -1517,31 +1518,24 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
   );
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.isPlaying) {
-      _glowController.repeat(reverse: true);
-    }
-  }
-
-  @override
   void didUpdateWidget(covariant _NativeAudioAlbumCover oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isPlaying && !_glowController.isAnimating) {
-      _glowController.repeat(reverse: true);
-    } else if (!widget.isPlaying && _glowController.isAnimating) {
-      _glowController.stop();
-    }
+    _syncGlowController();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _glowController.stop();
-    } else if (widget.isPlaying && !_glowController.isAnimating) {
+    _syncGlowController();
+  }
+
+  void _syncGlowController() {
+    if (widget.isPlaying && openHandTickerMotionEnabled(context)) {
+      if (_glowController.isAnimating) return;
       _glowController.repeat(reverse: true);
+      return;
     }
+    _glowController.stop();
   }
 
   @override
@@ -1567,14 +1561,14 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
       meta.secondaryColor.withValues(alpha: 0.08),
       colorScheme.surfaceContainerHigh,
     );
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final motionEnabled = openHandTickerMotionEnabled(context);
     return AnimatedBuilder(
       animation: _glowController,
       builder: (context, child) {
-        final breath = widget.isPlaying && !reduceMotion
+        final breath = widget.isPlaying && motionEnabled
             ? Curves.easeInOutCubic.transform(_glowController.value)
             : 0.0;
-        final playLift = widget.isPlaying && !reduceMotion ? 1.0 : 0.0;
+        final playLift = widget.isPlaying && motionEnabled ? 1.0 : 0.0;
         final scale = 1.0 + playLift * 0.012 + breath * 0.010;
         final lift = -playLift * (1.0 + breath * 2.2);
         return Transform.translate(
@@ -1712,19 +1706,25 @@ class _NativeAudioAnimatedBackdropState
   );
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.duration > Duration.zero) _controller.repeat(reverse: true);
+  void didUpdateWidget(covariant _NativeAudioAnimatedBackdrop oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncController();
   }
 
   @override
-  void didUpdateWidget(covariant _NativeAudioAnimatedBackdrop oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.duration <= Duration.zero) {
-      _controller.stop();
-    } else if (!_controller.isAnimating) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncController();
+  }
+
+  void _syncController() {
+    if (widget.duration > Duration.zero &&
+        openHandTickerMotionEnabled(context)) {
+      if (_controller.isAnimating) return;
       _controller.repeat(reverse: true);
+      return;
     }
+    _controller.stop();
   }
 
   @override
@@ -1738,10 +1738,14 @@ class _NativeAudioAnimatedBackdropState
     final colorScheme = Theme.of(context).colorScheme;
     final accentAlpha = widget.isDark ? 0.20 : 0.10;
     final highlightAlpha = widget.isDark ? 0.11 : 0.07;
+    final motionEnabled =
+        widget.duration > Duration.zero && openHandTickerMotionEnabled(context);
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        final t = widget.curve.transform(_controller.value);
+        final t = motionEnabled
+            ? widget.curve.transform(_controller.value)
+            : 0.0;
         return Transform.scale(
           scale: 1.04 + t * 0.030,
           child: Transform.translate(
@@ -1801,7 +1805,9 @@ class _NativeAudioIconButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: AnimatedScale(
-        duration: const Duration(milliseconds: 140),
+        duration: openHandTickerMotionEnabled(context)
+            ? const Duration(milliseconds: 140)
+            : Duration.zero,
         curve: kNativeAudioMotionCurve,
         scale: active ? 1.04 : 1.0,
         child: SizedBox.square(
@@ -1852,7 +1858,9 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         onTap: () => _showMenu(ctx, l10n, cs),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
+          duration: openHandTickerMotionEnabled(ctx)
+              ? const Duration(milliseconds: 160)
+              : Duration.zero,
           curve: kNativeAudioMotionCurve,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
