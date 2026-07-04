@@ -283,10 +283,10 @@ class _RerankRequestContext {
   bool supportsParameter(String key) {
     final parameters = profile.rerankSupportedParameters;
     if (parameters.isEmpty) return true;
-    final normalizedKey = key.trim().toLowerCase();
+    final normalizedKey = lowercaseStringFromValue(key);
     if (normalizedKey.isEmpty) return false;
     return parameters.any(
-      (parameter) => parameter.trim().toLowerCase() == normalizedKey,
+      (parameter) => lowercaseStringFromValue(parameter) == normalizedKey,
     );
   }
 }
@@ -393,7 +393,7 @@ class _VoyageRerankStrategy extends _RerankRequestStrategy {
   bool matches(_RerankRequestContext context) {
     final baseUrl = context.model.baseUrl.toLowerCase();
     final profileUsesTopK = context.profile.rerankSupportedParameters.any(
-      (parameter) => parameter.trim().toLowerCase() == 'top_k',
+      (parameter) => lowercaseStringFromValue(parameter) == 'top_k',
     );
     return profileUsesTopK ||
         context.normalizedModelId.startsWith('voyage-rerank') ||
@@ -614,8 +614,7 @@ const Set<String> _deepMergeableRerankBodyKeys = <String>{
 };
 
 String? _trimmedOrNull(String? value) {
-  final trimmed = value?.trim() ?? '';
-  return trimmed.isEmpty ? null : trimmed;
+  return nullIfBlank(value);
 }
 
 String _normalizeRerankRequestModelId(AiModelConfig model, String modelId) {

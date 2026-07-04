@@ -372,7 +372,7 @@ class AiEmbeddingsService {
     required String encodingFormat,
     required int? expectedDimensions,
   }) {
-    final normalized = encodingFormat.trim().toLowerCase();
+    final normalized = lowercaseStringFromValue(encodingFormat);
     if (!normalized.startsWith('base64')) return null;
     final bytes = _base64BytesOrNull(value);
     if (bytes == null || bytes.isEmpty) return null;
@@ -404,7 +404,7 @@ class AiEmbeddingsService {
     required String encodingFormat,
     required int? expectedDimensions,
   }) {
-    final normalized = encodingFormat.trim().toLowerCase();
+    final normalized = lowercaseStringFromValue(encodingFormat);
     if (normalized != 'binary' && normalized != 'ubinary') return null;
     if (expectedDimensions == null || expectedDimensions <= vector.length) {
       return null;
@@ -531,10 +531,10 @@ class _EmbeddingRequestContext {
   }
 
   bool supportsParameter(String key) {
-    final normalizedKey = key.trim().toLowerCase();
+    final normalizedKey = lowercaseStringFromValue(key);
     if (normalizedKey.isEmpty) return false;
     return profile.supportedParameters.any(
-      (parameter) => parameter.trim().toLowerCase() == normalizedKey,
+      (parameter) => lowercaseStringFromValue(parameter) == normalizedKey,
     );
   }
 }
@@ -1167,7 +1167,7 @@ String _singleTextInput(Object input, {required String provider}) {
 }
 
 Object? _truncationValue(String? value) {
-  final normalized = value?.trim().toLowerCase() ?? '';
+  final normalized = optionalLowercaseStringFromValue(value) ?? '';
   if (normalized.isEmpty) return null;
   final parsedBool = optionalBoolFromValue(normalized);
   if (parsedBool != null) return parsedBool;
@@ -1195,7 +1195,7 @@ String _embeddingResponseEncoding(Map<String, Object?> body) {
 }
 
 String _preferredEmbeddingTypeKey(String encodingFormat) {
-  final normalized = encodingFormat.trim().toLowerCase();
+  final normalized = lowercaseStringFromValue(encodingFormat);
   if (normalized.isEmpty) return '';
   if (normalized.startsWith('base64_')) {
     return normalized.substring('base64_'.length);
@@ -1210,7 +1210,7 @@ String _combinedBase64ResponseEncoding(
   String encodingFormat,
   Map<String, Object?> body,
 ) {
-  final normalized = encodingFormat.trim().toLowerCase();
+  final normalized = lowercaseStringFromValue(encodingFormat);
   if (normalized != 'base64') return encodingFormat;
   final dtype = _embeddingResponseDType(body);
   return switch (dtype) {
@@ -1225,16 +1225,16 @@ String _combinedBase64ResponseEncoding(
 
 String _embeddingResponseDType(Map<String, Object?> body) {
   final outputDType = body['output_dtype'];
-  if (outputDType is String) return outputDType.trim().toLowerCase();
+  if (outputDType is String) return lowercaseStringFromValue(outputDType);
   final embeddingType = body['embedding_type'];
-  if (embeddingType is String) return embeddingType.trim().toLowerCase();
+  if (embeddingType is String) return lowercaseStringFromValue(embeddingType);
   final embeddingTypes = body['embedding_types'];
   if (embeddingTypes is List && embeddingTypes.isNotEmpty) {
-    return '${embeddingTypes.first}'.trim().toLowerCase();
+    return lowercaseStringFromValue(embeddingTypes.first);
   }
   final camelEmbeddingTypes = body['embeddingTypes'];
   if (camelEmbeddingTypes is List && camelEmbeddingTypes.isNotEmpty) {
-    return '${camelEmbeddingTypes.first}'.trim().toLowerCase();
+    return lowercaseStringFromValue(camelEmbeddingTypes.first);
   }
   return '';
 }
@@ -1289,8 +1289,7 @@ const Set<String> _deepMergeableEmbeddingBodyKeys = <String>{
 };
 
 String? _trimmedOrNull(String? value) {
-  final trimmed = value?.trim() ?? '';
-  return trimmed.isEmpty ? null : trimmed;
+  return nullIfBlank(value);
 }
 
 bool _isSparkBaseUrl(String baseUrl) {
