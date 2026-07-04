@@ -3,6 +3,7 @@ import 'package:provider/single_child_widget.dart';
 
 import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
+import '../agents/index.dart';
 import '../ai/index.dart';
 import '../crons/index.dart';
 import '../instructions/index.dart';
@@ -20,6 +21,7 @@ class MessageGatewayModule {
   static Future<MessageGatewayModule> bootstrap({
     required AiSessionController sessionController,
     required SettingsController settingsController,
+    required AgentsController agentsController,
     required SkillsController skillsController,
     required McpController mcpController,
     required MemoryController memoryController,
@@ -31,6 +33,7 @@ class MessageGatewayModule {
     final controller = MessageGatewayController.uninitialized(
       sessionController: sessionController,
       settingsController: settingsController,
+      agentsController: agentsController,
       skillsController: skillsController,
       mcpController: mcpController,
       memoryController: memoryController,

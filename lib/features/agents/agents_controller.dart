@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -41,6 +42,11 @@ class AgentsController extends ManagedChangeNotifier {
   static const String _retryPolicyNone = 'none';
   static const String _retryableExtraKey = 'retryable';
   static const String _retryCountExtraKey = 'retry_count';
+  static const String _resourceTelemetryExtraKey =
+      '_openhand_resource_telemetry';
+  static const int _resourceCharsPerToken = 4;
+  static const int _resourceHandleMemoryBytes = 8 * 1024;
+  static const int _resourceWorkerMemoryBytes = 16 * 1024;
   static const Set<String> _schedulerPolicyValues = <String>{
     _schedulerLeastBusy,
     _schedulerPriorityFirst,
@@ -849,6 +855,7 @@ class AgentsController extends ManagedChangeNotifier {
         tokenBudget: math.max(0, usage.tokenBudget),
         tokenUsed: math.max(0, usage.tokenUsed),
         openHandles: math.max(0, usage.openHandles),
+        extra: usage.publicExtra,
       );
       final metadata = <String, Object?>{
         'cpu_percent': normalized.cpuPercent,
@@ -1112,7 +1119,8 @@ class AgentsController extends ManagedChangeNotifier {
       );
     }
     final scaledAgent = agent.copyWith(scaleSettings: scaleSettings);
-    return scaledAgent.copyWith(
+    final normalizedWorkers = _normalizeWorkersForScale(scaledAgent, workers);
+    final normalized = scaledAgent.copyWith(
       name: agent.name.trim().isEmpty ? 'Unnamed Agent' : agent.name.trim(),
       skillNames: _dedupe(agent.skillNames),
       knowledgeSourceIds: _dedupe(agent.knowledgeSourceIds),
@@ -1122,10 +1130,182 @@ class AgentsController extends ManagedChangeNotifier {
       builtinToolNames: normalizeAgentBuiltinToolNames(agent.builtinToolNames),
       cronIds: _dedupe(agent.cronIds),
       hookIds: _dedupe(agent.hookIds),
+      instructionIds: _dedupe(agent.instructionIds),
       activities: agent.activities.take(_maxActivityEvents).toList(),
       auditEvents: agent.auditEvents.take(_maxAuditEvents).toList(),
-      workers: _normalizeWorkersForScale(scaledAgent, workers),
+      workers: normalizedWorkers,
     );
+    return normalized.copyWith(
+      resourceUsage: _normalizeResourceUsageForAgent(normalized),
+    );
+  }
+
+  AgentResourceUsage _normalizeResourceUsageForAgent(AgentProfile agent) {
+    final usage = agent.resourceUsage;
+    final telemetry = stringKeyedMapFromValue(
+      usage.extra[_resourceTelemetryExtraKey],
+    );
+    final activeTaskCount = agent.tasks
+        .where((task) => !_agentTaskStatusIsTerminal(task.status))
+        .length;
+    final busyWorkerCount = agent.workers
+        .where(
+          (worker) =>
+              worker.status == AgentWorkerStatus.busy || worker.busyScore > 0,
+        )
+        .length;
+    final pendingApprovalCount = agent.approvals
+        .where((item) => item.status == AgentApprovalStatus.pending)
+        .length;
+    final derivedOpenHandles =
+        activeTaskCount + busyWorkerCount + pendingApprovalCount;
+    final derivedPersistedBytes = _resourcePayloadBytes(<String, Object?>{
+      'tasks': agent.tasks.map((item) => item.toJson()).toList(growable: false),
+      'approvals': agent.approvals
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'activities': agent.activities
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'audit_events': agent.auditEvents
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'workers': agent.workers
+          .map((item) => item.toJson())
+          .toList(growable: false),
+    });
+    final auditTokens = agent.auditEvents.fold<int>(
+      0,
+      (sum, event) => sum + event.tokenUsage,
+    );
+    final taskPayloadTokens = agent.tasks.fold<int>(
+      0,
+      (sum, task) => sum + _taskPayloadTokenEstimate(task),
+    );
+    final derivedTokenUsed = auditTokens + taskPayloadTokens;
+    final workerPressure = agent.workerUtilization.clamp(0, 1).toDouble();
+    final queuePressure = activeTaskCount <= 0
+        ? 0.0
+        : (activeTaskCount / math.max(1, agent.scaleSettings.maxWorkers))
+                  .clamp(0, 1)
+                  .toDouble() *
+              0.35;
+    final derivedCpuPercent = math.max(workerPressure, queuePressure);
+    final derivedMemoryBytes = derivedOpenHandles <= 0
+        ? 0
+        : derivedPersistedBytes +
+              derivedOpenHandles * _resourceHandleMemoryBytes +
+              agent.workers.length * _resourceWorkerMemoryBytes;
+    final manualCpuPercent = _manualResourceRatioMetric(
+      usage.cpuPercent,
+      telemetry,
+      'cpu_percent',
+    );
+    final manualMemoryBytes = _manualResourceIntMetric(
+      usage.memoryBytes,
+      telemetry,
+      'memory_bytes',
+    );
+    final manualPersistedBytes = _manualResourceIntMetric(
+      usage.persistedBytes,
+      telemetry,
+      'persisted_bytes',
+    );
+    final manualTokenUsed = _manualResourceIntMetric(
+      usage.tokenUsed,
+      telemetry,
+      'token_used',
+    );
+    final manualOpenHandles = _manualResourceIntMetric(
+      usage.openHandles,
+      telemetry,
+      'open_handles',
+    );
+    final nextExtra = <String, Object?>{
+      ...usage.publicExtra,
+      if (agent.workspacePath.trim().isNotEmpty)
+        'workspace_path': agent.workspacePath.trim(),
+      'task_count': agent.tasks.length,
+      'active_task_count': activeTaskCount,
+      'busy_workers': busyWorkerCount,
+      'pending_approvals': pendingApprovalCount,
+      'audit_token_usage': auditTokens,
+      'task_payload_tokens': taskPayloadTokens,
+      _resourceTelemetryExtraKey: <String, Object?>{
+        'cpu_percent': derivedCpuPercent,
+        'memory_bytes': derivedMemoryBytes,
+        'persisted_bytes': derivedPersistedBytes,
+        'token_used': derivedTokenUsed,
+        'open_handles': derivedOpenHandles,
+      },
+    };
+    return usage.copyWith(
+      cpuPercent: math.max(manualCpuPercent, derivedCpuPercent),
+      memoryBytes: math.max(manualMemoryBytes, derivedMemoryBytes),
+      diskBytes: math.max(0, usage.diskBytes),
+      persistedBytes: math.max(manualPersistedBytes, derivedPersistedBytes),
+      tokenBudget: math.max(0, usage.tokenBudget),
+      tokenUsed: math.max(manualTokenUsed, derivedTokenUsed),
+      openHandles: math.max(manualOpenHandles, derivedOpenHandles),
+      extra: nextExtra,
+    );
+  }
+
+  double _manualResourceRatioMetric(
+    double value,
+    Map<String, Object?> telemetry,
+    String key,
+  ) {
+    final normalized = value.clamp(0, 1).toDouble();
+    final previousAuto = optionalDoubleFromValue(telemetry[key]);
+    if (previousAuto != null &&
+        (normalized - previousAuto.clamp(0, 1).toDouble()).abs() < 0.0001) {
+      return 0;
+    }
+    return normalized;
+  }
+
+  int _manualResourceIntMetric(
+    int value,
+    Map<String, Object?> telemetry,
+    String key,
+  ) {
+    final normalized = math.max(0, value);
+    final previousAuto = optionalNonNegativeIntFromValue(telemetry[key]);
+    if (previousAuto != null && normalized == previousAuto) return 0;
+    return normalized;
+  }
+
+  int _taskPayloadTokenEstimate(AgentTask task) {
+    final length =
+        task.title.length +
+        task.description.length +
+        task.content.length +
+        task.note.length +
+        task.result.length;
+    if (length <= 0) return 0;
+    return (length / _resourceCharsPerToken).ceil();
+  }
+
+  int _resourcePayloadBytes(Object? value) {
+    try {
+      return utf8.encode(jsonEncode(value)).length;
+    } catch (_) {
+      return utf8.encode('$value').length;
+    }
+  }
+
+  bool _agentTaskStatusIsTerminal(AgentTaskStatus status) {
+    return switch (status) {
+      AgentTaskStatus.completed ||
+      AgentTaskStatus.failed ||
+      AgentTaskStatus.canceled => true,
+      AgentTaskStatus.backlog ||
+      AgentTaskStatus.ready ||
+      AgentTaskStatus.running ||
+      AgentTaskStatus.waitingApproval ||
+      AgentTaskStatus.paused => false,
+    };
   }
 
   AgentScaleSettings _normalizeScaleSettings(

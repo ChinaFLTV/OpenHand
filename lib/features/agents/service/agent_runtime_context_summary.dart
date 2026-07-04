@@ -32,6 +32,7 @@ Map<String, Object?> agentCapabilityBindingsJson(
       ? null
       : agentNormalizedCallableToolNames(callableAgentToolNames);
   final automationCount = agent.cronIds.length + agent.hookIds.length;
+  final promptConstraintCount = agent.instructionIds.length;
   final configured = normalizeAgentBuiltinToolNames(agent.builtinToolNames);
   final sourceBuiltinToolNames =
       normalizedCallableAgentToolNames != null &&
@@ -60,6 +61,9 @@ Map<String, Object?> agentCapabilityBindingsJson(
     'memories': agent.memoryIds,
     'mcp_servers': agent.mcpServerNames,
     'builtin_tools': builtinToolNames,
+    'cron_ids': agent.cronIds,
+    'hook_ids': agent.hookIds,
+    'instruction_ids': agent.instructionIds,
     'summary': <String, Object?>{
       'skills': agent.skillNames.length,
       'knowledge_sources': agent.knowledgeSourceIds.length,
@@ -69,12 +73,14 @@ Map<String, Object?> agentCapabilityBindingsJson(
       'agent_coordination_tools': agentBuiltinToolCount,
       'agent_coordination_tool_groups': agentToolGroups,
       'automations': automationCount,
+      'prompt_constraints': promptConstraintCount,
       'has_external_actions':
           agent.mcpServerNames.isNotEmpty || builtinToolNames.isNotEmpty,
       'has_self_learning_inputs':
           agent.skillNames.isNotEmpty ||
           agent.knowledgeSourceIds.isNotEmpty ||
-          agent.memoryIds.isNotEmpty,
+          agent.memoryIds.isNotEmpty ||
+          promptConstraintCount > 0,
     },
   };
 }

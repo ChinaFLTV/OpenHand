@@ -8,6 +8,7 @@ import '../../app/state/settings_controller.dart';
 import '../../shared/core/managed_change_notifier.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
+import '../agents/index.dart';
 import '../ai/index.dart';
 import '../crons/index.dart';
 import '../instructions/index.dart';
@@ -52,10 +53,23 @@ class WebGatewayInstructionOption {
   final bool enabled;
 }
 
+class WebGatewayAgentOption {
+  const WebGatewayAgentOption({
+    required this.id,
+    required this.label,
+    required this.subtitle,
+  });
+
+  final String id;
+  final String label;
+  final String subtitle;
+}
+
 class MessageGatewayController extends ManagedChangeNotifier {
   MessageGatewayController.uninitialized({
     required AiSessionController sessionController,
     required SettingsController settingsController,
+    required AgentsController agentsController,
     required SkillsController skillsController,
     required McpController mcpController,
     required MemoryController memoryController,
@@ -67,6 +81,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
     WebMessagePlatformService? service,
   }) : _sessionController = sessionController,
        _settingsController = settingsController,
+       _agentsController = agentsController,
        _skillsController = skillsController,
        _mcpController = mcpController,
        _memoryController = memoryController,
@@ -77,6 +92,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
            WebMessagePlatformService(
              sessionController: sessionController,
              settingsController: settingsController,
+             agentsController: agentsController,
              skillsController: skillsController,
              mcpController: mcpController,
              memoryController: memoryController,
@@ -90,6 +106,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
 
   final AiSessionController _sessionController;
   final SettingsController _settingsController;
+  final AgentsController _agentsController;
   final SkillsController _skillsController;
   final McpController _mcpController;
   final MemoryController _memoryController;
@@ -218,6 +235,26 @@ class MessageGatewayController extends ManagedChangeNotifier {
           id: id,
           label: name.isEmpty ? id : name,
           enabled: entry.enabled,
+        ),
+      );
+    }
+    return result;
+  }
+
+  List<WebGatewayAgentOption> get agentOptions {
+    final result = <WebGatewayAgentOption>[];
+    for (final agent in _agentsController.enabledAgents) {
+      final id = agent.id.trim();
+      if (id.isEmpty) continue;
+      final subtitle = <String>[
+        agent.position.trim(),
+        agent.department.trim(),
+      ].where((item) => item.isNotEmpty).join(' · ');
+      result.add(
+        WebGatewayAgentOption(
+          id: id,
+          label: agent.name.trim().isEmpty ? id : agent.name.trim(),
+          subtitle: subtitle,
         ),
       );
     }
@@ -447,6 +484,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
     final tools = builtinToolNames.toSet();
     final models = modelOptions.map((item) => item.key).toSet();
     final instructions = instructionOptions.map((item) => item.id).toSet();
+    final agents = agentOptions.map((item) => item.id).toSet();
     final allowedToolNames = value.knowledgeBaseEnabled
         ? value.allowedBuiltinToolNames
         : _withoutKnowledgeBaseBuiltinToolNames(value.allowedBuiltinToolNames);
@@ -466,6 +504,9 @@ class MessageGatewayController extends ManagedChangeNotifier {
       allowedBuiltinToolNames: keep(allowedToolNames, tools),
       allowedModelKeys: keep(value.allowedModelKeys, models),
       allowedInstructionIds: keep(value.allowedInstructionIds, instructions),
+      allowedAgentIds: agents.isEmpty
+          ? value.allowedAgentIds
+          : keep(value.allowedAgentIds, agents),
     );
   }
 

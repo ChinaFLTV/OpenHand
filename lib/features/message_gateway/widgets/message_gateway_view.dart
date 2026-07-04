@@ -865,6 +865,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late bool _opsEnabled;
   late bool _healthEnabled;
   late bool _planModeEnabled;
+  late bool _agentsEnabled;
   late bool _knowledgeBaseEnabled;
   late bool _readAloudEnabled;
   late bool _translationEnabled;
@@ -900,6 +901,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late Set<String> _memories;
   late Set<String> _tools;
   late Set<String> _instructions;
+  late Set<String> _agents;
   late Set<String> _models;
   late Set<WebGatewayMessageType> _messageTypes;
   late Set<WebGatewayConversationMode> _modes;
@@ -919,6 +921,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     _opsEnabled = config.opsEnabled;
     _healthEnabled = config.healthCheck.enabled;
     _planModeEnabled = config.planModeEnabled;
+    _agentsEnabled = config.agentsEnabled;
     _knowledgeBaseEnabled = config.knowledgeBaseEnabled;
     _readAloudEnabled = config.readAloudEnabled;
     _translationEnabled = config.translationEnabled;
@@ -990,6 +993,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
         ? configuredTools
         : _toolsWithoutKnowledgeBase(configuredTools);
     _instructions = config.allowedInstructionIds.toSet();
+    _agents = config.allowedAgentIds.toSet();
     _models = config.allowedModelKeys.toSet();
     _messageTypes = config.allowedMessageTypes.toSet();
     _modes = config.allowedConversationModes.toSet();
@@ -1257,6 +1261,20 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                           _SwitchTile(
                             label: _gatewayText(
                               context,
+                              zh: '是否开启智能体',
+                              zhHant: '是否開啟智能體',
+                              en: 'Agent access',
+                              fr: 'Accès aux agents',
+                              de: 'Agent-Zugriff',
+                              ja: 'エージェントアクセス',
+                            ),
+                            value: _agentsEnabled,
+                            onChanged: (v) =>
+                                setState(() => _agentsEnabled = v),
+                          ),
+                          _SwitchTile(
+                            label: _gatewayText(
+                              context,
                               zh: '是否开启知识库',
                               zhHant: '是否開啟知識庫',
                               en: 'Knowledge base',
@@ -1357,6 +1375,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         duration: openHandMotionDurationMs(context, 220),
                         switchInCurve: Curves.easeOutCubic,
                         switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: _switcherSizeFadeTransition,
                         child: _autoReloadOnChange
                             ? const SizedBox.shrink(
                                 key: ValueKey('auto-reload-on'),
@@ -1386,6 +1405,25 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                     ja: '自動再読み込みがオフの場合、保存は設定ファイルだけを書き込みます。実行中のWebサービスは再起動まで旧設定を使います。',
                                   ),
                                 ),
+                              ),
+                      ),
+                      AnimatedSwitcher(
+                        duration: openHandMotionDurationMs(context, 240),
+                        switchInCurve: Curves.easeOutBack,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: _switcherSizeFadeTransition,
+                        child: _agentsEnabled
+                            ? Padding(
+                                key: const ValueKey('agents-enabled'),
+                                padding: const EdgeInsets.only(top: 12),
+                                child: _AgentExposurePanel(
+                                  options: widget.controller.agentOptions,
+                                  selected: _effectiveAgentIdsForDisplay(),
+                                  onChanged: _setEffectiveAgentIds,
+                                ),
+                              )
+                            : const SizedBox.shrink(
+                                key: ValueKey('agents-disabled'),
                               ),
                       ),
                       const SizedBox(height: 18),
@@ -2032,6 +2070,32 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     );
   }
 
+  Widget _switcherSizeFadeTransition(
+    Widget child,
+    Animation<double> animation,
+  ) {
+    if (!openHandTickerMotionEnabled(context)) return child;
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutBack,
+      reverseCurve: Curves.easeInCubic,
+    );
+    return SizeTransition(
+      sizeFactor: animation,
+      axisAlignment: -1,
+      child: FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, .04),
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        ),
+      ),
+    );
+  }
+
   Future<void> _save() async {
     setState(() {
       _saving = true;
@@ -2065,10 +2129,12 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
         growable: false,
       ),
       allowedInstructionIds: _instructions.toList(growable: false),
+      allowedAgentIds: _normalizedAgentIdsForSave(),
       allowedMessageTypes: _messageTypes,
       allowedConversationModes: _modes,
       allowedModelKeys: _models.toList(growable: false),
       planModeEnabled: _planModeEnabled,
+      agentsEnabled: _agentsEnabled,
       knowledgeBaseEnabled: _knowledgeBaseEnabled,
       readAloudEnabled: _readAloudEnabled,
       translationEnabled: _translationEnabled,
@@ -2175,6 +2241,49 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     return _toolsWithoutKnowledgeBase(_tools);
   }
 
+  Set<String> _effectiveAgentIdsForDisplay() {
+    final optionIds = widget.controller.agentOptions
+        .map((option) => option.id)
+        .toSet();
+    if (optionIds.isEmpty ||
+        _isExplicitNone(_agents, webGatewayDenyAllSelectionMarker)) {
+      return <String>{};
+    }
+    if (_agents.isEmpty) return optionIds;
+    return _agents.intersection(optionIds);
+  }
+
+  void _setEffectiveAgentIds(Set<String> values) {
+    final optionIds = widget.controller.agentOptions
+        .map((option) => option.id)
+        .toSet();
+    setState(() {
+      if (values.isEmpty) {
+        _agents = <String>{webGatewayDenyAllSelectionMarker};
+      } else if (optionIds.isNotEmpty && values.length == optionIds.length) {
+        _agents = <String>{};
+      } else {
+        _agents = values.intersection(optionIds);
+      }
+    });
+  }
+
+  List<String> _normalizedAgentIdsForSave() {
+    final optionIds = widget.controller.agentOptions
+        .map((option) => option.id)
+        .toSet();
+    if (optionIds.isEmpty) return _agents.toList(growable: false);
+    if (_isExplicitNone(_agents, webGatewayDenyAllSelectionMarker)) {
+      return const <String>[webGatewayDenyAllSelectionMarker];
+    }
+    final selected = _effectiveAgentIdsForDisplay();
+    if (selected.isEmpty) {
+      return const <String>[webGatewayDenyAllSelectionMarker];
+    }
+    if (selected.length == optionIds.length) return const <String>[];
+    return selected.toList(growable: false);
+  }
+
   Set<String> _toolsWithoutKnowledgeBase(Set<String> source) {
     if (source.isEmpty ||
         _isExplicitNone(source, webGatewayDenyAllSelectionMarker)) {
@@ -2233,6 +2342,235 @@ class _EditorNotice extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AgentExposurePanel extends StatelessWidget {
+  const _AgentExposurePanel({
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<WebGatewayAgentOption> options;
+  final Set<String> selected;
+  final ValueChanged<Set<String>> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final optionIds = options.map((option) => option.id).toSet();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: .46),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: .24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withValues(alpha: .74),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(
+                  Icons.smart_toy_outlined,
+                  size: 18,
+                  color: colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _gatewayText(
+                        context,
+                        zh: '可暴露给 Web 的智能体',
+                        zhHant: '可暴露給 Web 的智能體',
+                        en: 'Agents exposed to Web',
+                        fr: 'Agents exposés au Web',
+                        de: 'Für Web freigegebene Agenten',
+                        ja: 'Webに公開するエージェント',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      options.isEmpty
+                          ? _gatewayText(
+                              context,
+                              zh: '暂无可用智能体',
+                              zhHant: '暫無可用智能體',
+                              en: 'No available agents',
+                              fr: 'Aucun agent disponible',
+                              de: 'Keine Agenten verfügbar',
+                              ja: '利用可能なエージェントなし',
+                            )
+                          : _gatewaySelectedCount(
+                              context,
+                              selected.length,
+                              options.length,
+                            ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              _GatewayRoundIconActionButton(
+                tooltip: _gatewayText(
+                  context,
+                  zh: '全选',
+                  zhHant: '全選',
+                  en: 'Select all',
+                  fr: 'Tout sélectionner',
+                  de: 'Alle auswählen',
+                  ja: 'すべて選択',
+                ),
+                icon: Icons.done_all_rounded,
+                onPressed: options.isEmpty ? null : () => onChanged(optionIds),
+              ),
+              const SizedBox(width: 8),
+              _GatewayRoundIconActionButton(
+                tooltip: _gatewayText(
+                  context,
+                  zh: '全不选',
+                  zhHant: '全不選',
+                  en: 'Deselect all',
+                  fr: 'Tout désélectionner',
+                  de: 'Alle abwählen',
+                  ja: 'すべて解除',
+                ),
+                icon: Icons.remove_done_rounded,
+                onPressed: options.isEmpty
+                    ? null
+                    : () => onChanged(const <String>{}),
+              ),
+            ],
+          ),
+          if (options.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final option in options)
+                  _AgentExposureChip(
+                    option: option,
+                    selected: selected.contains(option.id),
+                    onTap: () {
+                      final next = Set<String>.from(selected);
+                      if (!next.add(option.id)) next.remove(option.id);
+                      onChanged(next);
+                    },
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentExposureChip extends StatelessWidget {
+  const _AgentExposureChip({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final WebGatewayAgentOption option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final tooltip = option.subtitle.isEmpty
+        ? option.label
+        : '${option.label} · ${option.subtitle}';
+    return Tooltip(
+      message: tooltip,
+      child: AnimatedContainer(
+        duration: openHandMotionDurationMs(context, 160),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          color: selected
+              ? colorScheme.primaryContainer.withValues(alpha: .82)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: .72),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected
+                ? colorScheme.primary.withValues(alpha: .42)
+                : colorScheme.outlineVariant,
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(999),
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(10, 7, 12, 7),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedSwitcher(
+                    duration: openHandMotionDurationMs(context, 140),
+                    child: Icon(
+                      selected
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      key: ValueKey<bool>(selected),
+                      size: 16,
+                      color: selected
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 220),
+                    child: Text(
+                      option.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: selected
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: selected
+                            ? colorScheme.onPrimaryContainer
+                            : colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

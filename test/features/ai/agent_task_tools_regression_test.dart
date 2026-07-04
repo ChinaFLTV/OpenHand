@@ -7,6 +7,7 @@ import 'package:openhand/features/agents/data/agents_store.dart';
 import 'package:openhand/features/agents/index.dart';
 import 'package:openhand/features/ai/index.dart';
 import 'package:openhand/features/ai/tools/agents/ai_agent_tools.dart';
+import 'package:openhand/features/instructions/model/user_instruction_entry.dart';
 
 void main() {
   test('AgentTaskPublish runs worker and writes back result', () async {
@@ -38,6 +39,97 @@ void main() {
       harness.controller.agentById('agent-1')!.tasks.single.result,
       contains('暂无权威公开恋情确认'),
     );
+    final resource = harness.controller.agentById('agent-1')!.resourceUsage;
+    expect(resource.tokenUsed, greaterThanOrEqualTo(12));
+    expect(resource.persistedBytes, greaterThan(0));
+  });
+
+  test('AgentTaskPublish refreshes resource usage snapshot', () async {
+    final harness = await _AgentToolHarness.create();
+    addTearDown(harness.dispose);
+
+    final task = await harness.controller.publishTaskWithResult(
+      'agent-1',
+      title: '资源统计任务',
+      description: '验证资源面板不会保持空统计。',
+      content: '写入任务内容，让 token 和持久化占用都能被估算。',
+    );
+
+    expect(task, isNotNull);
+    final agent = harness.controller.agentById('agent-1')!;
+    expect(agent.tasks.single.status, AgentTaskStatus.running);
+    expect(agent.resourceUsage.cpuPercent, greaterThan(0));
+    expect(agent.resourceUsage.memoryBytes, greaterThan(0));
+    expect(agent.resourceUsage.persistedBytes, greaterThan(0));
+    expect(agent.resourceUsage.tokenUsed, greaterThan(0));
+    expect(agent.resourceUsage.openHandles, greaterThan(0));
+    expect(agent.resourceUsage.publicExtra['task_count'], 1);
+    expect(agent.resourceUsage.publicExtra['active_task_count'], 1);
+  });
+
+  test('Agent audit tokens are folded into resource usage', () async {
+    final harness = await _AgentToolHarness.create();
+    addTearDown(harness.dispose);
+
+    final event = await harness.controller.recordAuditEvent(
+      'agent-1',
+      kind: 'model_request',
+      summary: '模型请求完成',
+      tokenUsage: 88,
+      requestCount: 1,
+    );
+
+    expect(event, isNotNull);
+    final resource = harness.controller.agentById('agent-1')!.resourceUsage;
+    expect(resource.tokenUsed, 88);
+    expect(resource.publicExtra['audit_token_usage'], 88);
+  });
+
+  test('Agent prompt renderer injects enabled bound instructions', () async {
+    final now = DateTime.utc(2026);
+    final renderer = AgentPromptRenderer(loader: (_) async => _promptTemplate);
+
+    final snapshot = await renderer.render(
+      agent: const AgentProfile(
+        id: 'agent-1',
+        name: '资料员',
+        instructionIds: <String>['instruction-1', 'instruction-disabled'],
+      ),
+      boundInstructions: <UserInstructionEntry>[
+        UserInstructionEntry(
+          id: 'instruction-1',
+          name: '核查输出',
+          description: '输出必须包含核查依据。',
+          body: '优先输出核查依据，再给出结论。',
+          applyTo: '公开资料核查',
+          createdAt: now,
+          updatedAt: now,
+          sortOrder: 1,
+        ),
+        UserInstructionEntry(
+          id: 'instruction-disabled',
+          name: '停用指令',
+          body: '这条停用指令不应注入。',
+          enabled: false,
+          createdAt: now,
+          updatedAt: now,
+          sortOrder: 2,
+        ),
+      ],
+    );
+
+    expect(snapshot.capabilities['instruction_ids'], <String>[
+      'instruction-1',
+      'instruction-disabled',
+    ]);
+    final instructions = snapshot.capabilities['instructions'] as List<Object?>;
+    expect(instructions, hasLength(1));
+    expect(
+      instructions.single as Map<String, Object?>,
+      containsPair('body', '优先输出核查依据，再给出结论。'),
+    );
+    expect(snapshot.renderedPrompt, contains('优先输出核查依据'));
+    expect(snapshot.renderedPrompt, isNot(contains('这条停用指令不应注入')));
   });
 
   test('AgentTaskPublish bounds automatic worker wait time', () async {

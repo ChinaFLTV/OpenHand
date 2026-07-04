@@ -173,6 +173,7 @@ class AiSessionRuntimeContext {
         const <AiWorkspaceInstructionDocument>[],
     this.userInstructions = const <UserInstructionEntry>[],
     this.skippedInstructionIds = const <String>{},
+    this.toolExecutionMetadata = const <String, Object?>{},
   }) : sandboxSettings =
            sandboxSettings ??
            const AiSandboxSettings(
@@ -444,6 +445,9 @@ class AiSessionRuntimeContext {
   /// 本轮临时跳过的指令 ID 集合（UI从输入框胶囊上点击 X 产生）。
   final Set<String> skippedInstructionIds;
 
+  /// 注入到每次工具执行的附加元数据，用于来源侧运行时策略。
+  final Map<String, Object?> toolExecutionMetadata;
+
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'locale_tag': localeTag,
@@ -538,6 +542,8 @@ class AiSessionRuntimeContext {
       'workspace_instruction_documents': workspaceInstructionDocuments
           .map((item) => item.toJson())
           .toList(growable: false),
+      if (toolExecutionMetadata.isNotEmpty)
+        'tool_execution_metadata': toolExecutionMetadata,
       'repository_snapshot': repositorySnapshot?.toJson(),
     };
   }

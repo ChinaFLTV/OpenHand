@@ -288,6 +288,7 @@ class WebMessagePlatformConfig {
     this.allowedMemoryIds = const <String>[],
     this.allowedBuiltinToolNames = const <String>[],
     this.allowedInstructionIds = const <String>[],
+    this.allowedAgentIds = const <String>[],
     this.allowedMessageTypes = const <WebGatewayMessageType>{
       WebGatewayMessageType.text,
       WebGatewayMessageType.attachment,
@@ -300,6 +301,7 @@ class WebMessagePlatformConfig {
     },
     this.allowedModelKeys = const <String>[],
     this.planModeEnabled = false,
+    this.agentsEnabled = true,
     this.knowledgeBaseEnabled = true,
     this.readAloudEnabled = true,
     this.translationEnabled = true,
@@ -357,6 +359,7 @@ class WebMessagePlatformConfig {
       allowedMemoryIds: _stringList(json['allowed_memory_ids']),
       allowedBuiltinToolNames: _stringList(json['allowed_builtin_tool_names']),
       allowedInstructionIds: _stringList(json['allowed_instruction_ids']),
+      allowedAgentIds: _stringList(json['allowed_agent_ids']),
       allowedMessageTypes: _enumSet(
         json['allowed_message_types'],
         WebGatewayMessageType.fromStorage,
@@ -377,6 +380,7 @@ class WebMessagePlatformConfig {
       ),
       allowedModelKeys: _stringList(json['allowed_model_keys']),
       planModeEnabled: boolFromValue(json['plan_mode_enabled']),
+      agentsEnabled: boolFromValue(json['agents_enabled'], defaultValue: true),
       knowledgeBaseEnabled: boolFromValue(
         json['knowledge_base_enabled'],
         defaultValue: true,
@@ -473,10 +477,12 @@ class WebMessagePlatformConfig {
   final List<String> allowedMemoryIds;
   final List<String> allowedBuiltinToolNames;
   final List<String> allowedInstructionIds;
+  final List<String> allowedAgentIds;
   final Set<WebGatewayMessageType> allowedMessageTypes;
   final Set<WebGatewayConversationMode> allowedConversationModes;
   final List<String> allowedModelKeys;
   final bool planModeEnabled;
+  final bool agentsEnabled;
   final bool knowledgeBaseEnabled;
   final bool readAloudEnabled;
   final bool translationEnabled;
@@ -516,10 +522,12 @@ class WebMessagePlatformConfig {
     List<String>? allowedMemoryIds,
     List<String>? allowedBuiltinToolNames,
     List<String>? allowedInstructionIds,
+    List<String>? allowedAgentIds,
     Set<WebGatewayMessageType>? allowedMessageTypes,
     Set<WebGatewayConversationMode>? allowedConversationModes,
     List<String>? allowedModelKeys,
     bool? planModeEnabled,
+    bool? agentsEnabled,
     bool? knowledgeBaseEnabled,
     bool? readAloudEnabled,
     bool? translationEnabled,
@@ -561,11 +569,13 @@ class WebMessagePlatformConfig {
           allowedBuiltinToolNames ?? this.allowedBuiltinToolNames,
       allowedInstructionIds:
           allowedInstructionIds ?? this.allowedInstructionIds,
+      allowedAgentIds: allowedAgentIds ?? this.allowedAgentIds,
       allowedMessageTypes: allowedMessageTypes ?? this.allowedMessageTypes,
       allowedConversationModes:
           allowedConversationModes ?? this.allowedConversationModes,
       allowedModelKeys: allowedModelKeys ?? this.allowedModelKeys,
       planModeEnabled: planModeEnabled ?? this.planModeEnabled,
+      agentsEnabled: agentsEnabled ?? this.agentsEnabled,
       knowledgeBaseEnabled: knowledgeBaseEnabled ?? this.knowledgeBaseEnabled,
       readAloudEnabled: readAloudEnabled ?? this.readAloudEnabled,
       translationEnabled: translationEnabled ?? this.translationEnabled,
@@ -616,6 +626,7 @@ class WebMessagePlatformConfig {
       'allowed_memory_ids': allowedMemoryIds,
       'allowed_builtin_tool_names': allowedBuiltinToolNames,
       'allowed_instruction_ids': allowedInstructionIds,
+      'allowed_agent_ids': allowedAgentIds,
       'allowed_message_types': allowedMessageTypes
           .map((item) => item.storageValue)
           .toList(growable: false),
@@ -624,6 +635,7 @@ class WebMessagePlatformConfig {
           .toList(growable: false),
       'allowed_model_keys': allowedModelKeys,
       'plan_mode_enabled': planModeEnabled,
+      'agents_enabled': agentsEnabled,
       'knowledge_base_enabled': knowledgeBaseEnabled,
       'read_aloud_enabled': readAloudEnabled,
       'translation_enabled': translationEnabled,

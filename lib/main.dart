@@ -233,12 +233,14 @@ Future<void> _bootstrap() async {
   // MemoryController 懒加载完成后再暴露给 AI 内建 Memory 工具。
   MemoryController? memoryControllerHandle;
   AgentsController? agentsControllerHandle;
+  InstructionsController? instructionsControllerHandle;
   KnowledgeBaseController? knowledgeBaseControllerHandle;
   final aiModuleFuture = AiModule.bootstrap(
     userHooksExecutor: hooks.executor,
     skillsDirProvider: () => settingsController.skillsStoragePath,
     memoryControllerProvider: () => memoryControllerHandle,
     agentsControllerProvider: () => agentsControllerHandle,
+    instructionsControllerProvider: () => instructionsControllerHandle,
     aiModelsProvider: () => settingsController.aiModels,
     knowledgeBaseControllerProvider: () => knowledgeBaseControllerHandle,
   );
@@ -272,6 +274,7 @@ Future<void> _bootstrap() async {
   final cronsController = crons.controller;
   // InstructionsController 不是首屏关键路径，后台刷新即可。
   final instructions = await instructionsModuleFuture;
+  instructionsControllerHandle = instructions.controller;
   unawaited(instructions.controller.refresh());
   final appInfo = await appInfoFuture;
   AppRuntimeContext.initialize(appInfo, appLocale: settingsController.locale);
@@ -392,6 +395,7 @@ Future<void> _bootstrap() async {
   final messageGateway = await MessageGatewayModule.bootstrap(
     sessionController: aiSessionController,
     settingsController: settingsController,
+    agentsController: agents.controller,
     skillsController: skills.controller,
     mcpController: mcp.controller,
     memoryController: memory.controller,

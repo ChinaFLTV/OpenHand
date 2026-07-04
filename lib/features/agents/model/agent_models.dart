@@ -5,6 +5,7 @@ import '../../../shared/util/input_value_parsing.dart';
 final RegExp _agentDelimitedTextSeparatorPattern = RegExp(r'[\r\n,，;；]+');
 
 const String agentNoCoordinationToolsBinding = '__openhand_agent_tools_none__';
+const int agentResourceOpenHandlePressureLimit = 128;
 const Set<String> _agentCoordinationBuiltinToolLookupKeys = <String>{
   'agentlist',
   'agentdetail',
@@ -392,7 +393,7 @@ class AgentResourceUsage {
     );
   }
 
-  Map<String, Object?> toJson() {
+  Map<String, Object?> toJson({bool includeInternalExtra = true}) {
     return <String, Object?>{
       'cpu_percent': cpuPercent,
       'memory_bytes': memoryBytes,
@@ -401,9 +402,20 @@ class AgentResourceUsage {
       'token_budget': tokenBudget,
       'token_used': tokenUsed,
       'open_handles': openHandles,
-      'extra': extra,
+      'extra': includeInternalExtra ? extra : publicExtra,
     };
   }
+
+  Map<String, Object?> get publicExtra {
+    return <String, Object?>{
+      for (final entry in extra.entries)
+        if (!_isInternalResourceExtraKey(entry.key)) entry.key: entry.value,
+    };
+  }
+}
+
+bool _isInternalResourceExtraKey(String key) {
+  return key.trim().toLowerCase().startsWith('_openhand_');
 }
 
 class AgentTask {
@@ -918,6 +930,7 @@ class AgentProfile {
     this.workspaceScopePaths = const <String>[],
     this.cronIds = const <String>[],
     this.hookIds = const <String>[],
+    this.instructionIds = const <String>[],
     this.selfLearningEnabled = true,
     this.enabled = false,
     this.executionMode = AgentExecutionMode.normal,
@@ -974,6 +987,7 @@ class AgentProfile {
       workspaceScopePaths: workspaceScopePaths,
       cronIds: stringListFromValue(json['cron_ids']),
       hookIds: stringListFromValue(json['hook_ids']),
+      instructionIds: stringListFromValue(json['instruction_ids']),
       selfLearningEnabled: boolFromValue(
         json['self_learning_enabled'],
         defaultValue: true,
@@ -1034,6 +1048,7 @@ class AgentProfile {
   final List<String> workspaceScopePaths;
   final List<String> cronIds;
   final List<String> hookIds;
+  final List<String> instructionIds;
   final bool selfLearningEnabled;
   final bool enabled;
   final AgentExecutionMode executionMode;
@@ -1120,6 +1135,7 @@ class AgentProfile {
     List<String>? workspaceScopePaths,
     List<String>? cronIds,
     List<String>? hookIds,
+    List<String>? instructionIds,
     bool? selfLearningEnabled,
     bool? enabled,
     AgentExecutionMode? executionMode,
@@ -1168,6 +1184,7 @@ class AgentProfile {
       workspaceScopePaths: workspaceScopePaths ?? this.workspaceScopePaths,
       cronIds: cronIds ?? this.cronIds,
       hookIds: hookIds ?? this.hookIds,
+      instructionIds: instructionIds ?? this.instructionIds,
       selfLearningEnabled: selfLearningEnabled ?? this.selfLearningEnabled,
       enabled: enabled ?? this.enabled,
       executionMode: executionMode ?? this.executionMode,
@@ -1214,6 +1231,7 @@ class AgentProfile {
       'workspace_scope_paths': normalizedWorkspaceScopePaths,
       'cron_ids': cronIds,
       'hook_ids': hookIds,
+      'instruction_ids': instructionIds,
       'self_learning_enabled': selfLearningEnabled,
       'enabled': enabled,
       'execution_mode': executionMode.storageValue,

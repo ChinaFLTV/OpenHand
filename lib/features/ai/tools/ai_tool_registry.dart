@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../../agents/agents_controller.dart';
+import '../../instructions/instructions_controller.dart';
 import '../../knowledge_base/knowledge_base_controller.dart';
 import '../model/ai_model_config.dart';
 import '../service/bash/ai_bash_tool_service.dart';
@@ -93,6 +94,7 @@ class AiToolRegistry {
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
     AgentsControllerProvider? agentsControllerProvider,
+    InstructionsControllerProvider? instructionsControllerProvider,
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
   }) {
@@ -138,6 +140,7 @@ class AiToolRegistry {
         agentsControllerProvider: agentsControllerProvider,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       );
       for (final tool in agentTools) {
         tool.withExecutor((parentContext, subContext) async {

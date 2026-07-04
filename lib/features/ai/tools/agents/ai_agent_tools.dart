@@ -3,8 +3,15 @@ import 'dart:convert';
 
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../agents/index.dart';
+import '../../../instructions/index.dart'
+    show InstructionsControllerProvider, UserInstructionEntry;
 import '../../model/ai_builtin_tool_config.dart'
-    show AiAgentBuiltinToolGroup, AiBuiltinToolKindAgentMetadata;
+    show
+        AiAgentBuiltinToolGroup,
+        AiBuiltinToolKindAgentMetadata,
+        aiAgentToolAccessEnabledMetadataKey,
+        aiAgentToolAccessSourceMetadataKey,
+        aiAgentToolAllowedAgentIdsMetadataKey;
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
@@ -23,7 +30,6 @@ const int _agentTaskMinPollMs = 300;
 const int _agentWorkerMaxToolRounds = 8;
 const int _agentWorkerResultMaxChars = 24000;
 const Duration _agentWorkerTurnTimeout = Duration(seconds: 75);
-const int _agentOpenHandlePressureLimit = 128;
 const String _agentTaskProgressToolName = 'AgentTaskProgress';
 const String _agentTaskResultToolName = 'AgentTaskResult';
 const String _agentTaskAutoWorkerToolName = 'AgentWorker';
@@ -156,19 +162,22 @@ class AiAgentTool extends AiTool {
     required AgentPromptRenderer promptRenderer,
     AiChatClient? backgroundChatClient,
     List<AiModelConfig> Function()? aiModelsProvider,
+    InstructionsControllerProvider? instructionsControllerProvider,
   }) : _kind = kind,
        _name = name,
        _operation = operation,
        _agentsControllerProvider = agentsControllerProvider,
        _promptRenderer = promptRenderer,
        _backgroundChatClient = backgroundChatClient,
-       _aiModelsProvider = aiModelsProvider;
+       _aiModelsProvider = aiModelsProvider,
+       _instructionsControllerProvider = instructionsControllerProvider;
 
   static List<AiAgentTool> all({
     required AgentsControllerProvider agentsControllerProvider,
     AgentPromptRenderer? promptRenderer,
     AiChatClient? backgroundChatClient,
     List<AiModelConfig> Function()? aiModelsProvider,
+    InstructionsControllerProvider? instructionsControllerProvider,
   }) {
     final renderer = promptRenderer ?? AgentPromptRenderer();
     return <AiAgentTool>[
@@ -180,6 +189,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentDetail,
@@ -189,6 +199,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentActivityLog,
@@ -198,6 +209,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentAuditReport,
@@ -207,6 +219,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentAuditRecord,
@@ -216,6 +229,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentApprovalRequest,
@@ -225,6 +239,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentKpiUpsert,
@@ -234,6 +249,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentResourceUpdate,
@@ -243,6 +259,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentClusterConfigure,
@@ -252,6 +269,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentClusterStatus,
@@ -261,6 +279,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentTaskList,
@@ -270,6 +289,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentTaskPublish,
@@ -279,6 +299,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentTaskTrack,
@@ -288,6 +309,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentTaskProgress,
@@ -297,6 +319,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentTaskCancel,
@@ -306,6 +329,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentTaskPause,
@@ -315,6 +339,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentTaskTerminate,
@@ -324,6 +349,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentTaskResume,
@@ -333,6 +359,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentTaskComplete,
@@ -342,6 +369,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentTaskResult,
@@ -351,6 +379,7 @@ class AiAgentTool extends AiTool {
         promptRenderer: renderer,
         backgroundChatClient: backgroundChatClient,
         aiModelsProvider: aiModelsProvider,
+        instructionsControllerProvider: instructionsControllerProvider,
       ),
     ];
   }
@@ -362,11 +391,28 @@ class AiAgentTool extends AiTool {
   final AgentPromptRenderer _promptRenderer;
   final AiChatClient? _backgroundChatClient;
   final List<AiModelConfig> Function()? _aiModelsProvider;
+  final InstructionsControllerProvider? _instructionsControllerProvider;
   AiSubToolExecutor? _subToolExecutor;
 
   AiAgentTool withExecutor(AiSubToolExecutor executor) {
     _subToolExecutor = executor;
     return this;
+  }
+
+  List<UserInstructionEntry> _boundInstructionsForAgent(AgentProfile agent) {
+    if (agent.instructionIds.isEmpty) return const <UserInstructionEntry>[];
+    final controller = _instructionsControllerProvider?.call();
+    if (controller == null) return const <UserInstructionEntry>[];
+    final byId = <String, UserInstructionEntry>{
+      for (final entry in controller.entries)
+        if (entry.enabled) entry.id: entry,
+    };
+    final result = <UserInstructionEntry>[];
+    for (final id in agent.instructionIds) {
+      final entry = byId[id];
+      if (entry != null) result.add(entry);
+    }
+    return result;
   }
 
   @override
@@ -403,8 +449,15 @@ class AiAgentTool extends AiTool {
         'Agents controller is not available in this session.',
       );
     }
-    if (controller.enabledAgents.isEmpty) {
-      return _noEnabledAgentsResult(controller);
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
+    if (!accessPolicy.enabled) {
+      return AiToolUtils.invalidResult(
+        _name,
+        'Agent tools are disabled for this session.',
+      );
+    }
+    if (_enabledAgentsForPolicy(controller, accessPolicy).isEmpty) {
+      return _noEnabledAgentsResult(controller, accessPolicy);
     }
 
     try {
@@ -534,7 +587,10 @@ class AiAgentTool extends AiTool {
     }
   }
 
-  AiToolExecutionResult _noEnabledAgentsResult(AgentsController controller) {
+  AiToolExecutionResult _noEnabledAgentsResult(
+    AgentsController controller,
+    _AgentToolAccessPolicy accessPolicy,
+  ) {
     final runtime = controller.runtimeAvailability;
     if (!runtime.canRun) {
       return AiToolUtils.invalidResult(
@@ -546,6 +602,12 @@ class AiAgentTool extends AiTool {
       return AiToolUtils.invalidResult(
         _name,
         'No agents are configured. Create and start an agent before using agent tools.',
+      );
+    }
+    if (accessPolicy.isScoped) {
+      return AiToolUtils.invalidResult(
+        _name,
+        'No agents are exposed to this session. Enable agents and select at least one available agent before using agent tools.',
       );
     }
     return AiToolUtils.invalidResult(
@@ -561,9 +623,12 @@ class AiAgentTool extends AiTool {
   ) {
     final args = context.decodedArguments;
     final includeDisabled = boolFromValue(args['include_disabled']);
-    final agents = includeDisabled
-        ? controller.agents
-        : controller.enabledAgents;
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
+    final agents = _agentsForPolicy(
+      controller,
+      accessPolicy,
+      includeDisabled: includeDisabled,
+    );
     final callableAgentToolNames = _callableAgentToolNames(context.catalog);
     final payload = <String, Object?>{
       'agents': agents
@@ -591,10 +656,12 @@ class AiAgentTool extends AiTool {
   ) async {
     final args = context.decodedArguments;
     final includeDisabled = boolFromValue(args['include_disabled']);
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
     final resolution = _resolveAgent(
       controller,
       args,
       includeDisabled: includeDisabled,
+      accessPolicy: accessPolicy,
     );
     if (resolution.error != null) return resolution.error!;
     final includeTasks = boolFromValue(
@@ -610,6 +677,7 @@ class AiAgentTool extends AiTool {
         ? await _promptRenderer.render(
             agent: resolution.agent!,
             callableAgentToolNames: callableAgentToolNames,
+            boundInstructions: _boundInstructionsForAgent(resolution.agent!),
           )
         : null;
     final payload = <String, Object?>{
@@ -642,10 +710,12 @@ class AiAgentTool extends AiTool {
   ) {
     final args = context.decodedArguments;
     final includeDisabled = boolFromValue(args['include_disabled']);
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
     final resolution = _resolveAgent(
       controller,
       args,
       includeDisabled: includeDisabled,
+      accessPolicy: accessPolicy,
     );
     if (resolution.error != null) return resolution.error!;
     final agent = resolution.agent!;
@@ -744,10 +814,12 @@ class AiAgentTool extends AiTool {
   ) {
     final args = context.decodedArguments;
     final includeDisabled = boolFromValue(args['include_disabled']);
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
     final resolution = _resolveAgent(
       controller,
       args,
       includeDisabled: includeDisabled,
+      accessPolicy: accessPolicy,
     );
     if (resolution.error != null) return resolution.error!;
     final agent = resolution.agent!;
@@ -856,7 +928,12 @@ class AiAgentTool extends AiTool {
     Stopwatch stopwatch,
   ) async {
     final args = context.decodedArguments;
-    final resolution = _resolveAgent(controller, args);
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
+    final resolution = _resolveAgent(
+      controller,
+      args,
+      accessPolicy: accessPolicy,
+    );
     if (resolution.error != null) return resolution.error!;
     final agent = resolution.agent!;
     final previous = agent.scaleSettings;
@@ -958,10 +1035,12 @@ class AiAgentTool extends AiTool {
   ) {
     final args = context.decodedArguments;
     final includeDisabled = boolFromValue(args['include_disabled']);
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
     final resolution = _resolveAgent(
       controller,
       args,
       includeDisabled: includeDisabled,
+      accessPolicy: accessPolicy,
     );
     if (resolution.error != null) return resolution.error!;
     final agent = resolution.agent!;
@@ -1086,7 +1165,12 @@ class AiAgentTool extends AiTool {
     Stopwatch stopwatch,
   ) async {
     final args = context.decodedArguments;
-    final resolution = _resolveAgent(controller, args);
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
+    final resolution = _resolveAgent(
+      controller,
+      args,
+      accessPolicy: accessPolicy,
+    );
     if (resolution.error != null) return resolution.error!;
     final summary = _optionalText(args['summary']);
     if (summary == null) {
@@ -1145,7 +1229,12 @@ class AiAgentTool extends AiTool {
     Stopwatch stopwatch,
   ) async {
     final args = context.decodedArguments;
-    final resolution = _resolveAgent(controller, args);
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
+    final resolution = _resolveAgent(
+      controller,
+      args,
+      accessPolicy: accessPolicy,
+    );
     if (resolution.error != null) return resolution.error!;
     final agent = resolution.agent!;
     final previous = agent.resourceUsage;
@@ -1188,7 +1277,9 @@ class AiAgentTool extends AiTool {
           currentAgent,
           callableAgentToolNames: callableAgentToolNames,
         ),
-        'resource_usage': currentAgent.resourceUsage.toJson(),
+        'resource_usage': currentAgent.resourceUsage.toJson(
+          includeInternalExtra: false,
+        ),
         'resource_summary': _resourceUsageSummaryJson(
           currentAgent.resourceUsage,
         ),
@@ -1213,12 +1304,14 @@ class AiAgentTool extends AiTool {
       args['labels'] ?? args['tags'],
     );
     final callableAgentToolNames = _callableAgentToolNames(context.catalog);
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
     final resolution = _resolveKpiAgent(
       controller,
       args,
       name: name,
       labels: labels,
       callableAgentToolNames: callableAgentToolNames,
+      accessPolicy: accessPolicy,
     );
     if (resolution.error != null) return resolution.error!;
 
@@ -1323,12 +1416,14 @@ class AiAgentTool extends AiTool {
       args['labels'] ?? args['tags'],
     );
     final callableAgentToolNames = _callableAgentToolNames(context.catalog);
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
     final resolution = _resolveApprovalAgent(
       controller,
       args,
       title: title,
       labels: labels,
       callableAgentToolNames: callableAgentToolNames,
+      accessPolicy: accessPolicy,
     );
     if (resolution.error != null) return resolution.error!;
     final rawExtra = optionalStringKeyedMapFromValueOrJsonText(args['extra']);
@@ -1380,10 +1475,12 @@ class AiAgentTool extends AiTool {
   ) {
     final args = context.decodedArguments;
     final includeDisabled = boolFromValue(args['include_disabled']);
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
     final resolution = _resolveAgent(
       controller,
       args,
       includeDisabled: includeDisabled,
+      accessPolicy: accessPolicy,
     );
     if (resolution.error != null) return resolution.error!;
     final agent = resolution.agent!;
@@ -1466,17 +1563,20 @@ class AiAgentTool extends AiTool {
       args['labels'] ?? args['tags'],
     );
     final callableAgentToolNames = _callableAgentToolNames(context.catalog);
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
     final resolution = _resolvePublishAgent(
       controller,
       args,
       title: title,
       labels: labels,
       callableAgentToolNames: callableAgentToolNames,
+      accessPolicy: accessPolicy,
     );
     if (resolution.error != null) return resolution.error!;
     final promptSnapshot = await _promptRenderer.render(
       agent: resolution.agent!,
       callableAgentToolNames: callableAgentToolNames,
+      boundInstructions: _boundInstructionsForAgent(resolution.agent!),
       taskContext: <String, Object?>{
         'incoming_task': <String, Object?>{
           'title': title,
@@ -1570,11 +1670,13 @@ class AiAgentTool extends AiTool {
     AiToolExecutionContext context,
     Stopwatch stopwatch,
   ) {
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
     final resolved = _resolveTask(
       controller,
       context.decodedArguments,
       sessionId: context.sessionId,
       allowHeuristicRecovery: true,
+      accessPolicy: accessPolicy,
     );
     if (resolved.error != null) return resolved.error!;
     final task = resolved.task!;
@@ -1635,11 +1737,13 @@ class AiAgentTool extends AiTool {
     AiToolExecutionContext context,
     Stopwatch stopwatch,
   ) {
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
     final resolved = _resolveTask(
       controller,
       context.decodedArguments,
       sessionId: context.sessionId,
       allowHeuristicRecovery: true,
+      accessPolicy: accessPolicy,
     );
     if (resolved.error != null) return resolved.error!;
     final task = resolved.task!;
@@ -1695,10 +1799,12 @@ class AiAgentTool extends AiTool {
     required String activityTitle,
   }) async {
     final args = context.decodedArguments;
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
     final resolved = _resolveTask(
       controller,
       args,
       sessionId: context.sessionId,
+      accessPolicy: accessPolicy,
     );
     if (resolved.error != null) return resolved.error!;
     final callableAgentToolNames = _callableAgentToolNames(context.catalog);
@@ -1786,11 +1892,13 @@ class AiAgentTool extends AiTool {
     Stopwatch stopwatch,
   ) async {
     final args = context.decodedArguments;
+    final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
     var resolved = _resolveTask(
       controller,
       args,
       sessionId: context.sessionId,
       allowHeuristicRecovery: true,
+      accessPolicy: accessPolicy,
     );
     if (resolved.error != null) return resolved.error!;
     final wait = _resultWaitOptions(args);
@@ -1815,6 +1923,7 @@ class AiAgentTool extends AiTool {
         },
         sessionId: context.sessionId,
         allowHeuristicRecovery: true,
+        accessPolicy: accessPolicy,
       );
       if (refreshed.error != null) break;
       resolved = refreshed;
@@ -1920,6 +2029,7 @@ class AiAgentTool extends AiTool {
       agent: agent,
       task: task,
       callableAgentToolNames: callableAgentToolNames,
+      boundInstructions: _boundInstructionsForAgent(agent),
       taskContext: <String, Object?>{
         'execution_mode': 'automatic_worker',
         'worker_session_id': workerSessionId,
@@ -2364,10 +2474,53 @@ class AiAgentTool extends AiTool {
     return sanitized.isEmpty ? 'worker' : sanitized;
   }
 
+  List<AgentProfile> _enabledAgentsForPolicy(
+    AgentsController controller,
+    _AgentToolAccessPolicy accessPolicy,
+  ) {
+    return _agentsForPolicy(controller, accessPolicy);
+  }
+
+  List<AgentProfile> _agentsForPolicy(
+    AgentsController controller,
+    _AgentToolAccessPolicy accessPolicy, {
+    bool includeDisabled = false,
+  }) {
+    if (!accessPolicy.enabled) return const <AgentProfile>[];
+    final source = includeDisabled
+        ? controller.agents
+        : controller.enabledAgents;
+    if (!accessPolicy.isScoped) return source.toList(growable: false);
+    return source.where(accessPolicy.allows).toList(growable: false);
+  }
+
+  AgentProfile? _findAgentForPolicy(
+    AgentsController controller,
+    String identifier,
+    _AgentToolAccessPolicy accessPolicy, {
+    bool includeDisabled = false,
+  }) {
+    final normalized = identifier.trim();
+    if (normalized.isEmpty) return null;
+    final normalizedName = normalized.toLowerCase();
+    for (final agent in _agentsForPolicy(
+      controller,
+      accessPolicy,
+      includeDisabled: includeDisabled,
+    )) {
+      if (agent.id == normalized ||
+          agent.name.trim().toLowerCase() == normalizedName) {
+        return agent;
+      }
+    }
+    return null;
+  }
+
   _AgentResolution _resolveAgent(
     AgentsController controller,
     Map<String, Object?> args, {
     bool includeDisabled = false,
+    required _AgentToolAccessPolicy accessPolicy,
   }) {
     final identifier =
         '${args['agent_id'] ?? args['agent_name'] ?? args['agent'] ?? ''}'
@@ -2380,8 +2533,10 @@ class AiAgentTool extends AiTool {
         ),
       );
     }
-    final agent = controller.findAgent(
+    final agent = _findAgentForPolicy(
+      controller,
       identifier,
+      accessPolicy,
       includeDisabled: includeDisabled,
     );
     if (agent != null) {
@@ -2395,12 +2550,26 @@ class AiAgentTool extends AiTool {
       }
       return _AgentResolution.agent(agent);
     }
-    final disabled = controller.findAgent(identifier, includeDisabled: true);
+    final disabled = _findAgentForPolicy(
+      controller,
+      identifier,
+      accessPolicy,
+      includeDisabled: true,
+    );
     if (disabled != null && !disabled.enabled) {
       return _AgentResolution.error(
         AiToolUtils.invalidResult(
           _name,
           'Agent "$identifier" is disabled. Start the agent before using it.',
+        ),
+      );
+    }
+    final existing = controller.findAgent(identifier, includeDisabled: true);
+    if (existing != null && !accessPolicy.allows(existing)) {
+      return _AgentResolution.error(
+        AiToolUtils.invalidResult(
+          _name,
+          'Agent "$identifier" is not exposed to this session.',
         ),
       );
     }
@@ -2418,13 +2587,16 @@ class AiAgentTool extends AiTool {
     required String name,
     required List<String> labels,
     required Set<String> callableAgentToolNames,
+    required _AgentToolAccessPolicy accessPolicy,
   }) {
     final identifier =
         '${args['agent_id'] ?? args['agent_name'] ?? args['agent'] ?? ''}'
             .trim();
-    if (identifier.isNotEmpty) return _resolveAgent(controller, args);
+    if (identifier.isNotEmpty) {
+      return _resolveAgent(controller, args, accessPolicy: accessPolicy);
+    }
 
-    final candidates = _enabledAgentsForCurrentTool(controller);
+    final candidates = _enabledAgentsForCurrentTool(controller, accessPolicy);
     if (candidates.isEmpty) return _noAgentBoundCurrentToolResult();
     if (candidates.length == 1) {
       return _AgentResolution.agent(
@@ -2470,13 +2642,16 @@ class AiAgentTool extends AiTool {
     required String title,
     required List<String> labels,
     required Set<String> callableAgentToolNames,
+    required _AgentToolAccessPolicy accessPolicy,
   }) {
     final identifier =
         '${args['agent_id'] ?? args['agent_name'] ?? args['agent'] ?? ''}'
             .trim();
-    if (identifier.isNotEmpty) return _resolveAgent(controller, args);
+    if (identifier.isNotEmpty) {
+      return _resolveAgent(controller, args, accessPolicy: accessPolicy);
+    }
 
-    final candidates = _enabledAgentsForCurrentTool(controller);
+    final candidates = _enabledAgentsForCurrentTool(controller, accessPolicy);
     if (candidates.isEmpty) return _noAgentBoundCurrentToolResult();
     if (candidates.length == 1) {
       return _AgentResolution.agent(
@@ -2522,13 +2697,16 @@ class AiAgentTool extends AiTool {
     required String title,
     required List<String> labels,
     required Set<String> callableAgentToolNames,
+    required _AgentToolAccessPolicy accessPolicy,
   }) {
     final identifier =
         '${args['agent_id'] ?? args['agent_name'] ?? args['agent'] ?? ''}'
             .trim();
-    if (identifier.isNotEmpty) return _resolveAgent(controller, args);
+    if (identifier.isNotEmpty) {
+      return _resolveAgent(controller, args, accessPolicy: accessPolicy);
+    }
 
-    final candidates = _enabledAgentsForCurrentTool(controller);
+    final candidates = _enabledAgentsForCurrentTool(controller, accessPolicy);
     if (candidates.isEmpty) return _noAgentBoundCurrentToolResult();
     if (candidates.length == 1) {
       return _AgentResolution.agent(
@@ -2568,10 +2746,14 @@ class AiAgentTool extends AiTool {
     );
   }
 
-  List<AgentProfile> _enabledAgentsForCurrentTool(AgentsController controller) {
-    return controller.enabledAgents
-        .where(_agentAllowsCurrentTool)
-        .toList(growable: false);
+  List<AgentProfile> _enabledAgentsForCurrentTool(
+    AgentsController controller,
+    _AgentToolAccessPolicy accessPolicy,
+  ) {
+    return _enabledAgentsForPolicy(
+      controller,
+      accessPolicy,
+    ).where(_agentAllowsCurrentTool).toList(growable: false);
   }
 
   _AgentResolution _noAgentBoundCurrentToolResult() {
@@ -2804,9 +2986,14 @@ class AiAgentTool extends AiTool {
     AgentsController controller,
     Map<String, Object?> args, {
     required String sessionId,
+    required _AgentToolAccessPolicy accessPolicy,
     bool allowHeuristicRecovery = false,
   }) {
-    final agentResolution = _resolveAgent(controller, args);
+    final agentResolution = _resolveAgent(
+      controller,
+      args,
+      accessPolicy: accessPolicy,
+    );
     if (agentResolution.error != null) {
       return _TaskResolution.error(agentResolution.error!);
     }
@@ -2974,6 +3161,53 @@ bool _agentAllowsToolNames(AgentProfile agent, Set<String> normalizedNames) {
   return configured.any(
     (name) => normalizedNames.contains(_normalizedAgentToolName(name)),
   );
+}
+
+class _AgentToolAccessPolicy {
+  const _AgentToolAccessPolicy({
+    required this.enabled,
+    required this.allowedAgentIds,
+    required this.source,
+  });
+
+  factory _AgentToolAccessPolicy.fromMetadata(Map<String, Object?> metadata) {
+    final source = '${metadata[aiAgentToolAccessSourceMetadataKey] ?? ''}'
+        .trim();
+    final hasScopedMetadata =
+        source.isNotEmpty ||
+        metadata.containsKey(aiAgentToolAccessEnabledMetadataKey) ||
+        metadata.containsKey(aiAgentToolAllowedAgentIdsMetadataKey);
+    if (!hasScopedMetadata) return unrestricted;
+    final enabled = boolFromValue(
+      metadata[aiAgentToolAccessEnabledMetadataKey],
+      defaultValue: true,
+    );
+    final allowedIds = stringListFromValue(
+      metadata[aiAgentToolAllowedAgentIdsMetadataKey],
+    ).where((id) => id.trim().isNotEmpty).toSet();
+    return _AgentToolAccessPolicy(
+      enabled: enabled,
+      allowedAgentIds: allowedIds,
+      source: source,
+    );
+  }
+
+  static const _AgentToolAccessPolicy unrestricted = _AgentToolAccessPolicy(
+    enabled: true,
+    allowedAgentIds: null,
+    source: '',
+  );
+
+  final bool enabled;
+  final Set<String>? allowedAgentIds;
+  final String source;
+
+  bool get isScoped => allowedAgentIds != null;
+
+  bool allows(AgentProfile agent) {
+    final ids = allowedAgentIds;
+    return enabled && (ids == null || ids.contains(agent.id));
+  }
 }
 
 class _AgentResolution {
@@ -3342,6 +3576,7 @@ Map<String, Object?> _agentDetailJson(
     'task_labels': agent.taskLabels,
     'cron_ids': agent.cronIds,
     'hook_ids': agent.hookIds,
+    'instruction_ids': agent.instructionIds,
     'metadata': agent.metadata,
     'scale_settings': agent.scaleSettings.toJson(),
     'task_metrics': _taskMetricsForTasksJson(agent.tasks),
@@ -3376,7 +3611,8 @@ Map<String, Object?> _agentDetailJson(
       'audit_events': recentAgentAuditEvents(
         agent.auditEvents,
       ).take(50).map((item) => item.toJson()).toList(growable: false),
-    if (includeResources) 'resource_usage': agent.resourceUsage.toJson(),
+    if (includeResources)
+      'resource_usage': agent.resourceUsage.toJson(includeInternalExtra: false),
     'created_at': _iso(agent.createdAt),
   };
 }
@@ -4342,7 +4578,7 @@ Map<String, Object?> _resourcePressureJson(AgentResourceUsage usage) {
   final diskPressure = _resourceRatio(usage.persistedBytes, usage.diskBytes);
   final handlePressure = _resourceRatio(
     usage.openHandles,
-    _agentOpenHandlePressureLimit,
+    agentResourceOpenHandlePressureLimit,
   );
   final maxPressure = _maxResourcePressure(
     usage.cpuPercent,
@@ -4355,7 +4591,7 @@ Map<String, Object?> _resourcePressureJson(AgentResourceUsage usage) {
     'token_usage_ratio': tokenRatio,
     'persisted_disk_ratio': diskPressure,
     'open_handle_ratio': handlePressure,
-    'open_handle_limit': _agentOpenHandlePressureLimit,
+    'open_handle_limit': agentResourceOpenHandlePressureLimit,
     'open_handles': usage.openHandles,
     'max_pressure': maxPressure,
     'pressure_level': _resourcePressureLevel(maxPressure),
@@ -4482,12 +4718,14 @@ bool _matchesText(String actual, String? expected) {
 }
 
 Map<String, Object?> _resourceUsageSummaryJson(AgentResourceUsage usage) {
-  final payload = Map<String, Object?>.from(usage.toJson());
+  final payload = Map<String, Object?>.from(
+    usage.toJson(includeInternalExtra: false),
+  );
   final tokenRatio = _resourceRatio(usage.tokenUsed, usage.tokenBudget);
   final persistedRatio = _resourceRatio(usage.persistedBytes, usage.diskBytes);
   final handleRatio = _resourceRatio(
     usage.openHandles,
-    _agentOpenHandlePressureLimit,
+    agentResourceOpenHandlePressureLimit,
   );
   final maxPressure = _maxResourcePressure(
     usage.cpuPercent,
@@ -4513,7 +4751,7 @@ Map<String, Object?> _resourceUsageSummaryJson(AgentResourceUsage usage) {
     payload['persisted_remaining_bytes'] = null;
   }
   payload['persisted_disk_ratio'] = persistedRatio;
-  payload['open_handle_limit'] = _agentOpenHandlePressureLimit;
+  payload['open_handle_limit'] = agentResourceOpenHandlePressureLimit;
   payload['open_handle_ratio'] = handleRatio;
   payload['max_pressure'] = maxPressure;
   payload['pressure_level'] = _resourcePressureLevel(maxPressure);

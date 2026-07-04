@@ -37,6 +37,7 @@ import '../../ai/index.dart'
         agentBuiltinToolSummary;
 import '../../crons/index.dart';
 import '../../hooks/index.dart';
+import '../../instructions/index.dart';
 import '../../knowledge_base/index.dart';
 import '../../mcp/index.dart';
 import '../../memory/index.dart';
@@ -83,7 +84,6 @@ const List<String> _agentKpiStatusOptions = <String>[
   'paused',
 ];
 const int _agentTaskRecommendedPollMs = 1500;
-const int _agentOpenHandlePressureLimit = 128;
 const String _agentTaskProgressToolName = 'AgentTaskProgress';
 const String _agentTaskResultToolName = 'AgentTaskResult';
 const String _agentTaskTrackToolName = 'AgentTaskTrack';
@@ -684,6 +684,12 @@ class _AgentCapabilitySummary extends StatelessWidget {
         l10n.agentsCapabilityCronsCount(agent.cronIds.length),
       if (agent.hookIds.isNotEmpty)
         l10n.agentsCapabilityHooksCount(agent.hookIds.length),
+      if (agent.instructionIds.isNotEmpty)
+        openHandLocalizedText(
+          context,
+          zh: '指令 ${agent.instructionIds.length}',
+          en: 'Instructions ${agent.instructionIds.length}',
+        ),
       if (agent.selfLearningEnabled) l10n.agentsSelfLearningOn,
     ];
     final text = rows.isEmpty
@@ -973,7 +979,7 @@ class _AgentActivityBubble extends StatelessWidget {
     final tone = _agentActivityToneColor(cs, type);
     final title = _agentActivityTitle(l10n, event);
     final body = _agentActivitySubtitle(l10n, event);
-    final metadata = _agentActivityMetadataChips(event);
+    final metadata = _agentActivityMetadataChips(context, event);
     final timeText = event.createdAt == null
         ? ''
         : formatMonthDayHm(event.createdAt!.toLocal());
@@ -1217,7 +1223,7 @@ class _AgentCapabilityLogTile extends StatelessWidget {
     final timeText = event.createdAt == null
         ? ''
         : formatMonthDayHm(event.createdAt!.toLocal());
-    final metadata = _agentAuditMetadataChips(event);
+    final metadata = _agentAuditMetadataChips(context, event);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1277,7 +1283,7 @@ class _AgentCapabilityLogTile extends StatelessWidget {
                   if (event.summary.trim().isNotEmpty) ...[
                     const SizedBox(height: 5),
                     SelectableText(
-                      event.summary,
+                      event.summary.trim(),
                       style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
                     ),
                   ],
@@ -1490,7 +1496,7 @@ class _AgentApprovalRequestCard extends StatelessWidget {
     final statusColor = _agentApprovalStatusColor(cs, approval.status);
     final riskLevel = _agentApprovalRiskLevel(approval);
     final riskColor = _agentApprovalRiskColor(cs, riskLevel);
-    final metadata = _agentApprovalMetadataChips(approval);
+    final metadata = _agentApprovalMetadataChips(context, approval);
     final timeText = _agentApprovalTimeLabel(context, approval);
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1813,7 +1819,10 @@ class _AgentClusterDialogContentState
             ),
             _AgentPill(
               icon: Icons.low_priority_rounded,
-              label: settings.workerRemovalPolicy,
+              label: _agentPolicyOptionLabel(
+                context,
+                settings.workerRemovalPolicy,
+              ),
               color: Theme.of(context).colorScheme.tertiary,
             ),
             if (settings.tags.isNotEmpty)
@@ -2430,7 +2439,7 @@ class _AgentTaskCard extends StatelessWidget {
         ? ''
         : formatMonthDayHm(task.createdAt!.toLocal());
     final tracking = _agentTaskTrackingChips(context, agent, task);
-    final metadata = _agentTaskMetadataChips(task);
+    final metadata = _agentTaskMetadataChips(context, task);
     final progress = task.progress.clamp(0, 1).toDouble();
 
     return Material(
@@ -2944,7 +2953,7 @@ Color _agentTaskStatusColor(ColorScheme cs, AgentTaskStatus status) {
   };
 }
 
-List<String> _agentTaskMetadataChips(AgentTask task) {
+List<String> _agentTaskMetadataChips(BuildContext context, AgentTask task) {
   const keys = <String>[
     'assigned_worker_id',
     'priority',
@@ -3563,7 +3572,7 @@ class _AgentKpiCard extends StatelessWidget {
     final updated = item.updatedAt == null
         ? ''
         : formatMonthDayHm(item.updatedAt!.toLocal());
-    final metadata = _agentKpiMetadataChips(item);
+    final metadata = _agentKpiMetadataChips(context, item);
     final progress = item.progress.clamp(0, 1).toDouble();
 
     return DecoratedBox(
@@ -3985,7 +3994,7 @@ Color _agentKpiStatusColor(ColorScheme cs, String status) {
   };
 }
 
-List<String> _agentKpiMetadataChips(AgentKpiItem item) {
+List<String> _agentKpiMetadataChips(BuildContext context, AgentKpiItem item) {
   const keys = <String>[
     'owner',
     'cadence',
@@ -4069,7 +4078,7 @@ class _AgentResourceBody extends StatelessWidget {
     );
     final handlePressure = _agentResourceRatio(
       resource.openHandles,
-      _agentOpenHandlePressureLimit,
+      agentResourceOpenHandlePressureLimit,
     );
     final maxPressure = [
       cpu,
@@ -4077,7 +4086,7 @@ class _AgentResourceBody extends StatelessWidget {
       persistedPressure,
       handlePressure,
     ].reduce(math.max);
-    final metadata = _agentResourceMetadataChips(resource);
+    final metadata = _agentResourceMetadataChips(context, resource);
     final remainingTokens = _agentResourceRemaining(
       resource.tokenBudget,
       resource.tokenUsed,
@@ -4086,6 +4095,9 @@ class _AgentResourceBody extends StatelessWidget {
       resource.diskBytes,
       resource.persistedBytes,
     );
+    final persistedCapacityLabel = resource.diskBytes <= 0
+        ? openHandLocalizedText(context, zh: '未设置', en: 'unset')
+        : formatByteSize(resource.diskBytes);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -4161,7 +4173,7 @@ class _AgentResourceBody extends StatelessWidget {
             en: 'Persisted storage',
           ),
           valueLabel:
-              '${formatByteSize(resource.persistedBytes)} / ${formatByteSize(resource.diskBytes)}',
+              '${formatByteSize(resource.persistedBytes)} / $persistedCapacityLabel',
           pressure: persistedPressure,
         ),
         const SizedBox(height: 10),
@@ -4169,7 +4181,7 @@ class _AgentResourceBody extends StatelessWidget {
           icon: Icons.hub_outlined,
           label: l10n.agentsMetricHandles,
           valueLabel:
-              '${resource.openHandles} / $_agentOpenHandlePressureLimit',
+              '${resource.openHandles} / $agentResourceOpenHandlePressureLimit',
           pressure: handlePressure,
         ),
         const SizedBox(height: 14),
@@ -4226,6 +4238,7 @@ class _AgentResourcePressureCard extends StatelessWidget {
     final cs = theme.colorScheme;
     final normalized = pressure.clamp(0, 1).toDouble();
     final color = _agentResourcePressureColor(cs, normalized);
+    final settings = _agentDialogAnimationSettings(context);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
@@ -4273,23 +4286,43 @@ class _AgentResourcePressureCard extends StatelessWidget {
                       Expanded(
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(999),
-                          child: LinearProgressIndicator(
-                            value: normalized,
-                            minHeight: 7,
-                            color: color,
-                            backgroundColor: cs.surfaceContainerHighest,
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween<double>(begin: 0, end: normalized),
+                            duration: settings.duration,
+                            curve: settings.curve.curve,
+                            builder: (context, value, _) {
+                              return LinearProgressIndicator(
+                                value: value,
+                                minHeight: 7,
+                                color: color,
+                                backgroundColor: cs.surfaceContainerHighest,
+                              );
+                            },
                           ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       SizedBox(
                         width: 92,
-                        child: Text(
-                          valueLabel,
-                          textAlign: TextAlign.end,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
+                        child: AnimatedSwitcher(
+                          duration: settings.duration,
+                          reverseDuration: settings.duration,
+                          switchInCurve: settings.curve.curve,
+                          switchOutCurve: settings.curve.reverseCurve,
+                          transitionBuilder: (child, animation) =>
+                              _agentDialogSwitchTransition(
+                                settings: settings,
+                                animation: animation,
+                                child: child,
+                              ),
+                          child: Text(
+                            valueLabel,
+                            key: ValueKey<String>(valueLabel),
+                            textAlign: TextAlign.end,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                       ),
@@ -4331,7 +4364,10 @@ String _agentResourcePressureLabel(BuildContext context, double pressure) {
   return openHandLocalizedText(context, zh: '正常', en: 'Normal');
 }
 
-List<String> _agentResourceMetadataChips(AgentResourceUsage resource) {
+List<String> _agentResourceMetadataChips(
+  BuildContext context,
+  AgentResourceUsage resource,
+) {
   const keys = <String>[
     'workspace_path',
     'artifact_count',
@@ -4391,7 +4427,7 @@ class _AgentResourceEditorDialogState
     _tokenBudget = TextEditingController(text: '${initial.tokenBudget}');
     _tokenUsed = TextEditingController(text: '${initial.tokenUsed}');
     _openHandles = TextEditingController(text: '${initial.openHandles}');
-    _extraEntries = _keyValueEntriesFromMap(initial.extra);
+    _extraEntries = _keyValueEntriesFromMap(initial.publicExtra);
   }
 
   @override
@@ -4579,9 +4615,12 @@ class _MetricTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final settings = _agentDialogAnimationSettings(context);
     return SizedBox(
       width: 160,
-      child: DecoratedBox(
+      child: AnimatedContainer(
+        duration: settings.duration,
+        curve: settings.curve.curve,
         decoration: BoxDecoration(
           color: cs.surfaceContainerHighest.withValues(alpha: 0.65),
           borderRadius: BorderRadius.circular(8),
@@ -4594,7 +4633,25 @@ class _MetricTile extends StatelessWidget {
             children: [
               Text(label, style: theme.textTheme.labelMedium),
               const SizedBox(height: 8),
-              Text(value, style: theme.textTheme.titleLarge),
+              AnimatedSwitcher(
+                duration: settings.duration,
+                reverseDuration: settings.duration,
+                switchInCurve: settings.curve.curve,
+                switchOutCurve: settings.curve.reverseCurve,
+                transitionBuilder: (child, animation) =>
+                    _agentDialogSwitchTransition(
+                      settings: settings,
+                      animation: animation,
+                      child: child,
+                    ),
+                child: Text(
+                  value,
+                  key: ValueKey<String>(value),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge,
+                ),
+              ),
             ],
           ),
         ),
@@ -4705,7 +4762,7 @@ class _AgentAuditReportBody extends StatelessWidget {
               _AgentAuditInsightRow(
                 title: item.name,
                 subtitle: [
-                  item.type,
+                  _agentCapabilityTypeLabel(context, item.type),
                   openHandLocalizedText(
                     context,
                     zh: '${item.requests} 请求',
@@ -4806,7 +4863,11 @@ class _AgentAuditReportBody extends StatelessWidget {
               .map(
                 (event) => ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text(event.summary),
+                  title: Text(
+                    event.summary.trim().isEmpty
+                        ? event.kind
+                        : event.summary.trim(),
+                  ),
                   subtitle: Text(
                     [
                       event.toolName.isEmpty ? event.kind : event.toolName,
@@ -5437,7 +5498,10 @@ String _agentApprovalRiskLabel(BuildContext context, String riskLevel) {
   };
 }
 
-List<String> _agentApprovalMetadataChips(AgentApprovalRequest approval) {
+List<String> _agentApprovalMetadataChips(
+  BuildContext context,
+  AgentApprovalRequest approval,
+) {
   const keys = <String>[
     'permissions',
     'permission',
@@ -5989,6 +6053,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   late Set<String> _builtinToolNames;
   late Set<String> _cronIds;
   late Set<String> _hookIds;
+  late Set<String> _instructionIds;
   late List<AgentKpiItem> _kpis;
   late List<String> _routeKeywords;
   late List<String> _routeDomains;
@@ -6070,6 +6135,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     _builtinToolNames = {...?agent?.builtinToolNames};
     _cronIds = {...?agent?.cronIds};
     _hookIds = {...?agent?.hookIds};
+    _instructionIds = {...?agent?.instructionIds};
     _minWorkers = agent?.scaleSettings.minWorkers ?? 1;
     _maxWorkers = agent?.scaleSettings.maxWorkers ?? 1;
     _maxRetries = agent?.scaleSettings.maxRetries ?? 2;
@@ -6126,12 +6192,14 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     final mcpController = context.watch<McpController>();
     final cronsController = context.watch<CronsController>();
     final hooksController = context.watch<HooksController>();
+    final instructionsController = context.watch<InstructionsController>();
     final skills = skillsController.skills;
     final knowledgeSources = knowledgeBaseController.sources;
     final memories = memoryController.entries;
     final mcpServers = mcpController.servers;
     final crons = cronsController.entries;
     final hooks = hooksController.entries;
+    final instructions = instructionsController.entries;
     final runtime = context.watch<AgentsController>().runtimeAvailability;
     final builtinTools = _builtinToolOptions(settings.builtinToolConfigs);
     final selectedBuiltinTools = _normalizedBuiltinToolSelection(
@@ -6204,6 +6272,29 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                                 .toList(),
                             builtinTools: builtinTools,
                             selectedBuiltinTools: selectedBuiltinTools,
+                            hooks: hooks
+                                .map(
+                                  (h) => _Option(
+                                    h.id,
+                                    h.label,
+                                    _hookEventLabel(l10n, h.event),
+                                    enabled: h.enabled && h.hasScript,
+                                  ),
+                                )
+                                .toList(),
+                            instructions: instructions
+                                .map(
+                                  (entry) => _Option(
+                                    entry.id,
+                                    entry.name,
+                                    _agentInstructionOptionSubtitle(
+                                      context,
+                                      entry,
+                                    ),
+                                    enabled: entry.enabled,
+                                  ),
+                                )
+                                .toList(),
                             onRefresh: _refreshCapabilities,
                             refreshing: _refreshingCapabilities,
                           ),
@@ -6223,15 +6314,6 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                                 .map(
                                   (c) =>
                                       _Option(c.id, c.name, c.cronExpression),
-                                )
-                                .toList(),
-                            hooks: hooks
-                                .map(
-                                  (h) => _Option(
-                                    h.id,
-                                    h.label,
-                                    _hookEventLabel(l10n, h.event),
-                                  ),
                                 )
                                 .toList(),
                           ),
@@ -6327,6 +6409,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     required List<_Option> mcpServers,
     required List<_Option> builtinTools,
     required Set<String> selectedBuiltinTools,
+    required List<_Option> hooks,
+    required List<_Option> instructions,
     required VoidCallback onRefresh,
     required bool refreshing,
   }) {
@@ -6436,6 +6520,30 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                         groupOptions: agentTools,
                       ),
                     ),
+                  ),
+                ),
+                SizedBox(
+                  width: itemWidth,
+                  child: _CapabilityPanel(
+                    title: 'Hooks',
+                    icon: Icons.bolt_rounded,
+                    options: hooks,
+                    selected: _hookIds,
+                    onChanged: (v) => setState(() => _hookIds = v),
+                  ),
+                ),
+                SizedBox(
+                  width: itemWidth,
+                  child: _CapabilityPanel(
+                    title: openHandLocalizedText(
+                      context,
+                      zh: '指令',
+                      en: 'Instructions',
+                    ),
+                    icon: Icons.rule_rounded,
+                    options: instructions,
+                    selected: _instructionIds,
+                    onChanged: (v) => setState(() => _instructionIds = v),
                   ),
                 ),
                 SizedBox(
@@ -6581,7 +6689,6 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   Widget _governanceTab({
     required AppLocalizations l10n,
     required List<_Option> crons,
-    required List<_Option> hooks,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -6592,13 +6699,6 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           selected: _cronIds,
           onChanged: (v) => setState(() => _cronIds = v),
           keyPrefix: 'agent-cron',
-        ),
-        _OptionChips(
-          title: 'Hooks',
-          options: hooks,
-          selected: _hookIds,
-          onChanged: (v) => setState(() => _hookIds = v),
-          keyPrefix: 'agent-hook',
         ),
         const SizedBox(height: 8),
         Text(
@@ -7400,6 +7500,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
         context.read<McpController>().refresh(),
         context.read<CronsController>().refresh(),
         context.read<HooksController>().refresh(),
+        context.read<InstructionsController>().refresh(),
       ]);
       if (!mounted) return;
       OpenHandSnackBar.showInfo(
@@ -7623,6 +7724,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       workspaceScopePaths: workspaceScopePaths,
       cronIds: _cronIds.toList(),
       hookIds: _hookIds.toList(),
+      instructionIds: _instructionIds.toList(),
       selfLearningEnabled: _selfLearningEnabled,
       enabled: _enabled,
       executionMode: _executionMode,
@@ -8713,25 +8815,31 @@ class _CapabilityPanel extends StatelessWidget {
                       runSpacing: 8,
                       children: [
                         for (final option in options)
-                          FilterChip(
-                            label: Text(
-                              option.label,
-                              overflow: TextOverflow.ellipsis,
+                          Tooltip(
+                            message: option.subtitle.trim().isEmpty
+                                ? option.label
+                                : option.subtitle.trim(),
+                            child: FilterChip(
+                              label: Text(
+                                option.label,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              selected:
+                                  option.enabled &&
+                                  selected.contains(option.id),
+                              onSelected: option.enabled
+                                  ? (value) {
+                                      final next = {...selected};
+                                      value
+                                          ? next.add(option.id)
+                                          : next.remove(option.id);
+                                      onChanged(next);
+                                    }
+                                  : null,
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
                             ),
-                            selected:
-                                option.enabled && selected.contains(option.id),
-                            onSelected: option.enabled
-                                ? (value) {
-                                    final next = {...selected};
-                                    value
-                                        ? next.add(option.id)
-                                        : next.remove(option.id);
-                                    onChanged(next);
-                                  }
-                                : null,
-                            visualDensity: VisualDensity.compact,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
                           ),
                       ],
                     ),
@@ -9067,6 +9175,34 @@ _Option _agentToolOption(
     '$toolName · $summary',
     enabled: enabled,
   );
+}
+
+String _agentInstructionOptionSubtitle(
+  BuildContext context,
+  UserInstructionEntry entry,
+) {
+  final parts = <String>[
+    if (entry.description.trim().isNotEmpty) entry.description.trim(),
+    if (entry.applyTo.trim().isNotEmpty)
+      openHandLocalizedText(
+        context,
+        zh: '适用：${entry.applyTo.trim()}',
+        en: 'Applies to: ${entry.applyTo.trim()}',
+      ),
+    if (entry.taskTypes.isNotEmpty)
+      openHandLocalizedText(
+        context,
+        zh: '任务：${entry.taskTypes.take(3).join(', ')}',
+        en: 'Tasks: ${entry.taskTypes.take(3).join(', ')}',
+      ),
+  ];
+  return parts.isEmpty
+      ? openHandLocalizedText(
+          context,
+          zh: '绑定后会注入智能体运行提示词',
+          en: 'Injected into the agent runtime prompt when bound',
+        )
+      : parts.take(2).join(' · ');
 }
 
 IconData _agentToolGroupIcon(AiAgentBuiltinToolGroup? group) {
@@ -9944,7 +10080,10 @@ String _agentCapabilityTypeLabel(BuildContext context, String type) {
   };
 }
 
-List<String> _agentAuditMetadataChips(AgentAuditEvent event) {
+List<String> _agentAuditMetadataChips(
+  BuildContext context,
+  AgentAuditEvent event,
+) {
   const keys = <String>[
     'task_id',
     'worker_id',
@@ -10014,19 +10153,37 @@ String _agentInlineText(
   AppLocalizations l10n, {
   required String zh,
   required String en,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
 }) {
-  return l10n.localeName.toLowerCase().startsWith('zh') ? zh : en;
+  return openHandLocalizedTextForLocaleName(
+    l10n.localeName,
+    zh: zh,
+    en: en,
+    zhHant: zhHant,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
 }
 
-String _agentActivityTitle(AppLocalizations l10n, AgentActivityEvent event) {
-  return switch (event.kind) {
+String _agentActivityKindLabel(AppLocalizations l10n, String kind) {
+  final normalized = kind.trim().toLowerCase();
+  return switch (normalized) {
     'agent_started' => l10n.agentsActivityAgentStarted,
     'agent_stopped' => l10n.agentsActivityAgentStopped,
     'task_published' => l10n.agentsActivityTaskPublished,
-    'task_assigned' =>
-      l10n.localeName.toLowerCase().startsWith('zh')
-          ? '任务已分配'
-          : 'Task assigned',
+    'task_assigned' => _agentInlineText(
+      l10n,
+      zh: '任务已分配',
+      en: 'Task assigned',
+      zhHant: '任務已分配',
+      fr: 'Tâche attribuée',
+      de: 'Aufgabe zugewiesen',
+      ja: 'タスクを割り当てました',
+    ),
     'task_updated' => l10n.agentsActivityTaskUpdated,
     'task_canceled' => l10n.agentsActivityTaskCanceled,
     'task_paused' => l10n.agentsActivityTaskPaused,
@@ -10036,34 +10193,161 @@ String _agentActivityTitle(AppLocalizations l10n, AgentActivityEvent event) {
       l10n,
       zh: '任务已完成',
       en: 'Task completed',
+      zhHant: '任務已完成',
+      fr: 'Tâche terminée',
+      de: 'Aufgabe abgeschlossen',
+      ja: 'タスク完了',
+    ),
+    'task_failed' => _agentInlineText(
+      l10n,
+      zh: '任务失败',
+      en: 'Task failed',
+      zhHant: '任務失敗',
+      fr: 'Échec de la tâche',
+      de: 'Aufgabe fehlgeschlagen',
+      ja: 'タスク失敗',
+    ),
+    'task_retry_scheduled' => _agentInlineText(
+      l10n,
+      zh: '已安排任务重试',
+      en: 'Task retry scheduled',
+      zhHant: '已安排任務重試',
+      fr: 'Nouvelle tentative planifiée',
+      de: 'Aufgabenwiederholung geplant',
+      ja: 'タスク再試行を予約しました',
     ),
     'approval_requested' => _agentInlineText(
       l10n,
       zh: '审批已发起',
       en: 'Approval requested',
+      zhHant: '審批已發起',
+      fr: 'Approbation demandée',
+      de: 'Genehmigung angefordert',
+      ja: '承認をリクエストしました',
     ),
     'approval_approved' => _agentInlineText(
       l10n,
       zh: '审批已批准',
       en: 'Approval approved',
+      zhHant: '審批已批准',
+      fr: 'Approbation accordée',
+      de: 'Genehmigung erteilt',
+      ja: '承認済み',
     ),
     'approval_rejected' => _agentInlineText(
       l10n,
       zh: '审批已拒绝',
       en: 'Approval rejected',
+      zhHant: '審批已拒絕',
+      fr: 'Approbation refusée',
+      de: 'Genehmigung abgelehnt',
+      ja: '承認を却下しました',
     ),
     'approval_expired' => _agentInlineText(
       l10n,
       zh: '审批已过期',
       en: 'Approval expired',
+      zhHant: '審批已過期',
+      fr: 'Approbation expirée',
+      de: 'Genehmigung abgelaufen',
+      ja: '承認期限切れ',
     ),
-    _ => event.title.trim().isEmpty ? event.kind : event.title,
+    'kpi_upserted' => _agentInlineText(
+      l10n,
+      zh: 'KPI 已保存',
+      en: 'KPI saved',
+      zhHant: 'KPI 已儲存',
+      fr: 'KPI enregistré',
+      de: 'KPI gespeichert',
+      ja: 'KPI を保存しました',
+    ),
+    'kpi_deleted' => _agentInlineText(
+      l10n,
+      zh: 'KPI 已删除',
+      en: 'KPI deleted',
+      zhHant: 'KPI 已刪除',
+      fr: 'KPI supprimé',
+      de: 'KPI gelöscht',
+      ja: 'KPI を削除しました',
+    ),
+    'resource_updated' => _agentInlineText(
+      l10n,
+      zh: '资源已更新',
+      en: 'Resources updated',
+      zhHant: '資源已更新',
+      fr: 'Ressources mises à jour',
+      de: 'Ressourcen aktualisiert',
+      ja: 'リソースを更新しました',
+    ),
+    'audit_recorded' => _agentInlineText(
+      l10n,
+      zh: '审计已记录',
+      en: 'Audit recorded',
+      zhHant: '稽核已記錄',
+      fr: 'Audit enregistré',
+      de: 'Audit aufgezeichnet',
+      ja: '監査を記録しました',
+    ),
+    'cluster_updated' => _agentInlineText(
+      l10n,
+      zh: '集群已更新',
+      en: 'Cluster updated',
+      zhHant: '叢集已更新',
+      fr: 'Cluster mis à jour',
+      de: 'Cluster aktualisiert',
+      ja: 'クラスターを更新しました',
+    ),
+    'worker_scaled_out' => _agentInlineText(
+      l10n,
+      zh: 'Worker 已扩容',
+      en: 'Worker scaled out',
+      zhHant: 'Worker 已擴容',
+      fr: 'Worker ajouté',
+      de: 'Worker hochskaliert',
+      ja: 'Worker をスケールアウトしました',
+    ),
+    'worker_scaled_in' => _agentInlineText(
+      l10n,
+      zh: 'Worker 已缩容',
+      en: 'Worker scaled in',
+      zhHant: 'Worker 已縮容',
+      fr: 'Worker retiré',
+      de: 'Worker herunterskaliert',
+      ja: 'Worker をスケールインしました',
+    ),
+    'worker_execution' => _agentInlineText(
+      l10n,
+      zh: 'Worker 执行',
+      en: 'Worker execution',
+      zhHant: 'Worker 執行',
+      fr: 'Exécution worker',
+      de: 'Worker-Ausführung',
+      ja: 'Worker 実行',
+    ),
+    _ => _agentHumanizedMachineLabel(kind),
   };
+}
+
+String _agentActivityTitle(AppLocalizations l10n, AgentActivityEvent event) {
+  final title = event.title.trim();
+  if (title.isEmpty ||
+      title == event.kind ||
+      _agentLooksLikeMachineToken(title)) {
+    return _agentActivityKindLabel(l10n, event.kind);
+  }
+  return _agentLocalizedPrefixedMessage(l10n, title);
 }
 
 String _agentActivitySubtitle(AppLocalizations l10n, AgentActivityEvent event) {
   final content = event.content.trim();
-  if (content.isNotEmpty) return content;
+  if (content.isNotEmpty) {
+    if (content == event.kind ||
+        content == event.title ||
+        _agentLooksLikeMachineToken(content)) {
+      return '';
+    }
+    return _agentLocalizedPrefixedMessage(l10n, content);
+  }
   return switch (event.kind) {
     'agent_started' ||
     'agent_stopped' ||
@@ -10080,6 +10364,105 @@ String _agentActivitySubtitle(AppLocalizations l10n, AgentActivityEvent event) {
     'approval_expired' => '',
     _ => _agentActivityMetadataFallback(event),
   };
+}
+
+String _agentLocalizedPrefixedMessage(AppLocalizations l10n, String raw) {
+  final match = RegExp(
+    r'^([a-z][a-z0-9_]*):\s*(.+)$',
+    caseSensitive: false,
+  ).firstMatch(raw);
+  if (match == null) return _agentLocalizeTerminalStatus(l10n, raw);
+  final prefix = match.group(1) ?? '';
+  final body = match.group(2) ?? '';
+  return '${_agentActivityKindLabel(l10n, prefix)}: '
+      '${_agentLocalizeTerminalStatus(l10n, body)}';
+}
+
+String _agentLocalizeTerminalStatus(AppLocalizations l10n, String raw) {
+  final match = RegExp(r'\(([A-Za-z][A-Za-z0-9_-]*)\)$').firstMatch(raw);
+  if (match == null) return raw;
+  final localized = _agentStatusTokenLabel(l10n, match.group(1) ?? '');
+  if (localized == null) return raw;
+  return raw.replaceRange(match.start + 1, match.end - 1, localized);
+}
+
+String? _agentStatusTokenLabel(AppLocalizations l10n, String value) {
+  return switch (value.trim().toLowerCase()) {
+    'queued' || 'backlog' => l10n.agentTaskStatusBacklog,
+    'ready' => l10n.agentTaskStatusReady,
+    'running' => l10n.agentTaskStatusRunning,
+    'waiting_approval' ||
+    'pending_approval' => l10n.agentTaskStatusWaitingApproval,
+    'paused' => l10n.agentTaskStatusPaused,
+    'completed' ||
+    'complete' ||
+    'success' ||
+    'succeeded' => l10n.agentTaskStatusCompleted,
+    'failed' || 'failure' || 'error' => l10n.agentTaskStatusFailed,
+    'canceled' || 'cancelled' => l10n.agentTaskStatusCanceled,
+    'terminated' => _agentInlineText(
+      l10n,
+      zh: '已终止',
+      en: 'Terminated',
+      zhHant: '已終止',
+      fr: 'Terminé',
+      de: 'Beendet',
+      ja: '終了済み',
+    ),
+    'timeout' || 'timed_out' => _agentInlineText(
+      l10n,
+      zh: '超时',
+      en: 'Timed out',
+      zhHant: '逾時',
+      fr: 'Expiré',
+      de: 'Zeitüberschreitung',
+      ja: 'タイムアウト',
+    ),
+    'approved' => _agentInlineText(
+      l10n,
+      zh: '已批准',
+      en: 'Approved',
+      zhHant: '已批准',
+      fr: 'Approuvé',
+      de: 'Genehmigt',
+      ja: '承認済み',
+    ),
+    'rejected' => _agentInlineText(
+      l10n,
+      zh: '已拒绝',
+      en: 'Rejected',
+      zhHant: '已拒絕',
+      fr: 'Refusé',
+      de: 'Abgelehnt',
+      ja: '却下済み',
+    ),
+    'expired' => _agentInlineText(
+      l10n,
+      zh: '已过期',
+      en: 'Expired',
+      zhHant: '已過期',
+      fr: 'Expiré',
+      de: 'Abgelaufen',
+      ja: '期限切れ',
+    ),
+    _ => null,
+  };
+}
+
+bool _agentLooksLikeMachineToken(String value) {
+  return RegExp(
+    r'^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$',
+  ).hasMatch(value.trim().toLowerCase());
+}
+
+String _agentHumanizedMachineLabel(String value) {
+  final normalized = value.trim().replaceAll(RegExp(r'[_\s-]+'), ' ');
+  if (normalized.isEmpty) return value;
+  return normalized
+      .split(' ')
+      .where((part) => part.isNotEmpty)
+      .map((part) => part[0].toUpperCase() + part.substring(1))
+      .join(' ');
 }
 
 String _agentActivityMessageTypeLabel(
@@ -10163,7 +10546,10 @@ Color _agentActivityToneColor(ColorScheme cs, AgentActivityMessageType type) {
   };
 }
 
-List<String> _agentActivityMetadataChips(AgentActivityEvent event) {
+List<String> _agentActivityMetadataChips(
+  BuildContext context,
+  AgentActivityEvent event,
+) {
   const keys = <String>[
     'task_id',
     'worker_id',

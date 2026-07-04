@@ -3,6 +3,7 @@ import 'package:provider/single_child_widget.dart';
 
 import '../agents/agents_controller.dart';
 import '../hooks/index.dart';
+import '../instructions/instructions_controller.dart';
 import '../knowledge_base/knowledge_base_controller.dart';
 import '../memory/index.dart';
 import 'ai_session_controller.dart';
@@ -31,6 +32,7 @@ class AiModule {
     required String Function() skillsDirProvider,
     required MemoryController? Function() memoryControllerProvider,
     required AgentsControllerProvider agentsControllerProvider,
+    required InstructionsControllerProvider instructionsControllerProvider,
     required List<AiModelConfig> Function() aiModelsProvider,
     required KnowledgeBaseController? Function()
     knowledgeBaseControllerProvider,
@@ -41,6 +43,7 @@ class AiModule {
       skillsDirProvider: skillsDirProvider,
       memoryControllerProvider: memoryControllerProvider,
       agentsControllerProvider: agentsControllerProvider,
+      instructionsControllerProvider: instructionsControllerProvider,
       aiModelsProvider: aiModelsProvider,
       knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
     );

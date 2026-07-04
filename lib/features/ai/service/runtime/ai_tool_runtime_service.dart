@@ -14,6 +14,7 @@ import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/tool_name_normalization.dart';
 import '../../../agents/index.dart';
+import '../../../instructions/instructions_controller.dart';
 import '../../../knowledge_base/knowledge_base_controller.dart';
 import '../../../mcp/index.dart';
 import '../../../skills/index.dart';
@@ -315,6 +316,7 @@ class AiToolRuntimeService {
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
     AgentsControllerProvider? agentsControllerProvider,
+    InstructionsControllerProvider? instructionsControllerProvider,
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
     String Function(String sessionId)? toolOutputDirectoryProvider,
@@ -342,6 +344,7 @@ class AiToolRuntimeService {
       skillsDirProvider: skillsDirProvider,
       memoryControllerProvider: memoryControllerProvider,
       agentsControllerProvider: agentsControllerProvider,
+      instructionsControllerProvider: instructionsControllerProvider,
       knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
       aiModelsProvider: aiModelsProvider,
     );

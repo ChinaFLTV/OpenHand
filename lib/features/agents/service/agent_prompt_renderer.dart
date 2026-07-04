@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../instructions/index.dart' show UserInstructionEntry;
 import '../model/agent_models.dart';
 import 'agent_ordering.dart';
 import 'agent_routing_metadata.dart';
@@ -51,7 +52,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.15';
+  static const String promptVersion = '1.2.16';
 
   final Future<String> Function(String path) _loader;
 
@@ -60,6 +61,8 @@ class AgentPromptRenderer {
     AgentTask? task,
     Map<String, Object?> taskContext = const <String, Object?>{},
     Set<String>? callableAgentToolNames,
+    List<UserInstructionEntry> boundInstructions =
+        const <UserInstructionEntry>[],
   }) async {
     final normalizedCallableAgentToolNames = callableAgentToolNames == null
         ? null
@@ -69,6 +72,7 @@ class AgentPromptRenderer {
     final capabilities = _capabilitiesJson(
       agent,
       callableAgentToolNames: normalizedCallableAgentToolNames,
+      boundInstructions: boundInstructions,
     );
     final runtimePolicy = _runtimePolicyJson(agent);
     final operationalState = _operationalStateJson(agent);
@@ -159,15 +163,61 @@ Map<String, Object?> _profileJson(AgentProfile agent) {
 Map<String, Object?> _capabilitiesJson(
   AgentProfile agent, {
   Set<String>? callableAgentToolNames,
+  List<UserInstructionEntry> boundInstructions = const <UserInstructionEntry>[],
 }) {
+  final bindings = agentCapabilityBindingsJson(
+    agent,
+    callableAgentToolNames: callableAgentToolNames,
+  );
+  final instructions = _boundInstructionJsonList(agent, boundInstructions);
+  if (instructions.isEmpty) return bindings;
+  final summary = stringKeyedMapFromValue(bindings['summary']);
   return <String, Object?>{
-    ...agentCapabilityBindingsJson(
-      agent,
-      callableAgentToolNames: callableAgentToolNames,
-    ),
-    'cron_ids': agent.cronIds,
-    'hook_ids': agent.hookIds,
+    ...bindings,
+    'instructions': instructions,
+    'summary': <String, Object?>{
+      ...summary,
+      'bound_instruction_details': instructions.length,
+    },
   };
+}
+
+List<Map<String, Object?>> _boundInstructionJsonList(
+  AgentProfile agent,
+  List<UserInstructionEntry> instructions,
+) {
+  if (agent.instructionIds.isEmpty || instructions.isEmpty) {
+    return const <Map<String, Object?>>[];
+  }
+  final byId = <String, UserInstructionEntry>{
+    for (final entry in instructions)
+      if (entry.enabled) entry.id: entry,
+  };
+  final result = <Map<String, Object?>>[];
+  for (final id in agent.instructionIds) {
+    final entry = byId[id];
+    if (entry == null) continue;
+    result.add(<String, Object?>{
+      'id': entry.id,
+      'name': entry.name,
+      'version': entry.version,
+      if (entry.description.trim().isNotEmpty)
+        'description': entry.description.trim(),
+      if (entry.applyTo.trim().isNotEmpty) 'apply_to': entry.applyTo.trim(),
+      if (entry.taskTypes.isNotEmpty) 'task_types': entry.taskTypes,
+      if (entry.keywords.isNotEmpty) 'keywords': entry.keywords,
+      if (entry.notes.isNotEmpty)
+        'notes': entry.notes
+            .take(_agentPromptInstructionMaxNotes)
+            .toList(growable: false),
+      'body': _boundedPromptText(
+        entry.body,
+        maxChars: _agentPromptInstructionBodyMaxChars,
+      ),
+    });
+    if (result.length >= _agentPromptInstructionMaxItems) break;
+  }
+  return result;
 }
 
 Map<String, Object?> _runtimePolicyJson(AgentProfile agent) {
@@ -296,7 +346,7 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
     'recent_terminal_tasks': recentTerminalTasks,
     'kpi_state': kpis.take(12).map(_kpiJson).toList(growable: false),
     'workers': agent.workers.map(_workerJson).toList(growable: false),
-    'resource_usage': agent.resourceUsage.toJson(),
+    'resource_usage': agent.resourceUsage.toJson(includeInternalExtra: false),
     'recent_activity': recentActivities
         .take(12)
         .map(_activityJson)
@@ -434,6 +484,9 @@ const int _agentPromptTaskTextMaxChars = 1600;
 const int _agentPromptTaskNoteMaxChars = 800;
 const int _agentPromptProfileTextMaxChars = 1200;
 const int _agentPromptArchiveMaxChars = 2000;
+const int _agentPromptInstructionBodyMaxChars = 2400;
+const int _agentPromptInstructionMaxItems = 12;
+const int _agentPromptInstructionMaxNotes = 6;
 const int _agentPromptEventTextMaxChars = 1200;
 const int _agentPromptAuditSummaryMaxChars = 1000;
 const int _agentPromptExtraStringMaxChars = 800;
@@ -753,6 +806,7 @@ Your identity, scope, mentor, model, permissions, workspace, and capabilities ar
 </approval_and_risk>
 
 <tool_and_capability_discipline>
+- Instructions: follow bound instruction bodies in `capability_bindings.instructions` unless higher-priority policy conflicts.
 - Skill: read and follow the bound skill instructions before using its workflow.
 - MCP: confirm server, action, parameters, and side effects before calling.
 - Knowledge: use for reference and policy; cite only relevant evidence.

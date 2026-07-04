@@ -28,6 +28,7 @@ import '../../shared/util/timer_safety.dart';
 import '../agents/agents_controller.dart';
 import '../home/index.dart';
 import '../hooks/index.dart';
+import '../instructions/instructions_controller.dart';
 import '../knowledge_base/index.dart';
 import '../mcp/index.dart';
 import 'data/ai_session_store.dart';
@@ -268,6 +269,7 @@ class AiSessionController extends ChangeNotifier {
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
     AgentsControllerProvider? agentsControllerProvider,
+    InstructionsControllerProvider? instructionsControllerProvider,
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
   }) async {
@@ -300,6 +302,7 @@ class AiSessionController extends ChangeNotifier {
             skillsDirProvider: skillsDirProvider,
             memoryControllerProvider: memoryControllerProvider,
             agentsControllerProvider: agentsControllerProvider,
+            instructionsControllerProvider: instructionsControllerProvider,
             knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
             aiModelsProvider: aiModelsProvider,
             toolOutputDirectoryProvider:
@@ -7928,6 +7931,7 @@ class AiSessionController extends ChangeNotifier {
       final executedSession = await _executeToolCalls(
         session: workingSession,
         model: model,
+        runtimeContext: runtimeContext,
         toolCatalog: toolCatalogForRound,
         toolCalls: result.toolCalls,
         promptMetadata: promptResult.metadata,
@@ -7998,6 +8002,7 @@ class AiSessionController extends ChangeNotifier {
   Future<AiSession?> _executeToolCalls({
     required AiSession session,
     required AiModelConfig model,
+    required AiSessionRuntimeContext runtimeContext,
     required AiResolvedToolCatalog toolCatalog,
     required List<AiToolCall> toolCalls,
     required Map<String, Object?> promptMetadata,
@@ -8017,6 +8022,7 @@ class AiSessionController extends ChangeNotifier {
       return _executeToolCallsInParallel(
         session: session,
         model: model,
+        runtimeContext: runtimeContext,
         toolCatalog: toolCatalog,
         toolCalls: toolCalls,
         promptMetadata: promptMetadata,
@@ -8065,6 +8071,7 @@ class AiSessionController extends ChangeNotifier {
         sessionId: workingSession.id,
         toolCall: toolCall,
         model: model,
+        runtimeContext: runtimeContext,
         toolCatalog: workingToolCatalog,
         readFilePaths: _readFileHistory(workingSession),
         promptMetadata: promptMetadata,
@@ -8191,6 +8198,7 @@ class AiSessionController extends ChangeNotifier {
   Future<AiSession?> _executeToolCallsInParallel({
     required AiSession session,
     required AiModelConfig model,
+    required AiSessionRuntimeContext runtimeContext,
     required AiResolvedToolCatalog toolCatalog,
     required List<AiToolCall> toolCalls,
     required Map<String, Object?> promptMetadata,
@@ -8258,6 +8266,7 @@ class AiSessionController extends ChangeNotifier {
           executionSessionId: state.executionSessionId,
           toolCall: state.toolCall,
           model: model,
+          runtimeContext: runtimeContext,
           toolCatalog: toolCatalog,
           readFilePaths: readFilePaths,
           promptMetadata: promptMetadata,
@@ -8443,6 +8452,7 @@ class AiSessionController extends ChangeNotifier {
     String? executionSessionId,
     required AiToolCall toolCall,
     required AiModelConfig model,
+    required AiSessionRuntimeContext runtimeContext,
     required AiResolvedToolCatalog toolCatalog,
     required Set<String> readFilePaths,
     Map<String, Object?> promptMetadata = const <String, Object?>{},
@@ -8463,6 +8473,7 @@ class AiSessionController extends ChangeNotifier {
         currentSession,
         promptMetadata: promptMetadata,
       );
+      toolMetadata.addAll(runtimeContext.toolExecutionMetadata);
       toolMetadata.addAll(<String, Object?>{
         if (sessionMode != null) 'session_mode': sessionMode.storageValue,
         'plan_mode_active': planModeActive,

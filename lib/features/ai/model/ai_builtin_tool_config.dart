@@ -18,6 +18,10 @@ enum AiAgentBuiltinToolGroup {
   cluster,
 }
 
+const String aiAgentToolAccessEnabledMetadataKey = 'agent_tools_enabled';
+const String aiAgentToolAllowedAgentIdsMetadataKey = 'allowed_agent_ids';
+const String aiAgentToolAccessSourceMetadataKey = 'agent_tool_access_source';
+
 extension AiBuiltinToolKindAgentMetadata on AiBuiltinToolKind {
   bool get isAgentCoordinationTool {
     return switch (this) {
