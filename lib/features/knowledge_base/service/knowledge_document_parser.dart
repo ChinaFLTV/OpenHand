@@ -11,6 +11,47 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
 
 final RegExp _knowledgeInlineWhitespacePattern = RegExp(r'\s+');
+final RegExp _knowledgeLineBreakPattern = RegExp(r'[\r\n]');
+final RegExp _knowledgeExcessiveBlankLinesPattern = RegExp(r'\n{3,}');
+final RegExp _xlsxWorksheetFilePattern = RegExp(
+  r'^xl/worksheets/sheet\d+\.xml$',
+);
+final RegExp _pptxSlideFilePattern = RegExp(r'^ppt/slides/slide\d+\.xml$');
+final RegExp _xlsxColumnReferencePattern = RegExp(r'^[A-Za-z]+');
+final RegExp _naturalIndexPattern = RegExp(r'(\d+)');
+final RegExp _htmlScriptPattern = RegExp(
+  r'<script\b[^>]*>.*?</script>',
+  caseSensitive: false,
+  dotAll: true,
+);
+final RegExp _htmlStylePattern = RegExp(
+  r'<style\b[^>]*>.*?</style>',
+  caseSensitive: false,
+  dotAll: true,
+);
+final RegExp _htmlCommentPattern = RegExp(r'<!--.*?-->', dotAll: true);
+final RegExp _htmlBlockClosePattern = RegExp(
+  r'</(p|div|section|article|header|footer|li|tr)>',
+  caseSensitive: false,
+);
+final RegExp _htmlBreakPattern = RegExp(r'<br\s*/?>', caseSensitive: false);
+final RegExp _htmlTableCellClosePattern = RegExp(
+  r'</t[dh]>',
+  caseSensitive: false,
+);
+final RegExp _htmlTitlePattern = RegExp(
+  r'<title\b[^>]*>(.*?)</title>',
+  caseSensitive: false,
+  dotAll: true,
+);
+final RegExp _htmlTagPattern = RegExp(r'<[^>]+>', dotAll: true);
+final RegExp _htmlDecimalEntityPattern = RegExp(r'&#(\d+);');
+final RegExp _htmlHexEntityPattern = RegExp(r'&#x([0-9a-fA-F]+);');
+final RegExp _tomlSectionPattern = RegExp(r'^\[(.+)]$');
+final RegExp _tomlAssignmentPattern = RegExp(r'^([^=]+)=(.*)$');
+final RegExp _pdfStreamStartPattern = RegExp(r'stream(?:\r\n|\n|\r)');
+final RegExp _pdfTextBlockPattern = RegExp(r'BT(.*?)ET', dotAll: true);
+final RegExp _pdfOctalEscapePattern = RegExp(r'^[0-7]{1,3}');
 
 class KnowledgeDocumentParseRequest {
   const KnowledgeDocumentParseRequest({
@@ -559,8 +600,7 @@ class XlsxKnowledgeDocumentParser extends KnowledgeDocumentParser {
         archive.files
             .where(
               (file) =>
-                  file.isFile &&
-                  RegExp(r'^xl/worksheets/sheet\d+\.xml$').hasMatch(file.name),
+                  file.isFile && _xlsxWorksheetFilePattern.hasMatch(file.name),
             )
             .toList(growable: false)
           ..sort(
@@ -625,8 +665,7 @@ class PptxKnowledgeDocumentParser extends KnowledgeDocumentParser {
         archive.files
             .where(
               (file) =>
-                  file.isFile &&
-                  RegExp(r'^ppt/slides/slide\d+\.xml$').hasMatch(file.name),
+                  file.isFile && _pptxSlideFilePattern.hasMatch(file.name),
             )
             .toList(growable: false)
           ..sort(
@@ -686,7 +725,7 @@ class PdfKnowledgeDocumentParser extends KnowledgeDocumentParser {
     final text = _extractPdfText(bytes);
     final header = latin1
         .decode(bytes.take(24).toList(growable: false), allowInvalid: true)
-        .split(RegExp(r'[\r\n]'))
+        .split(_knowledgeLineBreakPattern)
         .first
         .trim();
     final title = p.basename(request.file.path);
@@ -803,7 +842,7 @@ String _xlsxCellValue(xml.XmlElement cell, List<String> sharedStrings) {
 }
 
 int _xlsxColumnIndex(String reference) {
-  final letters = RegExp(r'^[A-Za-z]+').stringMatch(reference) ?? '';
+  final letters = _xlsxColumnReferencePattern.stringMatch(reference) ?? '';
   if (letters.isEmpty) return 0;
   var result = 0;
   for (final codeUnit in letters.toUpperCase().codeUnits) {
@@ -813,7 +852,7 @@ int _xlsxColumnIndex(String reference) {
 }
 
 int _naturalSheetIndex(String name) {
-  final match = RegExp(r'(\d+)').firstMatch(name);
+  final match = _naturalIndexPattern.firstMatch(name);
   return optionalNonNegativeIntFromValue(match?.group(1)) ?? 0;
 }
 
@@ -926,23 +965,9 @@ bool _isElement(xml.XmlElement element, String localName) {
 
 String _htmlToReadableMarkdown(String raw, String title) {
   var html = raw
-      .replaceAll(
-        RegExp(
-          r'<script\b[^>]*>.*?</script>',
-          caseSensitive: false,
-          dotAll: true,
-        ),
-        '\n',
-      )
-      .replaceAll(
-        RegExp(
-          r'<style\b[^>]*>.*?</style>',
-          caseSensitive: false,
-          dotAll: true,
-        ),
-        '\n',
-      )
-      .replaceAll(RegExp(r'<!--.*?-->', dotAll: true), '\n');
+      .replaceAll(_htmlScriptPattern, '\n')
+      .replaceAll(_htmlStylePattern, '\n')
+      .replaceAll(_htmlCommentPattern, '\n');
   for (var level = 1; level <= 6; level++) {
     html = html.replaceAllMapped(
       RegExp(
@@ -955,31 +980,21 @@ String _htmlToReadableMarkdown(String raw, String title) {
     );
   }
   html = html
-      .replaceAll(
-        RegExp(
-          r'</(p|div|section|article|header|footer|li|tr)>',
-          caseSensitive: false,
-        ),
-        '\n',
-      )
-      .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
-      .replaceAll(RegExp(r'</t[dh]>', caseSensitive: false), ' | ');
+      .replaceAll(_htmlBlockClosePattern, '\n')
+      .replaceAll(_htmlBreakPattern, '\n')
+      .replaceAll(_htmlTableCellClosePattern, ' | ');
   final body = _htmlEntitiesToText(_stripTags(html));
   return _compactBlankLines('# $title\n\n$body');
 }
 
 String _htmlTitle(String raw) {
-  final match = RegExp(
-    r'<title\b[^>]*>(.*?)</title>',
-    caseSensitive: false,
-    dotAll: true,
-  ).firstMatch(raw);
+  final match = _htmlTitlePattern.firstMatch(raw);
   if (match == null) return '';
   return _htmlEntitiesToText(_stripTags(match.group(1) ?? '')).trim();
 }
 
 String _stripTags(String value) {
-  return value.replaceAll(RegExp(r'<[^>]+>', dotAll: true), ' ');
+  return value.replaceAll(_htmlTagPattern, ' ');
 }
 
 String _htmlEntitiesToText(String value) {
@@ -990,11 +1005,11 @@ String _htmlEntitiesToText(String value) {
       .replaceAll('&gt;', '>')
       .replaceAll('&quot;', '"')
       .replaceAll('&apos;', "'")
-      .replaceAllMapped(RegExp(r'&#(\d+);'), (match) {
+      .replaceAllMapped(_htmlDecimalEntityPattern, (match) {
         final code = optionalIntFromText(match.group(1));
         return code == null ? match.group(0)! : String.fromCharCode(code);
       })
-      .replaceAllMapped(RegExp(r'&#x([0-9a-fA-F]+);'), (match) {
+      .replaceAllMapped(_htmlHexEntityPattern, (match) {
         final code = optionalIntFromText(match.group(1), radix: 16);
         return code == null ? match.group(0)! : String.fromCharCode(code);
       });
@@ -1144,12 +1159,12 @@ String _tomlToMarkdown(String title, String raw) {
   for (final line in raw.replaceAll('\r\n', '\n').split('\n')) {
     final trimmed = line.trim();
     if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
-    final section = RegExp(r'^\[(.+)]$').firstMatch(trimmed);
+    final section = _tomlSectionPattern.firstMatch(trimmed);
     if (section != null) {
       buffer.writeln('\n## ${section.group(1)!.trim()}\n');
       continue;
     }
-    final assignment = RegExp(r'^([^=]+)=(.*)$').firstMatch(trimmed);
+    final assignment = _tomlAssignmentPattern.firstMatch(trimmed);
     if (assignment != null) {
       buffer.writeln(
         '- ${assignment.group(1)!.trim()}: ${assignment.group(2)!.trim()}',
@@ -1169,8 +1184,7 @@ String _tomlToMarkdown(String title, String raw) {
 String _extractPdfText(List<int> bytes) {
   final latin = latin1.decode(bytes, allowInvalid: true);
   final buffer = StringBuffer();
-  final streamPattern = RegExp(r'stream(?:\r\n|\n|\r)');
-  for (final match in streamPattern.allMatches(latin)) {
+  for (final match in _pdfStreamStartPattern.allMatches(latin)) {
     final end = latin.indexOf('endstream', match.end);
     if (end <= match.end) continue;
     var contentEnd = end;
@@ -1207,8 +1221,7 @@ List<int>? _decodePdfStream(List<int> bytes, String dictionary) {
 
 String _extractPdfContentText(String stream) {
   final buffer = StringBuffer();
-  final textBlocks = RegExp(r'BT(.*?)ET', dotAll: true).allMatches(stream);
-  for (final block in textBlocks) {
+  for (final block in _pdfTextBlockPattern.allMatches(stream)) {
     final strings = _extractPdfStrings(block.group(1) ?? '')
         .map(_collapseInlineWhitespace)
         .where((value) => value.length > 1)
@@ -1282,7 +1295,7 @@ _PdfLiteral? _parsePdfLiteral(String input, int start) {
         case '\n':
           index += 2;
         default:
-          final octal = RegExp(r'^[0-7]{1,3}').stringMatch(
+          final octal = _pdfOctalEscapePattern.stringMatch(
             input.substring(index + 1, math.min(input.length, index + 4)),
           );
           if (octal != null && octal.isNotEmpty) {
@@ -1317,7 +1330,7 @@ _PdfLiteral? _parsePdfLiteral(String input, int start) {
 }
 
 String _decodePdfHex(String hex) {
-  final clean = hex.replaceAll(RegExp(r'\s+'), '');
+  final clean = hex.replaceAll(_knowledgeInlineWhitespacePattern, '');
   final bytes = <int>[];
   for (var index = 0; index < clean.length; index += 2) {
     final chunk = index + 1 < clean.length
@@ -1366,7 +1379,7 @@ String _compactBlankLines(String value) {
       .split('\n')
       .map((line) => line.trimRight())
       .join('\n')
-      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+      .replaceAll(_knowledgeExcessiveBlankLinesPattern, '\n\n')
       .trim();
 }
 
