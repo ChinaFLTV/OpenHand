@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../runtime/ai_endpoint_router.dart';
@@ -307,7 +308,7 @@ class AiVideoGenerationService {
     final baseBody = <String, Object?>{
       'model': model.resolveOperationModelId(_family),
       'prompt': prompt,
-      if (image?.trim().isNotEmpty == true) 'image': image!.trim(),
+      if (nullIfBlank(image) case final imageValue?) 'image': imageValue,
       ...parameters,
     };
     final body = AiOperationHttp.mergeBodyExtras(model, _family, baseBody);
@@ -403,10 +404,8 @@ class AiVideoGenerationService {
   String? _pathOverride(AiModelConfig model, String key) {
     final extras = AiOperationHttp.extrasForFamily(model, _family);
     final paths = AiOperationHttp.stringKeyedMap(extras[_pathsKey]);
-    final fromPaths = '${paths[key] ?? ''}'.trim();
-    if (fromPaths.isNotEmpty) return fromPaths;
-    final direct = '${extras['${key}_path'] ?? ''}'.trim();
-    return direct.isEmpty ? null : direct;
+    return optionalStringFromValue(paths[key]) ??
+        optionalStringFromValue(extras['${key}_path']);
   }
 
   Uri _withQuery(Uri uri, Map<String, String> extraQuery) {
@@ -442,8 +441,8 @@ class AiVideoGenerationService {
     final nested = AiOperationHttp.stringKeyedMap(payload['data']);
     String? pickString(Iterable<Object?> values) {
       for (final value in values) {
-        final text = '${value ?? ''}'.trim();
-        if (text.isNotEmpty) return text;
+        final text = optionalStringFromValue(value);
+        if (text != null) return text;
       }
       return null;
     }
