@@ -5237,7 +5237,7 @@ Future<void> _showPublishTaskDialog(
     builder: (_) => _AgentPublishTaskDialog(agent: agent),
   );
   if (draft != null && context.mounted) {
-    await context.read<AgentsController>().publishTask(
+    final published = await context.read<AgentsController>().publishTask(
       agent.id,
       title: draft.title,
       description: draft.description,
@@ -5245,6 +5245,16 @@ Future<void> _showPublishTaskDialog(
       note: draft.note,
       extra: draft.extra,
     );
+    if (!published && context.mounted) {
+      OpenHandSnackBar.showError(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '任务未发布，请先启用智能体并确认 Hermes Agent 可运行。',
+          en: 'Task was not published. Enable the agent and confirm Hermes Agent can run first.',
+        ),
+      );
+    }
   }
 }
 

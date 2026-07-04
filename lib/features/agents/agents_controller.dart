@@ -237,8 +237,18 @@ class AgentsController extends ManagedChangeNotifier {
     final normalizedTitle = title.trim();
     if (normalizedTitle.isEmpty) return null;
     AgentTask? createdTask;
-    final changed = await updateAgent(agentId, (agent) {
-      if (!agent.enabled) return agent;
+    final normalizedAgentId = agentId.trim();
+    if (normalizedAgentId.isEmpty) return null;
+    final changed = await _commitMutation(() async {
+      final index = _agents.indexWhere(
+        (agent) => agent.id == normalizedAgentId,
+      );
+      if (index < 0) return false;
+      final agent = _agents[index];
+      if (!agent.enabled ||
+          agent.lifecycleState != AgentLifecycleState.running) {
+        return false;
+      }
       final now = DateTime.now().toUtc();
       final task = AgentTask(
         id: _uuid.v4(),
@@ -292,7 +302,18 @@ class AgentsController extends ManagedChangeNotifier {
         (item) => item.id == task.id,
         orElse: () => task,
       );
-      return dispatched;
+      final normalized = _normalizeAgent(dispatched.copyWith(updatedAt: now));
+      createdTask = normalized.tasks.firstWhere(
+        (item) => item.id == task.id,
+        orElse: () => createdTask!,
+      );
+      _setAgents(<AgentProfile>[
+        ..._agents.sublist(0, index),
+        normalized,
+        ..._agents.sublist(index + 1),
+      ]);
+      await _store.save(_agents);
+      return true;
     });
     return changed ? createdTask : null;
   }

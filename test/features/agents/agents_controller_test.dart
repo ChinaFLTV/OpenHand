@@ -139,6 +139,35 @@ void main() {
       },
     );
 
+    test(
+      'publishing to a stopped agent is rejected without side effects',
+      () async {
+        await controller.saveAgent(
+          _runningAgent(
+            scaleSettings: const AgentScaleSettings(minWorkers: 0),
+            workers: const <AgentWorker>[],
+          ).copyWith(
+            enabled: false,
+            lifecycleState: AgentLifecycleState.stopped,
+          ),
+        );
+        final before = controller.agentById('agent-1')!;
+
+        final task = await controller.publishTaskWithResult(
+          'agent-1',
+          title: 'Should not run while stopped',
+        );
+
+        final after = controller.agentById('agent-1')!;
+        expect(task, isNull);
+        expect(after.tasks, isEmpty);
+        expect(after.activities, isEmpty);
+        expect(after.auditEvents, isEmpty);
+        expect(after.workers, isEmpty);
+        expect(after.updatedAt, before.updatedAt);
+      },
+    );
+
     test('publishing a task preserves caller extra metadata', () async {
       await controller.saveAgent(_runningAgent());
 

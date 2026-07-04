@@ -1365,6 +1365,49 @@ void main() {
       expect(tasks.single.extra['retryable'], isTrue);
     });
 
+    testWidgets('shows an error when publishing to a stopped agent', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          scaleSettings: AgentScaleSettings(minWorkers: 0),
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('任务台').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('发布任务').first);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, '任务标题'),
+        'Prepare weekly report',
+      );
+      final publishButton = find.ancestor(
+        of: find.text('发布').last,
+        matching: find.byType(FilledButton),
+      );
+      await tester.tap(publishButton);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      expect(controller.agentById('agent-1')!.tasks, isEmpty);
+      expect(find.textContaining('任务未发布'), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
+    });
+
     testWidgets('keeps publish task dialog open when title is blank', (
       tester,
     ) async {
