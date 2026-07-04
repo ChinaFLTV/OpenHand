@@ -310,6 +310,7 @@ class AiFileMutationLedger {
     : _rootOverride = rootDirectoryOverride;
 
   static final RegExp _sha256HexPattern = RegExp(r'^[0-9a-f]{64}$');
+  static final RegExp _unsafeSessionIdCharPattern = RegExp(r'[^a-zA-Z0-9_\-.]');
   static const Duration _staleAtomicArtifactAge = Duration(days: 1);
   static const int _legacyBlobRecoveryMaxFiles = 2000;
   static const int _blobRecoveryMaxBytes = 16 * 1024 * 1024;
@@ -1561,7 +1562,7 @@ class AiFileMutationLedger {
 
   String _safeSessionId(String raw) {
     final trimmed = nullIfBlank(raw) ?? '';
-    return trimmed.replaceAll(RegExp(r'[^a-zA-Z0-9_\-.]'), '_');
+    return trimmed.replaceAll(_unsafeSessionIdCharPattern, '_');
   }
 
   // ─────────────────────────── 跨会话查询 / 导出导入 ─────────────────────────
