@@ -5276,6 +5276,8 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
   late final TextEditingController _description;
   late final TextEditingController _content;
   late final TextEditingController _note;
+  late final TextEditingController _labelInput;
+  final List<String> _labels = <String>[];
   final List<_KeyValueDraft> _extraEntries = <_KeyValueDraft>[];
 
   @override
@@ -5285,6 +5287,7 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
     _description = TextEditingController();
     _content = TextEditingController();
     _note = TextEditingController();
+    _labelInput = TextEditingController();
   }
 
   @override
@@ -5293,6 +5296,7 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
     _description.dispose();
     _content.dispose();
     _note.dispose();
+    _labelInput.dispose();
     for (final entry in _extraEntries) {
       entry.dispose();
     }
@@ -5348,6 +5352,8 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
               decoration: InputDecoration(labelText: l10n.agentsNoteLabel),
             ),
             const SizedBox(height: 12),
+            _taskLabelEditor(l10n),
+            const SizedBox(height: 12),
             _AgentKeyValueEditor(
               title: openHandLocalizedText(
                 context,
@@ -5391,6 +5397,73 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
     );
   }
 
+  Widget _taskLabelEditor(AppLocalizations l10n) {
+    return InputDecorator(
+      decoration: InputDecoration(labelText: l10n.agentsTaskLabelsLabel),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _labelInput,
+                  decoration: InputDecoration(
+                    hintText: openHandLocalizedText(
+                      context,
+                      zh: '输入任务标签后添加',
+                      en: 'Enter a task label, then add',
+                    ),
+                  ),
+                  onSubmitted: (_) => _addLabel(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              IconButton.filledTonal(
+                key: const ValueKey<String>('agent-publish-task-label-add'),
+                tooltip: openHandLocalizedText(context, zh: '添加', en: 'Add'),
+                onPressed: _addLabel,
+                icon: const Icon(Icons.add_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _AnimatedReorderableChipStrip(
+            values: _labels,
+            emptyText: openHandLocalizedText(
+              context,
+              zh: '暂无任务标签。',
+              en: 'No task labels yet.',
+            ),
+            onRemove: (value) => setState(() => _labels.remove(value)),
+            onReorder: (oldIndex, newIndex) =>
+                setState(() => _reorderLabels(oldIndex, newIndex)),
+            keyPrefix: 'agent-publish-task-label',
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addLabel() {
+    final value = _labelInput.text.trim();
+    if (value.isEmpty) return;
+    setState(() {
+      if (!_labels.any((item) => item.toLowerCase() == value.toLowerCase())) {
+        _labels.add(value);
+      }
+      _labelInput.clear();
+    });
+  }
+
+  void _reorderLabels(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _labels.length) return;
+    final targetIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
+    if (targetIndex < 0 || targetIndex >= _labels.length) return;
+    final item = _labels.removeAt(oldIndex);
+    _labels.insert(targetIndex, item);
+  }
+
   void _removeExtraEntry(_KeyValueDraft entry) {
     setState(() {
       _extraEntries.remove(entry);
@@ -5411,13 +5484,17 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
       );
       return;
     }
+    final extra = _agentKeyValueDraftMapFromEntries(_extraEntries);
+    if (_labels.isNotEmpty) {
+      extra['labels'] = List<String>.unmodifiable(_labels);
+    }
     Navigator.of(context).pop(
       _AgentPublishTaskDraft(
         title: _title.text,
         description: _description.text,
         content: _content.text,
         note: _note.text,
-        extra: _agentKeyValueDraftMapFromEntries(_extraEntries),
+        extra: extra,
       ),
     );
   }

@@ -1233,6 +1233,25 @@ void main() {
         find.widgetWithText(TextField, '介绍'),
         'Collect weekly evidence.',
       );
+      await tester.enterText(
+        find.widgetWithText(TextField, '输入任务标签后添加'),
+        'ops',
+      );
+      final addLabelButton = find.byKey(
+        const ValueKey<String>('agent-publish-task-label-add'),
+      );
+      await tester.ensureVisible(addLabelButton);
+      await tester.pumpAndSettle();
+      await tester.tap(addLabelButton);
+      await tester.pump();
+      await tester.enterText(
+        find.widgetWithText(TextField, '输入任务标签后添加'),
+        'report',
+      );
+      await tester.ensureVisible(addLabelButton);
+      await tester.pumpAndSettle();
+      await tester.tap(addLabelButton);
+      await tester.pump();
       final addFieldButton = find.byTooltip('添加字段').last;
       await tester.ensureVisible(addFieldButton);
       await tester.pumpAndSettle();
@@ -1254,6 +1273,7 @@ void main() {
       expect(tasks, hasLength(1));
       expect(tasks.single.title, 'Prepare weekly report');
       expect(tasks.single.description, 'Collect weekly evidence.');
+      expect(tasks.single.extra['labels'], <String>['ops', 'report']);
       expect(tasks.single.extra['retryable'], isTrue);
     });
 
