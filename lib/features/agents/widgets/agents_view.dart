@@ -7911,9 +7911,13 @@ class _AnimatedReorderableChipStripState
   void _reorderToSlot(_AgentChipDragPayload payload, int insertIndex) {
     if (_activeDragValue != payload.value) {
       _activeDragValue = payload.value;
-      _lastInsertIndex = null;
     }
-    final oldIndex = widget.values.indexOf(payload.value);
+    final oldIndex =
+        payload.sourceIndex >= 0 &&
+            payload.sourceIndex < widget.values.length &&
+            widget.values[payload.sourceIndex] == payload.value
+        ? payload.sourceIndex
+        : widget.values.indexOf(payload.value);
     if (oldIndex < 0) return;
     final boundedInsertIndex = insertIndex
         .clamp(0, widget.values.length)
@@ -7956,6 +7960,7 @@ class _AnimatedReorderableChipStripState
               _AgentReorderableChipDropTarget(
                 key: ValueKey<String>('${widget.keyPrefix}-${entry.$2}'),
                 value: entry.$2,
+                index: entry.$1,
                 label: widget.labelBuilder?.call(entry.$2) ?? entry.$2,
                 settings: animationSettings,
                 onRemove: widget.onRemove,
@@ -8007,9 +8012,10 @@ class _AgentChipStripSwitcher extends StatelessWidget {
 }
 
 class _AgentChipDragPayload {
-  const _AgentChipDragPayload({required this.value});
+  const _AgentChipDragPayload({required this.value, required this.sourceIndex});
 
   final String value;
+  final int sourceIndex;
 }
 
 enum _AgentChipDropPlacement { before, after }
@@ -8018,6 +8024,7 @@ class _AgentReorderableChipDropTarget extends StatefulWidget {
   const _AgentReorderableChipDropTarget({
     super.key,
     required this.value,
+    required this.index,
     required this.label,
     required this.settings,
     required this.onRemove,
@@ -8028,6 +8035,7 @@ class _AgentReorderableChipDropTarget extends StatefulWidget {
   });
 
   final String value;
+  final int index;
   final String label;
   final DialogAnimationSettings settings;
   final ValueChanged<String> onRemove;
@@ -8049,6 +8057,7 @@ class _AgentReorderableChipDropTarget extends StatefulWidget {
 class _AgentReorderableChipDropTargetState
     extends State<_AgentReorderableChipDropTarget> {
   final GlobalKey _targetKey = GlobalKey();
+  _AgentChipDropPlacement? _hoverPlacement;
 
   _AgentChipDropPlacement _placementFor(Offset globalOffset) {
     final renderObject = _targetKey.currentContext?.findRenderObject();
@@ -8063,11 +8072,23 @@ class _AgentReorderableChipDropTargetState
 
   void _handleMove(DragTargetDetails<_AgentChipDragPayload> details) {
     if (details.data.value == widget.value) return;
-    widget.onReorderAround(
-      details.data,
-      widget.value,
-      _placementFor(details.offset),
-    );
+    final placement = _placementFor(details.offset);
+    if (_hoverPlacement != placement) {
+      setState(() => _hoverPlacement = placement);
+    }
+    widget.onReorderAround(details.data, widget.value, placement);
+  }
+
+  void _handleAccept(DragTargetDetails<_AgentChipDragPayload> details) {
+    if (details.data.value == widget.value) return;
+    final placement = _hoverPlacement ?? _placementFor(details.offset);
+    widget.onReorderAround(details.data, widget.value, placement);
+    if (mounted) setState(() => _hoverPlacement = null);
+  }
+
+  void _clearHover(_AgentChipDragPayload? _) {
+    if (_hoverPlacement == null) return;
+    setState(() => _hoverPlacement = null);
   }
 
   @override
@@ -8075,13 +8096,22 @@ class _AgentReorderableChipDropTargetState
     return DragTarget<_AgentChipDragPayload>(
       onWillAcceptWithDetails: (details) => details.data.value != widget.value,
       onMove: _handleMove,
-      onAcceptWithDetails: _handleMove,
+      onAcceptWithDetails: _handleAccept,
+      onLeave: _clearHover,
       builder: (context, candidateData, rejectedData) {
         final targeted = candidateData.isNotEmpty;
+        final placement = _hoverPlacement ?? _AgentChipDropPlacement.before;
         return AnimatedContainer(
           duration: widget.settings.duration,
           curve: widget.settings.curve.curve,
-          padding: targeted ? const EdgeInsets.all(2) : EdgeInsets.zero,
+          padding: targeted
+              ? EdgeInsetsDirectional.only(
+                  start: placement == _AgentChipDropPlacement.before ? 6 : 2,
+                  end: placement == _AgentChipDropPlacement.after ? 6 : 2,
+                  top: 2,
+                  bottom: 2,
+                )
+              : EdgeInsets.zero,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             color: targeted
@@ -8100,6 +8130,7 @@ class _AgentReorderableChipDropTargetState
                   ),
                   label: widget.label,
                   value: widget.value,
+                  index: widget.index,
                   onDeleted: requestRemove,
                   onDragStarted: widget.onDragStarted,
                   onDragFinished: widget.onDragFinished,
@@ -8130,7 +8161,6 @@ class _AgentChipInsertionDropTarget extends StatelessWidget {
   Widget build(BuildContext context) {
     return DragTarget<_AgentChipDragPayload>(
       onWillAcceptWithDetails: (_) => true,
-      onMove: (details) => onAccept(details.data),
       onAcceptWithDetails: (details) => onAccept(details.data),
       builder: (context, candidateData, rejectedData) {
         final targeted = candidateData.isNotEmpty;
@@ -8163,6 +8193,7 @@ class _AgentDraggableChip extends StatelessWidget {
     super.key,
     required this.label,
     required this.value,
+    required this.index,
     required this.onDeleted,
     required this.onDragStarted,
     required this.onDragFinished,
@@ -8171,6 +8202,7 @@ class _AgentDraggableChip extends StatelessWidget {
 
   final String label;
   final String value;
+  final int index;
   final VoidCallback onDeleted;
   final ValueChanged<String> onDragStarted;
   final VoidCallback onDragFinished;
@@ -8185,11 +8217,12 @@ class _AgentDraggableChip extends StatelessWidget {
       dragging: false,
     );
     return Draggable<_AgentChipDragPayload>(
-      data: _AgentChipDragPayload(value: value),
+      data: _AgentChipDragPayload(value: value, sourceIndex: index),
       onDragStarted: () => onDragStarted(value),
       onDragEnd: (_) => onDragFinished(),
       onDraggableCanceled: (_, _) => onDragFinished(),
       onDragCompleted: onDragFinished,
+      rootOverlay: true,
       feedback: _AgentDraggableChipFeedback(
         child: _AgentDraggableChipBody(
           label: label,
