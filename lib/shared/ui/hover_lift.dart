@@ -7,8 +7,8 @@ import 'motion_preference.dart';
 /// stronger shadow. Designed for list/grid cards where a faint
 /// "rises to meet the cursor" affordance is desired.
 ///
-/// Honors `MediaQuery.disableAnimationsOf(context)` and `TickerMode`: when
-/// motion is unavailable, the child renders directly and flat.
+/// Honors the shared motion preference, including reduce motion and
+/// `TickerMode`: when motion is unavailable, the child renders directly.
 ///
 /// On touch-only platforms `MouseRegion` simply never fires, so this
 /// wrapper is a no-op in that case — no extra cost on mobile.

@@ -11,8 +11,8 @@ const double kOpenHandMicroPressMaxScale = 1.0;
 /// it uses [Listener] with translucent hit-test behavior so the inner
 /// child still receives the actual gesture and runs its `onPressed`.
 ///
-/// Honors `MediaQuery.disableAnimationsOf(context)` and `TickerMode`: when
-/// motion is unavailable, the child renders directly and unscaled.
+/// Honors the shared motion preference, including reduce motion and
+/// `TickerMode`: when motion is unavailable, the child renders directly.
 ///
 /// Use sparingly on toolbar buttons / chip actions where a brief
 /// tactile "click" feel is desired.
