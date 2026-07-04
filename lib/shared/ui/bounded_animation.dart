@@ -29,9 +29,21 @@ double openHandBoundedProgress(
   double min = kOpenHandAnimationProgressMin,
   double max = kOpenHandAnimationProgressMax,
 }) {
-  if (value.isNaN) return min;
-  if (!value.isFinite) return value.isNegative ? min : max;
-  return value.clamp(min, max).toDouble();
+  final (:lower, :upper) = _orderedFiniteAnimationBounds(min, max);
+  if (value.isNaN) return lower;
+  if (!value.isFinite) return value.isNegative ? lower : upper;
+  return value.clamp(lower, upper).toDouble();
+}
+
+({double lower, double upper}) _orderedFiniteAnimationBounds(
+  double min,
+  double max,
+) {
+  final safeMin = min.isFinite ? min : kOpenHandAnimationProgressMin;
+  final safeMax = max.isFinite ? max : kOpenHandAnimationProgressMax;
+  return safeMin <= safeMax
+      ? (lower: safeMin, upper: safeMax)
+      : (lower: safeMax, upper: safeMin);
 }
 
 class OpenHandCurveAnimation extends Animation<double>
