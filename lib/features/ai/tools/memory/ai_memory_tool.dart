@@ -50,7 +50,7 @@ class AiMemoryTool extends AiTool {
   /// without constructing a full [AiToolExecutionContext].
   Future<AiToolExecutionResult> run(Map<String, Object?> args) async {
     final stopwatch = Stopwatch()..start();
-    final action = '${args['action'] ?? ''}'.trim().toLowerCase();
+    final action = AiToolUtils.readString(args['action']).toLowerCase();
 
     final controller = memoryControllerProvider();
     if (controller == null) {
@@ -94,7 +94,7 @@ class AiMemoryTool extends AiTool {
     Map<String, Object?> args,
     Stopwatch sw,
   ) {
-    final tag = '${args['tag'] ?? ''}'.trim();
+    final tag = AiToolUtils.readString(args['tag']);
     final entries = tag.isEmpty
         ? controller.entries
         : controller.memoriesWithTag(tag);
@@ -180,7 +180,7 @@ class AiMemoryTool extends AiTool {
     Map<String, Object?> args,
     Stopwatch sw,
   ) async {
-    final id = '${args['id'] ?? ''}'.trim();
+    final id = AiToolUtils.readString(args['id']);
     final content = '${args['content'] ?? ''}';
     final tags = stringListFromValueOrJsonText(args['tags']);
     final titleArg = args['title'];
@@ -226,7 +226,7 @@ class AiMemoryTool extends AiTool {
     Map<String, Object?> args,
     Stopwatch sw,
   ) async {
-    final id = '${args['id'] ?? ''}'.trim();
+    final id = AiToolUtils.readString(args['id']);
     if (id.isEmpty) {
       return AiToolUtils.invalidResult(_toolName, 'delete requires "id".');
     }

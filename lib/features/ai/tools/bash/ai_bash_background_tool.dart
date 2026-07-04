@@ -118,7 +118,7 @@ class AiBashBackgroundTool extends AiTool {
     AiToolExecutionContext context,
     Map<String, Object?> args,
   ) {
-    final action = '${args['action'] ?? ''}'.trim().toLowerCase();
+    final action = AiToolUtils.readString(args['action']).toLowerCase();
     if (action.isNotEmpty) return action;
     final toolName = _normalizedToolCallName(context.toolCall.name);
     if (toolName == 'taskoutput' ||
@@ -161,7 +161,10 @@ class AiBashBackgroundTool extends AiTool {
     AiToolExecutionContext context,
     Map<String, Object?> args,
   ) async {
-    final cmd = '${args['cmd'] ?? args['command'] ?? ''}'.trim();
+    final cmd = AiToolUtils.readFirstString(args, const <String>[
+      'cmd',
+      'command',
+    ]);
     if (cmd.isEmpty) {
       return AiToolUtils.invalidResult(
         'BashBackground',
@@ -415,7 +418,7 @@ class AiBashBackgroundTool extends AiTool {
     AiToolExecutionContext context,
     Map<String, Object?> args,
   ) async {
-    final handle = '${args['handle'] ?? ''}'.trim();
+    final handle = AiToolUtils.readString(args['handle']);
     final input = '${args['input'] ?? ''}';
     final session = _sessions[handle];
     if (session == null) {

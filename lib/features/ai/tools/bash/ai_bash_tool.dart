@@ -39,9 +39,14 @@ class AiBashTool extends AiTool {
     final args = context.decodedArguments;
     final cancelSignal = context.cancelSignal;
     final onBashUpdate = context.onBashUpdate;
-    final command = '${args['cmd'] ?? args['command'] ?? ''}'.trim();
-    final workingDirectory = '${args['working_directory'] ?? args['cwd'] ?? ''}'
-        .trim();
+    final command = AiToolUtils.readFirstString(args, const <String>[
+      'cmd',
+      'command',
+    ]);
+    final workingDirectory = AiToolUtils.readFirstString(args, const <String>[
+      'working_directory',
+      'cwd',
+    ]);
 
     final confirmationGate = AiBashWriteConfirmationGate(
       hookService: _hookService,

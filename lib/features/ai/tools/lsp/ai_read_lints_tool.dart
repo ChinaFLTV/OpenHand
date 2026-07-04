@@ -36,7 +36,7 @@ class AiReadLintsTool extends AiTool {
 
     final paths = _parsePaths(args['paths']);
     final workingDirectory = AiToolUtils.resolvePath(
-      '${args['working_directory'] ?? ''}'.trim(),
+      AiToolUtils.readString(args['working_directory']),
     );
 
     try {

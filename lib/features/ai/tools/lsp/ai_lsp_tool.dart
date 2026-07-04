@@ -35,8 +35,11 @@ class AiLspTool extends AiTool {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
 
-    final operation = '${args['operation'] ?? ''}'.trim();
-    final filePath = '${args['filePath'] ?? args['file_path'] ?? ''}'.trim();
+    final operation = AiToolUtils.readString(args['operation']);
+    final filePath = AiToolUtils.readFirstString(args, const <String>[
+      'filePath',
+      'file_path',
+    ]);
 
     if (operation.isEmpty || filePath.isEmpty) {
       return AiToolUtils.invalidResult(
