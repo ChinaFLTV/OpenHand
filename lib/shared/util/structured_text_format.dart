@@ -5,6 +5,10 @@ import 'package:yaml/yaml.dart';
 
 enum StructuredTextFormat { json, xml, yaml }
 
+const int _kMaxStructuredTextNestingDepth = 64;
+const String _kCircularStructuredValuePlaceholder = '<circular>';
+const String _kMaxDepthStructuredValuePlaceholder = '<max-depth>';
+
 final class StructuredTextFormatResult {
   const StructuredTextFormatResult({required this.text, this.format});
 
@@ -25,8 +29,9 @@ final class StructuredTextFormatResult {
 }
 
 StructuredTextFormat? _formatFromName(String name) {
+  final normalized = name.trim().toLowerCase();
   for (final format in StructuredTextFormat.values) {
-    if (format.name == name) return format;
+    if (format.name == normalized) return format;
   }
   return null;
 }
@@ -150,16 +155,50 @@ String _prettyJson(Object? value) {
 }
 
 Object? _jsonSafeValue(Object? value) {
+  return _jsonSafeValueInternal(value, depth: 0, seen: Set<Object>.identity());
+}
+
+Object? _jsonSafeValueInternal(
+  Object? value, {
+  required int depth,
+  required Set<Object> seen,
+}) {
+  if (value == null || value is String || value is bool) {
+    return value;
+  }
+  if (value is num) return value.isFinite ? value : value.toString();
+  if (depth >= _kMaxStructuredTextNestingDepth) {
+    return _kMaxDepthStructuredValuePlaceholder;
+  }
   if (value is YamlMap || value is Map) {
+    if (!seen.add(value)) return _kCircularStructuredValuePlaceholder;
     final map = value as Map;
-    return <String, Object?>{
-      for (final entry in map.entries)
-        '${entry.key}': _jsonSafeValue(entry.value),
-    };
+    try {
+      return <String, Object?>{
+        for (final entry in map.entries)
+          '${entry.key}': _jsonSafeValueInternal(
+            entry.value,
+            depth: depth + 1,
+            seen: seen,
+          ),
+      };
+    } finally {
+      seen.remove(value);
+    }
   }
   if (value is YamlList || value is List) {
+    if (!seen.add(value)) return _kCircularStructuredValuePlaceholder;
     final list = value as List;
-    return list.map(_jsonSafeValue).toList(growable: false);
+    try {
+      return list
+          .map(
+            (entry) =>
+                _jsonSafeValueInternal(entry, depth: depth + 1, seen: seen),
+          )
+          .toList(growable: false);
+    } finally {
+      seen.remove(value);
+    }
   }
-  return value;
+  return value.toString();
 }
