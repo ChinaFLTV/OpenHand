@@ -1544,7 +1544,7 @@ class AiAgentTool extends AiTool {
       includeDisabled: includeDisabled,
     );
     if (agent != null) {
-      if (!includeDisabled && !_agentAllowsCurrentTool(agent)) {
+      if (!_agentAllowsCurrentTool(agent)) {
         return _AgentResolution.error(
           AiToolUtils.invalidResult(
             _name,

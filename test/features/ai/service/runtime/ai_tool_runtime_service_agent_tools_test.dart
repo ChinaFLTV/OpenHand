@@ -673,6 +673,52 @@ void main() {
       },
     );
 
+    test('include disabled lookup still requires the target tool binding', () async {
+      await controller.saveAgent(
+        _agent(
+          id: 'agent-detailer',
+          name: 'Detail Agent',
+          enabled: true,
+          builtinToolNames: const <String>['AgentDetail'],
+        ),
+      );
+      await controller.saveAgent(
+        _agent(
+          id: 'agent-list-only',
+          name: 'List Only Agent',
+          enabled: true,
+          builtinToolNames: const <String>['AgentList'],
+        ),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(),
+      );
+      expect(catalog.find('AgentDetail'), isNotNull);
+
+      final result = await runtime.execute(
+        sessionId: 'session-agent-include-disabled',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-detail-unbound',
+          name: 'AgentDetail',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-list-only',
+            'include_disabled': true,
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(result.status, BashToolExecutionStatus.invalidArguments);
+      expect(result.resultText, contains('has not bound AgentDetail'));
+    });
+
     test('filters task allowed tools by the target agent bindings', () async {
       await controller.saveAgent(
         _agent(
