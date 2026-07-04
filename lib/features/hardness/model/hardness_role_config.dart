@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../../../shared/util/input_value_parsing.dart';
+
 /// Execution mode for a Harness Engineering agent role.
 ///
 /// - [cli]: Invoke an external CLI tool (claude, codex, gemini, etc.)
@@ -13,8 +15,9 @@ enum HardnessExecutionMode {
   final String storageValue;
 
   static HardnessExecutionMode fromStorage(String? value) {
+    final normalized = value?.trim().toLowerCase();
     for (final mode in HardnessExecutionMode.values) {
-      if (mode.storageValue == value) return mode;
+      if (mode.storageValue == normalized) return mode;
     }
     return HardnessExecutionMode.cli;
   }
@@ -49,9 +52,9 @@ class HardnessRoleConfig {
 
   bool get isConfigured {
     if (executionMode == HardnessExecutionMode.url) {
-      return aiModelConfigId?.trim().isNotEmpty == true;
+      return nullIfBlank(aiModelConfigId) != null;
     }
-    return cliName.trim().isNotEmpty && modelId.trim().isNotEmpty;
+    return nullIfBlank(cliName) != null && nullIfBlank(modelId) != null;
   }
 
   bool get isUrlMode => executionMode == HardnessExecutionMode.url;
