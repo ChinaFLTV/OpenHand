@@ -237,8 +237,7 @@ class WebSearchOrchestrator {
     final concurrency = settings.parallelWorkers.clamp(1, engines.length);
     final semaphore = WebEngineSemaphore(concurrency);
     final futures = engines.map((e) async {
-      await semaphore.acquire();
-      try {
+      return semaphore.withPermit(() async {
         onProgress(
           WebSearchEngineProgress(
             kind: e.kind,
@@ -259,9 +258,7 @@ class WebSearchOrchestrator {
           ),
         );
         return r;
-      } finally {
-        semaphore.release();
-      }
+      });
     });
     return Future.wait(futures);
   }

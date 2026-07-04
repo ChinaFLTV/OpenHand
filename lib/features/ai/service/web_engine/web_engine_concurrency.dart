@@ -8,7 +8,9 @@ import 'web_engine_telemetry_store_base.dart';
 /// 之前 [WebSearchOrchestrator] / [WebFetchOrchestrator] 各自有一份等价实现，
 /// 这里做唯一来源。
 class WebEngineSemaphore {
-  WebEngineSemaphore(this.maxCount) : _available = maxCount;
+  WebEngineSemaphore(int maxCount)
+    : maxCount = _normalizeSemaphoreMaxCount(maxCount),
+      _available = _normalizeSemaphoreMaxCount(maxCount);
 
   final int maxCount;
   int _available;
@@ -31,6 +33,19 @@ class WebEngineSemaphore {
       _available = (_available + 1).clamp(0, maxCount);
     }
   }
+
+  Future<T> withPermit<T>(Future<T> Function() action) async {
+    await acquire();
+    try {
+      return await action();
+    } finally {
+      release();
+    }
+  }
+}
+
+int _normalizeSemaphoreMaxCount(int value) {
+  return value < 1 ? 1 : value;
 }
 
 /// 单个被跳过的引擎条目（cooldown / throttle）。
