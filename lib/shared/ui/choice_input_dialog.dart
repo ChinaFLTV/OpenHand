@@ -220,10 +220,9 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
     final hintText = widget.customInputHint ?? l10n.choiceInputCustomInputHint;
     final confirm = widget.confirmLabel ?? l10n.commonConfirm;
     final cancel = widget.cancelLabel ?? l10n.commonCancel;
-    final fieldExpandDuration = openHandMotionDuration(
-      context,
-      const Duration(milliseconds: 220),
-    );
+    final fieldExpandDuration = openHandTickerMotionEnabled(context)
+        ? const Duration(milliseconds: 220)
+        : Duration.zero;
 
     // `MediaQuery.sizeOf` only depends on the `size` aspect, so this dialog
     // does not rebuild on unrelated MediaQuery changes (text scale, viewInsets,
@@ -289,38 +288,15 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
                           });
                         },
                       ),
-                      AnimatedSize(
-                        duration: fieldExpandDuration,
-                        curve: Curves.easeInOutCubic,
-                        alignment: Alignment.topLeft,
-                        child: _isCustomSelected
-                            ? Padding(
-                                padding: const EdgeInsets.only(
-                                  left: 12,
-                                  right: 4,
-                                  top: 6,
-                                  bottom: 8,
-                                ),
-                                child: TextField(
-                                  controller: _customController,
-                                  focusNode: _customFocusNode,
-                                  minLines: 2,
-                                  maxLines: 6,
-                                  textInputAction: TextInputAction.newline,
-                                  onChanged: (_) => setState(() {}),
-                                  decoration: InputDecoration(
-                                    hintText: hintText,
-                                    filled: true,
-                                    fillColor: colorScheme.surfaceContainerHigh,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
+                      if (fieldExpandDuration == Duration.zero)
+                        _buildCustomInputField(colorScheme, hintText)
+                      else
+                        AnimatedSize(
+                          duration: fieldExpandDuration,
+                          curve: Curves.easeInOutCubic,
+                          alignment: Alignment.topLeft,
+                          child: _buildCustomInputField(colorScheme, hintText),
+                        ),
                     ],
                   ],
                 ),
@@ -342,6 +318,30 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomInputField(ColorScheme colorScheme, String hintText) {
+    if (!_isCustomSelected) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, right: 4, top: 6, bottom: 8),
+      child: TextField(
+        controller: _customController,
+        focusNode: _customFocusNode,
+        minLines: 2,
+        maxLines: 6,
+        textInputAction: TextInputAction.newline,
+        onChanged: (_) => setState(() {}),
+        decoration: InputDecoration(
+          hintText: hintText,
+          filled: true,
+          fillColor: colorScheme.surfaceContainerHigh,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
         ),
       ),
     );

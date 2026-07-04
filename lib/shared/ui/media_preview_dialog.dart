@@ -287,33 +287,35 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
                   ),
                 ),
                 const Divider(height: 1),
-                Padding(
-                  padding: EdgeInsets.all(padding),
-                  child: SizedBox(
-                    width: bodyW,
-                    height: bodyH,
-                    child: isImage
-                        ? OpenHandInteractiveImagePreview(
-                            child: KeyedSubtree(
-                              key: ValueKey<String>(_imageSourceSignature),
-                              child: _buildImage(context, Size(bodyW, bodyH)),
+                Flexible(
+                  child: Padding(
+                    padding: EdgeInsets.all(padding),
+                    child: SizedBox(
+                      width: bodyW,
+                      height: bodyH,
+                      child: isImage
+                          ? OpenHandInteractiveImagePreview(
+                              child: KeyedSubtree(
+                                key: ValueKey<String>(_imageSourceSignature),
+                                child: _buildImage(context, Size(bodyW, bodyH)),
+                              ),
+                            )
+                          : _MediaPlayerSurface(
+                              title: widget.title,
+                              bytes: widget.bytes,
+                              networkUrl: widget.networkUrl,
+                              filePath: widget.filePath,
+                              mimeType: widget.mimeType,
+                              kind: widget.kind,
+                              motionDurationMs: motionSettings.disablesAnimation
+                                  ? 0
+                                  : motionSettings.duration.inMilliseconds,
+                              motionCurveCss: openHandDialogAnimationCurveCss(
+                                motionSettings.curve,
+                              ),
+                              motionCurve: motionSettings.curve.curve,
                             ),
-                          )
-                        : _MediaPlayerSurface(
-                            title: widget.title,
-                            bytes: widget.bytes,
-                            networkUrl: widget.networkUrl,
-                            filePath: widget.filePath,
-                            mimeType: widget.mimeType,
-                            kind: widget.kind,
-                            motionDurationMs: motionSettings.disablesAnimation
-                                ? 0
-                                : motionSettings.duration.inMilliseconds,
-                            motionCurveCss: openHandDialogAnimationCurveCss(
-                              motionSettings.curve,
-                            ),
-                            motionCurve: motionSettings.curve.curve,
-                          ),
+                    ),
                   ),
                 ),
               ],
