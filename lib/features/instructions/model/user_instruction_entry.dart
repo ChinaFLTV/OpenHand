@@ -6,6 +6,8 @@
 ///      取消的指令会以独立"用户指令"段落注入提示词。
 library;
 
+final RegExp _instructionWhitespacePattern = RegExp(r'\s+');
+
 class UserInstructionEntry {
   const UserInstructionEntry({
     required this.id,
@@ -114,13 +116,13 @@ class UserInstructionEntry {
   static const int maxBodyLength = 64 * 1024;
 
   static String normalizeName(String value) {
-    final flat = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final flat = value.replaceAll(_instructionWhitespacePattern, ' ').trim();
     if (flat.length <= maxNameLength) return flat;
     return flat.substring(0, maxNameLength);
   }
 
   static String normalizeOneLine(String value, int max) {
-    final flat = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final flat = value.replaceAll(_instructionWhitespacePattern, ' ').trim();
     if (flat.length <= max) return flat;
     return flat.substring(0, max);
   }

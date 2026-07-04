@@ -1,3 +1,5 @@
+final RegExp _memoryWhitespacePattern = RegExp(r'\s+');
+
 class UserMemoryEntry {
   const UserMemoryEntry({
     required this.id,
@@ -83,7 +85,7 @@ class UserMemoryEntry {
   /// 标题归一化：trim + 折叠所有空白为单空格 + 截断到 [maxTitleLength]。
   /// 长度上限避免 AI 偶尔吐出整段正文当标题。
   static String normalizeTitle(String value) {
-    final flat = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final flat = value.replaceAll(_memoryWhitespacePattern, ' ').trim();
     if (flat.length <= maxTitleLength) return flat;
     return flat.substring(0, maxTitleLength);
   }

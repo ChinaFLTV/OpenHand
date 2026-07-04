@@ -12,6 +12,12 @@ const Set<String> webGatewayKnowledgeBaseBuiltinToolNames = <String>{
   'KnowledgeSearch',
   'KnowledgeRead',
 };
+final RegExp _webGatewayWorkspaceExtensionSeparatorPattern = RegExp(
+  r'[\n,;；]+',
+);
+final RegExp _webGatewayWorkspaceExtensionSafeCharsPattern = RegExp(
+  r'[^a-z0-9_+-]',
+);
 
 bool webGatewayIsDenyAllSelection(List<String> values) {
   return values.contains(webGatewayDenyAllSelectionMarker);
@@ -25,7 +31,10 @@ bool webGatewayIsKnowledgeBaseBuiltinToolName(String value) {
 List<String> webGatewayNormalizeWorkspaceFileExtensions(Object? raw) {
   final result = <String>[];
   final seen = <String>{};
-  for (final item in stringListFromValue(raw, separator: RegExp(r'[\n,;；]+'))) {
+  for (final item in stringListFromValue(
+    raw,
+    separator: _webGatewayWorkspaceExtensionSeparatorPattern,
+  )) {
     final normalized = webGatewayNormalizeWorkspaceFileExtension(item);
     if (normalized.isEmpty) continue;
     if (seen.add(normalized)) result.add(normalized);
@@ -39,7 +48,10 @@ String webGatewayNormalizeWorkspaceFileExtension(String value) {
   final withoutLeadingDot = trimmed.startsWith('.')
       ? trimmed.substring(1)
       : trimmed;
-  final safe = withoutLeadingDot.replaceAll(RegExp(r'[^a-z0-9_+-]'), '');
+  final safe = withoutLeadingDot.replaceAll(
+    _webGatewayWorkspaceExtensionSafeCharsPattern,
+    '',
+  );
   return safe.isEmpty ? '' : '.$safe';
 }
 
