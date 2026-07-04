@@ -1340,12 +1340,8 @@ class _WebReverseDashboardDialogState
         isZh: isZh,
         reduceMotion: reduceMotion,
       ),
-      _Tab.security => _SecurityPanel(controller: ctrl, isZh: isZh),
-      _Tab.recorder => _RecorderPanel(
-        controller: ctrl,
-        isZh: isZh,
-        reduceMotion: reduceMotion,
-      ),
+      _Tab.security => _SecurityPanel(controller: ctrl),
+      _Tab.recorder => _RecorderPanel(controller: ctrl),
     };
   }
 

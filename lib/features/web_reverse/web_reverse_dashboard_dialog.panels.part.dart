@@ -154,7 +154,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
     if (raw == null) return;
     showWebReverseToolDialog<void>(
       context: context,
-      builder: (_) => _FlameGraphDialog(traceJson: raw, isZh: widget.isZh),
+      builder: (_) => _FlameGraphDialog(traceJson: raw),
     );
   }
 
@@ -358,7 +358,6 @@ class _PerformancePanelState extends State<_PerformancePanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     const highlights = <String>[
       'JSHeapUsedSize',
       'JSHeapTotalSize',
@@ -514,7 +513,6 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                 events: _traceLanes,
                 minTs: _traceMinTs,
                 maxTs: _traceMaxTs,
-                isZh: isZh,
               ),
             ),
           // FPS 横幅卡片：单独一行展示，sparkline 占满宽度。
@@ -1674,7 +1672,6 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   /// 「constructor → 字节累计/节点数」聚合表，再做 delta 排序，输出节点
   /// 数 / 字节数 总差以及 top-growth 构造器列表。两份缺一即提示。
   Future<void> _compareSnapshots() async {
-    final isZh = widget.isZh;
     final a = _snapA;
     final b = _snapB;
     if (a == null || b == null) {
@@ -1710,7 +1707,6 @@ class _MemoryPanelState extends State<_MemoryPanel> {
         bytesB: b.bytes,
         result: result,
         bJson: b.json,
-        isZh: isZh,
       ),
     );
   }
@@ -1782,7 +1778,6 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -4924,9 +4919,8 @@ class _ServiceWorkersTable extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────
 
 class _SecurityPanel extends StatefulWidget {
-  const _SecurityPanel({required this.controller, required this.isZh});
+  const _SecurityPanel({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
 
   @override
   State<_SecurityPanel> createState() => _SecurityPanelState();
@@ -4943,7 +4937,6 @@ class _SecurityPanelState extends State<_SecurityPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     final state = widget.controller.securityState;
     final color = switch (state) {
       'secure' => Colors.green,
@@ -4965,11 +4958,28 @@ class _SecurityPanelState extends State<_SecurityPanel> {
               ),
               const SizedBox(width: 8),
               Text(
-                isZh ? '当前安全状态：' : 'Current security state: ',
+                _panelsText(
+                  context,
+                  zh: '当前安全状态：',
+                  zhHant: '目前安全狀態：',
+                  en: 'Current security state: ',
+                  fr: 'État de sécurité actuel : ',
+                  de: 'Aktueller Sicherheitsstatus: ',
+                  ja: '現在のセキュリティ状態: ',
+                ),
                 style: theme.textTheme.titleSmall,
               ),
               Text(
-                state ?? (isZh ? '(尚未上报)' : '(no data)'),
+                state ??
+                    _panelsText(
+                      context,
+                      zh: '（尚未上报）',
+                      zhHant: '（尚未回報）',
+                      en: '(no data)',
+                      fr: '(aucune donnée)',
+                      de: '(keine Daten)',
+                      ja: '（データなし）',
+                    ),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontFamily: 'monospace',
                   fontWeight: FontWeight.w800,
@@ -4990,9 +5000,15 @@ class _SecurityPanelState extends State<_SecurityPanel> {
               child: SingleChildScrollView(
                 child: SelectableText(
                   widget.controller.securityExplanationsJson ??
-                      (isZh
-                          ? '尚未收到 explanations。访问任意 https 页面后会自动刷新。'
-                          : 'No explanations yet. Visit any https page to populate.'),
+                      _panelsText(
+                        context,
+                        zh: '尚未收到 explanations。访问任意 https 页面后会自动刷新。',
+                        zhHant: '尚未收到 explanations。造訪任一 https 頁面後會自動更新。',
+                        en: 'No explanations yet. Visit any https page to populate.',
+                        fr: 'Aucune explanation pour le moment. Ouvrez une page https pour remplir cette zone.',
+                        de: 'Noch keine explanations. Öffnen Sie eine https-Seite, um sie zu laden.',
+                        ja: 'explanations はまだありません。任意の https ページを開くと自動更新されます。',
+                      ),
                   style: const TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 12,
@@ -5013,15 +5029,9 @@ class _SecurityPanelState extends State<_SecurityPanel> {
 // ─────────────────────────────────────────────────────────────────────────
 
 class _RecorderPanel extends StatefulWidget {
-  const _RecorderPanel({
-    required this.controller,
-    required this.isZh,
-    required this.reduceMotion,
-  });
+  const _RecorderPanel({required this.controller});
 
   final WebReverseSessionController controller;
-  final bool isZh;
-  final bool reduceMotion;
 
   @override
   State<_RecorderPanel> createState() => _RecorderPanelState();
@@ -5030,10 +5040,8 @@ class _RecorderPanel extends StatefulWidget {
 class _RecorderPanelState extends State<_RecorderPanel> {
   bool _replaying = false;
 
-  // 控件本身不在 dashboard 的 _onChanged 脘脟字段列表里，那里为了避
-  // screencast 频繁 setState 是按类别跳出的，isRecording / recorderSteps 变
-  // 动不会重建 Recorder 面板。这里直接订阅 controller，让 Stop / 步数
-  // 实时反馈。
+  // Recorder 不走 dashboard 的分类刷新分支；直接订阅 controller，保证 Stop
+  // 和步数变化能即时反馈。
   late final VoidCallback _ctrlListener;
 
   @override
@@ -5052,8 +5060,37 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     super.dispose();
   }
 
+  String _savedToFileMessage(String path) => _panelsText(
+    context,
+    zh: '已保存到 $path',
+    zhHant: '已儲存到 $path',
+    en: 'Saved to $path',
+    fr: 'Enregistré dans $path',
+    de: 'Gespeichert unter $path',
+    ja: '$path に保存しました',
+  );
+
+  String get _saveFailedMessage => _panelsText(
+    context,
+    zh: '保存失败',
+    zhHant: '儲存失敗',
+    en: 'Save failed',
+    fr: 'Échec de l’enregistrement',
+    de: 'Speichern fehlgeschlagen',
+    ja: '保存に失敗しました',
+  );
+
+  String _scriptExportHeader(String generatedAt) => _panelsText(
+    context,
+    zh: '由 OpenHand Web 逆向 Recorder 自动导出（$generatedAt）',
+    zhHant: '由 OpenHand Web 逆向 Recorder 自動匯出（$generatedAt）',
+    en: 'Generated by OpenHand Web Reverse Recorder ($generatedAt)',
+    fr: 'Généré par OpenHand Web Reverse Recorder ($generatedAt)',
+    de: 'Exportiert von OpenHand Web Reverse Recorder ($generatedAt)',
+    ja: 'OpenHand Web Reverse Recorder により生成（$generatedAt）',
+  );
+
   Future<void> _save() async {
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     final steps = widget.controller.recorderSteps;
     if (steps.isEmpty) return;
@@ -5085,7 +5122,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh ? '已保存到 ${location.path}' : 'Saved',
+        _savedToFileMessage(location.path),
       );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard_dialog', 'write recorder', error, stack);
@@ -5093,14 +5130,13 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '保存失败' : 'Save failed',
+        _saveFailedMessage,
         duration: const Duration(seconds: 2),
       );
     }
   }
 
   Future<void> _import() async {
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     const typeGroup = XTypeGroup(label: 'JSON', extensions: <String>['json']);
     XFile? file;
@@ -5122,7 +5158,10 @@ class _RecorderPanelState extends State<_RecorderPanel> {
         OpenHandSnackBar.showErrorOn(
           context,
           messenger,
-          webReverseTextFileTooLargeMessage(read.tooLargeBytes!, isZh: isZh),
+          webReverseTextFileTooLargeMessage(
+            read.tooLargeBytes!,
+            context: context,
+          ),
           duration: const Duration(seconds: 2),
         );
         return;
@@ -5136,7 +5175,15 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh ? '已导入 ${steps.length} 步' : 'Imported ${steps.length} steps',
+        _panelsText(
+          context,
+          zh: '已导入 ${steps.length} 步',
+          zhHant: '已匯入 ${steps.length} 步',
+          en: 'Imported ${steps.length} steps',
+          fr: '${steps.length} étapes importées',
+          de: '${steps.length} Schritte importiert',
+          ja: '${steps.length} ステップをインポートしました',
+        ),
       );
     } catch (error, stack) {
       silentLog(
@@ -5149,14 +5196,21 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '导入失败：JSON 格式不合法' : 'Import failed',
+        _panelsText(
+          context,
+          zh: '导入失败：JSON 格式不合法',
+          zhHant: '匯入失敗：JSON 格式不合法',
+          en: 'Import failed: invalid JSON',
+          fr: 'Échec de l’import : JSON invalide',
+          de: 'Import fehlgeschlagen: ungültiges JSON',
+          ja: 'インポートに失敗しました: JSON 形式が不正です',
+        ),
         duration: const Duration(seconds: 2),
       );
     }
   }
 
   Future<void> _replay() async {
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _replaying = true);
     final result = await widget.controller.replaySteps();
@@ -5165,9 +5219,15 @@ class _RecorderPanelState extends State<_RecorderPanel> {
     OpenHandSnackBar.showInfoOn(
       context,
       messenger,
-      isZh
-          ? '重放完成：${result.executed} 步成功，${result.failed} 步失败'
-          : 'Replay done: ${result.executed} ok, ${result.failed} failed',
+      _panelsText(
+        context,
+        zh: '重放完成：${result.executed} 步成功，${result.failed} 步失败',
+        zhHant: '重放完成：${result.executed} 步成功，${result.failed} 步失敗',
+        en: 'Replay done: ${result.executed} ok, ${result.failed} failed',
+        fr: 'Relecture terminée : ${result.executed} réussies, ${result.failed} échouées',
+        de: 'Replay abgeschlossen: ${result.executed} erfolgreich, ${result.failed} fehlgeschlagen',
+        ja: 'リプレイ完了: ${result.executed} 件成功、${result.failed} 件失敗',
+      ),
     );
   }
 
@@ -5176,7 +5236,6 @@ class _RecorderPanelState extends State<_RecorderPanel> {
   /// change → page.select / page.click 取决于 value 类型；assertText → 等价
   /// 选择器读 textContent 后断言；assertVisible → 等待选择器可见。
   Future<void> _exportAsCode(String kind) async {
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     final steps = widget.controller.recorderSteps;
     if (steps.isEmpty) return;
@@ -5209,7 +5268,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh ? '已保存到 ${location.path}' : 'Saved',
+        _savedToFileMessage(location.path),
       );
     } catch (error, stack) {
       silentLog(
@@ -5222,17 +5281,16 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '保存失败' : 'Save failed',
+        _saveFailedMessage,
         duration: const Duration(seconds: 2),
       );
     }
   }
 
   String _renderPuppeteerScript(List<Map<String, Object?>> steps) {
+    final generatedAt = DateTime.now().toIso8601String();
     final buf = StringBuffer()
-      ..writeln(
-        '// 由 OpenHand Web 逆向 Recorder 自动导出（${DateTime.now().toIso8601String()}）',
-      )
+      ..writeln('// ${_scriptExportHeader(generatedAt)}')
       ..writeln("const puppeteer = require('puppeteer');")
       ..writeln('(async () => {')
       ..writeln('  const browser = await puppeteer.launch({headless: false});')
@@ -5247,10 +5305,9 @@ class _RecorderPanelState extends State<_RecorderPanel> {
   }
 
   String _renderPlaywrightScript(List<Map<String, Object?>> steps) {
+    final generatedAt = DateTime.now().toIso8601String();
     final buf = StringBuffer()
-      ..writeln(
-        '// 由 OpenHand Web 逆向 Recorder 自动导出（${DateTime.now().toIso8601String()}）',
-      )
+      ..writeln('// ${_scriptExportHeader(generatedAt)}')
       ..writeln("const {chromium} = require('playwright');")
       ..writeln('(async () => {')
       ..writeln('  const browser = await chromium.launch({headless: false});')
@@ -5352,17 +5409,48 @@ class _RecorderPanelState extends State<_RecorderPanel> {
   }
 
   Future<void> _addAssertion(String kind) async {
-    final isZh = widget.isZh;
     final selectorCtrl = TextEditingController();
     final expectedCtrl = TextEditingController();
     try {
       final result = await showOpenHandFormDialog<bool>(
         context: context,
         title: kind == 'assertText'
-            ? (isZh ? '断言：元素文本包含' : 'Assert: element text contains')
-            : (isZh ? '断言：元素可见' : 'Assert: element visible'),
-        submitLabel: isZh ? '添加' : 'Add',
-        cancelLabel: isZh ? '取消' : 'Cancel',
+            ? _panelsText(
+                context,
+                zh: '断言：元素文本包含',
+                zhHant: '斷言：元素文字包含',
+                en: 'Assert: element text contains',
+                fr: 'Assertion : le texte contient',
+                de: 'Assert: Elementtext enthält',
+                ja: 'アサート: 要素テキストを含む',
+              )
+            : _panelsText(
+                context,
+                zh: '断言：元素可见',
+                zhHant: '斷言：元素可見',
+                en: 'Assert: element visible',
+                fr: 'Assertion : élément visible',
+                de: 'Assert: Element sichtbar',
+                ja: 'アサート: 要素が表示される',
+              ),
+        submitLabel: _panelsText(
+          context,
+          zh: '添加',
+          zhHant: '新增',
+          en: 'Add',
+          fr: 'Ajouter',
+          de: 'Hinzufügen',
+          ja: '追加',
+        ),
+        cancelLabel: _panelsText(
+          context,
+          zh: '取消',
+          zhHant: '取消',
+          en: 'Cancel',
+          fr: 'Annuler',
+          de: 'Abbrechen',
+          ja: 'キャンセル',
+        ),
         maxWidth: 420,
         onSubmit: (_) => true,
         contentBuilder: (_) => SizedBox(
@@ -5374,7 +5462,15 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 controller: selectorCtrl,
                 autofocus: true,
                 decoration: InputDecoration(
-                  labelText: isZh ? 'CSS 选择器' : 'CSS Selector',
+                  labelText: _panelsText(
+                    context,
+                    zh: 'CSS 选择器',
+                    zhHant: 'CSS 選擇器',
+                    en: 'CSS Selector',
+                    fr: 'Sélecteur CSS',
+                    de: 'CSS-Selektor',
+                    ja: 'CSS セレクター',
+                  ),
                   hintText: '#login-btn / .header > h1',
                 ),
               ),
@@ -5383,7 +5479,15 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 TextField(
                   controller: expectedCtrl,
                   decoration: InputDecoration(
-                    labelText: isZh ? '期望包含的文本' : 'Expected text',
+                    labelText: _panelsText(
+                      context,
+                      zh: '期望包含的文本',
+                      zhHant: '預期包含的文字',
+                      en: 'Expected text',
+                      fr: 'Texte attendu',
+                      de: 'Erwarteter Text',
+                      ja: '期待するテキスト',
+                    ),
                   ),
                 ),
               ],
@@ -5409,7 +5513,6 @@ class _RecorderPanelState extends State<_RecorderPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     final ctrl = widget.controller;
     final steps = ctrl.recorderSteps;
     return Padding(
@@ -5432,8 +5535,24 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 ),
                 label: Text(
                   ctrl.isRecording
-                      ? (isZh ? '停止录制' : 'Stop')
-                      : (isZh ? '开始录制' : 'Record'),
+                      ? _panelsText(
+                          context,
+                          zh: '停止录制',
+                          zhHant: '停止錄製',
+                          en: 'Stop recording',
+                          fr: 'Arrêter',
+                          de: 'Aufnahme stoppen',
+                          ja: '録画を停止',
+                        )
+                      : _panelsText(
+                          context,
+                          zh: '开始录制',
+                          zhHant: '開始錄製',
+                          en: 'Record',
+                          fr: 'Enregistrer',
+                          de: 'Aufnehmen',
+                          ja: '録画開始',
+                        ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -5449,19 +5568,53 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 ),
                 label: Text(
                   _replaying
-                      ? (isZh ? '重放中…' : 'Replaying…')
-                      : (isZh ? '重放' : 'Replay'),
+                      ? _panelsText(
+                          context,
+                          zh: '重放中…',
+                          zhHant: '重放中…',
+                          en: 'Replaying…',
+                          fr: 'Relecture…',
+                          de: 'Replay läuft…',
+                          ja: 'リプレイ中…',
+                        )
+                      : _panelsText(
+                          context,
+                          zh: '重放',
+                          zhHant: '重放',
+                          en: 'Replay',
+                          fr: 'Relire',
+                          de: 'Replay',
+                          ja: 'リプレイ',
+                        ),
                 ),
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: steps.isEmpty ? null : _save,
                 icon: const Icon(Icons.save_alt_rounded, size: 18),
-                label: Text(isZh ? '导出 JSON' : 'Export'),
+                label: Text(
+                  _panelsText(
+                    context,
+                    zh: '导出 JSON',
+                    zhHant: '匯出 JSON',
+                    en: 'Export JSON',
+                    fr: 'Exporter JSON',
+                    de: 'JSON exportieren',
+                    ja: 'JSON をエクスポート',
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               AnimatedPopupMenuButton<String>(
-                tooltip: isZh ? '导出为代码' : 'Export as code',
+                tooltip: _panelsText(
+                  context,
+                  zh: '导出为代码',
+                  zhHant: '匯出為程式碼',
+                  en: 'Export as code',
+                  fr: 'Exporter en code',
+                  de: 'Als Code exportieren',
+                  ja: 'コードとしてエクスポート',
+                ),
                 onSelected: (k) => _exportAsCode(k),
                 itemBuilder: (_) => [
                   PopupMenuItem(
@@ -5478,38 +5631,104 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 child: OutlinedButton.icon(
                   onPressed: null,
                   icon: const Icon(Icons.code_rounded, size: 18),
-                  label: Text(isZh ? '导出为代码' : 'Export code'),
+                  label: Text(
+                    _panelsText(
+                      context,
+                      zh: '导出为代码',
+                      zhHant: '匯出為程式碼',
+                      en: 'Export code',
+                      fr: 'Exporter code',
+                      de: 'Code exportieren',
+                      ja: 'コードをエクスポート',
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: ctrl.isRecording ? null : _import,
                 icon: const Icon(Icons.upload_file_rounded, size: 18),
-                label: Text(isZh ? '导入 JSON' : 'Import'),
+                label: Text(
+                  _panelsText(
+                    context,
+                    zh: '导入 JSON',
+                    zhHant: '匯入 JSON',
+                    en: 'Import JSON',
+                    fr: 'Importer JSON',
+                    de: 'JSON importieren',
+                    ja: 'JSON をインポート',
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               AnimatedPopupMenuButton<String>(
-                tooltip: isZh ? '添加断言' : 'Add assertion',
+                tooltip: _panelsText(
+                  context,
+                  zh: '添加断言',
+                  zhHant: '新增斷言',
+                  en: 'Add assertion',
+                  fr: 'Ajouter une assertion',
+                  de: 'Assertion hinzufügen',
+                  ja: 'アサートを追加',
+                ),
                 onSelected: (kind) => _addAssertion(kind),
                 itemBuilder: (_) => [
                   PopupMenuItem(
                     value: 'assertText',
-                    child: Text(isZh ? '断言文本（assertText）' : 'assertText'),
+                    child: Text(
+                      _panelsText(
+                        context,
+                        zh: '断言文本（assertText）',
+                        zhHant: '斷言文字（assertText）',
+                        en: 'Text assertion (assertText)',
+                        fr: 'Assertion texte (assertText)',
+                        de: 'Text-Assertion (assertText)',
+                        ja: 'テキストアサート（assertText）',
+                      ),
+                    ),
                   ),
                   PopupMenuItem(
                     value: 'assertVisible',
-                    child: Text(isZh ? '断言可见（assertVisible）' : 'assertVisible'),
+                    child: Text(
+                      _panelsText(
+                        context,
+                        zh: '断言可见（assertVisible）',
+                        zhHant: '斷言可見（assertVisible）',
+                        en: 'Visible assertion (assertVisible)',
+                        fr: 'Assertion visible (assertVisible)',
+                        de: 'Sichtbarkeits-Assertion (assertVisible)',
+                        ja: '表示アサート（assertVisible）',
+                      ),
+                    ),
                   ),
                 ],
                 child: OutlinedButton.icon(
                   onPressed: null,
                   icon: const Icon(Icons.rule_rounded, size: 18),
-                  label: Text(isZh ? '添加断言' : 'Add assertion'),
+                  label: Text(
+                    _panelsText(
+                      context,
+                      zh: '添加断言',
+                      zhHant: '新增斷言',
+                      en: 'Add assertion',
+                      fr: 'Ajouter assertion',
+                      de: 'Assertion hinzufügen',
+                      ja: 'アサートを追加',
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               IconButton(
-                tooltip: isZh ? '清空' : 'Clear',
+                tooltip: _panelsText(
+                  context,
+                  zh: '清空',
+                  zhHant: '清空',
+                  en: 'Clear',
+                  fr: 'Effacer',
+                  de: 'Leeren',
+                  ja: 'クリア',
+                ),
                 onPressed: (steps.isEmpty || ctrl.isRecording)
                     ? null
                     : ctrl.clearRecorderSteps,
@@ -5517,7 +5736,15 @@ class _RecorderPanelState extends State<_RecorderPanel> {
               ),
               const Spacer(),
               Text(
-                isZh ? '${steps.length} 步' : '${steps.length} steps',
+                _panelsText(
+                  context,
+                  zh: '${steps.length} 步',
+                  zhHant: '${steps.length} 步',
+                  en: '${steps.length} steps',
+                  fr: '${steps.length} étapes',
+                  de: '${steps.length} Schritte',
+                  ja: '${steps.length} ステップ',
+                ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: cs.onSurfaceVariant,
                 ),
@@ -5529,9 +5756,15 @@ class _RecorderPanelState extends State<_RecorderPanel> {
             child: steps.isEmpty
                 ? Center(
                     child: Text(
-                      isZh
-                          ? '点击「开始录制」后在浏览器中操作页面，事件会按时间序记录。'
-                          : 'Click Record then interact with the browser; events log here.',
+                      _panelsText(
+                        context,
+                        zh: '点击「开始录制」后在浏览器中操作页面，事件会按时间序记录。',
+                        zhHant: '點選「開始錄製」後在瀏覽器中操作頁面，事件會依時間記錄。',
+                        en: 'Click Record, then interact with the browser; events are logged here.',
+                        fr: 'Cliquez sur Enregistrer, puis utilisez le navigateur ; les événements apparaissent ici.',
+                        de: 'Klicken Sie auf Aufnehmen und bedienen Sie den Browser; Ereignisse erscheinen hier.',
+                        ja: '「録画開始」を押してブラウザーを操作すると、イベントがここに記録されます。',
+                      ),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -5661,10 +5894,9 @@ class _DiffRow extends StatelessWidget {
 ///   ③ 右侧侧栏列出按 dur 降序的 Top 30 事件，点击即在火焰图里把对应
 ///      矩形闪烁高亮 1 秒。
 class _FlameGraphDialog extends StatefulWidget {
-  const _FlameGraphDialog({required this.traceJson, required this.isZh});
+  const _FlameGraphDialog({required this.traceJson});
 
   final String traceJson;
-  final bool isZh;
 
   @override
   State<_FlameGraphDialog> createState() => _FlameGraphDialogState();
@@ -5748,11 +5980,26 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
   }
 
   void _showEventDetail(_FlameEvent e) {
-    final isZh = widget.isZh;
     showOpenHandInfoDialog(
       context: context,
-      title: isZh ? '事件详情' : 'Event detail',
-      closeLabel: isZh ? '关闭' : 'Close',
+      title: _panelsText(
+        context,
+        zh: '事件详情',
+        zhHant: '事件詳情',
+        en: 'Event detail',
+        fr: 'Détail de l’événement',
+        de: 'Ereignisdetails',
+        ja: 'イベント詳細',
+      ),
+      closeLabel: _panelsText(
+        context,
+        zh: '关闭',
+        zhHant: '關閉',
+        en: 'Close',
+        fr: 'Fermer',
+        de: 'Schließen',
+        ja: '閉じる',
+      ),
       content: SizedBox(
         width: 560,
         child: SelectableText(
@@ -5772,7 +6019,6 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     // 计算 Top dur 30：按 dur 降序，给原索引一并保留（用于火焰图高亮）。
     final indexed = <(int, _FlameEvent)>[
       for (var i = 0; i < _events.length; i++) (i, _events[i]),
@@ -5787,9 +6033,16 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.local_fire_department_rounded,
-            title: isZh
-                ? '火焰图（${_events.length} 事件 · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms）'
-                : 'Flame graph (${_events.length} ev · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms)',
+            title: _panelsText(
+              context,
+              zh: '火焰图（${_events.length} 事件 · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms）',
+              zhHant:
+                  '火焰圖（${_events.length} 事件 · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms）',
+              en: 'Flame graph (${_events.length} events · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms)',
+              fr: 'Flame graph (${_events.length} événements · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms)',
+              de: 'Flamegraph (${_events.length} Ereignisse · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms)',
+              ja: 'フレームグラフ（${_events.length} イベント · ${((_maxTs - _minTs) / 1000).toStringAsFixed(2)} ms）',
+            ),
           ),
           const Divider(height: 1),
           Flexible(
@@ -5797,9 +6050,15 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
                 ? Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      isZh
-                          ? '没有可视化的完整事件（trace 内可能只含 metadata）。'
-                          : 'No X-phase events to plot.',
+                      _panelsText(
+                        context,
+                        zh: '没有可视化的完整事件（trace 内可能只含 metadata）。',
+                        zhHant: '沒有可視化的完整事件（trace 內可能只含 metadata）。',
+                        en: 'No X-phase events to plot.',
+                        fr: 'Aucun événement X-phase à afficher.',
+                        de: 'Keine X-Phase-Ereignisse zum Anzeigen.',
+                        ja: '描画できる X-phase イベントがありません。',
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -5852,7 +6111,15 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                isZh ? '按耗时排序 Top 30' : 'Top 30 by duration',
+                                _panelsText(
+                                  context,
+                                  zh: '按耗时排序 Top 30',
+                                  zhHant: '依耗時排序 Top 30',
+                                  en: 'Top 30 by duration',
+                                  fr: 'Top 30 par durée',
+                                  de: 'Top 30 nach Dauer',
+                                  ja: '所要時間順 Top 30',
+                                ),
                                 style: theme.textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -6279,7 +6546,6 @@ class _SnapshotDiffDialog extends StatefulWidget {
     required this.bytesB,
     required this.result,
     required this.bJson,
-    required this.isZh,
   });
 
   final DateTime whenA;
@@ -6288,7 +6554,6 @@ class _SnapshotDiffDialog extends StatefulWidget {
   final int bytesB;
   final _HeapDiffResult result;
   final String bJson;
-  final bool isZh;
 
   static String _fmtBytes(int v) {
     if (v < 1024) return '$v B';
@@ -6336,7 +6601,6 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     final result = widget.result;
     final dBytes = widget.bytesB - widget.bytesA;
     final dNodes = result.nodesB - result.nodesA;
@@ -6350,7 +6614,15 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.compare_arrows_rounded,
-            title: isZh ? '堆快照对比' : 'Heap snapshot diff',
+            title: _panelsText(
+              context,
+              zh: '堆快照对比',
+              zhHant: '堆快照對比',
+              en: 'Heap snapshot diff',
+              fr: 'Diff des snapshots du tas',
+              de: 'Heap-Snapshot-Vergleich',
+              ja: 'ヒープスナップショット比較',
+            ),
           ),
           const Divider(height: 1),
           Padding(
@@ -6368,19 +6640,43 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                 ),
                 const SizedBox(height: 10),
                 _DiffRow(
-                  label: isZh ? '原始字节' : 'Raw bytes',
+                  label: _panelsText(
+                    context,
+                    zh: '原始字节',
+                    zhHant: '原始位元組',
+                    en: 'Raw bytes',
+                    fr: 'Octets bruts',
+                    de: 'Rohbytes',
+                    ja: '生バイト',
+                  ),
                   a: _SnapshotDiffDialog._fmtBytes(widget.bytesA),
                   b: _SnapshotDiffDialog._fmtBytes(widget.bytesB),
                   delta: dBytes,
                 ),
                 _DiffRow(
-                  label: isZh ? '节点数' : 'Nodes',
+                  label: _panelsText(
+                    context,
+                    zh: '节点数',
+                    zhHant: '節點數',
+                    en: 'Nodes',
+                    fr: 'Nœuds',
+                    de: 'Knoten',
+                    ja: 'ノード数',
+                  ),
                   a: '${result.nodesA}',
                   b: '${result.nodesB}',
                   delta: dNodes,
                 ),
                 _DiffRow(
-                  label: isZh ? '自有大小' : 'Self size',
+                  label: _panelsText(
+                    context,
+                    zh: '自有大小',
+                    zhHant: '自身大小',
+                    en: 'Self size',
+                    fr: 'Taille propre',
+                    de: 'Self Size',
+                    ja: '自己サイズ',
+                  ),
                   a: _SnapshotDiffDialog._fmtBytes(result.totalSelfA),
                   b: _SnapshotDiffDialog._fmtBytes(result.totalSelfB),
                   delta: dSelf,
@@ -6394,16 +6690,30 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
             child: Row(
               children: [
                 Text(
-                  isZh ? '构造器增长 Top 40' : 'Top 40 constructor growth',
+                  _panelsText(
+                    context,
+                    zh: '构造器增长 Top 40',
+                    zhHant: '建構子增長 Top 40',
+                    en: 'Top 40 constructor growth',
+                    fr: 'Top 40 croissance par constructeur',
+                    de: 'Top 40 Konstruktorwachstum',
+                    ja: 'コンストラクター増加 Top 40',
+                  ),
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  isZh
-                      ? '点击任一行 → 右侧显示保持者链'
-                      : 'Click row → retainer chain on the right',
+                  _panelsText(
+                    context,
+                    zh: '点击任一行 → 右侧显示保持者链',
+                    zhHant: '點選任一列 → 右側顯示保持者鏈',
+                    en: 'Click a row → retainer chain on the right',
+                    fr: 'Cliquez une ligne → chaîne de rétention à droite',
+                    de: 'Zeile anklicken → Retainer Chain rechts',
+                    ja: '行をクリック → 右側に保持者チェーンを表示',
+                  ),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
@@ -6411,9 +6721,15 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                 const Spacer(),
                 if (result.error != null)
                   Text(
-                    isZh
-                        ? '解析失败：${result.error}'
-                        : 'Parse error: ${result.error}',
+                    _panelsText(
+                      context,
+                      zh: '解析失败：${result.error}',
+                      zhHant: '解析失敗：${result.error}',
+                      en: 'Parse error: ${result.error}',
+                      fr: 'Erreur d’analyse : ${result.error}',
+                      de: 'Parse-Fehler: ${result.error}',
+                      ja: '解析エラー: ${result.error}',
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
                   ),
               ],
@@ -6424,7 +6740,15 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                 ? Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      isZh ? '无可见增长' : 'No growth detected',
+                      _panelsText(
+                        context,
+                        zh: '无可见增长',
+                        zhHant: '無可見增長',
+                        en: 'No growth detected',
+                        fr: 'Aucune croissance détectée',
+                        de: 'Kein Wachstum erkannt',
+                        ja: '増加は検出されませんでした',
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -6446,22 +6770,72 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                               showCheckboxColumn: false,
                               columns: [
                                 DataColumn(
-                                  label: Text(isZh ? '构造器' : 'Constructor'),
+                                  label: Text(
+                                    _panelsText(
+                                      context,
+                                      zh: '构造器',
+                                      zhHant: '建構子',
+                                      en: 'Constructor',
+                                      fr: 'Constructeur',
+                                      de: 'Konstruktor',
+                                      ja: 'コンストラクター',
+                                    ),
+                                  ),
                                 ),
                                 DataColumn(
-                                  label: Text(isZh ? '字节增量' : 'Δ bytes'),
+                                  label: Text(
+                                    _panelsText(
+                                      context,
+                                      zh: '字节增量',
+                                      zhHant: '位元組增量',
+                                      en: 'Δ bytes',
+                                      fr: 'Δ octets',
+                                      de: 'Δ Bytes',
+                                      ja: 'Δ バイト',
+                                    ),
+                                  ),
                                   numeric: true,
                                 ),
                                 DataColumn(
-                                  label: Text(isZh ? '节点增量' : 'Δ count'),
+                                  label: Text(
+                                    _panelsText(
+                                      context,
+                                      zh: '节点增量',
+                                      zhHant: '節點增量',
+                                      en: 'Δ count',
+                                      fr: 'Δ nombre',
+                                      de: 'Δ Anzahl',
+                                      ja: 'Δ 件数',
+                                    ),
+                                  ),
                                   numeric: true,
                                 ),
                                 DataColumn(
-                                  label: Text(isZh ? 'A 字节' : 'A bytes'),
+                                  label: Text(
+                                    _panelsText(
+                                      context,
+                                      zh: 'A 字节',
+                                      zhHant: 'A 位元組',
+                                      en: 'A bytes',
+                                      fr: 'Octets A',
+                                      de: 'A Bytes',
+                                      ja: 'A バイト',
+                                    ),
+                                  ),
                                   numeric: true,
                                 ),
                                 DataColumn(
-                                  label: Text(isZh ? 'B 字节' : 'B bytes'),
+                                  label: Text(
+                                    _panelsText(
+                                      context,
+                                      zh: 'B 字节',
+                                      zhHant: 'B 位元組',
+                                      en: 'B bytes',
+                                      fr: 'Octets B',
+                                      de: 'B Bytes',
+                                      ja: 'B バイト',
+                                    ),
+                                  ),
                                   numeric: true,
                                 ),
                               ],
@@ -6545,7 +6919,6 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                             ctorLabel: _selectedLabel!,
                             loading: _retainerLoading,
                             result: _retainerResult,
-                            isZh: isZh,
                           ),
                         ),
                       ],
@@ -6761,13 +7134,11 @@ class _RetainerSidePanel extends StatelessWidget {
     required this.ctorLabel,
     required this.loading,
     required this.result,
-    required this.isZh,
   });
 
   final String ctorLabel;
   final bool loading;
   final _RetainerChainResult? result;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -6779,7 +7150,15 @@ class _RetainerSidePanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            isZh ? '保持者链' : 'Retainer chain',
+            _panelsText(
+              context,
+              zh: '保持者链',
+              zhHant: '保持者鏈',
+              en: 'Retainer chain',
+              fr: 'Chaîne de rétention',
+              de: 'Retainer Chain',
+              ja: '保持者チェーン',
+            ),
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w800,
             ),
@@ -6797,28 +7176,58 @@ class _RetainerSidePanel extends StatelessWidget {
             )
           else if (result == null)
             Text(
-              isZh ? '尚未分析' : 'Not analyzed',
+              _panelsText(
+                context,
+                zh: '尚未分析',
+                zhHant: '尚未分析',
+                en: 'Not analyzed',
+                fr: 'Non analysé',
+                de: 'Nicht analysiert',
+                ja: '未解析',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
             )
           else if (result!.error != null)
             Text(
-              isZh ? '解析失败：${result!.error}' : 'Parse failed: ${result!.error}',
+              _panelsText(
+                context,
+                zh: '解析失败：${result!.error}',
+                zhHant: '解析失敗：${result!.error}',
+                en: 'Parse failed: ${result!.error}',
+                fr: 'Échec de l’analyse : ${result!.error}',
+                de: 'Analyse fehlgeschlagen: ${result!.error}',
+                ja: '解析に失敗しました: ${result!.error}',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
             )
           else if (!result!.found)
             Text(
-              isZh ? '快照中未找到该构造器实例' : 'Constructor not in snapshot',
+              _panelsText(
+                context,
+                zh: '快照中未找到该构造器实例',
+                zhHant: '快照中找不到該建構子實例',
+                en: 'Constructor not in snapshot',
+                fr: 'Constructeur absent du snapshot',
+                de: 'Konstruktor nicht im Snapshot',
+                ja: 'スナップショット内にコンストラクターが見つかりません',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
             )
           else ...[
             Text(
-              isZh
-                  ? '找到 ${result!.totalInstances} 个实例 · 取自有大小最大的代表'
-                  : '${result!.totalInstances} instances · using largest leader',
+              _panelsText(
+                context,
+                zh: '找到 ${result!.totalInstances} 个实例 · 取自有大小最大的代表',
+                zhHant: '找到 ${result!.totalInstances} 個實例 · 取自身大小最大的代表',
+                en: '${result!.totalInstances} instances · using largest leader',
+                fr: '${result!.totalInstances} instances · plus grand représentant',
+                de: '${result!.totalInstances} Instanzen · größter Vertreter',
+                ja: '${result!.totalInstances} 個のインスタンス · 最大の代表を使用',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
@@ -6842,7 +7251,15 @@ class _RetainerSidePanel extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'chain · ${chain.hops} ${isZh ? "跳" : "hops"}',
+                            _panelsText(
+                              context,
+                              zh: 'chain · ${chain.hops} 跳',
+                              zhHant: 'chain · ${chain.hops} 跳',
+                              en: 'chain · ${chain.hops} hops',
+                              fr: 'chain · ${chain.hops} sauts',
+                              de: 'chain · ${chain.hops} Hops',
+                              ja: 'chain · ${chain.hops} ホップ',
+                            ),
                             style: theme.textTheme.labelSmall?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: cs.primary,
@@ -7031,13 +7448,11 @@ class _TraceLanesInline extends StatefulWidget {
     required this.events,
     required this.minTs,
     required this.maxTs,
-    required this.isZh,
   });
 
   final List<_TraceLaneEvent> events;
   final double minTs;
   final double maxTs;
-  final bool isZh;
 
   @override
   State<_TraceLanesInline> createState() => _TraceLanesInlineState();
@@ -7056,7 +7471,6 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     final total = widget.maxTs <= 0 ? 1.0 : widget.maxTs;
     const totalH = _kLaneH * _kLaneCount + _kAxisH;
     return Container(
@@ -7075,9 +7489,16 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
               Icon(Icons.timeline_rounded, size: 16, color: cs.primary),
               const SizedBox(width: 6),
               Text(
-                isZh
-                    ? 'Trace 时间线（${widget.events.length} 事件 · ${total.toStringAsFixed(1)} ms）'
-                    : 'Trace Timeline (${widget.events.length} events · ${total.toStringAsFixed(1)} ms)',
+                _panelsText(
+                  context,
+                  zh: 'Trace 时间线（${widget.events.length} 事件 · ${total.toStringAsFixed(1)} ms）',
+                  zhHant:
+                      'Trace 時間線（${widget.events.length} 事件 · ${total.toStringAsFixed(1)} ms）',
+                  en: 'Trace timeline (${widget.events.length} events · ${total.toStringAsFixed(1)} ms)',
+                  fr: 'Chronologie Trace (${widget.events.length} événements · ${total.toStringAsFixed(1)} ms)',
+                  de: 'Trace-Zeitleiste (${widget.events.length} Ereignisse · ${total.toStringAsFixed(1)} ms)',
+                  ja: 'Trace タイムライン（${widget.events.length} イベント · ${total.toStringAsFixed(1)} ms）',
+                ),
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -7089,13 +7510,21 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
                   width: 10,
                   height: 10,
                   decoration: BoxDecoration(
-                    color: entry.value.$2,
+                    color: entry.value.color,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  isZh ? entry.value.$1 : entry.value.$3,
+                  _panelsText(
+                    context,
+                    zh: entry.value.zh,
+                    zhHant: entry.value.zhHant,
+                    en: entry.value.en,
+                    fr: entry.value.fr,
+                    de: entry.value.de,
+                    ja: entry.value.ja,
+                  ),
                   style: theme.textTheme.labelSmall,
                 ),
               ],
@@ -7197,14 +7626,76 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
   }
 }
 
-/// (中文名, 颜色, 英文名)
-const List<(String, Color, String)> _kLaneMeta = <(String, Color, String)>[
-  ('加载', Color(0xFF60A5FA), 'Loading'),
-  ('脚本', Color(0xFFFBBF24), 'Scripting'),
-  ('渲染', Color(0xFFA78BFA), 'Rendering'),
-  ('绘制', Color(0xFF34D399), 'Painting'),
-  ('其它', Color(0xFF94A3B8), 'Other'),
-];
+/// Trace lane name + color metadata.
+const List<
+  ({
+    String zh,
+    String zhHant,
+    String en,
+    String fr,
+    String de,
+    String ja,
+    Color color,
+  })
+>
+_kLaneMeta =
+    <
+      ({
+        String zh,
+        String zhHant,
+        String en,
+        String fr,
+        String de,
+        String ja,
+        Color color,
+      })
+    >[
+      (
+        zh: '加载',
+        zhHant: '載入',
+        en: 'Loading',
+        fr: 'Chargement',
+        de: 'Laden',
+        ja: '読み込み',
+        color: Color(0xFF60A5FA),
+      ),
+      (
+        zh: '脚本',
+        zhHant: '腳本',
+        en: 'Scripting',
+        fr: 'Script',
+        de: 'Scripting',
+        ja: 'スクリプト',
+        color: Color(0xFFFBBF24),
+      ),
+      (
+        zh: '渲染',
+        zhHant: '渲染',
+        en: 'Rendering',
+        fr: 'Rendu',
+        de: 'Rendering',
+        ja: 'レンダリング',
+        color: Color(0xFFA78BFA),
+      ),
+      (
+        zh: '绘制',
+        zhHant: '繪製',
+        en: 'Painting',
+        fr: 'Peinture',
+        de: 'Painting',
+        ja: '描画',
+        color: Color(0xFF34D399),
+      ),
+      (
+        zh: '其它',
+        zhHant: '其他',
+        en: 'Other',
+        fr: 'Autre',
+        de: 'Sonstiges',
+        ja: 'その他',
+        color: Color(0xFF94A3B8),
+      ),
+    ];
 
 class _TraceLanesPainter extends CustomPainter {
   _TraceLanesPainter({
@@ -7248,7 +7739,7 @@ class _TraceLanesPainter extends CustomPainter {
       );
     }
     // 事件矩形
-    final fills = _kLaneMeta.map((m) => Paint()..color = m.$2).toList();
+    final fills = _kLaneMeta.map((m) => Paint()..color = m.color).toList();
     final highlightStroke = Paint()
       ..color = const Color(0xFFFFFFFF)
       ..style = PaintingStyle.stroke
