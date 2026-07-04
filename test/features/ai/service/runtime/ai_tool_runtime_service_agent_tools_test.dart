@@ -2106,6 +2106,81 @@ domains: finance, cloud billing
       },
     );
 
+    test(
+      'routing diagnostics exclude agents that have not bound the write tool',
+      () async {
+        await controller.saveAgent(
+          _agent(
+            id: 'finance-publisher-a',
+            name: 'Finance Publisher A',
+            enabled: true,
+            routeFrontMatter: 'keywords: finance, reconciliation',
+            taskLabels: const <String>['finance'],
+            builtinToolNames: const <String>['AgentTaskPublish'],
+          ),
+        );
+        await controller.saveAgent(
+          _agent(
+            id: 'finance-publisher-b',
+            name: 'Finance Publisher B',
+            enabled: true,
+            routeFrontMatter: 'keywords: finance, reconciliation',
+            taskLabels: const <String>['finance'],
+            builtinToolNames: const <String>['AgentTaskPublish'],
+          ),
+        );
+        await controller.saveAgent(
+          _agent(
+            id: 'finance-approval-only',
+            name: 'Finance Approval Only',
+            enabled: true,
+            routeFrontMatter: 'keywords: finance, reconciliation',
+            taskLabels: const <String>['finance'],
+            builtinToolNames: const <String>['AgentApprovalRequest'],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        final result = await runtime.execute(
+          sessionId: 'session-route-binding',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-route-binding',
+            name: 'AgentTaskPublish',
+            arguments: jsonEncode(<String, Object?>{
+              'title': 'Finance reconciliation',
+              'description': 'Prepare the finance reconciliation packet.',
+              'labels': <String>['finance'],
+            }),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
+
+        expect(result.status, BashToolExecutionStatus.invalidArguments);
+        final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+        final diagnostics =
+            payload['routing_diagnostics'] as Map<String, Object?>;
+        final candidates = diagnostics['candidates'] as List<Object?>;
+        final candidateIds = candidates
+            .map((item) => (item as Map<String, Object?>)['agent_id'])
+            .toList(growable: false);
+
+        expect(diagnostics['ambiguous'], isTrue);
+        expect(candidateIds, <Object?>[
+          'finance-publisher-a',
+          'finance-publisher-b',
+        ]);
+        expect(candidateIds, isNot(contains('finance-approval-only')));
+      },
+    );
+
     test('complete tool writes task result and releases worker', () async {
       await controller.saveAgent(_agent(enabled: true));
       final task = await controller.publishTaskWithResult(

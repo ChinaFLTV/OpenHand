@@ -1608,7 +1608,7 @@ class AiAgentTool extends AiTool {
     }
     return _AgentResolution.error(
       _routingRequiredResult(
-        controller,
+        candidates,
         contextKind: 'kpi',
         guidance:
             'agent_id, agent_name, or a routable KPI context is required. Use a candidate agent_id from routing_diagnostics before saving KPI when multiple agents are enabled.',
@@ -1658,7 +1658,7 @@ class AiAgentTool extends AiTool {
     }
     return _AgentResolution.error(
       _routingRequiredResult(
-        controller,
+        candidates,
         contextKind: 'approval',
         guidance:
             'agent_id, agent_name, or a routable approval context is required. Use a candidate agent_id from routing_diagnostics before requesting approval when multiple agents are enabled.',
@@ -1708,7 +1708,7 @@ class AiAgentTool extends AiTool {
     }
     return _AgentResolution.error(
       _routingRequiredResult(
-        controller,
+        candidates,
         contextKind: 'task',
         guidance:
             'agent_id, agent_name, or a routable task context is required. Use a candidate agent_id from routing_diagnostics before publishing when multiple agents are enabled.',
@@ -1745,7 +1745,7 @@ class AiAgentTool extends AiTool {
   }
 
   AiToolExecutionResult _routingRequiredResult(
-    AgentsController controller, {
+    List<AgentProfile> candidates, {
     required String contextKind,
     required String guidance,
     required String title,
@@ -1755,7 +1755,7 @@ class AiAgentTool extends AiTool {
     required List<String> labels,
   }) {
     final diagnostics = _routingDiagnosticsJson(
-      controller.enabledAgents,
+      candidates,
       title: title,
       description: description,
       content: content,
