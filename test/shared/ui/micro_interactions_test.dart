@@ -12,6 +12,13 @@ void main() {
     );
   }
 
+  Finder hoverLiftDescendant(Type type) {
+    return find.descendant(
+      of: find.byType(HoverLift),
+      matching: find.byType(type),
+    );
+  }
+
   testWidgets('MicroPressFeedback normalizes invalid scale values', (
     tester,
   ) async {
@@ -109,6 +116,40 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('hover'), findsOneWidget);
+  });
+
+  testWidgets('HoverLift renders directly when ticker is disabled', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: TickerMode(
+          enabled: false,
+          child: HoverLift(child: Text('hover')),
+        ),
+      ),
+    );
+
+    expect(find.text('hover'), findsOneWidget);
+    expect(hoverLiftDescendant(MouseRegion), findsNothing);
+    expect(hoverLiftDescendant(Transform), findsNothing);
+  });
+
+  testWidgets('HoverLift renders directly when animations are disabled', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(disableAnimations: true),
+          child: HoverLift(child: Text('hover')),
+        ),
+      ),
+    );
+
+    expect(find.text('hover'), findsOneWidget);
+    expect(hoverLiftDescendant(MouseRegion), findsNothing);
+    expect(hoverLiftDescendant(Transform), findsNothing);
   });
 
   testWidgets('HighlightPulse normalizes invalid heights', (tester) async {

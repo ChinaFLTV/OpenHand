@@ -7,9 +7,8 @@ import 'motion_preference.dart';
 /// stronger shadow. Designed for list/grid cards where a faint
 /// "rises to meet the cursor" affordance is desired.
 ///
-/// Honors `MediaQuery.disableAnimationsOf(context)` (reduceMotion):
-/// when on, the lift / shadow animation is skipped and the child
-/// renders flat.
+/// Honors `MediaQuery.disableAnimationsOf(context)` and `TickerMode`: when
+/// motion is unavailable, the child renders directly and flat.
 ///
 /// On touch-only platforms `MouseRegion` simply never fires, so this
 /// wrapper is a no-op in that case — no extra cost on mobile.
@@ -44,9 +43,19 @@ class _HoverLiftState extends State<HoverLift> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!openHandTickerMotionEnabled(context)) {
+      _hovered = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final reduceMotion = openHandReduceMotionOf(context);
-    final lift = (_hovered && !reduceMotion) ? -_safeLiftDistance : 0.0;
+    if (!openHandTickerMotionEnabled(context)) {
+      return widget.child;
+    }
+    final lift = _hovered ? -_safeLiftDistance : 0.0;
     return MouseRegion(
       onEnter: (_) {
         if (_hovered) return;
