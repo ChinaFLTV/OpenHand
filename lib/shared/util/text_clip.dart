@@ -1,7 +1,10 @@
+import 'package:characters/characters.dart';
+
 String clipText(String value, int maxChars, {String suffix = '...'}) {
   final safeMaxChars = maxChars < 0 ? 0 : maxChars;
-  if (value.length <= safeMaxChars) return value;
-  return '${value.substring(0, safeMaxChars)}$suffix';
+  final characters = value.characters;
+  if (characters.length <= safeMaxChars) return value;
+  return '${characters.take(safeMaxChars)}$suffix';
 }
 
 String clipTextWithEllipsis(String value, int maxChars) {
