@@ -23,6 +23,7 @@ class AiImageSummaryExtractor {
     r'<image_summary\s+attachment_id\s*=\s*"([^"]+)"\s*>([\s\S]*?)</image_summary>',
     multiLine: true,
   );
+  static final RegExp _collapsedBlankLinesPattern = RegExp(r'\n{3,}');
 
   /// Extracts every `<image_summary>` directive from [content] and returns
   /// both the lookup map and a stripped copy of the content. When no
@@ -53,7 +54,7 @@ class AiImageSummaryExtractor {
     }
     final stripped = content
         .replaceAll(_pattern, '')
-        .replaceAll(RegExp(r'\n{3,}'), '\n\n');
+        .replaceAll(_collapsedBlankLinesPattern, '\n\n');
     return AiImageSummaryExtractionResult(
       summariesByAttachmentId: summaries,
       strippedContent: stripped.trim(),

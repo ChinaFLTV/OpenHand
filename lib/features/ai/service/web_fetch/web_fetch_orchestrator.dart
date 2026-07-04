@@ -62,6 +62,8 @@ class WebFetchOrchestrator {
     this.scraplingBridge,
   });
 
+  static final RegExp _leadingWwwPattern = RegExp(r'^www\.');
+
   final AiWebFetchSettings settings;
   final http.Client httpClient;
   final List<AiModelConfig> availableModels;
@@ -349,7 +351,7 @@ class WebFetchOrchestrator {
     if (text == null) return null;
     final uri = Uri.tryParse(text);
     if (uri == null || nullIfBlank(uri.host) == null) return null;
-    final host = uri.host.toLowerCase().replaceFirst(RegExp(r'^www\.'), '');
+    final host = uri.host.toLowerCase().replaceFirst(_leadingWwwPattern, '');
     final path = uri.path.endsWith('/') && uri.path.length > 1
         ? uri.path.substring(0, uri.path.length - 1)
         : uri.path;

@@ -94,6 +94,9 @@ class AiImageGenerationService {
     : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
       _router = router ?? const AiEndpointRouter();
 
+  static final RegExp _pixelSizePattern = RegExp(r'^(\d{2,5})x(\d{2,5})$');
+  static final RegExp _base64LikePattern = RegExp(r'^[A-Za-z0-9+/=\r\n]+$');
+
   final http.Client _client;
   final AiEndpointRouter _router;
 
@@ -1226,7 +1229,7 @@ class AiImageGenerationService {
   _PixelSize? _parsePixelSize(String? raw) {
     final trimmed = nullIfBlank(raw);
     if (trimmed == null) return null;
-    final match = RegExp(r'^(\d{2,5})x(\d{2,5})$').firstMatch(trimmed);
+    final match = _pixelSizePattern.firstMatch(trimmed);
     if (match == null) return null;
     final width = optionalPositiveIntFromValue(match.group(1));
     final height = optionalPositiveIntFromValue(match.group(2));
@@ -1753,7 +1756,7 @@ class AiImageGenerationService {
   bool _looksLikeBase64(String value) {
     final normalized = nullIfBlank(value);
     if (normalized == null || normalized.length < 32) return false;
-    return RegExp(r'^[A-Za-z0-9+/=\r\n]+$').hasMatch(normalized);
+    return _base64LikePattern.hasMatch(normalized);
   }
 
   Future<_PolledMediaResult> _pollMediaOperation({

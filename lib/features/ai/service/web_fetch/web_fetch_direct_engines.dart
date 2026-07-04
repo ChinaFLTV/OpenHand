@@ -21,6 +21,11 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
     required this.userAgent,
   });
 
+  static final RegExp _htmlTitlePattern = RegExp(
+    r'<title[^>]*>([\s\S]*?)</title>',
+    caseSensitive: false,
+  );
+
   final String userAgent;
 
   @override
@@ -83,10 +88,7 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
   }
 
   static String _extractTitle(String html) {
-    final m = RegExp(
-      r'<title[^>]*>([\s\S]*?)</title>',
-      caseSensitive: false,
-    ).firstMatch(html);
+    final m = _htmlTitlePattern.firstMatch(html);
     return m == null ? '' : AiToolUtils.htmlToText(m.group(1) ?? '').trim();
   }
 }
