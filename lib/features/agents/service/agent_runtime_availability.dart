@@ -43,7 +43,11 @@ class AgentRuntimeAvailability {
   final String? installPath;
   final String? errorMessage;
 
-  bool get canRun => isInstalled && isEnabled;
+  bool get canRun =>
+      !isLoading &&
+      isInstalled &&
+      isEnabled &&
+      (errorMessage == null || errorMessage!.trim().isEmpty);
 
   String get blockingReason {
     if (canRun) return '';

@@ -47,6 +47,26 @@ void main() {
       expect(controller.errorMessage, contains('disabled'));
     });
 
+    test('loading runtime does not allow enabled agents to run', () async {
+      controller.setRuntimeAvailabilityProvider(
+        () => const AgentRuntimeAvailability(
+          isLoading: true,
+          isInstalled: true,
+          isEnabled: true,
+          pluginName: 'Hermes Agent',
+        ),
+      );
+
+      final saved = await controller.saveAgent(_runningAgent());
+
+      expect(saved, isTrue);
+      final agent = controller.agentById('agent-1')!;
+      expect(agent.enabled, isFalse);
+      expect(agent.lifecycleState, AgentLifecycleState.stopped);
+      expect(controller.enabledAgents, isEmpty);
+      expect(controller.errorMessage, contains('loading'));
+    });
+
     test(
       'starting an agent blocked by runtime does not poison page error',
       () async {
