@@ -1683,7 +1683,7 @@ class _ToolbarSearchFieldState extends State<_ToolbarSearchField> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = !_wrMotionEnabled(context);
     return SizedBox(
       width: 260,
       height: _kToolbarHeight,

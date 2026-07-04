@@ -138,7 +138,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
     final loc = AppLocalizations.of(context);
     final entries = _wsEntries();
     final selected = _selectedEntry();
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = !_wrMotionEnabled(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
       child: Row(

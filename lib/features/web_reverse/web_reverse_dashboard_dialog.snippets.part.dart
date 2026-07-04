@@ -210,7 +210,7 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = !_wrMotionEnabled(context);
     final list = [...widget.controller.snippets]
       ..sort(
         (a, b) =>
@@ -514,7 +514,7 @@ class _SnippetTileState extends State<_SnippetTile> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = !_wrMotionEnabled(context);
     final bg = widget.selected
         ? cs.primary.withValues(alpha: 0.16)
         : (_hover ? cs.surfaceContainerHighest : Colors.transparent);

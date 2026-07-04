@@ -204,7 +204,7 @@ class _HooksBodyState extends State<_HooksBody> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = !_wrMotionEnabled(context);
     final list = [...widget.controller.hooks]
       ..sort(
         (a, b) =>
@@ -466,7 +466,7 @@ class _HookTileState extends State<_HookTile> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = !_wrMotionEnabled(context);
     final bg = widget.selected
         ? cs.primary.withValues(alpha: 0.12)
         : (_hover ? cs.surfaceContainerHighest : Colors.transparent);

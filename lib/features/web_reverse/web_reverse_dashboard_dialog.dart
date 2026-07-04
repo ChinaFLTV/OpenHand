@@ -21,6 +21,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/media_preview_dialog.dart';
+import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_editor_scroll_behavior.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
@@ -119,6 +120,10 @@ const double _kShortcutsHelpDialogMaxHeight = 600;
 const Duration _kSwitchDuration = Duration(milliseconds: 220);
 const Curve _kSwitchInCurve = Curves.easeOutCubic;
 const Curve _kSwitchOutCurve = Curves.easeInCubic;
+
+bool _wrMotionEnabled(BuildContext context) {
+  return openHandTickerMotionEnabled(context);
+}
 
 String _wrText(
   BuildContext context, {
@@ -1001,7 +1006,7 @@ class _WebReverseDashboardDialogState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = !_wrMotionEnabled(context);
     final ctrl = widget.controller;
     final isZh = _isZh();
     return CallbackShortcuts(
@@ -1212,13 +1217,13 @@ class _WebReverseDashboardDialogState
           _CdpMcpBridgeToggle(
             enabled: cdpMcpEnabled,
             busy: _cdpMcpToggleBusy,
-            reduceMotion: MediaQuery.disableAnimationsOf(context),
+            reduceMotion: !_wrMotionEnabled(context),
             onChanged: _setCdpMcpEnabled,
           ),
           const SizedBox(width: 6),
           _CdpMcpBridgeStatusPill(
             status: bridgeStatus,
-            reduceMotion: MediaQuery.disableAnimationsOf(context),
+            reduceMotion: !_wrMotionEnabled(context),
           ),
           const SizedBox(width: 6),
           IconButton(

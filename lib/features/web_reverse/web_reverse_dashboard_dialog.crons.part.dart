@@ -426,7 +426,7 @@ class _CronsBodyState extends State<_CronsBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = !_wrMotionEnabled(context);
     final list = [...widget.controller.crons]
       ..sort(
         (a, b) =>
@@ -824,7 +824,7 @@ class _CronTileState extends State<_CronTile> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = !_wrMotionEnabled(context);
     final bg = widget.selected
         ? cs.primary.withValues(alpha: 0.12)
         : (_hover ? cs.surfaceContainerHighest : Colors.transparent);

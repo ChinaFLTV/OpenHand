@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../shared/ui/animated_menu.dart';
+import '../../shared/ui/motion_preference.dart';
 
 class WebReverseSelectOption<T> {
   const WebReverseSelectOption({required this.value, required this.label});
@@ -39,7 +40,6 @@ class WebReverseSelectButton<T> extends StatelessWidget {
     final cs = theme.colorScheme;
     final current = _currentOption;
     final enabled = onChanged != null && options.isNotEmpty;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final height = dense ? 32.0 : 36.0;
     final button = AnimatedPopupMenuButton<T>(
       enabled: enabled,
@@ -75,9 +75,10 @@ class WebReverseSelectButton<T> extends StatelessWidget {
           ),
       ],
       child: AnimatedContainer(
-        duration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 180),
+        duration: openHandMotionDuration(
+          context,
+          const Duration(milliseconds: 180),
+        ),
         curve: Curves.easeOutCubic,
         height: height,
         constraints: BoxConstraints(minWidth: minWidth ?? 0),

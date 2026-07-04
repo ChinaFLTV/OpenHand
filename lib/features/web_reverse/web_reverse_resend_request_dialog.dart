@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
+import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -622,7 +623,7 @@ print(resp.text[:2000])''';
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final loc = AppLocalizations.of(context);
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = !openHandTickerMotionEnabled(context);
     return buildOpenHandToolDialogShell(
       context: context,
       child: Column(

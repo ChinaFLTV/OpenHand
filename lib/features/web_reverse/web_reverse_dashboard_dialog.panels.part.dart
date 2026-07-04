@@ -2238,7 +2238,7 @@ class _AnimatedDualSparklineState extends State<_AnimatedDualSparkline>
   @override
   void didUpdateWidget(covariant _AnimatedDualSparkline old) {
     super.didUpdateWidget(old);
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = !_wrMotionEnabled(context);
     var changed = false;
     if (!_eq(old.primary, widget.primary)) {
       _fromPri = _resampleTo(_curPri(), widget.primary.length);
