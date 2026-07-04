@@ -89,6 +89,7 @@ const List<String> _agentImageExtensions = <String>[
   'bmp',
 ];
 const double _agentChipSpacing = 8;
+const String _agentNoCoordinationToolsBinding = '__openhand_agent_tools_none__';
 
 bool _isAgentCoordinationBuiltinToolId(String id) {
   return AiBuiltinToolKind.values.any(
@@ -6121,7 +6122,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                     options: agentTools,
                     selected: selectedBuiltinTools,
                     onChanged: (v) => setState(
-                      () => _builtinToolNames = _mergeOptionGroupSelection(
+                      () => _builtinToolNames = _mergeAgentToolSelection(
                         current: selectedBuiltinTools,
                         groupSelection: v,
                         groupOptions: agentTools,
@@ -6138,7 +6139,9 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                     selected: selectedBuiltinTools,
                     onChanged: (v) => setState(
                       () => _builtinToolNames = _mergeOptionGroupSelection(
-                        current: selectedBuiltinTools,
+                        current: _selectedBuiltinToolsWithInternalBindings(
+                          selectedBuiltinTools,
+                        ),
                         groupSelection: v,
                         groupOptions: regularTools,
                       ),
@@ -7275,7 +7278,16 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     final workspaceScopePaths = _normalizedWorkspaceScopePaths(workspacePath);
     final builtinToolNames = _normalizedBuiltinToolSelection(
       builtinToolConfigs,
-    ).toList();
+    ).toSet();
+    final hasAgentToolSelection = builtinToolNames.any(
+      _isAgentCoordinationBuiltinToolId,
+    );
+    final explicitlyNoAgentTools = _builtinToolNames.contains(
+      _agentNoCoordinationToolsBinding,
+    );
+    if (!hasAgentToolSelection && explicitlyNoAgentTools) {
+      builtinToolNames.add(_agentNoCoordinationToolsBinding);
+    }
     return AgentProfile(
       id: previous?.id ?? '',
       name: _name.text.trim(),
@@ -7297,7 +7309,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       memoryIds: _memoryIds.toList(),
       taskLabels: taskLabels,
       mcpServerNames: _mcpServerNames.toList(),
-      builtinToolNames: builtinToolNames,
+      builtinToolNames: builtinToolNames.toList(growable: false),
       workspacePath: workspacePath,
       workspaceScope: workspaceScopePaths.join('\n'),
       workspaceScopePaths: workspaceScopePaths,
@@ -7493,21 +7505,38 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     List<AiBuiltinToolConfig> configs,
   ) {
     final aliases = <String, String>{};
+    final availableAgentToolIds = <String>{};
     for (final config in configs) {
       final id = _builtinToolOptionId(config);
+      if (config.kind.isAgentCoordinationTool) {
+        availableAgentToolIds.add(id);
+      }
       aliases[config.kind.name.toLowerCase()] = id;
       aliases[config.effectiveName.toLowerCase()] = id;
       if (config.customToolName != null) {
         aliases[config.customToolName!.trim().toLowerCase()] = id;
       }
     }
+    if (_builtinToolNames.isEmpty) {
+      return availableAgentToolIds;
+    }
     final normalized = <String>{};
     for (final raw in _builtinToolNames) {
       final value = raw.trim();
-      if (value.isEmpty) continue;
+      if (value.isEmpty || value == _agentNoCoordinationToolsBinding) {
+        continue;
+      }
       normalized.add(aliases[value.toLowerCase()] ?? value);
     }
     return normalized;
+  }
+
+  Set<String> _selectedBuiltinToolsWithInternalBindings(Set<String> selected) {
+    return <String>{
+      ...selected,
+      if (_builtinToolNames.contains(_agentNoCoordinationToolsBinding))
+        _agentNoCoordinationToolsBinding,
+    };
   }
 }
 
@@ -8714,6 +8743,24 @@ Set<String> _mergeOptionGroupSelection({
       if (!groupIds.contains(value)) value,
     ...groupSelection,
   };
+}
+
+Set<String> _mergeAgentToolSelection({
+  required Set<String> current,
+  required Set<String> groupSelection,
+  required List<_Option> groupOptions,
+}) {
+  final groupIds = groupOptions.map((option) => option.id).toSet();
+  final merged = _mergeOptionGroupSelection(
+    current: current,
+    groupSelection: groupSelection,
+    groupOptions: groupOptions,
+  )..remove(_agentNoCoordinationToolsBinding);
+  if (groupOptions.isNotEmpty &&
+      groupSelection.intersection(groupIds).isEmpty) {
+    merged.add(_agentNoCoordinationToolsBinding);
+  }
+  return merged;
 }
 
 class _OptionChips extends StatelessWidget {

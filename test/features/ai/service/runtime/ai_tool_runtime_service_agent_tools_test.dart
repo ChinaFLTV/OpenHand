@@ -592,6 +592,30 @@ void main() {
     );
 
     test(
+      'does not expose agent tools when an agent explicitly clears agent bindings',
+      () async {
+        await controller.saveAgent(
+          _agent(
+            enabled: true,
+            builtinToolNames: const <String>[
+              'bash',
+              '__openhand_agent_tools_none__',
+            ],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+
+        expect(catalog.find('AgentList'), isNull);
+        expect(catalog.find('AgentTaskPublish'), isNull);
+        expect(catalog.find('AgentTaskResult'), isNull);
+        expect(catalog.find('Bash'), isNotNull);
+      },
+    );
+
+    test(
       'matches agent builtin bindings by enum and display-name aliases',
       () async {
         await controller.saveAgent(

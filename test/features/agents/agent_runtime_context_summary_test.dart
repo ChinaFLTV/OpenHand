@@ -43,6 +43,26 @@ void main() {
     expect(summary['has_self_learning_inputs'], isTrue);
   });
 
+  test(
+    'omits explicit empty agent-tool binding sentinel from capabilities',
+    () {
+      const agent = AgentProfile(
+        id: 'agent-1',
+        name: 'Ops Agent',
+        builtinToolNames: <String>['Bash', '__openhand_agent_tools_none__'],
+      );
+
+      final bindings = agentCapabilityBindingsJson(agent);
+      final summary = bindings['summary'] as Map<String, Object?>;
+
+      expect(bindings['builtin_tools'], <String>['Bash']);
+      expect(summary['builtin_tools'], 1);
+      expect(summary['agent_coordination_tools'], 0);
+      expect(summary['agent_coordination_tool_groups'], isEmpty);
+      expect(summary['has_external_actions'], isTrue);
+    },
+  );
+
   test('builds workspace policy from workspace path and scoped roots', () {
     const scoped = AgentProfile(
       id: 'agent-1',

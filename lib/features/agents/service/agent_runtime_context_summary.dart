@@ -1,28 +1,33 @@
 import '../model/agent_models.dart';
 
+const String _agentNoCoordinationToolsBinding = '__openhand_agent_tools_none__';
+
 Map<String, Object?> agentCapabilityBindingsJson(AgentProfile agent) {
   final automationCount = agent.cronIds.length + agent.hookIds.length;
-  final agentBuiltinToolCount = agent.builtinToolNames
+  final builtinToolNames = agent.builtinToolNames
+      .where((name) => name.trim() != _agentNoCoordinationToolsBinding)
+      .toList(growable: false);
+  final agentBuiltinToolCount = builtinToolNames
       .where(_looksLikeAgentBuiltinToolName)
       .length;
-  final agentToolGroups = _agentBuiltinToolGroupCounts(agent.builtinToolNames);
+  final agentToolGroups = _agentBuiltinToolGroupCounts(builtinToolNames);
   return <String, Object?>{
     'skills': agent.skillNames,
     'knowledge_sources': agent.knowledgeSourceIds,
     'memories': agent.memoryIds,
     'mcp_servers': agent.mcpServerNames,
-    'builtin_tools': agent.builtinToolNames,
+    'builtin_tools': builtinToolNames,
     'summary': <String, Object?>{
       'skills': agent.skillNames.length,
       'knowledge_sources': agent.knowledgeSourceIds.length,
       'memories': agent.memoryIds.length,
       'mcp_servers': agent.mcpServerNames.length,
-      'builtin_tools': agent.builtinToolNames.length,
+      'builtin_tools': builtinToolNames.length,
       'agent_coordination_tools': agentBuiltinToolCount,
       'agent_coordination_tool_groups': agentToolGroups,
       'automations': automationCount,
       'has_external_actions':
-          agent.mcpServerNames.isNotEmpty || agent.builtinToolNames.isNotEmpty,
+          agent.mcpServerNames.isNotEmpty || builtinToolNames.isNotEmpty,
       'has_self_learning_inputs':
           agent.skillNames.isNotEmpty ||
           agent.knowledgeSourceIds.isNotEmpty ||

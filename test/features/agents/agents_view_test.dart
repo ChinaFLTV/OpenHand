@@ -587,23 +587,42 @@ void main() {
       expect(find.text('任务生命周期'), findsOneWidget);
       expect(find.text('治理审计'), findsOneWidget);
       expect(find.text('agentTaskPublish'), findsNothing);
-      expect(find.text('已选 0/1'), findsOneWidget);
+      expect(find.text('启用 1/1 · 变更 0'), findsOneWidget);
+      expect(find.text('启用 1/1 · 变更 1'), findsAtLeastNWidgets(2));
       expect(find.textContaining('变更 1'), findsAtLeastNWidgets(1));
-      final selectAllButton = find.text('全选');
-      await tester.ensureVisible(selectAllButton);
-      await tester.tap(selectAllButton);
+      await tester.ensureVisible(bashChip);
+      await tester.tap(bashChip);
       await tester.pumpAndSettle();
-      expect(find.text('已选 1/1'), findsOneWidget);
+      final listChip = find.widgetWithText(FilterChip, '智能体列表');
+      final approvalChip = find.widgetWithText(FilterChip, '审批请求');
+      await tester.ensureVisible(listChip);
+      await tester.tap(listChip);
+      await tester.pump();
       await tester.ensureVisible(publishChip);
       await tester.tap(publishChip);
       await tester.pump();
-      final clearButton = find.text('清空');
-      await tester.ensureVisible(clearButton);
-      await tester.tap(clearButton);
+      await tester.ensureVisible(approvalChip);
+      await tester.tap(approvalChip);
       await tester.pumpAndSettle();
 
-      expect(tester.widget<FilterChip>(bashChip).selected, isFalse);
-      expect(tester.widget<FilterChip>(publishChip).selected, isTrue);
+      expect(tester.widget<FilterChip>(bashChip).selected, isTrue);
+      expect(tester.widget<FilterChip>(listChip).selected, isFalse);
+      expect(tester.widget<FilterChip>(publishChip).selected, isFalse);
+      expect(tester.widget<FilterChip>(approvalChip).selected, isFalse);
+
+      final saveButton = find.ancestor(
+        of: find.text('保存'),
+        matching: find.byType(FilledButton),
+      );
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      final agent = controller.agents.single;
+      expect(agent.builtinToolNames, contains('bash'));
+      expect(agent.builtinToolNames, contains('__openhand_agent_tools_none__'));
+      expect(agent.builtinToolNames, isNot(contains('agentTaskPublish')));
     });
 
     testWidgets('edits cluster worker tags with structured chips', (
