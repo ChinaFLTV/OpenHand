@@ -17,6 +17,23 @@ const int _maxHookOutputCharacters = 4000;
 /// Maximum size (bytes) of the context JSON written to the temp file.
 /// Prevents a misconfigured or malicious payload from exhausting disk space.
 const int _maxContextJsonBytes = 512 * 1024; // 512 KB
+const int _maxHookTempLabelCharacters = 32;
+
+final RegExp _unsafeHookTempFileSegmentPattern = RegExp(r'[^\w\-]');
+
+String _safeHookTempLabel(String label) {
+  final safeName = label
+      .replaceAll(_unsafeHookTempFileSegmentPattern, '_')
+      .toLowerCase();
+  return safeName.substring(
+    0,
+    safeName.length.clamp(0, _maxHookTempLabelCharacters),
+  );
+}
+
+String _safeHookTempIdentifier(String value) {
+  return value.replaceAll(_unsafeHookTempFileSegmentPattern, '-');
+}
 
 Future<void> _closeHookStdin(IOSink stdin, String where) async {
   try {
@@ -321,20 +338,11 @@ class HooksExecutor {
         p.join(OpenHandPaths.homeDirectoryPath(), '.openhand', 'hooks', 'tmp'),
       );
       await tmpDir.create(recursive: true);
-      final safeName = hook.label
-          .replaceAll(RegExp(r'[^\w\-]'), '_')
-          .toLowerCase();
-      final truncatedSafeName = safeName.substring(
-        0,
-        safeName.length.clamp(0, 32),
-      );
-      final safeSessionId = sessionId.replaceAll(RegExp(r'[^\w\-]'), '-');
-      final safeHookId = hook.id.replaceAll(RegExp(r'[^\w\-]'), '-');
+      final safeName = _safeHookTempLabel(hook.label);
+      final safeSessionId = _safeHookTempIdentifier(sessionId);
+      final safeHookId = _safeHookTempIdentifier(hook.id);
       contextFile = File(
-        p.join(
-          tmpDir.path,
-          '$safeSessionId-$truncatedSafeName-$safeHookId.json',
-        ),
+        p.join(tmpDir.path, '$safeSessionId-$safeName-$safeHookId.json'),
       );
       if (contextJson.length > _maxContextJsonBytes) {
         contextJson =
@@ -556,20 +564,11 @@ class HooksExecutor {
         p.join(OpenHandPaths.homeDirectoryPath(), '.openhand', 'hooks', 'tmp'),
       );
       await tmpDir.create(recursive: true);
-      final safeName = hookLabel
-          .replaceAll(RegExp(r'[^\w\-]'), '_')
-          .toLowerCase();
-      final truncatedSafeName = safeName.substring(
-        0,
-        safeName.length.clamp(0, 32),
-      );
-      final safeSessionId = sessionId.replaceAll(RegExp(r'[^\w\-]'), '-');
+      final safeName = _safeHookTempLabel(hookLabel);
+      final safeSessionId = _safeHookTempIdentifier(sessionId);
       final ts = DateTime.now().microsecondsSinceEpoch;
       final file = File(
-        p.join(
-          tmpDir.path,
-          'output-$safeSessionId-$truncatedSafeName-$ts.$suffix',
-        ),
+        p.join(tmpDir.path, 'output-$safeSessionId-$safeName-$ts.$suffix'),
       );
       await file.writeAsString(content, flush: true);
       return file.path;
