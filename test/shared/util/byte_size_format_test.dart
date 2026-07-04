@@ -44,5 +44,17 @@ void main() {
         kBytesPerMiB,
       );
     });
+
+    test('uses ordered bounds for non-positive parsed values', () {
+      expect(
+        megabytesTextToBytes(
+          '0',
+          fallbackBytes: kBytesPerMiB,
+          minBytes: 4 * kBytesPerMiB,
+          maxBytes: kBytesPerMiB,
+        ),
+        kBytesPerMiB,
+      );
+    });
   });
 }

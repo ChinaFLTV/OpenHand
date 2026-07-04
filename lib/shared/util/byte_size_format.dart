@@ -43,14 +43,14 @@ int megabytesTextToBytes(
   required int minBytes,
   required int maxBytes,
 }) {
+  final lower = minBytes <= maxBytes ? minBytes : maxBytes;
+  final upper = minBytes <= maxBytes ? maxBytes : minBytes;
   final fallbackMb = fallbackBytes / kBytesPerMiB;
   final parsedMb = doubleFromValue(value, fallback: fallbackMb);
   if (parsedMb <= 0) {
-    return minBytes <= 0 ? 0 : minBytes;
+    return lower <= 0 ? 0 : lower;
   }
   final bytes = (parsedMb * kBytesPerMiB).round();
-  final lower = minBytes <= maxBytes ? minBytes : maxBytes;
-  final upper = minBytes <= maxBytes ? maxBytes : minBytes;
   return bytes.clamp(lower, upper).toInt();
 }
 
