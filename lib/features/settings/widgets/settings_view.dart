@@ -91,6 +91,12 @@ typedef _SettingsPathOperation = Future<bool> Function(String path);
 const int _kSettingsToolResultCompressionWindowMaxChars = 8192;
 const int _kSettingsToolResultCompressionMaxPathHits = 200;
 const int _kSettingsWriteToolSummaryMaxChars = 8192;
+const Duration _settingsRevealSizeDuration = Duration(milliseconds: 420);
+const Duration _settingsRevealSizeReverseDuration = Duration(milliseconds: 260);
+const Duration _settingsRevealSwitcherDuration = Duration(milliseconds: 320);
+const Duration _settingsRevealSwitcherReverseDuration = Duration(
+  milliseconds: 200,
+);
 
 bool _settingsMotionEnabled(BuildContext context) {
   return openHandTickerMotionEnabled(context);
@@ -835,7 +841,10 @@ class _SettingsViewState extends State<SettingsView> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AnimatedSwitcher(
-                duration: const Duration(milliseconds: 320),
+                duration: _settingsMotionDuration(
+                  context,
+                  _settingsRevealSwitcherDuration,
+                ),
                 switchInCurve: Curves.easeOutCubic,
                 switchOutCurve: Curves.easeInCubic,
                 transitionBuilder: (child, animation) {

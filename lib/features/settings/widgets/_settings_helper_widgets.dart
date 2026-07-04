@@ -95,6 +95,14 @@ class _SettingsSubsectionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final motionEnabled = _settingsMotionEnabled(context);
+    final revealDuration = _settingsMotionDuration(
+      context,
+      _settingsRevealSizeDuration,
+    );
+    final revealReverseDuration = _settingsMotionDuration(
+      context,
+      _settingsRevealSizeReverseDuration,
+    );
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -110,8 +118,8 @@ class _SettingsSubsectionCard extends StatelessWidget {
         if (motionEnabled)
           ClipRect(
             child: AnimatedSize(
-              duration: const Duration(milliseconds: 420),
-              reverseDuration: const Duration(milliseconds: 260),
+              duration: revealDuration,
+              reverseDuration: revealReverseDuration,
               curve: Curves.easeOutBack,
               alignment: Alignment.topCenter,
               child: child,
@@ -5230,15 +5238,31 @@ class _AnimatedSettingReveal extends StatelessWidget {
     if (!_settingsMotionEnabled(context)) {
       return visible ? child : const SizedBox.shrink();
     }
+    final sizeDuration = _settingsMotionDuration(
+      context,
+      _settingsRevealSizeDuration,
+    );
+    final sizeReverseDuration = _settingsMotionDuration(
+      context,
+      _settingsRevealSizeReverseDuration,
+    );
+    final switcherDuration = _settingsMotionDuration(
+      context,
+      _settingsRevealSwitcherDuration,
+    );
+    final switcherReverseDuration = _settingsMotionDuration(
+      context,
+      _settingsRevealSwitcherReverseDuration,
+    );
     return ClipRect(
       child: AnimatedSize(
-        duration: const Duration(milliseconds: 420),
-        reverseDuration: const Duration(milliseconds: 260),
+        duration: sizeDuration,
+        reverseDuration: sizeReverseDuration,
         curve: Curves.easeOutBack,
         alignment: Alignment.topCenter,
         child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 320),
-          reverseDuration: const Duration(milliseconds: 200),
+          duration: switcherDuration,
+          reverseDuration: switcherReverseDuration,
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           transitionBuilder: (child, animation) {
