@@ -4,7 +4,8 @@ import 'motion_preference.dart';
 import 'openhand_notice_actions.dart';
 
 /// 内联通知卡片：用于在页面内展示错误、警告、提示等反馈。
-/// 支持 Q弹进场退场动画（size + fade + 轻微 slide），受全局 reduce-motion 偏好控制。
+/// 支持 Q弹进场退场动画（size + fade + 轻微 slide），受全局 reduce-motion
+/// 和 TickerMode 偏好控制。
 class OpenHandInlineNotice extends StatefulWidget {
   const OpenHandInlineNotice({
     super.key,
@@ -57,6 +58,12 @@ class _OpenHandInlineNoticeState extends State<OpenHandInlineNotice> {
 
   @override
   Widget build(BuildContext context) {
+    final child = _locallyDismissed
+        ? const SizedBox.shrink(key: ValueKey('notice-dismissed'))
+        : _buildNoticeCard(context);
+    if (!openHandTickerMotionEnabled(context)) {
+      return child;
+    }
     final duration = openHandMotionDuration(
       context,
       const Duration(milliseconds: 220),
@@ -72,45 +79,47 @@ class _OpenHandInlineNoticeState extends State<OpenHandInlineNotice> {
           child: FadeTransition(opacity: animation, child: child),
         );
       },
-      child: _locallyDismissed
-          ? const SizedBox.shrink(key: ValueKey('notice-dismissed'))
-          : Container(
-              key: ValueKey<Object>(widget.message),
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: widget.color,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(widget.icon, color: widget.foregroundColor),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      primary: false,
-                      child: SelectableText(
-                        widget.message,
-                        style:
-                            widget.messageStyle ??
-                            Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: widget.foregroundColor,
-                            ),
-                      ),
+      child: child,
+    );
+  }
+
+  Widget _buildNoticeCard(BuildContext context) {
+    return Container(
+      key: ValueKey<Object>(widget.message),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: widget.color,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(widget.icon, color: widget.foregroundColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: SingleChildScrollView(
+              primary: false,
+              child: SelectableText(
+                widget.message,
+                style:
+                    widget.messageStyle ??
+                    Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: widget.foregroundColor,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  OpenHandNoticeActionButtons(
-                    copyText: widget.copyText ?? widget.message,
-                    onDismiss: widget.showCloseAction ? _dismiss : null,
-                    foregroundColor: widget.foregroundColor,
-                    showCopy: widget.showCopyAction,
-                    showClose: widget.showCloseAction,
-                  ),
-                ],
               ),
             ),
+          ),
+          const SizedBox(width: 8),
+          OpenHandNoticeActionButtons(
+            copyText: widget.copyText ?? widget.message,
+            onDismiss: widget.showCloseAction ? _dismiss : null,
+            foregroundColor: widget.foregroundColor,
+            showCopy: widget.showCopyAction,
+            showClose: widget.showCloseAction,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -182,6 +191,11 @@ class OpenHandInlineNoticeSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasChild = child != null;
+    if (!openHandTickerMotionEnabled(context)) {
+      return hasChild
+          ? KeyedSubtree(key: const ValueKey('notice-on'), child: child!)
+          : const SizedBox.shrink(key: ValueKey('notice-off'));
+    }
     final inMs = openHandMotionDurationMs(context, 320).inMilliseconds;
     final outMs = (openHandMotionDurationMs(
       context,
