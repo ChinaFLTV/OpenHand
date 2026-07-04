@@ -109,6 +109,11 @@ domains: cloud, finops
         routeFrontMatter: 'keywords: release, deploy',
         workspacePath: '/repo',
         workspaceScopePaths: <String>['/repo/app', '/repo/docs'],
+        skillNames: <String>['release-checklist'],
+        mcpServerNames: <String>['deploy-mcp'],
+        builtinToolNames: <String>['AgentTaskPublish', 'Bash'],
+        cronIds: <String>['weekly-release-report'],
+        hookIds: <String>['release-hook'],
         taskLabels: <String>['release'],
         metadata: <String, Object?>{'cost_center': 'release-platform'},
         approvals: <AgentApprovalRequest>[
@@ -194,9 +199,13 @@ domains: cloud, finops
     final recentAudit =
         operationalState['recent_audit_events'] as List<Object?>;
 
-    expect(snapshot.version, '1.2.3');
+    expect(snapshot.version, '1.2.4');
     expect(routing['has_route'], isTrue);
-    expect(routing['keywords'], <Object?>['release', 'deploy']);
+    expect(routing['keywords'], <Object?>[
+      'release',
+      'deploy',
+      'release-checklist',
+    ]);
     expect(profile['metadata'], <String, Object?>{
       'cost_center': 'release-platform',
     });
@@ -205,6 +214,8 @@ domains: cloud, finops
     expect(snapshot.renderedPrompt, contains('"active_tasks"'));
     expect(snapshot.renderedPrompt, contains('"kpi_state"'));
     expect(snapshot.renderedPrompt, contains('"workspace_scope_paths"'));
+    expect(snapshot.renderedPrompt, contains('"workspace_policy"'));
+    expect(snapshot.renderedPrompt, contains('"agent_coordination_tools"'));
     expect(snapshot.renderedPrompt, contains('<operational_state>'));
     expect(
       snapshot.renderedPrompt,
@@ -218,6 +229,16 @@ domains: cloud, finops
     expect(workerCapacity['busy'], 1);
     final runtimePolicy =
         snapshot.metadataJson()['runtime_policy'] as Map<String, Object?>;
+    final capabilities =
+        snapshot.metadataJson()['capabilities'] as Map<String, Object?>;
+    final capabilitySummary = capabilities['summary'] as Map<String, Object?>;
+    expect(capabilitySummary['skills'], 1);
+    expect(capabilitySummary['mcp_servers'], 1);
+    expect(capabilitySummary['builtin_tools'], 2);
+    expect(capabilitySummary['agent_coordination_tools'], 1);
+    expect(capabilitySummary['automations'], 2);
+    expect(capabilitySummary['has_external_actions'], isTrue);
+    expect(capabilitySummary['has_self_learning_inputs'], isTrue);
     final approvalPolicy =
         runtimePolicy['approval_policy'] as Map<String, Object?>;
     expect(approvalPolicy['mode'], 'normal');
@@ -233,6 +254,15 @@ domains: cloud, finops
       '/repo/app',
       '/repo/docs',
     ]);
+    final workspacePolicy =
+        runtimePolicy['workspace_policy'] as Map<String, Object?>;
+    expect(workspacePolicy['allowed_roots'], <Object?>[
+      '/repo',
+      '/repo/app',
+      '/repo/docs',
+    ]);
+    expect(workspacePolicy['writes_limited_to_allowed_roots'], isTrue);
+    expect(workspacePolicy['requires_confirmation_when_empty'], isFalse);
     expect(activeTasks, hasLength(2));
     expect(blockedTasks, hasLength(1));
     expect(terminalTasks, hasLength(1));

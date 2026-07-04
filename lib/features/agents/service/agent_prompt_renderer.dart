@@ -49,7 +49,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.3';
+  static const String promptVersion = '1.2.4';
 
   final Future<String> Function(String path) _loader;
 
@@ -123,6 +123,10 @@ Map<String, Object?> _profileJson(AgentProfile agent) {
 }
 
 Map<String, Object?> _capabilitiesJson(AgentProfile agent) {
+  final automationCount = agent.cronIds.length + agent.hookIds.length;
+  final agentBuiltinToolCount = agent.builtinToolNames
+      .where(_looksLikeAgentBuiltinToolName)
+      .length;
   return <String, Object?>{
     'skills': agent.skillNames,
     'knowledge_sources': agent.knowledgeSourceIds,
@@ -131,10 +135,31 @@ Map<String, Object?> _capabilitiesJson(AgentProfile agent) {
     'builtin_tools': agent.builtinToolNames,
     'cron_ids': agent.cronIds,
     'hook_ids': agent.hookIds,
+    'summary': <String, Object?>{
+      'skills': agent.skillNames.length,
+      'knowledge_sources': agent.knowledgeSourceIds.length,
+      'memories': agent.memoryIds.length,
+      'mcp_servers': agent.mcpServerNames.length,
+      'builtin_tools': agent.builtinToolNames.length,
+      'agent_coordination_tools': agentBuiltinToolCount,
+      'automations': automationCount,
+      'has_external_actions':
+          agent.mcpServerNames.isNotEmpty || agent.builtinToolNames.isNotEmpty,
+      'has_self_learning_inputs':
+          agent.skillNames.isNotEmpty ||
+          agent.knowledgeSourceIds.isNotEmpty ||
+          agent.memoryIds.isNotEmpty,
+    },
   };
 }
 
 Map<String, Object?> _runtimePolicyJson(AgentProfile agent) {
+  final scopePaths = agent.normalizedWorkspaceScopePaths;
+  final workspacePath = agent.workspacePath.trim();
+  final allowedRoots = <String>[
+    if (workspacePath.isNotEmpty) workspacePath,
+    ...scopePaths,
+  ];
   return <String, Object?>{
     'enabled': agent.enabled,
     'lifecycle_state': agent.lifecycleState.storageValue,
@@ -145,11 +170,41 @@ Map<String, Object?> _runtimePolicyJson(AgentProfile agent) {
     'self_learning_enabled': agent.selfLearningEnabled,
     'workspace_path': agent.workspacePath,
     'workspace_scope': agent.workspaceScopeText,
-    'workspace_scope_paths': agent.normalizedWorkspaceScopePaths,
+    'workspace_scope_paths': scopePaths,
+    'workspace_policy': <String, Object?>{
+      'allowed_roots': allowedRoots,
+      'writes_limited_to_allowed_roots': true,
+      'requires_confirmation_when_empty': allowedRoots.isEmpty,
+    },
     'task_labels': agent.taskLabels,
     'scale_settings': agent.scaleSettings.toJson(),
     'kpis': agent.kpis.map((item) => item.toJson()).toList(growable: false),
   };
+}
+
+bool _looksLikeAgentBuiltinToolName(String name) {
+  final normalized = _normalizeToolName(name);
+  return normalized == 'agentlist' ||
+      normalized == 'agentdetail' ||
+      normalized.startsWith('agentactivity') ||
+      normalized.startsWith('agentaudit') ||
+      normalized.startsWith('agentapproval') ||
+      normalized.startsWith('agentkpi') ||
+      normalized.startsWith('agentresource') ||
+      normalized.startsWith('agentcluster') ||
+      normalized.startsWith('agenttask');
+}
+
+String _normalizeToolName(String value) {
+  final buffer = StringBuffer();
+  for (final code in value.codeUnits) {
+    if ((code >= 0x30 && code <= 0x39) ||
+        (code >= 0x41 && code <= 0x5A) ||
+        (code >= 0x61 && code <= 0x7A)) {
+      buffer.writeCharCode(code | 0x20);
+    }
+  }
+  return buffer.toString();
 }
 
 Map<String, Object?> _operationalStateJson(AgentProfile agent) {
