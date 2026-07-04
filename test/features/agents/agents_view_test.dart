@@ -846,6 +846,67 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
     });
 
+    testWidgets('terminates a task from task desk with terminal metadata', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          enabled: true,
+          lifecycleState: AgentLifecycleState.running,
+          tasks: <AgentTask>[
+            AgentTask(
+              id: 'task-1',
+              title: 'Stop stale task',
+              status: AgentTaskStatus.running,
+              progress: 0.35,
+              extra: <String, Object?>{
+                'assigned_worker_id': 'worker-1',
+                'assigned_worker_name': 'Worker 1',
+              },
+            ),
+          ],
+          workers: <AgentWorker>[
+            AgentWorker(
+              id: 'worker-1',
+              name: 'Worker 1',
+              status: AgentWorkerStatus.busy,
+              currentTaskId: 'task-1',
+            ),
+          ],
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('任务台').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('终止任务'));
+      await tester.pumpAndSettle();
+      expect(find.text('终止任务'), findsOneWidget);
+
+      await tester.tap(find.text('确认'));
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      final agent = controller.agentById('agent-1')!;
+      expect(agent.tasks.single.status, AgentTaskStatus.failed);
+      expect(agent.tasks.single.extra['tool_action'], 'task_terminated');
+      expect(agent.workers.single.status, AgentWorkerStatus.idle);
+      expect(agent.activities.first.kind, 'task_terminated');
+      expect(agent.auditEvents.first.kind, 'task_terminated');
+      expect(find.text('下一步: 已终止'), findsOneWidget);
+    });
+
     testWidgets('renders activities as a typed message stream', (tester) async {
       final dependencies = _AgentEditorDependencies.empty();
       addTearDown(dependencies.dispose);

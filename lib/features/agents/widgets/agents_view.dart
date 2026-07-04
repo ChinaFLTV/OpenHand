@@ -2720,6 +2720,7 @@ class _AgentTaskActions extends StatelessWidget {
               status: AgentTaskStatus.failed,
               activityKind: 'task_terminated',
               activityTitle: 'task_terminated',
+              extra: const <String, Object?>{'tool_action': 'task_terminated'},
               titleZh: '终止任务',
               titleEn: 'Terminate task',
               messageZh: '确认将「${task.title}」标记为异常终止吗？',
@@ -3045,6 +3046,7 @@ Future<void> _updateAgentTaskFromDesk(
   required String activityTitle,
   String note = '',
   String result = '',
+  Map<String, Object?>? extra,
 }) async {
   final updated = await context.read<AgentsController>().updateTaskState(
     agent.id,
@@ -3052,6 +3054,7 @@ Future<void> _updateAgentTaskFromDesk(
     status: status,
     note: note.trim().isEmpty ? null : note.trim(),
     result: result.trim().isEmpty ? null : result.trim(),
+    extra: extra,
     activityKind: activityKind,
     activityTitle: activityTitle,
   );
@@ -3078,6 +3081,7 @@ Future<void> _confirmAgentTaskStatus(
   required String titleEn,
   required String messageZh,
   required String messageEn,
+  Map<String, Object?>? extra,
 }) async {
   final confirmed = await showOpenHandConfirmDialog(
     context: context,
@@ -3095,6 +3099,7 @@ Future<void> _confirmAgentTaskStatus(
       status: status,
       activityKind: activityKind,
       activityTitle: activityTitle,
+      extra: extra,
     );
   }
 }
