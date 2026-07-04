@@ -2558,6 +2558,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   bool? _isMultimodal;
   bool? _supportsAttachments;
   bool? _requiresReasoningEcho;
+  late bool _thinkingEnabled;
   bool _oneMillionContextEnabled = false;
   String? _modelIdBeforeOneMillionContext;
   String? _maxContextBeforeOneMillionContext;
@@ -2615,6 +2616,13 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           effective.maxThinkingLength?.toString() ??
           '',
     );
+    _thinkingEnabled =
+        p.thinkingEnabled ??
+        AiModelConfig.thinkingEnabledByDefault(
+          modelId: widget.modelId,
+          protocolType: widget.protocolType,
+          profile: effective,
+        );
     final initialModelIdText = _modelIdController.text;
     final initialMaxContextText = _maxContextLengthController.text;
     _oneMillionContextEnabled = _OneMillionContextPolicy.isEnabledBy(
@@ -3143,6 +3151,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       maxThinkingLength: optionalPositiveIntFromText(
         _maxThinkingLengthController.text,
       ),
+      thinkingEnabled: _thinkingEnabled,
       requiresReasoningEcho: _requiresReasoningEcho,
       capabilities: _capabilities,
       supportsAttachments: _supportsAttachments,
@@ -3489,6 +3498,80 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     );
   }
 
+  Widget _buildThinkingEnabledControl() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final duration = _settingsMotionDuration(
+      context,
+      const Duration(milliseconds: 180),
+    );
+    final helperText = _thinkingEnabled
+        ? _localizedText(
+            context,
+            zh: '请求时会按该模型所属厂商注入思考/推理开关；不兼容网关会自动降级重试。',
+            zhHant: '請求時會依該模型所屬廠商注入思考/推理開關；不相容閘道會自動降級重試。',
+            en: 'Requests include the provider-specific thinking switch; incompatible gateways fall back automatically.',
+            fr: 'Les requêtes incluent le commutateur de réflexion du fournisseur ; les passerelles incompatibles réessaient sans lui.',
+            de: 'Anfragen enthalten den anbieterspezifischen Thinking-Schalter; inkompatible Gateways versuchen es automatisch ohne ihn erneut.',
+            ja: 'リクエストにプロバイダー別の思考スイッチを含めます。非対応ゲートウェイは自動的に降級して再試行します。',
+          )
+        : _localizedText(
+            context,
+            zh: '请求时会尽量关闭思考模式；固定推理模型可能仍由服务端保持推理行为。',
+            zhHant: '請求時會盡量關閉思考模式；固定推理模型可能仍由服務端保持推理行為。',
+            en: 'Requests try to disable thinking; fixed reasoning models may still reason server-side.',
+            fr: 'Les requêtes tentent de désactiver la réflexion ; certains modèles raisonnent toujours côté serveur.',
+            de: 'Anfragen versuchen Thinking zu deaktivieren; feste Reasoning-Modelle können serverseitig weiterdenken.',
+            ja: 'リクエストでは思考を無効化しますが、固定推論モデルではサーバー側で継続される場合があります。',
+          );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _localizedText(
+                  context,
+                  zh: '开启思考',
+                  zhHant: '開啟思考',
+                  en: 'Enable Thinking',
+                  fr: 'Activer la réflexion',
+                  de: 'Thinking aktivieren',
+                  ja: '思考を有効化',
+                ),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              AnimatedSwitcher(
+                duration: duration,
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: Text(
+                  helperText,
+                  key: ValueKey<bool>(_thinkingEnabled),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Switch(
+          value: _thinkingEnabled,
+          onChanged: (value) {
+            setState(() => _thinkingEnabled = value);
+          },
+        ),
+      ],
+    );
+  }
+
   Widget _buildCompactTextField({
     required TextEditingController controller,
     required String label,
@@ -3794,6 +3877,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+
+              _buildThinkingEnabledControl(),
               const SizedBox(height: 16),
 
               _buildSectionHeader(

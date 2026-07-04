@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
 
@@ -18,6 +19,310 @@ final RegExp _htmlTagPattern = RegExp(r'<[^>]*>');
 final RegExp _whitespacePattern = RegExp(r'\s+');
 final RegExp _dataUriMimePattern = RegExp(r'data:([^;]+)');
 final RegExp _markdownSeparatorTailPattern = RegExp(r'-+$');
+
+abstract final class AiThinkingRequestPolicy {
+  static const int _defaultThinkingBudget = 8192;
+  static const int _claudeMinimumBudget = 1024;
+  static const String _reasoningField = 'reasoning';
+  static const String _reasoningEffortField = 'reasoning_effort';
+  static const String _includeReasoningField = 'include_reasoning';
+  static const String _enableThinkingField = 'enable_thinking';
+  static const String _thinkingField = 'thinking';
+  static const String _thinkingConfigField = 'thinkingConfig';
+  static const String _thinkingBudgetField = 'thinkingBudget';
+  static const String _chatTemplateKwargsField = 'chat_template_kwargs';
+
+  static const Set<String> _topLevelMarkerFields = <String>{
+    _reasoningField,
+    _reasoningEffortField,
+    _includeReasoningField,
+    _enableThinkingField,
+    _thinkingField,
+  };
+
+  static bool shouldApply(AiModelConfig model) {
+    return model.resolvedSupportsThinking || model.resolvedThinkingEnabled;
+  }
+
+  static void applyOpenAiCompatible(
+    Map<String, Object?> body,
+    AiModelConfig model,
+  ) {
+    if (!shouldApply(model)) return;
+    final enabled = model.resolvedThinkingEnabled;
+    final parameters = _supportedParameterSet(model);
+    final protocol = model.protocolType;
+    final normalizedModelId = lowercaseStringFromValue(model.modelId);
+
+    if (_prefersEnableThinking(protocol) ||
+        parameters.contains(_enableThinkingField)) {
+      _setEnableThinking(body, enabled);
+      return;
+    }
+
+    if ((parameters.contains(_reasoningField) ||
+            parameters.contains(_includeReasoningField) ||
+            _looksLikeOpenRouterRoute(model)) &&
+        !parameters.contains(_reasoningEffortField)) {
+      _setReasoningObject(body, enabled);
+      if (parameters.contains(_includeReasoningField) ||
+          _looksLikeOpenRouterRoute(model)) {
+        body[_includeReasoningField] = enabled;
+      }
+      return;
+    }
+
+    if (parameters.contains(_reasoningEffortField) ||
+        _prefersReasoningEffort(protocol, normalizedModelId)) {
+      body[_reasoningEffortField] = enabled ? 'medium' : 'minimal';
+      return;
+    }
+
+    if (parameters.contains(_thinkingField) ||
+        _prefersThinkingObject(protocol, normalizedModelId)) {
+      body[_thinkingField] = <String, Object?>{
+        'type': enabled ? 'enabled' : 'disabled',
+      };
+      return;
+    }
+
+    if (enabled || model.resolvedSupportsThinking) {
+      body[_reasoningEffortField] = enabled ? 'medium' : 'minimal';
+    }
+  }
+
+  static Object? responsesReasoningFor(AiModelConfig model) {
+    if (!shouldApply(model)) return null;
+    final enabled = model.resolvedThinkingEnabled;
+    return <String, Object?>{'effort': enabled ? 'medium' : 'minimal'};
+  }
+
+  static int effectiveClaudeMaxTokens(AiModelConfig model, int requested) {
+    if (!shouldApply(model) || !model.resolvedThinkingEnabled) {
+      return requested;
+    }
+    return math.max(requested, _claudeMinimumBudget * 4);
+  }
+
+  static Map<String, Object?>? claudeThinkingFor({
+    required AiModelConfig model,
+    required int maxTokens,
+  }) {
+    if (!shouldApply(model)) return null;
+    if (!model.resolvedThinkingEnabled) {
+      return const <String, Object?>{'type': 'disabled'};
+    }
+    final roomForAnswer = math.min(1024, math.max(1, maxTokens ~/ 4));
+    final ceiling = math.max(_claudeMinimumBudget, maxTokens - roomForAnswer);
+    final requestedBudget = _thinkingBudget(
+      model,
+      fallback: _claudeMinimumBudget,
+    );
+    final budget = requestedBudget.clamp(_claudeMinimumBudget, ceiling).toInt();
+    if (budget >= maxTokens) {
+      return null;
+    }
+    return <String, Object?>{'type': 'enabled', 'budget_tokens': budget};
+  }
+
+  static void applyGeminiGenerationConfig(
+    Map<String, Object?> generationConfig,
+    AiModelConfig model,
+  ) {
+    if (!shouldApply(model)) return;
+    final enabled = model.resolvedThinkingEnabled;
+    generationConfig[_thinkingConfigField] = <String, Object?>{
+      _thinkingBudgetField: enabled
+          ? _thinkingBudget(model, fallback: _defaultThinkingBudget)
+          : 0,
+      if (enabled) 'includeThoughts': true,
+    };
+  }
+
+  static bool requestHasMarker({required Map<String, Object?> body}) {
+    return _containsThinkingMarker(body);
+  }
+
+  static Map<String, Object?> withoutRequestMarkers(Map<String, Object?> body) {
+    return _stripThinkingMarkers(body);
+  }
+
+  static bool shouldRetryWithoutMarkers({
+    required int statusCode,
+    required String errorBody,
+    required Map<String, Object?> requestBody,
+  }) {
+    if (statusCode < 400 || statusCode >= 500) return false;
+    if (!requestHasMarker(body: requestBody)) return false;
+    final normalized = errorBody.toLowerCase();
+    final mentionsThinkingField =
+        _topLevelMarkerFields.any((field) => normalized.contains(field)) ||
+        normalized.contains('thinkingconfig') ||
+        normalized.contains('thinking_config') ||
+        normalized.contains('thinkingbudget') ||
+        normalized.contains('thinking_budget');
+    if (mentionsThinkingField) {
+      return _looksLikeUnsupportedParameterError(normalized);
+    }
+    if (statusCode != 400 && statusCode != 422) return false;
+    return _looksLikeUnsupportedParameterError(normalized);
+  }
+
+  static Set<String> _supportedParameterSet(AiModelConfig model) {
+    final profile = model.profileFor(model.modelId);
+    final result = profile.supportedParameters
+        .map(_normalizeParameterName)
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    _collectParameterKeys(profile.defaultParameters, result);
+    return result;
+  }
+
+  static String _normalizeParameterName(String value) {
+    return lowercaseStringFromValue(
+      value,
+    ).replaceAll('-', '_').replaceAll('.', '_');
+  }
+
+  static int _thinkingBudget(AiModelConfig model, {required int fallback}) {
+    final profile = model.profileFor(model.modelId);
+    final value = profile.maxThinkingLength;
+    if (value == null || value <= 0) return fallback;
+    return value;
+  }
+
+  static void _collectParameterKeys(Object? value, Set<String> output) {
+    if (value is! Map) return;
+    for (final entry in value.entries) {
+      output.add(_normalizeParameterName('${entry.key}'));
+      _collectParameterKeys(entry.value, output);
+    }
+  }
+
+  static void _setEnableThinking(Map<String, Object?> body, bool enabled) {
+    body[_enableThinkingField] = enabled;
+    final rawTemplateKwargs = body[_chatTemplateKwargsField];
+    if (rawTemplateKwargs is Map) {
+      body[_chatTemplateKwargsField] = <String, Object?>{
+        ...stringKeyedMapFromValue(rawTemplateKwargs),
+        _enableThinkingField: enabled,
+      };
+    }
+  }
+
+  static void _setReasoningObject(Map<String, Object?> body, bool enabled) {
+    body[_reasoningField] = <String, Object?>{'enabled': enabled};
+  }
+
+  static bool _prefersEnableThinking(AiProtocolType protocolType) {
+    return switch (protocolType) {
+      AiProtocolType.qwen ||
+      AiProtocolType.wenxin ||
+      AiProtocolType.vllm ||
+      AiProtocolType.sglang => true,
+      _ => false,
+    };
+  }
+
+  static bool _prefersReasoningEffort(
+    AiProtocolType protocolType,
+    String normalizedModelId,
+  ) {
+    return switch (protocolType) {
+      AiProtocolType.openai ||
+      AiProtocolType.grok ||
+      AiProtocolType.minimax => true,
+      AiProtocolType.kimi when normalizedModelId.contains('kimi-k2') => true,
+      _ => false,
+    };
+  }
+
+  static bool _prefersThinkingObject(
+    AiProtocolType protocolType,
+    String normalizedModelId,
+  ) {
+    return switch (protocolType) {
+      AiProtocolType.deepseek ||
+      AiProtocolType.glm ||
+      AiProtocolType.seed ||
+      AiProtocolType.stepfun ||
+      AiProtocolType.longcat ||
+      AiProtocolType.hunyuan => true,
+      AiProtocolType.kimi when !normalizedModelId.contains('kimi-k2') => true,
+      _ => false,
+    };
+  }
+
+  static bool _looksLikeOpenRouterRoute(AiModelConfig model) {
+    final baseUrl = lowercaseStringFromValue(model.baseUrl);
+    return baseUrl.contains('openrouter') || model.modelId.contains('/');
+  }
+
+  static bool _looksLikeUnsupportedParameterError(String normalizedError) {
+    return normalizedError.contains('unknown') ||
+        normalizedError.contains('unrecognized') ||
+        normalizedError.contains('unsupported') ||
+        normalizedError.contains('unexpected') ||
+        normalizedError.contains('not allowed') ||
+        normalizedError.contains('additional') ||
+        normalizedError.contains('invalid') ||
+        normalizedError.contains('schema') ||
+        normalizedError.contains('parameter') ||
+        normalizedError.contains('field') ||
+        normalizedError.contains('body') ||
+        normalizedError.contains('request') ||
+        normalizedError.contains('bad request');
+  }
+
+  static bool _containsThinkingMarker(Object? value) {
+    if (value is Map) {
+      for (final entry in value.entries) {
+        final key = _normalizeParameterName('${entry.key}');
+        if (_topLevelMarkerFields.contains(key) ||
+            key == 'thinking_config' ||
+            key == 'thinkingconfig' ||
+            key == 'thinking_budget' ||
+            key == 'thinkingbudget') {
+          return true;
+        }
+        if (_containsThinkingMarker(entry.value)) return true;
+      }
+    }
+    if (value is List) {
+      return value.any(_containsThinkingMarker);
+    }
+    return false;
+  }
+
+  static Map<String, Object?> _stripThinkingMarkers(Map<String, Object?> map) {
+    final result = <String, Object?>{};
+    for (final entry in map.entries) {
+      final key = _normalizeParameterName(entry.key);
+      if (_topLevelMarkerFields.contains(key) ||
+          key == 'thinking_config' ||
+          key == 'thinkingconfig' ||
+          key == 'thinking_budget' ||
+          key == 'thinkingbudget') {
+        continue;
+      }
+      result[entry.key] = _stripThinkingValue(entry.value);
+    }
+    return result;
+  }
+
+  static Object? _stripThinkingValue(Object? value) {
+    if (value is Map<String, Object?>) {
+      return _stripThinkingMarkers(value);
+    }
+    if (value is Map) {
+      return _stripThinkingMarkers(stringKeyedMapFromValue(value));
+    }
+    if (value is List) {
+      return value.map(_stripThinkingValue).toList(growable: false);
+    }
+    return value;
+  }
+}
 
 enum AiChatRole { system, user, assistant, tool }
 
@@ -946,6 +1251,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
       if (stableTools.isNotEmpty) 'tool_choice': 'auto',
       'messages': mergedMessages,
     };
+    AiThinkingRequestPolicy.applyOpenAiCompatible(body, model);
     return body;
   }
 
@@ -1522,7 +1828,20 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     final requestMessages = await _mapClaudeMessages(
       systemPartition.conversationTurns,
     );
-    final effectiveMaxTokens = model.maxTokens ?? 1024;
+    final effectiveMaxTokens = AiThinkingRequestPolicy.effectiveClaudeMaxTokens(
+      model,
+      model.maxTokens ?? 1024,
+    );
+    final thinkingPayload = AiThinkingRequestPolicy.claudeThinkingFor(
+      model: model,
+      maxTokens: effectiveMaxTokens,
+    );
+    final claudeTemperature = model.temperature;
+    final sendTemperature =
+        claudeTemperature != null &&
+        (thinkingPayload == null ||
+            thinkingPayload['type'] != 'enabled' ||
+            claudeTemperature == 1.0);
     final cacheEnabled = inputCacheConfig?.isEffectivelyEnabled ?? false;
     // Claude prompt caching: total cache_control markers <= 4 across system +
     // tools + messages, otherwise the API rejects with 400. We allocate the
@@ -1588,7 +1907,8 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       'model': model.resolveOperationModelId(operationFamily),
       if (systemPayload != null) 'system': systemPayload,
       'max_tokens': effectiveMaxTokens,
-      if (model.temperature != null) 'temperature': model.temperature,
+      if (thinkingPayload != null) 'thinking': thinkingPayload,
+      if (sendTemperature) 'temperature': claudeTemperature,
       if (stream) 'stream': true,
       if (toolsPayload != null) 'tools': toolsPayload,
       if (tools.isNotEmpty) 'tool_choice': <String, Object?>{'type': 'auto'},
@@ -2082,6 +2402,17 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
         ? const <String>['Text', 'Image']
         : const <String>[];
 
+    final generationConfig = <String, Object?>{
+      'maxOutputTokens': model.maxTokens ?? 8192,
+      if (model.temperature != null) 'temperature': model.temperature,
+      if (effectiveModalities.isNotEmpty)
+        'responseModalities': effectiveModalities,
+    };
+    AiThinkingRequestPolicy.applyGeminiGenerationConfig(
+      generationConfig,
+      model,
+    );
+
     return <String, Object?>{
       if (systemContent.isNotEmpty)
         'systemInstruction': <String, Object?>{
@@ -2090,12 +2421,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
           ],
         },
       'contents': requestContents,
-      'generationConfig': <String, Object?>{
-        'maxOutputTokens': model.maxTokens ?? 8192,
-        if (model.temperature != null) 'temperature': model.temperature,
-        if (effectiveModalities.isNotEmpty)
-          'responseModalities': effectiveModalities,
-      },
+      'generationConfig': generationConfig,
       if (tools.isNotEmpty)
         'tools': <Map<String, Object?>>[
           <String, Object?>{

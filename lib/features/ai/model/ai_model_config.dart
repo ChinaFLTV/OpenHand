@@ -245,6 +245,7 @@ class AiModelProfile {
     this.maxSummaryLength,
     this.maxOutputLength,
     this.maxThinkingLength,
+    this.thinkingEnabled,
     this.requiresReasoningEcho,
     this.capabilities = const <AiModelCapability>{},
     this.supportsAttachments,
@@ -317,6 +318,7 @@ class AiModelProfile {
       maxSummaryLength: _readNullablePositiveInt(json['max_summary_length']),
       maxOutputLength: _readNullablePositiveInt(json['max_output_length']),
       maxThinkingLength: _readNullablePositiveInt(json['max_thinking_length']),
+      thinkingEnabled: _readBool(json[_thinkingEnabledJsonKey]),
       requiresReasoningEcho: json['requires_reasoning_echo'] as bool?,
       capabilities: _parseCapabilities(json['capabilities']),
       supportsAttachments: json['supports_attachments'] as bool?,
@@ -439,6 +441,7 @@ class AiModelProfile {
 
   static const String _globalDefaultTitleModelJsonKey =
       'is_global_default_title_model';
+  static const String _thinkingEnabledJsonKey = 'thinking_enabled';
 
   /// User-friendly display name (e.g. "GPT-4o" instead of "gpt-4o-2024-11-20").
   final String? displayName;
@@ -457,6 +460,11 @@ class AiModelProfile {
   final int? maxSummaryLength;
   final int? maxOutputLength;
   final int? maxThinkingLength;
+
+  /// Whether request-time thinking / reasoning mode is enabled for this model.
+  ///
+  /// `null` means "derive from catalog metadata and model/provider heuristics".
+  final bool? thinkingEnabled;
 
   /// Whether follow-up requests must echo prior reasoning_content. When null,
   /// the runtime falls back to provider/model-name heuristics.
@@ -580,6 +588,7 @@ class AiModelProfile {
       maxSummaryLength != null ||
       maxOutputLength != null ||
       maxThinkingLength != null ||
+      thinkingEnabled != null ||
       requiresReasoningEcho != null ||
       capabilities.isNotEmpty ||
       supportsAttachments != null ||
@@ -657,6 +666,8 @@ class AiModelProfile {
     bool clearMaxOutputLength = false,
     int? maxThinkingLength,
     bool clearMaxThinkingLength = false,
+    bool? thinkingEnabled,
+    bool clearThinkingEnabled = false,
     bool? requiresReasoningEcho,
     bool clearRequiresReasoningEcho = false,
     Set<AiModelCapability>? capabilities,
@@ -779,6 +790,9 @@ class AiModelProfile {
       maxThinkingLength: clearMaxThinkingLength
           ? null
           : maxThinkingLength ?? this.maxThinkingLength,
+      thinkingEnabled: clearThinkingEnabled
+          ? null
+          : thinkingEnabled ?? this.thinkingEnabled,
       requiresReasoningEcho: clearRequiresReasoningEcho
           ? null
           : requiresReasoningEcho ?? this.requiresReasoningEcho,
@@ -949,6 +963,7 @@ class AiModelProfile {
       if (maxSummaryLength != null) 'max_summary_length': maxSummaryLength,
       if (maxOutputLength != null) 'max_output_length': maxOutputLength,
       if (maxThinkingLength != null) 'max_thinking_length': maxThinkingLength,
+      if (thinkingEnabled != null) _thinkingEnabledJsonKey: thinkingEnabled,
       if (requiresReasoningEcho != null)
         'requires_reasoning_echo': requiresReasoningEcho,
       if (capabilities.isNotEmpty)
@@ -1202,6 +1217,16 @@ class AiModelConfig {
   static final RegExp _reasoningModelIdRepeatedDashPattern = RegExp(r'-+');
   static final RegExp _reasoningModelIdEdgeDashPattern = RegExp(r'^-|-$');
   static final RegExp _officialWebsiteWhitespacePattern = RegExp(r'\s');
+  static const Set<String> _thinkingParameterNames = <String>{
+    'reasoning',
+    'reasoning_effort',
+    'include_reasoning',
+    'enable_thinking',
+    'thinking',
+    'thinking_budget',
+    'thinking_config',
+    'thinkingconfig',
+  };
   static const Set<String> _deepSeekPlainChatModelIds = <String>{
     'deepseek-chat',
   };
@@ -1316,6 +1341,7 @@ class AiModelConfig {
       maxSummaryLength: override.maxSummaryLength,
       maxOutputLength: override.maxOutputLength,
       maxThinkingLength: override.maxThinkingLength,
+      thinkingEnabled: override.thinkingEnabled,
       requiresReasoningEcho: override.requiresReasoningEcho,
       capabilities: override.capabilities.isNotEmpty
           ? override.capabilities
@@ -1482,6 +1508,71 @@ class AiModelConfig {
   bool get effectiveExplicitPromptCacheEnabled =>
       supportsExplicitPromptCacheControl && explicitPromptCacheEnabled;
 
+  bool get resolvedSupportsThinking {
+    final trimmedModelId = nullIfBlank(modelId) ?? '';
+    final profile = profileFor(trimmedModelId);
+    final catalogProfile = AiModelCatalog.lookup(trimmedModelId, protocolType);
+    return supportsThinkingByDefault(
+          modelId: trimmedModelId,
+          protocolType: protocolType,
+          profile: profile,
+        ) ||
+        (catalogProfile != null &&
+            supportsThinkingByDefault(
+              modelId: trimmedModelId,
+              protocolType: protocolType,
+              profile: catalogProfile,
+            )) ||
+        modelProfiles[trimmedModelId]?.thinkingEnabled == true;
+  }
+
+  bool get resolvedThinkingEnabled {
+    final trimmedModelId = nullIfBlank(modelId) ?? '';
+    final userOverride = modelProfiles[trimmedModelId]?.thinkingEnabled;
+    if (userOverride != null) {
+      return userOverride;
+    }
+    final profile = profileFor(trimmedModelId);
+    return thinkingEnabledByDefault(
+      modelId: trimmedModelId,
+      protocolType: protocolType,
+      profile: profile,
+    );
+  }
+
+  static bool thinkingEnabledByDefault({
+    required String modelId,
+    required AiProtocolType protocolType,
+    required AiModelProfile profile,
+  }) {
+    final explicit = profile.thinkingEnabled;
+    if (explicit != null) return explicit;
+    if (_defaultParametersDisableThinking(profile.defaultParameters)) {
+      return false;
+    }
+    if ((profile.maxThinkingLength ?? 0) > 0) return true;
+    if (_defaultParametersEnableThinking(profile.defaultParameters)) {
+      return true;
+    }
+    final normalizedModelId = _normalizeReasoningModelId(modelId);
+    if (_looksLikeThinkingCapableModel(normalizedModelId, protocolType)) {
+      return true;
+    }
+    return _profileHasThinkingParameter(profile);
+  }
+
+  static bool supportsThinkingByDefault({
+    required String modelId,
+    required AiProtocolType protocolType,
+    required AiModelProfile profile,
+  }) {
+    if (profile.thinkingEnabled != null) return true;
+    if ((profile.maxThinkingLength ?? 0) > 0) return true;
+    if (_profileHasThinkingParameter(profile)) return true;
+    final normalizedModelId = _normalizeReasoningModelId(modelId);
+    return _looksLikeThinkingCapableModel(normalizedModelId, protocolType);
+  }
+
   bool get requiresReasoningEcho {
     final trimmedModelId = nullIfBlank(modelId) ?? '';
     final userOverride = modelProfiles[trimmedModelId]?.requiresReasoningEcho;
@@ -1528,6 +1619,154 @@ class AiModelConfig {
         .replaceAll(_reasoningModelIdSeparatorPattern, '-')
         .replaceAll(_reasoningModelIdRepeatedDashPattern, '-')
         .replaceAll(_reasoningModelIdEdgeDashPattern, '');
+  }
+
+  static bool _profileHasThinkingParameter(AiModelProfile profile) {
+    return profile.supportedParameters.any(_isThinkingParameterName) ||
+        _mapHasThinkingParameter(profile.defaultParameters);
+  }
+
+  static bool _isThinkingParameterName(String value) {
+    final normalized = lowercaseStringFromValue(
+      value,
+    ).replaceAll('-', '_').replaceAll('.', '_');
+    return _thinkingParameterNames.contains(normalized);
+  }
+
+  static bool _mapHasThinkingParameter(Map<String, Object?> map) {
+    if (map.isEmpty) return false;
+    for (final entry in map.entries) {
+      if (_isThinkingParameterName(entry.key)) return true;
+      final value = entry.value;
+      if (value is Map &&
+          _mapHasThinkingParameter(stringKeyedMapFromValue(value))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool _defaultParametersEnableThinking(Map<String, Object?> map) {
+    if (map.isEmpty) return false;
+    for (final entry in map.entries) {
+      final value = entry.value;
+      if (_isThinkingParameterName(entry.key) && value == true) {
+        return true;
+      }
+      if (entry.key == 'reasoning' && value is Map) {
+        final reasoning = stringKeyedMapFromValue(value);
+        if (_readBool(reasoning['enabled']) == true) return true;
+        if (_readBool(reasoning['exclude']) == false) return true;
+      }
+      if (entry.key == 'thinking' && value is Map) {
+        final thinking = stringKeyedMapFromValue(value);
+        final type = lowercaseStringFromValue(thinking['type']);
+        if (type == 'enabled' || type == 'adaptive') return true;
+      }
+      if (value is Map &&
+          _defaultParametersEnableThinking(stringKeyedMapFromValue(value))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool _defaultParametersDisableThinking(Map<String, Object?> map) {
+    if (map.isEmpty) return false;
+    for (final entry in map.entries) {
+      final value = entry.value;
+      if (_isThinkingParameterName(entry.key) && value == false) {
+        return true;
+      }
+      if (entry.key == 'reasoning' && value is Map) {
+        final reasoning = stringKeyedMapFromValue(value);
+        if (_readBool(reasoning['enabled']) == false) return true;
+        if (_readBool(reasoning['exclude']) == true) return true;
+      }
+      if (entry.key == 'thinking' && value is Map) {
+        final thinking = stringKeyedMapFromValue(value);
+        if (lowercaseStringFromValue(thinking['type']) == 'disabled') {
+          return true;
+        }
+      }
+      if (value is Map &&
+          _defaultParametersDisableThinking(stringKeyedMapFromValue(value))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool _looksLikeThinkingCapableModel(
+    String normalizedModelId,
+    AiProtocolType protocolType,
+  ) {
+    if (normalizedModelId.isEmpty) return false;
+    if (normalizedModelId.contains('thinking') ||
+        normalizedModelId.contains('think') ||
+        normalizedModelId.contains('reasoner') ||
+        normalizedModelId.contains('reasoning') ||
+        normalizedModelId.contains('deep-research')) {
+      return true;
+    }
+    if (_looksLikeDeepSeekReasoningModel(normalizedModelId) ||
+        _looksLikeDeepSeekHybridThinkingModel(normalizedModelId)) {
+      return true;
+    }
+    return switch (protocolType) {
+      AiProtocolType.openai =>
+        normalizedModelId.startsWith('o1') ||
+            normalizedModelId.startsWith('o3') ||
+            normalizedModelId.startsWith('o4') ||
+            normalizedModelId.startsWith('gpt-5'),
+      AiProtocolType.claude =>
+        normalizedModelId.contains('claude-4') ||
+            normalizedModelId.contains('sonnet-4') ||
+            normalizedModelId.contains('opus-4') ||
+            normalizedModelId.contains('haiku-4') ||
+            normalizedModelId.contains('claude-sonnet') ||
+            normalizedModelId.contains('claude-opus'),
+      AiProtocolType.gemini => normalizedModelId.contains('gemini-2-5'),
+      AiProtocolType.deepseek =>
+        _looksLikeDeepSeekReasoningModel(normalizedModelId) ||
+            _looksLikeDeepSeekHybridThinkingModel(normalizedModelId),
+      AiProtocolType.qwen =>
+        normalizedModelId.contains('qwen3') ||
+            normalizedModelId.contains('qwq') ||
+            normalizedModelId.contains('qvq'),
+      AiProtocolType.glm =>
+        normalizedModelId.contains('glm-4-5') ||
+            normalizedModelId.contains('glm-4-6') ||
+            normalizedModelId.contains('glm-z1'),
+      AiProtocolType.grok =>
+        normalizedModelId.contains('grok-3-mini') ||
+            normalizedModelId.contains('grok-4'),
+      AiProtocolType.seed =>
+        normalizedModelId.contains('seed-1-6') ||
+            normalizedModelId.contains('doubao-seed'),
+      AiProtocolType.stepfun => normalizedModelId.contains('step-3'),
+      AiProtocolType.minimax =>
+        normalizedModelId.contains('m1') ||
+            normalizedModelId.contains('m2') ||
+            normalizedModelId.contains('m2-1'),
+      AiProtocolType.kimi =>
+        normalizedModelId.contains('k1') ||
+            normalizedModelId.contains('k2') ||
+            normalizedModelId.contains('kimi-k'),
+      AiProtocolType.hunyuan => normalizedModelId.contains('t1'),
+      AiProtocolType.wenxin => normalizedModelId.contains('ernie-x1'),
+      AiProtocolType.longcat => normalizedModelId.contains('longcat'),
+      AiProtocolType.vllm || AiProtocolType.sglang =>
+        normalizedModelId.contains('r1') ||
+            normalizedModelId.contains('qwq') ||
+            normalizedModelId.contains('qwen3') ||
+            normalizedModelId.contains('glm-z1'),
+      AiProtocolType.ollama ||
+      AiProtocolType.agnes ||
+      AiProtocolType.joycode ||
+      AiProtocolType.meta ||
+      AiProtocolType.mimo => false,
+    };
   }
 
   static bool _shouldEchoDeepSeekReasoning({

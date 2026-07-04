@@ -380,6 +380,14 @@ class AiChatService implements AiChatClient {
     );
   }
 
+  AiRequestBlueprint _withoutThinkingMarkers(AiRequestBlueprint blueprint) {
+    return AiRequestBlueprint(
+      url: blueprint.url,
+      headers: blueprint.headers,
+      body: AiThinkingRequestPolicy.withoutRequestMarkers(blueprint.body),
+    );
+  }
+
   /// Throws an [AiChatException] with a user-friendly message when the caller
   /// asks for video/audio output but the active model has no generation
   /// capability. Without this guard the request would fall through to the
@@ -649,6 +657,16 @@ class AiChatService implements AiChatClient {
           response = await sendBlueprint(
             _withoutCacheAffinityMarkers(blueprint),
           );
+          endedAt = DateTime.now().toUtc();
+        }
+      }
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (AiThinkingRequestPolicy.shouldRetryWithoutMarkers(
+          statusCode: response.statusCode,
+          errorBody: response.body,
+          requestBody: blueprint.body,
+        )) {
+          response = await sendBlueprint(_withoutThinkingMarkers(blueprint));
           endedAt = DateTime.now().toUtc();
         }
       }
@@ -947,6 +965,32 @@ class AiChatService implements AiChatClient {
         streamedResponse = await openStream(
           _withoutCacheAffinityMarkers(blueprint),
         );
+        if (streamedResponse == null) {
+          return AiChatStreamingResponse(
+            events: const Stream<AiChatStreamEvent>.empty(),
+            result: Future<AiChatStreamResult>.value(
+              const AiChatStreamResult(
+                reply: '',
+                reasoning: '',
+                toolCalls: <AiToolCall>[],
+                wasCancelled: true,
+              ),
+            ),
+          );
+        }
+        if (streamedResponse.statusCode < 200 ||
+            streamedResponse.statusCode >= 300) {
+          finalErrorBody = await streamedResponse.stream.bytesToString();
+        }
+      }
+      if ((streamedResponse.statusCode < 200 ||
+              streamedResponse.statusCode >= 300) &&
+          AiThinkingRequestPolicy.shouldRetryWithoutMarkers(
+            statusCode: streamedResponse.statusCode,
+            errorBody: finalErrorBody,
+            requestBody: blueprint.body,
+          )) {
+        streamedResponse = await openStream(_withoutThinkingMarkers(blueprint));
         if (streamedResponse == null) {
           return AiChatStreamingResponse(
             events: const Stream<AiChatStreamEvent>.empty(),
@@ -1274,57 +1318,107 @@ class AiChatService implements AiChatClient {
     final flattenedInput = trimmedNonEmptyStrings(
       messages.map((item) => '${item.roleName}: ${item.content}'),
     ).join('\n\n');
-    final request = _responsesService!.buildRequest(
+    var request = _responsesService!.buildRequest(
       model: model,
       input: flattenedInput,
       stream: true,
     );
-    final streamStartedAt = DateTime.now().toUtc();
-    final capturedHeaders = Map<String, String>.unmodifiable(request.headers);
-    final capturedBody = request.body;
-    onRequestStarted?.call(
-      AiChatRequestTelemetry(
-        requestUrl: request.url,
-        requestMethod: request.method,
-        requestHeaders: capturedHeaders,
-        requestBody: capturedBody,
-        startedAt: streamStartedAt,
-      ),
-    );
-    final streamedResponseFuture = _sendHttpRequestWithRedirects(
-      client: _client,
-      method: request.method,
-      uri: Uri.parse(request.url),
-      headers: request.headers,
-      body: jsonEncode(request.body),
-      timeout: timeout,
-    );
-    late final http.StreamedResponse streamedResponse;
-    if (cancelSignal == null) {
-      streamedResponse = await streamedResponseFuture;
-    } else {
+    late DateTime streamStartedAt;
+    late Map<String, String> capturedHeaders;
+    late Map<String, Object?> capturedBody;
+
+    Future<http.StreamedResponse?> openResponsesStream(
+      AiResponsesRequestBlueprint nextRequest,
+    ) async {
+      request = nextRequest;
+      streamStartedAt = DateTime.now().toUtc();
+      capturedHeaders = Map<String, String>.unmodifiable(request.headers);
+      capturedBody = request.body;
+      onRequestStarted?.call(
+        AiChatRequestTelemetry(
+          requestUrl: request.url,
+          requestMethod: request.method,
+          requestHeaders: capturedHeaders,
+          requestBody: capturedBody,
+          startedAt: streamStartedAt,
+        ),
+      );
+      final streamedResponseFuture = _sendHttpRequestWithRedirects(
+        client: _client,
+        method: request.method,
+        uri: Uri.parse(request.url),
+        headers: request.headers,
+        body: jsonEncode(request.body),
+        timeout: timeout,
+      );
+      if (cancelSignal == null) {
+        return streamedResponseFuture;
+      }
       final firstResult = await Future.any(<Future<Object?>>[
         streamedResponseFuture,
         cancelSignal.then((_) => _cancelledStreamSentinel),
       ]);
       if (identical(firstResult, _cancelledStreamSentinel)) {
-        return AiChatStreamingResponse(
-          events: const Stream<AiChatStreamEvent>.empty(),
-          result: Future<AiChatStreamResult>.value(
-            const AiChatStreamResult(
-              reply: '',
-              reasoning: '',
-              toolCalls: <AiToolCall>[],
-              wasCancelled: true,
-            ),
-          ),
-        );
+        return null;
       }
-      streamedResponse = firstResult as http.StreamedResponse;
+      return firstResult as http.StreamedResponse;
+    }
+
+    var streamedResponse = await openResponsesStream(request);
+    if (streamedResponse == null) {
+      return AiChatStreamingResponse(
+        events: const Stream<AiChatStreamEvent>.empty(),
+        result: Future<AiChatStreamResult>.value(
+          const AiChatStreamResult(
+            reply: '',
+            reasoning: '',
+            toolCalls: <AiToolCall>[],
+            wasCancelled: true,
+          ),
+        ),
+      );
+    }
+    String? responsesErrorBody;
+    if (streamedResponse.statusCode < 200 ||
+        streamedResponse.statusCode >= 300) {
+      responsesErrorBody = await streamedResponse.stream.bytesToString();
+      if (AiThinkingRequestPolicy.shouldRetryWithoutMarkers(
+        statusCode: streamedResponse.statusCode,
+        errorBody: responsesErrorBody,
+        requestBody: request.body,
+      )) {
+        final retryRequest = AiResponsesRequestBlueprint(
+          url: request.url,
+          method: request.method,
+          headers: request.headers,
+          body: AiThinkingRequestPolicy.withoutRequestMarkers(request.body),
+        );
+        streamedResponse = await openResponsesStream(retryRequest);
+        if (streamedResponse == null) {
+          return AiChatStreamingResponse(
+            events: const Stream<AiChatStreamEvent>.empty(),
+            result: Future<AiChatStreamResult>.value(
+              const AiChatStreamResult(
+                reply: '',
+                reasoning: '',
+                toolCalls: <AiToolCall>[],
+                wasCancelled: true,
+              ),
+            ),
+          );
+        }
+        if (streamedResponse.statusCode >= 200 &&
+            streamedResponse.statusCode < 300) {
+          // Retry succeeded; continue into the normal SSE reader below.
+        } else {
+          responsesErrorBody = await streamedResponse.stream.bytesToString();
+        }
+      }
     }
     if (streamedResponse.statusCode < 200 ||
         streamedResponse.statusCode >= 300) {
-      final errorBody = await streamedResponse.stream.bytesToString();
+      final errorBody =
+          responsesErrorBody ?? await streamedResponse.stream.bytesToString();
       throw AiChatException(
         AiTransportDiagnosticMessages.httpStatus(
           streamedResponse.statusCode,

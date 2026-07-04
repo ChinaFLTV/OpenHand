@@ -5,6 +5,7 @@ import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_token_usage.dart';
 import '../chat/ai_chat_service.dart';
+import '../chat/ai_protocol_adapter.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../runtime/ai_transport_client.dart';
 import '../session_io/ai_token_usage_parser.dart';
@@ -80,31 +81,34 @@ class AiResponsesService {
       family,
       method: model.requestMethod,
     );
-    final body =
-        AiOperationHttp.mergeBodyExtras(model, family, <String, Object?>{
-          'model': model.resolveOperationModelId(family),
-          'input': input,
-          if (instructionsValue != null) 'instructions': instructionsValue,
-          if (previousResponseIdValue != null)
-            'previous_response_id': previousResponseIdValue,
-          if (store != null) 'store': store,
-          if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
-          if (temperature != null && temperature.isFinite)
-            'temperature': temperature,
-          if (temperature == null && model.temperature != null)
-            'temperature': model.temperature,
-          if (maxOutputTokens != null && maxOutputTokens > 0)
-            'max_output_tokens': maxOutputTokens,
-          if (maxOutputTokens == null && model.maxTokens != null)
-            'max_output_tokens': model.maxTokens,
-          if (topP != null && topP.isFinite) 'top_p': topP,
-          if (reasoning != null) 'reasoning': reasoning,
-          if (text != null) 'text': text,
-          if (tools != null) 'tools': tools,
-          if (toolChoice != null) 'tool_choice': toolChoice,
-          if (userValue != null) 'user': userValue,
-          if (stream) 'stream': true,
-        });
+    final baseBody = <String, Object?>{
+      'model': model.resolveOperationModelId(family),
+      'input': input,
+      if (instructionsValue != null) 'instructions': instructionsValue,
+      if (previousResponseIdValue != null)
+        'previous_response_id': previousResponseIdValue,
+      if (store != null) 'store': store,
+      if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
+      if (temperature != null && temperature.isFinite)
+        'temperature': temperature,
+      if (temperature == null && model.temperature != null)
+        'temperature': model.temperature,
+      if (maxOutputTokens != null && maxOutputTokens > 0)
+        'max_output_tokens': maxOutputTokens,
+      if (maxOutputTokens == null && model.maxTokens != null)
+        'max_output_tokens': model.maxTokens,
+      if (topP != null && topP.isFinite) 'top_p': topP,
+      if (reasoning != null)
+        'reasoning': reasoning
+      else if (AiThinkingRequestPolicy.responsesReasoningFor(model) != null)
+        'reasoning': AiThinkingRequestPolicy.responsesReasoningFor(model),
+      if (text != null) 'text': text,
+      if (tools != null) 'tools': tools,
+      if (toolChoice != null) 'tool_choice': toolChoice,
+      if (userValue != null) 'user': userValue,
+      if (stream) 'stream': true,
+    };
+    final body = AiOperationHttp.mergeBodyExtras(model, family, baseBody);
     return AiResponsesRequestBlueprint(
       url: AiOperationHttp.uriWithExtraQuery(
         endpoint.url,
@@ -138,7 +142,7 @@ class AiResponsesService {
     Object? toolChoice,
     String? user,
   }) async {
-    final request = buildRequest(
+    var request = buildRequest(
       model: model,
       input: input,
       instructions: instructions,
@@ -154,13 +158,28 @@ class AiResponsesService {
       toolChoice: toolChoice,
       user: user,
     );
-    final response = await _transport.sendJson(
+    var response = await _transport.sendJson(
       uri: Uri.parse(request.url),
       method: request.method,
       headers: request.headers,
       body: request.body,
       timeout: timeout,
     );
+    if ((response.statusCode < 200 || response.statusCode >= 300) &&
+        AiThinkingRequestPolicy.shouldRetryWithoutMarkers(
+          statusCode: response.statusCode,
+          errorBody: response.body,
+          requestBody: request.body,
+        )) {
+      request = _withoutThinkingMarkers(request);
+      response = await _transport.sendJson(
+        uri: Uri.parse(request.url),
+        method: request.method,
+        headers: request.headers,
+        body: request.body,
+        timeout: timeout,
+      );
+    }
     AiOperationHttp.throwIfFailed(
       statusCode: response.statusCode,
       body: response.body,
@@ -180,6 +199,17 @@ class AiResponsesService {
       requestMethod: request.method,
       requestHeaders: Map<String, String>.unmodifiable(request.headers),
       requestBody: request.body,
+    );
+  }
+
+  AiResponsesRequestBlueprint _withoutThinkingMarkers(
+    AiResponsesRequestBlueprint request,
+  ) {
+    return AiResponsesRequestBlueprint(
+      url: request.url,
+      method: request.method,
+      headers: request.headers,
+      body: AiThinkingRequestPolicy.withoutRequestMarkers(request.body),
     );
   }
 

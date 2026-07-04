@@ -406,6 +406,7 @@ class AiModelCatalog {
     int? summary,
     int? output,
     int? thinking,
+    bool? thinkingEnabled,
     double? inputUsdPer1M,
     double? outputUsdPer1M,
     double? cacheReadUsdPer1M,
@@ -467,6 +468,8 @@ class AiModelCatalog {
       maxSummaryLength: summary,
       maxOutputLength: output,
       maxThinkingLength: thinking,
+      thinkingEnabled:
+          thinkingEnabled ?? (thinking != null && thinking > 0 ? true : null),
       inputUsdPer1M: inputUsdPer1M,
       outputUsdPer1M: outputUsdPer1M,
       cacheReadUsdPer1M: cacheReadUsdPer1M,
@@ -916,6 +919,7 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 1000000,
         output: 128000,
+        thinking: 128000,
       );
     }
     if (id.startsWith('gpt-5.4-nano')) {
@@ -924,6 +928,7 @@ class AiModelCatalog {
         desc: 'Ultra-efficient with 400K context',
         context: 400000,
         output: 128000,
+        thinking: 128000,
       );
     }
     if (id.startsWith('gpt-5.4-mini')) {
@@ -934,6 +939,7 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 400000,
         output: 128000,
+        thinking: 128000,
       );
     }
     if (id.startsWith('gpt-5.4')) {
@@ -944,6 +950,18 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 1000000,
         output: 128000,
+        thinking: 128000,
+      );
+    }
+    if (id.startsWith('gpt-5')) {
+      return _p(
+        name: 'GPT-5',
+        desc: 'Flagship model with reasoning',
+        multimodal: true,
+        modalities: _textImage,
+        context: 400000,
+        output: 128000,
+        thinking: 128000,
       );
     }
 
@@ -1077,6 +1095,7 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 200000,
         output: 64000,
+        thinking: 64000,
       );
     }
 
@@ -1793,6 +1812,7 @@ class AiModelCatalog {
         modalities: _textImage,
         context: 32768,
         output: 16384,
+        thinking: 16384,
       );
     }
 
@@ -2211,6 +2231,7 @@ class AiModelCatalog {
         desc: 'Balanced model with thinking',
         context: 200000,
         output: 128000,
+        thinking: 128000,
       );
     }
     if (id.startsWith('glm-4.6') || id.startsWith('glm-4-6')) {
@@ -2219,6 +2240,7 @@ class AiModelCatalog {
         desc: 'Capable model with thinking',
         context: 200000,
         output: 128000,
+        thinking: 128000,
       );
     }
     if (id.contains('4.5-air') || id.contains('4-5-air')) {
@@ -3869,6 +3891,9 @@ class AiModelCatalog {
         desc: 'Vision model with deep thinking',
         multimodal: true,
         modalities: _textImage,
+        context: 262144,
+        output: 32768,
+        thinking: 32768,
       );
     }
     if (id.contains('vision')) {
@@ -3882,7 +3907,13 @@ class AiModelCatalog {
 
     // ── Thinking models ──────────────────────────────────────────────────
     if (id.contains('t1') || id.contains('think')) {
-      return _p(name: 'Hunyuan T1', desc: 'Deep thinking model');
+      return _p(
+        name: 'Hunyuan T1',
+        desc: 'Deep thinking model',
+        context: 262144,
+        output: 32768,
+        thinking: 32768,
+      );
     }
 
     // ── Text models ──────────────────────────────────────────────────────
@@ -3990,11 +4021,19 @@ class AiModelCatalog {
         capabilities: _audioGen,
       );
     }
+    final isThinking =
+        id.contains('x1') || id.contains('reason') || id.contains('think');
     return _p(
       name: 'Spark',
-      desc: 'iFlytek Spark model',
+      desc: isThinking
+          ? 'iFlytek Spark reasoning model'
+          : 'iFlytek Spark model',
       context: 128000,
-      output: 8192,
+      output: isThinking ? 32768 : 8192,
+      thinking: isThinking ? 32768 : null,
+      supportedParameters: isThinking
+          ? const <String>['enable_thinking']
+          : const <String>[],
     );
   }
 
@@ -4321,6 +4360,7 @@ class AiModelCatalog {
         supportsAttachments: false,
         context: 256000,
         output: 32768,
+        thinking: 32768,
       );
     }
     if (id.startsWith('longcat')) {
@@ -4329,6 +4369,7 @@ class AiModelCatalog {
         desc: 'Long-context chat model',
         context: 128000,
         output: 32768,
+        thinking: 32768,
       );
     }
     return null;
@@ -4632,6 +4673,7 @@ class AiModelCatalog {
         supportsAttachments: false,
         context: 1048576,
         output: 131072,
+        thinking: 131072,
         inputUsdPer1M: 0.435,
         outputUsdPer1M: 0.87,
         cacheReadUsdPer1M: 0.0036,
@@ -4690,7 +4732,13 @@ class AiModelCatalog {
       );
     }
     if (id.startsWith('mimo') || id.startsWith('mi-')) {
-      return _p(name: 'MiMo', desc: '小米推理模型');
+      return _p(
+        name: 'MiMo',
+        desc: '小米推理模型',
+        context: 262144,
+        output: 65536,
+        thinking: 65536,
+      );
     }
     return null;
   }

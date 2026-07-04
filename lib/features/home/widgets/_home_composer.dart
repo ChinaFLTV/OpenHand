@@ -1407,6 +1407,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final colorScheme = Theme.of(context).colorScheme;
     final selectedModelLabel =
         widget.selectedModel?.displayName ?? l10n.chatModelButton;
+    final selectedModelThinkingEnabled =
+        widget.selectedModel?.resolvedThinkingEnabled ?? false;
     final isCompressing = widget.sendPhase == AiSendPhase.compressing;
     final isSendingMessage = widget.sendPhase == AiSendPhase.sendingMessage;
     final isResponding = widget.sendPhase == AiSendPhase.responding;
@@ -1853,7 +1855,23 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                               ),
                             ),
                           ),
-                          icon: const Icon(Icons.hub_outlined),
+                          icon: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 180),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              child: Icon(
+                                selectedModelThinkingEnabled
+                                    ? Icons.psychology_rounded
+                                    : Icons.hub_outlined,
+                                key: ValueKey<bool>(
+                                  selectedModelThinkingEnabled,
+                                ),
+                              ),
+                            ),
+                          ),
                           label: Text(
                             selectedModelLabel,
                             overflow: TextOverflow.ellipsis,
