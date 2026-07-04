@@ -284,6 +284,8 @@ void main() {
               extra: const <String, Object?>{
                 'assigned_worker_id': 'worker-1',
                 'assigned_worker_name': 'Worker 1',
+                'priority': 'high',
+                'retryable': true,
                 'agent_system_prompt': 'secret prompt body',
               },
             ),
@@ -313,18 +315,34 @@ void main() {
       );
       await tester.tap(find.byTooltip('任务台').first);
       await tester.pumpAndSettle(const Duration(milliseconds: 50));
+
+      expect(find.text('任务台 · Ops Agent'), findsOneWidget);
+      expect(find.text('任务'), findsOneWidget);
+      expect(find.text('进行中'), findsAtLeastNWidgets(1));
+      expect(find.text('平均进度'), findsOneWidget);
+      expect(find.text('80%'), findsAtLeastNWidgets(1));
+      expect(find.text('结果: Draft report is ready.'), findsOneWidget);
+      expect(find.text('备注: Needs mentor review.'), findsOneWidget);
+      expect(find.text('assigned_worker_id: worker-1'), findsOneWidget);
+      expect(find.text('priority: high'), findsOneWidget);
+      expect(find.text('retryable: true'), findsOneWidget);
+      expect(find.textContaining('secret prompt body'), findsNothing);
+
       await tester.tap(find.text('Quarterly report').first);
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('任务详情'), findsOneWidget);
       expect(find.text('task-1'), findsOneWidget);
-      expect(find.text('Prepare the quarterly review.'), findsOneWidget);
+      expect(
+        find.text('Prepare the quarterly review.'),
+        findsAtLeastNWidgets(1),
+      );
       expect(
         find.text('Use invoices, tickets, and KPI evidence.'),
         findsOneWidget,
       );
-      expect(find.text('Draft report is ready.'), findsOneWidget);
-      expect(find.text('Needs mentor review.'), findsOneWidget);
+      expect(find.text('Draft report is ready.'), findsAtLeastNWidgets(1));
+      expect(find.text('Needs mentor review.'), findsAtLeastNWidgets(1));
       expect(find.textContaining('"omitted": true'), findsOneWidget);
       expect(find.textContaining('secret prompt body'), findsNothing);
 

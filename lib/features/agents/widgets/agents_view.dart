@@ -2057,41 +2057,241 @@ Future<void> _showAgentTasksDialog(BuildContext context, AgentProfile agent) {
                     title: l10n.agentsNoTasksTitle,
                     body: l10n.agentsNoTasksBody,
                   )
-                : Column(
-                    children: [
-                      for (final task in currentAgent.tasks)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          onTap: () => _showAgentTaskDetailDialog(
-                            context,
-                            currentAgent,
-                            task,
-                          ),
-                          title: Text(task.title),
-                          subtitle: Text(
-                            [
-                                  _agentTaskStatusLabel(l10n, task.status),
-                                  '${(task.progress * 100).round()}%',
-                                  _agentTaskAssignedWorkerLabel(l10n, task),
-                                  if (task.createdAt != null)
-                                    formatMonthDayHm(task.createdAt!.toLocal()),
-                                  task.description,
-                                ]
-                                .where((item) => item.trim().isNotEmpty)
-                                .join(' · '),
-                          ),
-                          trailing: _AgentTaskActions(
-                            agent: currentAgent,
-                            task: task,
-                          ),
-                        ),
-                    ],
+                : _AgentTasksBody(
+                    agent: currentAgent,
+                    tasks: currentAgent.tasks,
                   ),
           ),
         );
       },
     ),
   );
+}
+
+class _AgentTasksBody extends StatelessWidget {
+  const _AgentTasksBody({required this.agent, required this.tasks});
+
+  final AgentProfile agent;
+  final List<AgentTask> tasks;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = tasks
+        .where((task) => _agentTaskIsActive(task.status))
+        .length;
+    final completed = tasks
+        .where((task) => task.status == AgentTaskStatus.completed)
+        .length;
+    final averageProgress = tasks.isEmpty
+        ? 0
+        : (tasks.fold<double>(0, (sum, task) => sum + task.progress) /
+                  tasks.length *
+                  100)
+              .round();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _MetricTile(
+              label: openHandLocalizedText(context, zh: '任务', en: 'Tasks'),
+              value: '${tasks.length}',
+            ),
+            _MetricTile(
+              label: openHandLocalizedText(context, zh: '进行中', en: 'Active'),
+              value: '$active',
+            ),
+            _MetricTile(
+              label: openHandLocalizedText(context, zh: '已完成', en: 'Completed'),
+              value: '$completed',
+            ),
+            _MetricTile(
+              label: openHandLocalizedText(
+                context,
+                zh: '平均进度',
+                en: 'Avg. progress',
+              ),
+              value: '$averageProgress%',
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        ListView.separated(
+          shrinkWrap: true,
+          primary: false,
+          itemCount: tasks.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          itemBuilder: (context, index) {
+            return _AgentTaskCard(agent: agent, task: tasks[index]);
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _AgentTaskCard extends StatelessWidget {
+  const _AgentTaskCard({required this.agent, required this.task});
+
+  final AgentProfile agent;
+  final AgentTask task;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final statusColor = _agentTaskStatusColor(cs, task.status);
+    final worker = _agentTaskAssignedWorkerLabel(l10n, task);
+    final created = task.createdAt == null
+        ? ''
+        : formatMonthDayHm(task.createdAt!.toLocal());
+    final metadata = _agentTaskMetadataChips(task);
+    final progress = task.progress.clamp(0, 1).toDouble();
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _showAgentTaskDetailDialog(context, agent, task),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    _agentTaskStatusIcon(task.status),
+                    color: statusColor,
+                    size: 19,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          _AgentActivityTypeChip(
+                            label: _agentTaskStatusLabel(l10n, task.status),
+                            color: statusColor,
+                          ),
+                          if (worker.isNotEmpty)
+                            _AgentActivityMetadataChip(text: worker),
+                          if (created.isNotEmpty)
+                            Text(
+                              created,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        task.title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (task.description.trim().isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          task.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                minHeight: 7,
+                                color: statusColor,
+                                backgroundColor: cs.surfaceContainerHighest,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          SizedBox(
+                            width: 46,
+                            child: Text(
+                              '${(progress * 100).round()}%',
+                              textAlign: TextAlign.end,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (task.result.trim().isNotEmpty ||
+                          task.note.trim().isNotEmpty ||
+                          metadata.isNotEmpty) ...[
+                        const SizedBox(height: 9),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            if (task.result.trim().isNotEmpty)
+                              _AgentActivityMetadataChip(
+                                text: openHandLocalizedText(
+                                  context,
+                                  zh: '结果: ${task.result.trim()}',
+                                  en: 'Result: ${task.result.trim()}',
+                                ),
+                              ),
+                            if (task.note.trim().isNotEmpty)
+                              _AgentActivityMetadataChip(
+                                text: openHandLocalizedText(
+                                  context,
+                                  zh: '备注: ${task.note.trim()}',
+                                  en: 'Note: ${task.note.trim()}',
+                                ),
+                              ),
+                            for (final item in metadata)
+                              _AgentActivityMetadataChip(text: item),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                _AgentTaskActions(agent: agent, task: task),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 Future<void> _showAgentTaskDetailDialog(
@@ -2396,6 +2596,61 @@ bool _agentTaskCanStop(AgentTaskStatus status) {
     AgentTaskStatus.failed ||
     AgentTaskStatus.canceled => false,
   };
+}
+
+bool _agentTaskIsActive(AgentTaskStatus status) {
+  return switch (status) {
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running ||
+    AgentTaskStatus.waitingApproval ||
+    AgentTaskStatus.paused => true,
+    AgentTaskStatus.completed ||
+    AgentTaskStatus.failed ||
+    AgentTaskStatus.canceled => false,
+  };
+}
+
+IconData _agentTaskStatusIcon(AgentTaskStatus status) {
+  return switch (status) {
+    AgentTaskStatus.backlog => Icons.inbox_rounded,
+    AgentTaskStatus.ready => Icons.playlist_add_check_rounded,
+    AgentTaskStatus.running => Icons.bolt_rounded,
+    AgentTaskStatus.waitingApproval => Icons.verified_user_outlined,
+    AgentTaskStatus.paused => Icons.pause_circle_outline_rounded,
+    AgentTaskStatus.completed => Icons.check_circle_rounded,
+    AgentTaskStatus.failed => Icons.error_outline_rounded,
+    AgentTaskStatus.canceled => Icons.cancel_outlined,
+  };
+}
+
+Color _agentTaskStatusColor(ColorScheme cs, AgentTaskStatus status) {
+  return switch (status) {
+    AgentTaskStatus.running => cs.primary,
+    AgentTaskStatus.ready || AgentTaskStatus.backlog => cs.secondary,
+    AgentTaskStatus.waitingApproval => cs.tertiary,
+    AgentTaskStatus.paused => cs.onSurfaceVariant,
+    AgentTaskStatus.completed => cs.tertiary,
+    AgentTaskStatus.failed || AgentTaskStatus.canceled => cs.error,
+  };
+}
+
+List<String> _agentTaskMetadataChips(AgentTask task) {
+  const keys = <String>[
+    'assigned_worker_id',
+    'priority',
+    'schedule',
+    'retryable',
+    'deadline',
+    'source',
+  ];
+  final chips = <String>[];
+  for (final key in keys) {
+    final text = _agentMetadataChipText(key, task.extra[key]);
+    if (text != null) chips.add(text);
+    if (chips.length >= 4) break;
+  }
+  return chips;
 }
 
 Future<void> _updateAgentTaskFromDesk(
