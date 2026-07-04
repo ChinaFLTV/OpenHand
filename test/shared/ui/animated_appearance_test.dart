@@ -74,4 +74,48 @@ void main() {
     expect(find.byType(SizeTransition), findsNothing);
     expect(find.byType(FadeTransition), findsNothing);
   });
+
+  testWidgets('AnimatedListAppearance renders directly without motion', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const Directionality(
+        textDirection: TextDirection.ltr,
+        child: TickerMode(
+          enabled: false,
+          child: AnimatedListAppearance(
+            animation: AlwaysStoppedAnimation<double>(0),
+            settings: DialogAnimationSettings.defaults,
+            phase: AnimatedAppearancePhase.enter,
+            child: Text('row'),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('row'), findsOneWidget);
+    expect(find.byType(SizeTransition), findsNothing);
+    expect(find.byType(FadeTransition), findsNothing);
+  });
+
+  testWidgets(
+    'AnimatedListAppearance ignores collapsed animation when disabled',
+    (tester) async {
+      await tester.pumpWidget(
+        const Directionality(
+          textDirection: TextDirection.ltr,
+          child: AnimatedListAppearance(
+            animation: AlwaysStoppedAnimation<double>(0),
+            settings: OpenHandMotionDefaults.disabled,
+            phase: AnimatedAppearancePhase.exit,
+            child: Text('row'),
+          ),
+        ),
+      );
+
+      expect(find.text('row'), findsOneWidget);
+      expect(find.byType(SizeTransition), findsNothing);
+      expect(find.byType(FadeTransition), findsNothing);
+    },
+  );
 }

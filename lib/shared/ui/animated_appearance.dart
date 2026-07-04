@@ -142,9 +142,7 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
   }
 
   bool _motionAvailable(BuildContext context) {
-    return openHandTickerMotionEnabled(context) &&
-        !openHandMotionDisabled(widget.settings) &&
-        widget.settings.duration > Duration.zero;
+    return _animatedAppearanceMotionAvailable(context, widget.settings);
   }
 
   void _notifyDismissedSoon() {
@@ -220,14 +218,14 @@ class AnimatedListAppearance extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveSettings = openHandReduceMotionOf(context)
-        ? OpenHandMotionDefaults.disabled
-        : settings;
+    if (!_animatedAppearanceMotionAvailable(context, settings)) {
+      return child;
+    }
     final style = switch (phase) {
-      AnimatedAppearancePhase.enter => effectiveSettings.entranceStyle,
-      AnimatedAppearancePhase.exit => effectiveSettings.exitStyle,
+      AnimatedAppearancePhase.enter => settings.entranceStyle,
+      AnimatedAppearancePhase.exit => settings.exitStyle,
     };
-    final transitionSettings = effectiveSettings.copyWith(
+    final transitionSettings = settings.copyWith(
       entranceStyle: style,
       exitStyle: style,
     );
@@ -250,6 +248,15 @@ class AnimatedListAppearance extends StatelessWidget {
     }
     return content;
   }
+}
+
+bool _animatedAppearanceMotionAvailable(
+  BuildContext context,
+  DialogAnimationSettings settings,
+) {
+  return openHandTickerMotionEnabled(context) &&
+      !openHandMotionDisabled(settings) &&
+      settings.duration > Duration.zero;
 }
 
 class AnimatedRemovableChip extends StatefulWidget {
