@@ -96,6 +96,20 @@ double _safeDialogMaxDimension(double? maxValue, double minValue) {
   return validMax < minValue ? minValue : validMax;
 }
 
+DialogAnimationSettings _resolveDialogMotionSettings(
+  BuildContext context, {
+  DialogAnimationSettings? override,
+}) {
+  if (!openHandTickerMotionEnabled(context)) {
+    return OpenHandMotionDefaults.disabled;
+  }
+  return openHandMotionSettingsOf(
+    context,
+    OpenHandMotionSettingsScope.dialog,
+    override: override,
+  );
+}
+
 const ScrollPhysics kOpenHandDialogScrollPhysics = ClampingScrollPhysics();
 
 class OpenHandDialogScrollBehavior extends MaterialScrollBehavior {
@@ -510,9 +524,8 @@ Future<T?> showAnimatedDialog<T>({
     dismissOnEscape: dismissOnEscape,
     alignment: alignment,
   );
-  final effectiveSettings = openHandMotionSettingsOf(
+  final effectiveSettings = _resolveDialogMotionSettings(
     context,
-    OpenHandMotionSettingsScope.dialog,
     override: settings,
   );
   if (openHandMotionDisabled(effectiveSettings)) {
@@ -565,10 +578,7 @@ Widget buildOpenHandDialogMotionSurface({
   OpenHandAnimationTransitionProfile transitionProfile =
       const OpenHandAnimationTransitionProfile(),
 }) {
-  final settings = openHandMotionSettingsOf(
-    context,
-    OpenHandMotionSettingsScope.dialog,
-  );
+  final settings = _resolveDialogMotionSettings(context);
   final routeAnimation = ModalRoute.of(context)?.animation;
   if (routeAnimation == null ||
       openHandMotionDisabled(settings) ||
@@ -1756,7 +1766,7 @@ class _PaintOffsetTransition extends SingleChildRenderObjectWidget {
 
   @override
   _PaintOffsetRenderObject createRenderObject(BuildContext context) {
-    final disable = MediaQuery.disableAnimationsOf(context);
+    final disable = !openHandTickerMotionEnabled(context);
     return _PaintOffsetRenderObject(
       animation: animation,
       maxYOffset: disable ? 0.0 : maxYOffset,
@@ -1769,7 +1779,7 @@ class _PaintOffsetTransition extends SingleChildRenderObjectWidget {
     BuildContext context,
     _PaintOffsetRenderObject renderObject,
   ) {
-    final disable = MediaQuery.disableAnimationsOf(context);
+    final disable = !openHandTickerMotionEnabled(context);
     renderObject
       ..animation = animation
       ..maxYOffset = disable ? 0.0 : maxYOffset
