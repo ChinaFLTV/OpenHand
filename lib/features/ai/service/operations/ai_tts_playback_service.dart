@@ -76,6 +76,10 @@ class AiTtsPlaybackService {
     r'(\d+)\s*k(?:bitrate|bps|b)?',
     caseSensitive: false,
   );
+  static final RegExp _macOsVoiceColumnSeparatorPattern = RegExp(r'\s{2,}');
+  static final RegExp _markdownCodeBlockPattern = RegExp(r'```[\s\S]*?```');
+  static final RegExp _htmlTagPattern = RegExp(r'<[^>]+>');
+  static final RegExp _whitespacePattern = RegExp(r'\s+');
   static final LifecycleLruCache<_AiTtsAudioPayload> _audioCache =
       LifecycleLruCache<_AiTtsAudioPayload>(
         maxEntries: _audioCacheMaxEntries,
@@ -1414,7 +1418,12 @@ class AiTtsPlaybackService {
       return trimmedNonEmptyStrings(
         output
             .split('\n')
-            .map((line) => line.trimLeft().split(RegExp(r'\s{2,}')).first),
+            .map(
+              (line) => line
+                  .trimLeft()
+                  .split(_macOsVoiceColumnSeparatorPattern)
+                  .first,
+            ),
       ).toSet();
     } catch (error, stack) {
       silentLog(
@@ -1429,9 +1438,9 @@ class AiTtsPlaybackService {
 
   static String _normalizeText(String text, int maxCharacters) {
     final trimmed = text
-        .replaceAll(RegExp(r'```[\s\S]*?```'), ' ')
-        .replaceAll(RegExp(r'<[^>]+>'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(_markdownCodeBlockPattern, ' ')
+        .replaceAll(_htmlTagPattern, ' ')
+        .replaceAll(_whitespacePattern, ' ')
         .trim();
     if (trimmed.length <= maxCharacters) return trimmed;
     return trimmed.substring(0, maxCharacters);
@@ -1975,7 +1984,7 @@ class AiTtsPlaybackService {
   }
 
   static String _shortBody(http.Response response) {
-    final body = response.body.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final body = response.body.replaceAll(_whitespacePattern, ' ').trim();
     if (body.length <= 180) return body;
     return '${body.substring(0, 180)}...';
   }
