@@ -38,6 +38,16 @@ class AiAttachmentService {
   static const int _maxSpreadsheetRowsPerSheet = 32;
   static const int _maxSpreadsheetArchiveBytes = 8 * kBytesPerMiB;
   static const int _maxZipEntryBytes = 4 * kBytesPerMiB;
+  static final RegExp _unsafeTargetFileNameCharsPattern = RegExp(r'[^\w.\-]+');
+  static final RegExp _pdfTextSpanPattern = RegExp(r'\(([^()]{2,})\)\s*Tj');
+  static final RegExp _pdfFallbackUnsupportedCharsPattern = RegExp(
+    r'[^\x20-\x7E\u4E00-\u9FFF\r\n\t]+',
+  );
+  static final RegExp _pdfFallbackWhitespacePattern = RegExp(r'\s+');
+  static final RegExp _spreadsheetColumnRefPattern = RegExp(
+    r'([A-Z]+)',
+    caseSensitive: false,
+  );
   int maxPdfRawBytes = 2 * kBytesPerMiB;
 
   final String _attachmentsDirectoryPath;
@@ -773,7 +783,10 @@ class AiAttachmentService {
   }
 
   String _targetFileName(int sequence, String sourceName) {
-    final sanitized = sourceName.replaceAll(RegExp(r'[^\w.\-]+'), '_');
+    final sanitized = sourceName.replaceAll(
+      _unsafeTargetFileNameCharsPattern,
+      '_',
+    );
     final normalized = sanitized.isEmpty ? 'attachment' : sanitized;
     return '${sequence.toString().padLeft(2, '0')}-$normalized';
   }
@@ -822,9 +835,8 @@ class AiAttachmentService {
       final bytes = await raf.read(readLength);
       final latin = latin1.decode(bytes, allowInvalid: true);
       final buffer = StringBuffer();
-      final textMatchPattern = RegExp(r'\(([^()]{2,})\)\s*Tj');
       var matchCount = 0;
-      for (final match in textMatchPattern.allMatches(latin)) {
+      for (final match in _pdfTextSpanPattern.allMatches(latin)) {
         matchCount += 1;
         // Limit the number of regex matches to prevent excessive memory
         // usage on maliciously crafted PDFs with thousands of text spans.
@@ -845,8 +857,8 @@ class AiAttachmentService {
       }
       if (buffer.isEmpty) {
         final fallback = latin
-            .replaceAll(RegExp(r'[^\x20-\x7E\u4E00-\u9FFF\r\n\t]+'), ' ')
-            .replaceAll(RegExp(r'\s+'), ' ')
+            .replaceAll(_pdfFallbackUnsupportedCharsPattern, ' ')
+            .replaceAll(_pdfFallbackWhitespacePattern, ' ')
             .trim();
         if (fallback.isNotEmpty) {
           buffer.write(fallback);
@@ -1044,7 +1056,7 @@ class AiAttachmentService {
   }
 
   int _columnIndexFromCellRef(String ref) {
-    final match = RegExp(r'([A-Z]+)', caseSensitive: false).firstMatch(ref);
+    final match = _spreadsheetColumnRefPattern.firstMatch(ref);
     if (match == null) {
       return 0;
     }
