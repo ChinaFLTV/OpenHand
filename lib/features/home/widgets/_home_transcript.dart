@@ -2731,7 +2731,6 @@ class _TranscriptHydratingPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final label = _localizedText(
       context,
       zh: '加载消息中…',
@@ -2761,12 +2760,15 @@ class _TranscriptHydratingPlaceholder extends StatelessWidget {
         ],
       ),
     );
-    if (reduceMotion) {
+    if (!openHandTickerMotionEnabled(context)) {
       return body;
     }
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 220),
+      duration: openHandMotionDuration(
+        context,
+        const Duration(milliseconds: 220),
+      ),
       curve: Curves.easeOutCubic,
       builder: (context, value, child) {
         return Opacity(
