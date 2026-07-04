@@ -62,7 +62,9 @@ List<String> normalizeAgentBuiltinToolNames(Iterable<String> names) {
     if (hasExplicitNone && isAgentCoordinationBuiltinToolName(value)) {
       continue;
     }
-    final key = value.toLowerCase();
+    final key = isAgentCoordinationBuiltinToolName(value)
+        ? _agentBuiltinToolLookupKey(value)
+        : value.toLowerCase();
     if (seen.add(key)) result.add(value);
   }
   if (!hasExplicitNone) return result;

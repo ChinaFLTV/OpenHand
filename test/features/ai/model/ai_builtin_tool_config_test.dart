@@ -121,6 +121,16 @@ void main() {
         ]),
         <String>['Bash', agentNoCoordinationToolsBinding],
       );
+      expect(
+        normalizeAgentBuiltinToolNames(<String>[
+          'AgentTaskPublish',
+          'agentTaskPublish',
+          'agent_task_publish',
+          'AgentTaskFoo',
+          'agenttaskfoo',
+        ]),
+        <String>['AgentTaskPublish', 'AgentTaskFoo'],
+      );
     });
   });
 }
