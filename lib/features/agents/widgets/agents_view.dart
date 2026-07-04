@@ -26,7 +26,11 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart'
-    show AiBuiltinToolConfig, AiBuiltinToolKind, AiBuiltinToolKindAgentMetadata;
+    show
+        AiAgentBuiltinToolGroup,
+        AiBuiltinToolConfig,
+        AiBuiltinToolKind,
+        AiBuiltinToolKindAgentMetadata;
 import '../../crons/index.dart';
 import '../../hooks/index.dart';
 import '../../knowledge_base/index.dart';
@@ -5727,7 +5731,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                 ),
                 SizedBox(
                   width: itemWidth,
-                  child: _CapabilityPanel(
+                  child: _AgentToolCapabilityPanel(
                     title: openHandLocalizedText(
                       context,
                       zh: 'Agent 协同工具',
@@ -7550,6 +7554,217 @@ class _CapabilityPanel extends StatelessWidget {
   }
 }
 
+class _AgentToolCapabilityPanel extends StatelessWidget {
+  const _AgentToolCapabilityPanel({
+    required this.title,
+    required this.icon,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<_Option> options;
+  final Set<String> selected;
+  final ValueChanged<Set<String>> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final grouped = <AiAgentBuiltinToolGroup, List<_Option>>{
+      for (final group in AiAgentBuiltinToolGroup.values) group: <_Option>[],
+    };
+    final fallback = <_Option>[];
+    for (final option in options) {
+      final group = _agentToolKindForOption(option)?.agentToolGroup;
+      if (group == null) {
+        fallback.add(option);
+      } else {
+        grouped[group]!.add(option);
+      }
+    }
+    final sections = <Widget>[
+      for (final group in AiAgentBuiltinToolGroup.values)
+        if (grouped[group]!.isNotEmpty)
+          _AgentToolGroupSection(
+            group: group,
+            options: grouped[group]!,
+            selected: selected,
+            onChanged: onChanged,
+          ),
+      if (fallback.isNotEmpty)
+        _AgentToolGroupSection(
+          group: null,
+          options: fallback,
+          selected: selected,
+          onChanged: onChanged,
+        ),
+    ];
+
+    return _AgentEditorPanel(
+      title: title,
+      icon: icon,
+      child: options.isEmpty
+          ? Text(
+              l10n.agentsNoOptionsAvailable,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            )
+          : ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 252),
+              child: SingleChildScrollView(
+                physics: openHandDialogAwareScrollPhysics(context),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < sections.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 12),
+                      sections[i],
+                    ],
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+class _AgentToolGroupSection extends StatelessWidget {
+  const _AgentToolGroupSection({
+    required this.group,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final AiAgentBuiltinToolGroup? group;
+  final List<_Option> options;
+  final Set<String> selected;
+  final ValueChanged<Set<String>> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final enabled = options
+        .where((option) => selected.contains(option.id))
+        .length;
+    final mutationCount = options
+        .where(
+          (option) =>
+              _agentToolKindForOption(option)?.isAgentMutationTool ?? false,
+        )
+        .length;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface.withValues(alpha: 0.46),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.72),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  _agentToolGroupIcon(group),
+                  size: 17,
+                  color: colors.primary,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    _agentToolGroupLabel(context, group),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '启用 $enabled/${options.length} · 变更 $mutationCount',
+                    en: 'Enabled $enabled/${options.length} · Mutating $mutationCount',
+                  ),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final option in options)
+                  _AgentToolFilterChip(
+                    option: option,
+                    selected: selected.contains(option.id),
+                    onSelected: (value) {
+                      final next = {...selected};
+                      value ? next.add(option.id) : next.remove(option.id);
+                      onChanged(next);
+                    },
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentToolFilterChip extends StatelessWidget {
+  const _AgentToolFilterChip({
+    required this.option,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final _Option option;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final kind = _agentToolKindForOption(option);
+    final isMutation = kind?.isAgentMutationTool ?? false;
+    final tooltip = isMutation
+        ? openHandLocalizedText(
+            context,
+            zh: '${option.label} 会变更智能体任务、审批、KPI、资源或集群状态。',
+            en: '${option.label} can mutate agent tasks, approvals, KPI, resources, or cluster state.',
+          )
+        : openHandLocalizedText(
+            context,
+            zh: '${option.label} 仅查询智能体上下文或进度。',
+            en: '${option.label} only reads agent context or progress.',
+          );
+    return Tooltip(
+      message: tooltip,
+      child: FilterChip(
+        avatar: Icon(
+          isMutation ? Icons.edit_note_rounded : Icons.visibility_outlined,
+          size: 16,
+        ),
+        label: Text(option.label, overflow: TextOverflow.ellipsis),
+        selected: selected,
+        onSelected: onSelected,
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
+}
+
 class _KeyValueDraft {
   _KeyValueDraft({String key = '', Object? value})
     : key = TextEditingController(text: key),
@@ -7622,6 +7837,59 @@ bool _agentAvatarLooksLikeImagePath(String value) {
       .toLowerCase()
       .replaceFirst('.', '');
   return extension.isNotEmpty && _agentImageExtensions.contains(extension);
+}
+
+AiBuiltinToolKind? _agentToolKindForOption(_Option option) {
+  final normalized = option.id.trim().toLowerCase();
+  for (final kind in AiBuiltinToolKind.values) {
+    if (kind.name.toLowerCase() == normalized) return kind;
+  }
+  return null;
+}
+
+IconData _agentToolGroupIcon(AiAgentBuiltinToolGroup? group) {
+  return switch (group) {
+    AiAgentBuiltinToolGroup.discovery => Icons.travel_explore_rounded,
+    AiAgentBuiltinToolGroup.taskLifecycle => Icons.playlist_add_check_rounded,
+    AiAgentBuiltinToolGroup.governance => Icons.verified_user_outlined,
+    AiAgentBuiltinToolGroup.operations => Icons.monitor_heart_outlined,
+    AiAgentBuiltinToolGroup.cluster => Icons.account_tree_rounded,
+    null => Icons.extension_rounded,
+  };
+}
+
+String _agentToolGroupLabel(
+  BuildContext context,
+  AiAgentBuiltinToolGroup? group,
+) {
+  return switch (group) {
+    AiAgentBuiltinToolGroup.discovery => openHandLocalizedText(
+      context,
+      zh: '发现路由',
+      en: 'Discovery',
+    ),
+    AiAgentBuiltinToolGroup.taskLifecycle => openHandLocalizedText(
+      context,
+      zh: '任务生命周期',
+      en: 'Task lifecycle',
+    ),
+    AiAgentBuiltinToolGroup.governance => openHandLocalizedText(
+      context,
+      zh: '治理审计',
+      en: 'Governance',
+    ),
+    AiAgentBuiltinToolGroup.operations => openHandLocalizedText(
+      context,
+      zh: '运营资源',
+      en: 'Operations',
+    ),
+    AiAgentBuiltinToolGroup.cluster => openHandLocalizedText(
+      context,
+      zh: '集群调度',
+      en: 'Cluster',
+    ),
+    null => openHandLocalizedText(context, zh: '其他工具', en: 'Other tools'),
+  };
 }
 
 String _agentPolicyOptionLabel(BuildContext context, String value) {

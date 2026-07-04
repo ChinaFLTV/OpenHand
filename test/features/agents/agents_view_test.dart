@@ -462,7 +462,9 @@ void main() {
       final dependencies = _AgentEditorDependencies.empty(
         builtinToolConfigs: const <AiBuiltinToolConfig>[
           AiBuiltinToolConfig(kind: AiBuiltinToolKind.bash),
+          AiBuiltinToolConfig(kind: AiBuiltinToolKind.agentList),
           AiBuiltinToolConfig(kind: AiBuiltinToolKind.agentTaskPublish),
+          AiBuiltinToolConfig(kind: AiBuiltinToolKind.agentApprovalRequest),
         ],
       );
       addTearDown(dependencies.dispose);
@@ -492,6 +494,10 @@ void main() {
 
       final bashChip = find.widgetWithText(FilterChip, 'bash');
       final publishChip = find.widgetWithText(FilterChip, 'agentTaskPublish');
+      expect(find.text('发现路由'), findsOneWidget);
+      expect(find.text('任务生命周期'), findsOneWidget);
+      expect(find.text('治理审计'), findsOneWidget);
+      expect(find.textContaining('变更 1'), findsAtLeastNWidgets(1));
       await tester.ensureVisible(bashChip);
       await tester.tap(bashChip);
       await tester.pump();
