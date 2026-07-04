@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/motion_preference.dart';
 
 class PromptCacheBreakpointBar extends StatefulWidget {
   const PromptCacheBreakpointBar({
@@ -87,55 +88,57 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
 
   List<_PromptStructureSegment> _segments(AppLocalizations l10n) {
     return _specs
-        .map((spec) => _PromptStructureSegment(
-              id: spec.id,
-              label: _labelFor(spec.id, l10n),
-              summary: _summaryFor(spec.id, l10n),
-              cacheHint: _cacheHintFor(spec.id, l10n),
-              color: spec.color,
-              weight: spec.weight,
-            ))
+        .map(
+          (spec) => _PromptStructureSegment(
+            id: spec.id,
+            label: _labelFor(spec.id, l10n),
+            summary: _summaryFor(spec.id, l10n),
+            cacheHint: _cacheHintFor(spec.id, l10n),
+            color: spec.color,
+            weight: spec.weight,
+          ),
+        )
         .toList(growable: false);
   }
 
   String _labelFor(String id, AppLocalizations l10n) => switch (id) {
-        'sys' => l10n.cacheBarSectionSysLabel,
-        'dev' => l10n.cacheBarSectionDevLabel,
-        'tools' => l10n.cacheBarSectionToolsLabel,
-        'memory' => l10n.cacheBarSectionMemoryLabel,
-        'user_inst' => l10n.cacheBarSectionUserInstLabel,
-        'summary' => l10n.cacheBarSectionSummaryLabel,
-        'history' => l10n.cacheBarSectionHistoryLabel,
-        'state' => l10n.cacheBarSectionStateLabel,
-        'latest' => l10n.cacheBarSectionLatestLabel,
-        _ => id,
-      };
+    'sys' => l10n.cacheBarSectionSysLabel,
+    'dev' => l10n.cacheBarSectionDevLabel,
+    'tools' => l10n.cacheBarSectionToolsLabel,
+    'memory' => l10n.cacheBarSectionMemoryLabel,
+    'user_inst' => l10n.cacheBarSectionUserInstLabel,
+    'summary' => l10n.cacheBarSectionSummaryLabel,
+    'history' => l10n.cacheBarSectionHistoryLabel,
+    'state' => l10n.cacheBarSectionStateLabel,
+    'latest' => l10n.cacheBarSectionLatestLabel,
+    _ => id,
+  };
 
   String _summaryFor(String id, AppLocalizations l10n) => switch (id) {
-        'sys' => l10n.cacheBarSectionSysSummary,
-        'dev' => l10n.cacheBarSectionDevSummary,
-        'tools' => l10n.cacheBarSectionToolsSummary,
-        'memory' => l10n.cacheBarSectionMemorySummary,
-        'user_inst' => l10n.cacheBarSectionUserInstSummary,
-        'summary' => l10n.cacheBarSectionSummarySummary,
-        'history' => l10n.cacheBarSectionHistorySummary,
-        'state' => l10n.cacheBarSectionStateSummary,
-        'latest' => l10n.cacheBarSectionLatestSummary,
-        _ => '',
-      };
+    'sys' => l10n.cacheBarSectionSysSummary,
+    'dev' => l10n.cacheBarSectionDevSummary,
+    'tools' => l10n.cacheBarSectionToolsSummary,
+    'memory' => l10n.cacheBarSectionMemorySummary,
+    'user_inst' => l10n.cacheBarSectionUserInstSummary,
+    'summary' => l10n.cacheBarSectionSummarySummary,
+    'history' => l10n.cacheBarSectionHistorySummary,
+    'state' => l10n.cacheBarSectionStateSummary,
+    'latest' => l10n.cacheBarSectionLatestSummary,
+    _ => '',
+  };
 
   String _cacheHintFor(String id, AppLocalizations l10n) => switch (id) {
-        'sys' => l10n.cacheBarSectionSysCacheHint,
-        'dev' => l10n.cacheBarSectionDevCacheHint,
-        'tools' => l10n.cacheBarSectionToolsCacheHint,
-        'memory' => l10n.cacheBarSectionMemoryCacheHint,
-        'user_inst' => l10n.cacheBarSectionUserInstCacheHint,
-        'summary' => l10n.cacheBarSectionSummaryCacheHint,
-        'history' => l10n.cacheBarSectionHistoryCacheHint,
-        'state' => l10n.cacheBarSectionStateCacheHint,
-        'latest' => l10n.cacheBarSectionLatestCacheHint,
-        _ => '',
-      };
+    'sys' => l10n.cacheBarSectionSysCacheHint,
+    'dev' => l10n.cacheBarSectionDevCacheHint,
+    'tools' => l10n.cacheBarSectionToolsCacheHint,
+    'memory' => l10n.cacheBarSectionMemoryCacheHint,
+    'user_inst' => l10n.cacheBarSectionUserInstCacheHint,
+    'summary' => l10n.cacheBarSectionSummaryCacheHint,
+    'history' => l10n.cacheBarSectionHistoryCacheHint,
+    'state' => l10n.cacheBarSectionStateCacheHint,
+    'latest' => l10n.cacheBarSectionLatestCacheHint,
+    _ => '',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -509,7 +512,7 @@ class _DynamicPegHandleState extends State<_DynamicPegHandle>
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
+    );
   }
 
   @override
@@ -520,6 +523,9 @@ class _DynamicPegHandleState extends State<_DynamicPegHandle>
 
   @override
   Widget build(BuildContext context) {
+    final pulseEnabled = openHandTickerMotionEnabled(context);
+    _syncPulseController(pulseEnabled);
+    final icon = Icon(Icons.bolt_rounded, size: 12, color: widget.accent);
     return Tooltip(
       message: widget.tooltip,
       waitDuration: const Duration(milliseconds: 250),
@@ -528,30 +534,15 @@ class _DynamicPegHandleState extends State<_DynamicPegHandle>
         height: widget.totalHeight,
         child: Column(
           children: [
-            AnimatedBuilder(
-              animation: _pulseController,
-              builder: (context, child) {
-                final t = _pulseController.value;
-                return Container(
-                  width: 22,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: widget.accent.withValues(alpha: 0.18 + 0.18 * t),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: widget.accent, width: 1.4),
-                    boxShadow: [
-                      BoxShadow(
-                        color: widget.accent.withValues(alpha: 0.15 + 0.25 * t),
-                        blurRadius: 4 + 6 * t,
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: child,
-                );
-              },
-              child: Icon(Icons.bolt_rounded, size: 12, color: widget.accent),
-            ),
+            if (pulseEnabled)
+              AnimatedBuilder(
+                animation: _pulseController,
+                child: icon,
+                builder: (context, child) =>
+                    _buildHead(_pulseController.value, child),
+              )
+            else
+              _buildHead(0.5, icon),
             Expanded(
               child: CustomPaint(
                 size: const Size(22, double.infinity),
@@ -561,6 +552,36 @@ class _DynamicPegHandleState extends State<_DynamicPegHandle>
           ],
         ),
       ),
+    );
+  }
+
+  void _syncPulseController(bool enabled) {
+    if (enabled) {
+      if (!_pulseController.isAnimating) {
+        _pulseController.repeat(reverse: true);
+      }
+      return;
+    }
+    _pulseController.stop();
+  }
+
+  Widget _buildHead(double t, Widget? child) {
+    return Container(
+      width: 22,
+      height: 18,
+      decoration: BoxDecoration(
+        color: widget.accent.withValues(alpha: 0.18 + 0.18 * t),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: widget.accent, width: 1.4),
+        boxShadow: [
+          BoxShadow(
+            color: widget.accent.withValues(alpha: 0.15 + 0.25 * t),
+            blurRadius: 4 + 6 * t,
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: child,
     );
   }
 }
