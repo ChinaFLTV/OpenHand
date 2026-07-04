@@ -33,12 +33,12 @@ String compactTextSignature(
 
   final safeHeadLength = headLength < 0 ? 0 : headLength;
   final safeTailLength = tailLength < 0 ? 0 : tailLength;
-  final head = text.length <= safeHeadLength
-      ? text
-      : text.substring(0, safeHeadLength);
-  final tail = text.length <= safeTailLength
-      ? text
-      : text.substring(text.length - safeTailLength);
+  final headEnd = safeHeadLength > text.length ? text.length : safeHeadLength;
+  final tailStart = safeTailLength <= 0
+      ? text.length
+      : (text.length - safeTailLength).clamp(headEnd, text.length).toInt();
+  final head = text.substring(0, headEnd);
+  final tail = tailStart < text.length ? text.substring(tailStart) : '';
   return '${text.length}:$head:$tail';
 }
 
