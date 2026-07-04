@@ -922,7 +922,9 @@ class AgentsController extends ManagedChangeNotifier {
       if (index < 0) return false;
       final agent = _agents[index];
       final now = DateTime.now().toUtc();
-      final maxWorkers = settings.maxWorkers.clamp(1, 999);
+      final requestedMaxWorkers = settings.maxWorkers.clamp(1, 999);
+      final protectedWorkerCount = _protectedWorkerCount(agent.workers);
+      final maxWorkers = math.max(requestedMaxWorkers, protectedWorkerCount);
       final normalized = settings.copyWith(
         minWorkers: settings.minWorkers.clamp(0, maxWorkers),
         maxWorkers: maxWorkers,
@@ -941,6 +943,10 @@ class AgentsController extends ManagedChangeNotifier {
         'max_retries': normalized.maxRetries,
         'scheduler_policy': normalized.schedulerPolicy,
         'tags': normalized.tags,
+        if (maxWorkers != requestedMaxWorkers)
+          'requested_max_workers': requestedMaxWorkers,
+        if (protectedWorkerCount > 0)
+          'protected_active_workers': protectedWorkerCount,
       };
       final updated = _normalizeAgent(
         agent.copyWith(
@@ -1065,7 +1071,7 @@ class AgentsController extends ManagedChangeNotifier {
       hookIds: _dedupe(agent.hookIds),
       activities: agent.activities.take(_maxActivityEvents).toList(),
       auditEvents: agent.auditEvents.take(_maxAuditEvents).toList(),
-      workers: workers.take(agent.scaleSettings.maxWorkers).toList(),
+      workers: _normalizeWorkersForScale(agent, workers),
     );
   }
 
@@ -1213,6 +1219,33 @@ class AgentsController extends ManagedChangeNotifier {
   bool _workerAcceptsTask(AgentWorker worker) {
     return worker.status == AgentWorkerStatus.idle &&
         worker.currentTaskId.trim().isEmpty;
+  }
+
+  int _protectedWorkerCount(List<AgentWorker> workers) {
+    return workers.where((worker) => !_workerAcceptsTask(worker)).length;
+  }
+
+  List<AgentWorker> _normalizeWorkersForScale(
+    AgentProfile agent,
+    List<AgentWorker> workers,
+  ) {
+    final maxWorkers = agent.scaleSettings.maxWorkers.clamp(1, 999);
+    if (workers.length <= maxWorkers) return workers;
+    final removable = workers.where(_workerAcceptsTask).toList(growable: false);
+    final removalBudget = math.min(
+      workers.length - maxWorkers,
+      removable.length,
+    );
+    if (removalBudget <= 0) return workers;
+    final removeIds = _selectWorkerRemovalIds(
+      removable,
+      agent.scaleSettings.workerRemovalPolicy,
+      removalBudget,
+    );
+    if (removeIds.isEmpty) return workers;
+    return workers
+        .where((worker) => !removeIds.contains(worker.id))
+        .toList(growable: false);
   }
 
   bool _workerRanksBefore(

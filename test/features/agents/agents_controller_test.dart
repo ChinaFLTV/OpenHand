@@ -589,6 +589,86 @@ void main() {
         'round_robin',
       );
     });
+
+    test(
+      'saving scale settings preserves busy workers when shrinking max',
+      () async {
+        await controller.saveAgent(
+          _runningAgent(
+            scaleSettings: const AgentScaleSettings(
+              minWorkers: 0,
+              maxWorkers: 3,
+            ),
+            workers: const <AgentWorker>[
+              AgentWorker(
+                id: 'worker-1',
+                name: 'Busy Worker 1',
+                status: AgentWorkerStatus.busy,
+                currentTaskId: 'task-1',
+              ),
+              AgentWorker(
+                id: 'worker-2',
+                name: 'Busy Worker 2',
+                status: AgentWorkerStatus.busy,
+                currentTaskId: 'task-2',
+              ),
+              AgentWorker(
+                id: 'worker-3',
+                name: 'Busy Worker 3',
+                status: AgentWorkerStatus.busy,
+                currentTaskId: 'task-3',
+              ),
+              AgentWorker(id: 'worker-4', name: 'Idle Worker'),
+            ],
+            tasks: const <AgentTask>[
+              AgentTask(
+                id: 'task-1',
+                title: 'Busy task 1',
+                status: AgentTaskStatus.running,
+                extra: <String, Object?>{'assigned_worker_id': 'worker-1'},
+              ),
+              AgentTask(
+                id: 'task-2',
+                title: 'Busy task 2',
+                status: AgentTaskStatus.running,
+                extra: <String, Object?>{'assigned_worker_id': 'worker-2'},
+              ),
+              AgentTask(
+                id: 'task-3',
+                title: 'Busy task 3',
+                status: AgentTaskStatus.running,
+                extra: <String, Object?>{'assigned_worker_id': 'worker-3'},
+              ),
+            ],
+          ),
+        );
+
+        final saved = await controller.saveScaleSettings(
+          'agent-1',
+          const AgentScaleSettings(maxWorkers: 2),
+          auditToolName: 'AgentClusterShrinkTest',
+        );
+
+        expect(saved, isTrue);
+        final agent = controller.agentById('agent-1')!;
+        final workerIds = agent.workers.map((worker) => worker.id).toList();
+        final auditMetadata = agent.auditEvents.first.metadata;
+        expect(agent.scaleSettings.maxWorkers, 3);
+        expect(
+          workerIds,
+          containsAll(<String>['worker-1', 'worker-2', 'worker-3']),
+        );
+        expect(workerIds, isNot(contains('worker-4')));
+        expect(
+          agent.tasks.every(
+            (task) => workerIds.contains(task.extra['assigned_worker_id']),
+          ),
+          isTrue,
+        );
+        expect(auditMetadata['requested_max_workers'], 2);
+        expect(auditMetadata['protected_active_workers'], 3);
+      },
+    );
   });
 }
 
@@ -598,6 +678,7 @@ AgentProfile _runningAgent({
     AgentWorker(id: 'worker-1', name: 'Worker 1'),
   ],
   List<AgentApprovalRequest> approvals = const <AgentApprovalRequest>[],
+  List<AgentTask> tasks = const <AgentTask>[],
 }) {
   return AgentProfile(
     id: 'agent-1',
@@ -607,5 +688,6 @@ AgentProfile _runningAgent({
     scaleSettings: scaleSettings,
     workers: workers,
     approvals: approvals,
+    tasks: tasks,
   );
 }
