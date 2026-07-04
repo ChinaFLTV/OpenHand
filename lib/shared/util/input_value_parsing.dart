@@ -11,6 +11,22 @@ void putIfNotBlank(Map<String, Object?> target, String key, String? value) {
 }
 
 final RegExp _looseDelimitedValueSeparator = RegExp(r'[\s,，;；]+');
+const Set<String> _truthyBoolTexts = <String>{
+  '1',
+  'true',
+  'yes',
+  'y',
+  'on',
+  'enabled',
+};
+const Set<String> _falsyBoolTexts = <String>{
+  '0',
+  'false',
+  'no',
+  'n',
+  'off',
+  'disabled',
+};
 
 ({bool ok, Object? value}) _tryDecodeJsonText(String value) {
   try {
@@ -364,22 +380,8 @@ bool? optionalBoolFromValue(Object? value) {
   if (value is String) {
     final normalized = value.trim().toLowerCase();
     if (normalized.isEmpty) return null;
-    if (normalized == '1' ||
-        normalized == 'true' ||
-        normalized == 'yes' ||
-        normalized == 'y' ||
-        normalized == 'on' ||
-        normalized == 'enabled') {
-      return true;
-    }
-    if (normalized == '0' ||
-        normalized == 'false' ||
-        normalized == 'no' ||
-        normalized == 'n' ||
-        normalized == 'off' ||
-        normalized == 'disabled') {
-      return false;
-    }
+    if (_truthyBoolTexts.contains(normalized)) return true;
+    if (_falsyBoolTexts.contains(normalized)) return false;
     final integral = optionalIntegralIntFromValue(normalized);
     if (integral == 1) return true;
     if (integral == 0) return false;

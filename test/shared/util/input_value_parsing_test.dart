@@ -12,6 +12,20 @@ void main() {
       expect(boolFromValue('off'), isFalse);
     });
 
+    test('normalizes boolean text before matching known tokens', () {
+      expect(optionalBoolFromValue(' YES '), isTrue);
+      expect(optionalBoolFromValue('On'), isTrue);
+      expect(optionalBoolFromValue(' DISABLED '), isFalse);
+      expect(optionalBoolFromValue('n'), isFalse);
+    });
+
+    test('accepts only integral numeric strings for numeric booleans', () {
+      expect(optionalBoolFromValue('1.0'), isTrue);
+      expect(optionalBoolFromValue('0.0'), isFalse);
+      expect(optionalBoolFromValue('2'), isNull);
+      expect(optionalBoolFromValue('0.5'), isNull);
+    });
+
     test('uses default for non-boolean numeric values', () {
       expect(boolFromValue(2), isFalse);
       expect(boolFromValue(2, defaultValue: true), isTrue);
