@@ -557,13 +557,13 @@ String _documentText(Object document) {
   if (document is String) return document;
   if (document is Map<String, Object?>) {
     final text = document['text'];
-    if (text is String && text.trim().isNotEmpty) return text;
+    if (text is String && nullIfBlank(text) != null) return text;
     return jsonEncode(document);
   }
   if (document is Map) {
     final map = stringKeyedMapFromValue(document);
     final text = map['text'];
-    if (text is String && text.trim().isNotEmpty) return text;
+    if (text is String && nullIfBlank(text) != null) return text;
     return jsonEncode(map);
   }
   if (document is Iterable || document is num || document is bool) {
