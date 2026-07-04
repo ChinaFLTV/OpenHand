@@ -1,5 +1,9 @@
 part of '../openhand_home_page.dart';
 
+const Duration _kTranscriptCardEntranceDuration = Duration(milliseconds: 360);
+const Duration _kCreationPlaceholderExitDuration = Duration(milliseconds: 260);
+const Duration _kCreationFailureExitDuration = Duration(milliseconds: 240);
+
 class _TranscriptHtmlKeepAlive extends StatefulWidget {
   const _TranscriptHtmlKeepAlive({required this.child});
 
@@ -2106,7 +2110,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _retiringCreationPlaceholder = last;
     _retiringCreationPlaceholderTimer?.cancel();
     _retiringCreationPlaceholderTimer = startSafeTimer(
-      _PendingCreationPlaceholderCard.exitDuration,
+      _kCreationPlaceholderExitDuration,
       () {
         if (!mounted || !identical(_retiringCreationPlaceholder, last)) {
           return;
@@ -2180,9 +2184,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           padding: const EdgeInsets.only(bottom: 14),
           child: TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0, end: 1),
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 360),
+            duration: openHandMotionDuration(
+              context,
+              _kTranscriptCardEntranceDuration,
+            ),
             curve: Curves.easeOutBack,
             builder: (_, t, child) {
               final clamped = t.clamp(0.0, 1.0);
@@ -2988,7 +2993,7 @@ class _AnimatedSessionTitleTextState extends State<_AnimatedSessionTitleText>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _disableAnimations = MediaQuery.disableAnimationsOf(context);
+    _disableAnimations = !openHandTickerMotionEnabled(context);
     if (_disableAnimations && _previousText != null) {
       _previousText = null;
       _controller.value = 1;
@@ -3181,8 +3186,6 @@ class _PendingCreationPlaceholderCard extends StatefulWidget {
     this.exiting = false,
   });
 
-  static const Duration exitDuration = Duration(milliseconds: 260);
-
   final AiCreationRequest request;
   final bool exiting;
 
@@ -3214,8 +3217,7 @@ class _PendingCreationPlaceholderCardState
   }
 
   void _syncMotionPreference() {
-    final disabled = MediaQuery.disableAnimationsOf(context);
-    if (disabled) {
+    if (!openHandTickerMotionEnabled(context)) {
       _motionController.stop();
       _motionController.value = 0;
     } else if (!_motionController.isAnimating) {
@@ -3261,7 +3263,7 @@ class _PendingCreationPlaceholderCardState
       AiCreationMode.none => (Icons.hourglass_bottom_rounded, '', ''),
     };
     final label = _localizedText(context, zh: labelZh, en: labelEn);
-    final disabledMotion = MediaQuery.disableAnimationsOf(context);
+    final motionEnabled = openHandTickerMotionEnabled(context);
     final cardRadius = BorderRadius.circular(26);
     final content = Center(
       child: Column(
@@ -3270,11 +3272,11 @@ class _PendingCreationPlaceholderCardState
           AnimatedBuilder(
             animation: _motionController,
             builder: (context, child) {
-              final scale = disabledMotion
+              final scale = !motionEnabled
                   ? 1.0
                   : 1.0 +
                         math.sin(_motionController.value * math.pi * 2) * 0.018;
-              final opacity = disabledMotion
+              final opacity = !motionEnabled
                   ? 0.68
                   : 0.62 +
                         (math.sin(_motionController.value * math.pi * 2) + 1) *
@@ -3283,12 +3285,12 @@ class _PendingCreationPlaceholderCardState
                 scale: scale,
                 child: _GeneratingMediaIndicator(
                   icon: icon,
-                  progress: disabledMotion ? 0 : _motionController.value,
+                  progress: !motionEnabled ? 0 : _motionController.value,
                   color: cs.onSurfaceVariant,
                   surfaceColor: baseColor,
                   isDark: isDark,
                   iconOpacity: opacity,
-                  animate: !disabledMotion,
+                  animate: motionEnabled,
                 ),
               );
             },
@@ -3312,7 +3314,7 @@ class _PendingCreationPlaceholderCardState
           animation: _motionController,
           child: content,
           builder: (context, child) {
-            final phase = disabledMotion ? 0.0 : _motionController.value;
+            final phase = !motionEnabled ? 0.0 : _motionController.value;
             final drift = math.sin(phase * math.pi * 2);
             return DecoratedBox(
               decoration: BoxDecoration(
@@ -3347,13 +3349,13 @@ class _PendingCreationPlaceholderCardState
                           end: Alignment.bottomRight,
                           colors: [
                             Colors.white.withValues(
-                              alpha: disabledMotion ? 0.055 : 0.12,
+                              alpha: !motionEnabled ? 0.055 : 0.12,
                             ),
                             Colors.white.withValues(
-                              alpha: disabledMotion ? 0.018 : 0.04,
+                              alpha: !motionEnabled ? 0.018 : 0.04,
                             ),
                             cs.onSurfaceVariant.withValues(
-                              alpha: disabledMotion ? 0.024 : 0.065,
+                              alpha: !motionEnabled ? 0.024 : 0.065,
                             ),
                           ],
                           stops: const [0.0, 0.44, 1.0],
@@ -3364,13 +3366,13 @@ class _PendingCreationPlaceholderCardState
                       decoration: BoxDecoration(
                         gradient: RadialGradient(
                           center: Alignment(
-                            disabledMotion ? -0.42 : -0.42 + drift * 0.08,
-                            disabledMotion ? -0.52 : -0.52 + drift * 0.04,
+                            !motionEnabled ? -0.42 : -0.42 + drift * 0.08,
+                            !motionEnabled ? -0.52 : -0.52 + drift * 0.04,
                           ),
                           radius: 0.82,
                           colors: [
                             Colors.white.withValues(
-                              alpha: disabledMotion
+                              alpha: !motionEnabled
                                   ? (isDark ? 0.035 : 0.075)
                                   : (isDark ? 0.052 : 0.11),
                             ),
@@ -3381,11 +3383,11 @@ class _PendingCreationPlaceholderCardState
                       ),
                     ),
                     Transform.translate(
-                      offset: disabledMotion
+                      offset: !motionEnabled
                           ? Offset.zero
                           : Offset(drift * 7, -drift * 4),
                       child: Transform.scale(
-                        scale: disabledMotion ? 1 : 1.0 + drift.abs() * 0.035,
+                        scale: !motionEnabled ? 1 : 1.0 + drift.abs() * 0.035,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: RadialGradient(
@@ -3413,7 +3415,7 @@ class _PendingCreationPlaceholderCardState
                           end: Alignment.topLeft,
                           colors: [
                             cs.onSurfaceVariant.withValues(
-                              alpha: disabledMotion
+                              alpha: !motionEnabled
                                   ? (isDark ? 0.02 : 0.026)
                                   : (isDark ? 0.034 : 0.045),
                             ),
@@ -3432,15 +3434,15 @@ class _PendingCreationPlaceholderCardState
         ),
       ),
     );
-    if (disabledMotion) return card;
+    if (!motionEnabled) return card;
     return TweenAnimationBuilder<double>(
       key: ValueKey<String>(
         'pending-creation-${widget.request.mode.name}-${widget.exiting ? 'exit' : 'enter'}',
       ),
       tween: Tween<double>(begin: 0, end: 1),
       duration: widget.exiting
-          ? _PendingCreationPlaceholderCard.exitDuration
-          : const Duration(milliseconds: 360),
+          ? _kCreationPlaceholderExitDuration
+          : _kTranscriptCardEntranceDuration,
       curve: widget.exiting ? Curves.easeInCubic : Curves.easeOutBack,
       builder: (context, raw, child) {
         final t = raw.clamp(0.0, 1.0);
@@ -3659,8 +3661,8 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 360),
-      reverseDuration: const Duration(milliseconds: 240),
+      duration: _kTranscriptCardEntranceDuration,
+      reverseDuration: _kCreationFailureExitDuration,
     );
     _fade = CurvedAnimation(
       parent: _controller,
@@ -3676,6 +3678,14 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!openHandTickerMotionEnabled(context)) {
+      _controller.value = 1;
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -3684,7 +3694,9 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
   Future<void> _handleDismiss() async {
     if (_exiting) return;
     _exiting = true;
-    await _controller.reverse();
+    if (openHandTickerMotionEnabled(context)) {
+      await _controller.reverse();
+    }
     if (!mounted) return;
     await widget.onDismiss();
   }
@@ -3780,6 +3792,9 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
         ),
       ),
     );
+    if (!openHandTickerMotionEnabled(context)) {
+      return card;
+    }
     return SlideTransition(
       position: _slide,
       child: FadeTransition(
