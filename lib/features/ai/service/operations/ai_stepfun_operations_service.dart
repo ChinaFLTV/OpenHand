@@ -159,7 +159,7 @@ class AiStepFunOperationsService {
       body: <String, Object?>{
         'model': model.resolveOperationModelId(AiApiFamily.messages),
         'messages': messages,
-        if (system?.trim().isNotEmpty == true) 'system': system!.trim(),
+        if (nullIfBlank(system) case final systemValue?) 'system': systemValue,
         if (tools != null) 'tools': tools,
         if (outputConfig != null) 'output_config': outputConfig,
       },
@@ -195,7 +195,8 @@ class AiStepFunOperationsService {
       body: <String, Object?>{
         'query': trimmedQuery,
         if (count != null && count > 0) 'n': count.clamp(1, 20),
-        if (category?.trim().isNotEmpty == true) 'category': category!.trim(),
+        if (nullIfBlank(category) case final categoryValue?)
+          'category': categoryValue,
       },
       timeout: timeout,
       contextHint: 'stepfun/search',
@@ -228,7 +229,7 @@ class AiStepFunOperationsService {
       family: AiApiFamily.vectorStores,
       body: <String, Object?>{
         'name': trimmedName,
-        if (type.trim().isNotEmpty) 'type': type.trim(),
+        if (nullIfBlank(type) case final typeValue?) 'type': typeValue,
       },
       timeout: timeout,
       contextHint: 'stepfun/vector-stores/create',
@@ -382,7 +383,7 @@ class AiStepFunOperationsService {
       body: <String, Object?>{
         'model': model.resolveOperationModelId(family),
         'file_id': trimmedFileId,
-        if (text?.trim().isNotEmpty == true) 'text': text!.trim(),
+        if (nullIfBlank(text) case final textValue?) 'text': textValue,
       },
       timeout: timeout,
       contextHint: 'stepfun/audio/voices/create',
@@ -418,15 +419,13 @@ class AiStepFunOperationsService {
     Duration timeout = const Duration(seconds: 60),
   }) {
     const family = AiApiFamily.audioSystemVoices;
+    final voiceModelValue =
+        nullIfBlank(voiceModel) ?? model.resolveOperationModelId(family);
     return _sendJsonless(
       model: model,
       family: family,
       method: 'GET',
-      query: <String, String>{
-        'model': (voiceModel?.trim().isNotEmpty == true
-            ? voiceModel!.trim()
-            : model.resolveOperationModelId(family)),
-      },
+      query: <String, String>{'model': voiceModelValue},
       timeout: timeout,
       contextHint: 'stepfun/audio/system-voices',
     );
@@ -471,14 +470,14 @@ class AiStepFunOperationsService {
         'model': model.resolveOperationModelId(family),
         'file_id': trimmedFileId,
         'sample_text': trimmedSampleText,
-        if (text?.trim().isNotEmpty == true) 'text': text!.trim(),
-        if (responseFormat?.trim().isNotEmpty == true)
-          'response_format': responseFormat!.trim(),
+        if (nullIfBlank(text) case final textValue?) 'text': textValue,
+        if (nullIfBlank(responseFormat) case final responseFormatValue?)
+          'response_format': responseFormatValue,
         if (speed != null && speed.isFinite) 'speed': speed,
         if (volume != null && volume.isFinite) 'volume': volume,
         if (voiceLabel != null) 'voice_label': voiceLabel,
-        if (instruction?.trim().isNotEmpty == true)
-          'instruction': instruction!.trim(),
+        if (nullIfBlank(instruction) case final instructionValue?)
+          'instruction': instructionValue,
         if (sampleRate != null && sampleRate > 0) 'sample_rate': sampleRate,
         if (pronunciationMap != null) 'pronunciation_map': pronunciationMap,
         if (markdownFilter != null) 'markdown_filter': markdownFilter,
@@ -678,7 +677,7 @@ class AiStepFunOperationsService {
       contextHint: contextHint,
     );
     final body = response.body;
-    final decoded = body.trim().isEmpty
+    final decoded = nullIfBlank(body) == null
         ? const <String, Object?>{}
         : AiOperationHttp.decodeJsonResponse(body, contextHint: contextHint);
     return AiStepFunPayloadResult(
@@ -702,9 +701,9 @@ class AiStepFunOperationsService {
   }) {
     return <String, String>{
       if (limit != null && limit > 0) 'limit': '${limit.clamp(1, 100)}',
-      if (order?.trim().isNotEmpty == true) 'order': order!.trim(),
-      if (before?.trim().isNotEmpty == true) 'before': before!.trim(),
-      if (after?.trim().isNotEmpty == true) 'after': after!.trim(),
+      if (nullIfBlank(order) case final orderValue?) 'order': orderValue,
+      if (nullIfBlank(before) case final beforeValue?) 'before': beforeValue,
+      if (nullIfBlank(after) case final afterValue?) 'after': afterValue,
     };
   }
 
