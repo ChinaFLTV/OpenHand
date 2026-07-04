@@ -5,6 +5,12 @@ const double _kSessionToolbarPillHorizontalPadding = 10;
 const double _kSessionToolbarPillIconSize = 14;
 const double _kSessionToolbarStatusDotSize = 8;
 const Duration _kSessionToolbarPillTransition = Duration(milliseconds: 220);
+const Duration _kSessionToolbarCompactSwitchDuration = Duration(
+  milliseconds: 180,
+);
+const Duration _kSessionToolbarCenterScrollDuration = Duration(
+  milliseconds: 520,
+);
 
 class _SessionToolbar extends StatelessWidget {
   const _SessionToolbar({
@@ -192,9 +198,10 @@ class _SessionToolbar extends StatelessWidget {
               if (showPlanTimelineToggle && planTimelineCollapsed) ...[
                 const SizedBox(width: 10),
                 AnimatedSwitcher(
-                  duration: MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : const Duration(milliseconds: 180),
+                  duration: openHandMotionDuration(
+                    context,
+                    _kSessionToolbarCompactSwitchDuration,
+                  ),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
                   child: _ToolbarPill(
@@ -391,7 +398,7 @@ class _SessionToolbarStatusPill extends StatelessWidget {
     final cs = theme.colorScheme;
     final duration = reduceMotion
         ? Duration.zero
-        : _kSessionToolbarPillTransition;
+        : openHandMotionDuration(context, _kSessionToolbarPillTransition);
     final labelText = AnimatedSwitcher(
       duration: duration,
       transitionBuilder: (child, animation) =>
@@ -690,7 +697,12 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
       Scrollable.ensureVisible(
         chipContext,
         alignment: 0.5,
-        duration: animated ? const Duration(milliseconds: 520) : Duration.zero,
+        duration: animated
+            ? openHandMotionDuration(
+                context,
+                _kSessionToolbarCenterScrollDuration,
+              )
+            : Duration.zero,
         curve: animated ? Curves.easeOutCubic : Curves.linear,
       );
     });
@@ -819,9 +831,10 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
                 const SizedBox(width: 12),
               ],
               AnimatedSwitcher(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 180),
+                duration: openHandMotionDuration(
+                  context,
+                  _kSessionToolbarCompactSwitchDuration,
+                ),
                 child: Text(
                   data.awaitingApproval
                       ? AppLocalizations.of(context)!.toolbarPlanPending
@@ -1032,9 +1045,10 @@ class _SessionPlanTimelineStepChip extends StatelessWidget {
             ),
           )
         : AnimatedContainer(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 220),
+            duration: openHandMotionDuration(
+              context,
+              _kSessionToolbarPillTransition,
+            ),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: chipDecoration,
@@ -3225,7 +3239,7 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
     final ctrl = _controller;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = !openHandTickerMotionEnabled(context);
     String text({
       required String zh,
       String? zhHant,
@@ -5236,7 +5250,7 @@ class _AndroidReverseDebugPillState extends State<_AndroidReverseDebugPill> {
     final ctrl = _controller;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = !openHandTickerMotionEnabled(context);
     String text({
       required String zh,
       String? zhHant,
