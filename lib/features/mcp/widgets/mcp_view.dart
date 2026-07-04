@@ -21,6 +21,7 @@ import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -51,6 +52,10 @@ const double _mcpToolDebugMenuItemInset = 8;
 const double _mcpToolDebugMenuItemRadius = 10;
 const Duration _mcpForceProbeResetDelay = Duration(milliseconds: 200);
 const Duration _mcpToolPreviewExpandDuration = Duration(milliseconds: 220);
+
+Duration _mcpMotionDuration(BuildContext context, Duration duration) {
+  return openHandMotionDuration(context, duration);
+}
 
 class McpView extends StatefulWidget {
   const McpView({super.key});
@@ -3807,20 +3812,16 @@ class _McpAnimatedProgressBar extends StatelessWidget {
   const _McpAnimatedProgressBar({
     required this.value,
     required this.backgroundColor,
-    required this.reduceMotion,
   });
 
   final double value;
   final Color backgroundColor;
-  final bool reduceMotion;
 
   @override
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: value),
-      duration: reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 520),
+      duration: _mcpMotionDuration(context, const Duration(milliseconds: 520)),
       curve: Curves.easeOutBack,
       builder: (context, animatedProgress, _) {
         return ClipRRect(
@@ -3963,7 +3964,6 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                   _McpAnimatedProgressBar(
                     value: progress,
                     backgroundColor: colorScheme.surfaceContainerHighest,
-                    reduceMotion: MediaQuery.disableAnimationsOf(context),
                   ),
                   // 内容
                   Flexible(
@@ -4326,7 +4326,6 @@ class _McpServerToggleChip extends StatelessWidget {
     final disabledFg = colorScheme.onSurfaceVariant;
     final enabledBorder = colorScheme.primary.withValues(alpha: 0.28);
     final disabledBorder = colorScheme.outlineVariant;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Tooltip(
       message: enabled
@@ -4334,9 +4333,10 @@ class _McpServerToggleChip extends StatelessWidget {
           : _localizedText(context, zh: '点击启用', en: 'Click to Enable'),
       child: TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 0.0, end: enabled ? 1.0 : 0.0),
-        duration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 220),
+        duration: _mcpMotionDuration(
+          context,
+          const Duration(milliseconds: 220),
+        ),
         curve: Curves.easeOutCubic,
         builder: (context, t, _) {
           final backgroundColor = Color.lerp(disabledBg, enabledBg, t)!;
@@ -4390,22 +4390,25 @@ class _McpHealthStatusDot extends StatelessWidget {
     return Tooltip(
       message: _healthStatusDotTooltip(context, server, healthStatus),
       child: AnimatedContainer(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 180),
+        duration: _mcpMotionDuration(
+          context,
+          const Duration(milliseconds: 180),
+        ),
         width: 16,
         height: 16,
         decoration: BoxDecoration(
           color: dotColor,
           shape: BoxShape.circle,
           border: Border.all(color: colorScheme.surface, width: 3),
-          boxShadow: [
-            BoxShadow(
-              color: dotColor.withValues(alpha: 0.32),
-              blurRadius: 8,
-              spreadRadius: 1,
-            ),
-          ],
+          boxShadow: openHandTickerMotionEnabled(context)
+              ? [
+                  BoxShadow(
+                    color: dotColor.withValues(alpha: 0.32),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
         ),
       ),
     );
@@ -4482,9 +4485,10 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                 onPressed: () => setState(() => _expanded = !_expanded),
                 icon: AnimatedRotation(
                   turns: _expanded ? 0.5 : 0.0,
-                  duration: MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : _mcpToolPreviewExpandDuration,
+                  duration: _mcpMotionDuration(
+                    context,
+                    _mcpToolPreviewExpandDuration,
+                  ),
                   curve: Curves.easeOutCubic,
                   child: const Icon(Icons.expand_more_rounded),
                 ),
@@ -4513,9 +4517,10 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
           )
         else
           AnimatedSize(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : _mcpToolPreviewExpandDuration,
+            duration: _mcpMotionDuration(
+              context,
+              _mcpToolPreviewExpandDuration,
+            ),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topLeft,
             child: Align(
