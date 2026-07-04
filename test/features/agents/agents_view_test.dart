@@ -765,6 +765,65 @@ void main() {
       expect(agent.builtinToolNames, isNot(contains('agentList')));
     });
 
+    testWidgets(
+      'agent editor filters globally disabled regular builtin tools',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1200, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final dependencies = _AgentEditorDependencies.empty(
+          builtinToolConfigs: const <AiBuiltinToolConfig>[
+            AiBuiltinToolConfig(kind: AiBuiltinToolKind.bash, enabled: false),
+            AiBuiltinToolConfig(kind: AiBuiltinToolKind.agentTaskPublish),
+          ],
+        );
+        addTearDown(dependencies.dispose);
+        controller.dispose();
+        controller = _testAgentsController(const <AgentProfile>[
+          AgentProfile(
+            id: 'agent-1',
+            name: 'Ops Agent',
+            builtinToolNames: <String>['bash', 'AgentTaskPublish'],
+          ),
+        ]);
+        await controller.refresh();
+
+        await tester.pumpWidget(
+          _AgentsViewHarness(
+            controller: controller,
+            dependencies: dependencies,
+          ),
+        );
+        final editButton = find.byTooltip('编辑配置').last;
+        await tester.ensureVisible(editButton);
+        await tester.tap(editButton);
+        await tester.pumpAndSettle();
+        DefaultTabController.of(
+          tester.element(find.byType(TabBar)),
+        ).animateTo(1, duration: Duration.zero);
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('全局关闭 1'), findsOneWidget);
+        final bashChip = find.widgetWithText(FilterChip, 'bash');
+        final publishChip = find.widgetWithText(FilterChip, '任务发布');
+        expect(tester.widget<FilterChip>(bashChip).onSelected, isNull);
+        expect(tester.widget<FilterChip>(bashChip).selected, isFalse);
+        expect(tester.widget<FilterChip>(publishChip).selected, isTrue);
+
+        final saveButton = find.ancestor(
+          of: find.text('保存'),
+          matching: find.byType(FilledButton),
+        );
+        await tester.tap(saveButton);
+        await tester.pumpAndSettle();
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pump();
+
+        final agent = controller.agentById('agent-1')!;
+        expect(agent.builtinToolNames, contains('agentTaskPublish'));
+        expect(agent.builtinToolNames, isNot(contains('bash')));
+      },
+    );
+
     testWidgets('edits cluster worker tags with structured chips', (
       tester,
     ) async {

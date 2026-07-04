@@ -7576,7 +7576,14 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           _agentToolOption(context, id, config.kind, enabled: config.enabled),
         );
       } else {
-        regularTools.add(_Option(id, config.effectiveName, config.kind.name));
+        regularTools.add(
+          _Option(
+            id,
+            config.effectiveName,
+            config.kind.name,
+            enabled: config.enabled,
+          ),
+        );
       }
     }
     return <_Option>[...regularTools, ...agentTools];
@@ -7595,8 +7602,12 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     final aliases = <String, String>{};
     final availableAgentToolIds = <String>{};
     final disabledAgentToolIds = <String>{};
+    final disabledToolIds = <String>{};
     for (final config in configs) {
       final id = _builtinToolOptionId(config);
+      if (!config.enabled) {
+        disabledToolIds.add(id);
+      }
       if (config.kind.isAgentCoordinationTool) {
         if (config.enabled) {
           availableAgentToolIds.add(id);
@@ -7620,7 +7631,10 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
         continue;
       }
       final resolved = aliases[value.toLowerCase()] ?? value;
-      if (disabledAgentToolIds.contains(resolved)) continue;
+      if (disabledAgentToolIds.contains(resolved) ||
+          disabledToolIds.contains(resolved)) {
+        continue;
+      }
       normalized.add(resolved);
     }
     return normalized;
@@ -8348,8 +8362,12 @@ class _CapabilityPanel extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final optionIds = options.map((option) => option.id).toSet();
+    final optionIds = options
+        .where((option) => option.enabled)
+        .map((option) => option.id)
+        .toSet();
     final selectedCount = selected.intersection(optionIds).length;
+    final disabledCount = options.where((option) => !option.enabled).length;
     return _AgentEditorPanel(
       title: title,
       icon: icon,
@@ -8373,8 +8391,12 @@ class _CapabilityPanel extends StatelessWidget {
                           child: Text(
                             openHandLocalizedText(
                               context,
-                              zh: '已选 $selectedCount/${options.length}',
-                              en: 'Selected $selectedCount/${options.length}',
+                              zh: disabledCount == 0
+                                  ? '已选 $selectedCount/${options.length}'
+                                  : '已选 $selectedCount/${options.length} · 全局关闭 $disabledCount',
+                              en: disabledCount == 0
+                                  ? 'Selected $selectedCount/${options.length}'
+                                  : 'Selected $selectedCount/${options.length} · Global off $disabledCount',
                             ),
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: colors.onSurfaceVariant,
@@ -8383,7 +8405,7 @@ class _CapabilityPanel extends StatelessWidget {
                           ),
                         ),
                         TextButton(
-                          onPressed: selectedCount == options.length
+                          onPressed: selectedCount == optionIds.length
                               ? null
                               : () => onChanged({...selected, ...optionIds}),
                           child: Text(
@@ -8415,14 +8437,17 @@ class _CapabilityPanel extends StatelessWidget {
                               option.label,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            selected: selected.contains(option.id),
-                            onSelected: (value) {
-                              final next = {...selected};
-                              value
-                                  ? next.add(option.id)
-                                  : next.remove(option.id);
-                              onChanged(next);
-                            },
+                            selected:
+                                option.enabled && selected.contains(option.id),
+                            onSelected: option.enabled
+                                ? (value) {
+                                    final next = {...selected};
+                                    value
+                                        ? next.add(option.id)
+                                        : next.remove(option.id);
+                                    onChanged(next);
+                                  }
+                                : null,
                             visualDensity: VisualDensity.compact,
                             materialTapTargetSize:
                                 MaterialTapTargetSize.shrinkWrap,
