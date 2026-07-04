@@ -480,6 +480,9 @@ class _HttpProxyRequest {
   final int port;
   final String forwardTarget;
 
+  static final RegExp _headerLineSeparatorPattern = RegExp(r'\r?\n');
+  static final RegExp _requestLineWhitespacePattern = RegExp(r'\s+');
+
   bool get isConnect => method.toUpperCase() == 'CONNECT';
 
   String get forwardHeader {
@@ -493,10 +496,10 @@ class _HttpProxyRequest {
   }
 
   static _HttpProxyRequest? tryParse(String rawHeader) {
-    final lines = rawHeader.split(RegExp(r'\r?\n'));
+    final lines = rawHeader.split(_headerLineSeparatorPattern);
     if (lines.isEmpty) return null;
     final requestLine = lines.first.trim();
-    final parts = requestLine.split(RegExp(r'\s+'));
+    final parts = requestLine.split(_requestLineWhitespacePattern);
     if (parts.length < 3) return null;
     final method = parts[0];
     final target = parts[1];
