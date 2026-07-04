@@ -238,6 +238,9 @@ domains: cloud, finops
     expect(capabilitySummary['mcp_servers'], 1);
     expect(capabilitySummary['builtin_tools'], 2);
     expect(capabilitySummary['agent_coordination_tools'], 1);
+    expect(capabilitySummary['agent_coordination_tool_groups'], <String, int>{
+      'task_lifecycle': 1,
+    });
     expect(capabilitySummary['automations'], 2);
     expect(capabilitySummary['has_external_actions'], isTrue);
     expect(capabilitySummary['has_self_learning_inputs'], isTrue);

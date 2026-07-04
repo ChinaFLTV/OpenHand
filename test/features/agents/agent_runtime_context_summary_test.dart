@@ -10,7 +10,14 @@ void main() {
       knowledgeSourceIds: <String>['kb-1'],
       memoryIds: <String>['memory-1'],
       mcpServerNames: <String>['ops-mcp'],
-      builtinToolNames: <String>['AgentList', 'agentTaskResult', 'Bash'],
+      builtinToolNames: <String>[
+        'AgentList',
+        'agentTaskResult',
+        'AgentApprovalRequest',
+        'agent_resource_update',
+        'agentClusterStatus',
+        'Bash',
+      ],
       cronIds: <String>['daily-report'],
       hookIds: <String>['approval-hook'],
     );
@@ -22,8 +29,15 @@ void main() {
     expect(summary['knowledge_sources'], 1);
     expect(summary['memories'], 1);
     expect(summary['mcp_servers'], 1);
-    expect(summary['builtin_tools'], 3);
-    expect(summary['agent_coordination_tools'], 2);
+    expect(summary['builtin_tools'], 6);
+    expect(summary['agent_coordination_tools'], 5);
+    expect(summary['agent_coordination_tool_groups'], <String, int>{
+      'discovery': 1,
+      'task_lifecycle': 1,
+      'governance': 1,
+      'operations': 1,
+      'cluster': 1,
+    });
     expect(summary['automations'], 2);
     expect(summary['has_external_actions'], isTrue);
     expect(summary['has_self_learning_inputs'], isTrue);
