@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/agents/index.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('parses yaml front matter and builds stable routing keywords', () {
     const agent = AgentProfile(
       id: 'agent-1',
@@ -199,7 +201,7 @@ domains: cloud, finops
     final recentAudit =
         operationalState['recent_audit_events'] as List<Object?>;
 
-    expect(snapshot.version, '1.2.5');
+    expect(snapshot.version, '1.2.6');
     expect(routing['has_route'], isTrue);
     expect(routing['keywords'], <Object?>[
       'release',
@@ -295,11 +297,9 @@ domains: cloud, finops
   });
 
   test(
-    'prompt renderer keeps full structured fallback when asset fails',
+    'prompt renderer keeps full structured fallback when asset is empty',
     () async {
-      final renderer = AgentPromptRenderer(
-        loader: (_) async => throw StateError('missing prompt asset'),
-      );
+      final renderer = AgentPromptRenderer(loader: (_) async => '');
 
       final snapshot = await renderer.render(
         agent: const AgentProfile(
@@ -310,14 +310,15 @@ domains: cloud, finops
         ),
       );
 
-      expect(snapshot.version, '1.2.5');
-      expect(snapshot.renderedPrompt, contains('<work_loop>'));
-      expect(snapshot.renderedPrompt, contains('<mentor_escalation>'));
+      expect(snapshot.version, '1.2.6');
+      expect(snapshot.renderedPrompt, contains('<operating_contract>'));
+      expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
+      expect(snapshot.renderedPrompt, contains('<approval_and_risk>'));
       expect(
         snapshot.renderedPrompt,
         contains('<tool_and_capability_discipline>'),
       );
-      expect(snapshot.renderedPrompt, contains('<memory_and_learning>'));
+      expect(snapshot.renderedPrompt, contains('<self_learning>'));
       expect(snapshot.renderedPrompt, contains('<stop_condition>'));
       expect(snapshot.renderedPrompt, contains('"name": "Fallback Agent"'));
       expect(
@@ -325,6 +326,37 @@ domains: cloud, finops
         isNot(contains('{{AGENT_PROFILE_JSON}}')),
       );
       expect(snapshot.renderedPrompt, isNot(contains('{{TASK_CONTEXT_JSON}}')));
+    },
+  );
+
+  test(
+    'bundled digital employee prompt stays structured and compact',
+    () async {
+      final snapshot = await AgentPromptRenderer().render(
+        agent: const AgentProfile(
+          id: 'agent-bundled',
+          name: 'Bundled Agent',
+          responsibilityBoundary: 'Handle delegated operations tasks.',
+        ),
+      );
+
+      expect(snapshot.assetPath, AgentPromptRenderer.defaultAssetPath);
+      expect(snapshot.version, '1.2.6');
+      expect(snapshot.renderedPrompt, contains('<identity>'));
+      expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
+      expect(snapshot.renderedPrompt, contains('<approval_and_risk>'));
+      expect(snapshot.renderedPrompt, contains('<self_learning>'));
+      expect(
+        snapshot.renderedPrompt,
+        contains('Do not turn every user request into a delegated task.'),
+      );
+      expect(snapshot.renderedPrompt, contains('"name": "Bundled Agent"'));
+      expect(
+        snapshot.renderedPrompt,
+        isNot(contains('{{AGENT_PROFILE_JSON}}')),
+      );
+      expect(snapshot.renderedPrompt, isNot(contains('{{TASK_CONTEXT_JSON}}')));
+      expect(snapshot.renderedPrompt.length, lessThan(7500));
     },
   );
 }
