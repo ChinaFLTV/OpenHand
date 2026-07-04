@@ -4121,7 +4121,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.agentTaskPublish,
       name: 'AgentTaskPublish',
       description:
-          'Publish a concrete task to an enabled digital employee only when the task matches an agent responsibility or needs delegated execution beyond the current session. Do not use this for work the current model and local tools can complete directly. Prefer an explicit agent id/name after AgentList or AgentDetail; when omitted, OpenHand routes by task context and route metadata. After publishing, poll AgentTaskProgress or AgentTaskTrack, then use AgentTaskResult when terminal or when you need the latest handoff.',
+          'Publish a concrete task to an enabled digital employee only when the task matches an agent responsibility or needs delegated execution beyond the current session. Do not use this for work the current model and local tools can complete directly. Prefer an explicit agent id/name after AgentList or AgentDetail; when omitted, OpenHand routes by task context and route metadata. After publishing, inspect the returned task.state and next_poll; call only the listed follow-up tools and use AgentTaskResult when result_available is true or the user asks for the latest handoff.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{

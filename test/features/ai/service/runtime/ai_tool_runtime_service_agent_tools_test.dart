@@ -98,7 +98,11 @@ void main() {
       );
       expect(
         publish.definition.description,
-        contains('poll AgentTaskProgress or AgentTaskTrack'),
+        contains('inspect the returned task.state and next_poll'),
+      );
+      expect(
+        publish.definition.description,
+        contains('call only the listed follow-up tools'),
       );
       expect(
         progress.definition.description,
