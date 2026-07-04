@@ -16,6 +16,7 @@
 import 'package:flutter/material.dart';
 
 import 'bounded_animation.dart';
+import 'motion_preference.dart';
 
 class RollingText extends StatelessWidget {
   const RollingText({
@@ -31,15 +32,56 @@ class RollingText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final motionEnabled = openHandTickerMotionEnabled(context);
     final children = <Widget>[];
     final graphemes = text.characters.toList(growable: false);
     for (var i = 0; i < graphemes.length; i += 1) {
       final ch = graphemes[i];
       children.add(
-        _RollingChar(char: ch, slot: i, style: style, duration: duration),
+        motionEnabled
+            ? _RollingChar(char: ch, slot: i, style: style, duration: duration)
+            : _RollingStaticChar(char: ch, slot: i, style: style),
       );
     }
     return Row(mainAxisSize: MainAxisSize.min, children: children);
+  }
+}
+
+class _RollingStaticChar extends StatelessWidget {
+  const _RollingStaticChar({
+    required this.char,
+    required this.slot,
+    required this.style,
+  });
+
+  final String char;
+  final int slot;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return _RollingCharText(char: char, slot: slot, style: style);
+  }
+}
+
+class _RollingCharText extends StatelessWidget {
+  const _RollingCharText({
+    required this.char,
+    required this.slot,
+    required this.style,
+  });
+
+  final String char;
+  final int slot;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      char,
+      key: ValueKey<String>('s$slot:$char'),
+      style: style.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+    );
   }
 }
 
@@ -92,15 +134,9 @@ class _RollingChar extends StatelessWidget {
           ],
         );
       },
-      child: Text(
-        char,
-        // Slot index 让相同字符在不同位置时也有独立 key，避免
-        // "12 KB" → "21 KB" 这种重排被误判为无变化。
-        key: ValueKey<String>('s$slot:$char'),
-        style: style.copyWith(
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
-      ),
+      // Slot index 让相同字符在不同位置时也有独立 key，避免
+      // "12 KB" → "21 KB" 这种重排被误判为无变化。
+      child: _RollingCharText(char: char, slot: slot, style: style),
     );
   }
 }
