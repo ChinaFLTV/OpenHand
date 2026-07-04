@@ -40,11 +40,11 @@ class _OpenHandSweepShimmerState extends State<OpenHandSweepShimmer>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _syncController();
+    _syncController(openHandTickerMotionEnabled(context));
   }
 
-  void _syncController() {
-    final enabled = widget.enabled && openHandTickerMotionEnabled(context);
+  void _syncController(bool motionEnabled) {
+    final enabled = widget.enabled && motionEnabled;
     if (enabled) {
       if (!_controller.isAnimating) _controller.repeat();
       return;
@@ -60,12 +60,10 @@ class _OpenHandSweepShimmerState extends State<OpenHandSweepShimmer>
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.enabled || !openHandTickerMotionEnabled(context)) {
-      _controller.stop();
+    final motionEnabled = openHandTickerMotionEnabled(context);
+    _syncController(motionEnabled);
+    if (!widget.enabled || !motionEnabled) {
       return widget.child;
-    }
-    if (!_controller.isAnimating) {
-      _controller.repeat();
     }
     return AnimatedBuilder(
       animation: _controller,
