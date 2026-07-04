@@ -65,6 +65,7 @@ const double _agentDialogMaxHeight = 780;
 const EdgeInsets _agentDialogPadding = EdgeInsets.all(22);
 const double _agentDialogTitleGap = 10;
 const double _agentDialogSectionGap = 18;
+const EdgeInsets _agentDialogActionPadding = EdgeInsets.fromLTRB(16, 8, 16, 12);
 const List<String> _agentSchedulerPolicyOptions = <String>[
   'least_busy',
   'priority_first',
@@ -366,12 +367,6 @@ class _AgentCard extends StatelessWidget {
                       ),
                     ),
                     _AgentIconAction(
-                      icon: Icons.edit_rounded,
-                      tooltip: l10n.agentsEditConfig,
-                      action: _AgentCardAction.edit,
-                      onAction: onAction,
-                    ),
-                    _AgentIconAction(
                       icon: Icons.history_rounded,
                       tooltip: l10n.agentsActivities,
                       action: _AgentCardAction.activities,
@@ -419,20 +414,7 @@ class _AgentCard extends StatelessWidget {
                       action: _AgentCardAction.resources,
                       onAction: onAction,
                     ),
-                    PopupMenuButton<_AgentCardAction>(
-                      key: ValueKey<String>('agent-card-more-${agent.id}'),
-                      tooltip: l10n.agentsMore,
-                      onSelected: onAction,
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          key: ValueKey<String>(
-                            'agent-card-delete-${agent.id}',
-                          ),
-                          value: _AgentCardAction.delete,
-                          child: Text(l10n.agentsDeleteAgent),
-                        ),
-                      ],
-                    ),
+                    _AgentCardMoreMenu(agentId: agent.id, onAction: onAction),
                   ],
                 ),
               ],
@@ -572,6 +554,61 @@ class _AgentIconAction extends StatelessWidget {
         onPressed: () => onAction(action),
         icon: Icon(icon),
       ),
+    );
+  }
+}
+
+class _AgentCardMoreMenu extends StatelessWidget {
+  const _AgentCardMoreMenu({required this.agentId, required this.onAction});
+
+  final String agentId;
+  final ValueChanged<_AgentCardAction> onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return PopupMenuButton<_AgentCardAction>(
+      key: ValueKey<String>('agent-card-more-$agentId'),
+      tooltip: l10n.agentsMore,
+      onSelected: onAction,
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          key: ValueKey<String>('agent-card-edit-$agentId'),
+          value: _AgentCardAction.edit,
+          child: _AgentCardMenuItem(
+            icon: Icons.edit_rounded,
+            label: l10n.agentsEditAgent,
+          ),
+        ),
+        PopupMenuItem(
+          key: ValueKey<String>('agent-card-delete-$agentId'),
+          value: _AgentCardAction.delete,
+          child: _AgentCardMenuItem(
+            icon: Icons.delete_outline_rounded,
+            label: l10n.agentsDeleteAgent,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AgentCardMenuItem extends StatelessWidget {
+  const _AgentCardMenuItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 19, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 10),
+        Flexible(child: Text(label)),
+      ],
     );
   }
 }
@@ -5809,14 +5846,15 @@ Widget _agentDialogPrimaryActionFooter({
   required VoidCallback? onPressed,
   required String label,
 }) {
-  return buildOpenHandDialogActionsBar(
-    actions: [
-      OpenHandDialogActionButton.primary(
+  return Padding(
+    padding: _agentDialogActionPadding,
+    child: Align(
+      child: OpenHandDialogActionButton.primary(
         icon: icon,
         onPressed: onPressed,
         label: label,
       ),
-    ],
+    ),
   );
 }
 
