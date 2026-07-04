@@ -7502,6 +7502,7 @@ class _AgentKeyValueEditor extends StatelessWidget {
       onPressed: onAdd,
       icon: const Icon(Icons.add_rounded),
     );
+    final animationSettings = _agentChipAnimationSettings(context);
     final content = entries.isEmpty
         ? Text(
             emptyText,
@@ -7512,39 +7513,49 @@ class _AgentKeyValueEditor extends StatelessWidget {
         : Column(
             children: [
               for (final entry in entries)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 5,
-                        child: TextField(
-                          controller: entry.key,
-                          decoration: InputDecoration(labelText: keyLabel),
-                          onChanged: (_) => onChanged?.call(),
-                        ),
+                AnimatedRemovableChip(
+                  key: ObjectKey(entry),
+                  settings: animationSettings,
+                  collapseAxis: Axis.vertical,
+                  onRemove: () => onRemove(entry),
+                  builder: (context, requestRemove) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 5,
+                            child: TextField(
+                              controller: entry.key,
+                              decoration: InputDecoration(labelText: keyLabel),
+                              onChanged: (_) => onChanged?.call(),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 7,
+                            child: TextField(
+                              controller: entry.value,
+                              decoration: InputDecoration(
+                                labelText: valueLabel,
+                              ),
+                              onChanged: (_) => onChanged?.call(),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          IconButton(
+                            tooltip: openHandLocalizedText(
+                              context,
+                              zh: '删除字段',
+                              en: 'Remove field',
+                            ),
+                            onPressed: requestRemove,
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 7,
-                        child: TextField(
-                          controller: entry.value,
-                          decoration: InputDecoration(labelText: valueLabel),
-                          onChanged: (_) => onChanged?.call(),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      IconButton(
-                        tooltip: openHandLocalizedText(
-                          context,
-                          zh: '删除字段',
-                          en: 'Remove field',
-                        ),
-                        onPressed: () => onRemove(entry),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
             ],
           );
@@ -7818,36 +7829,42 @@ class _AgentDraggableChip extends StatelessWidget {
         ),
       ),
     );
-    return Stack(
-      clipBehavior: Clip.none,
-      alignment: AlignmentDirectional.centerEnd,
-      children: [
-        ReorderableDragStartListener(
-          key: dragKey,
-          index: dragIndex,
-          child: DecoratedBox(
-            key: bodyKey,
-            decoration: BoxDecoration(
-              color: colors.surfaceContainerHighest.withValues(alpha: 0.46),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: colors.outlineVariant),
+    return ReorderableDragStartListener(
+      key: dragKey,
+      index: dragIndex,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.grab,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: AlignmentDirectional.centerEnd,
+          children: [
+            DecoratedBox(
+              key: bodyKey,
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHighest.withValues(alpha: 0.46),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: colors.outlineVariant),
+              ),
+              child: labelContent,
             ),
-            child: labelContent,
-          ),
+            PositionedDirectional(
+              end: 4,
+              child: IconButton(
+                tooltip: openHandLocalizedText(context, zh: '删除', en: 'Remove'),
+                onPressed: onDeleted,
+                icon: const Icon(Icons.close_rounded),
+                iconSize: 18,
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 28,
+                  height: 28,
+                ),
+              ),
+            ),
+          ],
         ),
-        PositionedDirectional(
-          end: 4,
-          child: IconButton(
-            tooltip: openHandLocalizedText(context, zh: '删除', en: 'Remove'),
-            onPressed: onDeleted,
-            icon: const Icon(Icons.close_rounded),
-            iconSize: 18,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
