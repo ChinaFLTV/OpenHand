@@ -16,6 +16,12 @@ import 'web_search_engine.dart';
 class WebSearchDuckDuckGoEngine extends WebSearchEngine {
   WebSearchDuckDuckGoEngine({required super.config, required super.httpClient});
 
+  static final RegExp _resultPattern = RegExp(
+    r'<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>(.*?)</a>'
+    r'[\s\S]*?<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</a>',
+    caseSensitive: false,
+  );
+
   @override
   bool get isReady => true;
 
@@ -38,13 +44,8 @@ class WebSearchDuckDuckGoEngine extends WebSearchEngine {
     if (_isChallenge(html)) {
       throw WebEngineHttpException('DuckDuckGo anti-bot challenge');
     }
-    final pattern = RegExp(
-      r'<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>(.*?)</a>'
-      r'[\s\S]*?<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</a>',
-      caseSensitive: false,
-    );
     final hits = <WebSearchEngineHit>[];
-    for (final m in pattern.allMatches(html)) {
+    for (final m in _resultPattern.allMatches(html)) {
       final url = _resolveUrl(m.group(1) ?? '');
       final title = AiToolUtils.htmlToText(m.group(2) ?? '');
       final snippet = AiToolUtils.htmlToText(m.group(3) ?? '');
@@ -90,6 +91,12 @@ class WebSearchDuckDuckGoEngine extends WebSearchEngine {
 class WebSearchBingEngine extends WebSearchEngine {
   WebSearchBingEngine({required super.config, required super.httpClient});
 
+  static final RegExp _resultPattern = RegExp(
+    r'<li class="b_algo">[\s\S]*?<h2><a[^>]*href="([^"]+)"[^>]*>(.*?)</a></h2>'
+    r'[\s\S]*?<p[^>]*>(.*?)</p>',
+    caseSensitive: false,
+  );
+
   @override
   bool get isReady => true;
 
@@ -113,12 +120,7 @@ class WebSearchBingEngine extends WebSearchEngine {
     }
     final html = response.body;
     final hits = <WebSearchEngineHit>[];
-    final pattern = RegExp(
-      r'<li class="b_algo">[\s\S]*?<h2><a[^>]*href="([^"]+)"[^>]*>(.*?)</a></h2>'
-      r'[\s\S]*?<p[^>]*>(.*?)</p>',
-      caseSensitive: false,
-    );
-    for (final m in pattern.allMatches(html)) {
+    for (final m in _resultPattern.allMatches(html)) {
       final url = AiToolUtils.htmlToText(m.group(1) ?? '');
       final title = AiToolUtils.htmlToText(m.group(2) ?? '');
       final snippet = AiToolUtils.htmlToText(m.group(3) ?? '');
@@ -141,12 +143,12 @@ class WebSearchSearxngEngine extends WebSearchEngine {
   WebSearchSearxngEngine({required super.config, required super.httpClient});
 
   @override
-  bool get isReady => (config.endpointOverride ?? '').isNotEmpty;
+  bool get isReady => nullIfBlank(config.endpointOverride) != null;
 
   @override
   Future<List<WebSearchEngineHit>> fetch(WebSearchEngineRequest req) async {
-    final base = (config.endpointOverride ?? '').trim();
-    if (base.isEmpty) {
+    final base = nullIfBlank(config.endpointOverride);
+    if (base == null) {
       throw WebEngineHttpException('SearXNG endpoint not configured');
     }
     final cleaned = base.endsWith('/')
