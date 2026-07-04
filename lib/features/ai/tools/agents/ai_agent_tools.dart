@@ -1592,9 +1592,16 @@ class AiAgentTool extends AiTool {
       );
     }
     return _AgentResolution.error(
-      AiToolUtils.invalidResult(
-        _name,
-        'agent_id, agent_name, or a routable KPI context is required. Use AgentList or AgentDetail before saving KPI when multiple agents are enabled.',
+      _routingRequiredResult(
+        controller,
+        contextKind: 'kpi',
+        guidance:
+            'agent_id, agent_name, or a routable KPI context is required. Use a candidate agent_id from routing_diagnostics before saving KPI when multiple agents are enabled.',
+        title: name,
+        description: '${args['target'] ?? ''}',
+        content: '${args['plan'] ?? ''}',
+        note: '${args['status'] ?? ''}',
+        labels: labels,
       ),
     );
   }
@@ -1634,9 +1641,16 @@ class AiAgentTool extends AiTool {
       );
     }
     return _AgentResolution.error(
-      AiToolUtils.invalidResult(
-        _name,
-        'agent_id, agent_name, or a routable approval context is required. Use AgentList or AgentDetail before requesting approval when multiple agents are enabled.',
+      _routingRequiredResult(
+        controller,
+        contextKind: 'approval',
+        guidance:
+            'agent_id, agent_name, or a routable approval context is required. Use a candidate agent_id from routing_diagnostics before requesting approval when multiple agents are enabled.',
+        title: title,
+        description: '${args['reason'] ?? ''}',
+        content: '${args['requested_action'] ?? ''}',
+        note: '',
+        labels: labels,
       ),
     );
   }
@@ -1676,10 +1690,59 @@ class AiAgentTool extends AiTool {
       );
     }
     return _AgentResolution.error(
-      AiToolUtils.invalidResult(
-        _name,
-        'agent_id, agent_name, or a routable task context is required. Use AgentList or AgentDetail before publishing when multiple agents are enabled.',
+      _routingRequiredResult(
+        controller,
+        contextKind: 'task',
+        guidance:
+            'agent_id, agent_name, or a routable task context is required. Use a candidate agent_id from routing_diagnostics before publishing when multiple agents are enabled.',
+        title: title,
+        description: '${args['description'] ?? ''}',
+        content: '${args['content'] ?? ''}',
+        note: '${args['note'] ?? ''}',
+        labels: labels,
       ),
+    );
+  }
+
+  AiToolExecutionResult _routingRequiredResult(
+    AgentsController controller, {
+    required String contextKind,
+    required String guidance,
+    required String title,
+    required String description,
+    required String content,
+    required String note,
+    required List<String> labels,
+  }) {
+    final diagnostics = _routingDiagnosticsJson(
+      controller.enabledAgents,
+      title: title,
+      description: description,
+      content: content,
+      note: note,
+      labels: labels,
+    );
+    final payload = <String, Object?>{
+      'status': BashToolExecutionStatus.invalidArguments.storageValue,
+      'error': guidance,
+      'context_kind': contextKind,
+      'next_action': 'select_agent_id',
+      'routing_diagnostics': diagnostics,
+    };
+    return AiToolExecutionResult(
+      status: BashToolExecutionStatus.invalidArguments,
+      command: _name,
+      workingDirectory: AiToolUtils.defaultWorkingDirectory(),
+      stdout: '',
+      stderr: guidance,
+      durationMs: 0,
+      resultText: const JsonEncoder.withIndent('  ').convert(payload),
+      metadata: <String, Object?>{
+        'tool': _name,
+        'action': 'agent_routing_required',
+        'context_kind': contextKind,
+        'candidate_count': (diagnostics['candidates'] as List<Object?>).length,
+      },
     );
   }
 
@@ -1691,8 +1754,94 @@ class AiAgentTool extends AiTool {
     required String note,
     required List<String> labels,
   }) {
-    _AgentRouteMatch? best;
-    var tied = false;
+    final matches = _routeMatchesForTask(
+      agents,
+      title: title,
+      description: description,
+      content: content,
+      note: note,
+      labels: labels,
+    );
+    if (matches.isEmpty || matches.first.score < 4) return null;
+    if (matches.length > 1 && matches[1].score == matches.first.score) {
+      return null;
+    }
+    return matches.first;
+  }
+
+  Map<String, Object?> _routingDiagnosticsJson(
+    List<AgentProfile> agents, {
+    required String title,
+    required String description,
+    required String content,
+    required String note,
+    required List<String> labels,
+  }) {
+    final matches = _routeMatchesForTask(
+      agents,
+      title: title,
+      description: description,
+      content: content,
+      note: note,
+      labels: labels,
+    );
+    final bestScore = matches.isEmpty ? 0 : matches.first.score;
+    final topTieCount = matches
+        .where((match) => match.score == bestScore)
+        .length;
+    final candidates = matches.isEmpty
+        ? agents
+              .take(5)
+              .map(
+                (agent) => _routeCandidateJson(
+                  agent,
+                  score: 0,
+                  reason: '',
+                  matched: false,
+                ),
+              )
+              .toList(growable: false)
+        : matches
+              .take(5)
+              .map(
+                (match) => _routeCandidateJson(
+                  match.agent,
+                  score: match.score,
+                  reason: match.reason,
+                  matched: true,
+                ),
+              )
+              .toList(growable: false);
+    return <String, Object?>{
+      'input': <String, Object?>{
+        'title': title,
+        if (description.trim().isNotEmpty) 'description': description,
+        if (content.trim().isNotEmpty) 'content': content,
+        if (note.trim().isNotEmpty) 'note': note,
+        if (labels.isNotEmpty) 'labels': labels,
+      },
+      'candidate_count': candidates.length,
+      'best_score': bestScore,
+      'minimum_score': 4,
+      'ambiguous': topTieCount > 1,
+      'reason': matches.isEmpty
+          ? 'no_route_signal'
+          : topTieCount > 1
+          ? 'ambiguous_top_score'
+          : 'score_below_threshold',
+      'candidates': candidates,
+    };
+  }
+
+  List<_AgentRouteMatch> _routeMatchesForTask(
+    List<AgentProfile> agents, {
+    required String title,
+    required String description,
+    required String content,
+    required String note,
+    required List<String> labels,
+  }) {
+    final matches = <_AgentRouteMatch>[];
     for (final agent in agents) {
       final match = _scoreAgentRoute(
         agent,
@@ -1702,16 +1851,14 @@ class AiAgentTool extends AiTool {
         note: note,
         labels: labels,
       );
-      if (match == null) continue;
-      if (best == null || match.score > best.score) {
-        best = match;
-        tied = false;
-      } else if (match.score == best.score) {
-        tied = true;
-      }
+      if (match != null) matches.add(match);
     }
-    if (best == null || best.score < 4 || tied) return null;
-    return best;
+    matches.sort((a, b) {
+      final byScore = b.score.compareTo(a.score);
+      if (byScore != 0) return byScore;
+      return a.agent.name.toLowerCase().compareTo(b.agent.name.toLowerCase());
+    });
+    return matches;
   }
 
   _AgentRouteMatch? _scoreAgentRoute(
@@ -1909,6 +2056,28 @@ Map<String, Object?> _agentSummaryJson(AgentProfile agent) {
     'routing': routing.toJson(includeRawPreview: false),
     'operational_summary': _agentOperationalSummaryJson(agent),
     'updated_at': _iso(agent.updatedAt),
+  };
+}
+
+Map<String, Object?> _routeCandidateJson(
+  AgentProfile agent, {
+  required int score,
+  required String reason,
+  required bool matched,
+}) {
+  final routing = AgentRoutingMetadata.fromAgent(agent);
+  return <String, Object?>{
+    'agent_id': agent.id,
+    'agent_name': agent.name,
+    'score': score,
+    'matched': matched,
+    if (reason.trim().isNotEmpty) 'reason': reason,
+    if (agent.position.trim().isNotEmpty) 'position': agent.position,
+    if (agent.department.trim().isNotEmpty) 'department': agent.department,
+    if (agent.taskLabels.isNotEmpty) 'task_labels': agent.taskLabels,
+    if (agent.skillNames.isNotEmpty) 'skills': agent.skillNames,
+    if (routing.keywords.isNotEmpty)
+      'routing_keywords': routing.keywords.take(12).toList(growable: false),
   };
 }
 

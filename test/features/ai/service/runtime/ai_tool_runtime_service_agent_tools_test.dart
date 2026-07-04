@@ -1887,6 +1887,102 @@ domains: finance, cloud billing
       expect(trackWorker['id'], assignedWorkerId);
     });
 
+    test(
+      'routable write tools return candidate diagnostics when routing is ambiguous',
+      () async {
+        await controller.saveAgent(
+          _agent(
+            id: 'finance-a',
+            name: 'Finance Alpha',
+            enabled: true,
+            routeFrontMatter: 'keywords: finance, reconciliation',
+            taskLabels: const <String>['finance'],
+          ),
+        );
+        await controller.saveAgent(
+          _agent(
+            id: 'finance-b',
+            name: 'Finance Beta',
+            enabled: true,
+            routeFrontMatter: 'keywords: finance, reconciliation',
+            taskLabels: const <String>['finance'],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+
+        for (final call
+            in <({String name, Map<String, Object?> args, String kind})>[
+              (
+                name: 'AgentTaskPublish',
+                kind: 'task',
+                args: <String, Object?>{
+                  'title': 'Finance reconciliation',
+                  'description': 'Prepare the finance reconciliation packet.',
+                  'labels': <String>['finance'],
+                },
+              ),
+              (
+                name: 'AgentApprovalRequest',
+                kind: 'approval',
+                args: <String, Object?>{
+                  'title': 'Finance reconciliation approval',
+                  'reason': 'Need approval before publishing finance evidence.',
+                  'labels': <String>['finance'],
+                },
+              ),
+              (
+                name: 'AgentKpiUpsert',
+                kind: 'kpi',
+                args: <String, Object?>{
+                  'name': 'Finance reconciliation KPI',
+                  'target': 'Complete weekly finance reconciliation.',
+                  'labels': <String>['finance'],
+                },
+              ),
+            ]) {
+          final result = await runtime.execute(
+            sessionId: 'session-route-diagnostics',
+            catalog: catalog,
+            toolCall: AiToolCall(
+              id: 'call-${call.name}',
+              name: call.name,
+              arguments: jsonEncode(call.args),
+            ),
+            model: _model(),
+            previouslyReadFiles: const <String>{},
+            denyCommandRules: const <AiDenyCommandRule>[],
+            requireWriteCommandConfirmation: false,
+            confirmWriteCommand: (request) async =>
+                BashCommandApprovalDecision.approved,
+          );
+
+          expect(result.status, BashToolExecutionStatus.invalidArguments);
+          expect(result.metadata['action'], 'agent_routing_required');
+          expect(result.metadata['context_kind'], call.kind);
+          final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+          final diagnostics =
+              payload['routing_diagnostics'] as Map<String, Object?>;
+          final candidates = diagnostics['candidates'] as List<Object?>;
+          final first = candidates[0] as Map<String, Object?>;
+          final second = candidates[1] as Map<String, Object?>;
+
+          expect(payload['context_kind'], call.kind);
+          expect(payload['next_action'], 'select_agent_id');
+          expect(diagnostics['ambiguous'], isTrue);
+          expect(diagnostics['reason'], 'ambiguous_top_score');
+          expect(candidates, hasLength(2));
+          expect(first['score'], second['score']);
+          expect(first['agent_id'], 'finance-a');
+          expect(second['agent_id'], 'finance-b');
+          expect(first['routing_keywords'], contains('finance'));
+          expect(first['task_labels'], contains('finance'));
+        }
+      },
+    );
+
     test('complete tool writes task result and releases worker', () async {
       await controller.saveAgent(_agent(enabled: true));
       final task = await controller.publishTaskWithResult(
