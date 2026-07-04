@@ -109,7 +109,7 @@ class AiAskUserChoiceTool extends AiTool {
     }
     final normalizedValue = normalized.value!;
     final args = normalizedValue.arguments;
-    final title = '${args['title'] ?? ''}'.trim();
+    final title = AiToolUtils.readString(args['title']);
     if (title.isEmpty) {
       return AiToolUtils.invalidResult(
         commandName,
@@ -117,7 +117,7 @@ class AiAskUserChoiceTool extends AiTool {
       );
     }
     final description = args['description'] is String
-        ? (args['description'] as String).trim()
+        ? AiToolUtils.readString(args['description'])
         : null;
     final optionsRaw = AiToolUtils.readList(args['options']);
     if (optionsRaw == null || optionsRaw.isEmpty) {

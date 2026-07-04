@@ -89,8 +89,9 @@ class AiTaskTool extends AiTool {
     Map<Object?, Object?> arguments,
   ) {
     final rawSubagentType =
-        '${arguments['subagent_type'] ?? arguments['subagentType'] ?? ''}'
-            .trim();
+        optionalStringFromValue(arguments['subagent_type']) ??
+        optionalStringFromValue(arguments['subagentType']) ??
+        '';
     return rawSubagentType.isEmpty ? defaultSubagentType : rawSubagentType;
   }
 
@@ -107,8 +108,8 @@ class AiTaskTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
-    final description = '${args['description'] ?? ''}'.trim();
-    final prompt = '${args['prompt'] ?? ''}'.trim();
+    final description = AiToolUtils.readString(args['description']);
+    final prompt = AiToolUtils.readString(args['prompt']);
     final subagentType = requestedSubagentTypeFromArguments(args);
     final unsupportedClaudeAgentParameters = _unsupportedClaudeAgentParameters(
       args,
