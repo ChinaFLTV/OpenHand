@@ -1059,9 +1059,10 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       },
       borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 120),
+        duration: _settingsMotionDuration(
+          context,
+          const Duration(milliseconds: 120),
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: visible
@@ -1194,9 +1195,10 @@ class _ProxyHoverableRowState extends State<_ProxyHoverableRow> {
         behavior: HitTestBehavior.opaque,
         onDoubleTap: widget.onDoubleTap,
         child: AnimatedContainer(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 120),
+          duration: _settingsMotionDuration(
+            context,
+            const Duration(milliseconds: 120),
+          ),
           decoration: BoxDecoration(
             color: _hover
                 ? Color.alphaBlend(widget.hoverColor, widget.baseColor)

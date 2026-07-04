@@ -621,7 +621,10 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   Widget _buildAutoCompleteBaseUrlControl() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final duration = _settingsMotionDuration(
+      context,
+      const Duration(milliseconds: 180),
+    );
     final previewUrl = _previewChatEndpoint();
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(0, 0, 0, 4),
@@ -658,9 +661,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                   ),
                 ),
                 AnimatedSwitcher(
-                  duration: reduceMotion
-                      ? Duration.zero
-                      : const Duration(milliseconds: 180),
+                  duration: duration,
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
                   child: previewUrl.isEmpty
@@ -728,10 +729,10 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final duration = reduceMotion
-        ? Duration.zero
-        : const Duration(milliseconds: 180);
+    final duration = _settingsMotionDuration(
+      context,
+      const Duration(milliseconds: 180),
+    );
     final child = !_showsExplicitPromptCacheControl
         ? const SizedBox.shrink(key: ValueKey<String>('cacheControlHidden'))
         : Padding(
@@ -3417,7 +3418,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   Widget _buildOneMillionContextControl() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final duration = _settingsMotionDuration(
+      context,
+      const Duration(milliseconds: 180),
+    );
     final helperText = _oneMillionContextEnabled
         ? _localizedText(
             context,
@@ -3462,9 +3466,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               ),
               const SizedBox(height: 4),
               AnimatedSwitcher(
-                duration: reduceMotion
-                    ? Duration.zero
-                    : const Duration(milliseconds: 180),
+                duration: duration,
                 switchInCurve: Curves.easeOutCubic,
                 switchOutCurve: Curves.easeInCubic,
                 child: Text(

@@ -13,6 +13,7 @@ import '../../../shared/ui/export_config_dialog.dart';
 import '../../../shared/ui/export_progress_dialog.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -21,6 +22,10 @@ import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 
 const Duration _kReorderPersistDebounceDelay = Duration(milliseconds: 400);
+
+Duration _threadSessionMotionDuration(BuildContext context, Duration duration) {
+  return openHandTickerMotionEnabled(context) ? duration : Duration.zero;
+}
 
 /// Shows the Thread Session Management dialog. Honors the global dialog
 /// animation settings (entrance/exit are picked from the nearest
@@ -956,9 +961,10 @@ class _ThreadSessionManagementDialogState
                           : _buildList(visible),
                     ),
                     AnimatedSize(
-                      duration: MediaQuery.disableAnimationsOf(context)
-                          ? Duration.zero
-                          : const Duration(milliseconds: 220),
+                      duration: _threadSessionMotionDuration(
+                        context,
+                        const Duration(milliseconds: 220),
+                      ),
                       curve: Curves.easeOutCubic,
                       alignment: Alignment.centerLeft,
                       child: _previewSession == null
@@ -1281,15 +1287,17 @@ class _ThreadSessionManagementDialogState
       return KeyedSubtree(
         key: ValueKey<String>('row-wrapper-${session.id}'),
         child: AnimatedSize(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 240),
+          duration: _threadSessionMotionDuration(
+            context,
+            const Duration(milliseconds: 240),
+          ),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
           child: AnimatedOpacity(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 200),
+            duration: _threadSessionMotionDuration(
+              context,
+              const Duration(milliseconds: 200),
+            ),
             opacity: isAnimatingOut ? 0.0 : 1.0,
             child: isAnimatingOut
                 ? const SizedBox(width: double.infinity, height: 0)

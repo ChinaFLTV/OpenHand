@@ -44,6 +44,7 @@ import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/key_tweakable_slider.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/model_search_selector.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -90,6 +91,24 @@ typedef _SettingsPathOperation = Future<bool> Function(String path);
 const int _kSettingsToolResultCompressionWindowMaxChars = 8192;
 const int _kSettingsToolResultCompressionMaxPathHits = 200;
 const int _kSettingsWriteToolSummaryMaxChars = 8192;
+
+bool _settingsMotionEnabled(BuildContext context) {
+  return openHandTickerMotionEnabled(context);
+}
+
+Duration _settingsMotionDuration(BuildContext context, Duration duration) {
+  return _settingsMotionEnabled(context) ? duration : Duration.zero;
+}
+
+DialogAnimationSettings _settingsListItemMotionSettings(
+  BuildContext context,
+  SettingsController settingsController,
+) {
+  if (!_settingsMotionEnabled(context)) {
+    return OpenHandMotionDefaults.disabled;
+  }
+  return settingsController.listItemAnimationSettings.normalized();
+}
 
 void _syncControllerText(TextEditingController controller, String text) {
   if (controller.text == text) return;
@@ -476,9 +495,10 @@ class _SettingsViewState extends State<SettingsView> {
   Future<void> _deleteAiModelWithAnimation(AiModelConfig model) async {
     final settingsController = context.read<SettingsController>();
     final l10n = AppLocalizations.of(context)!;
-    final settings = MediaQuery.disableAnimationsOf(context)
-        ? OpenHandMotionDefaults.disabled
-        : settingsController.listItemAnimationSettings;
+    final settings = _settingsListItemMotionSettings(
+      context,
+      settingsController,
+    );
     final index = _indexOfAnimatedAiModel(model.id);
     if (index == -1) {
       final deleted = await settingsController.deleteAiModel(model.id);
@@ -532,9 +552,10 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     final settingsController = context.read<SettingsController>();
-    final settings = MediaQuery.disableAnimationsOf(context)
-        ? OpenHandMotionDefaults.disabled
-        : settingsController.listItemAnimationSettings;
+    final settings = _settingsListItemMotionSettings(
+      context,
+      settingsController,
+    );
     final model = _animatedAiModels[fromIndex];
     setState(() {
       _mutatingAiModelIds.add(id);
@@ -869,7 +890,7 @@ class _SettingsViewState extends State<SettingsView> {
           // Top-edge highlight pulse fired whenever any settings mutation
           // is successfully persisted. Subscribes to the controller's
           // `saveSuccessSignal` so individual `_save*` paths don't have
-          // to wire up per-row notifiers. Honors reduceMotion via the
+          // to wire up per-row notifiers. Honors global motion settings via the
           // pulse widget itself.
           Positioned(
             top: 0,
@@ -2519,12 +2540,14 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 16),
               AnimatedSwitcher(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 260),
-                reverseDuration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 220),
+                duration: _settingsMotionDuration(
+                  context,
+                  const Duration(milliseconds: 260),
+                ),
+                reverseDuration: _settingsMotionDuration(
+                  context,
+                  const Duration(milliseconds: 220),
+                ),
                 switchInCurve: Curves.easeOutBack,
                 switchOutCurve: Curves.easeInCubic,
                 transitionBuilder: (child, animation) {
@@ -2561,10 +2584,10 @@ class _SettingsViewState extends State<SettingsView> {
                           initialItemCount: _animatedAiModels.length,
                           itemBuilder: (context, index, animation) {
                             final model = _animatedAiModels[index];
-                            final settings =
-                                MediaQuery.disableAnimationsOf(context)
-                                ? OpenHandMotionDefaults.disabled
-                                : settingsController.listItemAnimationSettings;
+                            final settings = _settingsListItemMotionSettings(
+                              context,
+                              settingsController,
+                            );
                             return _buildAnimatedAiModelRow(
                               context,
                               model,

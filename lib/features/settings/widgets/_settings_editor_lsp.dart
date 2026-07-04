@@ -759,7 +759,7 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final motionEnabled = _settingsMotionEnabled(context);
     return MouseRegion(
       onEnter: (_) {
         if (_hovered) return;
@@ -880,10 +880,11 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
                     ),
                     const SizedBox(width: 12),
                     AnimatedSlide(
-                      offset: Offset(_hovered && !reduceMotion ? 0.18 : 0, 0),
-                      duration: reduceMotion
-                          ? Duration.zero
-                          : const Duration(milliseconds: 180),
+                      offset: Offset(_hovered && motionEnabled ? 0.18 : 0, 0),
+                      duration: _settingsMotionDuration(
+                        context,
+                        const Duration(milliseconds: 180),
+                      ),
                       curve: Curves.easeOutCubic,
                       child: Icon(
                         Icons.chevron_right_rounded,

@@ -94,7 +94,7 @@ class _SettingsSubsectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final motionDisabled = MediaQuery.disableAnimationsOf(context);
+    final motionEnabled = _settingsMotionEnabled(context);
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -107,9 +107,7 @@ class _SettingsSubsectionCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        if (motionDisabled)
-          child
-        else
+        if (motionEnabled)
           ClipRect(
             child: AnimatedSize(
               duration: const Duration(milliseconds: 420),
@@ -118,7 +116,9 @@ class _SettingsSubsectionCard extends StatelessWidget {
               alignment: Alignment.topCenter,
               child: child,
             ),
-          ),
+          )
+        else
+          child,
       ],
     );
     return DecoratedBox(
@@ -860,9 +860,7 @@ class _AiTranslationProviderCardState
       ),
     );
     return AnimatedOpacity(
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : _aiTtsDragOpacityDuration,
+      duration: _settingsMotionDuration(context, _aiTtsDragOpacityDuration),
       opacity: widget.dragging ? 0.58 : 1,
       child: card,
     );
@@ -1686,9 +1684,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
       ),
     );
     return AnimatedOpacity(
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : _aiTtsDragOpacityDuration,
+      duration: _settingsMotionDuration(context, _aiTtsDragOpacityDuration),
       opacity: widget.dragging ? 0.58 : 1,
       child: card,
     );
@@ -2377,18 +2373,18 @@ class _AiProviderInsertionGuide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final motionEnabled = _settingsMotionEnabled(context);
     final theme = Theme.of(context);
     final color = theme.colorScheme.primary.withValues(alpha: 0.82);
     return ClipRect(
       child: AnimatedSize(
-        duration: reduceMotion ? Duration.zero : _aiTtsDragHoverDuration,
-        reverseDuration: reduceMotion
-            ? Duration.zero
-            : _aiTtsDragOpacityDuration,
+        duration: motionEnabled ? _aiTtsDragHoverDuration : Duration.zero,
+        reverseDuration: motionEnabled
+            ? _aiTtsDragOpacityDuration
+            : Duration.zero,
         curve: Curves.easeOutBack,
         child: AnimatedOpacity(
-          duration: reduceMotion ? Duration.zero : _aiTtsDragOpacityDuration,
+          duration: motionEnabled ? _aiTtsDragOpacityDuration : Duration.zero,
           opacity: visible ? 1 : 0,
           child: SizedBox(
             height: visible ? 12 : 0,
@@ -2432,9 +2428,7 @@ class _AiProviderDragHandleFrame extends StatelessWidget {
       child: MouseRegion(
         cursor: SystemMouseCursors.grab,
         child: AnimatedOpacity(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : _aiTtsDragOpacityDuration,
+          duration: _settingsMotionDuration(context, _aiTtsDragOpacityDuration),
           opacity: opacity,
           child: Container(
             width: _aiTtsDragHandleSize,
@@ -2530,9 +2524,10 @@ class _AiProviderCardExpandButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final duration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 260);
+    final duration = _settingsMotionDuration(
+      context,
+      const Duration(milliseconds: 260),
+    );
     return Tooltip(
       message: !enabled
           ? _localizedText(context, zh: '启用后可展开', en: 'Enable to expand')
@@ -4217,13 +4212,14 @@ class _SettingsElasticExpansion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final duration = reduceMotion
-        ? Duration.zero
-        : const Duration(milliseconds: 280);
-    final reverseDuration = reduceMotion
-        ? Duration.zero
-        : const Duration(milliseconds: 190);
+    final duration = _settingsMotionDuration(
+      context,
+      const Duration(milliseconds: 280),
+    );
+    final reverseDuration = _settingsMotionDuration(
+      context,
+      const Duration(milliseconds: 190),
+    );
 
     return AnimatedSize(
       duration: duration,
@@ -4291,9 +4287,10 @@ class _SettingsExpandIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedRotation(
       turns: expanded ? 0.5 : 0,
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 220),
+      duration: _settingsMotionDuration(
+        context,
+        const Duration(milliseconds: 220),
+      ),
       curve: Curves.easeOutBack,
       child: const Icon(Icons.expand_more_rounded),
     );
@@ -4307,7 +4304,7 @@ Widget _settingsTransparentReorderProxy(
   Animation<double> animation,
 ) {
   final colorScheme = Theme.of(context).colorScheme;
-  final reduceMotion = MediaQuery.disableAnimationsOf(context);
+  final motionEnabled = _settingsMotionEnabled(context);
   return AnimatedBuilder(
     animation: animation,
     child: Material(
@@ -4319,7 +4316,7 @@ Widget _settingsTransparentReorderProxy(
     ),
     builder: (context, proxyChild) {
       final raw = animation.value.clamp(0.0, 1.0);
-      final t = reduceMotion ? 1.0 : Curves.easeOutBack.transform(raw);
+      final t = motionEnabled ? Curves.easeOutBack.transform(raw) : 1.0;
       return Transform.scale(
         scale: 1 + 0.018 * t,
         child: DecoratedBox(
@@ -4864,16 +4861,17 @@ class _AiModelTileState extends State<_AiModelTile> {
         ? l10n.aiModelCount(allModels.length)
         : _localizedText(context, zh: '无模型', en: 'No models');
     final canExpandModels = allModels.length > _aiModelChipPreviewLimit;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final animationDuration = _settingsMotionDuration(
+      context,
+      const Duration(milliseconds: 260),
+    );
 
     return MicroPressFeedback(
       child: InkWell(
         onTap: widget.onSelect,
         borderRadius: BorderRadius.circular(24),
         child: AnimatedContainer(
-          duration: reduceMotion
-              ? Duration.zero
-              : const Duration(milliseconds: 260),
+          duration: animationDuration,
           curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
             color: widget.isSelected
@@ -4958,9 +4956,10 @@ class _AiModelTileState extends State<_AiModelTile> {
                                     en: 'Show all models',
                                   ),
                             icon: AnimatedSwitcher(
-                              duration: reduceMotion
-                                  ? Duration.zero
-                                  : const Duration(milliseconds: 220),
+                              duration: _settingsMotionDuration(
+                                context,
+                                const Duration(milliseconds: 220),
+                              ),
                               switchInCurve: Curves.easeOutBack,
                               switchOutCurve: Curves.easeInCubic,
                               transitionBuilder: (child, animation) =>
@@ -5099,17 +5098,20 @@ class _AiModelTileState extends State<_AiModelTile> {
                         final hiddenCount = ordered.length - visible.length;
                         return AnimatedSize(
                           alignment: Alignment.topLeft,
-                          duration: reduceMotion
-                              ? Duration.zero
-                              : const Duration(milliseconds: 420),
-                          reverseDuration: reduceMotion
-                              ? Duration.zero
-                              : const Duration(milliseconds: 260),
+                          duration: _settingsMotionDuration(
+                            context,
+                            const Duration(milliseconds: 420),
+                          ),
+                          reverseDuration: _settingsMotionDuration(
+                            context,
+                            const Duration(milliseconds: 260),
+                          ),
                           curve: Curves.easeOutBack,
                           child: AnimatedSwitcher(
-                            duration: reduceMotion
-                                ? Duration.zero
-                                : const Duration(milliseconds: 260),
+                            duration: _settingsMotionDuration(
+                              context,
+                              const Duration(milliseconds: 260),
+                            ),
                             switchInCurve: Curves.easeOutBack,
                             switchOutCurve: Curves.easeInCubic,
                             layoutBuilder: (currentChild, previousChildren) {
@@ -5225,7 +5227,7 @@ class _AnimatedSettingReveal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (!_settingsMotionEnabled(context)) {
       return visible ? child : const SizedBox.shrink();
     }
     return ClipRect(

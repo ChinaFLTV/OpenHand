@@ -25,7 +25,7 @@ class _UserProfileSettingsButtonState
     final memoryController = context.watch<MemoryController>();
     final profile = memoryController.userProfile;
     final hasProfile = profile != null && profile.content.trim().isNotEmpty;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final motionEnabled = _settingsMotionEnabled(context);
     final preview = hasProfile
         ? _previewContent(profile.content)
         : _localizedText(
@@ -138,10 +138,11 @@ class _UserProfileSettingsButtonState
                     ),
                     const SizedBox(width: 8),
                     AnimatedSlide(
-                      offset: Offset(_hovered && !reduceMotion ? 0.18 : 0, 0),
-                      duration: reduceMotion
-                          ? Duration.zero
-                          : const Duration(milliseconds: 180),
+                      offset: Offset(_hovered && motionEnabled ? 0.18 : 0, 0),
+                      duration: _settingsMotionDuration(
+                        context,
+                        const Duration(milliseconds: 180),
+                      ),
                       curve: Curves.easeOutCubic,
                       child: Icon(
                         Icons.chevron_right_rounded,
