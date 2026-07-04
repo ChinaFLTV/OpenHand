@@ -21,6 +21,11 @@ import 'mcp_stdio_io_utils.dart';
 import 'mcp_stdio_mirror_policy.dart';
 import 'mcp_stdio_process_manager.dart';
 
+final RegExp _shellWhitespacePattern = RegExp(r'\s');
+final RegExp _stdioLineBreakPattern = RegExp(r'[\r\n]');
+final RegExp _stdioLineBreaksPattern = RegExp(r'[\r\n]+');
+final RegExp _npxPackageVersionSuffixPattern = RegExp(r'@[^/]*$');
+
 abstract class McpToolDiscoveryService {
   Future<McpToolCatalog> discoverTools(McpServer server);
   Future<McpServerHealth> checkHealth(McpServer server);
@@ -73,6 +78,13 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   static const int _maxToolPages = 8;
   static const String _streamableHttpProtocolVersion = '2025-11-25';
   static const String _legacySseProtocolVersion = '2024-11-05';
+  static final RegExp _outputDescriptionLineSeparatorPattern = RegExp(
+    r'[\r\n]+',
+  );
+  static final RegExp _outputDescriptionSentencePattern = RegExp(
+    r'[^。！？.!?]*(返回|输出|结果|returns?|output|response|result)[^。！？.!?]*[。！？.!?]?',
+    caseSensitive: false,
+  );
 
   final http.Client _client;
   int _nextRequestId = 0;
@@ -1225,16 +1237,15 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
     final matchedLines = splitTrimmedNonEmpty(
       normalized,
-      separator: RegExp(r'[\r\n]+'),
+      separator: _outputDescriptionLineSeparatorPattern,
     ).where(_looksLikeOutputDescriptionLine).toList(growable: false);
     if (matchedLines.isNotEmpty) {
       return matchedLines.join('\n');
     }
 
-    final sentenceMatch = RegExp(
-      r'[^。！？.!?]*(返回|输出|结果|returns?|output|response|result)[^。！？.!?]*[。！？.!?]?',
-      caseSensitive: false,
-    ).allMatches(normalized);
+    final sentenceMatch = _outputDescriptionSentencePattern.allMatches(
+      normalized,
+    );
     final sentences = stringListFromValue(
       sentenceMatch.map((match) => match.group(0)).toList(growable: false),
     );
@@ -2208,7 +2219,7 @@ String _diagnoseStdioStderr(String stderr) {
 List<String> _tokenizeShellCommand(String input) {
   final trimmed = input.trim();
   if (trimmed.isEmpty) return const <String>[];
-  if (!trimmed.contains(RegExp(r'\s'))) {
+  if (!trimmed.contains(_shellWhitespacePattern)) {
     return <String>[trimmed];
   }
   final tokens = <String>[];
@@ -2283,7 +2294,7 @@ class _StdioSession {
       if (cb != null) {
         _stderrLineBuffer.write(chunk);
         var buffer = _stderrLineBuffer.toString();
-        var splitIndex = buffer.lastIndexOf(RegExp(r'[\r\n]'));
+        var splitIndex = buffer.lastIndexOf(_stdioLineBreakPattern);
         if (splitIndex < 0) {
           if (buffer.length > 4096) {
             // 防御：单行超长（无换行）时也切，避免无限堆积。
@@ -2298,7 +2309,7 @@ class _StdioSession {
         _stderrLineBuffer
           ..clear()
           ..write(tail);
-        for (final raw in completed.split(RegExp(r'[\r\n]+'))) {
+        for (final raw in completed.split(_stdioLineBreaksPattern)) {
           final line = raw.trim();
           if (line.isEmpty) continue;
           try {
@@ -2772,7 +2783,7 @@ _NpxPackageResolution? _resolveNpxPackageDirectly(
 ) {
   if (home == null || home.isEmpty) return null;
   // 清理包名（移除 @version 后缀，如 @playwright/mcp@latest → @playwright/mcp）
-  final cleanName = packageName.replaceAll(RegExp(r'@[^/]*$'), '');
+  final cleanName = packageName.replaceAll(_npxPackageVersionSuffixPattern, '');
   if (cleanName.isEmpty) return null;
 
   // 策略 1：扫描 nvm 目录
