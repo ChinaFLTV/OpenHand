@@ -8,6 +8,7 @@ import '../../app/support/app_update_checker.dart';
 import '../../l10n/app_localizations.dart';
 import '../util/byte_size_format.dart';
 import 'animated_dialog.dart';
+import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
 
 /// 检查更新弹窗入口。使用全局弹窗动画设置。
@@ -27,6 +28,11 @@ Future<void> showAppUpdateDialog({
 }
 
 enum _UpdatePhase { checking, available, notAvailable, downloading, error }
+
+const Duration _kAppUpdatePhaseSwitchDuration = Duration(milliseconds: 320);
+const Duration _kAppUpdateProgressAnimationDuration = Duration(
+  milliseconds: 400,
+);
 
 class _AppUpdateDialogContent extends StatefulWidget {
   const _AppUpdateDialogContent({
@@ -58,7 +64,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
     super.initState();
     _progressAnimController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: _kAppUpdateProgressAnimationDuration,
     );
     _progressAnimation = Tween<double>(begin: 0, end: 0).animate(
       CurvedAnimation(
@@ -73,6 +79,15 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
   void dispose() {
     _progressAnimController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!openHandTickerMotionEnabled(context) &&
+        _progressAnimation.value != _targetProgress) {
+      _settleProgressAnimation();
+    }
   }
 
   Future<void> _checkForUpdate() async {
@@ -124,17 +139,31 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
   }
 
   void _animateProgressTo(double target) {
-    if (target <= _targetProgress) return;
+    final safeTarget = target.isFinite
+        ? target.clamp(0.0, 1.0).toDouble()
+        : _targetProgress;
+    if (safeTarget <= _targetProgress) return;
+    _targetProgress = safeTarget;
+    if (!openHandTickerMotionEnabled(context)) {
+      _settleProgressAnimation();
+      setState(() {});
+      return;
+    }
     final oldValue = _progressAnimation.value;
-    _targetProgress = target;
-    _progressAnimation = Tween<double>(begin: oldValue, end: target).animate(
-      CurvedAnimation(
-        parent: _progressAnimController,
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    _progressAnimation = Tween<double>(begin: oldValue, end: safeTarget)
+        .animate(
+          CurvedAnimation(
+            parent: _progressAnimController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
     _progressAnimController.forward(from: 0);
     setState(() {});
+  }
+
+  void _settleProgressAnimation() {
+    _progressAnimController.stop();
+    _progressAnimation = AlwaysStoppedAnimation<double>(_targetProgress);
   }
 
   @override
@@ -142,6 +171,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
+    final motionEnabled = openHandTickerMotionEnabled(context);
     return buildOpenHandAlertDialog(
       title: Row(
         children: [
@@ -151,7 +181,12 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
         ],
       ),
       content: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 320),
+        duration: motionEnabled
+            ? _kAppUpdatePhaseSwitchDuration
+            : Duration.zero,
+        reverseDuration: motionEnabled
+            ? _kAppUpdatePhaseSwitchDuration
+            : Duration.zero,
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeInCubic,
         transitionBuilder: (child, animation) {
