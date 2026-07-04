@@ -51,6 +51,19 @@ class AnimatedExpandable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!openHandTickerMotionEnabled(context)) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          header,
+          if (expanded)
+            Padding(
+              padding: EdgeInsets.only(top: _safeBodyTopPadding),
+              child: Builder(builder: body),
+            ),
+        ],
+      );
+    }
     final effectiveDuration = openHandMotionDuration(context, duration);
     return AnimatedSize(
       duration: effectiveDuration,
@@ -121,15 +134,19 @@ class AnimatedExpandChevron extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final icon = Icon(
+      Icons.keyboard_arrow_right_rounded,
+      size: _safeSize,
+      color: color,
+    );
+    if (!openHandTickerMotionEnabled(context)) {
+      return icon;
+    }
     return AnimatedRotation(
       turns: expanded ? 0.25 : 0.0,
       duration: openHandMotionDuration(context, duration),
       curve: Curves.easeOutCubic,
-      child: Icon(
-        Icons.keyboard_arrow_right_rounded,
-        size: _safeSize,
-        color: color,
-      ),
+      child: icon,
     );
   }
 }
