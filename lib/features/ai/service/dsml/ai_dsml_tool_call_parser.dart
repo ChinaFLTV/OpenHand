@@ -386,7 +386,7 @@ final RegExp _antmlParameterTagPattern = RegExp(
 Map<String, String> _parseDsmlAttributes(String rawAttributes) {
   final attributes = <String, String>{};
   for (final match in _dsmlAttributePattern.allMatches(rawAttributes)) {
-    final key = (match.group(1) ?? '').trim().toLowerCase();
+    final key = lowercaseStringFromValue(match.group(1));
     if (key.isEmpty) {
       continue;
     }

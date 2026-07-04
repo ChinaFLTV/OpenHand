@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../../tools/ai_tool_utils.dart';
 import '../web_engine/web_engine_http_exception.dart';
@@ -79,7 +80,7 @@ class WebSearchDuckDuckGoEngine extends WebSearchEngine {
         (uri.host == 'duckduckgo.com' || uri.host == 'www.duckduckgo.com') &&
         uri.path.startsWith('/l/');
     if (!isDdgRedirect) return uri.toString();
-    final target = uri.queryParameters['uddg']?.trim() ?? '';
+    final target = nullIfBlank(uri.queryParameters['uddg']) ?? '';
     if (target.isEmpty) return uri.toString();
     final t = target.startsWith('//') ? 'https:$target' : target;
     return Uri.tryParse(t)?.toString() ?? t;

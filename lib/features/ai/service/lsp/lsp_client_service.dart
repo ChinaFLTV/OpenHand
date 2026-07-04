@@ -1653,7 +1653,7 @@ class AiLspClientService {
       ];
     }
     if (contents is Map<String, Object?>) {
-      final kind = '${contents['kind'] ?? ''}'.trim().toLowerCase();
+      final kind = lowercaseStringFromValue(contents['kind']);
       if (contents.containsKey('value')) {
         final value = '${contents['value'] ?? ''}'.trim();
         final markdown = kind == 'markdown' ? value : value;

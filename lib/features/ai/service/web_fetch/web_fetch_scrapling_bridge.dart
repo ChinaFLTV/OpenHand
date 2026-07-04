@@ -251,7 +251,7 @@ class WebFetchScraplingBridge {
   Future<String?> _resolvePythonExecutable(
     AiWebFetchScraplingSettings settings,
   ) async {
-    final custom = settings.pythonExecutable?.trim() ?? '';
+    final custom = nullIfBlank(settings.pythonExecutable) ?? '';
     if (custom.isNotEmpty) {
       final result = await runTrackedProcessOrFailed(
         custom,
