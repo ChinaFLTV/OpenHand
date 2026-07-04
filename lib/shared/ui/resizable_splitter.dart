@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'motion_preference.dart';
+
 /// 通用左右分栏，可拖拽中缝调整左侧宽度（右侧自适应剩余空间）。
 ///
 /// - `initialLeftFraction`：初始左侧占比（0..1，默认 0.5）。
@@ -49,6 +51,9 @@ class _ResizableSplitterState extends State<ResizableSplitter> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final handleMotionDuration = openHandTickerMotionEnabled(context)
+        ? const Duration(milliseconds: 140)
+        : Duration.zero;
     return LayoutBuilder(
       builder: (context, c) {
         final total = _nonNegativeFinite(c.maxWidth);
@@ -99,7 +104,7 @@ class _ResizableSplitterState extends State<ResizableSplitter> {
                   height: double.infinity,
                   child: Center(
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 140),
+                      duration: handleMotionDuration,
                       curve: Curves.easeOutCubic,
                       width: _dragging ? 3 : 1,
                       decoration: BoxDecoration(
