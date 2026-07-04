@@ -31,25 +31,37 @@ class ResizableSplitter extends StatefulWidget {
 }
 
 class _ResizableSplitterState extends State<ResizableSplitter> {
+  static const double _fallbackInitialLeftFraction = 0.5;
+
   double? _leftWidth;
   bool _hovering = false;
   bool _dragging = false;
+
+  double _nonNegativeFinite(double value) {
+    return value.isFinite && value > 0 ? value : 0;
+  }
+
+  double _safeInitialLeftFraction(double value) {
+    if (!value.isFinite) return _fallbackInitialLeftFraction;
+    return value.clamp(0.0, 1.0).toDouble();
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return LayoutBuilder(
       builder: (context, c) {
-        final total = c.maxWidth;
-        final handle = widget.handleWidth;
-        final availForLeft = total - handle - widget.minRight;
-        final maxLeft = availForLeft < widget.minLeft
-            ? widget.minLeft
-            : availForLeft;
-        _leftWidth ??= (total * widget.initialLeftFraction)
-            .clamp(widget.minLeft, maxLeft)
-            .toDouble();
-        final leftW = _leftWidth!.clamp(widget.minLeft, maxLeft).toDouble();
+        final total = _nonNegativeFinite(c.maxWidth);
+        final handle = _nonNegativeFinite(widget.handleWidth);
+        final minLeft = _nonNegativeFinite(widget.minLeft);
+        final minRight = _nonNegativeFinite(widget.minRight);
+        final availForLeft = total - handle - minRight;
+        final maxLeft = availForLeft < minLeft ? minLeft : availForLeft;
+        _leftWidth ??=
+            (total * _safeInitialLeftFraction(widget.initialLeftFraction))
+                .clamp(minLeft, maxLeft)
+                .toDouble();
+        final leftW = _leftWidth!.clamp(minLeft, maxLeft).toDouble();
         return Row(
           children: [
             SizedBox(width: leftW, child: widget.left),
@@ -71,20 +83,17 @@ class _ResizableSplitterState extends State<ResizableSplitter> {
               },
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onHorizontalDragStart: (_) =>
-                    setState(() => _dragging = true),
+                onHorizontalDragStart: (_) => setState(() => _dragging = true),
                 onHorizontalDragUpdate: (d) {
                   setState(() {
                     final next = (leftW + d.delta.dx)
-                        .clamp(widget.minLeft, maxLeft)
+                        .clamp(minLeft, maxLeft)
                         .toDouble();
                     _leftWidth = next;
                   });
                 },
-                onHorizontalDragEnd: (_) =>
-                    setState(() => _dragging = false),
-                onHorizontalDragCancel: () =>
-                    setState(() => _dragging = false),
+                onHorizontalDragEnd: (_) => setState(() => _dragging = false),
+                onHorizontalDragCancel: () => setState(() => _dragging = false),
                 child: SizedBox(
                   width: handle,
                   height: double.infinity,
@@ -97,8 +106,8 @@ class _ResizableSplitterState extends State<ResizableSplitter> {
                         color: _dragging
                             ? cs.primary
                             : (_hovering
-                                ? cs.primary.withValues(alpha: 0.55)
-                                : cs.outlineVariant),
+                                  ? cs.primary.withValues(alpha: 0.55)
+                                  : cs.outlineVariant),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
