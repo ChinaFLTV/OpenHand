@@ -94,6 +94,29 @@ void main() {
     );
 
     test(
+      'saving an explicit empty agent-tool binding removes conflicting agent tools',
+      () async {
+        await controller.saveAgent(
+          _runningAgent().copyWith(
+            builtinToolNames: const <String>[
+              'AgentTaskPublish',
+              'bash',
+              agentNoCoordinationToolsBinding,
+              'AgentList',
+            ],
+          ),
+        );
+
+        final agent = controller.agentById('agent-1')!;
+
+        expect(agent.builtinToolNames, <String>[
+          'bash',
+          agentNoCoordinationToolsBinding,
+        ]);
+      },
+    );
+
+    test(
       'stopping an agent pauses running tasks and releases workers',
       () async {
         await controller.saveAgent(_runningAgent());

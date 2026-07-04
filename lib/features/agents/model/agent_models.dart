@@ -5,6 +5,28 @@ import '../../../shared/util/input_value_parsing.dart';
 final RegExp _agentDelimitedTextSeparatorPattern = RegExp(r'[\r\n,，;；]+');
 
 const String agentNoCoordinationToolsBinding = '__openhand_agent_tools_none__';
+const Set<String> _agentCoordinationBuiltinToolLookupKeys = <String>{
+  'agentlist',
+  'agentdetail',
+  'agentactivitylog',
+  'agentauditreport',
+  'agentauditrecord',
+  'agentapprovalrequest',
+  'agentkpiupsert',
+  'agentresourceupdate',
+  'agentclusterconfigure',
+  'agentclusterstatus',
+  'agenttasklist',
+  'agenttaskpublish',
+  'agenttasktrack',
+  'agenttaskprogress',
+  'agenttaskcancel',
+  'agenttaskpause',
+  'agenttaskterminate',
+  'agenttaskresume',
+  'agenttaskcomplete',
+  'agenttaskresult',
+};
 
 bool isAgentNoCoordinationToolsBinding(String value) {
   return value.trim() == agentNoCoordinationToolsBinding;
@@ -15,9 +37,43 @@ bool agentHasNoCoordinationToolsBinding(Iterable<String> names) {
 }
 
 List<String> agentVisibleBuiltinToolNames(Iterable<String> names) {
-  return trimmedNonEmptyStrings(
+  return normalizeAgentBuiltinToolNames(
     names,
   ).where((name) => !isAgentNoCoordinationToolsBinding(name)).toList();
+}
+
+bool isAgentCoordinationBuiltinToolName(String value) {
+  return _agentCoordinationBuiltinToolLookupKeys.contains(
+    _agentBuiltinToolLookupKey(value),
+  );
+}
+
+List<String> normalizeAgentBuiltinToolNames(Iterable<String> names) {
+  final seen = <String>{};
+  final result = <String>[];
+  var hasExplicitNone = false;
+  for (final raw in names) {
+    final value = raw.trim();
+    if (value.isEmpty) continue;
+    if (isAgentNoCoordinationToolsBinding(value)) {
+      hasExplicitNone = true;
+      continue;
+    }
+    if (hasExplicitNone && isAgentCoordinationBuiltinToolName(value)) {
+      continue;
+    }
+    final key = value.toLowerCase();
+    if (seen.add(key)) result.add(value);
+  }
+  if (!hasExplicitNone) return result;
+  return <String>[
+    ...result.where((name) => !isAgentCoordinationBuiltinToolName(name)),
+    agentNoCoordinationToolsBinding,
+  ];
+}
+
+String _agentBuiltinToolLookupKey(String value) {
+  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
 }
 
 enum AgentExecutionMode {
@@ -908,7 +964,9 @@ class AgentProfile {
       memoryIds: stringListFromValue(json['memory_ids']),
       taskLabels: stringListFromValue(json['task_labels']),
       mcpServerNames: stringListFromValue(json['mcp_server_names']),
-      builtinToolNames: stringListFromValue(json['builtin_tool_names']),
+      builtinToolNames: normalizeAgentBuiltinToolNames(
+        stringListFromValue(json['builtin_tool_names']),
+      ),
       workspacePath: stringFromValue(json['workspace_path']),
       workspaceScope: workspaceScope,
       workspaceScopePaths: workspaceScopePaths,

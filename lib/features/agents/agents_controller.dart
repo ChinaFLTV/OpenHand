@@ -1104,7 +1104,7 @@ class AgentsController extends ManagedChangeNotifier {
       memoryIds: _dedupe(agent.memoryIds),
       taskLabels: _dedupe(agent.taskLabels),
       mcpServerNames: _dedupe(agent.mcpServerNames),
-      builtinToolNames: _dedupe(agent.builtinToolNames),
+      builtinToolNames: normalizeAgentBuiltinToolNames(agent.builtinToolNames),
       cronIds: _dedupe(agent.cronIds),
       hookIds: _dedupe(agent.hookIds),
       activities: agent.activities.take(_maxActivityEvents).toList(),

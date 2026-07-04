@@ -13,7 +13,7 @@ import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/tool_name_normalization.dart';
-import '../../../agents/agents_controller.dart';
+import '../../../agents/index.dart';
 import '../../../knowledge_base/knowledge_base_controller.dart';
 import '../../../mcp/index.dart';
 import '../../../skills/index.dart';
@@ -475,7 +475,7 @@ class AiToolRuntimeService {
     final controller = _agentsControllerProvider?.call();
     if (controller == null) return false;
     for (final agent in controller.enabledAgents) {
-      final configuredToolNames = trimmedNonEmptyStrings(
+      final configuredToolNames = normalizeAgentBuiltinToolNames(
         agent.builtinToolNames,
       );
       if (configuredToolNames.isEmpty) return true;
@@ -493,17 +493,7 @@ class AiToolRuntimeService {
   }
 
   bool _looksLikeAgentBuiltinToolName(String name) {
-    final normalized = AiResolvedToolCatalog._normalizeToolLookupKey(name);
-    if (normalized.isEmpty) return false;
-    return normalized == 'agentlist' ||
-        normalized == 'agentdetail' ||
-        normalized.startsWith('agentactivity') ||
-        normalized.startsWith('agentaudit') ||
-        normalized.startsWith('agentapproval') ||
-        normalized.startsWith('agentkpi') ||
-        normalized.startsWith('agentresource') ||
-        normalized.startsWith('agentcluster') ||
-        normalized.startsWith('agenttask');
+    return isAgentCoordinationBuiltinToolName(name);
   }
 
   bool _agentBuiltinToolNameMatches(

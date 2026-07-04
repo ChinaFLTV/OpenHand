@@ -616,6 +616,43 @@ void main() {
     );
 
     test(
+      'normalizes legacy mixed empty and explicit agent tool bindings on load',
+      () async {
+        await File(p.join(tempDir.path, 'agents.json')).writeAsString(
+          jsonEncode(<String, Object?>{
+            'agents': <Object?>[
+              <String, Object?>{
+                'id': 'agent-legacy',
+                'name': 'Legacy Agent',
+                'enabled': true,
+                'builtin_tool_names': <String>[
+                  'AgentList',
+                  'Bash',
+                  agentNoCoordinationToolsBinding,
+                  'AgentTaskPublish',
+                ],
+              },
+            ],
+          }),
+        );
+        await controller.refresh();
+
+        final agent = controller.agentById('agent-legacy')!;
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+
+        expect(agent.builtinToolNames, <String>[
+          'Bash',
+          agentNoCoordinationToolsBinding,
+        ]);
+        expect(catalog.find('AgentList'), isNull);
+        expect(catalog.find('AgentTaskPublish'), isNull);
+        expect(catalog.find('Bash'), isNotNull);
+      },
+    );
+
+    test(
       'matches agent builtin bindings by enum and display-name aliases',
       () async {
         await controller.saveAgent(
