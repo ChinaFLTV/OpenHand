@@ -2,6 +2,7 @@ library;
 
 import '../../../../app/state/settings_controller.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../memory/index.dart';
 import '../../model/ai_model_catalog.dart';
 import '../../model/ai_model_config.dart';
@@ -363,7 +364,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
 
       for (final toolCall in result.toolCalls) {
         final args = AiToolUtils.decodeArguments(toolCall.arguments);
-        final normalizedName = toolCall.name.trim().toLowerCase();
+        final normalizedName = lowercaseStringFromValue(toolCall.name);
         String resultText;
         var ok = false;
         try {
@@ -373,9 +374,11 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
             ok = r.stderr.isEmpty;
             if (ok) {
               memoryCallsOk += 1;
-              final action = '${args['action'] ?? ''}'.trim().toLowerCase();
+              final action = AiToolUtils.readString(
+                args['action'],
+              ).toLowerCase();
               final content = '${args['content'] ?? ''}';
-              final id = '${args['id'] ?? ''}'.trim();
+              final id = AiToolUtils.readString(args['id']);
               final summary = _summariseMemoryArgs(action, content);
               if (action == 'upsert_profile') {
                 profileChanges.add(<String, Object?>{
@@ -404,8 +407,13 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
             ok = r.stderr.isEmpty;
             if (ok) {
               skillCallsOk += 1;
-              final action = '${args['action'] ?? ''}'.trim().toLowerCase();
-              final id = '${args['name'] ?? args['id'] ?? ''}'.trim();
+              final action = AiToolUtils.readString(
+                args['action'],
+              ).toLowerCase();
+              final id = AiToolUtils.readFirstString(args, const <String>[
+                'name',
+                'id',
+              ]);
               final summary = _summariseSkillArgs(args);
               skillChanges.add(<String, Object?>{
                 'id': id.isEmpty ? '(unnamed)' : id,
@@ -534,7 +542,7 @@ String _summariseMemoryArgs(String action, String content) {
 
 /// 把一次 skill_manager 工具调用的 args 浓缩成一段中文摘要。
 String _summariseSkillArgs(Map<String, Object?> args) {
-  final action = '${args['action'] ?? ''}'.trim().toLowerCase();
+  final action = AiToolUtils.readString(args['action']).toLowerCase();
   final desc = '${args['description'] ?? args['summary'] ?? ''}';
   final flat = desc.replaceAll(RegExp(r'\s+'), ' ').trim();
   final preview = flat.length <= 120 ? flat : '${flat.substring(0, 117)}…';

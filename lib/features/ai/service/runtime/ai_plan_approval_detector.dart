@@ -1,3 +1,5 @@
+import '../../../../shared/util/input_value_parsing.dart';
+
 /// Centralised heuristics for detecting when a user message endorses a
 /// pending Plan-mode proposal.
 ///
@@ -23,7 +25,7 @@ abstract final class AiPlanApprovalDetector {
   ///     `contains`, where the surrounding context is unambiguous enough to
   ///     tolerate substring matching.
   static bool looksLikePlanApproval(String content) {
-    final normalized = content.trim().toLowerCase();
+    final normalized = lowercaseStringFromValue(content);
     if (normalized.isEmpty) {
       return false;
     }
@@ -38,7 +40,7 @@ abstract final class AiPlanApprovalDetector {
   }
 
   static bool looksLikePlanExecutionContinuation(String content) {
-    final normalized = content.trim().toLowerCase();
+    final normalized = lowercaseStringFromValue(content);
     if (normalized.isEmpty) {
       return false;
     }
@@ -53,7 +55,7 @@ abstract final class AiPlanApprovalDetector {
     String content, {
     bool includeGenericContinuations = false,
   }) {
-    final normalized = content.trim().toLowerCase();
+    final normalized = lowercaseStringFromValue(content);
     if (normalized.isEmpty) {
       return false;
     }
@@ -71,7 +73,7 @@ abstract final class AiPlanApprovalDetector {
   /// Returns `true` when assistant/tool text is asking the user to approve a
   /// plan outside the dedicated ExitPlanMode approval gate.
   static bool looksLikePlanApprovalRequest(String content) {
-    final normalized = content.trim().toLowerCase();
+    final normalized = lowercaseStringFromValue(content);
     if (normalized.isEmpty) {
       return false;
     }

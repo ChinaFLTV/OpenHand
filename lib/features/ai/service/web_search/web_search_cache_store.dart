@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../web_engine/web_engine_cache_store_base.dart';
 
@@ -59,7 +60,7 @@ class WebSearchCacheStore extends WebEngineCacheStoreBase<AiWebSearchSettings> {
     final allow = [...allowedDomains]..sort();
     final block = [...blockedDomains]..sort();
     final payload = jsonEncode(<String, Object?>{
-      'q': query.toLowerCase().trim(),
+      'q': lowercaseStringFromValue(query),
       'engines': enabled,
       'allow': allow,
       'block': block,
