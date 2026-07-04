@@ -11,6 +11,9 @@ import '../../../shared/util/localized_text.dart';
 import '../model/session_cache_hit_trend.dart';
 
 const Curve _tokenPopupCacheHitTrendEntranceCurve = Curves.easeOutCubic;
+const Duration _tokenPopupCacheHitModeChipDuration = Duration(
+  milliseconds: 220,
+);
 
 @visibleForTesting
 double tokenPopupCacheHitTrendAnimationProgress(double t) {
@@ -195,7 +198,7 @@ class _TokenPopupCacheHitTrendChartState
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final motionDisabled = !openHandTickerMotionEnabled(context);
     final displayData = widget.trend.displayData(widget.displayMode);
     final effectiveViewport =
         _viewport.totalPoints == displayData.trend.points.length
@@ -530,7 +533,7 @@ class _TokenPopupCacheHitTrendChartState
                                     painter:
                                         _TokenPopupCacheHitTrendDynamicPainter(
                                           points: visiblePoints,
-                                          progress: reduceMotion
+                                          progress: motionDisabled
                                               ? 1
                                               : _controller.value,
                                           colorScheme: colorScheme,
@@ -671,7 +674,7 @@ class _TokenPopupCacheHitTrendChartState
   /// - 圆点 + 浮窗共用 [_hoverController] 走 springScale 风格的 Q 弹
   ///   进退场（_SpringScaleTransition 内部用 Curves.easeOutBack / easeInBack
   ///   ，带微弹），时长 / 曲线沿用全局 DialogAnimationSettings 并尊重
-  ///   `MediaQuery.disableAnimationsOf` 走 0ms 关闭动画；
+  ///   全局 motion preference 走 0ms 关闭动画；
   /// - tooltip 内部"上方 / 下方"翻转时由 springScale 的 alignment 决定
   ///   scale 锚点（上方时从底部中心展开、避免侵入 chart 上沿；下方时
   ///   从顶部中心展开、避免侵入 chart 下沿）。
@@ -978,7 +981,10 @@ class _CacheHitModeChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
+        duration: openHandMotionDuration(
+          context,
+          _tokenPopupCacheHitModeChipDuration,
+        ),
         curve: Curves.easeOutCubic,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
