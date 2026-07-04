@@ -13,6 +13,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../ai/index.dart' show AiPromptTemplatePolicies;
@@ -775,7 +776,7 @@ class _PluginOperationProgressDialogState
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
+    );
     widget.controller.addListener(_onControllerUpdate);
   }
 
@@ -786,10 +787,14 @@ class _PluginOperationProgressDialogState
     if (logs.length > _lastLogCount) {
       _lastLogCount = logs.length;
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         _scrollGuard.followToBottom(
           _scrollController,
           animated: true,
-          animationDuration: const Duration(milliseconds: 200),
+          animationDuration: openHandMotionDuration(
+            context,
+            const Duration(milliseconds: 200),
+          ),
         );
       });
     }
@@ -809,6 +814,8 @@ class _PluginOperationProgressDialogState
     final l10n = AppLocalizations.of(context)!;
     final logs = widget.controller.operationLogs;
     final isOperating = widget.controller.isOperating;
+    final pulseEnabled = isOperating && openHandTickerMotionEnabled(context);
+    _syncPulseController(pulseEnabled);
 
     return buildOpenHandToolDialogShell(
       context: context,
@@ -831,16 +838,7 @@ class _PluginOperationProgressDialogState
                 ? theme.colorScheme.primary
                 : OpenHandStatusColors.success,
             iconWidget: isOperating
-                ? FadeTransition(
-                    opacity: _pulseController.drive(
-                      Tween<double>(begin: 0.4, end: 1.0),
-                    ),
-                    child: Icon(
-                      Icons.terminal_rounded,
-                      size: 20,
-                      color: theme.colorScheme.primary,
-                    ),
-                  )
+                ? _buildHeaderIcon(theme, pulseEnabled)
                 : null,
             showCloseButton: false,
             actions: [
@@ -852,6 +850,7 @@ class _PluginOperationProgressDialogState
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
+                      value: pulseEnabled ? null : 1,
                       color: theme.colorScheme.primary,
                     ),
                   ),
@@ -891,6 +890,7 @@ class _PluginOperationProgressDialogState
           if (isOperating)
             LinearProgressIndicator(
               minHeight: 3,
+              value: pulseEnabled ? null : 1,
               color: theme.colorScheme.primary,
               backgroundColor: theme.colorScheme.surfaceContainerHighest,
             )
@@ -992,6 +992,29 @@ class _PluginOperationProgressDialogState
           ),
         ],
       ),
+    );
+  }
+
+  void _syncPulseController(bool enabled) {
+    if (enabled) {
+      if (!_pulseController.isAnimating) {
+        _pulseController.repeat(reverse: true);
+      }
+      return;
+    }
+    _pulseController.stop();
+  }
+
+  Widget _buildHeaderIcon(ThemeData theme, bool pulseEnabled) {
+    final icon = Icon(
+      Icons.terminal_rounded,
+      size: 20,
+      color: theme.colorScheme.primary,
+    );
+    if (!pulseEnabled) return icon;
+    return FadeTransition(
+      opacity: _pulseController.drive(Tween<double>(begin: 0.4, end: 1.0)),
+      child: icon,
     );
   }
 }
