@@ -50,6 +50,13 @@ int megabytesTextToBytes(
   if (parsedMb <= 0) {
     return lower <= 0 ? 0 : lower;
   }
+  if (upper <= 0) {
+    return upper;
+  }
+  final upperMb = upper / kBytesPerMiB;
+  if (parsedMb >= upperMb) {
+    return upper;
+  }
   final bytes = (parsedMb * kBytesPerMiB).round();
   return bytes.clamp(lower, upper).toInt();
 }

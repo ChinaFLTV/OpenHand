@@ -56,5 +56,17 @@ void main() {
         kBytesPerMiB,
       );
     });
+
+    test('clamps huge finite megabyte values before byte conversion', () {
+      expect(
+        megabytesTextToBytes(
+          '1e308',
+          fallbackBytes: kBytesPerMiB,
+          minBytes: kBytesPerMiB,
+          maxBytes: 4 * kBytesPerMiB,
+        ),
+        4 * kBytesPerMiB,
+      );
+    });
   });
 }
