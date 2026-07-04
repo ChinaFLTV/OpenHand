@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'motion_preference.dart';
 
+const double kOpenHandMicroPressMinScale = 0.5;
+const double kOpenHandMicroPressMaxScale = 1.0;
+
 /// Wraps a tappable child (typically an [IconButton] or small action
 /// affordance) and provides an 80 ms press-down scale + 140 ms ease-out
 /// rebound on pointer events. The wrapper does NOT consume the tap —
@@ -39,7 +42,10 @@ class _MicroPressFeedbackState extends State<MicroPressFeedback>
   late final AnimationController _ctrl;
 
   double get _safeScale {
-    return widget.scale.isFinite && widget.scale > 0 ? widget.scale : 1.0;
+    if (!widget.scale.isFinite || widget.scale <= 0) return 1.0;
+    return widget.scale
+        .clamp(kOpenHandMicroPressMinScale, kOpenHandMicroPressMaxScale)
+        .toDouble();
   }
 
   @override
