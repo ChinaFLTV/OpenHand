@@ -50,7 +50,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.7';
+  static const String promptVersion = '1.2.8';
 
   final Future<String> Function(String path) _loader;
 
@@ -346,12 +346,24 @@ Map<String, Object?> _taskJson(AgentTask task) {
   return <String, Object?>{
     'id': task.id,
     'title': task.title,
-    'description': task.description,
-    'content': task.content,
+    'description': _boundedPromptText(
+      task.description,
+      maxChars: _agentPromptTaskNoteMaxChars,
+    ),
+    'content': _boundedPromptText(
+      task.content,
+      maxChars: _agentPromptTaskTextMaxChars,
+    ),
     'status': task.status.storageValue,
     'progress': task.progress,
-    'result': task.result,
-    'note': task.note,
+    'result': _boundedPromptText(
+      task.result,
+      maxChars: _agentPromptTaskTextMaxChars,
+    ),
+    'note': _boundedPromptText(
+      task.note,
+      maxChars: _agentPromptTaskNoteMaxChars,
+    ),
     'extra': _taskExtraJson(task.extra),
     'created_at': task.createdAt?.toUtc().toIso8601String(),
     'updated_at': task.updatedAt?.toUtc().toIso8601String(),
@@ -370,7 +382,69 @@ Map<String, Object?> _taskExtraJson(Map<String, Object?> extra) {
           'Use agent_prompt_snapshot metadata instead of raw prompt text.',
     };
   }
-  return sanitized;
+  return _boundedPromptMap(sanitized);
+}
+
+const int _agentPromptTaskTextMaxChars = 1600;
+const int _agentPromptTaskNoteMaxChars = 800;
+const int _agentPromptExtraStringMaxChars = 800;
+const int _agentPromptExtraCollectionMaxItems = 40;
+const int _agentPromptExtraMaxDepth = 4;
+
+String _boundedPromptText(String value, {required int maxChars}) {
+  if (value.length <= maxChars) return value;
+  final omitted = value.length - maxChars;
+  return '${value.substring(0, maxChars).trimRight()}\n[truncated: $omitted chars omitted]';
+}
+
+Map<String, Object?> _boundedPromptMap(Map<String, Object?> value) {
+  return value.map(
+    (key, item) => MapEntry(key, _boundedPromptValue(item, depth: 0)),
+  );
+}
+
+Object? _boundedPromptValue(Object? value, {required int depth}) {
+  if (value == null || value is num || value is bool) return value;
+  if (value is String) {
+    return _boundedPromptText(value, maxChars: _agentPromptExtraStringMaxChars);
+  }
+  if (depth >= _agentPromptExtraMaxDepth) return '$value';
+  if (value is Map) {
+    final entries = value.entries.take(_agentPromptExtraCollectionMaxItems);
+    return <String, Object?>{
+      for (final entry in entries)
+        '${entry.key}': _boundedPromptValue(entry.value, depth: depth + 1),
+      if (value.length > _agentPromptExtraCollectionMaxItems)
+        '_truncated_items': value.length - _agentPromptExtraCollectionMaxItems,
+    };
+  }
+  if (value is Iterable) {
+    final items = <Object?>[];
+    var hasMore = false;
+    for (final item in value) {
+      if (items.length >= _agentPromptExtraCollectionMaxItems) {
+        hasMore = true;
+        break;
+      }
+      items.add(item);
+    }
+    final omittedItems = value is List
+        ? value.length - _agentPromptExtraCollectionMaxItems
+        : null;
+    return <Object?>[
+      for (final item in items) _boundedPromptValue(item, depth: depth + 1),
+      if (hasMore)
+        <String, Object?>{
+          '_truncated_items': omittedItems == null || omittedItems < 1
+              ? true
+              : omittedItems,
+        },
+    ];
+  }
+  return _boundedPromptText(
+    '$value',
+    maxChars: _agentPromptExtraStringMaxChars,
+  );
 }
 
 Map<String, Object?> _activityJson(AgentActivityEvent event) {

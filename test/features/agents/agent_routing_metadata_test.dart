@@ -201,7 +201,7 @@ domains: cloud, finops
     final recentAudit =
         operationalState['recent_audit_events'] as List<Object?>;
 
-    expect(snapshot.version, '1.2.7');
+    expect(snapshot.version, '1.2.8');
     expect(routing['has_route'], isTrue);
     expect(routing['keywords'], <Object?>[
       'release',
@@ -301,6 +301,73 @@ domains: cloud, finops
   });
 
   test(
+    'prompt renderer bounds long task context while preserving summaries',
+    () async {
+      final longContent = List<String>.filled(260, '云账单对账证据-').join();
+      final longResult = List<String>.filled(260, '处理结果明细-').join();
+      final longExtra = List<String>.filled(180, '额外上下文-').join();
+      final snapshot =
+          await AgentPromptRenderer(
+            loader: (_) async => '''
+<operational_state>
+{{OPERATIONAL_STATE_JSON}}
+</operational_state>
+''',
+          ).render(
+            agent: AgentProfile(
+              id: 'agent-long',
+              name: 'Long Context Agent',
+              tasks: <AgentTask>[
+                AgentTask(
+                  id: 'task-long',
+                  title: 'Long context task',
+                  content: longContent,
+                  result: longResult,
+                  note: List<String>.filled(360, '备注-').join(),
+                  status: AgentTaskStatus.running,
+                  extra: <String, Object?>{
+                    'large_payload': longExtra,
+                    'nested': <String, Object?>{
+                      'items': List<String>.generate(
+                        45,
+                        (index) => 'item-$index',
+                      ),
+                    },
+                    'agent_system_prompt': 'hidden prompt text',
+                  },
+                ),
+              ],
+            ),
+          );
+
+      final operationalState =
+          snapshot.metadataJson()['operational_state'] as Map<String, Object?>;
+      final activeTasks = operationalState['active_tasks'] as List<Object?>;
+      final task = activeTasks.single as Map<String, Object?>;
+      final extra = task['extra'] as Map<String, Object?>;
+      final nested = extra['nested'] as Map<String, Object?>;
+      final items = nested['items'] as List<Object?>;
+      final omittedPrompt =
+          extra['agent_system_prompt'] as Map<String, Object?>;
+
+      expect(snapshot.version, '1.2.8');
+      expect(task['content'], isA<String>());
+      expect(task['content'], contains('[truncated:'));
+      expect(task['content'], isNot(longContent));
+      expect(task['result'], contains('[truncated:'));
+      expect(task['note'], contains('[truncated:'));
+      expect(extra['large_payload'], contains('[truncated:'));
+      expect(items, hasLength(41));
+      expect(items.last, <String, Object?>{'_truncated_items': 5});
+      expect(omittedPrompt['omitted'], isTrue);
+      expect(snapshot.renderedPrompt, isNot(contains('hidden prompt text')));
+      expect(snapshot.renderedPrompt, isNot(contains(longContent)));
+      expect(snapshot.renderedPrompt, isNot(contains(longResult)));
+      expect(snapshot.renderedPrompt, isNot(contains(longExtra)));
+    },
+  );
+
+  test(
     'prompt renderer keeps full structured fallback when asset is empty',
     () async {
       final renderer = AgentPromptRenderer(loader: (_) async => '');
@@ -314,7 +381,7 @@ domains: cloud, finops
         ),
       );
 
-      expect(snapshot.version, '1.2.7');
+      expect(snapshot.version, '1.2.8');
       expect(snapshot.renderedPrompt, contains('<operating_contract>'));
       expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
       expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));
@@ -347,7 +414,7 @@ domains: cloud, finops
       );
 
       expect(snapshot.assetPath, AgentPromptRenderer.defaultAssetPath);
-      expect(snapshot.version, '1.2.7');
+      expect(snapshot.version, '1.2.8');
       expect(snapshot.renderedPrompt, contains('<identity>'));
       expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
       expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));
