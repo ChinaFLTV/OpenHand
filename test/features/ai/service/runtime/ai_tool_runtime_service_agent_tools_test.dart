@@ -1717,6 +1717,40 @@ domains: finance, cloud billing
       expect(progressWorker['current_task_id'], financeAgent.tasks.single.id);
       expect(progressState['needs_polling'], isTrue);
       expect(progressState['next_action'], 'poll');
+
+      final track = await runtime.execute(
+        sessionId: 'session-1',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-3',
+          name: 'AgentTaskTrack',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'finance-agent',
+            'task_id': financeAgent.tasks.single.id,
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+      final trackPayload = jsonDecode(track.resultText) as Map<String, Object?>;
+      final trackState = trackPayload['state'] as Map<String, Object?>;
+      final trackHandoff = trackPayload['handoff'] as Map<String, Object?>;
+      final trackNextPoll = trackPayload['next_poll'] as Map<String, Object?>;
+      final trackWorker =
+          trackPayload['assigned_worker'] as Map<String, Object?>;
+      expect(track.status, BashToolExecutionStatus.success);
+      expect(trackPayload['result_available'], isFalse);
+      expect(trackState['needs_polling'], isTrue);
+      expect(trackState['next_action'], 'poll');
+      expect(trackHandoff['message'], 'result_not_ready_poll');
+      expect(trackHandoff['next_action'], 'poll');
+      expect(trackNextPoll['tool'], 'AgentTaskProgress');
+      expect(trackNextPoll['result_tool'], 'AgentTaskResult');
+      expect(trackWorker['id'], assignedWorkerId);
     });
 
     test('complete tool writes task result and releases worker', () async {

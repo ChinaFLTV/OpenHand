@@ -1332,20 +1332,27 @@ class AiAgentTool extends AiTool {
   ) {
     final resolved = _resolveTask(controller, context.decodedArguments);
     if (resolved.error != null) return resolved.error!;
+    final task = resolved.task!;
+    final assignedWorker = _assignedWorkerJson(resolved.agent!, task);
     return _success(
       <String, Object?>{
         'agent': _agentSummaryJson(resolved.agent!),
-        'task': _taskJson(resolved.task!, agent: resolved.agent),
+        'task': _taskJson(task, agent: resolved.agent),
+        'state': _taskStateJson(task),
+        'result_available': _taskResultAvailable(task),
+        'handoff': _taskHandoffJson(task),
+        if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
+        if (assignedWorker != null) 'assigned_worker': assignedWorker,
         'operational_summary': _taskOperationalSummaryJson(
           resolved.agent!,
-          resolved.task!,
+          task,
         ),
       },
       stopwatch,
       metadata: <String, Object?>{
         'action': 'track_task',
         'agent_id': resolved.agent!.id,
-        'task_id': resolved.task!.id,
+        'task_id': task.id,
       },
     );
   }
