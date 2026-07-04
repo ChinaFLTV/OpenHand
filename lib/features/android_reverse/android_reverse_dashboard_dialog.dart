@@ -330,9 +330,105 @@ class _FridaSnippetPreset {
   final String descZh;
   final String descEn;
 
-  String label(bool isZh) => isZh ? labelZh : labelEn;
+  String label(BuildContext context) {
+    return switch (id) {
+      'java_method' => _arText(
+        context,
+        zh: labelZh,
+        zhHant: 'Java 方法',
+        en: labelEn,
+        fr: 'Méthode Java',
+        de: 'Java-Methode',
+        ja: 'Java メソッド',
+      ),
+      'native_func' => _arText(
+        context,
+        zh: labelZh,
+        zhHant: 'Native 函式',
+        en: labelEn,
+        fr: 'Fonction native',
+        de: 'Native-Funktion',
+        ja: 'Native 関数',
+      ),
+      _ => _arText(
+        context,
+        zh: labelZh,
+        zhHant: labelZh,
+        en: labelEn,
+        fr: labelEn,
+        de: labelEn,
+        ja: labelEn,
+      ),
+    };
+  }
 
-  String desc(bool isZh) => isZh ? descZh : descEn;
+  String desc(BuildContext context) {
+    return switch (id) {
+      'java_method' => _arText(
+        context,
+        zh: descZh,
+        zhHant: '入參、返回值、呼叫堆疊',
+        en: descEn,
+        fr: 'Arguments, valeur de retour, pile',
+        de: 'Argumente, Rückgabewert, Stack',
+        ja: '引数、戻り値、スタック',
+      ),
+      'okhttp' => _arText(
+        context,
+        zh: descZh,
+        zhHant: '請求/回應 URL、Header、Body',
+        en: descEn,
+        fr: 'URL, headers et body requête/réponse',
+        de: 'Request/Response-URL, Header, Body',
+        ja: 'リクエスト/レスポンス URL、Header、Body',
+      ),
+      'ssl_pinning' => _arText(
+        context,
+        zh: descZh,
+        zhHant: '常見憑證鎖定繞過',
+        en: descEn,
+        fr: 'Contournements courants du pinning',
+        de: 'Gängige Pinning-Bypässe',
+        ja: '一般的なピンニング回避',
+      ),
+      'aes_cbc' => _arText(
+        context,
+        zh: descZh,
+        zhHant: 'Cipher doFinal 明文/密文',
+        en: descEn,
+        fr: 'Clair/chiffré de Cipher doFinal',
+        de: 'Cipher doFinal Klartext/Chiffrat',
+        ja: 'Cipher doFinal 平文/暗号文',
+      ),
+      'native_func' => _arText(
+        context,
+        zh: descZh,
+        zhHant: 'JNI/so 入參與返回值',
+        en: descEn,
+        fr: 'Arguments et retours JNI/so',
+        de: 'JNI/so-Argumente und Rückgabewert',
+        ja: 'JNI/so 引数と戻り値',
+      ),
+      'flutter_dart' => _arText(
+        context,
+        zh: descZh,
+        zhHant: '配合 blutter/Doldrums',
+        en: descEn,
+        fr: 'Avec blutter/Doldrums',
+        de: 'Mit blutter/Doldrums',
+        ja: 'blutter/Doldrums と併用',
+      ),
+      _ => _arText(
+        context,
+        zh: descZh,
+        zhHant: descZh,
+        en: descEn,
+        fr: descEn,
+        de: descEn,
+        ja: descEn,
+      ),
+    };
+  }
 }
 
 const List<_FridaSnippetPreset> _kFridaSnippetPresets = <_FridaSnippetPreset>[
@@ -986,7 +1082,6 @@ class _AndroidReverseDashboardDialogState
     }
     setState(() => _loadingDeviceDetails = true);
     try {
-      final isZh = openHandIsChineseLocale(context);
       final propsFuture = _ctrl.getProperties(serial: serial);
       final forwardsFuture = _ctrl.listForwards(serial: serial);
       final reversesFuture = _ctrl.listReverses(serial: serial);
@@ -1004,22 +1099,27 @@ class _AndroidReverseDashboardDialogState
         _deviceProps = props;
         _forwardRows = splitTrimmedNonEmpty(forwards ?? '', separator: '\n');
         _reverseRows = splitTrimmedNonEmpty(reverses ?? '', separator: '\n');
-        _deviceSnapshotOutput = _formatDeviceSnapshot(snapshot, isZh);
+        _deviceSnapshotOutput = _formatDeviceSnapshot(snapshot);
       });
     } catch (error) {
       if (!mounted) return;
-      final isZh = openHandIsChineseLocale(context);
       setState(() {
-        _deviceSnapshotOutput = isZh
-            ? '刷新设备详情失败：$error'
-            : 'Failed to refresh device details: $error';
+        _deviceSnapshotOutput = _arText(
+          context,
+          zh: '刷新设备详情失败：$error',
+          zhHant: '重新整理裝置詳情失敗：$error',
+          en: 'Failed to refresh device details: $error',
+          fr: 'Échec d’actualisation des détails appareil : $error',
+          de: 'Gerätedetails konnten nicht aktualisiert werden: $error',
+          ja: 'デバイス詳細の更新に失敗しました: $error',
+        );
       });
     } finally {
       if (mounted) setState(() => _loadingDeviceDetails = false);
     }
   }
 
-  String? _formatDeviceSnapshot(AdbCommandResult result, bool isZh) {
+  String? _formatDeviceSnapshot(AdbCommandResult result) {
     final lines = trimRightNonEmptyLines(
       result.stdout.split('\n'),
       limit: _kDeviceSnapshotMaxLines,
@@ -1033,14 +1133,22 @@ class _AndroidReverseDashboardDialogState
     if (result.timedOut) {
       if (buffer.isNotEmpty) buffer.writeln();
       buffer.write(
-        isZh
-            ? '(设备现场读取超时，已展示可用输出)'
-            : '(snapshot timed out; usable output shown)',
+        _arText(
+          context,
+          zh: '(设备现场读取超时，已展示可用输出)',
+          zhHant: '（裝置現場讀取逾時，已顯示可用輸出）',
+          en: '(snapshot timed out; usable output shown)',
+          fr: '(snapshot expiré ; sortie disponible affichée)',
+          de: '(Snapshot-Timeout; verfügbare Ausgabe wird angezeigt)',
+          ja: '（スナップショットがタイムアウトしました。利用可能な出力を表示しています）',
+        ),
       );
     }
     if (!result.ok && stderr.isNotEmpty) {
       if (buffer.isNotEmpty) buffer.writeln();
-      buffer.write('${isZh ? "错误" : "Error"}: $stderr');
+      buffer.write(
+        '${_arText(context, zh: "错误", zhHant: "錯誤", en: "Error", fr: "Erreur", de: "Fehler", ja: "エラー")}: $stderr',
+      );
     }
     return buffer.toString().trimRight();
   }
@@ -1625,7 +1733,6 @@ class _AndroidReverseDashboardDialogState
 
   Future<void> _runStaticQuickScan() async {
     if (_runningStaticQuickScan) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _runningStaticQuickScan = true;
       _staticQuickScanOutput = null;
@@ -1639,9 +1746,15 @@ class _AndroidReverseDashboardDialogState
       setState(() => _staticQuickScanOutput = _formatAdbResult(result));
       if (!result.ok && !result.hasUsableStdout) {
         _showSnack(
-          isZh
-              ? '静态扫描失败，已展示错误输出。'
-              : 'Static scan failed. Error output is shown.',
+          _arText(
+            context,
+            zh: '静态扫描失败，已展示错误输出。',
+            zhHant: '靜態掃描失敗，已顯示錯誤輸出。',
+            en: 'Static scan failed. Error output is shown.',
+            fr: 'Échec du scan statique. La sortie d’erreur est affichée.',
+            de: 'Statischer Scan fehlgeschlagen. Fehlerausgabe wird angezeigt.',
+            ja: '静的スキャンに失敗しました。エラー出力を表示しています。',
+          ),
           kind: OpenHandSnackKind.error,
           duration: const Duration(seconds: 3),
         );
@@ -1650,7 +1763,7 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _staticQuickScanOutput =
-            '${isZh ? "静态扫描失败" : "Static scan failed"}: $error';
+            '${_arText(context, zh: "静态扫描失败", zhHant: "靜態掃描失敗", en: "Static scan failed", fr: "Échec du scan statique", de: "Statischer Scan fehlgeschlagen", ja: "静的スキャンに失敗しました")}: $error';
       });
     } finally {
       if (mounted) setState(() => _runningStaticQuickScan = false);
@@ -1659,7 +1772,6 @@ class _AndroidReverseDashboardDialogState
 
   Future<void> _ensureMitmproxyAddon() async {
     if (_writingNetworkAddon) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() => _writingNetworkAddon = true);
     try {
       final addonPath = await _ctrl.ensureMitmproxyJsonlAddon();
@@ -1670,12 +1782,28 @@ class _AndroidReverseDashboardDialogState
           '-w ${_shellQuote('${_ctrl.networkDir}/flows.mitm')}';
       setState(() {
         _networkAddonOutput = [
-          isZh ? '已生成网络抓包工件:' : 'Generated network capture artifacts:',
+          _arText(
+            context,
+            zh: '已生成网络抓包工件:',
+            zhHant: '已產生網路抓包工件:',
+            en: 'Generated network capture artifacts:',
+            fr: 'Artefacts de capture réseau générés :',
+            de: 'Netzwerk-Capture-Artefakte erstellt:',
+            ja: 'ネットワークキャプチャ成果物を生成しました:',
+          ),
           addonPath,
           'README: ${_ctrl.networkReadmePath}',
           'Proxy probe: ${_ctrl.networkProxyProbeScriptPath}',
           '',
-          isZh ? '启动命令:' : 'Start command:',
+          _arText(
+            context,
+            zh: '启动命令:',
+            zhHant: '啟動指令:',
+            en: 'Start command:',
+            fr: 'Commande de démarrage :',
+            de: 'Startbefehl:',
+            ja: '起動コマンド:',
+          ),
           command,
           '',
           'JSONL: ${_ctrl.networkJsonlPath}',
@@ -1685,10 +1813,18 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _networkAddonOutput =
-            '${isZh ? "生成 mitmproxy addon 失败" : "Failed to generate mitmproxy addon"}: $error';
+            '${_arText(context, zh: "生成 mitmproxy addon 失败", zhHant: "產生 mitmproxy addon 失敗", en: "Failed to generate mitmproxy addon", fr: "Échec de génération de l’addon mitmproxy", de: "mitmproxy-Addon konnte nicht erstellt werden", ja: "mitmproxy addon の生成に失敗しました")}: $error';
       });
       _showSnack(
-        isZh ? '生成 mitmproxy addon 失败。' : 'Failed to generate mitmproxy addon.',
+        _arText(
+          context,
+          zh: '生成 mitmproxy addon 失败。',
+          zhHant: '產生 mitmproxy addon 失敗。',
+          en: 'Failed to generate mitmproxy addon.',
+          fr: 'Échec de génération de l’addon mitmproxy.',
+          de: 'mitmproxy-Addon konnte nicht erstellt werden.',
+          ja: 'mitmproxy addon の生成に失敗しました。',
+        ),
         kind: OpenHandSnackKind.error,
         duration: const Duration(seconds: 3),
       );
@@ -1699,7 +1835,6 @@ class _AndroidReverseDashboardDialogState
 
   Future<void> _ensureCertificateArtifacts() async {
     if (_writingCertificateArtifacts) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() => _writingCertificateArtifacts = true);
     try {
       final output = await _ctrl.ensureCertificateArtifacts(
@@ -1711,10 +1846,18 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _certificateArtifactOutput =
-            '${isZh ? "生成证书工件失败" : "Failed to generate certificate artifacts"}: $error';
+            '${_arText(context, zh: "生成证书工件失败", zhHant: "產生憑證工件失敗", en: "Failed to generate certificate artifacts", fr: "Échec de génération des artefacts certificat", de: "Zertifikatsartefakte konnten nicht erstellt werden", ja: "証明書成果物の生成に失敗しました")}: $error';
       });
       _showSnack(
-        isZh ? '生成证书工件失败。' : 'Failed to generate certificate artifacts.',
+        _arText(
+          context,
+          zh: '生成证书工件失败。',
+          zhHant: '產生憑證工件失敗。',
+          en: 'Failed to generate certificate artifacts.',
+          fr: 'Échec de génération des artefacts certificat.',
+          de: 'Zertifikatsartefakte konnten nicht erstellt werden.',
+          ja: '証明書成果物の生成に失敗しました。',
+        ),
         kind: OpenHandSnackKind.error,
         duration: const Duration(seconds: 3),
       );
@@ -1725,7 +1868,6 @@ class _AndroidReverseDashboardDialogState
 
   Future<void> _ensureMcpLinkageArtifacts() async {
     if (_writingMcpArtifacts) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() => _writingMcpArtifacts = true);
     try {
       final output = await _ctrl.ensureMcpLinkageArtifacts();
@@ -1735,10 +1877,18 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _mcpArtifactOutput =
-            '${isZh ? "生成 MCP 联动工件失败" : "Failed to generate MCP linkage artifacts"}: $error';
+            '${_arText(context, zh: "生成 MCP 联动工件失败", zhHant: "產生 MCP 聯動工件失敗", en: "Failed to generate MCP linkage artifacts", fr: "Échec de génération des artefacts de liaison MCP", de: "MCP-Linkage-Artefakte konnten nicht erstellt werden", ja: "MCP 連携成果物の生成に失敗しました")}: $error';
       });
       _showSnack(
-        isZh ? '生成 MCP 联动工件失败。' : 'Failed to generate MCP linkage artifacts.',
+        _arText(
+          context,
+          zh: '生成 MCP 联动工件失败。',
+          zhHant: '產生 MCP 聯動工件失敗。',
+          en: 'Failed to generate MCP linkage artifacts.',
+          fr: 'Échec de génération des artefacts de liaison MCP.',
+          de: 'MCP-Linkage-Artefakte konnten nicht erstellt werden.',
+          ja: 'MCP 連携成果物の生成に失敗しました。',
+        ),
         kind: OpenHandSnackKind.error,
         duration: const Duration(seconds: 3),
       );
@@ -1749,10 +1899,17 @@ class _AndroidReverseDashboardDialogState
 
   Future<void> _makeEvidenceBundle() async {
     if (_makingEvidenceBundle) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _makingEvidenceBundle = true;
-      _evidenceBundleOutput = isZh ? '生成中...' : 'Generating...';
+      _evidenceBundleOutput = _arText(
+        context,
+        zh: '生成中...',
+        zhHant: '產生中...',
+        en: 'Generating...',
+        fr: 'Génération...',
+        de: 'Wird erstellt...',
+        ja: '生成中...',
+      );
     });
     try {
       final result = await _ctrl.makeEvidenceBundleToArtifacts();
@@ -1761,8 +1918,24 @@ class _AndroidReverseDashboardDialogState
       OpenHandSnackBar.showInfo(
         context,
         result.ok
-            ? (isZh ? '证据包已生成。' : 'Evidence bundle generated.')
-            : (isZh ? '证据包生成失败。' : 'Evidence bundle generation failed.'),
+            ? _arText(
+                context,
+                zh: '证据包已生成。',
+                zhHant: '證據包已產生。',
+                en: 'Evidence bundle generated.',
+                fr: 'Paquet de preuves généré.',
+                de: 'Beweispaket erstellt.',
+                ja: '証拠パッケージを生成しました。',
+              )
+            : _arText(
+                context,
+                zh: '证据包生成失败。',
+                zhHant: '證據包產生失敗。',
+                en: 'Evidence bundle generation failed.',
+                fr: 'Échec de génération du paquet de preuves.',
+                de: 'Beweispaket konnte nicht erstellt werden.',
+                ja: '証拠パッケージの生成に失敗しました。',
+              ),
       );
     } finally {
       if (mounted) setState(() => _makingEvidenceBundle = false);
@@ -1778,11 +1951,16 @@ class _AndroidReverseDashboardDialogState
       setState(() {});
     } catch (error) {
       if (!mounted) return;
-      final isZh = openHandIsChineseLocale(context);
       _showSnack(
-        isZh
-            ? '加载 Frida snippet 失败：$error'
-            : 'Failed to load Frida snippet: $error',
+        _arText(
+          context,
+          zh: '加载 Frida snippet 失败：$error',
+          zhHant: '載入 Frida snippet 失敗：$error',
+          en: 'Failed to load Frida snippet: $error',
+          fr: 'Échec de chargement du snippet Frida : $error',
+          de: 'Frida-Snippet konnte nicht geladen werden: $error',
+          ja: 'Frida snippet の読み込みに失敗しました: $error',
+        ),
         kind: OpenHandSnackKind.error,
         duration: const Duration(seconds: 3),
       );
@@ -1793,7 +1971,6 @@ class _AndroidReverseDashboardDialogState
     if (_savingFridaScript) return;
     final script = _fridaScriptCtrl.text;
     if (script.trim().isEmpty) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() => _savingFridaScript = true);
     try {
       final result = await _ctrl.saveFridaScriptToArtifacts(
@@ -1808,7 +1985,15 @@ class _AndroidReverseDashboardDialogState
       });
       if (result.ok) {
         _showSnack(
-          isZh ? '已保存 Frida 脚本工件。' : 'Frida script artifact saved.',
+          _arText(
+            context,
+            zh: '已保存 Frida 脚本工件。',
+            zhHant: '已儲存 Frida 腳本工件。',
+            en: 'Frida script artifact saved.',
+            fr: 'Artefact de script Frida enregistré.',
+            de: 'Frida-Skriptartefakt gespeichert.',
+            ja: 'Frida スクリプト成果物を保存しました。',
+          ),
           kind: OpenHandSnackKind.success,
           duration: const Duration(seconds: 3),
         );
@@ -1817,7 +2002,7 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       setState(() {
         _fridaArtifactOutput =
-            '${isZh ? "保存 Frida 脚本失败" : "Failed to save Frida script"}: $error';
+            '${_arText(context, zh: "保存 Frida 脚本失败", zhHant: "儲存 Frida 腳本失敗", en: "Failed to save Frida script", fr: "Échec d’enregistrement du script Frida", de: "Frida-Skript konnte nicht gespeichert werden", ja: "Frida スクリプトの保存に失敗しました")}: $error';
       });
     } finally {
       if (mounted) setState(() => _savingFridaScript = false);
@@ -1826,12 +2011,17 @@ class _AndroidReverseDashboardDialogState
 
   Future<void> _runFridaDoctor() async {
     if (_runningFridaDoctor) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _runningFridaDoctor = true;
-      _fridaArtifactOutput = isZh
-          ? 'Frida 诊断运行中...'
-          : 'Running Frida doctor...';
+      _fridaArtifactOutput = _arText(
+        context,
+        zh: 'Frida 诊断运行中...',
+        zhHant: 'Frida 診斷執行中...',
+        en: 'Running Frida doctor...',
+        fr: 'Diagnostic Frida en cours...',
+        de: 'Frida-Diagnose läuft...',
+        ja: 'Frida 診断を実行中...',
+      );
     });
     try {
       await _ctrl.ensureMcpLinkageArtifacts();
@@ -1885,17 +2075,32 @@ class _AndroidReverseDashboardDialogState
 
   Future<void> _runFridaCapture({required bool spawn}) async {
     if (_runningFridaAction) return;
-    final isZh = openHandIsChineseLocale(context);
     final pkg = _logcatPackageTarget();
     if (pkg == null || pkg.isEmpty) {
-      _showSnack(isZh ? '请先选择或配置包名。' : 'Select or configure a package first.');
+      _showSnack(
+        _arText(
+          context,
+          zh: '请先选择或配置包名。',
+          zhHant: '請先選擇或設定套件名稱。',
+          en: 'Select or configure a package first.',
+          fr: 'Sélectionnez ou configurez d’abord un package.',
+          de: 'Wählen oder konfigurieren Sie zuerst einen Paketnamen.',
+          ja: '先にパッケージ名を選択または設定してください。',
+        ),
+      );
       return;
     }
     setState(() {
       _runningFridaAction = true;
-      _fridaArtifactOutput = isZh
-          ? 'Frida 注入执行中...'
-          : 'Running Frida capture...';
+      _fridaArtifactOutput = _arText(
+        context,
+        zh: 'Frida 注入执行中...',
+        zhHant: 'Frida 注入執行中...',
+        en: 'Running Frida capture...',
+        fr: 'Capture Frida en cours...',
+        de: 'Frida-Capture läuft...',
+        ja: 'Frida キャプチャを実行中...',
+      );
     });
     try {
       await _ctrl.ensureMcpLinkageArtifacts();
@@ -1903,9 +2108,15 @@ class _AndroidReverseDashboardDialogState
       if (scriptPath == null || scriptPath.isEmpty) {
         if (mounted) {
           setState(() {
-            _fridaArtifactOutput = isZh
-                ? '请先选择 snippet 或保存脚本。'
-                : 'Load a snippet or save a script first.';
+            _fridaArtifactOutput = _arText(
+              context,
+              zh: '请先选择 snippet 或保存脚本。',
+              zhHant: '請先選擇 snippet 或儲存腳本。',
+              en: 'Load a snippet or save a script first.',
+              fr: 'Chargez un snippet ou enregistrez d’abord un script.',
+              de: 'Laden Sie zuerst ein Snippet oder speichern Sie ein Skript.',
+              ja: '先に snippet を読み込むかスクリプトを保存してください。',
+            );
           });
         }
         return;
@@ -1937,12 +2148,17 @@ class _AndroidReverseDashboardDialogState
 
   Future<void> _readFridaArtifacts() async {
     if (_runningFridaAction) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _runningFridaAction = true;
-      _fridaArtifactOutput = isZh
-          ? '读取 Frida 工件中...'
-          : 'Reading Frida artifacts...';
+      _fridaArtifactOutput = _arText(
+        context,
+        zh: '读取 Frida 工件中...',
+        zhHant: '讀取 Frida 工件中...',
+        en: 'Reading Frida artifacts...',
+        fr: 'Lecture des artefacts Frida...',
+        de: 'Frida-Artefakte werden gelesen...',
+        ja: 'Frida 成果物を読み込み中...',
+      );
     });
     try {
       await _ctrl.ensureMcpLinkageArtifacts();
@@ -1977,22 +2193,58 @@ fi
 
   Future<void> _startExistingFridaServer() async {
     if (_runningFridaAction) return;
-    final isZh = openHandIsChineseLocale(context);
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '启动设备端 frida-server？' : 'Start device frida-server?',
-      message: isZh
-          ? '仅会尝试启动已存在的 /data/local/tmp/frida-server 并建立 27042 端口转发，不会自动下载或推送二进制。'
-          : 'This only starts an existing /data/local/tmp/frida-server and forwards port 27042. It will not download or push binaries.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '启动' : 'Start',
+      title: _arText(
+        context,
+        zh: '启动设备端 frida-server？',
+        zhHant: '啟動裝置端 frida-server？',
+        en: 'Start device frida-server?',
+        fr: 'Démarrer frida-server sur l’appareil ?',
+        de: 'frida-server auf dem Gerät starten?',
+        ja: 'デバイス側 frida-server を起動しますか？',
+      ),
+      message: _arText(
+        context,
+        zh: '仅会尝试启动已存在的 /data/local/tmp/frida-server 并建立 27042 端口转发，不会自动下载或推送二进制。',
+        zhHant:
+            '僅會嘗試啟動已存在的 /data/local/tmp/frida-server 並建立 27042 連接埠轉發，不會自動下載或推送二進位檔。',
+        en: 'This only starts an existing /data/local/tmp/frida-server and forwards port 27042. It will not download or push binaries.',
+        fr: 'Démarre seulement /data/local/tmp/frida-server s’il existe et transfère le port 27042. Aucun binaire ne sera téléchargé ni poussé.',
+        de: 'Startet nur einen vorhandenen /data/local/tmp/frida-server und leitet Port 27042 weiter. Es werden keine Binärdateien heruntergeladen oder übertragen.',
+        ja: '既存の /data/local/tmp/frida-server の起動と 27042 ポート転送のみ試行します。バイナリの自動ダウンロードや push は行いません。',
+      ),
+      cancelLabel: _arText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _arText(
+        context,
+        zh: '启动',
+        zhHant: '啟動',
+        en: 'Start',
+        fr: 'Démarrer',
+        de: 'Starten',
+        ja: '起動',
+      ),
     );
     if (!confirmed || !mounted) return;
     setState(() {
       _runningFridaAction = true;
-      _fridaArtifactOutput = isZh
-          ? '启动 frida-server 中...'
-          : 'Starting frida-server...';
+      _fridaArtifactOutput = _arText(
+        context,
+        zh: '启动 frida-server 中...',
+        zhHant: '啟動 frida-server 中...',
+        en: 'Starting frida-server...',
+        fr: 'Démarrage de frida-server...',
+        de: 'frida-server wird gestartet...',
+        ja: 'frida-server を起動中...',
+      );
     });
     try {
       final start = await _ctrl.shellDetailed(
@@ -2019,12 +2271,17 @@ fi
 
   Future<void> _runNetworkProxyProbe() async {
     if (_runningNetworkProbe) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _runningNetworkProbe = true;
-      _networkAddonOutput = isZh
-          ? '代理 / 证书预检运行中...'
-          : 'Running proxy / cert preflight...';
+      _networkAddonOutput = _arText(
+        context,
+        zh: '代理 / 证书预检运行中...',
+        zhHant: '代理 / 憑證預檢執行中...',
+        en: 'Running proxy / cert preflight...',
+        fr: 'Préflight proxy / certificat en cours...',
+        de: 'Proxy-/Zertifikats-Preflight läuft...',
+        ja: 'プロキシ / 証明書プリフライトを実行中...',
+      );
     });
     try {
       await _ctrl.ensureMitmproxyJsonlAddon();
@@ -2053,10 +2310,17 @@ fi
     Future<AdbCommandResult> Function() action,
   ) async {
     if (_runningNetworkAction) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _runningNetworkAction = true;
-      _networkAddonOutput = isZh ? '网络动作执行中...' : 'Running network action...';
+      _networkAddonOutput = _arText(
+        context,
+        zh: '网络动作执行中...',
+        zhHant: '網路動作執行中...',
+        en: 'Running network action...',
+        fr: 'Action réseau en cours...',
+        de: 'Netzwerkaktion läuft...',
+        ja: 'ネットワーク操作を実行中...',
+      );
     });
     try {
       final result = await action();
@@ -2083,21 +2347,39 @@ fi
   }
 
   Future<void> _startNetworkCapture() async {
-    final isZh = openHandIsChineseLocale(context);
     final port = _networkProxyPort();
     if (port == null) {
-      _showSnack(isZh ? '请输入合法端口。' : 'Enter a valid port.');
+      _showSnack(
+        _arText(
+          context,
+          zh: '请输入合法端口。',
+          zhHant: '請輸入合法連接埠。',
+          en: 'Enter a valid port.',
+          fr: 'Saisissez un port valide.',
+          de: 'Geben Sie einen gültigen Port ein.',
+          ja: '有効なポートを入力してください。',
+        ),
+      );
       return;
     }
     await _runNetworkAction(() => _ctrl.startNetworkCapture(port: port));
   }
 
   Future<void> _setDeviceProxy() async {
-    final isZh = openHandIsChineseLocale(context);
     final host = _networkProxyHost();
     final port = _networkProxyPort();
     if (host == null || port == null) {
-      _showSnack(isZh ? '请输入合法代理主机和端口。' : 'Enter a valid proxy host and port.');
+      _showSnack(
+        _arText(
+          context,
+          zh: '请输入合法代理主机和端口。',
+          zhHant: '請輸入合法代理主機和連接埠。',
+          en: 'Enter a valid proxy host and port.',
+          fr: 'Saisissez un hôte proxy et un port valides.',
+          de: 'Geben Sie einen gültigen Proxy-Host und Port ein.',
+          ja: '有効なプロキシホストとポートを入力してください。',
+        ),
+      );
       return;
     }
     await _runNetworkAction(
@@ -2131,7 +2413,24 @@ fi
 
   Future<void> _exportNetworkFlowsWithPicker() async {
     if (_runningNetworkAction) return;
-    final isZh = openHandIsChineseLocale(context);
+    final saveDialogErrorPrefix = _arText(
+      context,
+      zh: '打开保存对话框失败',
+      zhHant: '開啟儲存對話框失敗',
+      en: 'Failed to open save dialog',
+      fr: 'Échec d’ouverture de la boîte d’enregistrement',
+      de: 'Speicherdialog konnte nicht geöffnet werden',
+      ja: '保存ダイアログを開けませんでした',
+    );
+    final missingFlowsArtifactMessage = _arText(
+      context,
+      zh: 'mitmproxy flows 文本产物不存在。',
+      zhHant: 'mitmproxy flows 文字工件不存在。',
+      en: 'mitmproxy flows text artifact does not exist.',
+      fr: 'L’artefact texte mitmproxy flows n’existe pas.',
+      de: 'Das Textartefakt mitmproxy flows existiert nicht.',
+      ja: 'mitmproxy flows テキスト成果物が存在しません。',
+    );
     FileSaveLocation? location;
     try {
       location = await getSaveLocation(
@@ -2141,9 +2440,7 @@ fi
         ],
       );
     } catch (error) {
-      _showSnack(
-        '${isZh ? "打开保存对话框失败" : "Failed to open save dialog"}: $error',
-      );
+      _showSnack('$saveDialogErrorPrefix: $error');
       return;
     }
     if (location == null || !mounted) return;
@@ -2157,9 +2454,7 @@ fi
           args: const <String>['network-capture-export'],
           exitCode: -1,
           stdout: result.stdout,
-          stderr: isZh
-              ? 'mitmproxy flows 文本产物不存在。'
-              : 'mitmproxy flows text artifact does not exist.',
+          stderr: missingFlowsArtifactMessage,
           displayCommand: result.displayCommand,
         );
       }
@@ -2179,12 +2474,17 @@ fi
     Future<AdbCommandResult> Function() action,
   ) async {
     if (_runningStaticAction) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _runningStaticAction = true;
-      _staticQuickScanOutput = isZh
-          ? '静态分析动作执行中...'
-          : 'Running static analysis action...';
+      _staticQuickScanOutput = _arText(
+        context,
+        zh: '静态分析动作执行中...',
+        zhHant: '靜態分析動作執行中...',
+        en: 'Running static analysis action...',
+        fr: 'Action d’analyse statique en cours...',
+        de: 'Statische Analyseaktion läuft...',
+        ja: '静的解析アクションを実行中...',
+      );
     });
     try {
       final result = await action();
@@ -2209,12 +2509,17 @@ fi
     required String displayCommand,
   }) async {
     if (_runningCertificateAction) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _runningCertificateAction = true;
-      _certificateArtifactOutput = isZh
-          ? '证书动作执行中...'
-          : 'Running certificate action...';
+      _certificateArtifactOutput = _arText(
+        context,
+        zh: '证书动作执行中...',
+        zhHant: '憑證動作執行中...',
+        en: 'Running certificate action...',
+        fr: 'Action certificat en cours...',
+        de: 'Zertifikatsaktion läuft...',
+        ja: '証明書アクションを実行中...',
+      );
     });
     try {
       await _ctrl.ensureCertificateArtifacts(
@@ -2248,9 +2553,18 @@ fi
 
   Future<void> _verifyConfiguredApkSignature() async {
     final apkPath = _ctrl.config.apkPath?.trim();
-    final isZh = openHandIsChineseLocale(context);
     if (apkPath == null || apkPath.isEmpty) {
-      _showSnack(isZh ? '当前会话未配置 APK 路径。' : 'No APK path is configured.');
+      _showSnack(
+        _arText(
+          context,
+          zh: '当前会话未配置 APK 路径。',
+          zhHant: '目前會話未設定 APK 路徑。',
+          en: 'No APK path is configured.',
+          fr: 'Aucun chemin APK n’est configuré.',
+          de: 'Kein APK-Pfad ist konfiguriert.',
+          ja: 'APK パスが設定されていません。',
+        ),
+      );
       return;
     }
     await _runCertificateArtifactScript(
@@ -2263,12 +2577,17 @@ fi
 
   Future<void> _readCertificateArtifacts() async {
     if (_runningCertificateAction) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _runningCertificateAction = true;
-      _certificateArtifactOutput = isZh
-          ? '读取证书工件中...'
-          : 'Reading certificate artifacts...';
+      _certificateArtifactOutput = _arText(
+        context,
+        zh: '读取证书工件中...',
+        zhHant: '讀取憑證工件中...',
+        en: 'Reading certificate artifacts...',
+        fr: 'Lecture des artefacts certificat...',
+        de: 'Zertifikatsartefakte werden gelesen...',
+        ja: '証明書成果物を読み込み中...',
+      );
     });
     try {
       final result = await _ctrl.readCertificateArtifacts(
@@ -2283,12 +2602,17 @@ fi
 
   Future<void> _inspectMitmproxyCa() async {
     if (_runningCertificateAction) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _runningCertificateAction = true;
-      _certificateArtifactOutput = isZh
-          ? '检查 CA 证书中...'
-          : 'Inspecting CA certificate...';
+      _certificateArtifactOutput = _arText(
+        context,
+        zh: '检查 CA 证书中...',
+        zhHant: '檢查 CA 憑證中...',
+        en: 'Inspecting CA certificate...',
+        fr: 'Inspection du certificat CA...',
+        de: 'CA-Zertifikat wird geprüft...',
+        ja: 'CA 証明書を検査中...',
+      );
     });
     try {
       final result = await _ctrl.inspectMitmproxyCa(
@@ -2303,23 +2627,59 @@ fi
 
   Future<void> _installMitmproxySystemCa() async {
     if (_runningCertificateAction) return;
-    final isZh = openHandIsChineseLocale(context);
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '安装系统 CA？' : 'Install system CA?',
-      message: isZh
-          ? '此操作会执行 adb root/remount，并把 mitmproxy CA 写入系统证书目录。仅在测试设备、root/Magisk 环境中使用。'
-          : 'This runs adb root/remount and writes the mitmproxy CA into the system cert store. Use only on rooted test devices.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '安装' : 'Install',
+      title: _arText(
+        context,
+        zh: '安装系统 CA？',
+        zhHant: '安裝系統 CA？',
+        en: 'Install system CA?',
+        fr: 'Installer la CA système ?',
+        de: 'System-CA installieren?',
+        ja: 'システム CA をインストールしますか？',
+      ),
+      message: _arText(
+        context,
+        zh: '此操作会执行 adb root/remount，并把 mitmproxy CA 写入系统证书目录。仅在测试设备、root/Magisk 环境中使用。',
+        zhHant:
+            '此操作會執行 adb root/remount，並將 mitmproxy CA 寫入系統憑證目錄。僅在測試裝置、root/Magisk 環境中使用。',
+        en: 'This runs adb root/remount and writes the mitmproxy CA into the system cert store. Use only on rooted test devices.',
+        fr: 'Exécute adb root/remount et écrit la CA mitmproxy dans le magasin de certificats système. À utiliser uniquement sur des appareils de test rootés.',
+        de: 'Führt adb root/remount aus und schreibt die mitmproxy-CA in den System-Zertifikatsspeicher. Nur auf gerooteten Testgeräten verwenden.',
+        ja: 'adb root/remount を実行し、mitmproxy CA をシステム証明書ストアへ書き込みます。root/Magisk のテストデバイスでのみ使用してください。',
+      ),
+      cancelLabel: _arText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _arText(
+        context,
+        zh: '安装',
+        zhHant: '安裝',
+        en: 'Install',
+        fr: 'Installer',
+        de: 'Installieren',
+        ja: 'インストール',
+      ),
       destructive: true,
     );
     if (!confirmed || !mounted) return;
     setState(() {
       _runningCertificateAction = true;
-      _certificateArtifactOutput = isZh
-          ? '安装系统 CA 中...'
-          : 'Installing system CA...';
+      _certificateArtifactOutput = _arText(
+        context,
+        zh: '安装系统 CA 中...',
+        zhHant: '安裝系統 CA 中...',
+        en: 'Installing system CA...',
+        fr: 'Installation de la CA système...',
+        de: 'System-CA wird installiert...',
+        ja: 'システム CA をインストール中...',
+      );
     });
     try {
       final result = await _ctrl.installMitmproxyCaAsSystemCert(
@@ -2337,11 +2697,16 @@ fi
     final rawCmd = _shellCtrl.text.trim();
     final cmd = _normalizeAdbShellInput(rawCmd);
     if (_runningShell) return;
-    final isZh = openHandIsChineseLocale(context);
     if (cmd.isEmpty) {
-      final message = isZh
-          ? '请输入要执行的 adb shell 命令。'
-          : 'Enter an adb shell command to run.';
+      final message = _arText(
+        context,
+        zh: '请输入要执行的 adb shell 命令。',
+        zhHant: '請輸入要執行的 adb shell 指令。',
+        en: 'Enter an adb shell command to run.',
+        fr: 'Saisissez une commande adb shell à exécuter.',
+        de: 'Geben Sie einen auszuführenden adb-shell-Befehl ein.',
+        ja: '実行する adb shell コマンドを入力してください。',
+      );
       setState(() => _shellOutputCtrl.text = message);
       OpenHandSnackBar.showInfo(context, message);
       return;
@@ -2352,9 +2717,9 @@ fi
       _lastShellResult = null;
       _rememberShellCommand(cmd);
       _shellOutputCtrl.text =
-          '${isZh ? "执行中" : "Running"}: $cmd\n'
-          '${isZh ? "目标设备" : "Target"}: ${_shellTargetLabel(serial, isZh)}\n'
-          '${isZh ? "超时" : "Timeout"}: ${_kInteractiveShellTimeout.inSeconds}s';
+          '${_arText(context, zh: "执行中", zhHant: "執行中", en: "Running", fr: "Exécution", de: "Läuft", ja: "実行中")}: $cmd\n'
+          '${_arText(context, zh: "目标设备", zhHant: "目標裝置", en: "Target", fr: "Cible", de: "Ziel", ja: "ターゲット")}: ${_shellTargetLabel(serial)}\n'
+          '${_arText(context, zh: "超时", zhHant: "逾時", en: "Timeout", fr: "Expiration", de: "Timeout", ja: "タイムアウト")}: ${_kInteractiveShellTimeout.inSeconds}s';
     });
     try {
       final result = await _ctrl.shellDetailed(
@@ -2372,7 +2737,7 @@ fi
       if (!mounted) return;
       setState(() {
         _shellOutputCtrl.text =
-            '${openHandIsChineseLocale(context) ? "执行失败" : "Run failed"}: $error';
+            '${_arText(context, zh: "执行失败", zhHant: "執行失敗", en: "Run failed", fr: "Échec d’exécution", de: "Ausführung fehlgeschlagen", ja: "実行に失敗しました")}: $error';
       });
     } finally {
       if (mounted) setState(() => _runningShell = false);
@@ -2389,24 +2754,39 @@ fi
     }
   }
 
-  String _shellTargetLabel(String? serial, bool isZh) {
+  String _shellTargetLabel(String? serial) {
     final value = serial?.trim();
     if (value == null || value.isEmpty) {
-      return isZh ? '默认设备' : 'default device';
+      return _arText(
+        context,
+        zh: '默认设备',
+        zhHant: '預設裝置',
+        en: 'default device',
+        fr: 'appareil par défaut',
+        de: 'Standardgerät',
+        ja: '既定デバイス',
+      );
     }
     return value;
   }
 
   String _formatAdbResult(AdbCommandResult result) {
-    final isZh = openHandIsChineseLocale(context);
     final buffer = StringBuffer()
       ..writeln('\$ ${result.commandLine}')
-      ..writeln('${isZh ? "退出码" : "exit"}: ${result.exitCode}');
+      ..writeln(
+        '${_arText(context, zh: "退出码", zhHant: "退出碼", en: "exit", fr: "code", de: "Exit", ja: "終了コード")}: ${result.exitCode}',
+      );
     if (result.partialOk) {
       buffer.writeln(
-        isZh
-            ? '状态: 命令超时，但已保留可用输出；请优先采纳输出并减少重复重试。'
-            : 'status: timed out with usable output; prefer the output and avoid repeating the same command.',
+        _arText(
+          context,
+          zh: '状态: 命令超时，但已保留可用输出；请优先采纳输出并减少重复重试。',
+          zhHant: '狀態: 指令逾時，但已保留可用輸出；請優先採納輸出並減少重複重試。',
+          en: 'status: timed out with usable output; prefer the output and avoid repeating the same command.',
+          fr: 'état : expiration avec sortie utilisable ; privilégiez la sortie et évitez de répéter la même commande.',
+          de: 'Status: Timeout mit nutzbarer Ausgabe; bevorzugen Sie die Ausgabe und vermeiden Sie Wiederholungen.',
+          ja: '状態: タイムアウトしましたが利用可能な出力があります。同じコマンドの繰り返しは避けてください。',
+        ),
       );
     }
     final stdout = result.stdout.trim();
@@ -2419,13 +2799,23 @@ fi
     if (stderr.isNotEmpty) {
       buffer
         ..writeln()
-        ..writeln(isZh ? 'stderr:' : 'stderr:')
+        ..writeln('stderr:')
         ..writeln(stderr);
     }
     if (stdout.isEmpty && stderr.isEmpty) {
       buffer
         ..writeln()
-        ..write(isZh ? '(命令无输出)' : '(no output)');
+        ..write(
+          _arText(
+            context,
+            zh: '(命令无输出)',
+            zhHant: '（指令無輸出）',
+            en: '(no output)',
+            fr: '(aucune sortie)',
+            de: '(keine Ausgabe)',
+            ja: '（出力なし）',
+          ),
+        );
     }
     return buffer.toString().trimRight();
   }
@@ -2434,11 +2824,18 @@ fi
     Future<AdbCommandResult> Function() action,
   ) async {
     if (_runningDeviceAction) return;
-    final isZh = openHandIsChineseLocale(context);
     setState(() {
       _runningDeviceAction = true;
       _lastDeviceActionResult = null;
-      _lastDeviceActionOutput = isZh ? '执行中...' : 'Running...';
+      _lastDeviceActionOutput = _arText(
+        context,
+        zh: '执行中...',
+        zhHant: '執行中...',
+        en: 'Running...',
+        fr: 'Exécution...',
+        de: 'Wird ausgeführt...',
+        ja: '実行中...',
+      );
     });
     try {
       final result = await action();
@@ -2454,7 +2851,7 @@ fi
       setState(() {
         _lastDeviceActionResult = null;
         _lastDeviceActionOutput =
-            '${openHandIsChineseLocale(context) ? "执行失败" : "Run failed"}: $error';
+            '${_arText(context, zh: "执行失败", zhHant: "執行失敗", en: "Run failed", fr: "Échec d’exécution", de: "Ausführung fehlgeschlagen", ja: "実行に失敗しました")}: $error';
         _runningDeviceAction = false;
       });
     }
@@ -2471,7 +2868,15 @@ fi
     if (mounted) {
       OpenHandSnackBar.showSuccess(
         context,
-        openHandIsChineseLocale(context) ? '已复制' : 'Copied',
+        _arText(
+          context,
+          zh: '已复制',
+          zhHant: '已複製',
+          en: 'Copied',
+          fr: 'Copié',
+          de: 'Kopiert',
+          ja: 'コピーしました',
+        ),
       );
     }
   }
@@ -8191,7 +8596,7 @@ fi
                 color: selected ? cs.primary : cs.onSurfaceVariant,
               ),
               title: Text(
-                preset.label(isZh),
+                preset.label(context),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelMedium?.copyWith(
@@ -8199,7 +8604,7 @@ fi
                 ),
               ),
               subtitle: Text(
-                preset.desc(isZh),
+                preset.desc(context),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelSmall?.copyWith(
@@ -8208,7 +8613,15 @@ fi
               ),
               trailing: IconButton(
                 icon: const Icon(Icons.download_rounded, size: 15),
-                tooltip: isZh ? '加载' : 'Load',
+                tooltip: _arText(
+                  context,
+                  zh: '加载',
+                  zhHant: '載入',
+                  en: 'Load',
+                  fr: 'Charger',
+                  de: 'Laden',
+                  ja: '読み込み',
+                ),
                 onPressed: () => _loadFridaSnippet(preset),
                 visualDensity: VisualDensity.compact,
               ),
@@ -8224,7 +8637,16 @@ fi
   Widget _buildFridaEditorPane(ColorScheme cs, ThemeData theme, bool isZh) {
     final scriptAsset = _selectedFridaSnippetAsset;
     final selectedAssetLabel = Text(
-      scriptAsset ?? (isZh ? '未选择内置 snippet' : 'No built-in snippet selected'),
+      scriptAsset ??
+          _arText(
+            context,
+            zh: '未选择内置 snippet',
+            zhHant: '未選擇內建 snippet',
+            en: 'No built-in snippet selected',
+            fr: 'Aucun snippet intégré sélectionné',
+            de: 'Kein integriertes Snippet ausgewählt',
+            ja: '内蔵 snippet 未選択',
+          ),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: theme.textTheme.labelSmall?.copyWith(
@@ -8244,14 +8666,30 @@ fi
                 child: CircularProgressIndicator(strokeWidth: 1.6),
               )
             : const Icon(Icons.save_alt_rounded),
-        label: isZh ? '保存工件' : 'Save artifact',
+        label: _arText(
+          context,
+          zh: '保存工件',
+          zhHant: '儲存工件',
+          en: 'Save artifact',
+          fr: 'Enregistrer l’artefact',
+          de: 'Artefakt speichern',
+          ja: '成果物を保存',
+        ),
       ),
       _DashboardActionButton(
         onPressed: _fridaScriptCtrl.text.trim().isEmpty
             ? null
             : () => _copyText(_fridaScriptCtrl.text),
         icon: const Icon(Icons.copy_rounded),
-        label: isZh ? '复制脚本' : 'Copy script',
+        label: _arText(
+          context,
+          zh: '复制脚本',
+          zhHant: '複製腳本',
+          en: 'Copy script',
+          fr: 'Copier le script',
+          de: 'Skript kopieren',
+          ja: 'スクリプトをコピー',
+        ),
       ),
       _DashboardActionButton(
         onPressed: _runningFridaDoctor || _runningFridaAction
@@ -8264,7 +8702,15 @@ fi
                 child: CircularProgressIndicator(strokeWidth: 1.6),
               )
             : const Icon(Icons.health_and_safety_rounded),
-        label: isZh ? '运行诊断' : 'Run doctor',
+        label: _arText(
+          context,
+          zh: '运行诊断',
+          zhHant: '執行診斷',
+          en: 'Run doctor',
+          fr: 'Lancer le diagnostic',
+          de: 'Diagnose ausführen',
+          ja: '診断を実行',
+        ),
       ),
       _DashboardActionButton(
         onPressed: _runningFridaAction ? null : _readFridaArtifacts,
@@ -8275,7 +8721,15 @@ fi
                 child: CircularProgressIndicator(strokeWidth: 1.6),
               )
             : const Icon(Icons.folder_open_rounded),
-        label: isZh ? '读取工件' : 'Read artifacts',
+        label: _arText(
+          context,
+          zh: '读取工件',
+          zhHant: '讀取工件',
+          en: 'Read artifacts',
+          fr: 'Lire les artefacts',
+          de: 'Artefakte lesen',
+          ja: '成果物を読み込み',
+        ),
       ),
       _DashboardActionButton(
         onPressed: _runningFridaAction ? null : _startExistingFridaServer,
@@ -8286,21 +8740,45 @@ fi
                 child: CircularProgressIndicator(strokeWidth: 1.6),
               )
             : const Icon(Icons.play_circle_outline_rounded),
-        label: isZh ? '启动服务' : 'Start server',
+        label: _arText(
+          context,
+          zh: '启动服务',
+          zhHant: '啟動服務',
+          en: 'Start server',
+          fr: 'Démarrer le server',
+          de: 'Server starten',
+          ja: 'server を起動',
+        ),
       ),
       _DashboardActionButton(
         onPressed: _runningFridaAction || _fridaScriptCtrl.text.trim().isEmpty
             ? null
             : () => _runFridaCapture(spawn: true),
         icon: const Icon(Icons.rocket_launch_rounded),
-        label: isZh ? 'Spawn 注入' : 'Spawn',
+        label: _arText(
+          context,
+          zh: 'Spawn 注入',
+          zhHant: 'Spawn 注入',
+          en: 'Spawn',
+          fr: 'Spawn',
+          de: 'Spawn',
+          ja: 'Spawn',
+        ),
       ),
       _DashboardActionButton(
         onPressed: _runningFridaAction || _fridaScriptCtrl.text.trim().isEmpty
             ? null
             : () => _runFridaCapture(spawn: false),
         icon: const Icon(Icons.link_rounded),
-        label: isZh ? 'Attach 注入' : 'Attach',
+        label: _arText(
+          context,
+          zh: 'Attach 注入',
+          zhHant: 'Attach 注入',
+          en: 'Attach',
+          fr: 'Attach',
+          de: 'Attach',
+          ja: 'Attach',
+        ),
       ),
     ];
     return Column(
@@ -8315,9 +8793,15 @@ fi
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             decoration: InputDecoration(
               isDense: true,
-              hintText: isZh
-                  ? '// 选择 snippet 或粘贴脚本...'
-                  : '// Load a snippet or paste script...',
+              hintText: _arText(
+                context,
+                zh: '// 选择 snippet 或粘贴脚本...',
+                zhHant: '// 選擇 snippet 或貼上腳本...',
+                en: '// Load a snippet or paste script...',
+                fr: '// Chargez un snippet ou collez un script...',
+                de: '// Snippet laden oder Skript einfügen...',
+                ja: '// snippet を読み込むかスクリプトを貼り付け...',
+              ),
               border: const OutlineInputBorder(),
               alignLabelWithHint: true,
               contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
@@ -8374,10 +8858,24 @@ fi
             leading: [
               _StatusPill(
                 label: captureRunning
-                    ? (isZh
-                          ? '抓包中 PID ${_ctrl.networkCapturePid}'
-                          : 'capturing PID ${_ctrl.networkCapturePid}')
-                    : (isZh ? '未抓包' : 'idle'),
+                    ? _arText(
+                        context,
+                        zh: '抓包中 PID ${_ctrl.networkCapturePid}',
+                        zhHant: '抓包中 PID ${_ctrl.networkCapturePid}',
+                        en: 'capturing PID ${_ctrl.networkCapturePid}',
+                        fr: 'capture PID ${_ctrl.networkCapturePid}',
+                        de: 'Capture PID ${_ctrl.networkCapturePid}',
+                        ja: 'キャプチャ中 PID ${_ctrl.networkCapturePid}',
+                      )
+                    : _arText(
+                        context,
+                        zh: '未抓包',
+                        zhHant: '未抓包',
+                        en: 'idle',
+                        fr: 'inactif',
+                        de: 'inaktiv',
+                        ja: '待機中',
+                      ),
                 color: captureRunning ? cs.primary : cs.outline,
               ),
             ],
@@ -8391,7 +8889,15 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.receipt_long_rounded),
-                label: isZh ? '生成 JSONL Addon' : 'Generate JSONL addon',
+                label: _arText(
+                  context,
+                  zh: '生成 JSONL Addon',
+                  zhHant: '產生 JSONL Addon',
+                  en: 'Generate JSONL addon',
+                  fr: 'Générer l’addon JSONL',
+                  de: 'JSONL-Addon erstellen',
+                  ja: 'JSONL addon を生成',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: _runningNetworkProbe || _runningNetworkAction
@@ -8404,13 +8910,29 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.fact_check_rounded),
-                label: isZh ? '运行预检' : 'Run preflight',
+                label: _arText(
+                  context,
+                  zh: '运行预检',
+                  zhHant: '執行預檢',
+                  en: 'Run preflight',
+                  fr: 'Lancer le préflight',
+                  de: 'Preflight ausführen',
+                  ja: 'プリフライトを実行',
+                ),
               ),
               if (addonOutput != null && addonOutput.isNotEmpty)
                 _DashboardActionButton(
                   onPressed: () => _copyText(addonOutput),
                   icon: const Icon(Icons.copy_rounded),
-                  label: isZh ? '复制结果' : 'Copy result',
+                  label: _arText(
+                    context,
+                    zh: '复制结果',
+                    zhHant: '複製結果',
+                    en: 'Copy result',
+                    fr: 'Copier le résultat',
+                    de: 'Ergebnis kopieren',
+                    ja: '結果をコピー',
+                  ),
                 ),
             ],
           ),
@@ -8422,9 +8944,15 @@ fi
                 flex: 2,
                 child: _pathTextField(
                   controller: _networkProxyHostCtrl,
-                  hintText: isZh
-                      ? '代理主机，例如 10.0.2.2'
-                      : 'Proxy host, e.g. 10.0.2.2',
+                  hintText: _arText(
+                    context,
+                    zh: '代理主机，例如 10.0.2.2',
+                    zhHant: '代理主機，例如 10.0.2.2',
+                    en: 'Proxy host, e.g. 10.0.2.2',
+                    fr: 'Hôte proxy, ex. 10.0.2.2',
+                    de: 'Proxy-Host, z. B. 10.0.2.2',
+                    ja: 'プロキシホスト、例 10.0.2.2',
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -8432,7 +8960,15 @@ fi
                 width: 120,
                 child: _pathTextField(
                   controller: _networkProxyPortCtrl,
-                  hintText: isZh ? '端口' : 'Port',
+                  hintText: _arText(
+                    context,
+                    zh: '端口',
+                    zhHant: '連接埠',
+                    en: 'Port',
+                    fr: 'Port',
+                    de: 'Port',
+                    ja: 'ポート',
+                  ),
                 ),
               ),
             ],
@@ -8450,43 +8986,99 @@ fi
                       child: CircularProgressIndicator(strokeWidth: 1.8),
                     )
                   : const Icon(Icons.fiber_manual_record_rounded),
-              label: isZh ? '启动抓包' : 'Start capture',
+              label: _arText(
+                context,
+                zh: '启动抓包',
+                zhHant: '啟動抓包',
+                en: 'Start capture',
+                fr: 'Démarrer la capture',
+                de: 'Capture starten',
+                ja: 'キャプチャ開始',
+              ),
             ),
             _DashboardActionButton(
               onPressed: _runningNetworkAction || !captureRunning
                   ? null
                   : () => _runNetworkAction(_ctrl.stopNetworkCapture),
               icon: const Icon(Icons.stop_circle_rounded),
-              label: isZh ? '停止抓包' : 'Stop capture',
+              label: _arText(
+                context,
+                zh: '停止抓包',
+                zhHant: '停止抓包',
+                en: 'Stop capture',
+                fr: 'Arrêter la capture',
+                de: 'Capture stoppen',
+                ja: 'キャプチャ停止',
+              ),
             ),
             _DashboardActionButton(
               onPressed: _runningNetworkAction ? null : _setDeviceProxy,
               icon: const Icon(Icons.settings_ethernet_rounded),
-              label: isZh ? '设置代理' : 'Set proxy',
+              label: _arText(
+                context,
+                zh: '设置代理',
+                zhHant: '設定代理',
+                en: 'Set proxy',
+                fr: 'Définir proxy',
+                de: 'Proxy setzen',
+                ja: 'プロキシ設定',
+              ),
             ),
             _DashboardActionButton(
               onPressed: _runningNetworkAction ? null : _readDeviceProxy,
               icon: const Icon(Icons.visibility_rounded),
-              label: isZh ? '读取代理' : 'Read proxy',
+              label: _arText(
+                context,
+                zh: '读取代理',
+                zhHant: '讀取代理',
+                en: 'Read proxy',
+                fr: 'Lire le proxy',
+                de: 'Proxy lesen',
+                ja: 'プロキシ読取',
+              ),
             ),
             _DashboardActionButton(
               onPressed: _runningNetworkAction ? null : _clearDeviceProxy,
               icon: const Icon(Icons.cleaning_services_rounded),
-              label: isZh ? '清除代理' : 'Clear proxy',
+              label: _arText(
+                context,
+                zh: '清除代理',
+                zhHant: '清除代理',
+                en: 'Clear proxy',
+                fr: 'Effacer proxy',
+                de: 'Proxy löschen',
+                ja: 'プロキシ解除',
+              ),
             ),
             _DashboardActionButton(
               onPressed: _runningNetworkAction
                   ? null
                   : () => _runNetworkAction(_ctrl.readNetworkCaptureSummary),
               icon: const Icon(Icons.article_rounded),
-              label: isZh ? '读取抓包' : 'Read capture',
+              label: _arText(
+                context,
+                zh: '读取抓包',
+                zhHant: '讀取抓包',
+                en: 'Read capture',
+                fr: 'Lire la capture',
+                de: 'Capture lesen',
+                ja: 'キャプチャ読取',
+              ),
             ),
             _DashboardActionButton(
               onPressed: _runningNetworkAction
                   ? null
                   : _exportNetworkFlowsWithPicker,
               icon: const Icon(Icons.ios_share_rounded),
-              label: isZh ? '导出 flows' : 'Export flows',
+              label: _arText(
+                context,
+                zh: '导出 flows',
+                zhHant: '匯出 flows',
+                en: 'Export flows',
+                fr: 'Exporter flows',
+                de: 'flows exportieren',
+                ja: 'flows をエクスポート',
+              ),
             ),
           ]),
           const SizedBox(height: 10),
@@ -8518,7 +9110,15 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.manage_search_rounded),
-                label: isZh ? '快速扫描 APK' : 'Quick scan APK',
+                label: _arText(
+                  context,
+                  zh: '快速扫描 APK',
+                  zhHant: '快速掃描 APK',
+                  en: 'Quick scan APK',
+                  fr: 'Scan rapide APK',
+                  de: 'APK schnell scannen',
+                  ja: 'APK クイックスキャン',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: staticBusy
@@ -8530,7 +9130,15 @@ fi
                         ),
                       ),
                 icon: const Icon(Icons.folder_open_rounded),
-                label: isZh ? '读取产物' : 'Read artifacts',
+                label: _arText(
+                  context,
+                  zh: '读取产物',
+                  zhHant: '讀取產物',
+                  en: 'Read artifacts',
+                  fr: 'Lire les artefacts',
+                  de: 'Artefakte lesen',
+                  ja: '成果物を読み込み',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: staticBusy
@@ -8542,7 +9150,15 @@ fi
                         ),
                       ),
                 icon: const Icon(Icons.badge_rounded),
-                label: isZh ? '身份验签' : 'Identity',
+                label: _arText(
+                  context,
+                  zh: '身份验签',
+                  zhHant: '身分驗簽',
+                  en: 'Identity',
+                  fr: 'Identité',
+                  de: 'Identität',
+                  ja: '識別情報',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: staticBusy
@@ -8554,7 +9170,15 @@ fi
                         ),
                       ),
                 icon: const Icon(Icons.code_rounded),
-                label: isZh ? 'jadx 反编译' : 'jadx',
+                label: _arText(
+                  context,
+                  zh: 'jadx 反编译',
+                  zhHant: 'jadx 反編譯',
+                  en: 'jadx',
+                  fr: 'jadx',
+                  de: 'jadx',
+                  ja: 'jadx',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: staticBusy
@@ -8566,7 +9190,15 @@ fi
                         ),
                       ),
                 icon: const Icon(Icons.inventory_2_rounded),
-                label: isZh ? 'apktool 解包' : 'apktool',
+                label: _arText(
+                  context,
+                  zh: 'apktool 解包',
+                  zhHant: 'apktool 解包',
+                  en: 'apktool',
+                  fr: 'apktool',
+                  de: 'apktool',
+                  ja: 'apktool',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: staticBusy
@@ -8578,13 +9210,29 @@ fi
                         ),
                       ),
                 icon: const Icon(Icons.search_rounded),
-                label: isZh ? '字符串扫描' : 'Strings',
+                label: _arText(
+                  context,
+                  zh: '字符串扫描',
+                  zhHant: '字串掃描',
+                  en: 'Strings',
+                  fr: 'Chaînes',
+                  de: 'Strings',
+                  ja: '文字列',
+                ),
               ),
               if (scanOutput != null && scanOutput.isNotEmpty) ...[
                 _DashboardActionButton(
                   onPressed: () => _copyText(scanOutput),
                   icon: const Icon(Icons.copy_rounded),
-                  label: isZh ? '复制结果' : 'Copy result',
+                  label: _arText(
+                    context,
+                    zh: '复制结果',
+                    zhHant: '複製結果',
+                    en: 'Copy result',
+                    fr: 'Copier le résultat',
+                    de: 'Ergebnis kopieren',
+                    ja: '結果をコピー',
+                  ),
                 ),
               ],
             ],
@@ -8620,7 +9268,15 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.description_rounded),
-                label: isZh ? '生成证书工件' : 'Generate cert artifacts',
+                label: _arText(
+                  context,
+                  zh: '生成证书工件',
+                  zhHant: '產生憑證工件',
+                  en: 'Generate cert artifacts',
+                  fr: 'Générer les artefacts cert',
+                  de: 'Zertifikatsartefakte erstellen',
+                  ja: '証明書成果物を生成',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: _runningCertificateAction
@@ -8633,7 +9289,15 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.folder_open_rounded),
-                label: isZh ? '读取工件' : 'Read artifacts',
+                label: _arText(
+                  context,
+                  zh: '读取工件',
+                  zhHant: '讀取工件',
+                  en: 'Read artifacts',
+                  fr: 'Lire les artefacts',
+                  de: 'Artefakte lesen',
+                  ja: '成果物を読み込み',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: _runningCertificateAction
@@ -8646,7 +9310,15 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.key_rounded),
-                label: isZh ? '生成密钥库' : 'Generate keystore',
+                label: _arText(
+                  context,
+                  zh: '生成密钥库',
+                  zhHant: '產生金鑰庫',
+                  en: 'Generate keystore',
+                  fr: 'Générer le keystore',
+                  de: 'Keystore erstellen',
+                  ja: 'キーストア生成',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: _runningCertificateAction
@@ -8659,7 +9331,15 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.verified_rounded),
-                label: isZh ? '验签 APK' : 'Verify APK',
+                label: _arText(
+                  context,
+                  zh: '验签 APK',
+                  zhHant: '驗簽 APK',
+                  en: 'Verify APK',
+                  fr: 'Vérifier APK',
+                  de: 'APK prüfen',
+                  ja: 'APK 検証',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: _runningCertificateAction
@@ -8672,7 +9352,15 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.policy_rounded),
-                label: isZh ? '检查 CA' : 'Inspect CA',
+                label: _arText(
+                  context,
+                  zh: '检查 CA',
+                  zhHant: '檢查 CA',
+                  en: 'Inspect CA',
+                  fr: 'Inspecter CA',
+                  de: 'CA prüfen',
+                  ja: 'CA 検査',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: _runningCertificateAction
@@ -8685,22 +9373,45 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.security_update_good_rounded),
-                label: isZh ? '安装系统 CA' : 'Install system CA',
+                label: _arText(
+                  context,
+                  zh: '安装系统 CA',
+                  zhHant: '安裝系統 CA',
+                  en: 'Install system CA',
+                  fr: 'Installer la CA système',
+                  de: 'System-CA installieren',
+                  ja: 'システム CA インストール',
+                ),
               ),
               if (artifactOutput != null && artifactOutput.isNotEmpty)
                 _DashboardActionButton(
                   onPressed: () => _copyText(artifactOutput),
                   icon: const Icon(Icons.copy_rounded),
-                  label: isZh ? '复制结果' : 'Copy result',
+                  label: _arText(
+                    context,
+                    zh: '复制结果',
+                    zhHant: '複製結果',
+                    en: 'Copy result',
+                    fr: 'Copier le résultat',
+                    de: 'Ergebnis kopieren',
+                    ja: '結果をコピー',
+                  ),
                 ),
             ],
           ),
           const SizedBox(height: 12),
           _pathTextField(
             controller: _mitmCertPathCtrl,
-            hintText: isZh
-                ? 'mitmproxy CA 路径，留默认使用 ~/.mitmproxy/mitmproxy-ca-cert.pem'
-                : 'mitmproxy CA path, default ~/.mitmproxy/mitmproxy-ca-cert.pem',
+            hintText: _arText(
+              context,
+              zh: 'mitmproxy CA 路径，留默认使用 ~/.mitmproxy/mitmproxy-ca-cert.pem',
+              zhHant:
+                  'mitmproxy CA 路徑，留預設使用 ~/.mitmproxy/mitmproxy-ca-cert.pem',
+              en: 'mitmproxy CA path, default ~/.mitmproxy/mitmproxy-ca-cert.pem',
+              fr: 'Chemin CA mitmproxy, défaut ~/.mitmproxy/mitmproxy-ca-cert.pem',
+              de: 'mitmproxy-CA-Pfad, Standard ~/.mitmproxy/mitmproxy-ca-cert.pem',
+              ja: 'mitmproxy CA パス、既定は ~/.mitmproxy/mitmproxy-ca-cert.pem',
+            ),
           ),
           const SizedBox(height: 10),
           if (artifactOutput != null && artifactOutput.isNotEmpty)
@@ -8724,9 +9435,15 @@ fi
             maxLines: 8,
             decoration: InputDecoration(
               isDense: true,
-              hintText: isZh
-                  ? '粘贴文本、Base64、URL 编码、JWT、密钥材料或待哈希内容...'
-                  : 'Paste text, Base64, URL encoding, JWT, key material, or content to hash...',
+              hintText: _arText(
+                context,
+                zh: '粘贴文本、Base64、URL 编码、JWT、密钥材料或待哈希内容...',
+                zhHant: '貼上文字、Base64、URL 編碼、JWT、金鑰材料或待雜湊內容...',
+                en: 'Paste text, Base64, URL encoding, JWT, key material, or content to hash...',
+                fr: 'Collez texte, Base64, encodage URL, JWT, clés ou contenu à hacher...',
+                de: 'Text, Base64, URL-Encoding, JWT, Schlüsselmaterial oder Hash-Inhalt einfügen...',
+                ja: 'テキスト、Base64、URL エンコード、JWT、鍵素材、ハッシュ対象を貼り付け...',
+              ),
               border: const OutlineInputBorder(),
             ),
             onChanged: (_) => setState(() {}),
@@ -8738,35 +9455,79 @@ fi
                 onPressed: _base64Ctrl.text.isEmpty
                     ? null
                     : () => _setCryptoOutput(
-                        isZh ? 'Base64 编码' : 'Base64 encode',
+                        _arText(
+                          context,
+                          zh: 'Base64 编码',
+                          zhHant: 'Base64 編碼',
+                          en: 'Base64 encode',
+                          fr: 'Encodage Base64',
+                          de: 'Base64 kodieren',
+                          ja: 'Base64 エンコード',
+                        ),
                         base64Encode(utf8.encode(_base64Ctrl.text)),
                       ),
                 icon: const Icon(Icons.upload_rounded),
-                label: isZh ? 'Base64 编码' : 'B64 encode',
+                label: _arText(
+                  context,
+                  zh: 'Base64 编码',
+                  zhHant: 'Base64 編碼',
+                  en: 'B64 encode',
+                  fr: 'Encoder B64',
+                  de: 'B64 kodieren',
+                  ja: 'B64 エンコード',
+                ),
               ),
               _DashboardActionButton(
-                onPressed: _base64Ctrl.text.isEmpty
-                    ? null
-                    : () => _decodeBase64Input(isZh),
+                onPressed: _base64Ctrl.text.isEmpty ? null : _decodeBase64Input,
                 icon: const Icon(Icons.download_rounded),
-                label: isZh ? 'Base64 解码' : 'B64 decode',
+                label: _arText(
+                  context,
+                  zh: 'Base64 解码',
+                  zhHant: 'Base64 解碼',
+                  en: 'B64 decode',
+                  fr: 'Décoder B64',
+                  de: 'B64 dekodieren',
+                  ja: 'B64 デコード',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: _base64Ctrl.text.isEmpty
                     ? null
                     : () => _setCryptoOutput(
-                        isZh ? 'URL 编码' : 'URL encode',
+                        _arText(
+                          context,
+                          zh: 'URL 编码',
+                          zhHant: 'URL 編碼',
+                          en: 'URL encode',
+                          fr: 'Encodage URL',
+                          de: 'URL kodieren',
+                          ja: 'URL エンコード',
+                        ),
                         Uri.encodeComponent(_base64Ctrl.text),
                       ),
                 icon: const Icon(Icons.link_rounded),
-                label: isZh ? 'URL 编码' : 'URL encode',
+                label: _arText(
+                  context,
+                  zh: 'URL 编码',
+                  zhHant: 'URL 編碼',
+                  en: 'URL encode',
+                  fr: 'Encoder URL',
+                  de: 'URL kodieren',
+                  ja: 'URL エンコード',
+                ),
               ),
               _DashboardActionButton(
-                onPressed: _base64Ctrl.text.isEmpty
-                    ? null
-                    : () => _decodeUrlInput(isZh),
+                onPressed: _base64Ctrl.text.isEmpty ? null : _decodeUrlInput,
                 icon: const Icon(Icons.link_off_rounded),
-                label: isZh ? 'URL 解码' : 'URL decode',
+                label: _arText(
+                  context,
+                  zh: 'URL 解码',
+                  zhHant: 'URL 解碼',
+                  en: 'URL decode',
+                  fr: 'Décoder URL',
+                  de: 'URL dekodieren',
+                  ja: 'URL デコード',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: _base64Ctrl.text.isEmpty
@@ -8797,18 +9558,32 @@ fi
                 label: 'SHA512',
               ),
               _DashboardActionButton(
-                onPressed: _base64Ctrl.text.isEmpty
-                    ? null
-                    : () => _decodeJwtInput(isZh),
+                onPressed: _base64Ctrl.text.isEmpty ? null : _decodeJwtInput,
                 icon: const Icon(Icons.token_rounded),
-                label: isZh ? 'JWT 解析' : 'JWT decode',
+                label: _arText(
+                  context,
+                  zh: 'JWT 解析',
+                  zhHant: 'JWT 解析',
+                  en: 'JWT decode',
+                  fr: 'Décoder JWT',
+                  de: 'JWT dekodieren',
+                  ja: 'JWT デコード',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: _cryptoCopyValue.isEmpty
                     ? null
                     : () => _copyText(_cryptoCopyValue),
                 icon: const Icon(Icons.copy_rounded),
-                label: isZh ? '复制结果' : 'Copy result',
+                label: _arText(
+                  context,
+                  zh: '复制结果',
+                  zhHant: '複製結果',
+                  en: 'Copy result',
+                  fr: 'Copier le résultat',
+                  de: 'Ergebnis kopieren',
+                  ja: '結果をコピー',
+                ),
               ),
             ],
             alignment: Alignment.centerLeft,
@@ -9753,24 +10528,65 @@ fi
     });
   }
 
-  void _decodeBase64Input(bool isZh) {
+  void _decodeBase64Input() {
     try {
       final normalized = _base64Ctrl.text.replaceAll(RegExp(r'\s+'), '');
       final decoded = utf8.decode(base64Decode(base64.normalize(normalized)));
-      _setCryptoOutput(isZh ? 'Base64 解码' : 'Base64 decode', decoded);
+      _setCryptoOutput(
+        _arText(
+          context,
+          zh: 'Base64 解码',
+          zhHant: 'Base64 解碼',
+          en: 'Base64 decode',
+          fr: 'Décodage Base64',
+          de: 'Base64 dekodieren',
+          ja: 'Base64 デコード',
+        ),
+        decoded,
+      );
     } catch (error) {
-      _setCryptoOutput(isZh ? 'Base64 解码失败' : 'Base64 decode failed', '$error');
+      _setCryptoOutput(
+        _arText(
+          context,
+          zh: 'Base64 解码失败',
+          zhHant: 'Base64 解碼失敗',
+          en: 'Base64 decode failed',
+          fr: 'Échec du décodage Base64',
+          de: 'Base64-Dekodierung fehlgeschlagen',
+          ja: 'Base64 デコードに失敗しました',
+        ),
+        '$error',
+      );
     }
   }
 
-  void _decodeUrlInput(bool isZh) {
+  void _decodeUrlInput() {
     try {
       _setCryptoOutput(
-        isZh ? 'URL 解码' : 'URL decode',
+        _arText(
+          context,
+          zh: 'URL 解码',
+          zhHant: 'URL 解碼',
+          en: 'URL decode',
+          fr: 'Décodage URL',
+          de: 'URL dekodieren',
+          ja: 'URL デコード',
+        ),
         Uri.decodeComponent(_base64Ctrl.text),
       );
     } catch (error) {
-      _setCryptoOutput(isZh ? 'URL 解码失败' : 'URL decode failed', '$error');
+      _setCryptoOutput(
+        _arText(
+          context,
+          zh: 'URL 解码失败',
+          zhHant: 'URL 解碼失敗',
+          en: 'URL decode failed',
+          fr: 'Échec du décodage URL',
+          de: 'URL-Dekodierung fehlgeschlagen',
+          ja: 'URL デコードに失敗しました',
+        ),
+        '$error',
+      );
     }
   }
 
@@ -9779,7 +10595,7 @@ fi
     _setCryptoOutput(label, algorithm.convert(bytes).toString());
   }
 
-  void _decodeJwtInput(bool isZh) {
+  void _decodeJwtInput() {
     try {
       final token = _base64Ctrl.text.trim();
       final parts = token.split('.');
@@ -9792,7 +10608,15 @@ fi
       final headerText = encoder.convert(jsonDecode(header));
       final payloadText = encoder.convert(jsonDecode(payload));
       _setCryptoOutput(
-        isZh ? 'JWT 解析' : 'JWT decode',
+        _arText(
+          context,
+          zh: 'JWT 解析',
+          zhHant: 'JWT 解析',
+          en: 'JWT decode',
+          fr: 'Décodage JWT',
+          de: 'JWT dekodieren',
+          ja: 'JWT デコード',
+        ),
         [
           '## header',
           headerText,
@@ -9803,7 +10627,18 @@ fi
         ].join('\n'),
       );
     } catch (error) {
-      _setCryptoOutput(isZh ? 'JWT 解析失败' : 'JWT decode failed', '$error');
+      _setCryptoOutput(
+        _arText(
+          context,
+          zh: 'JWT 解析失败',
+          zhHant: 'JWT 解析失敗',
+          en: 'JWT decode failed',
+          fr: 'Échec du décodage JWT',
+          de: 'JWT-Dekodierung fehlgeschlagen',
+          ja: 'JWT デコードに失敗しました',
+        ),
+        '$error',
+      );
     }
   }
 
@@ -9997,7 +10832,7 @@ class _LogcatLineTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(5),
               ),
               child: Text(
-                level == null ? '-' : _shortLevelLabel(level, isZh),
+                level == null ? '-' : _shortLevelLabel(level),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: color,
                   fontWeight: FontWeight.w900,
@@ -10055,14 +10890,14 @@ class _LogcatLineTile extends StatelessWidget {
     };
   }
 
-  String _shortLevelLabel(String level, bool isZh) {
+  String _shortLevelLabel(String level) {
     return switch (level) {
-      'V' => isZh ? '详' : 'V',
-      'D' => isZh ? '调' : 'D',
-      'I' => isZh ? '信' : 'I',
-      'W' => isZh ? '警' : 'W',
-      'E' => isZh ? '错' : 'E',
-      'F' => isZh ? '致' : 'F',
+      'V' => 'V',
+      'D' => 'D',
+      'I' => 'I',
+      'W' => 'W',
+      'E' => 'E',
+      'F' => 'F',
       _ => level,
     };
   }
