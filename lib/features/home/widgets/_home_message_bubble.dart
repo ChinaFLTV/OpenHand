@@ -2502,9 +2502,7 @@ class _ImageShimmerPlaceholderState extends State<_ImageShimmerPlaceholder>
     final cs = Theme.of(context).colorScheme;
     final baseColor = cs.surfaceContainerHighest;
     final highlightColor = cs.surfaceContainerLow;
-    final animationsEnabled =
-        TickerMode.valuesOf(context).enabled &&
-        !MediaQuery.disableAnimationsOf(context);
+    final animationsEnabled = openHandTickerMotionEnabled(context);
     if (!animationsEnabled) {
       _ctrl.stop();
       return _buildPlaceholder(cs, baseColor, highlightColor, 0.5);
@@ -3633,8 +3631,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
   }
 
   Widget _buildResultReveal(Widget child) {
-    if (MediaQuery.disableAnimationsOf(context) ||
-        _revealController.isCompleted) {
+    if (openHandReduceMotionOf(context) || _revealController.isCompleted) {
       return child;
     }
     return AnimatedBuilder(
@@ -4142,7 +4139,7 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
   @override
   Widget build(BuildContext context) {
     final meta = widget.meta;
-    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    final disableAnimations = openHandReduceMotionOf(context);
     final style = _GeneratedAudioCardStyle.resolve(
       theme: Theme.of(context),
       meta: meta,
@@ -5283,9 +5280,10 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     BuildContext context,
     _AdaptivePreviewDialogMetrics metrics,
   ) {
-    final audioMotionDuration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : _playerMotionSettings.duration;
+    final audioMotionDuration = openHandMotionDuration(
+      context,
+      _playerMotionSettings.duration,
+    );
     return SizedBox(
       width: metrics.dialogWidth,
       height: metrics.contentHeight > 0 ? metrics.contentHeight : 560,
@@ -8857,8 +8855,7 @@ class _TypewriterCaretState extends State<_TypewriterCaret>
 
   @override
   Widget build(BuildContext context) {
-    if (!TickerMode.valuesOf(context).enabled ||
-        MediaQuery.disableAnimationsOf(context)) {
+    if (!openHandTickerMotionEnabled(context)) {
       _ctrl.stop();
       return _buildBlock(1);
     }
