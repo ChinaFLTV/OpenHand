@@ -96,7 +96,13 @@ Object? _canonicalJsonValue(Object? value) {
         MapEntry<String, Object?>('$key', _canonicalJsonValue(child)),
       );
     });
-    entries.sort((a, b) => a.key.compareTo(b.key));
+    entries.sort((a, b) {
+      final keyOrder = a.key.compareTo(b.key);
+      if (keyOrder != 0) return keyOrder;
+      return _canonicalJsonSortKey(
+        a.value,
+      ).compareTo(_canonicalJsonSortKey(b.value));
+    });
     return <String, Object?>{
       for (final entry in entries) entry.key: entry.value,
     };
@@ -105,4 +111,8 @@ Object? _canonicalJsonValue(Object? value) {
     return value.map(_canonicalJsonValue).toList(growable: false);
   }
   return '$value';
+}
+
+String _canonicalJsonSortKey(Object? value) {
+  return jsonEncode(value);
 }

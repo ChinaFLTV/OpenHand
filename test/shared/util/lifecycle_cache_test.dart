@@ -67,6 +67,19 @@ void main() {
       expect(first, second);
     });
 
+    test('is stable when non-string map keys collide after stringifying', () {
+      final first = stableJsonSha256(<Object, Object?>{
+        1: 'number',
+        '1': 'text',
+      });
+      final second = stableJsonSha256(<Object, Object?>{
+        '1': 'text',
+        1: 'number',
+      });
+
+      expect(first, second);
+    });
+
     test('normalizes non-finite doubles without throwing', () {
       expect(stableJsonSha256(double.nan), stableJsonSha256('NaN'));
       expect(
