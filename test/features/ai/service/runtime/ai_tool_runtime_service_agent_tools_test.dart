@@ -1490,6 +1490,36 @@ void main() {
             '/repo/docs',
             '/repo/app',
           ],
+          archive: 'Owns weekly operations reporting.',
+          welcomeMessage: 'Ready to coordinate ops work.',
+          persona: 'Calm operations lead.',
+          responsibilityBoundary: 'Operations reporting and evidence only.',
+          metadata: const <String, Object?>{'owner': 'platform', 'tier': 2},
+          kpis: const <AgentKpiItem>[
+            AgentKpiItem(id: 'kpi-1', name: 'Weekly report', progress: 0.5),
+          ],
+          approvals: const <AgentApprovalRequest>[
+            AgentApprovalRequest(id: 'approval-1', title: 'Read audit log'),
+          ],
+          workers: const <AgentWorker>[
+            AgentWorker(id: 'worker-1', name: 'Worker 1'),
+          ],
+          tasks: const <AgentTask>[
+            AgentTask(
+              id: 'task-1',
+              title: 'Prepare weekly report',
+              status: AgentTaskStatus.ready,
+              extra: <String, Object?>{
+                'labels': <String>['ops'],
+              },
+            ),
+          ],
+          resourceUsage: const AgentResourceUsage(
+            cpuPercent: 0.25,
+            memoryBytes: 1024,
+            tokenBudget: 1000,
+            tokenUsed: 250,
+          ),
         ),
       );
 
@@ -1515,6 +1545,15 @@ void main() {
       expect(result.status, BashToolExecutionStatus.success);
       final payload = jsonDecode(result.resultText) as Map<String, Object?>;
       final agent = payload['agent'] as Map<String, Object?>;
+      expect(agent['archive'], 'Owns weekly operations reporting.');
+      expect(agent['welcome_message'], 'Ready to coordinate ops work.');
+      expect(agent['persona'], 'Calm operations lead.');
+      expect(
+        agent['responsibility_boundary'],
+        'Operations reporting and evidence only.',
+      );
+      expect(agent['metadata'], containsPair('owner', 'platform'));
+      expect(agent['metadata'], containsPair('tier', 2));
       expect(agent['workspace_path'], '/repo');
       expect(agent['workspace_scope'], '/repo/app\n/repo/docs');
       expect(agent['workspace_scope_paths'], <Object?>[
@@ -1549,6 +1588,30 @@ void main() {
         approvalPolicy['approval_required_when'],
         contains('credential_or_secret_access'),
       );
+      final operationalSummary =
+          agent['operational_summary'] as Map<String, Object?>;
+      final taskMetrics =
+          operationalSummary['task_metrics'] as Map<String, Object?>;
+      final workerCapacity =
+          operationalSummary['worker_capacity'] as Map<String, Object?>;
+      final queuePressure =
+          operationalSummary['queue_pressure'] as Map<String, Object?>;
+      final approvalSummary =
+          operationalSummary['approval_summary'] as Map<String, Object?>;
+      final kpiSummary =
+          operationalSummary['kpi_summary'] as Map<String, Object?>;
+      final resourceSummary =
+          operationalSummary['resource_summary'] as Map<String, Object?>;
+      expect(taskMetrics['total'], 1);
+      expect(workerCapacity['idle'], 1);
+      expect(queuePressure['ready_tasks'], 1);
+      expect(approvalSummary['pending'], 1);
+      expect(kpiSummary['total'], 1);
+      expect(resourceSummary['token_remaining'], 750);
+      expect(agent['task_metrics'], taskMetrics);
+      expect(agent['worker_capacity'], workerCapacity);
+      expect(agent['queue_pressure'], queuePressure);
+      expect(agent['resource_summary'], resourceSummary);
     });
 
     test(
@@ -1569,6 +1632,21 @@ void main() {
             mcpServerNames: const <String>['deploy-mcp'],
             workspacePath: '/repo',
             workspaceScopePaths: const <String>['/repo/app'],
+            tasks: const <AgentTask>[
+              AgentTask(
+                id: 'task-1',
+                title: 'Deploy release',
+                status: AgentTaskStatus.running,
+              ),
+            ],
+            workers: const <AgentWorker>[
+              AgentWorker(
+                id: 'worker-1',
+                name: 'Worker 1',
+                status: AgentWorkerStatus.busy,
+                currentTaskId: 'task-1',
+              ),
+            ],
           ),
         );
 
@@ -1601,6 +1679,14 @@ void main() {
         final workspacePolicy =
             agent['workspace_policy'] as Map<String, Object?>;
         final routing = agent['routing'] as Map<String, Object?>;
+        final operationalSummary =
+            agent['operational_summary'] as Map<String, Object?>;
+        final taskMetrics =
+            operationalSummary['task_metrics'] as Map<String, Object?>;
+        final taskStatusCounts =
+            taskMetrics['by_status'] as Map<String, Object?>;
+        final workerCapacity =
+            operationalSummary['worker_capacity'] as Map<String, Object?>;
 
         expect(capabilitySummary['skills'], 1);
         expect(capabilitySummary['mcp_servers'], 1);
@@ -1612,6 +1698,8 @@ void main() {
         ]);
         expect(routing['keywords'], contains('deploy'));
         expect(routing['keywords'], contains('release-checklist'));
+        expect(taskStatusCounts['running'], 1);
+        expect(workerCapacity['busy'], 1);
       },
     );
 

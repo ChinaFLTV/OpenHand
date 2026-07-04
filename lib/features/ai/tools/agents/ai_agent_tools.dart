@@ -1893,6 +1893,7 @@ Map<String, Object?> _agentSummaryJson(AgentProfile agent) {
     'capabilities': agentCapabilityBindingsJson(agent),
     'workspace_policy': agentWorkspacePolicyJson(agent),
     'routing': routing.toJson(includeRawPreview: false),
+    'operational_summary': _agentOperationalSummaryJson(agent),
     'updated_at': _iso(agent.updatedAt),
   };
 }
@@ -1907,6 +1908,8 @@ Map<String, Object?> _agentDetailJson(
     ..._agentSummaryJson(agent),
     'avatar': agent.avatar,
     'introduction': agent.introduction,
+    'archive': agent.archive,
+    'welcome_message': agent.welcomeMessage,
     'persona': agent.persona,
     'responsibility_boundary': agent.responsibilityBoundary,
     'workspace_path': agent.workspacePath,
@@ -1918,7 +1921,14 @@ Map<String, Object?> _agentDetailJson(
     'task_labels': agent.taskLabels,
     'cron_ids': agent.cronIds,
     'hook_ids': agent.hookIds,
+    'metadata': agent.metadata,
     'scale_settings': agent.scaleSettings.toJson(),
+    'task_metrics': _taskMetricsForTasksJson(agent.tasks),
+    'worker_capacity': _workerCapacityJsonForAgent(agent),
+    'queue_pressure': _queuePressureJson(agent),
+    'kpi_summary': _kpiSummaryJson(agent.kpis),
+    'approval_summary': _approvalSummaryJson(agent.approvals),
+    'resource_summary': _resourceUsageSummaryJson(agent.resourceUsage),
     'kpis': agent.kpis.map((item) => item.toJson()).toList(growable: false),
     'workers': agent.workers
         .map((item) => item.toJson())
@@ -1941,6 +1951,17 @@ Map<String, Object?> _agentDetailJson(
           .toList(growable: false),
     if (includeResources) 'resource_usage': agent.resourceUsage.toJson(),
     'created_at': _iso(agent.createdAt),
+  };
+}
+
+Map<String, Object?> _agentOperationalSummaryJson(AgentProfile agent) {
+  return <String, Object?>{
+    'task_metrics': _taskMetricsForTasksJson(agent.tasks),
+    'worker_capacity': _workerCapacityJsonForAgent(agent),
+    'queue_pressure': _queuePressureJson(agent),
+    'approval_summary': _approvalSummaryJson(agent.approvals),
+    'kpi_summary': _kpiSummaryJson(agent.kpis),
+    'resource_summary': _resourceUsageSummaryJson(agent.resourceUsage),
   };
 }
 
