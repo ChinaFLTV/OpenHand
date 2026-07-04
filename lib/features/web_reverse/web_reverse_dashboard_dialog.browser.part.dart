@@ -359,21 +359,20 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   Future<void> _restartBrowserFromUi(String source) async {
     if (_restartBrowserInFlight) return;
     final messenger = ScaffoldMessenger.of(context);
+    final disconnectedAfterRestartMessage = _browserText(
+      context,
+      zh: '重启完成后 CDP 仍未连接，请检查浏览器是否被系统或安全策略拦截。',
+      zhHant: '重啟完成後 CDP 仍未連線，請檢查瀏覽器是否被系統或安全策略攔截。',
+      en: 'CDP is still disconnected after restart. Check whether the browser was blocked by the system or security policy.',
+      fr: 'CDP reste déconnecté après le redémarrage. Vérifiez si le navigateur a été bloqué.',
+      de: 'CDP ist nach dem Neustart weiterhin getrennt. Prüfen Sie, ob der Browser blockiert wurde.',
+      ja: '再起動後も CDP が未接続です。システムやセキュリティ設定によるブロックを確認してください。',
+    );
     setState(() => _restartBrowserInFlight = true);
     try {
       await widget.controller.restartBrowser();
       if (!widget.controller.isBrowserAlive) {
-        throw StateError(
-          _browserText(
-            context,
-            zh: '重启完成后 CDP 仍未连接，请检查浏览器是否被系统或安全策略拦截。',
-            zhHant: '重啟完成後 CDP 仍未連線，請檢查瀏覽器是否被系統或安全策略攔截。',
-            en: 'CDP is still disconnected after restart. Check whether the browser was blocked by the system or security policy.',
-            fr: 'CDP reste déconnecté après le redémarrage. Vérifiez si le navigateur a été bloqué.',
-            de: 'CDP ist nach dem Neustart weiterhin getrennt. Prüfen Sie, ob der Browser blockiert wurde.',
-            ja: '再起動後も CDP が未接続です。システムやセキュリティ設定によるブロックを確認してください。',
-          ),
-        );
+        throw StateError(disconnectedAfterRestartMessage);
       }
       if (!mounted) return;
       _lastConfiguredSize = null;

@@ -346,7 +346,7 @@ class _CronsBodyState extends State<_CronsBody> {
         en: '${s}s ago',
         fr: 'il y a ${s}s',
         de: 'vor ${s}s',
-        ja: '${s}秒前',
+        ja: '$s秒前',
       );
     }
     final m = s ~/ 60;
@@ -355,9 +355,9 @@ class _CronsBodyState extends State<_CronsBody> {
         zh: '${m}m 前',
         zhHant: '${m}m 前',
         en: '${m}m ago',
-        fr: 'il y a ${m} min',
-        de: 'vor ${m} Min.',
-        ja: '${m}分前',
+        fr: 'il y a $m min',
+        de: 'vor $m Min.',
+        ja: '$m分前',
       );
     }
     final h = m ~/ 60;
@@ -365,9 +365,9 @@ class _CronsBodyState extends State<_CronsBody> {
       zh: '${h}h 前',
       zhHant: '${h}h 前',
       en: '${h}h ago',
-      fr: 'il y a ${h} h',
-      de: 'vor ${h} Std.',
-      ja: '${h}時間前',
+      fr: 'il y a $h h',
+      de: 'vor $h Std.',
+      ja: '$h時間前',
     );
   }
 
