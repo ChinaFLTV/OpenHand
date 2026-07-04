@@ -249,7 +249,7 @@ Map<String, String> keyValueMapFromValue(
     }
     return map;
   }
-  if (value is! String || value.trim().isEmpty) {
+  if (value is! String || nullIfBlank(value) == null) {
     return const <String, String>{};
   }
 
@@ -269,7 +269,7 @@ List<int> invalidKeyValueLineNumbersFromText(
   Pattern lineSeparator = '\n',
   String keyValueSeparator = '=',
 }) {
-  if (value.trim().isEmpty) return const <int>[];
+  if (nullIfBlank(value) == null) return const <int>[];
   final separator = _effectiveKeyValueSeparator(keyValueSeparator);
   final invalidLines = <int>[];
   final lines = value.split(lineSeparator);
@@ -307,8 +307,9 @@ DateTime? dateTimeFromValue(
       requirePositive: requirePositiveTimestamp,
     );
   }
-  if (value is String && value.trim().isNotEmpty) {
-    return DateTime.tryParse(value.trim());
+  if (value is String) {
+    final trimmed = nullIfBlank(value);
+    if (trimmed != null) return DateTime.tryParse(trimmed);
   }
   return null;
 }
