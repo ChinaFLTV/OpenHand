@@ -50,7 +50,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.14';
+  static const String promptVersion = '1.2.15';
 
   final Future<String> Function(String path) _loader;
 
@@ -58,10 +58,14 @@ class AgentPromptRenderer {
     required AgentProfile agent,
     AgentTask? task,
     Map<String, Object?> taskContext = const <String, Object?>{},
+    Set<String>? callableAgentToolNames,
   }) async {
     final template = await _loadTemplate();
     final profile = _profileJson(agent);
-    final capabilities = _capabilitiesJson(agent);
+    final capabilities = _capabilitiesJson(
+      agent,
+      callableAgentToolNames: callableAgentToolNames,
+    );
     final runtimePolicy = _runtimePolicyJson(agent);
     final operationalState = _operationalStateJson(agent);
     final effectiveTaskContext = _promptContextJson(taskContext);
@@ -76,7 +80,10 @@ class AgentPromptRenderer {
         .replaceAll('{{TASK_CONTEXT_JSON}}', _json(effectiveTaskContext))
         .replaceAll(
           '{{AGENT_COORDINATION_GUIDANCE}}',
-          _agentCoordinationGuidance(agent),
+          _agentCoordinationGuidance(
+            agent,
+            callableAgentToolNames: callableAgentToolNames,
+          ),
         );
     return AgentPromptSnapshot(
       assetPath: defaultAssetPath,
@@ -145,11 +152,70 @@ Map<String, Object?> _profileJson(AgentProfile agent) {
   };
 }
 
-Map<String, Object?> _capabilitiesJson(AgentProfile agent) {
+Map<String, Object?> _capabilitiesJson(
+  AgentProfile agent, {
+  Set<String>? callableAgentToolNames,
+}) {
   return <String, Object?>{
-    ...agentCapabilityBindingsJson(agent),
+    ..._agentCapabilityBindingsJson(
+      agent,
+      callableAgentToolNames: callableAgentToolNames,
+    ),
     'cron_ids': agent.cronIds,
     'hook_ids': agent.hookIds,
+  };
+}
+
+Map<String, Object?> _agentCapabilityBindingsJson(
+  AgentProfile agent, {
+  Set<String>? callableAgentToolNames,
+}) {
+  if (callableAgentToolNames == null) {
+    return agentCapabilityBindingsJson(agent);
+  }
+  final configured = normalizeAgentBuiltinToolNames(agent.builtinToolNames);
+  final sourceBuiltinToolNames =
+      configured.isEmpty && !agentHasNoCoordinationToolsBinding(configured)
+      ? _agentCoordinationToolDisplayNames.map((tool) => tool.$2)
+      : agentVisibleBuiltinToolNames(configured);
+  final builtinToolNames = sourceBuiltinToolNames
+      .where((name) {
+        if (!isAgentCoordinationBuiltinToolName(name)) return true;
+        return callableAgentToolNames.contains(_normalizeAgentToolName(name));
+      })
+      .toList(growable: false);
+  final agentBuiltinToolNames = builtinToolNames
+      .where(isAgentCoordinationBuiltinToolName)
+      .toList(growable: false);
+  final agentToolGroups = <String, int>{};
+  for (final toolName in agentBuiltinToolNames) {
+    final group = _agentToolGroupName(toolName);
+    if (group == null) continue;
+    agentToolGroups[group] = (agentToolGroups[group] ?? 0) + 1;
+  }
+  final automationCount = agent.cronIds.length + agent.hookIds.length;
+  return <String, Object?>{
+    'skills': agent.skillNames,
+    'knowledge_sources': agent.knowledgeSourceIds,
+    'memories': agent.memoryIds,
+    'mcp_servers': agent.mcpServerNames,
+    'builtin_tools': builtinToolNames,
+    'summary': <String, Object?>{
+      'skills': agent.skillNames.length,
+      'knowledge_sources': agent.knowledgeSourceIds.length,
+      'memories': agent.memoryIds.length,
+      'mcp_servers': agent.mcpServerNames.length,
+      'builtin_tools': builtinToolNames.length,
+      'agent_coordination_tools': agentBuiltinToolNames.length,
+      'agent_coordination_tool_groups': agentToolGroups,
+      'automations': automationCount,
+      'has_external_actions':
+          agent.mcpServerNames.isNotEmpty || builtinToolNames.isNotEmpty,
+      'has_self_learning_inputs':
+          agent.skillNames.isNotEmpty ||
+          agent.knowledgeSourceIds.isNotEmpty ||
+          agent.memoryIds.isNotEmpty,
+    },
   };
 }
 
@@ -553,16 +619,51 @@ const Set<String> _agentPromptSensitiveMetadataKeys = <String>{
 String _json(Object? value) =>
     const JsonEncoder.withIndent('  ').convert(value);
 
-String _agentCoordinationGuidance(AgentProfile agent) {
+const List<(String normalized, String display)>
+_agentCoordinationToolDisplayNames = <(String, String)>[
+  ('agentlist', 'AgentList'),
+  ('agentdetail', 'AgentDetail'),
+  ('agentactivitylog', 'AgentActivityLog'),
+  ('agentauditreport', 'AgentAuditReport'),
+  ('agentauditrecord', 'AgentAuditRecord'),
+  ('agentapprovalrequest', 'AgentApprovalRequest'),
+  ('agentkpiupsert', 'AgentKpiUpsert'),
+  ('agentresourceupdate', 'AgentResourceUpdate'),
+  ('agentclusterconfigure', 'AgentClusterConfigure'),
+  ('agentclusterstatus', 'AgentClusterStatus'),
+  ('agenttasklist', 'AgentTaskList'),
+  ('agenttaskpublish', 'AgentTaskPublish'),
+  ('agenttasktrack', 'AgentTaskTrack'),
+  ('agenttaskprogress', 'AgentTaskProgress'),
+  ('agenttaskcancel', 'AgentTaskCancel'),
+  ('agenttaskpause', 'AgentTaskPause'),
+  ('agenttaskterminate', 'AgentTaskTerminate'),
+  ('agenttaskresume', 'AgentTaskResume'),
+  ('agenttaskcomplete', 'AgentTaskComplete'),
+  ('agenttaskresult', 'AgentTaskResult'),
+];
+
+String _agentCoordinationGuidance(
+  AgentProfile agent, {
+  Set<String>? callableAgentToolNames,
+}) {
   final configured = normalizeAgentBuiltinToolNames(agent.builtinToolNames);
   final defaultAll = configured.isEmpty;
   final hasExplicitNone = agentHasNoCoordinationToolsBinding(configured);
   final visibleTools = agentVisibleBuiltinToolNames(configured);
-  final agentTools = visibleTools
-      .where(isAgentCoordinationBuiltinToolName)
-      .map(_normalizeAgentToolName)
-      .toSet();
-  if (hasExplicitNone || (!defaultAll && agentTools.isEmpty)) {
+  final agentTools =
+      defaultAll
+            ? _agentCoordinationToolDisplayNames.map((tool) => tool.$1).toSet()
+            : visibleTools
+                  .where(isAgentCoordinationBuiltinToolName)
+                  .map(_normalizeAgentToolName)
+                  .toSet()
+        ..removeWhere(
+          (name) =>
+              callableAgentToolNames != null &&
+              !callableAgentToolNames.contains(name),
+        );
+  if (hasExplicitNone || agentTools.isEmpty) {
     return '''
 <agent_coordination_tools>
 - No Agent coordination tools are bound. Do not call `Agent*` tools.
@@ -573,7 +674,7 @@ String _agentCoordinationGuidance(AgentProfile agent) {
   final lines = <String>[];
   final discoveryTools = _availableAgentToolNames(
     agentTools,
-    defaultAll: defaultAll,
+    defaultAll: false,
     tools: const <(String, String)>[
       ('agentlist', 'AgentList'),
       ('agentdetail', 'AgentDetail'),
@@ -586,7 +687,7 @@ String _agentCoordinationGuidance(AgentProfile agent) {
   }
   final publishTools = _availableAgentToolNames(
     agentTools,
-    defaultAll: defaultAll,
+    defaultAll: false,
     tools: const <(String, String)>[('agenttaskpublish', 'AgentTaskPublish')],
   );
   if (publishTools.isNotEmpty) {
@@ -596,7 +697,7 @@ String _agentCoordinationGuidance(AgentProfile agent) {
   }
   final followTools = _availableAgentToolNames(
     agentTools,
-    defaultAll: defaultAll,
+    defaultAll: false,
     tools: const <(String, String)>[
       ('agenttasktrack', 'AgentTaskTrack'),
       ('agenttaskprogress', 'AgentTaskProgress'),
@@ -610,7 +711,7 @@ String _agentCoordinationGuidance(AgentProfile agent) {
   }
   final lifecycleTools = _availableAgentToolNames(
     agentTools,
-    defaultAll: defaultAll,
+    defaultAll: false,
     tools: const <(String, String)>[
       ('agenttaskpause', 'AgentTaskPause'),
       ('agenttaskresume', 'AgentTaskResume'),
@@ -624,16 +725,15 @@ String _agentCoordinationGuidance(AgentProfile agent) {
       '- Change lifecycle with ${_inlineToolList(lifecycleTools)} only when intentional and allowed.',
     );
   }
-  if (defaultAll ||
-      agentTools.any(
-        (name) =>
-            name.startsWith('agentactivity') ||
-            name.startsWith('agentaudit') ||
-            name.startsWith('agentapproval') ||
-            name.startsWith('agentkpi') ||
-            name.startsWith('agentresource') ||
-            name.startsWith('agentcluster'),
-      )) {
+  if (agentTools.any(
+    (name) =>
+        name.startsWith('agentactivity') ||
+        name.startsWith('agentaudit') ||
+        name.startsWith('agentapproval') ||
+        name.startsWith('agentkpi') ||
+        name.startsWith('agentresource') ||
+        name.startsWith('agentcluster'),
+  )) {
     lines.add(
       '- Use activity, audit, approval, KPI, resource, and cluster tools only for their named domains.',
     );
@@ -649,6 +749,26 @@ ${lines.join('\n')}
 
 String _normalizeAgentToolName(String value) {
   return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+}
+
+String? _agentToolGroupName(String name) {
+  if (!isAgentCoordinationBuiltinToolName(name)) return null;
+  final normalized = _normalizeAgentToolName(name);
+  if (normalized == 'agentlist' || normalized == 'agentdetail') {
+    return 'discovery';
+  }
+  if (normalized.startsWith('agenttask')) return 'task_lifecycle';
+  if (normalized.startsWith('agentactivity') ||
+      normalized.startsWith('agentaudit') ||
+      normalized.startsWith('agentapproval')) {
+    return 'governance';
+  }
+  if (normalized.startsWith('agentkpi') ||
+      normalized.startsWith('agentresource')) {
+    return 'operations';
+  }
+  if (normalized.startsWith('agentcluster')) return 'cluster';
+  return null;
 }
 
 List<String> _availableAgentToolNames(
