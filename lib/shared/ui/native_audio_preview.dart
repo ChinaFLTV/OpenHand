@@ -1039,9 +1039,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   Widget build(BuildContext context) {
     final meta = widget.meta;
     final colorScheme = Theme.of(context).colorScheme;
-    final motionDur = openHandTickerMotionEnabled(context)
-        ? widget.motionDuration
-        : Duration.zero;
+    final motionDur = openHandMotionDuration(context, widget.motionDuration);
     final baseColor = colorScheme.surface;
     final quietTint = Color.alphaBlend(
       colorScheme.primary.withValues(alpha: 0.045),
@@ -1520,17 +1518,17 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
   @override
   void didUpdateWidget(covariant _NativeAudioAlbumCover oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _syncGlowController();
+    _syncGlowController(openHandTickerMotionEnabled(context));
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _syncGlowController();
+    _syncGlowController(openHandTickerMotionEnabled(context));
   }
 
-  void _syncGlowController() {
-    if (widget.isPlaying && openHandTickerMotionEnabled(context)) {
+  void _syncGlowController(bool motionEnabled) {
+    if (widget.isPlaying && motionEnabled) {
       if (_glowController.isAnimating) return;
       _glowController.repeat(reverse: true);
       return;
@@ -1562,6 +1560,7 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
       colorScheme.surfaceContainerHigh,
     );
     final motionEnabled = openHandTickerMotionEnabled(context);
+    _syncGlowController(motionEnabled);
     return AnimatedBuilder(
       animation: _glowController,
       builder: (context, child) {
@@ -1708,18 +1707,17 @@ class _NativeAudioAnimatedBackdropState
   @override
   void didUpdateWidget(covariant _NativeAudioAnimatedBackdrop oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _syncController();
+    _syncController(openHandTickerMotionEnabled(context));
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _syncController();
+    _syncController(openHandTickerMotionEnabled(context));
   }
 
-  void _syncController() {
-    if (widget.duration > Duration.zero &&
-        openHandTickerMotionEnabled(context)) {
+  void _syncController(bool motionEnabled) {
+    if (widget.duration > Duration.zero && motionEnabled) {
       if (_controller.isAnimating) return;
       _controller.repeat(reverse: true);
       return;
@@ -1738,12 +1736,13 @@ class _NativeAudioAnimatedBackdropState
     final colorScheme = Theme.of(context).colorScheme;
     final accentAlpha = widget.isDark ? 0.20 : 0.10;
     final highlightAlpha = widget.isDark ? 0.11 : 0.07;
-    final motionEnabled =
-        widget.duration > Duration.zero && openHandTickerMotionEnabled(context);
+    final motionEnabled = openHandTickerMotionEnabled(context);
+    _syncController(motionEnabled);
+    final animateBackdrop = widget.duration > Duration.zero && motionEnabled;
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        final t = motionEnabled
+        final t = animateBackdrop
             ? widget.curve.transform(_controller.value)
             : 0.0;
         return Transform.scale(
@@ -1805,9 +1804,10 @@ class _NativeAudioIconButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: AnimatedScale(
-        duration: openHandTickerMotionEnabled(context)
-            ? const Duration(milliseconds: 140)
-            : Duration.zero,
+        duration: openHandMotionDuration(
+          context,
+          const Duration(milliseconds: 140),
+        ),
         curve: kNativeAudioMotionCurve,
         scale: active ? 1.04 : 1.0,
         child: SizedBox.square(
@@ -1858,9 +1858,10 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         onTap: () => _showMenu(ctx, l10n, cs),
         child: AnimatedContainer(
-          duration: openHandTickerMotionEnabled(ctx)
-              ? const Duration(milliseconds: 160)
-              : Duration.zero,
+          duration: openHandMotionDuration(
+            ctx,
+            const Duration(milliseconds: 160),
+          ),
           curve: kNativeAudioMotionCurve,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
