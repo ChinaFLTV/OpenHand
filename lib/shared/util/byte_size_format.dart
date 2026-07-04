@@ -4,6 +4,9 @@ const int kBytesPerKiB = 1024;
 const int kBytesPerMiB = kBytesPerKiB * 1024;
 const int kBytesPerGiB = kBytesPerMiB * 1024;
 
+final RegExp _trailingFractionZerosPattern = RegExp(r'0+$');
+final RegExp _trailingDecimalPointPattern = RegExp(r'\.$');
+
 String formatByteSize(int bytes) {
   if (bytes <= 0) return '0 B';
   if (bytes < kBytesPerKiB) return '$bytes B';
@@ -53,7 +56,7 @@ int megabytesTextToBytes(
 String _trimFractionZeros(String value) {
   if (!value.contains('.')) return value;
   final trimmed = value
-      .replaceFirst(RegExp(r'0+$'), '')
-      .replaceFirst(RegExp(r'\.$'), '');
+      .replaceFirst(_trailingFractionZerosPattern, '')
+      .replaceFirst(_trailingDecimalPointPattern, '');
   return trimmed.isEmpty ? '0' : trimmed;
 }

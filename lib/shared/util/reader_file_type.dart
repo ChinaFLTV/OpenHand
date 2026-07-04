@@ -3,6 +3,9 @@ import '../../l10n/app_localizations.dart';
 class ReaderFileType {
   const ReaderFileType._();
 
+  static final RegExp _leadingDotPattern = RegExp(r'^\.');
+  static final RegExp _separatorPattern = RegExp(r'[\s_-]+');
+
   static const markdown = 'markdown';
   static const text = 'text';
   static const html = 'html';
@@ -73,8 +76,8 @@ class ReaderFileType {
     final normalized = value
         .trim()
         .toLowerCase()
-        .replaceFirst(RegExp(r'^\.'), '')
-        .replaceAll(RegExp(r'[\s_-]+'), '');
+        .replaceFirst(_leadingDotPattern, '')
+        .replaceAll(_separatorPattern, '');
     return switch (normalized) {
       'md' || 'markdown' => markdown,
       'txt' || 'text' || 'log' => text,
