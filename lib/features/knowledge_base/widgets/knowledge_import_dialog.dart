@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
@@ -762,7 +763,10 @@ class _KnowledgeNoteEditor extends StatelessWidget {
           const SizedBox(height: 10),
           Expanded(
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
+              duration: openHandMotionDuration(
+                context,
+                const Duration(milliseconds: 180),
+              ),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,
               child: preview

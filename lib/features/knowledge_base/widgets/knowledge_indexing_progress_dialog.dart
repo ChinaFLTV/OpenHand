@@ -115,7 +115,10 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
               final progress = controller.progress;
               final cancelling = controller.cancelToken.isCancelled;
               return AnimatedSize(
-                duration: const Duration(milliseconds: 220),
+                duration: openHandMotionDuration(
+                  context,
+                  const Duration(milliseconds: 220),
+                ),
                 curve: Curves.easeOutCubic,
                 alignment: Alignment.topCenter,
                 child: Column(
