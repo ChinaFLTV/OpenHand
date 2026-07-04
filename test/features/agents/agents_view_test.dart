@@ -483,6 +483,17 @@ void main() {
               status: AgentTaskStatus.running,
               extra: <String, Object?>{'assigned_worker_id': 'worker-1'},
             ),
+            AgentTask(
+              id: 'task-2',
+              title: 'Publish weekly report',
+              status: AgentTaskStatus.completed,
+              extra: <String, Object?>{'assigned_worker_id': 'worker-1'},
+            ),
+            AgentTask(
+              id: 'task-3',
+              title: 'Wait for approval',
+              status: AgentTaskStatus.waitingApproval,
+            ),
           ],
           resourceUsage: AgentResourceUsage(
             cpuPercent: 0.4,
@@ -519,6 +530,10 @@ void main() {
       expect(find.text('能力使用画像'), findsOneWidget);
       expect(find.text('Worker 执行画像'), findsOneWidget);
       expect(find.text('负载与资源压力'), findsOneWidget);
+      expect(find.text('任务完成画像'), findsOneWidget);
+      expect(find.text('已完成'), findsAtLeastNWidgets(1));
+      expect(find.text('执行中'), findsAtLeastNWidgets(1));
+      expect(find.text('待处理'), findsAtLeastNWidgets(1));
       expect(find.text('SkillRunner'), findsAtLeastNWidgets(1));
       expect(find.text('Worker 1'), findsOneWidget);
       expect(find.textContaining('100 Token'), findsAtLeastNWidgets(1));

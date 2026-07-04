@@ -2945,6 +2945,27 @@ class _AgentAuditReportBody extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         _AgentAuditSection(
+          icon: Icons.playlist_add_check_rounded,
+          title: openHandLocalizedText(
+            context,
+            zh: '任务完成画像',
+            en: 'Task completion',
+            fr: 'Avancement des tâches',
+            de: 'Aufgabenabschluss',
+            ja: 'タスク完了状況',
+          ),
+          emptyText: l10n.agentsNoTasksTitle,
+          children: [
+            for (final item in report.tasks)
+              _AgentAuditTaskStatusRow(
+                label: _agentAuditTaskBucketLabel(context, item.bucket),
+                count: item.count,
+                ratio: item.ratio,
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _AgentAuditSection(
           icon: Icons.extension_rounded,
           title: openHandLocalizedText(
             context,
@@ -3182,6 +3203,62 @@ class _AgentAuditInsightRow extends StatelessWidget {
             style: theme.textTheme.titleSmall?.copyWith(
               color: cs.primary,
               fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentAuditTaskStatusRow extends StatelessWidget {
+  const _AgentAuditTaskStatusRow({
+    required this.label,
+    required this.count,
+    required this.ratio,
+  });
+
+  final String label;
+  final int count;
+  final double ratio;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final percent = (ratio.clamp(0, 1) * 100).round();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                '$count · $percent%',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: ratio.clamp(0, 1).toDouble(),
+              minHeight: 7,
+              backgroundColor: cs.surfaceContainerHighest,
+              color: cs.primary,
             ),
           ),
         ],
@@ -6164,6 +6241,7 @@ class _AgentAuditReportSummary {
     required this.requests,
     required this.tokens,
     required this.busyWorkers,
+    required this.tasks,
     required this.capabilities,
     required this.workers,
     required this.cpuPressure,
@@ -6194,6 +6272,7 @@ class _AgentAuditReportSummary {
       requests: requests,
       tokens: tokens,
       busyWorkers: _agentWorkerStatusCount(agent, AgentWorkerStatus.busy),
+      tasks: _agentAuditTaskStats(agent.tasks),
       capabilities: capabilities,
       workers: workers,
       cpuPressure: resource.cpuPercent.clamp(0, 1).toDouble(),
@@ -6206,11 +6285,24 @@ class _AgentAuditReportSummary {
   final int requests;
   final int tokens;
   final int busyWorkers;
+  final List<_AgentAuditTaskStat> tasks;
   final List<_AgentAuditCapabilityStat> capabilities;
   final List<_AgentAuditWorkerStat> workers;
   final double cpuPressure;
   final double tokenPressure;
   final double persistedPressure;
+}
+
+class _AgentAuditTaskStat {
+  const _AgentAuditTaskStat({
+    required this.bucket,
+    required this.count,
+    required this.ratio,
+  });
+
+  final String bucket;
+  final int count;
+  final double ratio;
 }
 
 class _AgentAuditCapabilityStat {
@@ -6249,6 +6341,84 @@ class _AgentAuditWorkerStat {
   final int requests;
   final int tokens;
   final double busyScore;
+}
+
+List<_AgentAuditTaskStat> _agentAuditTaskStats(List<AgentTask> tasks) {
+  if (tasks.isEmpty) return const <_AgentAuditTaskStat>[];
+  final buckets = <String, int>{
+    'completed': 0,
+    'running': 0,
+    'queued': 0,
+    'blocked': 0,
+    'terminal': 0,
+  };
+  for (final task in tasks) {
+    final bucket = switch (task.status) {
+      AgentTaskStatus.completed => 'completed',
+      AgentTaskStatus.running => 'running',
+      AgentTaskStatus.backlog || AgentTaskStatus.ready => 'queued',
+      AgentTaskStatus.waitingApproval || AgentTaskStatus.paused => 'blocked',
+      AgentTaskStatus.failed || AgentTaskStatus.canceled => 'terminal',
+    };
+    buckets[bucket] = (buckets[bucket] ?? 0) + 1;
+  }
+  final total = tasks.length;
+  return buckets.entries
+      .where((entry) => entry.value > 0)
+      .map(
+        (entry) => _AgentAuditTaskStat(
+          bucket: entry.key,
+          count: entry.value,
+          ratio: entry.value / total,
+        ),
+      )
+      .toList(growable: false);
+}
+
+String _agentAuditTaskBucketLabel(BuildContext context, String bucket) {
+  return switch (bucket) {
+    'completed' => openHandLocalizedText(
+      context,
+      zh: '已完成',
+      en: 'Completed',
+      fr: 'Terminées',
+      de: 'Abgeschlossen',
+      ja: '完了',
+    ),
+    'running' => openHandLocalizedText(
+      context,
+      zh: '执行中',
+      en: 'Running',
+      fr: 'En cours',
+      de: 'Läuft',
+      ja: '実行中',
+    ),
+    'queued' => openHandLocalizedText(
+      context,
+      zh: '待执行',
+      en: 'Queued',
+      fr: 'En attente',
+      de: 'In Warteschlange',
+      ja: '待機中',
+    ),
+    'blocked' => openHandLocalizedText(
+      context,
+      zh: '待处理',
+      en: 'Blocked',
+      fr: 'Bloquées',
+      de: 'Blockiert',
+      ja: '保留中',
+    ),
+    'terminal' => openHandLocalizedText(
+      context,
+      zh: '异常终止',
+      en: 'Terminal',
+      fr: 'Terminales',
+      de: 'Beendet',
+      ja: '終了',
+    ),
+    _ => bucket,
+  };
 }
 
 String _agentLifecycleStateLabel(
