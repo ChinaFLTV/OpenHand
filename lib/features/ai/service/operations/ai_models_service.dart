@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../runtime/ai_endpoint_router.dart';
@@ -37,6 +38,7 @@ class AiModelsService {
   static const int _maxGeminiPages = 20;
   static const int _defaultGeminiPageSize = 100;
   static const int _maxGeminiPageSize = 1000;
+  static const String _geminiModelNamePrefix = 'models/';
 
   Future<AiModelsListResult> listModels({
     required AiModelConfig model,
@@ -136,8 +138,8 @@ class AiModelsService {
       final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
       rawPages.add(payload);
       records.addAll(_parseModelRecords(payload));
-      final next = '${payload['nextPageToken'] ?? ''}'.trim();
-      if (next.isEmpty || next == pageToken) break;
+      final next = optionalStringFromValue(payload['nextPageToken']);
+      if (next == null || next == pageToken) break;
       pageToken = next;
     }
     final deduped = _dedupeRecords(records);
@@ -161,14 +163,22 @@ class AiModelsService {
     for (final item in rawList) {
       if (item is! Map) continue;
       final recordPayload = AiOperationHttp.stringKeyedMap(item);
-      var id = '${recordPayload['id'] ?? recordPayload['name'] ?? ''}'.trim();
-      if (id.startsWith('models/')) {
-        id = id.substring('models/'.length);
-      }
-      if (id.isEmpty) continue;
+      final id = _normalizeModelId(
+        optionalStringFromValue(recordPayload['id']) ??
+            optionalStringFromValue(recordPayload['name']),
+      );
+      if (id == null) continue;
       records.add(AiModelRecord(id: id, payload: recordPayload));
     }
     return _dedupeRecords(records);
+  }
+
+  String? _normalizeModelId(String? value) {
+    if (value == null) return null;
+    final id = value.startsWith(_geminiModelNamePrefix)
+        ? value.substring(_geminiModelNamePrefix.length)
+        : value;
+    return nullIfBlank(id);
   }
 
   List<AiModelRecord> _dedupeRecords(List<AiModelRecord> records) {
