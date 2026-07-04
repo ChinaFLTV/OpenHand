@@ -135,10 +135,12 @@ String unifiedDiffLineSummary(
   String? beforeSha,
   String? afterSha,
 }) {
-  if (before.length > maxBytes || after.length > maxBytes) {
+  final beforeBytes = _utf8ByteLength(before);
+  final afterBytes = _utf8ByteLength(after);
+  if (beforeBytes > maxBytes || afterBytes > maxBytes) {
     return '<file too large for inline diff; '
-        'before=${before.length}B${_shortShaTag(beforeSha)}, '
-        'after=${after.length}B${_shortShaTag(afterSha)}>';
+        'before=${beforeBytes}B${_shortShaTag(beforeSha)}, '
+        'after=${afterBytes}B${_shortShaTag(afterSha)}>';
   }
 
   final beforeLines = _splitDiffLines(before);
@@ -147,7 +149,8 @@ String unifiedDiffLineSummary(
       ? beforeLines.length
       : afterLines.length;
   final compact =
-      before.length > miniDiffMaxBytes || after.length > miniDiffMaxBytes;
+      miniDiffMaxBytes > 0 &&
+      (beforeBytes > miniDiffMaxBytes || afterBytes > miniDiffMaxBytes);
   final out = StringBuffer();
   var emitted = 0;
 
@@ -181,6 +184,8 @@ String _shortShaTag(String? sha) {
   if (sha == null || sha.isEmpty) return '';
   return ' sha=${sha.length >= 12 ? sha.substring(0, 12) : sha}';
 }
+
+int _utf8ByteLength(String value) => utf8.encode(value).length;
 
 List<({String type, String text})> _myersDiffEdits(
   List<String> before,
