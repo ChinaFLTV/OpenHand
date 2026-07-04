@@ -3062,7 +3062,7 @@ fi
                 alignment: Alignment.topLeft,
                 child: result == null
                     ? _formattedTerminalText(output, cs)
-                    : _buildAdbCommandResultView(result, cs, theme, isZh),
+                    : _buildAdbCommandResultView(result, cs, theme),
               ),
             ),
           ),
@@ -4237,7 +4237,6 @@ fi
                       _lastDeviceActionResult!,
                       cs,
                       theme,
-                      isZh,
                     ),
             ),
           ],
@@ -5283,9 +5282,15 @@ fi
             leading: [
               if (_toolchainRows.isNotEmpty)
                 _StatusPill(
-                  label: isZh
-                      ? '必需缺失 $requiredMissing · 可选缺失 $optionalMissing'
-                      : 'required missing $requiredMissing · optional missing $optionalMissing',
+                  label: _arText(
+                    context,
+                    zh: '必需缺失 $requiredMissing · 可选缺失 $optionalMissing',
+                    zhHant: '必要缺失 $requiredMissing · 可選缺失 $optionalMissing',
+                    en: 'required missing $requiredMissing · optional missing $optionalMissing',
+                    fr: 'requis manquants $requiredMissing · optionnels manquants $optionalMissing',
+                    de: 'erforderlich fehlt $requiredMissing · optional fehlt $optionalMissing',
+                    ja: '必須不足 $requiredMissing · 任意不足 $optionalMissing',
+                  ),
                   color: requiredMissing == 0 ? cs.primary : cs.error,
                 ),
             ],
@@ -5299,7 +5304,15 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.refresh_rounded),
-                label: isZh ? '刷新' : 'Refresh',
+                label: _arText(
+                  context,
+                  zh: '刷新',
+                  zhHant: '重新整理',
+                  en: 'Refresh',
+                  fr: 'Actualiser',
+                  de: 'Aktualisieren',
+                  ja: '更新',
+                ),
               ),
             ],
           ),
@@ -5321,7 +5334,6 @@ fi
                 _lastToolchainCommandResult!,
                 cs,
                 theme,
-                isZh,
               ),
             ),
           ),
@@ -5366,14 +5378,30 @@ fi
                             ),
                             if (row.probe.required)
                               _StatusPill(
-                                label: isZh ? '必需' : 'required',
+                                label: _arText(
+                                  context,
+                                  zh: '必需',
+                                  zhHant: '必要',
+                                  en: 'required',
+                                  fr: 'requis',
+                                  de: 'erforderlich',
+                                  ja: '必須',
+                                ),
                                 color: cs.error,
                                 compact: true,
                                 subtle: true,
                               ),
                             if (plugin != null)
                               _StatusPill(
-                                label: isZh ? '插件托管' : 'plugin-managed',
+                                label: _arText(
+                                  context,
+                                  zh: '插件托管',
+                                  zhHant: '外掛托管',
+                                  en: 'plugin-managed',
+                                  fr: 'géré par plugin',
+                                  de: 'pluginverwaltet',
+                                  ja: 'プラグイン管理',
+                                ),
                                 color: cs.secondary,
                                 compact: true,
                                 subtle: true,
@@ -5400,7 +5428,7 @@ fi
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '${isZh ? "耗时" : "Duration"}: ${row.durationMs}ms',
+                                '${_arText(context, zh: "耗时", zhHant: "耗時", en: "Duration", fr: "Durée", de: "Dauer", ja: "所要時間")}: ${row.durationMs}ms',
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: cs.onSurfaceVariant,
                                 ),
@@ -5413,7 +5441,15 @@ fi
                           children: [
                             _DashboardIconActionButton(
                               icon: const Icon(Icons.copy_rounded),
-                              tooltip: isZh ? '复制诊断' : 'Copy diagnostic',
+                              tooltip: _arText(
+                                context,
+                                zh: '复制诊断',
+                                zhHant: '複製診斷',
+                                en: 'Copy diagnostic',
+                                fr: 'Copier le diagnostic',
+                                de: 'Diagnose kopieren',
+                                ja: '診断をコピー',
+                              ),
                               onPressed: () => _copyText(
                                 '${row.probe.label}\n${row.displayValue}\n${_androidToolchainInstallHint(context, row.probe)}',
                               ),
@@ -5422,17 +5458,20 @@ fi
                             _DashboardPopupIconActionButton<
                               _ToolchainCommandAction
                             >(
-                              tooltip: isZh
-                                  ? '安装 / 更新 / 卸载 / 信息'
-                                  : 'Install / update / uninstall / info',
+                              tooltip: _arText(
+                                context,
+                                zh: '安装 / 更新 / 卸载 / 信息',
+                                zhHant: '安裝 / 更新 / 解除安裝 / 資訊',
+                                en: 'Install / update / uninstall / info',
+                                fr: 'Installer / mettre à jour / désinstaller / infos',
+                                de: 'Installieren / aktualisieren / deinstallieren / Info',
+                                ja: 'インストール / 更新 / アンインストール / 情報',
+                              ),
                               icon: const Icon(Icons.terminal_rounded),
                               itemBuilder: (context) =>
-                                  _toolchainCommandMenuItems(row.probe, isZh),
-                              onSelected: (action) => _handleToolchainAction(
-                                row.probe,
-                                action,
-                                isZh,
-                              ),
+                                  _toolchainCommandMenuItems(row.probe),
+                              onSelected: (action) =>
+                                  _handleToolchainAction(row.probe, action),
                             ),
                           ],
                         ),
@@ -5471,9 +5510,16 @@ fi
           _dashboardSectionHeader(
             leading: [
               _StatusPill(
-                label: isZh
-                    ? '$configuredCapabilityCount/${capabilities.length} 个能力 · $totalAndroidTools 个工具'
-                    : '$configuredCapabilityCount/${capabilities.length} capabilities · $totalAndroidTools tools',
+                label: _arText(
+                  context,
+                  zh: '$configuredCapabilityCount/${capabilities.length} 个能力 · $totalAndroidTools 个工具',
+                  zhHant:
+                      '$configuredCapabilityCount/${capabilities.length} 個能力 · $totalAndroidTools 個工具',
+                  en: '$configuredCapabilityCount/${capabilities.length} capabilities · $totalAndroidTools tools',
+                  fr: '$configuredCapabilityCount/${capabilities.length} capacités · $totalAndroidTools outils',
+                  de: '$configuredCapabilityCount/${capabilities.length} Fähigkeiten · $totalAndroidTools Tools',
+                  ja: '$configuredCapabilityCount/${capabilities.length} 件の機能 · $totalAndroidTools 件のツール',
+                ),
                 color: cs.primary,
               ),
             ],
@@ -5489,7 +5535,15 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.sync_rounded),
-                label: isZh ? '刷新 MCP' : 'Refresh MCP',
+                label: _arText(
+                  context,
+                  zh: '刷新 MCP',
+                  zhHant: '重新整理 MCP',
+                  en: 'Refresh MCP',
+                  fr: 'Actualiser MCP',
+                  de: 'MCP aktualisieren',
+                  ja: 'MCP を更新',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: _writingMcpArtifacts
@@ -5502,7 +5556,15 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.article_rounded),
-                label: isZh ? '生成联动工件' : 'Generate artifacts',
+                label: _arText(
+                  context,
+                  zh: '生成联动工件',
+                  zhHant: '產生聯動工件',
+                  en: 'Generate artifacts',
+                  fr: 'Générer les artefacts',
+                  de: 'Artefakte erstellen',
+                  ja: '成果物を生成',
+                ),
               ),
             ],
           ),
@@ -5514,7 +5576,15 @@ fi
           _sectionTitle(
             theme,
             cs,
-            isZh ? '推荐 MCP 能力' : 'Recommended MCP capabilities',
+            _arText(
+              context,
+              zh: '推荐 MCP 能力',
+              zhHant: '推薦 MCP 能力',
+              en: 'Recommended MCP capabilities',
+              fr: 'Capacités MCP recommandées',
+              de: 'Empfohlene MCP-Fähigkeiten',
+              ja: '推奨 MCP 機能',
+            ),
           ),
           const SizedBox(height: 8),
           for (final capability in capabilities) ...[
@@ -5523,7 +5593,6 @@ fi
               mcpController,
               cs,
               theme,
-              isZh,
             ),
             const SizedBox(height: 8),
           ],
@@ -5531,7 +5600,15 @@ fi
           _sectionTitle(
             theme,
             cs,
-            isZh ? 'Android 相关 MCP' : 'Android-related MCP',
+            _arText(
+              context,
+              zh: 'Android 相关 MCP',
+              zhHant: 'Android 相關 MCP',
+              en: 'Android-related MCP',
+              fr: 'MCP liés à Android',
+              de: 'Android-bezogene MCP',
+              ja: 'Android 関連 MCP',
+            ),
           ),
           const SizedBox(height: 8),
           if (mcpController.errorMessage?.trim().isNotEmpty ?? false) ...[
@@ -5540,7 +5617,7 @@ fi
               theme: theme,
               icon: Icons.error_outline_rounded,
               text:
-                  '${isZh ? "MCP 加载异常" : "MCP load error"}: ${mcpController.errorMessage}',
+                  '${_arText(context, zh: "MCP 加载异常", zhHant: "MCP 載入異常", en: "MCP load error", fr: "Erreur de chargement MCP", de: "MCP-Ladefehler", ja: "MCP 読み込みエラー")}: ${mcpController.errorMessage}',
             ),
             const SizedBox(height: 8),
           ],
@@ -5549,9 +5626,16 @@ fi
               cs: cs,
               theme: theme,
               icon: Icons.search_off_rounded,
-              text: isZh
-                  ? '当前未发现名称、命令或工具描述中包含 ADB / Android / Frida / IDA / jadx / apktool / Flutter 逆向关键词的 MCP server。'
-                  : 'No configured MCP server currently matches ADB / Android / Frida / IDA / jadx / apktool / Flutter reverse keywords.',
+              text: _arText(
+                context,
+                zh: '当前未发现名称、命令或工具描述中包含 ADB / Android / Frida / IDA / jadx / apktool / Flutter 逆向关键词的 MCP server。',
+                zhHant:
+                    '目前未發現名稱、指令或工具描述中包含 ADB / Android / Frida / IDA / jadx / apktool / Flutter 逆向關鍵字的 MCP server。',
+                en: 'No configured MCP server currently matches ADB / Android / Frida / IDA / jadx / apktool / Flutter reverse keywords.',
+                fr: 'Aucun server MCP configuré ne correspond aux mots-clés ADB / Android / Frida / IDA / jadx / apktool / Flutter reverse.',
+                de: 'Kein konfigurierter MCP server passt derzeit zu ADB / Android / Frida / IDA / jadx / apktool / Flutter-Reverse-Keywords.',
+                ja: 'ADB / Android / Frida / IDA / jadx / apktool / Flutter リバース関連キーワードに一致する MCP server はありません。',
+              ),
             )
           else
             for (final row in serverRows) ...[
@@ -5582,9 +5666,16 @@ fi
           _dashboardSectionHeader(
             leading: [
               _StatusPill(
-                label: isZh
-                    ? '$installedRuntimeCount/${runtimePlugins.length} 个前置条件可用'
-                    : '$installedRuntimeCount/${runtimePlugins.length} prerequisites ready',
+                label: _arText(
+                  context,
+                  zh: '$installedRuntimeCount/${runtimePlugins.length} 个前置条件可用',
+                  zhHant:
+                      '$installedRuntimeCount/${runtimePlugins.length} 個前置條件可用',
+                  en: '$installedRuntimeCount/${runtimePlugins.length} prerequisites ready',
+                  fr: '$installedRuntimeCount/${runtimePlugins.length} prérequis prêts',
+                  de: '$installedRuntimeCount/${runtimePlugins.length} Voraussetzungen bereit',
+                  ja: '$installedRuntimeCount/${runtimePlugins.length} 件の前提条件が利用可能',
+                ),
                 color: installedRuntimeCount == runtimePlugins.length
                     ? cs.primary
                     : cs.tertiary,
@@ -5603,7 +5694,15 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.refresh_rounded),
-                label: isZh ? '扫描插件' : 'Scan plugins',
+                label: _arText(
+                  context,
+                  zh: '扫描插件',
+                  zhHant: '掃描外掛',
+                  en: 'Scan plugins',
+                  fr: 'Scanner les plugins',
+                  de: 'Plugins scannen',
+                  ja: 'プラグインをスキャン',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: _loadingToolchain ? null : _refreshToolchain,
@@ -5614,7 +5713,15 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.construction_rounded),
-                label: isZh ? '刷新工具链' : 'Refresh tools',
+                label: _arText(
+                  context,
+                  zh: '刷新工具链',
+                  zhHant: '重新整理工具鏈',
+                  en: 'Refresh tools',
+                  fr: 'Actualiser les outils',
+                  de: 'Tools aktualisieren',
+                  ja: 'ツールを更新',
+                ),
               ),
             ],
           ),
@@ -5622,7 +5729,15 @@ fi
           _sectionTitle(
             theme,
             cs,
-            isZh ? '相邻运行时前置条件' : 'Adjacent runtime prerequisites',
+            _arText(
+              context,
+              zh: '相邻运行时前置条件',
+              zhHant: '相鄰執行期前置條件',
+              en: 'Adjacent runtime prerequisites',
+              fr: 'Prérequis du runtime adjacent',
+              de: 'Benachbarte Runtime-Voraussetzungen',
+              ja: '隣接ランタイム前提条件',
+            ),
           ),
           const SizedBox(height: 8),
           if (pluginController.errorMessage?.trim().isNotEmpty ?? false) ...[
@@ -5631,7 +5746,7 @@ fi
               theme: theme,
               icon: Icons.error_outline_rounded,
               text:
-                  '${isZh ? "插件扫描异常" : "Plugin scan error"}: ${pluginController.errorMessage}',
+                  '${_arText(context, zh: "插件扫描异常", zhHant: "外掛掃描異常", en: "Plugin scan error", fr: "Erreur de scan plugin", de: "Plugin-Scanfehler", ja: "プラグインスキャンエラー")}: ${pluginController.errorMessage}',
             ),
             const SizedBox(height: 8),
           ],
@@ -5641,10 +5756,24 @@ fi
               theme: theme,
               icon: Icons.hourglass_empty_rounded,
               text: pluginController.isLoading
-                  ? (isZh ? '正在扫描插件运行时...' : 'Scanning plugin runtimes...')
-                  : (isZh
-                        ? '插件服务暂未返回 Android 逆向关联插件状态。'
-                        : 'Plugin service has not reported Android reverse plugin status.'),
+                  ? _arText(
+                      context,
+                      zh: '正在扫描插件运行时...',
+                      zhHant: '正在掃描外掛執行期...',
+                      en: 'Scanning plugin runtimes...',
+                      fr: 'Scan des runtimes de plugins...',
+                      de: 'Plugin-Runtimes werden gescannt...',
+                      ja: 'プラグインランタイムをスキャン中...',
+                    )
+                  : _arText(
+                      context,
+                      zh: '插件服务暂未返回 Android 逆向关联插件状态。',
+                      zhHant: '外掛服務尚未返回 Android 逆向關聯外掛狀態。',
+                      en: 'Plugin service has not reported Android reverse plugin status.',
+                      fr: 'Le service de plugins n’a pas encore renvoyé l’état des plugins Android reverse.',
+                      de: 'Der Plugin-Dienst hat den Status der Android-Reverse-Plugins noch nicht gemeldet.',
+                      ja: 'プラグインサービスは Android リバース関連プラグインの状態をまだ返していません。',
+                    ),
             )
           else
             for (final plugin in runtimePlugins) ...[
@@ -5661,7 +5790,15 @@ fi
           _sectionTitle(
             theme,
             cs,
-            isZh ? 'CLI 工具操作建议' : 'CLI tool setup actions',
+            _arText(
+              context,
+              zh: 'CLI 工具操作建议',
+              zhHant: 'CLI 工具操作建議',
+              en: 'CLI tool setup actions',
+              fr: 'Actions de configuration CLI',
+              de: 'CLI-Tool-Einrichtung',
+              ja: 'CLI ツール設定アクション',
+            ),
           ),
           const SizedBox(height: 8),
           if (_loadingToolchain && _toolchainRows.isEmpty)
@@ -5750,19 +5887,43 @@ fi
                 children: [
                   _DashboardIconActionButton(
                     tooltip: server.enabled
-                        ? (isZh ? '禁用 MCP' : 'Disable MCP')
-                        : (isZh ? '启用 MCP' : 'Enable MCP'),
+                        ? _arText(
+                            context,
+                            zh: '禁用 MCP',
+                            zhHant: '停用 MCP',
+                            en: 'Disable MCP',
+                            fr: 'Désactiver MCP',
+                            de: 'MCP deaktivieren',
+                            ja: 'MCP を無効化',
+                          )
+                        : _arText(
+                            context,
+                            zh: '启用 MCP',
+                            zhHant: '啟用 MCP',
+                            en: 'Enable MCP',
+                            fr: 'Activer MCP',
+                            de: 'MCP aktivieren',
+                            ja: 'MCP を有効化',
+                          ),
                     icon: Icon(
                       server.enabled
                           ? Icons.toggle_on_rounded
                           : Icons.toggle_off_outlined,
                     ),
                     onPressed: () => unawaited(
-                      _toggleAndroidMcpServer(server, !server.enabled, isZh),
+                      _toggleAndroidMcpServer(server, !server.enabled),
                     ),
                   ),
                   _DashboardIconActionButton(
-                    tooltip: isZh ? '检查健康状态' : 'Check health',
+                    tooltip: _arText(
+                      context,
+                      zh: '检查健康状态',
+                      zhHant: '檢查健康狀態',
+                      en: 'Check health',
+                      fr: 'Vérifier la santé',
+                      de: 'Status prüfen',
+                      ja: 'ヘルスチェック',
+                    ),
                     icon: health.status == McpServerHealthStatus.checking
                         ? const SizedBox(
                             width: 15,
@@ -5779,7 +5940,15 @@ fi
                           ),
                   ),
                   _DashboardIconActionButton(
-                    tooltip: isZh ? '刷新此 MCP 工具目录' : 'Refresh this MCP catalog',
+                    tooltip: _arText(
+                      context,
+                      zh: '刷新此 MCP 工具目录',
+                      zhHant: '重新整理此 MCP 工具目錄',
+                      en: 'Refresh this MCP catalog',
+                      fr: 'Actualiser ce catalogue MCP',
+                      de: 'Diesen MCP-Katalog aktualisieren',
+                      ja: 'この MCP カタログを更新',
+                    ),
                     icon: catalog.isLoading
                         ? const SizedBox(
                             width: 15,
@@ -5797,17 +5966,30 @@ fi
                   ),
                   if (query != null)
                     _DashboardIconActionButton(
-                      tooltip: isZh
-                          ? '复制 ToolSearch 查询'
-                          : 'Copy ToolSearch query',
+                      tooltip: _arText(
+                        context,
+                        zh: '复制 ToolSearch 查询',
+                        zhHant: '複製 ToolSearch 查詢',
+                        en: 'Copy ToolSearch query',
+                        fr: 'Copier la requête ToolSearch',
+                        de: 'ToolSearch-Abfrage kopieren',
+                        ja: 'ToolSearch クエリをコピー',
+                      ),
                       icon: const Icon(Icons.manage_search_rounded),
                       onPressed: () => _copyText(query),
                     ),
                   _DashboardIconActionButton(
-                    tooltip: isZh ? '删除 MCP 服务' : 'Delete MCP service',
+                    tooltip: _arText(
+                      context,
+                      zh: '删除 MCP 服务',
+                      zhHant: '刪除 MCP 服務',
+                      en: 'Delete MCP service',
+                      fr: 'Supprimer le service MCP',
+                      de: 'MCP-Dienst löschen',
+                      ja: 'MCP サービスを削除',
+                    ),
                     icon: Icon(Icons.delete_outline_rounded, color: cs.error),
-                    onPressed: () =>
-                        unawaited(_deleteAndroidMcpServer(server, isZh)),
+                    onPressed: () => unawaited(_deleteAndroidMcpServer(server)),
                   ),
                 ],
               ),
@@ -5819,24 +6001,22 @@ fi
             runSpacing: 6,
             children: [
               _StatusPill(
-                label: server.enabled
-                    ? (isZh ? '已启用' : 'enabled')
-                    : (isZh ? '未启用' : 'disabled'),
+                label: _enabledStateLabel(server.enabled),
                 color: server.enabled ? cs.primary : cs.outline,
               ),
               _StatusPill(
                 label:
-                    '${isZh ? "健康" : "health"}: ${_mcpHealthStatusLabel(health.status, isZh)}',
+                    '${_arText(context, zh: "健康", zhHant: "健康", en: "health", fr: "santé", de: "Status", ja: "ヘルス")}: ${_mcpHealthStatusLabel(health.status)}',
                 color: healthColor,
               ),
               _StatusPill(
                 label:
-                    '${isZh ? "目录" : "catalog"}: ${_mcpCatalogStatusLabel(catalog.status, isZh)}',
+                    '${_arText(context, zh: "目录", zhHant: "目錄", en: "catalog", fr: "catalogue", de: "Katalog", ja: "カタログ")}: ${_mcpCatalogStatusLabel(catalog.status)}',
                 color: catalogColor,
               ),
               _StatusPill(
                 label:
-                    '${isZh ? "相关工具" : "related tools"}: ${row.matchedTools.length}/${catalog.tools.length}',
+                    '${_arText(context, zh: "相关工具", zhHant: "相關工具", en: "related tools", fr: "outils liés", de: "relevante Tools", ja: "関連ツール")}: ${row.matchedTools.length}/${catalog.tools.length}',
                 color: row.matchedTools.isEmpty ? cs.outline : cs.primary,
               ),
             ],
@@ -5883,7 +6063,6 @@ fi
     McpController controller,
     ColorScheme cs,
     ThemeData theme,
-    bool isZh,
   ) {
     final matches = _matchingAndroidMcpServersForCapability(
       controller,
@@ -5897,11 +6076,53 @@ fi
         ? cs.tertiary
         : cs.outline;
     final statusLabel = installed
-        ? (isZh ? '已配置 ${matches.length}' : '${matches.length} configured')
+        ? _arText(
+            context,
+            zh: '已配置 ${matches.length}',
+            zhHant: '已設定 ${matches.length}',
+            en: '${matches.length} configured',
+            fr: '${matches.length} configuré(s)',
+            de: '${matches.length} konfiguriert',
+            ja: '${matches.length} 件設定済み',
+          )
         : canInstall
-        ? (isZh ? '可安装' : 'installable')
-        : (isZh ? '缺少安装源' : 'source missing');
+        ? _arText(
+            context,
+            zh: '可安装',
+            zhHant: '可安裝',
+            en: 'installable',
+            fr: 'installable',
+            de: 'installierbar',
+            ja: 'インストール可能',
+          )
+        : _arText(
+            context,
+            zh: '缺少安装源',
+            zhHant: '缺少安裝來源',
+            en: 'source missing',
+            fr: 'source manquante',
+            de: 'Quelle fehlt',
+            ja: 'インストール元なし',
+          );
     final firstServer = matches.isEmpty ? null : matches.first;
+    final capabilityLabel = _arText(
+      context,
+      zh: capability.labelZh,
+      zhHant: capability.labelZhHant,
+      en: capability.labelEn,
+      fr: capability.labelFr,
+      de: capability.labelDe,
+      ja: capability.labelJa,
+    );
+    final capabilityDescription = _arText(
+      context,
+      zh: capability.descriptionZh,
+      zhHant: capability.descriptionZhHant,
+      en: capability.descriptionEn,
+      fr: capability.descriptionFr,
+      de: capability.descriptionDe,
+      ja: capability.descriptionJa,
+    );
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
@@ -5931,7 +6152,7 @@ fi
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      isZh ? capability.labelZh : capability.labelEn,
+                      capabilityLabel,
                       style: theme.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -5947,9 +6168,9 @@ fi
                 const SizedBox(height: 4),
                 Text(
                   [
-                    isZh ? capability.descriptionZh : capability.descriptionEn,
+                    capabilityDescription,
                     if (firstServer != null)
-                      '${isZh ? "服务" : "server"}: ${firstServer.name}',
+                      '${_arText(context, zh: "服务", zhHant: "服務", en: "server", fr: "serveur", de: "Server", ja: "server")}: ${firstServer.name}',
                   ].join(' · '),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -5969,33 +6190,49 @@ fi
               _DashboardActionButton(
                 onPressed: installed || !canInstall || controller.isLoading
                     ? null
-                    : () => unawaited(
-                        _installAndroidMcpCapability(capability, isZh),
-                      ),
+                    : () => unawaited(_installAndroidMcpCapability(capability)),
                 icon: const Icon(Icons.download_rounded),
-                label: isZh ? '安装' : 'Install',
+                label: _arText(
+                  context,
+                  zh: '安装',
+                  zhHant: '安裝',
+                  en: 'Install',
+                  fr: 'Installer',
+                  de: 'Installieren',
+                  ja: 'インストール',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: !installed || controller.isLoading
                     ? null
-                    : () => unawaited(
-                        _refreshAndroidMcpCapability(matches, isZh),
-                      ),
+                    : () => unawaited(_refreshAndroidMcpCapability(matches)),
                 icon: const Icon(Icons.system_update_alt_rounded),
-                label: isZh ? '更新' : 'Update',
+                label: _arText(
+                  context,
+                  zh: '更新',
+                  zhHant: '更新',
+                  en: 'Update',
+                  fr: 'Mettre à jour',
+                  de: 'Aktualisieren',
+                  ja: '更新',
+                ),
               ),
               _DashboardActionButton(
                 onPressed: !installed || controller.isLoading
                     ? null
                     : () => unawaited(
-                        _uninstallAndroidMcpCapability(
-                          capability,
-                          matches,
-                          isZh,
-                        ),
+                        _uninstallAndroidMcpCapability(capability, matches),
                       ),
                 icon: const Icon(Icons.delete_outline_rounded),
-                label: isZh ? '卸载' : 'Uninstall',
+                label: _arText(
+                  context,
+                  zh: '卸载',
+                  zhHant: '解除安裝',
+                  en: 'Uninstall',
+                  fr: 'Désinstaller',
+                  de: 'Deinstallieren',
+                  ja: 'アンインストール',
+                ),
               ),
             ],
           ),
@@ -6029,11 +6266,18 @@ fi
 
   Future<void> _installAndroidMcpCapability(
     TemplateRuntimeMcpCapabilitySpec capability,
-    bool isZh,
   ) async {
     if (!_canRegisterAndroidMcpCapability(capability)) {
       _showSnack(
-        isZh ? '该 MCP 缺少可直接安装的来源。' : 'This MCP has no direct install source.',
+        _arText(
+          context,
+          zh: '该 MCP 缺少可直接安装的来源。',
+          zhHant: '此 MCP 缺少可直接安裝的來源。',
+          en: 'This MCP has no direct install source.',
+          fr: 'Ce MCP n’a pas de source d’installation directe.',
+          de: 'Dieses MCP hat keine direkt installierbare Quelle.',
+          ja: 'この MCP には直接インストールできるソースがありません。',
+        ),
       );
       return;
     }
@@ -6051,44 +6295,103 @@ fi
     if (!mounted) return;
     _showSnack(
       ok
-          ? (isZh ? '已安装 MCP：${server.name}' : 'MCP installed: ${server.name}')
-          : (isZh
-                ? 'MCP 已存在或名称冲突：${server.name}'
-                : 'MCP exists or name conflicts: ${server.name}'),
+          ? _arText(
+              context,
+              zh: '已安装 MCP：${server.name}',
+              zhHant: '已安裝 MCP：${server.name}',
+              en: 'MCP installed: ${server.name}',
+              fr: 'MCP installé : ${server.name}',
+              de: 'MCP installiert: ${server.name}',
+              ja: 'MCP をインストールしました: ${server.name}',
+            )
+          : _arText(
+              context,
+              zh: 'MCP 已存在或名称冲突：${server.name}',
+              zhHant: 'MCP 已存在或名稱衝突：${server.name}',
+              en: 'MCP exists or name conflicts: ${server.name}',
+              fr: 'MCP existe déjà ou nom en conflit : ${server.name}',
+              de: 'MCP existiert bereits oder Namenskonflikt: ${server.name}',
+              ja: 'MCP は既に存在するか名前が競合しています: ${server.name}',
+            ),
     );
     if (ok) {
       unawaited(context.read<McpController>().reconnectServer(server.name));
     }
   }
 
-  Future<void> _refreshAndroidMcpCapability(
-    List<McpServer> servers,
-    bool isZh,
-  ) async {
+  Future<void> _refreshAndroidMcpCapability(List<McpServer> servers) async {
     if (servers.isEmpty) return;
     final controller = context.read<McpController>();
     await Future.wait<void>(
       servers.map((server) => controller.reconnectServer(server.name)),
     );
     if (!mounted) return;
-    _showSnack(isZh ? '已更新 MCP 状态。' : 'MCP status updated.');
+    _showSnack(
+      _arText(
+        context,
+        zh: '已更新 MCP 状态。',
+        zhHant: '已更新 MCP 狀態。',
+        en: 'MCP status updated.',
+        fr: 'État MCP mis à jour.',
+        de: 'MCP-Status aktualisiert.',
+        ja: 'MCP 状態を更新しました。',
+      ),
+    );
   }
 
   Future<void> _uninstallAndroidMcpCapability(
     TemplateRuntimeMcpCapabilitySpec capability,
     List<McpServer> servers,
-    bool isZh,
   ) async {
     if (servers.isEmpty) return;
     final names = servers.map((server) => server.name).join(', ');
+    final capabilityLabel = _arText(
+      context,
+      zh: capability.labelZh,
+      zhHant: capability.labelZhHant,
+      en: capability.labelEn,
+      fr: capability.labelFr,
+      de: capability.labelDe,
+      ja: capability.labelJa,
+    );
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '卸载 MCP 能力？' : 'Uninstall MCP capability?',
-      message: isZh
-          ? '将从 OpenHand MCP 配置中删除 ${isZh ? capability.labelZh : capability.labelEn} 对应服务：$names。'
-          : 'This removes the servers for ${capability.labelEn} from the OpenHand MCP configuration: $names.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '卸载' : 'Uninstall',
+      title: _arText(
+        context,
+        zh: '卸载 MCP 能力？',
+        zhHant: '解除安裝 MCP 能力？',
+        en: 'Uninstall MCP capability?',
+        fr: 'Désinstaller la capacité MCP ?',
+        de: 'MCP-Fähigkeit deinstallieren?',
+        ja: 'MCP 機能をアンインストールしますか？',
+      ),
+      message: _arText(
+        context,
+        zh: '将从 OpenHand MCP 配置中删除 $capabilityLabel 对应服务：$names。',
+        zhHant: '將從 OpenHand MCP 設定中刪除 $capabilityLabel 對應服務：$names。',
+        en: 'This removes the servers for $capabilityLabel from the OpenHand MCP configuration: $names.',
+        fr: 'Supprime les serveurs de $capabilityLabel de la configuration MCP OpenHand : $names.',
+        de: 'Entfernt die Server für $capabilityLabel aus der OpenHand-MCP-Konfiguration: $names.',
+        ja: '$capabilityLabel の server を OpenHand MCP 設定から削除します: $names。',
+      ),
+      cancelLabel: _arText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _arText(
+        context,
+        zh: '卸载',
+        zhHant: '解除安裝',
+        en: 'Uninstall',
+        fr: 'Désinstaller',
+        de: 'Deinstallieren',
+        ja: 'アンインストール',
+      ),
       destructive: true,
     );
     if (!confirmed || !mounted) return;
@@ -6100,16 +6403,28 @@ fi
     if (!mounted) return;
     _showSnack(
       ok
-          ? (isZh ? '已卸载 MCP：$names' : 'MCP uninstalled: $names')
-          : (isZh ? '卸载 MCP 失败：$names' : 'Failed to uninstall MCP: $names'),
+          ? _arText(
+              context,
+              zh: '已卸载 MCP：$names',
+              zhHant: '已解除安裝 MCP：$names',
+              en: 'MCP uninstalled: $names',
+              fr: 'MCP désinstallé : $names',
+              de: 'MCP deinstalliert: $names',
+              ja: 'MCP をアンインストールしました: $names',
+            )
+          : _arText(
+              context,
+              zh: '卸载 MCP 失败：$names',
+              zhHant: '解除安裝 MCP 失敗：$names',
+              en: 'Failed to uninstall MCP: $names',
+              fr: 'Échec de la désinstallation MCP : $names',
+              de: 'MCP-Deinstallation fehlgeschlagen: $names',
+              ja: 'MCP のアンインストールに失敗しました: $names',
+            ),
     );
   }
 
-  Future<void> _toggleAndroidMcpServer(
-    McpServer server,
-    bool enabled,
-    bool isZh,
-  ) async {
+  Future<void> _toggleAndroidMcpServer(McpServer server, bool enabled) async {
     final ok = await context.read<McpController>().updateServerEnabled(
       server.name,
       enabled,
@@ -6118,25 +6433,75 @@ fi
     _showSnack(
       ok
           ? enabled
-                ? (isZh
-                      ? '已启用 MCP：${server.name}'
-                      : 'MCP enabled: ${server.name}')
-                : (isZh
-                      ? '已禁用 MCP：${server.name}'
-                      : 'MCP disabled: ${server.name}')
-          : (isZh ? 'MCP 状态更新失败' : 'Failed to update MCP status'),
+                ? _arText(
+                    context,
+                    zh: '已启用 MCP：${server.name}',
+                    zhHant: '已啟用 MCP：${server.name}',
+                    en: 'MCP enabled: ${server.name}',
+                    fr: 'MCP activé : ${server.name}',
+                    de: 'MCP aktiviert: ${server.name}',
+                    ja: 'MCP を有効化しました: ${server.name}',
+                  )
+                : _arText(
+                    context,
+                    zh: '已禁用 MCP：${server.name}',
+                    zhHant: '已停用 MCP：${server.name}',
+                    en: 'MCP disabled: ${server.name}',
+                    fr: 'MCP désactivé : ${server.name}',
+                    de: 'MCP deaktiviert: ${server.name}',
+                    ja: 'MCP を無効化しました: ${server.name}',
+                  )
+          : _arText(
+              context,
+              zh: 'MCP 状态更新失败',
+              zhHant: 'MCP 狀態更新失敗',
+              en: 'Failed to update MCP status',
+              fr: 'Échec de mise à jour de l’état MCP',
+              de: 'MCP-Status konnte nicht aktualisiert werden',
+              ja: 'MCP 状態の更新に失敗しました',
+            ),
     );
   }
 
-  Future<void> _deleteAndroidMcpServer(McpServer server, bool isZh) async {
+  Future<void> _deleteAndroidMcpServer(McpServer server) async {
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: isZh ? '删除 MCP 服务？' : 'Delete MCP service?',
-      message: isZh
-          ? '将从 OpenHand MCP 配置中删除 ${server.name}。'
-          : 'This will remove ${server.name} from the OpenHand MCP configuration.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: isZh ? '删除' : 'Delete',
+      title: _arText(
+        context,
+        zh: '删除 MCP 服务？',
+        zhHant: '刪除 MCP 服務？',
+        en: 'Delete MCP service?',
+        fr: 'Supprimer le service MCP ?',
+        de: 'MCP-Dienst löschen?',
+        ja: 'MCP サービスを削除しますか？',
+      ),
+      message: _arText(
+        context,
+        zh: '将从 OpenHand MCP 配置中删除 ${server.name}。',
+        zhHant: '將從 OpenHand MCP 設定中刪除 ${server.name}。',
+        en: 'This will remove ${server.name} from the OpenHand MCP configuration.',
+        fr: 'Supprime ${server.name} de la configuration MCP OpenHand.',
+        de: 'Entfernt ${server.name} aus der OpenHand-MCP-Konfiguration.',
+        ja: '${server.name} を OpenHand MCP 設定から削除します。',
+      ),
+      cancelLabel: _arText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _arText(
+        context,
+        zh: '删除',
+        zhHant: '刪除',
+        en: 'Delete',
+        fr: 'Supprimer',
+        de: 'Löschen',
+        ja: '削除',
+      ),
       destructive: true,
     );
     if (!confirmed || !mounted) return;
@@ -6144,8 +6509,24 @@ fi
     if (!mounted) return;
     _showSnack(
       ok
-          ? (isZh ? '已删除 MCP：${server.name}' : 'MCP deleted: ${server.name}')
-          : (isZh ? '删除 MCP 失败' : 'Failed to delete MCP'),
+          ? _arText(
+              context,
+              zh: '已删除 MCP：${server.name}',
+              zhHant: '已刪除 MCP：${server.name}',
+              en: 'MCP deleted: ${server.name}',
+              fr: 'MCP supprimé : ${server.name}',
+              de: 'MCP gelöscht: ${server.name}',
+              ja: 'MCP を削除しました: ${server.name}',
+            )
+          : _arText(
+              context,
+              zh: '删除 MCP 失败',
+              zhHant: '刪除 MCP 失敗',
+              en: 'Failed to delete MCP',
+              fr: 'Échec de suppression MCP',
+              de: 'MCP konnte nicht gelöscht werden',
+              ja: 'MCP の削除に失敗しました',
+            ),
     );
   }
 
@@ -6202,7 +6583,16 @@ fi
                   [
                     plugin.id,
                     if (version != null && version.isNotEmpty) version,
-                    if (plugin.hasUpdate) isZh ? '有可用更新' : 'update available',
+                    if (plugin.hasUpdate)
+                      _arText(
+                        context,
+                        zh: '有可用更新',
+                        zhHant: '有可用更新',
+                        en: 'update available',
+                        fr: 'mise à jour disponible',
+                        de: 'Update verfügbar',
+                        ja: '更新あり',
+                      ),
                     if (path != null && path.isNotEmpty) path,
                   ].join(' · '),
                   maxLines: 2,
@@ -6219,15 +6609,39 @@ fi
           _StatusPill(
             label: plugin.isInstalled
                 ? plugin.enabled
-                      ? (isZh ? '可用' : 'ready')
-                      : (isZh ? '已禁用' : 'disabled')
-                : (isZh ? '未安装' : 'missing'),
+                      ? _arText(
+                          context,
+                          zh: '可用',
+                          zhHant: '可用',
+                          en: 'ready',
+                          fr: 'prêt',
+                          de: 'bereit',
+                          ja: '利用可能',
+                        )
+                      : _enabledStateLabel(false)
+                : _arText(
+                    context,
+                    zh: '未安装',
+                    zhHant: '未安裝',
+                    en: 'missing',
+                    fr: 'manquant',
+                    de: 'fehlt',
+                    ja: '未インストール',
+                  ),
             color: color,
           ),
           if (path != null && path.isNotEmpty) ...[
             const SizedBox(width: _kDashboardTrailingActionGap),
             _DashboardIconActionButton(
-              tooltip: isZh ? '复制路径' : 'Copy path',
+              tooltip: _arText(
+                context,
+                zh: '复制路径',
+                zhHant: '複製路徑',
+                en: 'Copy path',
+                fr: 'Copier le chemin',
+                de: 'Pfad kopieren',
+                ja: 'パスをコピー',
+              ),
               icon: const Icon(Icons.copy_rounded),
               onPressed: () => _copyText(path),
             ),
@@ -6235,7 +6649,15 @@ fi
           if (actions.isNotEmpty) ...[
             const SizedBox(width: _kDashboardTrailingActionGap),
             _DashboardPopupIconActionButton<_RuntimePluginAction>(
-              tooltip: isZh ? '插件操作' : 'Plugin actions',
+              tooltip: _arText(
+                context,
+                zh: '插件操作',
+                zhHant: '外掛操作',
+                en: 'Plugin actions',
+                fr: 'Actions plugin',
+                de: 'Plugin-Aktionen',
+                ja: 'プラグイン操作',
+              ),
               icon: const Icon(Icons.more_horiz_rounded, size: 17),
               itemBuilder: (context) => actions
                   .map(
@@ -6247,14 +6669,14 @@ fi
                         children: [
                           Icon(_runtimePluginActionIcon(action), size: 16),
                           const SizedBox(width: 8),
-                          Text(_runtimePluginActionLabel(action, isZh)),
+                          Text(_runtimePluginActionLabel(action)),
                         ],
                       ),
                     ),
                   )
                   .toList(growable: false),
               onSelected: (action) =>
-                  unawaited(_handleRuntimePluginAction(plugin, action, isZh)),
+                  unawaited(_handleRuntimePluginAction(plugin, action)),
             ),
           ],
         ],
@@ -6296,34 +6718,89 @@ fi
     };
   }
 
-  String _runtimePluginActionLabel(_RuntimePluginAction action, bool isZh) {
+  String _runtimePluginActionLabel(_RuntimePluginAction action) {
     return switch (action) {
-      _RuntimePluginAction.info => isZh ? '查看信息' : 'View info',
-      _RuntimePluginAction.install => isZh ? '安装' : 'Install',
-      _RuntimePluginAction.checkUpdate => isZh ? '检查更新' : 'Check updates',
-      _RuntimePluginAction.update => isZh ? '更新' : 'Update',
-      _RuntimePluginAction.enable => isZh ? '启用' : 'Enable',
-      _RuntimePluginAction.disable => isZh ? '禁用' : 'Disable',
-      _RuntimePluginAction.uninstall => isZh ? '卸载' : 'Uninstall',
+      _RuntimePluginAction.info => _arText(
+        context,
+        zh: '查看信息',
+        zhHant: '查看資訊',
+        en: 'View info',
+        fr: 'Voir les infos',
+        de: 'Info anzeigen',
+        ja: '情報を見る',
+      ),
+      _RuntimePluginAction.install => _arText(
+        context,
+        zh: '安装',
+        zhHant: '安裝',
+        en: 'Install',
+        fr: 'Installer',
+        de: 'Installieren',
+        ja: 'インストール',
+      ),
+      _RuntimePluginAction.checkUpdate => _arText(
+        context,
+        zh: '检查更新',
+        zhHant: '檢查更新',
+        en: 'Check updates',
+        fr: 'Vérifier les mises à jour',
+        de: 'Updates prüfen',
+        ja: '更新を確認',
+      ),
+      _RuntimePluginAction.update => _arText(
+        context,
+        zh: '更新',
+        zhHant: '更新',
+        en: 'Update',
+        fr: 'Mettre à jour',
+        de: 'Aktualisieren',
+        ja: '更新',
+      ),
+      _RuntimePluginAction.enable => _arText(
+        context,
+        zh: '启用',
+        zhHant: '啟用',
+        en: 'Enable',
+        fr: 'Activer',
+        de: 'Aktivieren',
+        ja: '有効化',
+      ),
+      _RuntimePluginAction.disable => _arText(
+        context,
+        zh: '禁用',
+        zhHant: '停用',
+        en: 'Disable',
+        fr: 'Désactiver',
+        de: 'Deaktivieren',
+        ja: '無効化',
+      ),
+      _RuntimePluginAction.uninstall => _arText(
+        context,
+        zh: '卸载',
+        zhHant: '解除安裝',
+        en: 'Uninstall',
+        fr: 'Désinstaller',
+        de: 'Deinstallieren',
+        ja: 'アンインストール',
+      ),
     };
   }
 
-  void _showRuntimePluginInfoDialog(PluginInfo plugin, bool isZh) {
+  void _showRuntimePluginInfoDialog(PluginInfo plugin) {
     showAndroidReverseToolDialog<void>(
       context: context,
-      builder: (_) => _RuntimePluginInfoDialog(plugin: plugin, isZh: isZh),
+      builder: (_) => _RuntimePluginInfoDialog(plugin: plugin),
     );
   }
 
   Future<void> _handleRuntimePluginAction(
     PluginInfo plugin,
     _RuntimePluginAction action,
-    bool isZh,
   ) async {
     final pluginController = context.read<PluginServiceController>();
     switch (action) {
       case _RuntimePluginAction.info:
-        _showRuntimePluginInfoDialog(plugin, isZh);
+        _showRuntimePluginInfoDialog(plugin);
         return;
       case _RuntimePluginAction.enable:
       case _RuntimePluginAction.disable:
@@ -6333,8 +6810,24 @@ fi
         );
         _showSnack(
           action == _RuntimePluginAction.enable
-              ? (isZh ? '已启用 ${plugin.name}' : '${plugin.name} enabled')
-              : (isZh ? '已禁用 ${plugin.name}' : '${plugin.name} disabled'),
+              ? _arText(
+                  context,
+                  zh: '已启用 ${plugin.name}',
+                  zhHant: '已啟用 ${plugin.name}',
+                  en: '${plugin.name} enabled',
+                  fr: '${plugin.name} activé',
+                  de: '${plugin.name} aktiviert',
+                  ja: '${plugin.name} を有効化しました',
+                )
+              : _arText(
+                  context,
+                  zh: '已禁用 ${plugin.name}',
+                  zhHant: '已停用 ${plugin.name}',
+                  en: '${plugin.name} disabled',
+                  fr: '${plugin.name} désactivé',
+                  de: '${plugin.name} deaktiviert',
+                  ja: '${plugin.name} を無効化しました',
+                ),
         );
         return;
       case _RuntimePluginAction.checkUpdate:
@@ -6344,56 +6837,121 @@ fi
         _showSnack(
           latest == null
               ? (pluginController.errorMessage ??
-                    (isZh ? '检查更新失败' : 'Failed to check updates'))
+                    _arText(
+                      context,
+                      zh: '检查更新失败',
+                      zhHant: '檢查更新失敗',
+                      en: 'Failed to check updates',
+                      fr: 'Échec de vérification des mises à jour',
+                      de: 'Updates konnten nicht geprüft werden',
+                      ja: '更新確認に失敗しました',
+                    ))
               : latest.hasUpdate && latest.latestVersion != null
-              ? (isZh
-                    ? '发现新版本：${latest.latestVersion}'
-                    : 'New version available: ${latest.latestVersion}')
-              : (isZh ? '未发现新版本' : 'No updates available'),
+              ? _arText(
+                  context,
+                  zh: '发现新版本：${latest.latestVersion}',
+                  zhHant: '發現新版本：${latest.latestVersion}',
+                  en: 'New version available: ${latest.latestVersion}',
+                  fr: 'Nouvelle version disponible : ${latest.latestVersion}',
+                  de: 'Neue Version verfügbar: ${latest.latestVersion}',
+                  ja: '新しいバージョンがあります: ${latest.latestVersion}',
+                )
+              : _arText(
+                  context,
+                  zh: '未发现新版本',
+                  zhHant: '未發現新版本',
+                  en: 'No updates available',
+                  fr: 'Aucune mise à jour disponible',
+                  de: 'Keine Updates verfügbar',
+                  ja: '利用可能な更新はありません',
+                ),
         );
         return;
       case _RuntimePluginAction.install:
       case _RuntimePluginAction.update:
       case _RuntimePluginAction.uninstall:
-        await _runRuntimePluginMutation(plugin, action, isZh);
+        await _runRuntimePluginMutation(plugin, action);
     }
   }
 
   Future<void> _runRuntimePluginMutation(
     PluginInfo plugin,
     _RuntimePluginAction action,
-    bool isZh,
   ) async {
     final title = switch (action) {
-      _RuntimePluginAction.install =>
-        isZh ? '安装 ${plugin.name}？' : 'Install ${plugin.name}?',
-      _RuntimePluginAction.update =>
-        isZh ? '更新 ${plugin.name}？' : 'Update ${plugin.name}?',
-      _RuntimePluginAction.uninstall =>
-        isZh ? '卸载 ${plugin.name}？' : 'Uninstall ${plugin.name}?',
+      _RuntimePluginAction.install => _arText(
+        context,
+        zh: '安装 ${plugin.name}？',
+        zhHant: '安裝 ${plugin.name}？',
+        en: 'Install ${plugin.name}?',
+        fr: 'Installer ${plugin.name} ?',
+        de: '${plugin.name} installieren?',
+        ja: '${plugin.name} をインストールしますか？',
+      ),
+      _RuntimePluginAction.update => _arText(
+        context,
+        zh: '更新 ${plugin.name}？',
+        zhHant: '更新 ${plugin.name}？',
+        en: 'Update ${plugin.name}?',
+        fr: 'Mettre à jour ${plugin.name} ?',
+        de: '${plugin.name} aktualisieren?',
+        ja: '${plugin.name} を更新しますか？',
+      ),
+      _RuntimePluginAction.uninstall => _arText(
+        context,
+        zh: '卸载 ${plugin.name}？',
+        zhHant: '解除安裝 ${plugin.name}？',
+        en: 'Uninstall ${plugin.name}?',
+        fr: 'Désinstaller ${plugin.name} ?',
+        de: '${plugin.name} deinstallieren?',
+        ja: '${plugin.name} をアンインストールしますか？',
+      ),
       _ => '',
     };
     final message = switch (action) {
-      _RuntimePluginAction.install =>
-        isZh
-            ? '将通过 OpenHand 插件服务安装 ${plugin.name}。安装可能需要下载依赖文件。'
-            : 'OpenHand plugin service will install ${plugin.name}. Dependencies may be downloaded.',
-      _RuntimePluginAction.update =>
-        isZh
-            ? '将通过 OpenHand 插件服务更新 ${plugin.name}。'
-            : 'OpenHand plugin service will update ${plugin.name}.',
-      _RuntimePluginAction.uninstall =>
-        isZh
-            ? '将从本机卸载 ${plugin.name}。此操作可能影响依赖它的能力。'
-            : 'This will remove ${plugin.name} from this machine and may affect dependent capabilities.',
+      _RuntimePluginAction.install => _arText(
+        context,
+        zh: '将通过 OpenHand 插件服务安装 ${plugin.name}。安装可能需要下载依赖文件。',
+        zhHant: '將透過 OpenHand 外掛服務安裝 ${plugin.name}。安裝可能需要下載依賴檔案。',
+        en: 'OpenHand plugin service will install ${plugin.name}. Dependencies may be downloaded.',
+        fr: 'Le service de plugins OpenHand installera ${plugin.name}. Des dépendances peuvent être téléchargées.',
+        de: 'Der OpenHand-Plugin-Dienst installiert ${plugin.name}. Abhängigkeiten können heruntergeladen werden.',
+        ja: 'OpenHand プラグインサービスが ${plugin.name} をインストールします。依存ファイルをダウンロードする場合があります。',
+      ),
+      _RuntimePluginAction.update => _arText(
+        context,
+        zh: '将通过 OpenHand 插件服务更新 ${plugin.name}。',
+        zhHant: '將透過 OpenHand 外掛服務更新 ${plugin.name}。',
+        en: 'OpenHand plugin service will update ${plugin.name}.',
+        fr: 'Le service de plugins OpenHand mettra à jour ${plugin.name}.',
+        de: 'Der OpenHand-Plugin-Dienst aktualisiert ${plugin.name}.',
+        ja: 'OpenHand プラグインサービスが ${plugin.name} を更新します。',
+      ),
+      _RuntimePluginAction.uninstall => _arText(
+        context,
+        zh: '将从本机卸载 ${plugin.name}。此操作可能影响依赖它的能力。',
+        zhHant: '將從本機解除安裝 ${plugin.name}。此操作可能影響依賴它的能力。',
+        en: 'This will remove ${plugin.name} from this machine and may affect dependent capabilities.',
+        fr: 'Supprime ${plugin.name} de cette machine et peut affecter les capacités qui en dépendent.',
+        de: 'Entfernt ${plugin.name} von diesem Rechner und kann abhängige Fähigkeiten beeinflussen.',
+        ja: '${plugin.name} をこのマシンから削除します。依存する機能に影響する場合があります。',
+      ),
       _ => '',
     };
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
       title: title,
       message: message,
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: _runtimePluginActionLabel(action, isZh),
+      cancelLabel: _arText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: _runtimePluginActionLabel(action),
       destructive: action == _RuntimePluginAction.uninstall,
     );
     if (!confirmed || !mounted) return;
@@ -6415,28 +6973,64 @@ fi
     _showSnack(
       success
           ? switch (action) {
-              _RuntimePluginAction.install =>
-                isZh ? '${plugin.name} 安装成功' : '${plugin.name} installed',
-              _RuntimePluginAction.update =>
-                isZh ? '${plugin.name} 更新成功' : '${plugin.name} updated',
-              _RuntimePluginAction.uninstall =>
-                isZh ? '${plugin.name} 卸载成功' : '${plugin.name} uninstalled',
+              _RuntimePluginAction.install => _arText(
+                context,
+                zh: '${plugin.name} 安装成功',
+                zhHant: '${plugin.name} 安裝成功',
+                en: '${plugin.name} installed',
+                fr: '${plugin.name} installé',
+                de: '${plugin.name} installiert',
+                ja: '${plugin.name} をインストールしました',
+              ),
+              _RuntimePluginAction.update => _arText(
+                context,
+                zh: '${plugin.name} 更新成功',
+                zhHant: '${plugin.name} 更新成功',
+                en: '${plugin.name} updated',
+                fr: '${plugin.name} mis à jour',
+                de: '${plugin.name} aktualisiert',
+                ja: '${plugin.name} を更新しました',
+              ),
+              _RuntimePluginAction.uninstall => _arText(
+                context,
+                zh: '${plugin.name} 卸载成功',
+                zhHant: '${plugin.name} 解除安裝成功',
+                en: '${plugin.name} uninstalled',
+                fr: '${plugin.name} désinstallé',
+                de: '${plugin.name} deinstalliert',
+                ja: '${plugin.name} をアンインストールしました',
+              ),
               _ => plugin.name,
             }
           : (pluginController.errorMessage ??
                 switch (action) {
-                  _RuntimePluginAction.install =>
-                    isZh
-                        ? '${plugin.name} 安装失败'
-                        : '${plugin.name} install failed',
-                  _RuntimePluginAction.update =>
-                    isZh
-                        ? '${plugin.name} 更新失败'
-                        : '${plugin.name} update failed',
-                  _RuntimePluginAction.uninstall =>
-                    isZh
-                        ? '${plugin.name} 卸载失败'
-                        : '${plugin.name} uninstall failed',
+                  _RuntimePluginAction.install => _arText(
+                    context,
+                    zh: '${plugin.name} 安装失败',
+                    zhHant: '${plugin.name} 安裝失敗',
+                    en: '${plugin.name} install failed',
+                    fr: 'Échec d’installation de ${plugin.name}',
+                    de: 'Installation von ${plugin.name} fehlgeschlagen',
+                    ja: '${plugin.name} のインストールに失敗しました',
+                  ),
+                  _RuntimePluginAction.update => _arText(
+                    context,
+                    zh: '${plugin.name} 更新失败',
+                    zhHant: '${plugin.name} 更新失敗',
+                    en: '${plugin.name} update failed',
+                    fr: 'Échec de mise à jour de ${plugin.name}',
+                    de: 'Aktualisierung von ${plugin.name} fehlgeschlagen',
+                    ja: '${plugin.name} の更新に失敗しました',
+                  ),
+                  _RuntimePluginAction.uninstall => _arText(
+                    context,
+                    zh: '${plugin.name} 卸载失败',
+                    zhHant: '${plugin.name} 解除安裝失敗',
+                    en: '${plugin.name} uninstall failed',
+                    fr: 'Échec de désinstallation de ${plugin.name}',
+                    de: 'Deinstallation von ${plugin.name} fehlgeschlagen',
+                    ja: '${plugin.name} のアンインストールに失敗しました',
+                  ),
                   _ => plugin.name,
                 }),
     );
@@ -6517,10 +7111,34 @@ fi
               ),
               _StatusPill(
                 label: ok
-                    ? (isZh ? '已安装' : 'installed')
+                    ? _arText(
+                        context,
+                        zh: '已安装',
+                        zhHant: '已安裝',
+                        en: 'installed',
+                        fr: 'installé',
+                        de: 'installiert',
+                        ja: 'インストール済み',
+                      )
                     : row.probe.required
-                    ? (isZh ? '必需缺失' : 'required missing')
-                    : (isZh ? '可选缺失' : 'optional missing'),
+                    ? _arText(
+                        context,
+                        zh: '必需缺失',
+                        zhHant: '必要缺失',
+                        en: 'required missing',
+                        fr: 'requis manquant',
+                        de: 'erforderlich fehlt',
+                        ja: '必須不足',
+                      )
+                    : _arText(
+                        context,
+                        zh: '可选缺失',
+                        zhHant: '可選缺失',
+                        en: 'optional missing',
+                        fr: 'optionnel manquant',
+                        de: 'optional fehlt',
+                        ja: '任意不足',
+                      ),
                 color: color,
                 compact: true,
                 subtle: true,
@@ -6545,10 +7163,10 @@ fi
             for (final action in _toolchainVisibleActions(row.probe))
               _SmallActionButton(
                 icon: _toolchainCommandIcon(action),
-                label: _toolchainCommandLabel(action, isZh),
+                label: _toolchainCommandLabel(action),
                 onPressed: _isToolchainCommandRunning(row.probe, action)
                     ? null
-                    : () => _handleToolchainAction(row.probe, action, isZh),
+                    : () => _handleToolchainAction(row.probe, action),
               ),
           ]),
         ],
@@ -6566,9 +7184,15 @@ fi
           child: _dashboardSectionHeader(
             leading: [
               _StatusPill(
-                label: isZh
-                    ? '${_packages.length} 个 APP'
-                    : '${_packages.length} apps',
+                label: _arText(
+                  context,
+                  zh: '${_packages.length} 个 APP',
+                  zhHant: '${_packages.length} 個 APP',
+                  en: '${_packages.length} apps',
+                  fr: '${_packages.length} apps',
+                  de: '${_packages.length} Apps',
+                  ja: '${_packages.length} 件の APP',
+                ),
                 color: cs.primary,
               ),
             ],
@@ -6582,7 +7206,15 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.refresh_rounded),
-                label: isZh ? '刷新' : 'Refresh',
+                label: _arText(
+                  context,
+                  zh: '刷新',
+                  zhHant: '重新整理',
+                  en: 'Refresh',
+                  fr: 'Actualiser',
+                  de: 'Aktualisieren',
+                  ja: '更新',
+                ),
               ),
             ],
           ),
@@ -6623,7 +7255,15 @@ fi
                             children: [
                               IconButton(
                                 icon: const Icon(Icons.copy_rounded, size: 14),
-                                tooltip: isZh ? '复制包名' : 'Copy package name',
+                                tooltip: _arText(
+                                  context,
+                                  zh: '复制包名',
+                                  zhHant: '複製套件名稱',
+                                  en: 'Copy package name',
+                                  fr: 'Copier le nom du package',
+                                  de: 'Paketnamen kopieren',
+                                  ja: 'パッケージ名をコピー',
+                                ),
                                 onPressed: () => _copyText(pkg),
                                 visualDensity: VisualDensity.compact,
                               ),
@@ -6633,7 +7273,15 @@ fi
                                   Icons.play_arrow_rounded,
                                   size: 15,
                                 ),
-                                tooltip: isZh ? '启动 APP' : 'Launch app',
+                                tooltip: _arText(
+                                  context,
+                                  zh: '启动 APP',
+                                  zhHant: '啟動 APP',
+                                  en: 'Launch app',
+                                  fr: 'Lancer l’APP',
+                                  de: 'APP starten',
+                                  ja: 'APP を起動',
+                                ),
                                 onPressed: _runningDeviceAction
                                     ? null
                                     : () => _runDeviceAction(
@@ -6651,7 +7299,15 @@ fi
                                   size: 14,
                                   color: Colors.redAccent,
                                 ),
-                                tooltip: isZh ? '强制停止' : 'Force stop',
+                                tooltip: _arText(
+                                  context,
+                                  zh: '强制停止',
+                                  zhHant: '強制停止',
+                                  en: 'Force stop',
+                                  fr: 'Forcer l’arrêt',
+                                  de: 'Stopp erzwingen',
+                                  ja: '強制停止',
+                                ),
                                 onPressed: _runningDeviceAction
                                     ? null
                                     : () async {
@@ -6663,9 +7319,15 @@ fi
                                         );
                                         if (!mounted) return;
                                         _showSnack(
-                                          isZh
-                                              ? '已发送强制停止：$pkg'
-                                              : 'Force-stop sent: $pkg',
+                                          _arText(
+                                            context,
+                                            zh: '已发送强制停止：$pkg',
+                                            zhHant: '已送出強制停止：$pkg',
+                                            en: 'Force-stop sent: $pkg',
+                                            fr: 'Arrêt forcé envoyé : $pkg',
+                                            de: 'Stopp erzwingen gesendet: $pkg',
+                                            ja: '強制停止を送信しました: $pkg',
+                                          ),
                                           kind: OpenHandSnackKind.success,
                                         );
                                       },
@@ -6677,7 +7339,15 @@ fi
                                   Icons.more_horiz_rounded,
                                   size: 16,
                                 ),
-                                tooltip: isZh ? '更多操作' : 'More actions',
+                                tooltip: _arText(
+                                  context,
+                                  zh: '更多操作',
+                                  zhHant: '更多操作',
+                                  en: 'More actions',
+                                  fr: 'Plus d’actions',
+                                  de: 'Weitere Aktionen',
+                                  ja: 'その他の操作',
+                                ),
                                 onPressed: () => _showPackageMenu(pkg, null),
                                 visualDensity: VisualDensity.compact,
                               ),
@@ -6704,7 +7374,7 @@ fi
                     children: [
                       Expanded(
                         child: Text(
-                          '${isZh ? "APP 分析" : "APP analysis"}: $_selectedPackageName',
+                          '${_arText(context, zh: "APP 分析", zhHant: "APP 分析", en: "APP analysis", fr: "Analyse APP", de: "APP-Analyse", ja: "APP 解析")}: $_selectedPackageName',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelLarge?.copyWith(
@@ -6730,7 +7400,15 @@ fi
                       const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(Icons.refresh_rounded, size: 16),
-                        tooltip: isZh ? '重新分析' : 'Analyze again',
+                        tooltip: _arText(
+                          context,
+                          zh: '重新分析',
+                          zhHant: '重新分析',
+                          en: 'Analyze again',
+                          fr: 'Analyser à nouveau',
+                          de: 'Erneut analysieren',
+                          ja: '再解析',
+                        ),
                         onPressed: _loadingPackageAnalysis
                             ? null
                             : () => _analyzePackage(_selectedPackageName!),
@@ -6740,7 +7418,15 @@ fi
                           Icons.snippet_folder_rounded,
                           size: 16,
                         ),
-                        tooltip: isZh ? '生成 APP 信息报告' : 'Generate app report',
+                        tooltip: _arText(
+                          context,
+                          zh: '生成 APP 信息报告',
+                          zhHant: '產生 APP 資訊報告',
+                          en: 'Generate app report',
+                          fr: 'Générer le rapport APP',
+                          de: 'APP-Bericht erstellen',
+                          ja: 'APP レポートを生成',
+                        ),
                         onPressed: _capturingPackageReport
                             ? null
                             : () =>
@@ -6748,7 +7434,15 @@ fi
                       ),
                       IconButton(
                         icon: const Icon(Icons.copy_rounded, size: 16),
-                        tooltip: isZh ? '复制分析结果' : 'Copy analysis',
+                        tooltip: _arText(
+                          context,
+                          zh: '复制分析结果',
+                          zhHant: '複製分析結果',
+                          en: 'Copy analysis',
+                          fr: 'Copier l’analyse',
+                          de: 'Analyse kopieren',
+                          ja: '解析結果をコピー',
+                        ),
                         onPressed: (_packageAnalysisOutput ?? '').trim().isEmpty
                             ? null
                             : () => _copyText(_packageAnalysisOutput!),
@@ -6767,9 +7461,15 @@ fi
                           padding: const EdgeInsets.all(8),
                           child: SelectableText(
                             _packageAnalysisOutput ??
-                                (isZh
-                                    ? '正在读取 APP 信息...'
-                                    : 'Reading app info...'),
+                                _arText(
+                                  context,
+                                  zh: '正在读取 APP 信息...',
+                                  zhHant: '正在讀取 APP 資訊...',
+                                  en: 'Reading app info...',
+                                  fr: 'Lecture des infos APP...',
+                                  de: 'APP-Info wird gelesen...',
+                                  ja: 'APP 情報を読み込み中...',
+                                ),
                             style: TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 11,
@@ -6806,7 +7506,15 @@ fi
                     controller: _processFilter,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: isZh ? '过滤进程名...' : 'Filter process name...',
+                      hintText: _arText(
+                        context,
+                        zh: '过滤进程名...',
+                        zhHant: '篩選程序名稱...',
+                        en: 'Filter process name...',
+                        fr: 'Filtrer le nom du processus...',
+                        de: 'Prozessnamen filtern...',
+                        ja: 'プロセス名を絞り込み...',
+                      ),
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.search_rounded, size: 16),
                       contentPadding: const EdgeInsets.symmetric(
@@ -6828,7 +7536,15 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.5),
                       )
                     : const Icon(Icons.refresh_rounded),
-                label: isZh ? '刷新' : 'Refresh',
+                label: _arText(
+                  context,
+                  zh: '刷新',
+                  zhHant: '重新整理',
+                  en: 'Refresh',
+                  fr: 'Actualiser',
+                  de: 'Aktualisieren',
+                  ja: '更新',
+                ),
               ),
             ],
           ),
@@ -6876,7 +7592,15 @@ fi
                               IconButton(
                                 icon: const Icon(Icons.copy_rounded, size: 14),
                                 onPressed: () => _copyText('${p.pid}'),
-                                tooltip: isZh ? '复制 PID' : 'Copy PID',
+                                tooltip: _arText(
+                                  context,
+                                  zh: '复制 PID',
+                                  zhHant: '複製 PID',
+                                  en: 'Copy PID',
+                                  fr: 'Copier le PID',
+                                  de: 'PID kopieren',
+                                  ja: 'PID をコピー',
+                                ),
                                 visualDensity: VisualDensity.compact,
                               ),
                               const SizedBox(width: _kIconButtonGap),
@@ -6886,7 +7610,15 @@ fi
                                   size: 16,
                                 ),
                                 onPressed: () => _showProcessMenu(p, null),
-                                tooltip: isZh ? '更多操作' : 'More actions',
+                                tooltip: _arText(
+                                  context,
+                                  zh: '更多操作',
+                                  zhHant: '更多操作',
+                                  en: 'More actions',
+                                  fr: 'Plus d’actions',
+                                  de: 'Weitere Aktionen',
+                                  ja: 'その他の操作',
+                                ),
                                 visualDensity: VisualDensity.compact,
                               ),
                             ],
@@ -6916,7 +7648,15 @@ fi
     final selected = _logcatPackageFilterEnabled;
     final color = selected ? cs.primary : cs.onSurfaceVariant;
     return Tooltip(
-      message: isZh ? '按包名过滤 Logcat' : 'Filter logcat by package',
+      message: _arText(
+        context,
+        zh: '按包名过滤 Logcat',
+        zhHant: '依套件名稱篩選 Logcat',
+        en: 'Filter Logcat by package',
+        fr: 'Filtrer Logcat par package',
+        de: 'Logcat nach Paket filtern',
+        ja: 'パッケージで Logcat を絞り込み',
+      ),
       child: FilterChip(
         selected: selected,
         avatar: Icon(Icons.apps_rounded, size: 15, color: color),
@@ -8258,7 +8998,6 @@ fi
 
   List<PopupMenuEntry<_ToolchainCommandAction>> _toolchainCommandMenuItems(
     AndroidReverseToolchainProbe probe,
-    bool isZh,
   ) {
     return _toolchainVisibleActions(probe)
         .map(
@@ -8268,7 +9007,7 @@ fi
               children: [
                 Icon(_toolchainCommandIcon(action), size: 16),
                 const SizedBox(width: 8),
-                Text(_toolchainCommandLabel(action, isZh)),
+                Text(_toolchainCommandLabel(action)),
               ],
             ),
           ),
@@ -8339,42 +9078,69 @@ fi
   Future<void> _handleToolchainAction(
     AndroidReverseToolchainProbe probe,
     _ToolchainCommandAction action,
-    bool isZh,
   ) async {
     if (_isToolchainCommandRunning(probe, action)) return;
     if (action == _ToolchainCommandAction.reference) {
-      _showToolchainInfoDialog(probe, isZh);
+      _showToolchainInfoDialog(probe);
       return;
     }
     final plugin = _toolchainPluginForProbe(probe);
     if (plugin != null) {
-      await _handleToolchainPluginAction(probe, plugin, action, isZh);
+      await _handleToolchainPluginAction(probe, plugin, action);
       return;
     }
     final commandAction = _toolchainCommandAction(action);
     if (commandAction == null) return;
+    final actionLabel = _toolchainCommandLabel(action);
     final command = probe.commandFor(commandAction)?.trim() ?? '';
     if (command.isEmpty) {
       _showSnack(
-        isZh
-            ? '${probe.label} 暂无可自动执行的${_toolchainCommandLabel(action, isZh)}命令。'
-            : 'No executable ${_toolchainCommandLabel(action, isZh).toLowerCase()} command is available for ${probe.label}.',
+        _arText(
+          context,
+          zh: '${probe.label} 暂无可自动执行的$actionLabel命令。',
+          zhHant: '${probe.label} 暫無可自動執行的$actionLabel指令。',
+          en: 'No executable ${actionLabel.toLowerCase()} command is available for ${probe.label}.',
+          fr: 'Aucune commande ${actionLabel.toLowerCase()} exécutable disponible pour ${probe.label}.',
+          de: 'Kein ausführbarer ${actionLabel.toLowerCase()}-Befehl für ${probe.label} verfügbar.',
+          ja: '${probe.label} には自動実行できる $actionLabel コマンドがありません。',
+        ),
       );
       return;
     }
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title:
-          '${_toolchainCommandLabel(action, isZh)} ${probe.label}${isZh ? "？" : "?"}',
+      title: _arText(
+        context,
+        zh: '$actionLabel ${probe.label}？',
+        zhHant: '$actionLabel ${probe.label}？',
+        en: '$actionLabel ${probe.label}?',
+        fr: '$actionLabel ${probe.label} ?',
+        de: '$actionLabel ${probe.label}?',
+        ja: '${probe.label} を$actionLabelしますか？',
+      ),
       message: [
-        isZh
-            ? 'OpenHand 将直接执行以下命令，完成后自动刷新工具链诊断。'
-            : 'OpenHand will run the command below and refresh toolchain diagnostics afterwards.',
+        _arText(
+          context,
+          zh: 'OpenHand 将直接执行以下命令，完成后自动刷新工具链诊断。',
+          zhHant: 'OpenHand 將直接執行以下指令，完成後自動重新整理工具鏈診斷。',
+          en: 'OpenHand will run the command below and refresh toolchain diagnostics afterwards.',
+          fr: 'OpenHand exécutera la commande ci-dessous puis actualisera le diagnostic de la chaîne d’outils.',
+          de: 'OpenHand führt den folgenden Befehl aus und aktualisiert danach die Toolchain-Diagnose.',
+          ja: 'OpenHand は次のコマンドを実行し、完了後にツールチェーン診断を更新します。',
+        ),
         '',
         command,
       ].join('\n'),
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: _toolchainCommandLabel(action, isZh),
+      cancelLabel: _arText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: actionLabel,
       destructive: action == _ToolchainCommandAction.uninstall,
     );
     if (!confirmed || !mounted) return;
@@ -8384,7 +9150,15 @@ fi
       _lastToolchainCommandResult = AdbCommandResult(
         args: <String>['toolchain', action.name, probe.id],
         exitCode: -1,
-        stdout: isZh ? '执行中...' : 'Running...',
+        stdout: _arText(
+          context,
+          zh: '执行中...',
+          zhHant: '執行中...',
+          en: 'Running...',
+          fr: 'Exécution...',
+          de: 'Wird ausgeführt...',
+          ja: '実行中...',
+        ),
         stderr: '',
         displayCommand: command,
       );
@@ -8406,12 +9180,24 @@ fi
       setState(() => _lastToolchainCommandResult = adbResult);
       _showSnack(
         adbResult.ok
-            ? (isZh
-                  ? '${probe.label} ${_toolchainCommandLabel(action, isZh)}完成'
-                  : '${probe.label} ${_toolchainCommandLabel(action, isZh).toLowerCase()} completed')
-            : (isZh
-                  ? '${probe.label} ${_toolchainCommandLabel(action, isZh)}失败'
-                  : '${probe.label} ${_toolchainCommandLabel(action, isZh).toLowerCase()} failed'),
+            ? _arText(
+                context,
+                zh: '${probe.label} $actionLabel完成',
+                zhHant: '${probe.label} $actionLabel完成',
+                en: '${probe.label} ${actionLabel.toLowerCase()} completed',
+                fr: '${probe.label} ${actionLabel.toLowerCase()} terminé',
+                de: '${probe.label} ${actionLabel.toLowerCase()} abgeschlossen',
+                ja: '${probe.label} の$actionLabelが完了しました',
+              )
+            : _arText(
+                context,
+                zh: '${probe.label} $actionLabel失败',
+                zhHant: '${probe.label} $actionLabel失敗',
+                en: '${probe.label} ${actionLabel.toLowerCase()} failed',
+                fr: '${probe.label} ${actionLabel.toLowerCase()} échoué',
+                de: '${probe.label} ${actionLabel.toLowerCase()} fehlgeschlagen',
+                ja: '${probe.label} の$actionLabelに失敗しました',
+              ),
       );
       unawaited(_refreshToolchain());
     } finally {
@@ -8421,17 +9207,13 @@ fi
     }
   }
 
-  void _showToolchainInfoDialog(AndroidReverseToolchainProbe probe, bool isZh) {
+  void _showToolchainInfoDialog(AndroidReverseToolchainProbe probe) {
     final row = _toolchainResultForProbe(probe);
     final plugin = _toolchainPluginForProbe(probe);
     showAndroidReverseToolDialog<void>(
       context: context,
-      builder: (_) => _ToolchainInfoDialog(
-        probe: probe,
-        result: row,
-        plugin: plugin,
-        isZh: isZh,
-      ),
+      builder: (_) =>
+          _ToolchainInfoDialog(probe: probe, result: row, plugin: plugin),
     );
   }
 
@@ -8439,7 +9221,6 @@ fi
     AndroidReverseToolchainProbe probe,
     PluginInfo plugin,
     _ToolchainCommandAction action,
-    bool isZh,
   ) async {
     final runtimeAction = switch (action) {
       _ToolchainCommandAction.install => _RuntimePluginAction.install,
@@ -8448,27 +9229,66 @@ fi
       _ToolchainCommandAction.reference => null,
     };
     if (runtimeAction == null) return;
+    final actionLabel = _toolchainCommandLabel(action);
     if (action == _ToolchainCommandAction.update && !plugin.isInstalled) {
       _showSnack(
-        isZh ? '${plugin.name} 尚未安装。' : '${plugin.name} is not installed.',
+        _arText(
+          context,
+          zh: '${plugin.name} 尚未安装。',
+          zhHant: '${plugin.name} 尚未安裝。',
+          en: '${plugin.name} is not installed.',
+          fr: '${plugin.name} n’est pas installé.',
+          de: '${plugin.name} ist nicht installiert.',
+          ja: '${plugin.name} は未インストールです。',
+        ),
       );
       return;
     }
     if (action == _ToolchainCommandAction.uninstall && !plugin.isInstalled) {
       _showSnack(
-        isZh ? '${plugin.name} 尚未安装。' : '${plugin.name} is not installed.',
+        _arText(
+          context,
+          zh: '${plugin.name} 尚未安装。',
+          zhHant: '${plugin.name} 尚未安裝。',
+          en: '${plugin.name} is not installed.',
+          fr: '${plugin.name} n’est pas installé.',
+          de: '${plugin.name} ist nicht installiert.',
+          ja: '${plugin.name} は未インストールです。',
+        ),
       );
       return;
     }
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title:
-          '${_toolchainCommandLabel(action, isZh)} ${probe.label}${isZh ? "？" : "?"}',
-      message: isZh
-          ? 'OpenHand 将通过插件服务直接${_toolchainCommandLabel(action, isZh)} ${plugin.name}，完成后自动刷新插件和工具链状态。'
-          : 'OpenHand will ${_toolchainCommandLabel(action, isZh).toLowerCase()} ${plugin.name} through the plugin service, then refresh plugin and toolchain status.',
-      cancelLabel: isZh ? '取消' : 'Cancel',
-      confirmLabel: _toolchainCommandLabel(action, isZh),
+      title: _arText(
+        context,
+        zh: '$actionLabel ${probe.label}？',
+        zhHant: '$actionLabel ${probe.label}？',
+        en: '$actionLabel ${probe.label}?',
+        fr: '$actionLabel ${probe.label} ?',
+        de: '$actionLabel ${probe.label}?',
+        ja: '${probe.label} を$actionLabelしますか？',
+      ),
+      message: _arText(
+        context,
+        zh: 'OpenHand 将通过插件服务直接$actionLabel ${plugin.name}，完成后自动刷新插件和工具链状态。',
+        zhHant:
+            'OpenHand 將透過外掛服務直接$actionLabel ${plugin.name}，完成後自動重新整理外掛與工具鏈狀態。',
+        en: 'OpenHand will ${actionLabel.toLowerCase()} ${plugin.name} through the plugin service, then refresh plugin and toolchain status.',
+        fr: 'OpenHand utilisera le service de plugins pour ${actionLabel.toLowerCase()} ${plugin.name}, puis actualisera les états plugin et outil.',
+        de: 'OpenHand führt ${actionLabel.toLowerCase()} für ${plugin.name} über den Plugin-Dienst aus und aktualisiert danach Plugin- und Toolchain-Status.',
+        ja: 'OpenHand はプラグインサービス経由で ${plugin.name} を$actionLabelし、完了後にプラグインとツールチェーン状態を更新します。',
+      ),
+      cancelLabel: _arText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
+      confirmLabel: actionLabel,
       destructive: action == _ToolchainCommandAction.uninstall,
     );
     if (!confirmed || !mounted) return;
@@ -8479,7 +9299,15 @@ fi
       _lastToolchainCommandResult = AdbCommandResult(
         args: <String>['toolchain-plugin', action.name, plugin.id],
         exitCode: -1,
-        stdout: isZh ? '插件服务执行中...' : 'Plugin service is running...',
+        stdout: _arText(
+          context,
+          zh: '插件服务执行中...',
+          zhHant: '外掛服務執行中...',
+          en: 'Plugin service is running...',
+          fr: 'Service de plugins en cours...',
+          de: 'Plugin-Dienst läuft...',
+          ja: 'プラグインサービスを実行中...',
+        ),
         stderr: '',
         displayCommand: 'plugin:${plugin.id} ${action.name}',
       );
@@ -8500,13 +9328,13 @@ fi
       final latest = pluginController.pluginById(plugin.id) ?? plugin;
       final logs = pluginController.operationLogs.join('\n').trim();
       final stdout = <String>[
-        '${isZh ? "插件" : "Plugin"}: ${latest.name}',
-        '${isZh ? "动作" : "Action"}: ${_toolchainCommandLabel(action, isZh)}',
-        '${isZh ? "状态" : "Status"}: ${success ? (isZh ? "完成" : "completed") : (isZh ? "失败" : "failed")}',
+        '${_arText(context, zh: "插件", zhHant: "外掛", en: "Plugin", fr: "Plugin", de: "Plugin", ja: "プラグイン")}: ${latest.name}',
+        '${_arText(context, zh: "动作", zhHant: "動作", en: "Action", fr: "Action", de: "Aktion", ja: "アクション")}: $actionLabel',
+        '${_arText(context, zh: "状态", zhHant: "狀態", en: "Status", fr: "État", de: "Status", ja: "状態")}: ${success ? _arText(context, zh: "完成", zhHant: "完成", en: "completed", fr: "terminé", de: "abgeschlossen", ja: "完了") : _arText(context, zh: "失败", zhHant: "失敗", en: "failed", fr: "échec", de: "fehlgeschlagen", ja: "失敗")}',
         if (latest.installedVersion?.trim().isNotEmpty ?? false)
-          '${isZh ? "版本" : "Version"}: ${latest.installedVersion}',
+          '${_arText(context, zh: "版本", zhHant: "版本", en: "Version", fr: "Version", de: "Version", ja: "バージョン")}: ${latest.installedVersion}',
         if (latest.installPath?.trim().isNotEmpty ?? false)
-          '${isZh ? "路径" : "Path"}: ${latest.installPath}',
+          '${_arText(context, zh: "路径", zhHant: "路徑", en: "Path", fr: "Chemin", de: "Pfad", ja: "パス")}: ${latest.installPath}',
         if (logs.isNotEmpty) ...['', logs],
       ].join('\n');
       setState(() {
@@ -8518,18 +9346,38 @@ fi
               ? ''
               : (pluginController.errorMessage ??
                     latest.errorMessage ??
-                    (isZh ? '插件服务动作失败。' : 'Plugin service action failed.')),
+                    _arText(
+                      context,
+                      zh: '插件服务动作失败。',
+                      zhHant: '外掛服務動作失敗。',
+                      en: 'Plugin service action failed.',
+                      fr: 'Échec de l’action du service plugin.',
+                      de: 'Plugin-Dienstaktion fehlgeschlagen.',
+                      ja: 'プラグインサービスの操作に失敗しました。',
+                    )),
           displayCommand: 'plugin:${plugin.id} ${action.name}',
         );
       });
       _showSnack(
         success
-            ? (isZh
-                  ? '${plugin.name} ${_toolchainCommandLabel(action, isZh)}完成'
-                  : '${plugin.name} ${_toolchainCommandLabel(action, isZh).toLowerCase()} completed')
-            : (isZh
-                  ? '${plugin.name} ${_toolchainCommandLabel(action, isZh)}失败'
-                  : '${plugin.name} ${_toolchainCommandLabel(action, isZh).toLowerCase()} failed'),
+            ? _arText(
+                context,
+                zh: '${plugin.name} $actionLabel完成',
+                zhHant: '${plugin.name} $actionLabel完成',
+                en: '${plugin.name} ${actionLabel.toLowerCase()} completed',
+                fr: '${plugin.name} ${actionLabel.toLowerCase()} terminé',
+                de: '${plugin.name} ${actionLabel.toLowerCase()} abgeschlossen',
+                ja: '${plugin.name} の$actionLabelが完了しました',
+              )
+            : _arText(
+                context,
+                zh: '${plugin.name} $actionLabel失败',
+                zhHant: '${plugin.name} $actionLabel失敗',
+                en: '${plugin.name} ${actionLabel.toLowerCase()} failed',
+                fr: '${plugin.name} ${actionLabel.toLowerCase()} échoué',
+                de: '${plugin.name} ${actionLabel.toLowerCase()} fehlgeschlagen',
+                ja: '${plugin.name} の$actionLabelに失敗しました',
+              ),
       );
       unawaited(_refreshToolchain());
     } finally {
@@ -8562,12 +9410,44 @@ fi
     };
   }
 
-  String _toolchainCommandLabel(_ToolchainCommandAction action, bool isZh) {
+  String _toolchainCommandLabel(_ToolchainCommandAction action) {
     return switch (action) {
-      _ToolchainCommandAction.install => isZh ? '安装' : 'Install',
-      _ToolchainCommandAction.update => isZh ? '更新' : 'Update',
-      _ToolchainCommandAction.uninstall => isZh ? '卸载' : 'Uninstall',
-      _ToolchainCommandAction.reference => isZh ? '查看信息' : 'Info',
+      _ToolchainCommandAction.install => _arText(
+        context,
+        zh: '安装',
+        zhHant: '安裝',
+        en: 'Install',
+        fr: 'Installer',
+        de: 'Installieren',
+        ja: 'インストール',
+      ),
+      _ToolchainCommandAction.update => _arText(
+        context,
+        zh: '更新',
+        zhHant: '更新',
+        en: 'Update',
+        fr: 'Mettre à jour',
+        de: 'Aktualisieren',
+        ja: '更新',
+      ),
+      _ToolchainCommandAction.uninstall => _arText(
+        context,
+        zh: '卸载',
+        zhHant: '解除安裝',
+        en: 'Uninstall',
+        fr: 'Désinstaller',
+        de: 'Deinstallieren',
+        ja: 'アンインストール',
+      ),
+      _ToolchainCommandAction.reference => _arText(
+        context,
+        zh: '查看信息',
+        zhHant: '查看資訊',
+        en: 'Info',
+        fr: 'Infos',
+        de: 'Info',
+        ja: '情報',
+      ),
     };
   }
 
@@ -8575,21 +9455,85 @@ fi
     return compactToolName(prefix: 'mcp__${server.name}', token: tool.id);
   }
 
-  String _mcpCatalogStatusLabel(McpToolCatalogStatus status, bool isZh) {
+  String _mcpCatalogStatusLabel(McpToolCatalogStatus status) {
     return switch (status) {
-      McpToolCatalogStatus.idle => isZh ? '未扫描' : 'idle',
-      McpToolCatalogStatus.loading => isZh ? '扫描中' : 'loading',
-      McpToolCatalogStatus.ready => isZh ? '已就绪' : 'ready',
-      McpToolCatalogStatus.failed => isZh ? '失败' : 'failed',
+      McpToolCatalogStatus.idle => _arText(
+        context,
+        zh: '未扫描',
+        zhHant: '未掃描',
+        en: 'idle',
+        fr: 'inactif',
+        de: 'inaktiv',
+        ja: '未スキャン',
+      ),
+      McpToolCatalogStatus.loading => _arText(
+        context,
+        zh: '扫描中',
+        zhHant: '掃描中',
+        en: 'loading',
+        fr: 'chargement',
+        de: 'lädt',
+        ja: '読み込み中',
+      ),
+      McpToolCatalogStatus.ready => _arText(
+        context,
+        zh: '已就绪',
+        zhHant: '已就緒',
+        en: 'ready',
+        fr: 'prêt',
+        de: 'bereit',
+        ja: '準備完了',
+      ),
+      McpToolCatalogStatus.failed => _arText(
+        context,
+        zh: '失败',
+        zhHant: '失敗',
+        en: 'failed',
+        fr: 'échec',
+        de: 'fehlgeschlagen',
+        ja: '失敗',
+      ),
     };
   }
 
-  String _mcpHealthStatusLabel(McpServerHealthStatus status, bool isZh) {
+  String _mcpHealthStatusLabel(McpServerHealthStatus status) {
     return switch (status) {
-      McpServerHealthStatus.idle => isZh ? '未探测' : 'idle',
-      McpServerHealthStatus.checking => isZh ? '探测中' : 'checking',
-      McpServerHealthStatus.healthy => isZh ? '正常' : 'healthy',
-      McpServerHealthStatus.unhealthy => isZh ? '异常' : 'unhealthy',
+      McpServerHealthStatus.idle => _arText(
+        context,
+        zh: '未探测',
+        zhHant: '未探測',
+        en: 'idle',
+        fr: 'inactif',
+        de: 'inaktiv',
+        ja: '未チェック',
+      ),
+      McpServerHealthStatus.checking => _arText(
+        context,
+        zh: '探测中',
+        zhHant: '探測中',
+        en: 'checking',
+        fr: 'vérification',
+        de: 'prüft',
+        ja: 'チェック中',
+      ),
+      McpServerHealthStatus.healthy => _arText(
+        context,
+        zh: '正常',
+        zhHant: '正常',
+        en: 'healthy',
+        fr: 'sain',
+        de: 'fehlerfrei',
+        ja: '正常',
+      ),
+      McpServerHealthStatus.unhealthy => _arText(
+        context,
+        zh: '异常',
+        zhHant: '異常',
+        en: 'unhealthy',
+        fr: 'anormal',
+        de: 'fehlerhaft',
+        ja: '異常',
+      ),
     };
   }
 
@@ -8650,7 +9594,6 @@ fi
     AdbCommandResult result,
     ColorScheme cs,
     ThemeData theme,
-    bool isZh,
   ) {
     final ok = result.ok || result.partialOk;
     final statusColor = ok ? cs.primary : cs.error;
@@ -8667,21 +9610,70 @@ fi
             _StatusPill(
               label: ok
                   ? result.partialOk
-                        ? (isZh ? '部分完成' : 'partial')
-                        : (isZh ? '成功' : 'success')
-                  : (isZh ? '失败' : 'failed'),
+                        ? _arText(
+                            context,
+                            zh: '部分完成',
+                            zhHant: '部分完成',
+                            en: 'partial',
+                            fr: 'partiel',
+                            de: 'teilweise',
+                            ja: '一部完了',
+                          )
+                        : _arText(
+                            context,
+                            zh: '成功',
+                            zhHant: '成功',
+                            en: 'success',
+                            fr: 'succès',
+                            de: 'erfolgreich',
+                            ja: '成功',
+                          )
+                  : _arText(
+                      context,
+                      zh: '失败',
+                      zhHant: '失敗',
+                      en: 'failed',
+                      fr: 'échec',
+                      de: 'fehlgeschlagen',
+                      ja: '失敗',
+                    ),
               color: statusColor,
             ),
             _StatusPill(
-              label: '${isZh ? "退出码" : "exit"} ${result.exitCode}',
+              label:
+                  '${_arText(context, zh: "退出码", zhHant: "退出碼", en: "exit", fr: "code", de: "Exit", ja: "終了コード")} ${result.exitCode}',
               color: statusColor,
             ),
             if (result.timedOut)
-              _StatusPill(label: isZh ? '超时' : 'timeout', color: cs.tertiary),
+              _StatusPill(
+                label: _arText(
+                  context,
+                  zh: '超时',
+                  zhHant: '逾時',
+                  en: 'timeout',
+                  fr: 'expiration',
+                  de: 'Timeout',
+                  ja: 'タイムアウト',
+                ),
+                color: cs.tertiary,
+              ),
           ],
         ),
         const SizedBox(height: 8),
-        _resultSection(cs, theme, isZh ? '命令' : 'Command', result.commandLine),
+        _resultSection(
+          cs,
+          theme,
+          _arText(
+            context,
+            zh: '命令',
+            zhHant: '指令',
+            en: 'Command',
+            fr: 'Commande',
+            de: 'Befehl',
+            ja: 'コマンド',
+          ),
+          result.commandLine,
+        ),
         if (stdout.isNotEmpty) ...[
           const SizedBox(height: 8),
           _resultSection(cs, theme, 'stdout', stdout),
@@ -8693,7 +9685,15 @@ fi
         if (stdout.isEmpty && stderr.isEmpty) ...[
           const SizedBox(height: 8),
           Text(
-            isZh ? '(命令无输出)' : '(no output)',
+            _arText(
+              context,
+              zh: '(命令无输出)',
+              zhHant: '（指令無輸出）',
+              en: '(no output)',
+              fr: '(aucune sortie)',
+              de: '(keine Ausgabe)',
+              ja: '（出力なし）',
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
               fontStyle: FontStyle.italic,
@@ -9416,17 +10416,73 @@ class _SmallActionButton extends StatelessWidget {
   }
 }
 
-String _runtimePluginStatusLabel(PluginInfo plugin, bool isZh) {
+String _runtimePluginStatusLabel(BuildContext context, PluginInfo plugin) {
   return switch (plugin.status) {
-    PluginStatus.notInstalled => isZh ? '未安装' : 'Not installed',
+    PluginStatus.notInstalled => _arText(
+      context,
+      zh: '未安装',
+      zhHant: '未安裝',
+      en: 'Not installed',
+      fr: 'Non installé',
+      de: 'Nicht installiert',
+      ja: '未インストール',
+    ),
     PluginStatus.installed =>
       plugin.enabled
-          ? (isZh ? '已安装并启用' : 'Installed and enabled')
-          : (isZh ? '已安装但禁用' : 'Installed but disabled'),
-    PluginStatus.installing => isZh ? '安装中' : 'Installing',
-    PluginStatus.updating => isZh ? '更新中' : 'Updating',
-    PluginStatus.uninstalling => isZh ? '卸载中' : 'Uninstalling',
-    PluginStatus.error => isZh ? '异常' : 'Error',
+          ? _arText(
+              context,
+              zh: '已安装并启用',
+              zhHant: '已安裝並啟用',
+              en: 'Installed and enabled',
+              fr: 'Installé et activé',
+              de: 'Installiert und aktiviert',
+              ja: 'インストール済み、有効',
+            )
+          : _arText(
+              context,
+              zh: '已安装但禁用',
+              zhHant: '已安裝但停用',
+              en: 'Installed but disabled',
+              fr: 'Installé mais désactivé',
+              de: 'Installiert, aber deaktiviert',
+              ja: 'インストール済み、無効',
+            ),
+    PluginStatus.installing => _arText(
+      context,
+      zh: '安装中',
+      zhHant: '安裝中',
+      en: 'Installing',
+      fr: 'Installation',
+      de: 'Installation läuft',
+      ja: 'インストール中',
+    ),
+    PluginStatus.updating => _arText(
+      context,
+      zh: '更新中',
+      zhHant: '更新中',
+      en: 'Updating',
+      fr: 'Mise à jour',
+      de: 'Aktualisierung läuft',
+      ja: '更新中',
+    ),
+    PluginStatus.uninstalling => _arText(
+      context,
+      zh: '卸载中',
+      zhHant: '解除安裝中',
+      en: 'Uninstalling',
+      fr: 'Désinstallation',
+      de: 'Deinstallation läuft',
+      ja: 'アンインストール中',
+    ),
+    PluginStatus.error => _arText(
+      context,
+      zh: '异常',
+      zhHant: '異常',
+      en: 'Error',
+      fr: 'Erreur',
+      de: 'Fehler',
+      ja: 'エラー',
+    ),
   };
 }
 
@@ -9435,13 +10491,11 @@ class _ToolchainInfoDialog extends StatelessWidget {
     required this.probe,
     required this.result,
     required this.plugin,
-    required this.isZh,
   });
 
   final AndroidReverseToolchainProbe probe;
   final AndroidReverseToolchainProbeResult? result;
   final PluginInfo? plugin;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -9464,7 +10518,8 @@ class _ToolchainInfoDialog extends StatelessWidget {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.info_outline_rounded,
-            title: '${probe.label} ${isZh ? "详情" : "Details"}',
+            title:
+                '${probe.label} ${_arText(context, zh: "详情", zhHant: "詳情", en: "Details", fr: "Détails", de: "Details", ja: "詳細")}',
             subtitle: probe.id,
           ),
           Divider(height: 1, color: cs.outlineVariant),
@@ -9474,33 +10529,129 @@ class _ToolchainInfoDialog extends StatelessWidget {
                 padding: const EdgeInsets.all(18),
                 children: [
                   _DashboardDetailSection(
-                    title: isZh ? '基本信息' : 'Basic info',
+                    title: _arText(
+                      context,
+                      zh: '基本信息',
+                      zhHant: '基本資訊',
+                      en: 'Basic info',
+                      fr: 'Infos de base',
+                      de: 'Basisinfo',
+                      ja: '基本情報',
+                    ),
                     icon: Icons.construction_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: isZh ? '名称' : 'Name',
+                        label: _arText(
+                          context,
+                          zh: '名称',
+                          zhHant: '名稱',
+                          en: 'Name',
+                          fr: 'Nom',
+                          de: 'Name',
+                          ja: '名前',
+                        ),
                         value: probe.label,
                       ),
                       _DashboardDetailRow(label: 'ID', value: probe.id),
                       _DashboardDetailRow(
-                        label: isZh ? '类型' : 'Type',
+                        label: _arText(
+                          context,
+                          zh: '类型',
+                          zhHant: '類型',
+                          en: 'Type',
+                          fr: 'Type',
+                          de: 'Typ',
+                          ja: '種類',
+                        ),
                         value: plugin == null
-                            ? (isZh ? '系统工具链' : 'System toolchain')
-                            : (isZh ? '插件托管工具' : 'Plugin-managed tool'),
+                            ? _arText(
+                                context,
+                                zh: '系统工具链',
+                                zhHant: '系統工具鏈',
+                                en: 'System toolchain',
+                                fr: 'Chaîne d’outils système',
+                                de: 'System-Toolchain',
+                                ja: 'システムツールチェーン',
+                              )
+                            : _arText(
+                                context,
+                                zh: '插件托管工具',
+                                zhHant: '外掛托管工具',
+                                en: 'Plugin-managed tool',
+                                fr: 'Outil géré par plugin',
+                                de: 'Pluginverwaltetes Tool',
+                                ja: 'プラグイン管理ツール',
+                              ),
                       ),
                       _DashboardDetailRow(
-                        label: isZh ? '必要' : 'Required',
+                        label: _arText(
+                          context,
+                          zh: '必要',
+                          zhHant: '必要',
+                          en: 'Required',
+                          fr: 'Requis',
+                          de: 'Erforderlich',
+                          ja: '必須',
+                        ),
                         value: probe.required
-                            ? (isZh ? '是' : 'Yes')
-                            : (isZh ? '否' : 'No'),
+                            ? _arText(
+                                context,
+                                zh: '是',
+                                zhHant: '是',
+                                en: 'Yes',
+                                fr: 'Oui',
+                                de: 'Ja',
+                                ja: 'はい',
+                              )
+                            : _arText(
+                                context,
+                                zh: '否',
+                                zhHant: '否',
+                                en: 'No',
+                                fr: 'Non',
+                                de: 'Nein',
+                                ja: 'いいえ',
+                              ),
                       ),
                       _DashboardDetailRow(
-                        label: isZh ? '状态' : 'Status',
+                        label: _arText(
+                          context,
+                          zh: '状态',
+                          zhHant: '狀態',
+                          en: 'Status',
+                          fr: 'État',
+                          de: 'Status',
+                          ja: '状態',
+                        ),
                         value: installed == true
-                            ? (isZh ? '已安装' : 'Installed')
+                            ? _arText(
+                                context,
+                                zh: '已安装',
+                                zhHant: '已安裝',
+                                en: 'Installed',
+                                fr: 'Installé',
+                                de: 'Installiert',
+                                ja: 'インストール済み',
+                              )
                             : installed == false
-                            ? (isZh ? '未安装' : 'Not installed')
-                            : (isZh ? '未检测' : 'Not checked'),
+                            ? _arText(
+                                context,
+                                zh: '未安装',
+                                zhHant: '未安裝',
+                                en: 'Not installed',
+                                fr: 'Non installé',
+                                de: 'Nicht installiert',
+                                ja: '未インストール',
+                              )
+                            : _arText(
+                                context,
+                                zh: '未检测',
+                                zhHant: '未檢測',
+                                en: 'Not checked',
+                                fr: 'Non vérifié',
+                                de: 'Nicht geprüft',
+                                ja: '未チェック',
+                              ),
                         valueColor: statusColor,
                       ),
                     ],
@@ -9508,29 +10659,69 @@ class _ToolchainInfoDialog extends StatelessWidget {
                   if (result != null) ...[
                     const SizedBox(height: 14),
                     _DashboardDetailSection(
-                      title: isZh ? '诊断结果' : 'Diagnostic',
+                      title: _arText(
+                        context,
+                        zh: '诊断结果',
+                        zhHant: '診斷結果',
+                        en: 'Diagnostic',
+                        fr: 'Diagnostic',
+                        de: 'Diagnose',
+                        ja: '診断',
+                      ),
                       icon: Icons.fact_check_rounded,
                       accentColor: statusColor,
                       children: [
                         _DashboardDetailRow(
-                          label: isZh ? '输出' : 'Output',
+                          label: _arText(
+                            context,
+                            zh: '输出',
+                            zhHant: '輸出',
+                            en: 'Output',
+                            fr: 'Sortie',
+                            de: 'Ausgabe',
+                            ja: '出力',
+                          ),
                           value: result!.displayValue,
                           monospace: true,
                           valueColor: result!.ok ? null : cs.error,
                         ),
                         _DashboardDetailRow(
-                          label: isZh ? '退出码' : 'Exit code',
+                          label: _arText(
+                            context,
+                            zh: '退出码',
+                            zhHant: '退出碼',
+                            en: 'Exit code',
+                            fr: 'Code de sortie',
+                            de: 'Exit-Code',
+                            ja: '終了コード',
+                          ),
                           value: '${result!.exitCode}',
                           monospace: true,
                         ),
                         _DashboardDetailRow(
-                          label: isZh ? '耗时' : 'Duration',
+                          label: _arText(
+                            context,
+                            zh: '耗时',
+                            zhHant: '耗時',
+                            en: 'Duration',
+                            fr: 'Durée',
+                            de: 'Dauer',
+                            ja: '所要時間',
+                          ),
                           value: '${result!.durationMs}ms',
                           monospace: true,
                         ),
                         if (result!.stderr.trim().isNotEmpty)
                           _DashboardDetailRow(
-                            label: isZh ? '错误' : 'Error',
+                            label: _arText(
+                              context,
+                              zh: '错误',
+                              zhHant: '錯誤',
+                              en: 'Error',
+                              fr: 'Erreur',
+                              de: 'Fehler',
+                              ja: 'エラー',
+                            ),
                             value: result!.stderr.trim(),
                             valueColor: cs.error,
                             monospace: true,
@@ -9540,11 +10731,27 @@ class _ToolchainInfoDialog extends StatelessWidget {
                   ],
                   const SizedBox(height: 14),
                   _DashboardDetailSection(
-                    title: isZh ? '可用操作' : 'Available actions',
+                    title: _arText(
+                      context,
+                      zh: '可用操作',
+                      zhHant: '可用操作',
+                      en: 'Available actions',
+                      fr: 'Actions disponibles',
+                      de: 'Verfügbare Aktionen',
+                      ja: '利用可能な操作',
+                    ),
                     icon: Icons.terminal_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: isZh ? '安装' : 'Install',
+                        label: _arText(
+                          context,
+                          zh: '安装',
+                          zhHant: '安裝',
+                          en: 'Install',
+                          fr: 'Installer',
+                          de: 'Installieren',
+                          ja: 'インストール',
+                        ),
                         value:
                             _commandText(probe.installCommand) ??
                             _androidToolchainInstallHint(context, probe),
@@ -9552,17 +10759,41 @@ class _ToolchainInfoDialog extends StatelessWidget {
                             probe.installCommand?.trim().isNotEmpty ?? false,
                       ),
                       _DashboardDetailRow(
-                        label: isZh ? '更新' : 'Update',
+                        label: _arText(
+                          context,
+                          zh: '更新',
+                          zhHant: '更新',
+                          en: 'Update',
+                          fr: 'Mettre à jour',
+                          de: 'Aktualisieren',
+                          ja: '更新',
+                        ),
                         value: _commandText(probe.updateCommand),
                         monospace: true,
                       ),
                       _DashboardDetailRow(
-                        label: isZh ? '卸载' : 'Uninstall',
+                        label: _arText(
+                          context,
+                          zh: '卸载',
+                          zhHant: '解除安裝',
+                          en: 'Uninstall',
+                          fr: 'Désinstaller',
+                          de: 'Deinstallieren',
+                          ja: 'アンインストール',
+                        ),
                         value: _commandText(probe.uninstallCommand),
                         monospace: true,
                       ),
                       _DashboardDetailRow(
-                        label: isZh ? '参考' : 'Reference',
+                        label: _arText(
+                          context,
+                          zh: '参考',
+                          zhHant: '參考',
+                          en: 'Reference',
+                          fr: 'Référence',
+                          de: 'Referenz',
+                          ja: '参考',
+                        ),
                         value: _commandText(probe.referenceUrl),
                         monospace: true,
                       ),
@@ -9571,21 +10802,53 @@ class _ToolchainInfoDialog extends StatelessWidget {
                   if (plugin != null) ...[
                     const SizedBox(height: 14),
                     _DashboardDetailSection(
-                      title: isZh ? '关联插件' : 'Linked plugin',
+                      title: _arText(
+                        context,
+                        zh: '关联插件',
+                        zhHant: '關聯外掛',
+                        en: 'Linked plugin',
+                        fr: 'Plugin lié',
+                        de: 'Verknüpftes Plugin',
+                        ja: '関連プラグイン',
+                      ),
                       icon: Icons.extension_rounded,
                       children: [
                         _DashboardDetailRow(
-                          label: isZh ? '名称' : 'Name',
+                          label: _arText(
+                            context,
+                            zh: '名称',
+                            zhHant: '名稱',
+                            en: 'Name',
+                            fr: 'Nom',
+                            de: 'Name',
+                            ja: '名前',
+                          ),
                           value: plugin!.name,
                         ),
                         _DashboardDetailRow(label: 'ID', value: plugin!.id),
                         _DashboardDetailRow(
-                          label: isZh ? '描述' : 'Description',
+                          label: _arText(
+                            context,
+                            zh: '描述',
+                            zhHant: '描述',
+                            en: 'Description',
+                            fr: 'Description',
+                            de: 'Beschreibung',
+                            ja: '説明',
+                          ),
                           value: plugin!.description,
                         ),
                         _DashboardDetailRow(
-                          label: isZh ? '状态' : 'Status',
-                          value: _runtimePluginStatusLabel(plugin!, isZh),
+                          label: _arText(
+                            context,
+                            zh: '状态',
+                            zhHant: '狀態',
+                            en: 'Status',
+                            fr: 'État',
+                            de: 'Status',
+                            ja: '状態',
+                          ),
+                          value: _runtimePluginStatusLabel(context, plugin!),
                           valueColor: plugin!.isInstalled
                               ? plugin!.enabled
                                     ? cs.primary
@@ -9595,11 +10858,27 @@ class _ToolchainInfoDialog extends StatelessWidget {
                               : cs.tertiary,
                         ),
                         _DashboardDetailRow(
-                          label: isZh ? '版本' : 'Version',
+                          label: _arText(
+                            context,
+                            zh: '版本',
+                            zhHant: '版本',
+                            en: 'Version',
+                            fr: 'Version',
+                            de: 'Version',
+                            ja: 'バージョン',
+                          ),
                           value: plugin!.installedVersion,
                         ),
                         _DashboardDetailRow(
-                          label: isZh ? '路径' : 'Path',
+                          label: _arText(
+                            context,
+                            zh: '路径',
+                            zhHant: '路徑',
+                            en: 'Path',
+                            fr: 'Chemin',
+                            de: 'Pfad',
+                            ja: 'パス',
+                          ),
                           value: plugin!.installPath,
                           monospace: true,
                         ),
@@ -9622,10 +10901,9 @@ class _ToolchainInfoDialog extends StatelessWidget {
 }
 
 class _RuntimePluginInfoDialog extends StatelessWidget {
-  const _RuntimePluginInfoDialog({required this.plugin, required this.isZh});
+  const _RuntimePluginInfoDialog({required this.plugin});
 
   final PluginInfo plugin;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -9650,7 +10928,8 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.extension_rounded,
-            title: '${plugin.name} ${isZh ? "信息" : "Info"}',
+            title:
+                '${plugin.name} ${_arText(context, zh: "信息", zhHant: "資訊", en: "Info", fr: "Infos", de: "Info", ja: "情報")}',
             subtitle: plugin.id,
           ),
           Divider(height: 1, color: cs.outlineVariant),
@@ -9660,73 +10939,225 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                 padding: const EdgeInsets.all(18),
                 children: [
                   _DashboardDetailSection(
-                    title: isZh ? '基本信息' : 'Basic info',
+                    title: _arText(
+                      context,
+                      zh: '基本信息',
+                      zhHant: '基本資訊',
+                      en: 'Basic info',
+                      fr: 'Infos de base',
+                      de: 'Basisinfo',
+                      ja: '基本情報',
+                    ),
                     icon: Icons.info_outline_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: isZh ? '名称' : 'Name',
+                        label: _arText(
+                          context,
+                          zh: '名称',
+                          zhHant: '名稱',
+                          en: 'Name',
+                          fr: 'Nom',
+                          de: 'Name',
+                          ja: '名前',
+                        ),
                         value: plugin.name,
                       ),
                       _DashboardDetailRow(label: 'ID', value: plugin.id),
                       _DashboardDetailRow(
-                        label: isZh ? '描述' : 'Description',
+                        label: _arText(
+                          context,
+                          zh: '描述',
+                          zhHant: '描述',
+                          en: 'Description',
+                          fr: 'Description',
+                          de: 'Beschreibung',
+                          ja: '説明',
+                        ),
                         value: plugin.description,
                       ),
                       _DashboardDetailRow(
-                        label: isZh ? '状态' : 'Status',
-                        value: _runtimePluginStatusLabel(plugin, isZh),
+                        label: _arText(
+                          context,
+                          zh: '状态',
+                          zhHant: '狀態',
+                          en: 'Status',
+                          fr: 'État',
+                          de: 'Status',
+                          ja: '状態',
+                        ),
+                        value: _runtimePluginStatusLabel(context, plugin),
                         valueColor: statusColor,
                       ),
                       _DashboardDetailRow(
-                        label: isZh ? '启用' : 'Enabled',
+                        label: _arText(
+                          context,
+                          zh: '启用',
+                          zhHant: '啟用',
+                          en: 'Enabled',
+                          fr: 'Activé',
+                          de: 'Aktiviert',
+                          ja: '有効',
+                        ),
                         value: plugin.enabled
-                            ? (isZh ? '是' : 'Yes')
-                            : (isZh ? '否' : 'No'),
+                            ? _arText(
+                                context,
+                                zh: '是',
+                                zhHant: '是',
+                                en: 'Yes',
+                                fr: 'Oui',
+                                de: 'Ja',
+                                ja: 'はい',
+                              )
+                            : _arText(
+                                context,
+                                zh: '否',
+                                zhHant: '否',
+                                en: 'No',
+                                fr: 'Non',
+                                de: 'Nein',
+                                ja: 'いいえ',
+                              ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 14),
                   _DashboardDetailSection(
-                    title: isZh ? '版本与路径' : 'Version and path',
+                    title: _arText(
+                      context,
+                      zh: '版本与路径',
+                      zhHant: '版本與路徑',
+                      en: 'Version and path',
+                      fr: 'Version et chemin',
+                      de: 'Version und Pfad',
+                      ja: 'バージョンとパス',
+                    ),
                     icon: Icons.inventory_2_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: isZh ? '已安装版本' : 'Installed',
+                        label: _arText(
+                          context,
+                          zh: '已安装版本',
+                          zhHant: '已安裝版本',
+                          en: 'Installed',
+                          fr: 'Installé',
+                          de: 'Installiert',
+                          ja: 'インストール済み',
+                        ),
                         value: plugin.installedVersion,
                       ),
                       _DashboardDetailRow(
-                        label: isZh ? '最新版本' : 'Latest',
+                        label: _arText(
+                          context,
+                          zh: '最新版本',
+                          zhHant: '最新版本',
+                          en: 'Latest',
+                          fr: 'Dernière',
+                          de: 'Neueste',
+                          ja: '最新',
+                        ),
                         value: plugin.latestVersion,
                       ),
                       _DashboardDetailRow(
-                        label: isZh ? '安装路径' : 'Install path',
+                        label: _arText(
+                          context,
+                          zh: '安装路径',
+                          zhHant: '安裝路徑',
+                          en: 'Install path',
+                          fr: 'Chemin d’installation',
+                          de: 'Installationspfad',
+                          ja: 'インストールパス',
+                        ),
                         value: plugin.installPath,
                         monospace: true,
                       ),
                       _DashboardDetailRow(
-                        label: isZh ? '支持卸载' : 'Uninstallable',
+                        label: _arText(
+                          context,
+                          zh: '支持卸载',
+                          zhHant: '支援解除安裝',
+                          en: 'Uninstallable',
+                          fr: 'Désinstallable',
+                          de: 'Deinstallierbar',
+                          ja: 'アンインストール可能',
+                        ),
                         value: plugin.supportsUninstall
-                            ? (isZh ? '是' : 'Yes')
-                            : (isZh ? '否' : 'No'),
+                            ? _arText(
+                                context,
+                                zh: '是',
+                                zhHant: '是',
+                                en: 'Yes',
+                                fr: 'Oui',
+                                de: 'Ja',
+                                ja: 'はい',
+                              )
+                            : _arText(
+                                context,
+                                zh: '否',
+                                zhHant: '否',
+                                en: 'No',
+                                fr: 'Non',
+                                de: 'Nein',
+                                ja: 'いいえ',
+                              ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 14),
                   _DashboardDetailSection(
-                    title: isZh ? '依赖关系' : 'Dependencies',
+                    title: _arText(
+                      context,
+                      zh: '依赖关系',
+                      zhHant: '依賴關係',
+                      en: 'Dependencies',
+                      fr: 'Dépendances',
+                      de: 'Abhängigkeiten',
+                      ja: '依存関係',
+                    ),
                     icon: Icons.account_tree_rounded,
                     children: [
                       _DashboardDetailRow(
-                        label: isZh ? '依赖' : 'Depends on',
+                        label: _arText(
+                          context,
+                          zh: '依赖',
+                          zhHant: '依賴',
+                          en: 'Depends on',
+                          fr: 'Dépend de',
+                          de: 'Hängt ab von',
+                          ja: '依存先',
+                        ),
                         value: plugin.dependencies.isEmpty
-                            ? (isZh ? '无' : 'None')
+                            ? _arText(
+                                context,
+                                zh: '无',
+                                zhHant: '無',
+                                en: 'None',
+                                fr: 'Aucune',
+                                de: 'Keine',
+                                ja: 'なし',
+                              )
                             : plugin.dependencies.join(', '),
                         monospace: plugin.dependencies.isNotEmpty,
                       ),
                       _DashboardDetailRow(
-                        label: isZh ? '被依赖' : 'Required by',
+                        label: _arText(
+                          context,
+                          zh: '被依赖',
+                          zhHant: '被依賴',
+                          en: 'Required by',
+                          fr: 'Requis par',
+                          de: 'Benötigt von',
+                          ja: '依存元',
+                        ),
                         value: plugin.dependents.isEmpty
-                            ? (isZh ? '无' : 'None')
+                            ? _arText(
+                                context,
+                                zh: '无',
+                                zhHant: '無',
+                                en: 'None',
+                                fr: 'Aucune',
+                                de: 'Keine',
+                                ja: 'なし',
+                              )
                             : plugin.dependents.join(', '),
                         monospace: plugin.dependents.isNotEmpty,
                       ),
@@ -9735,13 +11166,39 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                   if (specs.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     _DashboardDetailSection(
-                      title: isZh ? '逆向模板关联' : 'Reverse templates',
+                      title: _arText(
+                        context,
+                        zh: '逆向模板关联',
+                        zhHant: '逆向模板關聯',
+                        en: 'Reverse templates',
+                        fr: 'Templates reverse',
+                        de: 'Reverse-Vorlagen',
+                        ja: 'リバーステンプレート',
+                      ),
                       icon: Icons.dashboard_customize_rounded,
                       children: [
                         _DashboardDetailRow(
-                          label: isZh ? '关联模板' : 'Templates',
+                          label: _arText(
+                            context,
+                            zh: '关联模板',
+                            zhHant: '關聯模板',
+                            en: 'Templates',
+                            fr: 'Templates',
+                            de: 'Vorlagen',
+                            ja: 'テンプレート',
+                          ),
                           value: specs
-                              .map((spec) => isZh ? spec.labelZh : spec.labelEn)
+                              .map(
+                                (spec) => _arText(
+                                  context,
+                                  zh: spec.labelZh,
+                                  zhHant: spec.labelZhHant,
+                                  en: spec.labelEn,
+                                  fr: spec.labelFr,
+                                  de: spec.labelDe,
+                                  ja: spec.labelJa,
+                                ),
+                              )
                               .join(', '),
                         ),
                       ],
@@ -9750,12 +11207,28 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                   if (plugin.errorMessage?.trim().isNotEmpty ?? false) ...[
                     const SizedBox(height: 14),
                     _DashboardDetailSection(
-                      title: isZh ? '异常信息' : 'Error',
+                      title: _arText(
+                        context,
+                        zh: '异常信息',
+                        zhHant: '異常資訊',
+                        en: 'Error',
+                        fr: 'Erreur',
+                        de: 'Fehler',
+                        ja: 'エラー',
+                      ),
                       icon: Icons.error_outline_rounded,
                       accentColor: cs.error,
                       children: [
                         _DashboardDetailRow(
-                          label: isZh ? '错误' : 'Error',
+                          label: _arText(
+                            context,
+                            zh: '错误',
+                            zhHant: '錯誤',
+                            en: 'Error',
+                            fr: 'Erreur',
+                            de: 'Fehler',
+                            ja: 'エラー',
+                          ),
                           value: plugin.errorMessage!.trim(),
                           valueColor: cs.error,
                         ),
