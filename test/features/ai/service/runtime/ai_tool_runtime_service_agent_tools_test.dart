@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/agents/agents_controller.dart';
 import 'package:openhand/features/agents/data/agents_store.dart';
 import 'package:openhand/features/agents/model/agent_models.dart';
+import 'package:openhand/features/agents/service/agent_runtime_availability.dart';
 import 'package:openhand/features/ai/model/ai_creation_mode.dart';
 import 'package:openhand/features/ai/model/ai_deny_command_rule.dart';
 import 'package:openhand/features/ai/model/ai_input_cache_runtime_config.dart';
@@ -447,6 +448,68 @@ void main() {
       expect(catalog.find('AgentTaskList'), isNull);
       expect(catalog.find('AgentTaskComplete'), isNull);
     });
+
+    test(
+      'returns runtime diagnostics when a stale catalog outlives Hermes availability',
+      () async {
+        await controller.saveAgent(_agent(enabled: true));
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        expect(catalog.find('AgentList'), isNotNull);
+
+        controller.setRuntimeAvailabilityProvider(
+          () => const AgentRuntimeAvailability(
+            isLoading: true,
+            isInstalled: true,
+            isEnabled: true,
+            pluginName: 'Hermes Agent',
+          ),
+        );
+
+        final result = await _executeAgentList(runtime, catalog);
+
+        expect(result.status, BashToolExecutionStatus.invalidArguments);
+        expect(result.resultText, contains('Agent runtime is unavailable'));
+        expect(result.resultText, contains('runtime is still loading'));
+      },
+    );
+
+    test(
+      'returns precise diagnostics when a stale catalog has no enabled agents',
+      () async {
+        await controller.saveAgent(_agent(enabled: true));
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        expect(catalog.find('AgentList'), isNotNull);
+
+        await controller.setAgentEnabled('agent-1', enabled: false);
+
+        final result = await _executeAgentList(runtime, catalog);
+
+        expect(result.status, BashToolExecutionStatus.invalidArguments);
+        expect(result.resultText, contains('No enabled agents are available'));
+      },
+    );
+
+    test(
+      'returns precise diagnostics when a stale catalog has no configured agents',
+      () async {
+        await controller.saveAgent(_agent(enabled: true));
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        expect(catalog.find('AgentList'), isNotNull);
+
+        await controller.deleteAgent('agent-1');
+
+        final result = await _executeAgentList(runtime, catalog);
+
+        expect(result.status, BashToolExecutionStatus.invalidArguments);
+        expect(result.resultText, contains('No agents are configured'));
+      },
+    );
 
     test(
       'filters agent tools by enabled agent builtin tool bindings',
@@ -2016,6 +2079,27 @@ AiToolRuntimeService _runtimeService(AgentsControllerProvider provider) {
     mcpToolService: _FakeMcpToolDiscoveryService(),
     backgroundChatClient: _FakeAiChatClient(),
     agentsControllerProvider: provider,
+  );
+}
+
+Future<AiToolExecutionResult> _executeAgentList(
+  AiToolRuntimeService runtime,
+  AiResolvedToolCatalog catalog,
+) {
+  return runtime.execute(
+    sessionId: 'session-agent-diagnostics',
+    catalog: catalog,
+    toolCall: AiToolCall(
+      id: 'call-agent-list',
+      name: 'AgentList',
+      arguments: jsonEncode(const <String, Object?>{}),
+    ),
+    model: _model(),
+    previouslyReadFiles: const <String>{},
+    denyCommandRules: const <AiDenyCommandRule>[],
+    requireWriteCommandConfirmation: false,
+    confirmWriteCommand: (request) async =>
+        BashCommandApprovalDecision.approved,
   );
 }
 
