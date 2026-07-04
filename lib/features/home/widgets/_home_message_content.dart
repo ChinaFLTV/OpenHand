@@ -14,6 +14,8 @@ const double _toolResultPreviewMaxHeight = 176;
 const double _collapsedMessageFadeHeight = 40;
 const Duration _collapsedMessageFadeDuration = Duration(milliseconds: 160);
 const Duration _collapsedPreviewScrollSettleDelay = Duration(milliseconds: 220);
+const Duration _streamingHtmlDotsDuration = Duration(milliseconds: 1100);
+const Duration _htmlBubbleShimmerDuration = Duration(milliseconds: 1400);
 const double _collapsedPreviewBottomEnterEpsilon = 2;
 const double _collapsedPreviewBottomExitEpsilon = 10;
 const int _collapsedBodyScrollOffsetCacheLimit = 500;
@@ -208,11 +210,10 @@ class _CollapsedPreviewFade extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final transcriptScrolling = context.read<TranscriptScrollActivity>().value;
-    final duration = reduceMotion || transcriptScrolling || !animate
+    final duration = transcriptScrolling || !animate
         ? Duration.zero
-        : _collapsedMessageFadeDuration;
+        : openHandMotionDuration(context, _collapsedMessageFadeDuration);
     return Positioned(
       left: 0,
       right: 0,
@@ -4058,7 +4059,7 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
     super.initState();
     _dotCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1100),
+      duration: _streamingHtmlDotsDuration,
     )..repeat();
     _dotAnim = CurvedAnimation(parent: _dotCtrl, curve: Curves.easeInOut);
   }
@@ -4092,9 +4093,7 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final animationsEnabled =
-        TickerMode.valuesOf(context).enabled &&
-        !MediaQuery.disableAnimationsOf(context);
+    final animationsEnabled = openHandTickerMotionEnabled(context);
     if (!animationsEnabled) {
       _dotCtrl.stop();
     } else if (!_dotCtrl.isAnimating) {
@@ -4200,7 +4199,7 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: _htmlBubbleShimmerDuration,
     )..repeat();
   }
 
@@ -4245,9 +4244,7 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
     final baseColor = cs.onSurface.withValues(alpha: 0.08);
     final highlightColor = cs.onSurface.withValues(alpha: 0.18);
     final animationsEnabled =
-        TickerMode.valuesOf(context).enabled &&
-        !MediaQuery.disableAnimationsOf(context) &&
-        !_transcriptScrolling;
+        openHandTickerMotionEnabled(context) && !_transcriptScrolling;
     if (!animationsEnabled) {
       _ctrl.stop();
       return _buildContent(baseColor, highlightColor, 0.5);
@@ -6272,12 +6269,11 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       );
     }
 
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final transcriptScrolling = context.read<TranscriptScrollActivity>().value;
     final shouldAnimateBodySwitch = isStreaming || contentMotionKey != null;
     final motionEnabled =
         shouldAnimateBodySwitch &&
-        !reduceMotion &&
+        openHandTickerMotionEnabled(context) &&
         (!transcriptScrolling || forceMotionWhenScrolling);
     final motionDuration = motionEnabled
         ? cardMotionDurationFor(context, expanding: !isStreaming)

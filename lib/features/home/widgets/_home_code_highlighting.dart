@@ -2172,13 +2172,11 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
     final animationSettings = context
         .watch<SettingsController>()
         .dialogAnimationSettings;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final sizeDuration = reduceMotion
-        ? Duration.zero
-        : animationSettings.duration;
-    final sizeCurve = reduceMotion
-        ? Curves.linear
-        : animationSettings.curve.curve;
+    final sizeDuration = openHandMotionDuration(
+      context,
+      animationSettings.duration,
+    );
+    final sizeCurve = animationSettings.curve.curve;
 
     return buildOpenHandDialog(
       backgroundColor: Colors.transparent,
