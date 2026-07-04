@@ -924,6 +924,7 @@ class _HighlightedCodePanel extends StatefulWidget {
     this.allowAutoDetection = false,
     this.wrapLines = false,
     this.showToolbar = true,
+    this.internalVerticalScroll = false,
   });
 
   final String content;
@@ -936,6 +937,7 @@ class _HighlightedCodePanel extends StatefulWidget {
   final bool allowAutoDetection;
   final bool wrapLines;
   final bool showToolbar;
+  final bool internalVerticalScroll;
 
   @override
   State<_HighlightedCodePanel> createState() => _HighlightedCodePanelState();
@@ -980,6 +982,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         oldWidget.forceDarkSurface != widget.forceDarkSurface ||
         oldWidget.allowAutoDetection != widget.allowAutoDetection ||
         oldWidget.showToolbar != widget.showToolbar ||
+        oldWidget.internalVerticalScroll != widget.internalVerticalScroll ||
         oldWidget.theme.brightness != widget.theme.brightness ||
         oldWidget.theme.textTheme.bodyMedium?.fontSize !=
             widget.theme.textTheme.bodyMedium?.fontSize ||
@@ -1162,23 +1165,37 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                 ],
               ),
             ),
-          Padding(
-            padding: EdgeInsets.all(widget.showToolbar ? 14 : 16),
-            child: isMermaidLanguage && _mermaidViewActive
-                // 外层 Column 是 CrossAxisAlignment.start，子节点只拿到松约束。
-                // _MermaidDiagramView 内层 Column 用 stretch，但实际宽度按
-                // intrinsic 算 → 工具栏 Row 决定，WebView 视口塌成 0 宽，
-                // 内部 stage 自然 0x0，pointer 永远命中不到。强制撑满父宽即可。
-                ? SizedBox(
-                    width: double.infinity,
-                    child: _MermaidDiagramView(
-                      source: widget.content,
-                      palette: palette,
-                    ),
-                  )
-                : _buildCodeBody(palette),
-          ),
+          _buildPanelBody(palette, isMermaidLanguage),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPanelBody(_CodeBlockPalette palette, bool isMermaidLanguage) {
+    final body = isMermaidLanguage && _mermaidViewActive
+        // 外层 Column 是 CrossAxisAlignment.start，子节点只拿到松约束。
+        // _MermaidDiagramView 内层 Column 用 stretch，但实际宽度按
+        // intrinsic 算 → 工具栏 Row 决定，WebView 视口塌成 0 宽，
+        // 内部 stage 自然 0x0，pointer 永远命中不到。强制撑满父宽即可。
+        ? SizedBox(
+            width: double.infinity,
+            child: _MermaidDiagramView(
+              source: widget.content,
+              palette: palette,
+            ),
+          )
+        : _buildCodeBody(palette);
+    final padding = EdgeInsets.all(widget.showToolbar ? 14 : 16);
+    if (!widget.internalVerticalScroll) {
+      return Padding(padding: padding, child: body);
+    }
+    return Expanded(
+      child: Scrollbar(
+        child: SingleChildScrollView(
+          padding: padding,
+          physics: openHandDialogAwareScrollPhysics(context),
+          child: body,
+        ),
       ),
     );
   }

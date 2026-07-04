@@ -1753,46 +1753,23 @@ class _ToolContentFullDialogBody extends StatelessWidget {
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final minContentWidth = constraints.maxWidth.isFinite
-            ? math.max(
-                0.0,
-                constraints.maxWidth -
-                    _kToolContentDialogBodyPadding.horizontal,
-              )
-            : 0.0;
-        final minContentHeight = constraints.maxHeight.isFinite
-            ? math.max(
-                0.0,
-                constraints.maxHeight - _kToolContentDialogBodyPadding.vertical,
-              )
-            : 0.0;
-        return Scrollbar(
-          child: SingleChildScrollView(
-            padding: _kToolContentDialogBodyPadding,
-            physics: openHandDialogAwareScrollPhysics(context),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minWidth: minContentWidth,
-                minHeight: minContentHeight,
-              ),
-              child: _HighlightedCodePanel(
-                content: text,
-                theme: theme,
-                language: content.language,
-                selectable: true,
-                baseColor: isError
-                    ? colorScheme.onErrorContainer
-                    : colorScheme.onSurface,
-                accentColor: isError ? colorScheme.error : null,
-                wrapLines: wrapLines,
-                showToolbar: false,
-              ),
-            ),
-          ),
-        );
-      },
+    return Padding(
+      padding: _kToolContentDialogBodyPadding,
+      child: SizedBox.expand(
+        child: _HighlightedCodePanel(
+          content: text,
+          theme: theme,
+          language: content.language,
+          selectable: true,
+          baseColor: isError
+              ? colorScheme.onErrorContainer
+              : colorScheme.onSurface,
+          accentColor: isError ? colorScheme.error : null,
+          wrapLines: wrapLines,
+          showToolbar: false,
+          internalVerticalScroll: true,
+        ),
+      ),
     );
   }
 }
