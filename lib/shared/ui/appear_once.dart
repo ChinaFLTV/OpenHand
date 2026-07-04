@@ -6,6 +6,9 @@ import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
 import 'motion_preference.dart';
 
+const Duration _kDefaultAppearDuration = Duration(milliseconds: 320);
+const double _kDefaultAppearSlideOffset = 12.0;
+
 /// One-shot, ticker-self-disposing entrance animation wrapper.
 ///
 /// Wrap a list item (or any widget that newly enters the tree) with
@@ -30,8 +33,8 @@ class AppearOnce extends StatefulWidget {
     // where it sits next to the 520 ms _TranscriptAnimatedMessageEntry
     // entrance. Aligning the durations gives a single rhythm to the
     // whole "new content has appeared" idiom.
-    this.duration = const Duration(milliseconds: 320),
-    this.slideOffset = 12.0,
+    this.duration = _kDefaultAppearDuration,
+    this.slideOffset = _kDefaultAppearSlideOffset,
   });
 
   final Widget child;
@@ -55,7 +58,10 @@ class _AppearOnceState extends State<AppearOnce>
   @override
   void initState() {
     super.initState();
-    final ctrl = AnimationController(duration: widget.duration, vsync: this);
+    final ctrl = AnimationController(
+      duration: _safeAppearDuration(widget.duration),
+      vsync: this,
+    );
     _opacity = CurvedAnimation(parent: ctrl, curve: Curves.easeOut);
     // 2026-05-01: easeOutCubic → easeInOutCubicEmphasized so the slide-up
     // matches the Material 3 emphasized motion used by the transcript
@@ -67,6 +73,15 @@ class _AppearOnceState extends State<AppearOnce>
     ctrl.addStatusListener(_onStatus);
     _ctrl = ctrl;
     ctrl.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant AppearOnce oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final ctrl = _ctrl;
+    if (ctrl != null && widget.duration != oldWidget.duration) {
+      ctrl.duration = _safeAppearDuration(widget.duration);
+    }
   }
 
   void _onStatus(AnimationStatus status) {
@@ -121,7 +136,7 @@ class _AppearOnceState extends State<AppearOnce>
       opacity: opacity,
       child: _AppearTranslate(
         animation: translate,
-        slideOffset: widget.slideOffset,
+        slideOffset: _safeAppearSlideOffset(widget.slideOffset),
         child: widget.child,
       ),
     );
@@ -168,7 +183,7 @@ class _AppearTranslateRender extends RenderProxyBox {
     required Animation<double> animation,
     required double slideOffset,
   }) : _animation = animation,
-       _slideOffset = slideOffset;
+       _slideOffset = _safeAppearSlideOffset(slideOffset);
 
   Animation<double> _animation;
   double _slideOffset;
@@ -184,8 +199,9 @@ class _AppearTranslateRender extends RenderProxyBox {
   }
 
   set slideOffset(double value) {
-    if (_slideOffset == value) return;
-    _slideOffset = value;
+    final safeValue = _safeAppearSlideOffset(value);
+    if (_slideOffset == safeValue) return;
+    _slideOffset = safeValue;
     markNeedsPaint();
   }
 
@@ -208,6 +224,16 @@ class _AppearTranslateRender extends RenderProxyBox {
     final dy = (1 - value) * _slideOffset;
     super.paint(context, offset + Offset(0, dy));
   }
+}
+
+Duration _safeAppearDuration(Duration duration) {
+  if (duration <= Duration.zero) return _kDefaultAppearDuration;
+  return duration;
+}
+
+double _safeAppearSlideOffset(double value) {
+  if (!value.isFinite) return _kDefaultAppearSlideOffset;
+  return value;
 }
 
 /// Lightweight wrapper that reads the global

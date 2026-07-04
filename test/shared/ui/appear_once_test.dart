@@ -1,0 +1,24 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/shared/ui/appear_once.dart';
+
+void main() {
+  testWidgets('AppearOnce normalizes invalid animation parameters', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const Directionality(
+        textDirection: TextDirection.ltr,
+        child: AppearOnce(
+          duration: Duration(milliseconds: -1),
+          slideOffset: double.nan,
+          child: Text('ready'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('ready'), findsOneWidget);
+  });
+}
