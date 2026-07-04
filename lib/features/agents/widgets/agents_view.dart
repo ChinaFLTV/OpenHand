@@ -7752,7 +7752,7 @@ class _AgentEditorPanel extends StatelessWidget {
   }
 }
 
-class _AnimatedReorderableChipStrip extends StatelessWidget {
+class _AnimatedReorderableChipStrip extends StatefulWidget {
   const _AnimatedReorderableChipStrip({
     required this.values,
     required this.emptyText,
@@ -7770,14 +7770,51 @@ class _AnimatedReorderableChipStrip extends StatelessWidget {
   final String keyPrefix;
 
   @override
+  State<_AnimatedReorderableChipStrip> createState() =>
+      _AnimatedReorderableChipStripState();
+}
+
+class _AnimatedReorderableChipStripState
+    extends State<_AnimatedReorderableChipStrip> {
+  String? _activeDragValue;
+  String? _lastTargetValue;
+
+  void _startDrag(String value) {
+    _activeDragValue = value;
+    _lastTargetValue = null;
+  }
+
+  void _finishDrag() {
+    _activeDragValue = null;
+    _lastTargetValue = null;
+  }
+
+  void _reorderToward(_AgentChipDragPayload payload, String targetValue) {
+    if (payload.value == targetValue) return;
+    if (_activeDragValue != payload.value) {
+      _activeDragValue = payload.value;
+      _lastTargetValue = null;
+    }
+    if (_lastTargetValue == targetValue) return;
+    final oldIndex = widget.values.indexOf(payload.value);
+    final targetIndex = widget.values.indexOf(targetValue);
+    if (oldIndex < 0 || targetIndex < 0 || oldIndex == targetIndex) return;
+    _lastTargetValue = targetValue;
+    final reorderableNewIndex = targetIndex > oldIndex
+        ? targetIndex + 1
+        : targetIndex;
+    widget.onReorder(oldIndex, reorderableNewIndex);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final animationSettings = _agentChipAnimationSettings(context);
-    if (values.isEmpty) {
+    if (widget.values.isEmpty) {
       return _AgentChipStripSwitcher(
         settings: animationSettings,
         child: Text(
           key: const ValueKey<String>('agent-chip-strip-empty'),
-          emptyText,
+          widget.emptyText,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -7795,17 +7832,17 @@ class _AnimatedReorderableChipStrip extends StatelessWidget {
           spacing: _agentChipSpacing,
           runSpacing: _agentChipSpacing,
           children: [
-            for (final entry in values.indexed)
+            for (final entry in widget.values.indexed)
               _AgentReorderableChipDropTarget(
-                key: ValueKey<String>('$keyPrefix-${entry.$2}'),
-                values: values,
+                key: ValueKey<String>('${widget.keyPrefix}-${entry.$2}'),
                 value: entry.$2,
-                originIndex: entry.$1,
-                label: labelBuilder?.call(entry.$2) ?? entry.$2,
+                label: widget.labelBuilder?.call(entry.$2) ?? entry.$2,
                 settings: animationSettings,
-                onRemove: onRemove,
-                onReorder: onReorder,
-                keyPrefix: keyPrefix,
+                onRemove: widget.onRemove,
+                onReorderToward: _reorderToward,
+                onDragStarted: _startDrag,
+                onDragFinished: _finishDrag,
+                keyPrefix: widget.keyPrefix,
               ),
           ],
         ),
@@ -7844,40 +7881,40 @@ class _AgentChipStripSwitcher extends StatelessWidget {
 }
 
 class _AgentChipDragPayload {
-  const _AgentChipDragPayload({required this.value, required this.originIndex});
+  const _AgentChipDragPayload({required this.value});
 
   final String value;
-  final int originIndex;
 }
 
 class _AgentReorderableChipDropTarget extends StatelessWidget {
   const _AgentReorderableChipDropTarget({
     super.key,
-    required this.values,
     required this.value,
-    required this.originIndex,
     required this.label,
     required this.settings,
     required this.onRemove,
-    required this.onReorder,
+    required this.onReorderToward,
+    required this.onDragStarted,
+    required this.onDragFinished,
     required this.keyPrefix,
   });
 
-  final List<String> values;
   final String value;
-  final int originIndex;
   final String label;
   final DialogAnimationSettings settings;
   final ValueChanged<String> onRemove;
-  final void Function(int oldIndex, int newIndex) onReorder;
+  final void Function(_AgentChipDragPayload payload, String targetValue)
+  onReorderToward;
+  final ValueChanged<String> onDragStarted;
+  final VoidCallback onDragFinished;
   final String keyPrefix;
 
   @override
   Widget build(BuildContext context) {
     return DragTarget<_AgentChipDragPayload>(
       onWillAcceptWithDetails: (details) => details.data.value != value,
-      onMove: (details) => _reorderToward(details.data),
-      onAcceptWithDetails: (details) => _reorderToward(details.data),
+      onMove: (details) => onReorderToward(details.data, value),
+      onAcceptWithDetails: (details) => onReorderToward(details.data, value),
       builder: (context, candidateData, rejectedData) {
         final targeted = candidateData.isNotEmpty;
         return AnimatedContainer(
@@ -7898,8 +7935,9 @@ class _AgentReorderableChipDropTarget extends StatelessWidget {
                 key: ValueKey<String>('$keyPrefix-drag-$value'),
                 label: label,
                 value: value,
-                index: originIndex,
                 onDeleted: requestRemove,
+                onDragStarted: onDragStarted,
+                onDragFinished: onDragFinished,
                 bodyKey: ValueKey<String>('$keyPrefix-body-$value'),
               );
             },
@@ -7908,22 +7946,6 @@ class _AgentReorderableChipDropTarget extends StatelessWidget {
       },
     );
   }
-
-  void _reorderToward(_AgentChipDragPayload payload) {
-    if (payload.value == value) return;
-    final oldIndex = values.indexOf(payload.value);
-    final targetIndex = values.indexOf(value);
-    if (oldIndex < 0 || targetIndex < 0 || oldIndex == targetIndex) return;
-    final movingLeft =
-        targetIndex < payload.originIndex && oldIndex > targetIndex;
-    final movingRight =
-        targetIndex > payload.originIndex && oldIndex < targetIndex;
-    if (!movingLeft && !movingRight) return;
-    final reorderableNewIndex = targetIndex > oldIndex
-        ? targetIndex + 1
-        : targetIndex;
-    onReorder(oldIndex, reorderableNewIndex);
-  }
 }
 
 class _AgentDraggableChip extends StatelessWidget {
@@ -7931,15 +7953,17 @@ class _AgentDraggableChip extends StatelessWidget {
     super.key,
     required this.label,
     required this.value,
-    required this.index,
     required this.onDeleted,
+    required this.onDragStarted,
+    required this.onDragFinished,
     required this.bodyKey,
   });
 
   final String label;
   final String value;
-  final int index;
   final VoidCallback onDeleted;
+  final ValueChanged<String> onDragStarted;
+  final VoidCallback onDragFinished;
   final Key bodyKey;
 
   @override
@@ -7951,7 +7975,11 @@ class _AgentDraggableChip extends StatelessWidget {
       dragging: false,
     );
     return Draggable<_AgentChipDragPayload>(
-      data: _AgentChipDragPayload(value: value, originIndex: index),
+      data: _AgentChipDragPayload(value: value),
+      onDragStarted: () => onDragStarted(value),
+      onDragEnd: (_) => onDragFinished(),
+      onDraggableCanceled: (_, _) => onDragFinished(),
+      onDragCompleted: onDragFinished,
       feedback: _AgentDraggableChipFeedback(
         child: _AgentDraggableChipBody(
           label: label,
