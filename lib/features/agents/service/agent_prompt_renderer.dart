@@ -50,7 +50,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.12';
+  static const String promptVersion = '1.2.13';
 
   final Future<String> Function(String path) _loader;
 
@@ -551,34 +551,57 @@ String _agentCoordinationGuidance(AgentProfile agent) {
   }
 
   final lines = <String>[];
-  if (defaultAll ||
-      agentTools.contains('agentlist') ||
-      agentTools.contains('agentdetail')) {
+  final discoveryTools = _availableAgentToolNames(
+    agentTools,
+    defaultAll: defaultAll,
+    tools: const <(String, String)>[
+      ('agentlist', 'AgentList'),
+      ('agentdetail', 'AgentDetail'),
+    ],
+  );
+  if (discoveryTools.isNotEmpty) {
     lines.add(
-      '- Discover first with `AgentList` or `AgentDetail` when available.',
+      '- Discover first with ${_inlineToolList(discoveryTools)} when available.',
     );
   }
-  if (defaultAll || agentTools.contains('agenttaskpublish')) {
+  final publishTools = _availableAgentToolNames(
+    agentTools,
+    defaultAll: defaultAll,
+    tools: const <(String, String)>[('agenttaskpublish', 'AgentTaskPublish')],
+  );
+  if (publishTools.isNotEmpty) {
     lines.add(
-      '- Delegate only out-of-loop work with `AgentTaskPublish`; include title, content, labels, and extra context.',
+      '- Delegate only out-of-loop work with ${_inlineToolList(publishTools)}; include title, content, labels, and extra context.',
     );
   }
-  if (defaultAll ||
-      agentTools.contains('agenttasktrack') ||
-      agentTools.contains('agenttaskprogress') ||
-      agentTools.contains('agenttaskresult')) {
+  final followTools = _availableAgentToolNames(
+    agentTools,
+    defaultAll: defaultAll,
+    tools: const <(String, String)>[
+      ('agenttasktrack', 'AgentTaskTrack'),
+      ('agenttaskprogress', 'AgentTaskProgress'),
+      ('agenttaskresult', 'AgentTaskResult'),
+    ],
+  );
+  if (followTools.isNotEmpty) {
     lines.add(
-      '- Follow work with `AgentTaskTrack`, `AgentTaskProgress`, or `AgentTaskResult`; respect the recommended poll interval.',
+      '- Follow work with ${_inlineToolList(followTools)}; use only returned next_poll tools and intervals.',
     );
   }
-  if (defaultAll ||
-      agentTools.contains('agenttaskpause') ||
-      agentTools.contains('agenttaskresume') ||
-      agentTools.contains('agenttaskcancel') ||
-      agentTools.contains('agenttaskterminate') ||
-      agentTools.contains('agenttaskcomplete')) {
+  final lifecycleTools = _availableAgentToolNames(
+    agentTools,
+    defaultAll: defaultAll,
+    tools: const <(String, String)>[
+      ('agenttaskpause', 'AgentTaskPause'),
+      ('agenttaskresume', 'AgentTaskResume'),
+      ('agenttaskcancel', 'AgentTaskCancel'),
+      ('agenttaskterminate', 'AgentTaskTerminate'),
+      ('agenttaskcomplete', 'AgentTaskComplete'),
+    ],
+  );
+  if (lifecycleTools.isNotEmpty) {
     lines.add(
-      '- Change lifecycle with pause, resume, cancel, terminate, or complete tools only when intentional and allowed.',
+      '- Change lifecycle with ${_inlineToolList(lifecycleTools)} only when intentional and allowed.',
     );
   }
   if (defaultAll ||
@@ -606,6 +629,21 @@ ${lines.join('\n')}
 
 String _normalizeAgentToolName(String value) {
   return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+}
+
+List<String> _availableAgentToolNames(
+  Set<String> configured, {
+  required bool defaultAll,
+  required List<(String normalized, String display)> tools,
+}) {
+  return tools
+      .where((tool) => defaultAll || configured.contains(tool.$1))
+      .map((tool) => tool.$2)
+      .toList(growable: false);
+}
+
+String _inlineToolList(List<String> tools) {
+  return tools.map((tool) => '`$tool`').join(', ');
 }
 
 const String _fallbackTemplate = '''
