@@ -14,6 +14,11 @@ import '../operations/ai_operation_http.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../session_io/ai_token_usage_parser.dart';
 
+final RegExp _htmlTagPattern = RegExp(r'<[^>]*>');
+final RegExp _whitespacePattern = RegExp(r'\s+');
+final RegExp _dataUriMimePattern = RegExp(r'data:([^;]+)');
+final RegExp _markdownSeparatorTailPattern = RegExp(r'-+$');
+
 enum AiChatRole { system, user, assistant, tool }
 
 class AiToolCall {
@@ -548,7 +553,7 @@ class AiPromptCacheAffinity {
         break;
       }
     }
-    return buffer.toString().replaceAll(RegExp(r'-+$'), '');
+    return buffer.toString().replaceAll(_markdownSeparatorTailPattern, '');
   }
 }
 
@@ -764,8 +769,8 @@ abstract class AiProtocolAdapter {
     // error page (e.g. nginx 400/502 pages).
     if (trimmed.contains('<html') || trimmed.contains('<HTML')) {
       final stripped = trimmed
-          .replaceAll(RegExp(r'<[^>]*>'), ' ')
-          .replaceAll(RegExp(r'\s+'), ' ')
+          .replaceAll(_htmlTagPattern, ' ')
+          .replaceAll(_whitespacePattern, ' ')
           .trim();
       return stripped.isEmpty ? trimmed : stripped;
     }
@@ -2808,7 +2813,7 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
             final commaIndex = url.indexOf(',');
             if (commaIndex > 0) {
               final header = url.substring(0, commaIndex);
-              final mimeMatch = RegExp(r'data:([^;]+)').firstMatch(header);
+              final mimeMatch = _dataUriMimePattern.firstMatch(header);
               final mimeType = mimeMatch?.group(1) ?? 'image/png';
               final base64Data = url.substring(commaIndex + 1);
               final md = await saveInlineMediaToMarkdown(
@@ -2901,7 +2906,7 @@ Future<String> _markdownFromOpenAiMediaPayload(
       final commaIndex = trimmed.indexOf(',');
       if (commaIndex > 0) {
         final header = trimmed.substring(0, commaIndex);
-        final mimeMatch = RegExp(r'data:([^;]+)').firstMatch(header);
+        final mimeMatch = _dataUriMimePattern.firstMatch(header);
         final mimeType = mimeMatch?.group(1) ?? fallbackMimeType;
         final base64Data = trimmed.substring(commaIndex + 1);
         return saveInlineMediaToMarkdown(
