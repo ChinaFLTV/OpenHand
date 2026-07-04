@@ -9,6 +9,25 @@ import 'knowledge_vector_distribution.dart';
 const String knowledgeBaseMessageMetadataKey = 'knowledge_base';
 const String knowledgeBasePromptAppendMetadataKey = 'prompt_append_content';
 const int _knowledgeUsagePreviewMaxChars = 420;
+const List<String> _knowledgeTitleKeys = <String>[
+  'source_title',
+  'title',
+  'chunk_title',
+];
+const List<String> _knowledgeSourceKeys = <String>[
+  'path',
+  'original_path',
+  'source_path',
+  'source_id',
+];
+const List<String> _knowledgeUsageTermKeys = <String>[
+  'source_title',
+  'title',
+  'path',
+  'chunk_id',
+  'source_id',
+  'heading_path',
+];
 final RegExp _knowledgeHeadingPathSeparatorPattern = RegExp(r'[>/\\|]+');
 final RegExp _knowledgeStableFragmentSeparatorPattern = RegExp(
   r'[\r\n。！？!?；;]+',
@@ -173,12 +192,12 @@ class KnowledgeMessageMetadata {
     for (var index = 0; index < usable.length; index++) {
       final hit = usable[index];
       final content = _contextContent(hit).trim();
-      final hasExactContent = '${hit['content'] ?? ''}'.trim().isNotEmpty;
+      final hasExactContent = _textValue(hit, 'content').isNotEmpty;
       final title = _contextTitle(hit);
       final source = _contextSource(hit);
-      final heading = '${hit['heading_path'] ?? ''}'.trim();
-      final chunkId = '${hit['chunk_id'] ?? ''}'.trim();
-      final documentTime = '${hit['document_time'] ?? ''}'.trim();
+      final heading = _textValue(hit, 'heading_path');
+      final chunkId = _textValue(hit, 'chunk_id');
+      final documentTime = _textValue(hit, 'document_time');
       final score = hit['final_score'] ?? hit['rerank_score'] ?? hit['score'];
       buffer.writeln('[KB-${index + 1}]');
       if (title.isNotEmpty) buffer.writeln('Title: $title');
@@ -188,7 +207,7 @@ class KnowledgeMessageMetadata {
       if (documentTime.isNotEmpty) {
         buffer.writeln('Document Time: $documentTime');
       }
-      if (score != null && '$score'.trim().isNotEmpty) {
+      if (score != null && nullIfBlank('$score') != null) {
         buffer.writeln('Score: $score');
       }
       if (_isTruthy(hit['content_truncated'])) {
@@ -318,34 +337,34 @@ class KnowledgeMessageMetadata {
   }
 
   static String citationKey(Map<String, Object?> hit, [String? label]) {
-    final sourceId = '${hit['source_id'] ?? ''}'.trim();
+    final sourceId = _textValue(hit, 'source_id');
     if (sourceId.isNotEmpty) return 'source:$sourceId';
-    final path = '${hit['path'] ?? ''}'.trim();
+    final path = _textValue(hit, 'path');
     if (path.isNotEmpty) return 'path:$path';
     return 'label:${label ?? citationLabel(hit)}';
   }
 
   static String citationLabel(Map<String, Object?> hit) {
-    final title = '${hit['source_title'] ?? hit['title'] ?? ''}'.trim();
+    final title = _firstTextValue(hit, const <String>['source_title', 'title']);
     if (title.isNotEmpty) return title;
-    final path = '${hit['path'] ?? ''}'.trim();
+    final path = _textValue(hit, 'path');
     if (path.isNotEmpty) {
       final normalized = path.replaceAll('\\', '/');
       final slash = normalized.lastIndexOf('/');
       return slash >= 0 ? normalized.substring(slash + 1) : normalized;
     }
-    return '${hit['chunk_id'] ?? ''}'.trim();
+    return _textValue(hit, 'chunk_id');
   }
 
   static String _resultKey(Map<String, Object?> hit, [String? label]) {
-    final chunkId = '${hit['chunk_id'] ?? hit['id'] ?? ''}'.trim();
+    final chunkId = _firstTextValue(hit, const <String>['chunk_id', 'id']);
     if (chunkId.isNotEmpty) return 'chunk:$chunkId';
-    final sourceId = '${hit['source_id'] ?? ''}'.trim();
-    final heading = '${hit['heading_path'] ?? ''}'.trim();
+    final sourceId = _textValue(hit, 'source_id');
+    final heading = _textValue(hit, 'heading_path');
     if (sourceId.isNotEmpty && heading.isNotEmpty) {
       return 'source-heading:$sourceId:$heading';
     }
-    final title = '${hit['title'] ?? hit['source_title'] ?? ''}'.trim();
+    final title = _firstTextValue(hit, const <String>['title', 'source_title']);
     if (sourceId.isNotEmpty && title.isNotEmpty) {
       return 'source-title:$sourceId:$title';
     }
@@ -364,55 +383,42 @@ class KnowledgeMessageMetadata {
   }
 
   static int _hitContentQuality(Map<String, Object?> hit) {
-    final content = '${hit['content'] ?? ''}'.trim();
+    final content = _textValue(hit, 'content');
     if (content.isNotEmpty) {
       return 2000 +
           content.length -
           (_isTruthy(hit['content_truncated']) ? 500 : 0);
     }
-    final preview = '${hit['preview'] ?? ''}'.trim();
+    final preview = _textValue(hit, 'preview');
     return preview.isNotEmpty ? preview.length : 0;
   }
 
   static String _toolExecutionKey(Map<String, Object?> metadata) {
-    final toolName = '${metadata['tool_name'] ?? ''}'.trim().toLowerCase();
-    final callId = '${metadata['tool_call_id'] ?? ''}'.trim();
+    final toolName = _textValue(metadata, 'tool_name').toLowerCase();
+    final callId = _textValue(metadata, 'tool_call_id');
     if (toolName.isNotEmpty && callId.isNotEmpty) {
       return '$toolName:$callId';
     }
     final command =
         '${metadata['tool_execution_command'] ?? metadata['command'] ?? ''}'
             .trim();
-    final args = '${metadata['tool_arguments'] ?? ''}'.trim();
+    final args = _textValue(metadata, 'tool_arguments');
     if (toolName.isEmpty && command.isEmpty && args.isEmpty) return '';
     return '$toolName|$command|$args';
   }
 
   static String _contextContent(Map<String, Object?> hit) {
-    final content = '${hit['content'] ?? ''}'.trim();
+    final content = _textValue(hit, 'content');
     if (content.isNotEmpty) return content;
-    return '${hit['preview'] ?? ''}'.trim();
+    return _textValue(hit, 'preview');
   }
 
   static String _contextTitle(Map<String, Object?> hit) {
-    for (final key in const <String>['source_title', 'title', 'chunk_title']) {
-      final value = '${hit[key] ?? ''}'.trim();
-      if (value.isNotEmpty) return value;
-    }
-    return '';
+    return _firstTextValue(hit, _knowledgeTitleKeys);
   }
 
   static String _contextSource(Map<String, Object?> hit) {
-    for (final key in const <String>[
-      'path',
-      'original_path',
-      'source_path',
-      'source_id',
-    ]) {
-      final value = '${hit[key] ?? ''}'.trim();
-      if (value.isNotEmpty && value != 'null') return value;
-    }
-    return '';
+    return _firstTextValue(hit, _knowledgeSourceKeys, ignoreLiteralNull: true);
   }
 
   static bool _isTruthy(Object? value) {
@@ -532,15 +538,15 @@ class KnowledgeMessageMetadata {
     required bool isRead,
   }) {
     final toolKnowledgeMetadata = _toolKnowledgeMetadata(metadata);
-    final direct =
-        '${metadata['query'] ?? toolKnowledgeMetadata?['query'] ?? ''}'.trim();
+    final direct = _textFromValue(
+      metadata['query'] ?? toolKnowledgeMetadata?['query'],
+    );
     if (direct.isNotEmpty) return direct;
     final args = _toolArguments(metadata['tool_arguments']);
-    if (!isRead) return '${args['query'] ?? ''}'.trim();
-    final chunkId = '${args['chunk_id'] ?? metadata['chunk_id'] ?? ''}'.trim();
+    if (!isRead) return _textValue(args, 'query');
+    final chunkId = _textFromValue(args['chunk_id'] ?? metadata['chunk_id']);
     if (chunkId.isNotEmpty) return 'chunk_id:$chunkId';
-    final sourceId = '${args['source_id'] ?? metadata['source_id'] ?? ''}'
-        .trim();
+    final sourceId = _textFromValue(args['source_id'] ?? metadata['source_id']);
     return sourceId.isNotEmpty ? 'source_id:$sourceId' : '';
   }
 
@@ -637,15 +643,8 @@ class KnowledgeMessageMetadata {
   }
 
   static Iterable<String> _hitUsageTerms(Map<String, Object?> hit) sync* {
-    for (final key in const <String>[
-      'source_title',
-      'title',
-      'path',
-      'chunk_id',
-      'source_id',
-      'heading_path',
-    ]) {
-      final value = '${hit[key] ?? ''}'.trim();
+    for (final key in _knowledgeUsageTermKeys) {
+      final value = _textValue(hit, key);
       if (value.isEmpty) continue;
       yield value;
       if (key == 'path') {
@@ -663,7 +662,7 @@ class KnowledgeMessageMetadata {
       }
     }
     for (final key in const <String>['preview', 'content']) {
-      final value = '${hit[key] ?? ''}'.trim();
+      final value = _textValue(hit, key);
       if (value.isEmpty) continue;
       yield* _stableTextFragments(value);
       yield* _quotedTitleFragments(value);
@@ -731,6 +730,28 @@ class KnowledgeMessageMetadata {
         .toLowerCase()
         .replaceAll(_knowledgeUsageNormalizeNoisePattern, '')
         .trim();
+  }
+
+  static String _textValue(Map<String, Object?> source, String key) {
+    return _textFromValue(source[key]);
+  }
+
+  static String _textFromValue(Object? value) {
+    return '${value ?? ''}'.trim();
+  }
+
+  static String _firstTextValue(
+    Map<String, Object?> source,
+    Iterable<String> keys, {
+    bool ignoreLiteralNull = false,
+  }) {
+    for (final key in keys) {
+      final value = _textValue(source, key);
+      if (value.isEmpty) continue;
+      if (ignoreLiteralNull && value == 'null') continue;
+      return value;
+    }
+    return '';
   }
 
   static Map<String, Object?> _toolStepMetadata({
