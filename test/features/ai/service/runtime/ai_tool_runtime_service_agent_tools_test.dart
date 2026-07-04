@@ -1551,6 +1551,18 @@ void main() {
               createdAt: DateTime.utc(2026, 7, 4),
               metadata: const <String, Object?>{'task_id': 'other-task'},
             ),
+            AgentActivityEvent(
+              id: 'act-3',
+              kind: 'task_completed',
+              title: 'task_completed',
+              content: 'Finished evidence collection',
+              createdAt: DateTime.utc(2026, 7, 4, 2),
+              metadata: const <String, Object?>{
+                'task_id': 'task-123',
+                'worker_id': 'worker-1',
+                'tool_name': 'SkillRunner',
+              },
+            ),
           ],
           auditEvents: <AgentAuditEvent>[
             AgentAuditEvent(
@@ -1575,6 +1587,19 @@ void main() {
               requestCount: 1,
               createdAt: DateTime.utc(2026, 7, 4),
               metadata: const <String, Object?>{'task_id': 'other-task'},
+            ),
+            AgentAuditEvent(
+              id: 'audit-3',
+              kind: 'skill_call',
+              summary: 'skill_call: finish evidence',
+              toolName: 'SkillRunner',
+              tokenUsage: 64,
+              requestCount: 1,
+              createdAt: DateTime.utc(2026, 7, 4, 2),
+              metadata: const <String, Object?>{
+                'task_id': 'task-123',
+                'worker_id': 'worker-1',
+              },
             ),
           ],
         ),
@@ -1610,8 +1635,8 @@ void main() {
       final payload = jsonDecode(result.resultText) as Map<String, Object?>;
       final activities = payload['activities'] as List<Object?>;
       final auditEvents = payload['audit_events'] as List<Object?>;
-      final activity = activities.single as Map<String, Object?>;
-      final audit = auditEvents.single as Map<String, Object?>;
+      final activity = activities.first as Map<String, Object?>;
+      final audit = auditEvents.first as Map<String, Object?>;
       final filters = payload['filters'] as Map<String, Object?>;
       final activitySummary =
           payload['activity_summary'] as Map<String, Object?>;
@@ -1622,20 +1647,22 @@ void main() {
 
       expect(filters['task_id'], 'task-123');
       expect(filters['message_type'], 'task');
-      expect(activity['id'], 'act-1');
-      expect(activity['kind'], 'task_assigned');
+      expect(activities, hasLength(2));
+      expect(activity['id'], 'act-3');
+      expect(activity['kind'], 'task_completed');
       expect(activity['message_type'], 'task');
-      expect(audit['id'], 'audit-1');
+      expect(auditEvents, hasLength(2));
+      expect(audit['id'], 'audit-3');
       expect(audit['tool_name'], 'SkillRunner');
-      expect(activitySummary['event_count'], 1);
-      expect(messageTypeCounts['task'], 1);
-      expect(auditSummary['event_count'], 1);
-      expect(auditSummary['request_count'], 2);
-      expect(auditSummary['token_usage'], 128);
-      expect(toolCounts['SkillRunner'], 1);
+      expect(activitySummary['event_count'], 2);
+      expect(messageTypeCounts['task'], 2);
+      expect(auditSummary['event_count'], 2);
+      expect(auditSummary['request_count'], 3);
+      expect(auditSummary['token_usage'], 192);
+      expect(toolCounts['SkillRunner'], 2);
       expect(result.metadata['action'], 'activity_log');
-      expect(result.metadata['activity_count'], 1);
-      expect(result.metadata['audit_count'], 1);
+      expect(result.metadata['activity_count'], 2);
+      expect(result.metadata['audit_count'], 2);
     });
 
     test(
@@ -1864,6 +1891,131 @@ void main() {
         expect(result.metadata['audit_count'], 1);
       },
     );
+
+    test('audit report tool prioritizes actionable context lists', () async {
+      await controller.saveAgent(
+        _agent(enabled: true).copyWith(
+          tasks: <AgentTask>[
+            AgentTask(
+              id: 'task-old-running',
+              title: 'Run release verification',
+              status: AgentTaskStatus.running,
+              updatedAt: DateTime.utc(2026, 7, 4, 1),
+            ),
+            AgentTask(
+              id: 'task-approval',
+              title: 'Approve production migration',
+              status: AgentTaskStatus.waitingApproval,
+              updatedAt: DateTime.utc(2026, 7, 4),
+            ),
+            AgentTask(
+              id: 'task-done',
+              title: 'Archive completed notes',
+              status: AgentTaskStatus.completed,
+              updatedAt: DateTime.utc(2026, 7, 4, 2),
+            ),
+          ],
+          kpis: <AgentKpiItem>[
+            AgentKpiItem(
+              id: 'kpi-tracking',
+              name: 'Weekly release quality',
+              progress: 0.7,
+              updatedAt: DateTime.utc(2026, 7, 4, 2),
+            ),
+            AgentKpiItem(
+              id: 'kpi-risk',
+              name: 'Critical migration blockers',
+              status: 'at_risk',
+              progress: 0.2,
+              updatedAt: DateTime.utc(2026, 7, 4),
+            ),
+          ],
+          approvals: <AgentApprovalRequest>[
+            AgentApprovalRequest(
+              id: 'approval-low',
+              title: 'Read staging logs',
+              createdAt: DateTime.utc(2026, 7, 4, 2),
+              extra: const <String, Object?>{'risk_level': 'low'},
+            ),
+            AgentApprovalRequest(
+              id: 'approval-critical',
+              title: 'Rotate production secret',
+              createdAt: DateTime.utc(2026, 7, 4),
+              extra: const <String, Object?>{'risk_level': 'critical'},
+            ),
+          ],
+          activities: <AgentActivityEvent>[
+            AgentActivityEvent(
+              id: 'activity-old',
+              kind: 'task_assigned',
+              title: 'Old activity',
+              createdAt: DateTime.utc(2026, 7, 4),
+            ),
+            AgentActivityEvent(
+              id: 'activity-new',
+              kind: 'task_completed',
+              title: 'New activity',
+              createdAt: DateTime.utc(2026, 7, 4, 2),
+            ),
+          ],
+          auditEvents: <AgentAuditEvent>[
+            AgentAuditEvent(
+              id: 'audit-old',
+              kind: 'mcp_call',
+              summary: 'old audit',
+              toolName: 'OldMcp',
+              createdAt: DateTime.utc(2026, 7, 4),
+            ),
+            AgentAuditEvent(
+              id: 'audit-new',
+              kind: 'skill_call',
+              summary: 'new audit',
+              toolName: 'ReleaseSkill',
+              createdAt: DateTime.utc(2026, 7, 4, 2),
+            ),
+          ],
+        ),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(),
+      );
+      final result = await runtime.execute(
+        sessionId: 'session-report-order',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-report-order',
+          name: 'AgentAuditReport',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-1',
+            'limit': 10,
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+      final tasks = payload['tasks'] as List<Object?>;
+      final kpis = payload['kpi_state'] as List<Object?>;
+      final approvals = payload['pending_approvals'] as List<Object?>;
+      final activities = payload['recent_activities'] as List<Object?>;
+      final auditEvents = payload['recent_audit_events'] as List<Object?>;
+
+      expect((tasks.first as Map<String, Object?>)['id'], 'task-approval');
+      expect((kpis.first as Map<String, Object?>)['id'], 'kpi-risk');
+      expect(
+        (approvals.first as Map<String, Object?>)['id'],
+        'approval-critical',
+      );
+      expect((activities.first as Map<String, Object?>)['id'], 'activity-new');
+      expect((auditEvents.first as Map<String, Object?>)['id'], 'audit-new');
+    });
 
     test(
       'task list tool filters the task desk by status worker and label',
