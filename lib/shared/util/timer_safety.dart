@@ -78,12 +78,12 @@ Duration safePeriodicTimerInterval(
   Duration min = kOpenHandMinPeriodicTimerInterval,
   Duration max = kOpenHandMaxPeriodicTimerInterval,
 }) {
-  final lower = min > Duration.zero ? min : kOpenHandMinPeriodicTimerInterval;
-  final upper = max < lower ? lower : max;
-  if (requested <= Duration.zero) return lower;
-  if (requested < lower) return lower;
-  if (requested > upper) return upper;
-  return requested;
+  return _clampTimerDuration(
+    requested,
+    min: min,
+    fallbackMin: kOpenHandMinPeriodicTimerInterval,
+    max: max,
+  );
 }
 
 Duration safeTimerDelay(
@@ -91,11 +91,12 @@ Duration safeTimerDelay(
   Duration min = Duration.zero,
   Duration max = kOpenHandMaxTimerDelay,
 }) {
-  final lower = min > Duration.zero ? min : Duration.zero;
-  final upper = max < lower ? lower : max;
-  if (requested < lower) return lower;
-  if (requested > upper) return upper;
-  return requested;
+  return _clampTimerDuration(
+    requested,
+    min: min,
+    fallbackMin: Duration.zero,
+    max: max,
+  );
 }
 
 Timer startSafeTimer(
@@ -211,9 +212,22 @@ Duration? _safeOptionalTimerDuration(
   required Duration max,
 }) {
   if (requested == null) return null;
-  final lower = min > Duration.zero ? min : kOpenHandMinPeriodicCallbackTimeout;
+  return _clampTimerDuration(
+    requested,
+    min: min,
+    fallbackMin: kOpenHandMinPeriodicCallbackTimeout,
+    max: max,
+  );
+}
+
+Duration _clampTimerDuration(
+  Duration requested, {
+  required Duration min,
+  required Duration fallbackMin,
+  required Duration max,
+}) {
+  final lower = min > Duration.zero ? min : fallbackMin;
   final upper = max < lower ? lower : max;
-  if (requested <= Duration.zero) return lower;
   if (requested < lower) return lower;
   if (requested > upper) return upper;
   return requested;
