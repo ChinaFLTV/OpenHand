@@ -8,6 +8,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import 'motion_preference.dart';
+
 class StreamingTextReveal extends StatefulWidget {
   const StreamingTextReveal({
     super.key,
@@ -72,12 +74,22 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!openHandTickerMotionEnabled(context)) {
+      _settleWithoutMotion();
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant StreamingTextReveal oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!openHandTickerMotionEnabled(context)) {
+      _settleWithoutMotion();
+      return;
+    }
     if (widget.textLength > _kRevealMaxLength) {
-      _segments.clear();
-      _stablePrefixLength = widget.textLength;
-      if (_ticker.isActive) _ticker.stop();
+      _settleWithoutMotion();
       return;
     }
 
@@ -100,6 +112,12 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
       _stablePrefixLength = widget.textLength;
       if (_ticker.isActive) _ticker.stop();
     }
+  }
+
+  void _settleWithoutMotion() {
+    _segments.clear();
+    _stablePrefixLength = widget.textLength;
+    if (_ticker.isActive) _ticker.stop();
   }
 
   void _onTick(Duration elapsed) {
@@ -134,17 +152,17 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
 
   @override
   Widget build(BuildContext context) {
-    final disable = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final motionEnabled = openHandTickerMotionEnabled(context);
     final total = widget.textLength;
     final revealEnabled = total <= _kRevealMaxLength;
     final hasActiveFade = _segments.isNotEmpty && total > 0;
 
     Widget body = widget.child;
-    if (!disable && revealEnabled && hasActiveFade) {
+    if (motionEnabled && revealEnabled && hasActiveFade) {
       body = _buildMask(total);
     }
 
-    if (!widget.animateSize) return body;
+    if (!widget.animateSize || !motionEnabled) return body;
 
     return AnimatedSize(
       duration: _heightDuration,
@@ -265,15 +283,16 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
     _ticker = createTicker(_onTick);
     _rebuildGraphemeEnds();
     _visibleGraphemes = _bypassReveal ? _targetGraphemes : 0;
-    _startTickerIfNeeded();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+    if (!openHandTickerMotionEnabled(context)) {
       _visibleGraphemes = _targetGraphemes;
       _stopTicker();
+    } else {
+      _startTickerIfNeeded();
     }
   }
 
@@ -283,6 +302,11 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
     final previousText = oldWidget.text;
     _syncGraphemeEnds(previousText);
     if (_bypassReveal) {
+      _visibleGraphemes = _targetGraphemes;
+      _stopTicker();
+      return;
+    }
+    if (!openHandTickerMotionEnabled(context)) {
       _visibleGraphemes = _targetGraphemes;
       _stopTicker();
       return;
@@ -344,6 +368,7 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
   }
 
   void _startTickerIfNeeded() {
+    if (mounted && !openHandTickerMotionEnabled(context)) return;
     if (_visibleGraphemes >= _targetGraphemes || _ticker.isActive) return;
     _lastRevealMs = 0;
     _ticker.start();
@@ -387,8 +412,8 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
     return _kMaxGraphemesPerTick;
   }
 
-  String _visibleText(bool disableAnimations) {
-    if (disableAnimations || _bypassReveal) return widget.text;
+  String _visibleText(bool motionEnabled) {
+    if (!motionEnabled || _bypassReveal) return widget.text;
     if (_visibleGraphemes <= 0) return '';
     if (_visibleGraphemes >= _targetGraphemes) return widget.text;
     return widget.text.substring(0, _graphemeEnds[_visibleGraphemes - 1]);
@@ -396,10 +421,9 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
 
   @override
   Widget build(BuildContext context) {
-    final disableAnimations =
-        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    final visibleText = _visibleText(disableAnimations);
-    if (disableAnimations || _bypassReveal) {
+    final motionEnabled = openHandTickerMotionEnabled(context);
+    final visibleText = _visibleText(motionEnabled);
+    if (!motionEnabled || _bypassReveal) {
       return widget.builder(context, visibleText);
     }
     return StreamingTextReveal(
