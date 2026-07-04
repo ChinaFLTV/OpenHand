@@ -498,9 +498,8 @@ class AiTtsPlaybackService {
   }
 
   String _endpointOrDefault(AiTtsProviderSettings settings) {
-    final endpoint = settings.endpoint.trim();
-    if (endpoint.isNotEmpty) return endpoint;
-    return AiTtsProviderSettings.defaults(settings.provider).endpoint;
+    return nullIfBlank(settings.endpoint) ??
+        AiTtsProviderSettings.defaults(settings.provider).endpoint;
   }
 
   static bool _isCacheableTtsProvider(AiTtsProvider provider) {
@@ -630,10 +629,15 @@ class AiTtsPlaybackService {
       'resource_id',
       fallback: 'seed-tts-2.0',
     );
-    final requestId = _extraString(settings, 'request_id').isEmpty
+    final configuredRequestId = _extraString(settings, 'request_id');
+    final requestId = configuredRequestId.isEmpty
         ? const Uuid().v4()
-        : _extraString(settings, 'request_id');
+        : configuredRequestId;
     final audioFormat = _extraString(settings, 'format', fallback: 'mp3');
+    final requestModel = _extraString(settings, 'model');
+    final explicitLanguage = optionalLowercaseStringFromValue(
+      settings.language,
+    );
     final request = http.Request('POST', uri)
       ..headers.addAll(<String, String>{
         HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
@@ -647,8 +651,7 @@ class AiTtsPlaybackService {
         'req_params': <String, Object?>{
           'text': text,
           'speaker': speaker,
-          if (_extraString(settings, 'model').isNotEmpty)
-            'model': _extraString(settings, 'model'),
+          if (requestModel.isNotEmpty) 'model': requestModel,
           'audio_params': <String, Object?>{
             'format': audioFormat,
             'sample_rate': _extraInt(settings, 'sample_rate', fallback: 24000),
@@ -665,8 +668,7 @@ class AiTtsPlaybackService {
               settings,
               'disable_emoji_filter',
             ),
-            if (settings.language.trim().isNotEmpty)
-              'explicit_language': settings.language.trim().toLowerCase(),
+            if (explicitLanguage != null) 'explicit_language': explicitLanguage,
           }),
           'post_process': <String, Object?>{
             'pitch': settings.pitch.round().clamp(-12, 12),
@@ -939,13 +941,14 @@ class AiTtsPlaybackService {
     if (settings.apiKey.isEmpty) {
       throw StateError('Bing TTS subscription key is empty.');
     }
-    final region = settings.region.trim();
-    if (region.isEmpty && settings.endpoint.trim().isEmpty) {
+    final region = nullIfBlank(settings.region);
+    final configuredEndpoint = nullIfBlank(settings.endpoint);
+    if (region == null && configuredEndpoint == null) {
       throw StateError('Bing TTS region is empty.');
     }
-    final endpoint = settings.endpoint.trim().isNotEmpty
-        ? settings.endpoint.trim()
-        : 'https://$region.tts.speech.microsoft.com/cognitiveservices/v1';
+    final endpoint =
+        configuredEndpoint ??
+        'https://$region.tts.speech.microsoft.com/cognitiveservices/v1';
     final uri = Uri.parse(endpoint);
     final outputFormat = _extraString(
       settings,
@@ -1763,11 +1766,10 @@ class AiTtsPlaybackService {
   }
 
   static String? _audioDataFromObject(Object? audio) {
-    if (audio is String && audio.trim().isNotEmpty) return audio.trim();
+    if (audio is String) return optionalStringFromValue(audio);
     if (audio is! Map) return null;
     final data = audio['data'] ?? audio['audio'] ?? audio['audio_data'];
-    if (data is String && data.trim().isNotEmpty) return data.trim();
-    return null;
+    return optionalStringFromValue(data);
   }
 
   static bool _isPcm16Format(String format) {
@@ -1879,11 +1881,12 @@ class AiTtsPlaybackService {
   }
 
   static bool _mimoUsesPresetVoice(String model) {
-    return model.trim().isEmpty || model.trim() == 'mimo-v2.5-tts';
+    final normalized = nullIfBlank(model);
+    return normalized == null || normalized == 'mimo-v2.5-tts';
   }
 
   static bool _mimoUsesVoiceClone(String model) {
-    return model.trim() == 'mimo-v2.5-tts-voiceclone';
+    return nullIfBlank(model) == 'mimo-v2.5-tts-voiceclone';
   }
 
   static String _mimoStylePrompt(AiTtsProviderSettings settings) {
@@ -1987,7 +1990,7 @@ class AiTtsPlaybackService {
     String fallback = '',
   }) {
     final value = settings.extra[key];
-    if (value is String && value.trim().isNotEmpty) return value.trim();
+    if (value is String) return nullIfBlank(value) ?? fallback;
     if (value is num || value is bool) return '$value';
     return fallback;
   }
