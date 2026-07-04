@@ -2538,9 +2538,25 @@ fi
         ? cs.error
         : cs.primary;
     final statusLabel = !running
-        ? (isZh ? '已停止' : 'stopped')
+        ? _arText(
+            context,
+            zh: '已停止',
+            zhHant: '已停止',
+            en: 'stopped',
+            fr: 'arrêté',
+            de: 'gestoppt',
+            ja: '停止中',
+          )
         : activeDevice == null
-        ? (isZh ? '无设备' : 'no device')
+        ? _arText(
+            context,
+            zh: '无设备',
+            zhHant: '無裝置',
+            en: 'no device',
+            fr: 'aucun appareil',
+            de: 'kein Gerät',
+            ja: 'デバイスなし',
+          )
         : activeDevice.model ?? activeDevice.serial;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
@@ -2554,7 +2570,15 @@ fi
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isZh ? 'Android 逆向调试面板' : 'Android Reverse Debugger',
+                  _arText(
+                    context,
+                    zh: 'Android 逆向调试面板',
+                    zhHant: 'Android 逆向偵錯面板',
+                    en: 'Android Reverse Debugger',
+                    fr: 'Débogueur reverse Android',
+                    de: 'Android-Reverse-Debugger',
+                    ja: 'Android リバースデバッガー',
+                  ),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -2606,14 +2630,30 @@ fi
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: isZh ? '刷新' : 'Refresh',
+            tooltip: _arText(
+              context,
+              zh: '刷新',
+              zhHant: '重新整理',
+              en: 'Refresh',
+              fr: 'Actualiser',
+              de: 'Aktualisieren',
+              ja: '更新',
+            ),
             onPressed: _refreshAll,
             iconSize: 20,
           ),
           const SizedBox(width: _kIconButtonGap),
           IconButton(
             icon: const Icon(Icons.close_rounded),
-            tooltip: isZh ? '关闭' : 'Close',
+            tooltip: _arText(
+              context,
+              zh: '关闭',
+              zhHant: '關閉',
+              en: 'Close',
+              fr: 'Fermer',
+              de: 'Schließen',
+              ja: '閉じる',
+            ),
             onPressed: () => Navigator.of(context).pop(),
             iconSize: 20,
           ),
@@ -2709,7 +2749,7 @@ fi
   ) {
     return switch (_currentTab) {
       _Tab.devices => _buildDevicesTab(cs, theme, isZh),
-      _Tab.overview => _buildOverviewTab(cs, theme, isZh),
+      _Tab.overview => _buildOverviewTab(cs, theme),
       _Tab.toolchain => _buildToolchainTab(cs, theme, isZh),
       _Tab.mcp => _buildMcpTab(cs, theme, isZh),
       _Tab.plugins => _buildPluginsTab(cs, theme, isZh),
@@ -2742,7 +2782,15 @@ fi
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      isZh ? '已检测设备' : 'Detected devices',
+                      _arText(
+                        context,
+                        zh: '已检测设备',
+                        zhHant: '已偵測裝置',
+                        en: 'Detected devices',
+                        fr: 'Appareils détectés',
+                        de: 'Erkannte Geräte',
+                        ja: '検出済みデバイス',
+                      ),
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -2751,7 +2799,7 @@ fi
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 420),
                         child: Text(
-                          '${isZh ? "当前目标" : "Target"}: $_targetSerial',
+                          '${_arText(context, zh: "当前目标", zhHant: "目前目標", en: "Target", fr: "Cible", de: "Ziel", ja: "ターゲット")}: $_targetSerial',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelMedium?.copyWith(
@@ -2771,7 +2819,15 @@ fi
                     _refreshAll();
                   },
                   icon: const Icon(Icons.refresh_rounded, size: 14),
-                  label: isZh ? '刷新' : 'Refresh',
+                  label: _arText(
+                    context,
+                    zh: '刷新',
+                    zhHant: '重新整理',
+                    en: 'Refresh',
+                    fr: 'Actualiser',
+                    de: 'Aktualisieren',
+                    ja: '更新',
+                  ),
                 ),
               ),
             ],
@@ -2817,7 +2873,15 @@ fi
                         controller: _shellCtrl,
                         decoration: InputDecoration(
                           isDense: true,
-                          hintText: isZh ? _kAdbShellHintZh : _kAdbShellHintEn,
+                          hintText: _arText(
+                            context,
+                            zh: _kAdbShellHintZh,
+                            zhHant: '請輸入 adb shell 指令',
+                            en: _kAdbShellHintEn,
+                            fr: 'Entrez une commande adb shell',
+                            de: 'adb-shell-Befehl eingeben',
+                            ja: 'adb shell コマンドを入力',
+                          ),
                           border: const OutlineInputBorder(),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -2839,7 +2903,15 @@ fi
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.play_arrow_rounded, size: 16),
-                    label: isZh ? '执行' : 'Run',
+                    label: _arText(
+                      context,
+                      zh: '执行',
+                      zhHant: '執行',
+                      en: 'Run',
+                      fr: 'Exécuter',
+                      de: 'Ausführen',
+                      ja: '実行',
+                    ),
                     filled: true,
                     height: _kAdbInlineControlHeight,
                   ),
@@ -2867,7 +2939,15 @@ fi
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
-          isZh ? '最近' : 'Recent',
+          _arText(
+            context,
+            zh: '最近',
+            zhHant: '最近',
+            en: 'Recent',
+            fr: 'Récent',
+            de: 'Zuletzt',
+            ja: '最近',
+          ),
           style: theme.textTheme.labelSmall?.copyWith(
             color: cs.onSurfaceVariant,
             fontWeight: FontWeight.w700,
@@ -2921,7 +3001,15 @@ fi
                 children: [
                   Expanded(
                     child: Text(
-                      isZh ? 'ADB Shell 输出' : 'ADB Shell output',
+                      _arText(
+                        context,
+                        zh: 'ADB Shell 输出',
+                        zhHant: 'ADB Shell 輸出',
+                        en: 'ADB Shell output',
+                        fr: 'Sortie ADB Shell',
+                        de: 'ADB-Shell-Ausgabe',
+                        ja: 'ADB Shell 出力',
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -2931,7 +3019,15 @@ fi
                     ),
                   ),
                   _DashboardIconActionButton(
-                    tooltip: isZh ? '复制输出' : 'Copy output',
+                    tooltip: _arText(
+                      context,
+                      zh: '复制输出',
+                      zhHant: '複製輸出',
+                      en: 'Copy output',
+                      fr: 'Copier la sortie',
+                      de: 'Ausgabe kopieren',
+                      ja: '出力をコピー',
+                    ),
                     icon: const Icon(Icons.copy_rounded),
                     onPressed: output.trim().isEmpty
                         ? null
@@ -2939,7 +3035,15 @@ fi
                   ),
                   const SizedBox(width: _kDashboardTrailingActionGap),
                   _DashboardIconActionButton(
-                    tooltip: isZh ? '清空输出' : 'Clear output',
+                    tooltip: _arText(
+                      context,
+                      zh: '清空输出',
+                      zhHant: '清空輸出',
+                      en: 'Clear output',
+                      fr: 'Effacer la sortie',
+                      de: 'Ausgabe leeren',
+                      ja: '出力をクリア',
+                    ),
                     icon: const Icon(Icons.close_rounded),
                     onPressed: () => setState(() {
                       _lastShellResult = null;
@@ -2976,9 +3080,15 @@ fi
     if (devices.isEmpty) {
       return Center(
         child: Text(
-          isZh
-              ? '未找到设备。请连接 Android 设备或启动模拟器后刷新。'
-              : 'No devices found. Connect a device or start an emulator, then refresh.',
+          _arText(
+            context,
+            zh: '未找到设备。请连接 Android 设备或启动模拟器后刷新。',
+            zhHant: '找不到裝置。請連接 Android 裝置或啟動模擬器後重新整理。',
+            en: 'No devices found. Connect a device or start an emulator, then refresh.',
+            fr: 'Aucun appareil trouvé. Connectez un appareil ou démarrez un émulateur, puis actualisez.',
+            de: 'Keine Geräte gefunden. Gerät verbinden oder Emulator starten und aktualisieren.',
+            ja: 'デバイスが見つかりません。Android デバイスを接続するかエミュレーターを起動して更新してください。',
+          ),
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: cs.onSurfaceVariant,
@@ -3021,8 +3131,24 @@ fi
               trailing: Chip(
                 label: Text(
                   d.isOnline
-                      ? (isZh ? '在线' : 'online')
-                      : (isZh ? '异常' : d.state),
+                      ? _arText(
+                          context,
+                          zh: '在线',
+                          zhHant: '線上',
+                          en: 'online',
+                          fr: 'en ligne',
+                          de: 'online',
+                          ja: 'オンライン',
+                        )
+                      : _arText(
+                          context,
+                          zh: '异常',
+                          zhHant: '異常',
+                          en: d.state,
+                          fr: d.state,
+                          de: d.state,
+                          ja: d.state,
+                        ),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: d.isOnline ? cs.primary : cs.error,
                     fontWeight: FontWeight.w700,
@@ -3056,14 +3182,52 @@ fi
     final snapshot = _deviceSnapshotOutput?.trim();
     final propItems = <(String, String)>[
       (
-        isZh ? '系统版本' : 'Android',
+        _arText(
+          context,
+          zh: '系统版本',
+          zhHant: '系統版本',
+          en: 'Android',
+          fr: 'Android',
+          de: 'Android',
+          ja: 'Android',
+        ),
         _deviceProps['ro.build.version.release'] ?? '-',
       ),
-      (isZh ? 'SDK' : 'SDK', _deviceProps['ro.build.version.sdk'] ?? '-'),
-      (isZh ? '品牌' : 'Brand', _deviceProps['ro.product.brand'] ?? '-'),
-      (isZh ? '设备' : 'Device', _deviceProps['ro.product.device'] ?? '-'),
+      ('SDK', _deviceProps['ro.build.version.sdk'] ?? '-'),
       (
-        isZh ? '指纹' : 'Fingerprint',
+        _arText(
+          context,
+          zh: '品牌',
+          zhHant: '品牌',
+          en: 'Brand',
+          fr: 'Marque',
+          de: 'Marke',
+          ja: 'ブランド',
+        ),
+        _deviceProps['ro.product.brand'] ?? '-',
+      ),
+      (
+        _arText(
+          context,
+          zh: '设备',
+          zhHant: '裝置',
+          en: 'Device',
+          fr: 'Appareil',
+          de: 'Gerät',
+          ja: 'デバイス',
+        ),
+        _deviceProps['ro.product.device'] ?? '-',
+      ),
+      (
+        _arText(
+          context,
+          zh: '指纹',
+          zhHant: '指紋',
+          en: 'Fingerprint',
+          fr: 'Empreinte',
+          de: 'Fingerprint',
+          ja: 'フィンガープリント',
+        ),
         _deviceProps['ro.build.fingerprint'] ?? '-',
       ),
     ];
@@ -3075,7 +3239,15 @@ fi
             children: [
               Expanded(
                 child: Text(
-                  isZh ? '设备操作' : 'Device actions',
+                  _arText(
+                    context,
+                    zh: '设备操作',
+                    zhHant: '裝置操作',
+                    en: 'Device actions',
+                    fr: 'Actions appareil',
+                    de: 'Geräteaktionen',
+                    ja: 'デバイス操作',
+                  ),
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -3095,9 +3267,15 @@ fi
               cs: cs,
               theme: theme,
               icon: Icons.info_outline_rounded,
-              text: isZh
-                  ? '请选择一个在线设备，或通过无线 ADB 连接设备。'
-                  : 'Select an online device or connect one through wireless ADB.',
+              text: _arText(
+                context,
+                zh: '请选择一个在线设备，或通过无线 ADB 连接设备。',
+                zhHant: '請選擇一個線上裝置，或透過無線 ADB 連接裝置。',
+                en: 'Select an online device or connect one through wireless ADB.',
+                fr: 'Sélectionnez un appareil en ligne ou connectez-en un via ADB sans fil.',
+                de: 'Wählen Sie ein Online-Gerät oder verbinden Sie eines per Wireless ADB.',
+                ja: 'オンラインデバイスを選択するか、ワイヤレス ADB で接続してください。',
+              ),
             )
           else ...[
             _monospaceCard(
@@ -3117,7 +3295,15 @@ fi
                 children: [
                   Expanded(
                     child: Text(
-                      isZh ? '现场快照' : 'Field snapshot',
+                      _arText(
+                        context,
+                        zh: '现场快照',
+                        zhHant: '現場快照',
+                        en: 'Field snapshot',
+                        fr: 'Snapshot terrain',
+                        de: 'Feld-Snapshot',
+                        ja: '現場スナップショット',
+                      ),
                       style: theme.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: cs.onSurfaceVariant,
@@ -3126,7 +3312,15 @@ fi
                   ),
                   IconButton(
                     icon: const Icon(Icons.copy_rounded, size: 16),
-                    tooltip: isZh ? '复制现场快照' : 'Copy field snapshot',
+                    tooltip: _arText(
+                      context,
+                      zh: '复制现场快照',
+                      zhHant: '複製現場快照',
+                      en: 'Copy field snapshot',
+                      fr: 'Copier le snapshot terrain',
+                      de: 'Feld-Snapshot kopieren',
+                      ja: '現場スナップショットをコピー',
+                    ),
                     onPressed: () => _copyText(snapshot),
                     visualDensity: VisualDensity.compact,
                   ),
@@ -3138,7 +3332,15 @@ fi
           ],
           const SizedBox(height: 14),
           Text(
-            isZh ? '无线 ADB' : 'Wireless ADB',
+            _arText(
+              context,
+              zh: '无线 ADB',
+              zhHant: '無線 ADB',
+              en: 'Wireless ADB',
+              fr: 'ADB sans fil',
+              de: 'Wireless ADB',
+              ja: 'ワイヤレス ADB',
+            ),
             style: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w700,
               color: cs.onSurfaceVariant,
@@ -3170,7 +3372,15 @@ fi
               _DashboardActionButton(
                 onPressed: _runningDeviceAction ? null : _connectWirelessDevice,
                 icon: const Icon(Icons.link_rounded),
-                label: isZh ? '连接' : 'Connect',
+                label: _arText(
+                  context,
+                  zh: '连接',
+                  zhHant: '連接',
+                  en: 'Connect',
+                  fr: 'Connecter',
+                  de: 'Verbinden',
+                  ja: '接続',
+                ),
               ),
             ],
           ),
@@ -3181,14 +3391,30 @@ fi
             children: [
               _SmallActionButton(
                 icon: Icons.link_off_rounded,
-                label: isZh ? '断开当前' : 'Disconnect',
+                label: _arText(
+                  context,
+                  zh: '断开当前',
+                  zhHant: '中斷目前連線',
+                  en: 'Disconnect',
+                  fr: 'Déconnecter',
+                  de: 'Trennen',
+                  ja: '切断',
+                ),
                 onPressed: serial == null || _runningDeviceAction
                     ? null
                     : () => _runDeviceAction(() => _ctrl.disconnect(serial)),
               ),
               _SmallActionButton(
                 icon: Icons.restart_alt_rounded,
-                label: isZh ? '重启' : 'Reboot',
+                label: _arText(
+                  context,
+                  zh: '重启',
+                  zhHant: '重新啟動',
+                  en: 'Reboot',
+                  fr: 'Redémarrer',
+                  de: 'Neustarten',
+                  ja: '再起動',
+                ),
                 onPressed: serial == null || _runningDeviceAction
                     ? null
                     : () =>
@@ -3213,7 +3439,15 @@ fi
           ),
           const SizedBox(height: 14),
           Text(
-            isZh ? '端口转发' : 'Port forwarding',
+            _arText(
+              context,
+              zh: '端口转发',
+              zhHant: '連接埠轉發',
+              en: 'Port forwarding',
+              fr: 'Redirection de port',
+              de: 'Portweiterleitung',
+              ja: 'ポート転送',
+            ),
             style: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w700,
               color: cs.onSurfaceVariant,
@@ -3230,7 +3464,15 @@ fi
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: isZh ? '本地端口' : 'local',
+                      hintText: _arText(
+                        context,
+                        zh: '本地端口',
+                        zhHant: '本機連接埠',
+                        en: 'local',
+                        fr: 'local',
+                        de: 'lokal',
+                        ja: 'ローカル',
+                      ),
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -3250,7 +3492,15 @@ fi
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: isZh ? '设备端口' : 'remote',
+                      hintText: _arText(
+                        context,
+                        zh: '设备端口',
+                        zhHant: '裝置連接埠',
+                        en: 'remote',
+                        fr: 'distant',
+                        de: 'remote',
+                        ja: 'リモート',
+                      ),
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -3269,7 +3519,15 @@ fi
                       ? null
                       : _addForward,
                   icon: const Icon(Icons.add_rounded),
-                  label: isZh ? '添加' : 'Add',
+                  label: _arText(
+                    context,
+                    zh: '添加',
+                    zhHant: '新增',
+                    en: 'Add',
+                    fr: 'Ajouter',
+                    de: 'Hinzufügen',
+                    ja: '追加',
+                  ),
                 ),
               ),
             ],
@@ -3277,7 +3535,15 @@ fi
           const SizedBox(height: 8),
           if (_forwardRows.isEmpty)
             Text(
-              isZh ? '暂无端口转发' : 'No active forwards',
+              _arText(
+                context,
+                zh: '暂无端口转发',
+                zhHant: '暫無連接埠轉發',
+                en: 'No active forwards',
+                fr: 'Aucune redirection active',
+                de: 'Keine aktiven Weiterleitungen',
+                ja: '有効な転送はありません',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
@@ -3290,7 +3556,15 @@ fi
                   _ForwardRow(
                     row: row,
                     colorScheme: cs,
-                    removeTooltip: isZh ? '移除转发' : 'Remove forward',
+                    removeTooltip: _arText(
+                      context,
+                      zh: '移除转发',
+                      zhHant: '移除轉發',
+                      en: 'Remove forward',
+                      fr: 'Supprimer la redirection',
+                      de: 'Weiterleitung entfernen',
+                      ja: '転送を削除',
+                    ),
                     onRemove: _runningDeviceAction
                         ? null
                         : () => _removeForwardFromRow(row),
@@ -3316,14 +3590,32 @@ fi
                                 ),
                           ),
                     icon: const Icon(Icons.delete_outline_rounded, size: 14),
-                    label: Text(isZh ? '移除全部转发' : 'Remove all forwards'),
+                    label: Text(
+                      _arText(
+                        context,
+                        zh: '移除全部转发',
+                        zhHant: '移除全部轉發',
+                        en: 'Remove all forwards',
+                        fr: 'Supprimer toutes les redirections',
+                        de: 'Alle Weiterleitungen entfernen',
+                        ja: 'すべての転送を削除',
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           const SizedBox(height: 14),
           Text(
-            isZh ? '反向端口映射' : 'Reverse port mapping',
+            _arText(
+              context,
+              zh: '反向端口映射',
+              zhHant: '反向連接埠映射',
+              en: 'Reverse port mapping',
+              fr: 'Mappage de port inverse',
+              de: 'Reverse-Portmapping',
+              ja: 'リバースポートマッピング',
+            ),
             style: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w700,
               color: cs.onSurfaceVariant,
@@ -3340,7 +3632,15 @@ fi
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: isZh ? '设备端口' : 'device port',
+                      hintText: _arText(
+                        context,
+                        zh: '设备端口',
+                        zhHant: '裝置連接埠',
+                        en: 'device port',
+                        fr: 'port appareil',
+                        de: 'Geräteport',
+                        ja: 'デバイスポート',
+                      ),
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -3360,7 +3660,15 @@ fi
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: isZh ? '主机端口' : 'host port',
+                      hintText: _arText(
+                        context,
+                        zh: '主机端口',
+                        zhHant: '主機連接埠',
+                        en: 'host port',
+                        fr: 'port hôte',
+                        de: 'Host-Port',
+                        ja: 'ホストポート',
+                      ),
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -3379,7 +3687,15 @@ fi
                       ? null
                       : _addReverse,
                   icon: const Icon(Icons.add_link_rounded),
-                  label: isZh ? '添加' : 'Add',
+                  label: _arText(
+                    context,
+                    zh: '添加',
+                    zhHant: '新增',
+                    en: 'Add',
+                    fr: 'Ajouter',
+                    de: 'Hinzufügen',
+                    ja: '追加',
+                  ),
                 ),
               ),
             ],
@@ -3387,7 +3703,15 @@ fi
           const SizedBox(height: 8),
           if (_reverseRows.isEmpty)
             Text(
-              isZh ? '暂无反向映射' : 'No active reverse mappings',
+              _arText(
+                context,
+                zh: '暂无反向映射',
+                zhHant: '暫無反向映射',
+                en: 'No active reverse mappings',
+                fr: 'Aucun mappage inverse actif',
+                de: 'Keine aktiven Reverse-Mappings',
+                ja: '有効なリバースマッピングはありません',
+              ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),
@@ -3400,7 +3724,15 @@ fi
                   _ForwardRow(
                     row: row,
                     colorScheme: cs,
-                    removeTooltip: isZh ? '移除反向映射' : 'Remove reverse mapping',
+                    removeTooltip: _arText(
+                      context,
+                      zh: '移除反向映射',
+                      zhHant: '移除反向映射',
+                      en: 'Remove reverse mapping',
+                      fr: 'Supprimer le mappage inverse',
+                      de: 'Reverse-Mapping entfernen',
+                      ja: 'リバースマッピングを削除',
+                    ),
                     onRemove: _runningDeviceAction
                         ? null
                         : () => _removeReverseFromRow(row),
@@ -3426,14 +3758,32 @@ fi
                                 ),
                           ),
                     icon: const Icon(Icons.delete_outline_rounded, size: 14),
-                    label: Text(isZh ? '移除全部反向映射' : 'Remove all reverses'),
+                    label: Text(
+                      _arText(
+                        context,
+                        zh: '移除全部反向映射',
+                        zhHant: '移除全部反向映射',
+                        en: 'Remove all reverses',
+                        fr: 'Supprimer tous les mappages inverses',
+                        de: 'Alle Reverse-Mappings entfernen',
+                        ja: 'すべてのリバースマッピングを削除',
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           const SizedBox(height: 14),
           Text(
-            isZh ? '文件 / APK' : 'Files / APK',
+            _arText(
+              context,
+              zh: '文件 / APK',
+              zhHant: '檔案 / APK',
+              en: 'Files / APK',
+              fr: 'Fichiers / APK',
+              de: 'Dateien / APK',
+              ja: 'ファイル / APK',
+            ),
             style: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w700,
               color: cs.onSurfaceVariant,
@@ -3442,9 +3792,25 @@ fi
           const SizedBox(height: 6),
           _buildPathActionRow(
             primaryController: _installApkPathCtrl,
-            primaryHint: isZh ? '本地 APK 路径' : 'local APK path',
+            primaryHint: _arText(
+              context,
+              zh: '本地 APK 路径',
+              zhHant: '本機 APK 路徑',
+              en: 'local APK path',
+              fr: 'chemin APK local',
+              de: 'lokaler APK-Pfad',
+              ja: 'ローカル APK パス',
+            ),
             icon: Icons.install_mobile_rounded,
-            label: isZh ? '安装' : 'Install',
+            label: _arText(
+              context,
+              zh: '安装',
+              zhHant: '安裝',
+              en: 'Install',
+              fr: 'Installer',
+              de: 'Installieren',
+              ja: 'インストール',
+            ),
             onPressed: serial == null || _runningDeviceAction
                 ? null
                 : _installApkFromPanel,
@@ -3452,11 +3818,35 @@ fi
           const SizedBox(height: 8),
           _buildPathActionRow(
             primaryController: _pushLocalCtrl,
-            primaryHint: isZh ? '本地路径' : 'local path',
+            primaryHint: _arText(
+              context,
+              zh: '本地路径',
+              zhHant: '本機路徑',
+              en: 'local path',
+              fr: 'chemin local',
+              de: 'lokaler Pfad',
+              ja: 'ローカルパス',
+            ),
             secondaryController: _pushRemoteCtrl,
-            secondaryHint: isZh ? '设备路径' : 'remote path',
+            secondaryHint: _arText(
+              context,
+              zh: '设备路径',
+              zhHant: '裝置路徑',
+              en: 'remote path',
+              fr: 'chemin distant',
+              de: 'Remote-Pfad',
+              ja: 'リモートパス',
+            ),
             icon: Icons.upload_file_rounded,
-            label: isZh ? '推送' : 'Push',
+            label: _arText(
+              context,
+              zh: '推送',
+              zhHant: '推送',
+              en: 'Push',
+              fr: 'Pousser',
+              de: 'Push',
+              ja: 'Push',
+            ),
             onPressed: serial == null || _runningDeviceAction
                 ? null
                 : _pushFileFromPanel,
@@ -3464,11 +3854,35 @@ fi
           const SizedBox(height: 8),
           _buildPathActionRow(
             primaryController: _pullRemoteCtrl,
-            primaryHint: isZh ? '设备路径' : 'remote path',
+            primaryHint: _arText(
+              context,
+              zh: '设备路径',
+              zhHant: '裝置路徑',
+              en: 'remote path',
+              fr: 'chemin distant',
+              de: 'Remote-Pfad',
+              ja: 'リモートパス',
+            ),
             secondaryController: _pullLocalCtrl,
-            secondaryHint: isZh ? '本地目录 / 文件' : 'local dir / file',
+            secondaryHint: _arText(
+              context,
+              zh: '本地目录 / 文件',
+              zhHant: '本機目錄 / 檔案',
+              en: 'local dir / file',
+              fr: 'dossier / fichier local',
+              de: 'lokaler Ordner / Datei',
+              ja: 'ローカルディレクトリ / ファイル',
+            ),
             icon: Icons.download_rounded,
-            label: isZh ? '拉取' : 'Pull',
+            label: _arText(
+              context,
+              zh: '拉取',
+              zhHant: '拉取',
+              en: 'Pull',
+              fr: 'Tirer',
+              de: 'Pull',
+              ja: 'Pull',
+            ),
             onPressed: serial == null || _runningDeviceAction
                 ? null
                 : _pullFileFromPanel,
@@ -3480,14 +3894,30 @@ fi
             children: [
               _SmallActionButton(
                 icon: Icons.battery_charging_full_rounded,
-                label: isZh ? '电池' : 'Battery',
+                label: _arText(
+                  context,
+                  zh: '电池',
+                  zhHant: '電池',
+                  en: 'Battery',
+                  fr: 'Batterie',
+                  de: 'Akku',
+                  ja: 'バッテリー',
+                ),
                 onPressed: serial == null
                     ? null
                     : () => _runShellPreset('dumpsys battery'),
               ),
               _SmallActionButton(
                 icon: Icons.aspect_ratio_rounded,
-                label: isZh ? '屏幕' : 'Display',
+                label: _arText(
+                  context,
+                  zh: '屏幕',
+                  zhHant: '螢幕',
+                  en: 'Display',
+                  fr: 'Écran',
+                  de: 'Display',
+                  ja: '画面',
+                ),
                 onPressed: serial == null
                     ? null
                     : () => _runShellPreset('wm size; wm density'),
@@ -3501,14 +3931,30 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.arrow_back_rounded,
-                label: isZh ? '返回' : 'Back',
+                label: _arText(
+                  context,
+                  zh: '返回',
+                  zhHant: '返回',
+                  en: 'Back',
+                  fr: 'Retour',
+                  de: 'Zurück',
+                  ja: '戻る',
+                ),
                 onPressed: serial == null
                     ? null
                     : () => _runShellPreset('input keyevent KEYCODE_BACK'),
               ),
               _SmallActionButton(
                 icon: Icons.view_carousel_rounded,
-                label: isZh ? '最近任务' : 'Recents',
+                label: _arText(
+                  context,
+                  zh: '最近任务',
+                  zhHant: '最近任務',
+                  en: 'Recents',
+                  fr: 'Récents',
+                  de: 'Zuletzt',
+                  ja: '履歴',
+                ),
                 onPressed: serial == null
                     ? null
                     : () =>
@@ -3516,7 +3962,15 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.screenshot_monitor_rounded,
-                label: isZh ? '截屏' : 'Screenshot',
+                label: _arText(
+                  context,
+                  zh: '截屏',
+                  zhHant: '截圖',
+                  en: 'Screenshot',
+                  fr: 'Capture',
+                  de: 'Screenshot',
+                  ja: 'スクリーンショット',
+                ),
                 onPressed: serial == null
                     ? null
                     : () => _runDeviceAction(
@@ -3527,9 +3981,15 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.radio_button_checked_rounded,
-                label: isZh
-                    ? '录屏 ${_kDefaultScreenRecordSeconds}s'
-                    : 'Record ${_kDefaultScreenRecordSeconds}s',
+                label: _arText(
+                  context,
+                  zh: '录屏 ${_kDefaultScreenRecordSeconds}s',
+                  zhHant: '錄影 ${_kDefaultScreenRecordSeconds}s',
+                  en: 'Record ${_kDefaultScreenRecordSeconds}s',
+                  fr: 'Enregistrer ${_kDefaultScreenRecordSeconds}s',
+                  de: '${_kDefaultScreenRecordSeconds}s aufnehmen',
+                  ja: '$_kDefaultScreenRecordSeconds秒録画',
+                ),
                 onPressed: serial == null || _runningDeviceAction
                     ? null
                     : () => _runDeviceAction(
@@ -3540,16 +4000,46 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.delete_sweep_rounded,
-                label: isZh ? '清 Logcat' : 'Clear logcat',
+                label: _arText(
+                  context,
+                  zh: '清 Logcat',
+                  zhHant: '清空 Logcat',
+                  en: 'Clear logcat',
+                  fr: 'Effacer Logcat',
+                  de: 'Logcat leeren',
+                  ja: 'Logcat をクリア',
+                ),
                 onPressed: serial == null || _runningDeviceAction
                     ? null
                     : () async {
                         final confirmed = await _confirmAction(
-                          title: isZh ? '清空设备 Logcat？' : 'Clear device logcat?',
-                          message: isZh
-                              ? '将清空当前设备的 Logcat 缓冲区。'
-                              : 'This clears the current device logcat buffer.',
-                          confirmLabel: isZh ? '清空' : 'Clear',
+                          title: _arText(
+                            context,
+                            zh: '清空设备 Logcat？',
+                            zhHant: '清空裝置 Logcat？',
+                            en: 'Clear device logcat?',
+                            fr: 'Effacer le Logcat de l’appareil ?',
+                            de: 'Geräte-Logcat leeren?',
+                            ja: 'デバイス Logcat をクリアしますか？',
+                          ),
+                          message: _arText(
+                            context,
+                            zh: '将清空当前设备的 Logcat 缓冲区。',
+                            zhHant: '將清空目前裝置的 Logcat 緩衝區。',
+                            en: 'This clears the current device logcat buffer.',
+                            fr: 'Efface le tampon Logcat de l’appareil actuel.',
+                            de: 'Leert den Logcat-Puffer des aktuellen Geräts.',
+                            ja: '現在のデバイスの Logcat バッファーをクリアします。',
+                          ),
+                          confirmLabel: _arText(
+                            context,
+                            zh: '清空',
+                            zhHant: '清空',
+                            en: 'Clear',
+                            fr: 'Effacer',
+                            de: 'Leeren',
+                            ja: 'クリア',
+                          ),
                         );
                         if (!confirmed) return;
                         await _runDeviceAction(
@@ -3569,14 +4059,30 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.settings_rounded,
-                label: isZh ? '系统设置' : 'Settings',
+                label: _arText(
+                  context,
+                  zh: '系统设置',
+                  zhHant: '系統設定',
+                  en: 'Settings',
+                  fr: 'Réglages',
+                  de: 'Einstellungen',
+                  ja: '設定',
+                ),
                 onPressed: serial == null
                     ? null
                     : () => _runShellPreset('settings list global | head -80'),
               ),
               _SmallActionButton(
                 icon: Icons.fact_check_rounded,
-                label: isZh ? '现场报告' : 'Report',
+                label: _arText(
+                  context,
+                  zh: '现场报告',
+                  zhHant: '現場報告',
+                  en: 'Report',
+                  fr: 'Rapport',
+                  de: 'Bericht',
+                  ja: 'レポート',
+                ),
                 onPressed: serial == null || _runningDeviceAction
                     ? null
                     : () => _runDeviceAction(
@@ -3587,14 +4093,30 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.hub_rounded,
-                label: isZh ? '网络地址' : 'IP addr',
+                label: _arText(
+                  context,
+                  zh: '网络地址',
+                  zhHant: '網路位址',
+                  en: 'IP addr',
+                  fr: 'Adresse IP',
+                  de: 'IP-Adresse',
+                  ja: 'IP アドレス',
+                ),
                 onPressed: serial == null
                     ? null
                     : () => _runShellPreset('ip addr show | grep -E "inet "'),
               ),
               _SmallActionButton(
                 icon: Icons.filter_center_focus_rounded,
-                label: isZh ? '前台窗口' : 'Focus',
+                label: _arText(
+                  context,
+                  zh: '前台窗口',
+                  zhHant: '前景視窗',
+                  en: 'Focus',
+                  fr: 'Focus',
+                  de: 'Fokus',
+                  ja: 'フォーカス',
+                ),
                 onPressed: serial == null
                     ? null
                     : () => _runShellPreset(
@@ -3603,7 +4125,15 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.sd_storage_rounded,
-                label: isZh ? '存储' : 'Storage',
+                label: _arText(
+                  context,
+                  zh: '存储',
+                  zhHant: '儲存空間',
+                  en: 'Storage',
+                  fr: 'Stockage',
+                  de: 'Speicher',
+                  ja: 'ストレージ',
+                ),
                 onPressed: serial == null
                     ? null
                     : () => _runShellPreset(
@@ -3612,7 +4142,15 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.tune_rounded,
-                label: isZh ? '属性' : 'Props',
+                label: _arText(
+                  context,
+                  zh: '属性',
+                  zhHant: '屬性',
+                  en: 'Props',
+                  fr: 'Propriétés',
+                  de: 'Eigenschaften',
+                  ja: 'プロパティ',
+                ),
                 onPressed: serial == null
                     ? null
                     : () => _runShellPreset(
@@ -3621,28 +4159,60 @@ fi
               ),
               _SmallActionButton(
                 icon: Icons.light_mode_rounded,
-                label: isZh ? '亮屏' : 'Wake',
+                label: _arText(
+                  context,
+                  zh: '亮屏',
+                  zhHant: '喚醒螢幕',
+                  en: 'Wake',
+                  fr: 'Réveiller',
+                  de: 'Aufwecken',
+                  ja: '画面オン',
+                ),
                 onPressed: serial == null
                     ? null
                     : () => _runShellPreset('input keyevent KEYCODE_WAKEUP'),
               ),
               _SmallActionButton(
                 icon: Icons.power_settings_new_rounded,
-                label: isZh ? '电源键' : 'Power',
+                label: _arText(
+                  context,
+                  zh: '电源键',
+                  zhHant: '電源鍵',
+                  en: 'Power',
+                  fr: 'Alim.',
+                  de: 'Power',
+                  ja: '電源',
+                ),
                 onPressed: serial == null
                     ? null
                     : () => _runShellPreset('input keyevent KEYCODE_POWER'),
               ),
               _SmallActionButton(
                 icon: Icons.volume_up_rounded,
-                label: isZh ? '音量+' : 'Vol+',
+                label: _arText(
+                  context,
+                  zh: '音量+',
+                  zhHant: '音量+',
+                  en: 'Vol+',
+                  fr: 'Vol+',
+                  de: 'Lauter',
+                  ja: '音量+',
+                ),
                 onPressed: serial == null
                     ? null
                     : () => _runShellPreset('input keyevent KEYCODE_VOLUME_UP'),
               ),
               _SmallActionButton(
                 icon: Icons.security_rounded,
-                label: isZh ? '包权限' : 'Permissions',
+                label: _arText(
+                  context,
+                  zh: '包权限',
+                  zhHant: '套件權限',
+                  en: 'Permissions',
+                  fr: 'Autorisations',
+                  de: 'Berechtigungen',
+                  ja: '権限',
+                ),
                 onPressed: serial == null || _logcatPackageTarget() == null
                     ? null
                     : () => _runShellPreset(
@@ -3688,7 +4258,11 @@ fi
     if (!_isValidTcpPort(local) || !_isValidTcpPort(remote)) {
       _setDeviceActionMessage(
         zh: '端口转发失败：本地端口和设备端口必须在 $_kMinTcpPort-$_kMaxTcpPort 范围内。',
+        zhHant: '連接埠轉發失敗：本機連接埠和裝置連接埠必須在 $_kMinTcpPort-$_kMaxTcpPort 範圍內。',
         en: 'Forward failed: local and device ports must be between $_kMinTcpPort and $_kMaxTcpPort.',
+        fr: 'Échec de la redirection : les ports local et appareil doivent être entre $_kMinTcpPort et $_kMaxTcpPort.',
+        de: 'Weiterleitung fehlgeschlagen: Lokaler und Geräteport müssen zwischen $_kMinTcpPort und $_kMaxTcpPort liegen.',
+        ja: '転送に失敗しました: ローカルポートとデバイスポートは $_kMinTcpPort から $_kMaxTcpPort の範囲で指定してください。',
       );
       return;
     }
@@ -3712,7 +4286,11 @@ fi
     if (!_isValidTcpPort(devicePort) || !_isValidTcpPort(hostPort)) {
       _setDeviceActionMessage(
         zh: '反向映射失败：设备端口和主机端口必须在 $_kMinTcpPort-$_kMaxTcpPort 范围内。',
+        zhHant: '反向映射失敗：裝置連接埠和主機連接埠必須在 $_kMinTcpPort-$_kMaxTcpPort 範圍內。',
         en: 'Reverse mapping failed: device and host ports must be between $_kMinTcpPort and $_kMaxTcpPort.',
+        fr: 'Échec du mappage inverse : les ports appareil et hôte doivent être entre $_kMinTcpPort et $_kMaxTcpPort.',
+        de: 'Reverse-Mapping fehlgeschlagen: Geräte- und Host-Port müssen zwischen $_kMinTcpPort und $_kMaxTcpPort liegen.',
+        ja: 'リバースマッピングに失敗しました: デバイスポートとホストポートは $_kMinTcpPort から $_kMaxTcpPort の範囲で指定してください。',
       );
       return;
     }
@@ -3782,27 +4360,57 @@ fi
         PopupMenuItem(
           value: _DeviceMenuAction.useForPanel,
           child: Text(
-            openHandIsChineseLocale(context) ? '设为面板目标' : 'Use for panel',
+            _arText(
+              context,
+              zh: '设为面板目标',
+              zhHant: '設為面板目標',
+              en: 'Use for panel',
+              fr: 'Utiliser dans le panneau',
+              de: 'Für Panel nutzen',
+              ja: 'パネル対象にする',
+            ),
           ),
         ),
         PopupMenuItem(
           value: _DeviceMenuAction.copySerial,
           child: Text(
-            openHandIsChineseLocale(context) ? '复制序列号' : 'Copy serial',
+            _arText(
+              context,
+              zh: '复制序列号',
+              zhHant: '複製序號',
+              en: 'Copy serial',
+              fr: 'Copier le numéro de série',
+              de: 'Seriennummer kopieren',
+              ja: 'シリアルをコピー',
+            ),
           ),
         ),
         PopupMenuItem(
           value: _DeviceMenuAction.refreshProps,
           child: Text(
-            openHandIsChineseLocale(context)
-                ? '刷新属性 / 现场'
-                : 'Refresh properties / snapshot',
+            _arText(
+              context,
+              zh: '刷新属性 / 现场',
+              zhHant: '重新整理屬性 / 現場',
+              en: 'Refresh properties / snapshot',
+              fr: 'Actualiser propriétés / snapshot',
+              de: 'Eigenschaften / Snapshot aktualisieren',
+              ja: 'プロパティ / スナップショット更新',
+            ),
           ),
         ),
         PopupMenuItem(
           value: _DeviceMenuAction.listForwards,
           child: Text(
-            openHandIsChineseLocale(context) ? '查看端口映射' : 'List port mappings',
+            _arText(
+              context,
+              zh: '查看端口映射',
+              zhHant: '查看連接埠映射',
+              en: 'List port mappings',
+              fr: 'Lister les mappages de ports',
+              de: 'Portmappings anzeigen',
+              ja: 'ポートマッピングを表示',
+            ),
           ),
         ),
         const PopupMenuDivider(),
@@ -3813,23 +4421,43 @@ fi
         PopupMenuItem(
           value: _DeviceMenuAction.deviceReport,
           child: Text(
-            openHandIsChineseLocale(context)
-                ? '生成现场报告'
-                : 'Generate field report',
+            _arText(
+              context,
+              zh: '生成现场报告',
+              zhHant: '產生現場報告',
+              en: 'Generate field report',
+              fr: 'Générer le rapport terrain',
+              de: 'Feldbericht erstellen',
+              ja: '現場レポートを生成',
+            ),
           ),
         ),
         PopupMenuItem(
           value: _DeviceMenuAction.screenshot,
           child: Text(
-            openHandIsChineseLocale(context) ? '截屏到工件目录' : 'Capture screenshot',
+            _arText(
+              context,
+              zh: '截屏到工件目录',
+              zhHant: '截圖到工件目錄',
+              en: 'Capture screenshot',
+              fr: 'Capturer l’écran',
+              de: 'Screenshot aufnehmen',
+              ja: 'スクリーンショットを保存',
+            ),
           ),
         ),
         PopupMenuItem(
           value: _DeviceMenuAction.screenRecord,
           child: Text(
-            openHandIsChineseLocale(context)
-                ? '录屏 $_kDefaultScreenRecordSeconds 秒到工件目录'
-                : 'Record $_kDefaultScreenRecordSeconds seconds',
+            _arText(
+              context,
+              zh: '录屏 $_kDefaultScreenRecordSeconds 秒到工件目录',
+              zhHant: '錄影 $_kDefaultScreenRecordSeconds 秒到工件目錄',
+              en: 'Record $_kDefaultScreenRecordSeconds seconds',
+              fr: 'Enregistrer $_kDefaultScreenRecordSeconds secondes',
+              de: '$_kDefaultScreenRecordSeconds Sekunden aufnehmen',
+              ja: '$_kDefaultScreenRecordSeconds 秒録画',
+            ),
           ),
         ),
         const PopupMenuDivider(),
@@ -3843,11 +4471,31 @@ fi
         ),
         PopupMenuItem(
           value: _DeviceMenuAction.reboot,
-          child: Text(openHandIsChineseLocale(context) ? '重启设备' : 'Reboot'),
+          child: Text(
+            _arText(
+              context,
+              zh: '重启设备',
+              zhHant: '重新啟動裝置',
+              en: 'Reboot',
+              fr: 'Redémarrer',
+              de: 'Neustarten',
+              ja: '再起動',
+            ),
+          ),
         ),
         PopupMenuItem(
           value: _DeviceMenuAction.disconnect,
-          child: Text(openHandIsChineseLocale(context) ? '断开连接' : 'Disconnect'),
+          child: Text(
+            _arText(
+              context,
+              zh: '断开连接',
+              zhHant: '中斷連線',
+              en: 'Disconnect',
+              fr: 'Déconnecter',
+              de: 'Trennen',
+              ja: '切断',
+            ),
+          ),
         ),
       ],
     );
@@ -3898,11 +4546,26 @@ fi
   bool _isValidTcpPort(int? port) =>
       port != null && port >= _kMinTcpPort && port <= _kMaxTcpPort;
 
-  void _setDeviceActionMessage({required String zh, required String en}) {
+  void _setDeviceActionMessage({
+    required String zh,
+    String? zhHant,
+    required String en,
+    String? fr,
+    String? de,
+    String? ja,
+  }) {
     if (!mounted) return;
     setState(() {
       _lastDeviceActionResult = null;
-      _lastDeviceActionOutput = openHandIsChineseLocale(context) ? zh : en;
+      _lastDeviceActionOutput = _arText(
+        context,
+        zh: zh,
+        zhHant: zhHant,
+        en: en,
+        fr: fr,
+        de: de,
+        ja: ja,
+      );
     });
   }
 
@@ -3915,7 +4578,6 @@ fi
     if (overlay == null) return;
     final center = overlay.size.center(Offset.zero);
     final position = globalPosition ?? overlay.localToGlobal(center);
-    final isZh = openHandIsChineseLocale(context);
     final selected = await showMenu<_PackageMenuAction>(
       context: context,
       position: RelativeRect.fromRect(
@@ -3925,40 +4587,130 @@ fi
       items: [
         PopupMenuItem(
           value: _PackageMenuAction.analyze,
-          child: Text(isZh ? '分析 APP 信息' : 'Analyze app info'),
+          child: Text(
+            _arText(
+              context,
+              zh: '分析 APP 信息',
+              zhHant: '分析 APP 資訊',
+              en: 'Analyze app info',
+              fr: 'Analyser l’APP',
+              de: 'APP-Info analysieren',
+              ja: 'APP 情報を解析',
+            ),
+          ),
         ),
         PopupMenuItem(
           value: _PackageMenuAction.report,
-          child: Text(isZh ? '生成 APP 信息报告' : 'Generate app report'),
+          child: Text(
+            _arText(
+              context,
+              zh: '生成 APP 信息报告',
+              zhHant: '產生 APP 資訊報告',
+              en: 'Generate app report',
+              fr: 'Générer le rapport APP',
+              de: 'APP-Bericht erstellen',
+              ja: 'APP レポートを生成',
+            ),
+          ),
         ),
         PopupMenuItem(
           value: _PackageMenuAction.copyPackage,
-          child: Text(isZh ? '复制包名' : 'Copy package name'),
+          child: Text(
+            _arText(
+              context,
+              zh: '复制包名',
+              zhHant: '複製套件名稱',
+              en: 'Copy package name',
+              fr: 'Copier le nom du package',
+              de: 'Paketnamen kopieren',
+              ja: 'パッケージ名をコピー',
+            ),
+          ),
         ),
         PopupMenuItem(
           value: _PackageMenuAction.logcat,
-          child: Text(isZh ? '按此包过滤 Logcat' : 'Filter logcat by package'),
+          child: Text(
+            _arText(
+              context,
+              zh: '按此包过滤 Logcat',
+              zhHant: '依此套件篩選 Logcat',
+              en: 'Filter Logcat by package',
+              fr: 'Filtrer Logcat par package',
+              de: 'Logcat nach Paket filtern',
+              ja: 'パッケージで Logcat を絞り込み',
+            ),
+          ),
         ),
         PopupMenuItem(
           value: _PackageMenuAction.pullApks,
-          child: Text(isZh ? '拉取 APK 到工件目录' : 'Pull APKs to artifacts'),
+          child: Text(
+            _arText(
+              context,
+              zh: '拉取 APK 到工件目录',
+              zhHant: '拉取 APK 到工件目錄',
+              en: 'Pull APKs to artifacts',
+              fr: 'Extraire les APK vers les artefacts',
+              de: 'APKs in Artefakte ziehen',
+              ja: 'APK を成果物へ取得',
+            ),
+          ),
         ),
         const PopupMenuDivider(),
         PopupMenuItem(
           value: _PackageMenuAction.launch,
-          child: Text(isZh ? '启动 APP' : 'Launch app'),
+          child: Text(
+            _arText(
+              context,
+              zh: '启动 APP',
+              zhHant: '啟動 APP',
+              en: 'Launch app',
+              fr: 'Lancer l’APP',
+              de: 'APP starten',
+              ja: 'APP を起動',
+            ),
+          ),
         ),
         PopupMenuItem(
           value: _PackageMenuAction.forceStop,
-          child: Text(isZh ? '强制停止' : 'Force stop'),
+          child: Text(
+            _arText(
+              context,
+              zh: '强制停止',
+              zhHant: '強制停止',
+              en: 'Force stop',
+              fr: 'Forcer l’arrêt',
+              de: 'Stopp erzwingen',
+              ja: '強制停止',
+            ),
+          ),
         ),
         PopupMenuItem(
           value: _PackageMenuAction.clearData,
-          child: Text(isZh ? '清除数据...' : 'Clear data...'),
+          child: Text(
+            _arText(
+              context,
+              zh: '清除数据...',
+              zhHant: '清除資料...',
+              en: 'Clear data...',
+              fr: 'Effacer les données...',
+              de: 'Daten löschen...',
+              ja: 'データを消去...',
+            ),
+          ),
         ),
         PopupMenuItem(
           value: _PackageMenuAction.uninstall,
-          child: Text(isZh ? '卸载...' : 'Uninstall...'),
+          child: Text(
+            _arText(
+              context,
+              zh: '卸载...',
+              zhHant: '解除安裝...',
+              en: 'Uninstall...',
+              fr: 'Désinstaller...',
+              de: 'Deinstallieren...',
+              ja: 'アンインストール...',
+            ),
+          ),
         ),
       ],
     );
@@ -3970,7 +4722,6 @@ fi
     String packageName,
     _PackageMenuAction action,
   ) async {
-    final isZh = openHandIsChineseLocale(context);
     switch (action) {
       case _PackageMenuAction.analyze:
         await _analyzePackage(packageName);
@@ -4001,11 +4752,33 @@ fi
         );
       case _PackageMenuAction.clearData:
         final confirmed = await _confirmAction(
-          title: isZh ? '清除 APP 数据' : 'Clear app data',
-          message: isZh
-              ? '将执行 pm clear $packageName，应用数据会被清空。'
-              : 'This will run pm clear $packageName and erase app data.',
-          confirmLabel: isZh ? '清除' : 'Clear',
+          title: _arText(
+            context,
+            zh: '清除 APP 数据',
+            zhHant: '清除 APP 資料',
+            en: 'Clear app data',
+            fr: 'Effacer les données APP',
+            de: 'APP-Daten löschen',
+            ja: 'APP データを消去',
+          ),
+          message: _arText(
+            context,
+            zh: '将执行 pm clear $packageName，应用数据会被清空。',
+            zhHant: '將執行 pm clear $packageName，應用資料會被清空。',
+            en: 'This will run pm clear $packageName and erase app data.',
+            fr: 'Exécute pm clear $packageName et efface les données de l’APP.',
+            de: 'Führt pm clear $packageName aus und löscht die APP-Daten.',
+            ja: 'pm clear $packageName を実行し、APP データを消去します。',
+          ),
+          confirmLabel: _arText(
+            context,
+            zh: '清除',
+            zhHant: '清除',
+            en: 'Clear',
+            fr: 'Effacer',
+            de: 'Löschen',
+            ja: '消去',
+          ),
         );
         if (!confirmed) return;
         await _runDeviceAction(
@@ -4016,11 +4789,33 @@ fi
         );
       case _PackageMenuAction.uninstall:
         final confirmed = await _confirmAction(
-          title: isZh ? '卸载 APP' : 'Uninstall app',
-          message: isZh
-              ? '将从当前设备卸载 $packageName。'
-              : 'This will uninstall $packageName from the current device.',
-          confirmLabel: isZh ? '卸载' : 'Uninstall',
+          title: _arText(
+            context,
+            zh: '卸载 APP',
+            zhHant: '解除安裝 APP',
+            en: 'Uninstall app',
+            fr: 'Désinstaller l’APP',
+            de: 'APP deinstallieren',
+            ja: 'APP をアンインストール',
+          ),
+          message: _arText(
+            context,
+            zh: '将从当前设备卸载 $packageName。',
+            zhHant: '將從目前裝置解除安裝 $packageName。',
+            en: 'This will uninstall $packageName from the current device.',
+            fr: 'Désinstalle $packageName de l’appareil actuel.',
+            de: 'Deinstalliert $packageName vom aktuellen Gerät.',
+            ja: '現在のデバイスから $packageName をアンインストールします。',
+          ),
+          confirmLabel: _arText(
+            context,
+            zh: '卸载',
+            zhHant: '解除安裝',
+            en: 'Uninstall',
+            fr: 'Désinstaller',
+            de: 'Deinstallieren',
+            ja: 'アンインストール',
+          ),
         );
         if (!confirmed) return;
         await _runDeviceAction(
@@ -4056,7 +4851,6 @@ fi
     if (overlay == null) return;
     final center = overlay.size.center(Offset.zero);
     final position = globalPosition ?? overlay.localToGlobal(center);
-    final isZh = openHandIsChineseLocale(context);
     final isPackageProcess = _looksLikePackageName(process.name);
     final selected = await showMenu<_ProcessMenuAction>(
       context: context,
@@ -4067,25 +4861,75 @@ fi
       items: [
         PopupMenuItem(
           value: _ProcessMenuAction.copyPid,
-          child: Text(isZh ? '复制 PID' : 'Copy PID'),
+          child: Text(
+            _arText(
+              context,
+              zh: '复制 PID',
+              zhHant: '複製 PID',
+              en: 'Copy PID',
+              fr: 'Copier le PID',
+              de: 'PID kopieren',
+              ja: 'PID をコピー',
+            ),
+          ),
         ),
         PopupMenuItem(
           value: _ProcessMenuAction.copyName,
-          child: Text(isZh ? '复制进程名' : 'Copy process name'),
+          child: Text(
+            _arText(
+              context,
+              zh: '复制进程名',
+              zhHant: '複製程序名稱',
+              en: 'Copy process name',
+              fr: 'Copier le nom du processus',
+              de: 'Prozessnamen kopieren',
+              ja: 'プロセス名をコピー',
+            ),
+          ),
         ),
         PopupMenuItem(
           value: _ProcessMenuAction.logcatPid,
-          child: Text(isZh ? '按 PID 过滤 Logcat' : 'Filter logcat by PID'),
+          child: Text(
+            _arText(
+              context,
+              zh: '按 PID 过滤 Logcat',
+              zhHant: '依 PID 篩選 Logcat',
+              en: 'Filter Logcat by PID',
+              fr: 'Filtrer Logcat par PID',
+              de: 'Logcat nach PID filtern',
+              ja: 'PID で Logcat を絞り込み',
+            ),
+          ),
         ),
         const PopupMenuDivider(),
         PopupMenuItem(
           value: _ProcessMenuAction.kill,
-          child: Text(isZh ? 'kill -9 进程...' : 'kill -9 process...'),
+          child: Text(
+            _arText(
+              context,
+              zh: 'kill -9 进程...',
+              zhHant: 'kill -9 程序...',
+              en: 'kill -9 process...',
+              fr: 'kill -9 processus...',
+              de: 'Prozess mit kill -9 beenden...',
+              ja: 'kill -9 プロセス...',
+            ),
+          ),
         ),
         if (isPackageProcess)
           PopupMenuItem(
             value: _ProcessMenuAction.forceStopPackage,
-            child: Text(isZh ? '强制停止包名' : 'Force-stop package'),
+            child: Text(
+              _arText(
+                context,
+                zh: '强制停止包名',
+                zhHant: '強制停止套件',
+                en: 'Force-stop package',
+                fr: 'Forcer l’arrêt du package',
+                de: 'Paket-Stopp erzwingen',
+                ja: 'パッケージを強制停止',
+              ),
+            ),
           ),
       ],
     );
@@ -4097,7 +4941,6 @@ fi
     AndroidProcess process,
     _ProcessMenuAction action,
   ) async {
-    final isZh = openHandIsChineseLocale(context);
     switch (action) {
       case _ProcessMenuAction.copyPid:
         await _copyText('${process.pid}');
@@ -4112,10 +4955,24 @@ fi
         await _fetchLogcat();
       case _ProcessMenuAction.kill:
         final confirmed = await _confirmAction(
-          title: isZh ? '终止进程' : 'Kill process',
-          message: isZh
-              ? '将执行 kill -9 ${process.pid} (${process.name})。'
-              : 'This will run kill -9 ${process.pid} (${process.name}).',
+          title: _arText(
+            context,
+            zh: '终止进程',
+            zhHant: '終止程序',
+            en: 'Kill process',
+            fr: 'Tuer le processus',
+            de: 'Prozess beenden',
+            ja: 'プロセスを終了',
+          ),
+          message: _arText(
+            context,
+            zh: '将执行 kill -9 ${process.pid} (${process.name})。',
+            zhHant: '將執行 kill -9 ${process.pid} (${process.name})。',
+            en: 'This will run kill -9 ${process.pid} (${process.name}).',
+            fr: 'Exécute kill -9 ${process.pid} (${process.name}).',
+            de: 'Führt kill -9 ${process.pid} (${process.name}) aus.',
+            ja: 'kill -9 ${process.pid} (${process.name}) を実行します。',
+          ),
           confirmLabel: 'kill -9',
         );
         if (!confirmed) return;
@@ -4134,42 +4991,142 @@ fi
 
   // ── Overview tab ────────────────────────────────────────────────────────
 
-  Widget _buildOverviewTab(ColorScheme cs, ThemeData theme, bool isZh) {
+  Widget _buildOverviewTab(ColorScheme cs, ThemeData theme) {
     final config = _ctrl.config;
     final device = _ctrl.connectedDevice;
     final items = <(String, String)>[
-      (isZh ? '逆向目标' : 'Objective', config.objective),
+      (
+        _arText(
+          context,
+          zh: '逆向目标',
+          zhHant: '逆向目標',
+          en: 'Objective',
+          fr: 'Objectif',
+          de: 'Ziel',
+          ja: '目的',
+        ),
+        config.objective,
+      ),
       if (config.packageName != null)
-        (isZh ? '包名' : 'Package', config.packageName!),
+        (
+          _arText(
+            context,
+            zh: '包名',
+            zhHant: '套件名稱',
+            en: 'Package',
+            fr: 'Package',
+            de: 'Paket',
+            ja: 'パッケージ',
+          ),
+          config.packageName!,
+        ),
       if (config.apkPath != null)
-        (isZh ? 'APK 路径' : 'APK path', config.apkPath!),
-      (isZh ? '分析模式' : 'Analysis mode', _analysisModeLabel(config, isZh)),
+        (
+          _arText(
+            context,
+            zh: 'APK 路径',
+            zhHant: 'APK 路徑',
+            en: 'APK path',
+            fr: 'Chemin APK',
+            de: 'APK-Pfad',
+            ja: 'APK パス',
+          ),
+          config.apkPath!,
+        ),
+      (
+        _arText(
+          context,
+          zh: '分析模式',
+          zhHant: '分析模式',
+          en: 'Analysis mode',
+          fr: 'Mode d’analyse',
+          de: 'Analysemodus',
+          ja: '解析モード',
+        ),
+        _analysisModeLabel(config),
+      ),
       if (config.authorizationScope != null &&
           config.authorizationScope!.trim().isNotEmpty)
-        (isZh ? '授权范围' : 'Authorization', config.authorizationScope!.trim()),
-      (
-        isZh ? 'ADB MCP' : 'ADB MCP',
-        config.adbMcpEnabled
-            ? (isZh ? '已启用' : 'enabled')
-            : (isZh ? '未启用' : 'disabled'),
-      ),
-      (
-        isZh ? 'Frida MCP' : 'Frida MCP',
-        config.fridaMcpEnabled
-            ? (isZh ? '已启用' : 'enabled')
-            : (isZh ? '未启用' : 'disabled'),
-      ),
+        (
+          _arText(
+            context,
+            zh: '授权范围',
+            zhHant: '授權範圍',
+            en: 'Authorization',
+            fr: 'Autorisation',
+            de: 'Autorisierung',
+            ja: '認可範囲',
+          ),
+          config.authorizationScope!.trim(),
+        ),
+      ('ADB MCP', _enabledStateLabel(config.adbMcpEnabled)),
+      ('Frida MCP', _enabledStateLabel(config.fridaMcpEnabled)),
       if (device != null) ...[
-        (isZh ? '设备型号' : 'Device model', device.model ?? device.serial),
-        (isZh ? '设备序列号' : 'Device serial', device.serial),
+        (
+          _arText(
+            context,
+            zh: '设备型号',
+            zhHant: '裝置型號',
+            en: 'Device model',
+            fr: 'Modèle appareil',
+            de: 'Gerätemodell',
+            ja: 'デバイスモデル',
+          ),
+          device.model ?? device.serial,
+        ),
+        (
+          _arText(
+            context,
+            zh: '设备序列号',
+            zhHant: '裝置序號',
+            en: 'Device serial',
+            fr: 'Numéro de série',
+            de: 'Geräteseriennummer',
+            ja: 'デバイスシリアル',
+          ),
+          device.serial,
+        ),
       ] else if (config.deviceSerial != null &&
           config.deviceSerial!.trim().isNotEmpty) ...[
-        (isZh ? '配置设备' : 'Configured serial', config.deviceSerial!.trim()),
+        (
+          _arText(
+            context,
+            zh: '配置设备',
+            zhHant: '設定裝置',
+            en: 'Configured serial',
+            fr: 'Série configurée',
+            de: 'Konfigurierte Seriennummer',
+            ja: '設定済みシリアル',
+          ),
+          config.deviceSerial!.trim(),
+        ),
       ],
       if (config.keywords.isNotEmpty)
-        (isZh ? '关键字' : 'Keywords', config.keywords.join(', ')),
+        (
+          _arText(
+            context,
+            zh: '关键字',
+            zhHant: '關鍵字',
+            en: 'Keywords',
+            fr: 'Mots-clés',
+            de: 'Schlüsselwörter',
+            ja: 'キーワード',
+          ),
+          config.keywords.join(', '),
+        ),
       if (config.notes != null && config.notes!.isNotEmpty)
-        (isZh ? '备注' : 'Notes', config.notes!),
+        (
+          _arText(
+            context,
+            zh: '备注',
+            zhHant: '備註',
+            en: 'Notes',
+            fr: 'Notes',
+            de: 'Notizen',
+            ja: 'メモ',
+          ),
+          config.notes!,
+        ),
     ];
     return OpenHandSafeScrollbar(
       child: ListView(
@@ -4187,13 +5144,29 @@ fi
                         child: CircularProgressIndicator(strokeWidth: 1.8),
                       )
                     : const Icon(Icons.inventory_2_rounded),
-                label: isZh ? '生成证据包' : 'Make evidence bundle',
+                label: _arText(
+                  context,
+                  zh: '生成证据包',
+                  zhHant: '產生證據包',
+                  en: 'Make evidence bundle',
+                  fr: 'Créer le paquet de preuves',
+                  de: 'Beweispaket erstellen',
+                  ja: '証拠パッケージを作成',
+                ),
               ),
               if (_evidenceBundleOutput?.trim().isNotEmpty ?? false)
                 _DashboardActionButton(
                   onPressed: () => _copyText(_evidenceBundleOutput!.trim()),
                   icon: const Icon(Icons.copy_rounded),
-                  label: isZh ? '复制结果' : 'Copy result',
+                  label: _arText(
+                    context,
+                    zh: '复制结果',
+                    zhHant: '複製結果',
+                    en: 'Copy result',
+                    fr: 'Copier le résultat',
+                    de: 'Ergebnis kopieren',
+                    ja: '結果をコピー',
+                  ),
                 ),
             ],
           ),
@@ -4238,13 +5211,58 @@ fi
     );
   }
 
-  String _analysisModeLabel(AndroidReverseSessionConfig config, bool isZh) {
-    if (isZh) return config.analysisMode.labelZh;
+  String _analysisModeLabel(AndroidReverseSessionConfig config) {
     return switch (config.analysisMode) {
-      AndroidReverseAnalysisMode.staticFirst => 'Static first',
-      AndroidReverseAnalysisMode.balanced => 'Balanced',
-      AndroidReverseAnalysisMode.dynamicFirst => 'Dynamic first',
+      AndroidReverseAnalysisMode.staticFirst => _arText(
+        context,
+        zh: config.analysisMode.labelZh,
+        zhHant: '靜態優先',
+        en: 'Static first',
+        fr: 'Statique d’abord',
+        de: 'Statisch zuerst',
+        ja: '静的優先',
+      ),
+      AndroidReverseAnalysisMode.balanced => _arText(
+        context,
+        zh: config.analysisMode.labelZh,
+        zhHant: '均衡',
+        en: 'Balanced',
+        fr: 'Équilibré',
+        de: 'Ausgewogen',
+        ja: 'バランス',
+      ),
+      AndroidReverseAnalysisMode.dynamicFirst => _arText(
+        context,
+        zh: config.analysisMode.labelZh,
+        zhHant: '動態優先',
+        en: 'Dynamic first',
+        fr: 'Dynamique d’abord',
+        de: 'Dynamisch zuerst',
+        ja: '動的優先',
+      ),
     };
+  }
+
+  String _enabledStateLabel(bool enabled) {
+    return enabled
+        ? _arText(
+            context,
+            zh: '已启用',
+            zhHant: '已啟用',
+            en: 'enabled',
+            fr: 'activé',
+            de: 'aktiviert',
+            ja: '有効',
+          )
+        : _arText(
+            context,
+            zh: '未启用',
+            zhHant: '未啟用',
+            en: 'disabled',
+            fr: 'désactivé',
+            de: 'deaktiviert',
+            ja: '無効',
+          );
   }
 
   // ── Toolchain tab ───────────────────────────────────────────────────────
