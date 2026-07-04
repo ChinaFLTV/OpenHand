@@ -762,6 +762,47 @@ void main() {
     });
 
     test(
+      'agent list marks non-agent-only builtin bindings as no agent tools',
+      () async {
+        await controller.saveAgent(
+          _agent(
+            id: 'agent-lister',
+            name: 'Lister Agent',
+            enabled: true,
+            builtinToolNames: const <String>['AgentList'],
+          ),
+        );
+        await controller.saveAgent(
+          _agent(
+            id: 'agent-bash-only',
+            name: 'Bash Only Agent',
+            enabled: true,
+            builtinToolNames: const <String>['Bash'],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        final result = await _executeAgentList(runtime, catalog);
+
+        expect(result.status, BashToolExecutionStatus.success);
+        final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+        final agents = payload['agents'] as List<Object?>;
+        final agent = agents.cast<Map<String, Object?>>().firstWhere(
+          (item) => item['id'] == 'agent-bash-only',
+        );
+        final agentTools = agent['agent_tools'] as Map<String, Object?>;
+
+        expect(agentTools['binding_mode'], 'none');
+        expect(agentTools['tools'], isEmpty);
+        expect(agentTools['groups'], isEmpty);
+        expect(agentTools['mutation_tools'], isEmpty);
+        expect(agentTools['count'], 0);
+      },
+    );
+
+    test(
       'rejects executing a catalog-exposed agent tool against an unbound target agent',
       () async {
         await controller.saveAgent(

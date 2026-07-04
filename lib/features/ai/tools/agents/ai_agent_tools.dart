@@ -2141,13 +2141,15 @@ Map<String, Object?> _agentSummaryJson(AgentProfile agent) {
 }
 
 Map<String, Object?> _agentToolBindingSummaryJson(AgentProfile agent) {
-  final configured = trimmedNonEmptyStrings(agent.builtinToolNames);
+  final configured = normalizeAgentBuiltinToolNames(agent.builtinToolNames);
   final hasExplicitNone = agentHasNoCoordinationToolsBinding(configured);
   final kinds = hasExplicitNone
       ? const <AiBuiltinToolKind>[]
       : configured.isEmpty
       ? _agentCoordinationToolKinds
       : _agentToolKindsFromNames(configured);
+  final hasNoAgentToolBindings =
+      hasExplicitNone || (configured.isNotEmpty && kinds.isEmpty);
   final tools = kinds.map(_agentToolNameForKind).toList(growable: false);
   final groups = <String, List<String>>{};
   final mutationTools = <String>[];
@@ -2160,7 +2162,7 @@ Map<String, Object?> _agentToolBindingSummaryJson(AgentProfile agent) {
     if (kind.isAgentMutationTool) mutationTools.add(tool);
   }
   return <String, Object?>{
-    'binding_mode': hasExplicitNone
+    'binding_mode': hasNoAgentToolBindings
         ? 'none'
         : configured.isEmpty
         ? 'all_agent_tools'
