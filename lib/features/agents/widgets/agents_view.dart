@@ -2311,6 +2311,7 @@ class _AgentTasksBody extends StatelessWidget {
                   tasks.length *
                   100)
               .round();
+    final visibleTasks = _sortedAgentTasks(tasks);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2344,15 +2345,44 @@ class _AgentTasksBody extends StatelessWidget {
         ListView.separated(
           shrinkWrap: true,
           primary: false,
-          itemCount: tasks.length,
+          itemCount: visibleTasks.length,
           separatorBuilder: (_, _) => const SizedBox(height: 10),
           itemBuilder: (context, index) {
-            return _AgentTaskCard(agent: agent, task: tasks[index]);
+            return _AgentTaskCard(agent: agent, task: visibleTasks[index]);
           },
         ),
       ],
     );
   }
+}
+
+List<AgentTask> _sortedAgentTasks(List<AgentTask> tasks) {
+  return List<AgentTask>.from(tasks)..sort((left, right) {
+    final statusCompare = _agentTaskStatusRank(
+      left.status,
+    ).compareTo(_agentTaskStatusRank(right.status));
+    if (statusCompare != 0) return statusCompare;
+    return _agentTaskSortTime(right).compareTo(_agentTaskSortTime(left));
+  });
+}
+
+int _agentTaskStatusRank(AgentTaskStatus status) {
+  return switch (status) {
+    AgentTaskStatus.waitingApproval => 0,
+    AgentTaskStatus.running => 1,
+    AgentTaskStatus.ready => 2,
+    AgentTaskStatus.backlog => 3,
+    AgentTaskStatus.paused => 4,
+    AgentTaskStatus.completed => 5,
+    AgentTaskStatus.failed => 6,
+    AgentTaskStatus.canceled => 7,
+  };
+}
+
+DateTime _agentTaskSortTime(AgentTask task) {
+  return task.updatedAt ??
+      task.createdAt ??
+      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 }
 
 class _AgentTaskCard extends StatelessWidget {

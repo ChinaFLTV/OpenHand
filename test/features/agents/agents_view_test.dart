@@ -978,6 +978,14 @@ void main() {
           lifecycleState: AgentLifecycleState.running,
           tasks: <AgentTask>[
             AgentTask(
+              id: 'task-0',
+              title: 'Archived handoff',
+              progress: 1,
+              status: AgentTaskStatus.completed,
+              createdAt: DateTime.utc(2026, 7, 3, 1, 2),
+              updatedAt: DateTime.utc(2026, 7, 3, 3, 4),
+            ),
+            AgentTask(
               id: 'task-1',
               title: 'Quarterly report',
               description: 'Prepare the quarterly review.',
@@ -1036,6 +1044,10 @@ void main() {
       expect(find.text('priority: high'), findsOneWidget);
       expect(find.text('retryable: true'), findsOneWidget);
       expect(find.textContaining('secret prompt body'), findsNothing);
+      expect(
+        tester.getTopLeft(find.text('Quarterly report').first).dy,
+        lessThan(tester.getTopLeft(find.text('Archived handoff')).dy),
+      );
 
       await tester.tap(find.text('Quarterly report').first);
       await tester.pump(const Duration(milliseconds: 300));
