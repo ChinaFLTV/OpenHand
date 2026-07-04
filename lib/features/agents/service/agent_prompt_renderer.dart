@@ -60,11 +60,14 @@ class AgentPromptRenderer {
     Map<String, Object?> taskContext = const <String, Object?>{},
     Set<String>? callableAgentToolNames,
   }) async {
+    final normalizedCallableAgentToolNames = callableAgentToolNames == null
+        ? null
+        : agentNormalizedCallableToolNames(callableAgentToolNames);
     final template = await _loadTemplate();
     final profile = _profileJson(agent);
     final capabilities = _capabilitiesJson(
       agent,
-      callableAgentToolNames: callableAgentToolNames,
+      callableAgentToolNames: normalizedCallableAgentToolNames,
     );
     final runtimePolicy = _runtimePolicyJson(agent);
     final operationalState = _operationalStateJson(agent);
@@ -82,7 +85,7 @@ class AgentPromptRenderer {
           '{{AGENT_COORDINATION_GUIDANCE}}',
           _agentCoordinationGuidance(
             agent,
-            callableAgentToolNames: callableAgentToolNames,
+            callableAgentToolNames: normalizedCallableAgentToolNames,
           ),
         );
     return AgentPromptSnapshot(

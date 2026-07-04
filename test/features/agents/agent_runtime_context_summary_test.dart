@@ -100,14 +100,14 @@ void main() {
     final explicitBindings = agentCapabilityBindingsJson(
       explicit,
       callableAgentToolNames: const <String>{
-        'agenttaskpublish',
-        'agenttaskprogress',
+        'AgentTaskPublish',
+        'agent_task_progress',
       },
     );
     final explicitSummary = explicitBindings['summary'] as Map<String, Object?>;
     final defaultBindings = agentCapabilityBindingsJson(
       defaultAll,
-      callableAgentToolNames: const <String>{'agentlist', 'agentdetail'},
+      callableAgentToolNames: const <String>{'AgentList', 'agent_detail'},
     );
     final defaultSummary = defaultBindings['summary'] as Map<String, Object?>;
 

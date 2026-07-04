@@ -28,21 +28,26 @@ Map<String, Object?> agentCapabilityBindingsJson(
   AgentProfile agent, {
   Set<String>? callableAgentToolNames,
 }) {
+  final normalizedCallableAgentToolNames = callableAgentToolNames == null
+      ? null
+      : agentNormalizedCallableToolNames(callableAgentToolNames);
   final automationCount = agent.cronIds.length + agent.hookIds.length;
   final configured = normalizeAgentBuiltinToolNames(agent.builtinToolNames);
   final sourceBuiltinToolNames =
-      callableAgentToolNames != null &&
+      normalizedCallableAgentToolNames != null &&
           configured.isEmpty &&
           !agentHasNoCoordinationToolsBinding(configured)
       ? agentCoordinationToolDisplayNames.map((tool) => tool.$2)
       : agentVisibleBuiltinToolNames(configured);
   final builtinToolNames = sourceBuiltinToolNames
       .where((name) {
-        if (callableAgentToolNames == null ||
+        if (normalizedCallableAgentToolNames == null ||
             !isAgentCoordinationBuiltinToolName(name)) {
           return true;
         }
-        return callableAgentToolNames.contains(_normalizeToolName(name));
+        return normalizedCallableAgentToolNames.contains(
+          _normalizeToolName(name),
+        );
       })
       .toList(growable: false);
   final agentBuiltinToolCount = builtinToolNames
@@ -72,6 +77,15 @@ Map<String, Object?> agentCapabilityBindingsJson(
           agent.memoryIds.isNotEmpty,
     },
   };
+}
+
+Set<String> agentNormalizedCallableToolNames(Iterable<String> names) {
+  final result = <String>{};
+  for (final name in names) {
+    final normalized = _normalizeToolName(name);
+    if (normalized.isNotEmpty) result.add(normalized);
+  }
+  return result;
 }
 
 Map<String, int> _agentBuiltinToolGroupCounts(Iterable<String> names) {

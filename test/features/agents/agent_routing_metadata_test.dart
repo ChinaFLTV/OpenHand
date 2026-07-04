@@ -668,8 +668,8 @@ domains: cloud, finops
           ],
         ),
         callableAgentToolNames: const <String>{
-          'agenttaskpublish',
-          'agenttaskprogress',
+          'AgentTaskPublish',
+          'agent_task_progress',
         },
       );
 
