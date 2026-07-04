@@ -580,6 +580,75 @@ void main() {
       ]);
     });
 
+    testWidgets('renders worker execution details in cluster dialog', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(<AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          enabled: true,
+          lifecycleState: AgentLifecycleState.running,
+          scaleSettings: const AgentScaleSettings(maxWorkers: 3),
+          workers: <AgentWorker>[
+            AgentWorker(
+              id: 'worker-1',
+              name: 'Worker 1',
+              status: AgentWorkerStatus.busy,
+              currentTaskId: 'task-1',
+              busyScore: 0.7,
+              executedTaskCount: 4,
+              priority: 8,
+              labels: const <String>['ops', 'billing'],
+              updatedAt: DateTime.utc(2026, 7, 4, 8, 30),
+              extra: const <String, Object?>{
+                'last_assigned_task_id': 'task-1',
+                'last_finished_task_id': 'task-2',
+                'last_finished_status': 'completed',
+              },
+            ),
+          ],
+          tasks: const <AgentTask>[
+            AgentTask(
+              id: 'task-1',
+              title: 'Collect cloud billing evidence',
+              status: AgentTaskStatus.running,
+              progress: 0.45,
+            ),
+            AgentTask(
+              id: 'task-2',
+              title: 'Publish weekly report',
+              status: AgentTaskStatus.completed,
+              progress: 1,
+            ),
+          ],
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('集群'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Worker 1'), findsOneWidget);
+      expect(
+        find.textContaining('当前任务 Collect cloud billing evidence'),
+        findsOneWidget,
+      );
+      expect(find.text('当前任务进度 45%'), findsOneWidget);
+      expect(find.text('标签: ops, billing'), findsOneWidget);
+      expect(find.text('上次分配: Collect cloud billing evidence'), findsOneWidget);
+      expect(find.text('上次完成: Publish weekly report'), findsOneWidget);
+      expect(find.text('完成状态: completed'), findsOneWidget);
+    });
+
     testWidgets('opens a complete task detail dialog from task desk', (
       tester,
     ) async {

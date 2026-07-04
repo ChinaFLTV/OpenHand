@@ -1777,15 +1777,8 @@ class _AgentWorkerStatusTile extends StatelessWidget {
       AgentWorkerStatus.offline => colors.outline,
     };
     final currentTask = _agentWorkerCurrentTaskLabel(l10n, agent, worker);
-    final labelLine = [
-      l10n.agentsWorkerSubtitle(
-        _agentWorkerStatusLabel(l10n, worker.status),
-        worker.executedTaskCount,
-        worker.priority,
-      ),
-      if (currentTask.isNotEmpty) currentTask,
-      if (worker.labels.isNotEmpty) worker.labels.join(', '),
-    ].where((item) => item.trim().isNotEmpty).join(' · ');
+    final currentTaskProgress = _agentWorkerCurrentTaskProgress(agent, worker);
+    final details = _agentWorkerDetailChips(context, agent, worker);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -1832,13 +1825,26 @@ class _AgentWorkerStatusTile extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      labelLine,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _AgentActivityTypeChip(
+                          label: _agentWorkerStatusLabel(l10n, worker.status),
+                          color: statusColor,
+                        ),
+                        _AgentActivityMetadataChip(
+                          text: l10n.agentsWorkerSubtitle(
+                            _agentWorkerStatusLabel(l10n, worker.status),
+                            worker.executedTaskCount,
+                            worker.priority,
+                          ),
+                        ),
+                        if (currentTask.isNotEmpty)
+                          _AgentActivityMetadataChip(text: currentTask),
+                        for (final detail in details)
+                          _AgentActivityMetadataChip(text: detail),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
@@ -1848,6 +1854,20 @@ class _AgentWorkerStatusTile extends StatelessWidget {
                       color: statusColor,
                       backgroundColor: colors.surfaceContainerHighest,
                     ),
+                    if (currentTaskProgress != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '当前任务进度 ${(currentTaskProgress * 100).round()}%',
+                          en: 'Current task ${(currentTaskProgress * 100).round()}%',
+                        ),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -8635,6 +8655,79 @@ String _agentWorkerCurrentTaskLabel(
   final task = _agentTaskById(agent, taskId);
   final title = task?.title.trim().isNotEmpty == true ? task!.title : taskId;
   return _agentInlineText(l10n, zh: '当前任务 $title', en: 'Current task $title');
+}
+
+double? _agentWorkerCurrentTaskProgress(
+  AgentProfile agent,
+  AgentWorker worker,
+) {
+  final taskId = worker.currentTaskId.trim();
+  if (taskId.isEmpty) return null;
+  final task = _agentTaskById(agent, taskId);
+  if (task == null) return null;
+  return task.progress.clamp(0, 1).toDouble();
+}
+
+List<String> _agentWorkerDetailChips(
+  BuildContext context,
+  AgentProfile agent,
+  AgentWorker worker,
+) {
+  final chips = <String>[];
+  if (worker.labels.isNotEmpty) {
+    chips.add(
+      openHandLocalizedText(
+        context,
+        zh: '标签: ${worker.labels.join(', ')}',
+        en: 'Labels: ${worker.labels.join(', ')}',
+      ),
+    );
+  }
+  if (worker.updatedAt != null) {
+    chips.add(
+      openHandLocalizedText(
+        context,
+        zh: '更新: ${formatMonthDayHm(worker.updatedAt!.toLocal())}',
+        en: 'Updated: ${formatMonthDayHm(worker.updatedAt!.toLocal())}',
+      ),
+    );
+  }
+  final lastAssignedTaskId = '${worker.extra['last_assigned_task_id'] ?? ''}'
+      .trim();
+  if (lastAssignedTaskId.isNotEmpty) {
+    final task = _agentTaskById(agent, lastAssignedTaskId);
+    chips.add(
+      openHandLocalizedText(
+        context,
+        zh: '上次分配: ${task?.title ?? lastAssignedTaskId}',
+        en: 'Last assigned: ${task?.title ?? lastAssignedTaskId}',
+      ),
+    );
+  }
+  final lastFinishedTaskId = '${worker.extra['last_finished_task_id'] ?? ''}'
+      .trim();
+  if (lastFinishedTaskId.isNotEmpty) {
+    final task = _agentTaskById(agent, lastFinishedTaskId);
+    chips.add(
+      openHandLocalizedText(
+        context,
+        zh: '上次完成: ${task?.title ?? lastFinishedTaskId}',
+        en: 'Last finished: ${task?.title ?? lastFinishedTaskId}',
+      ),
+    );
+  }
+  final lastFinishedStatus = '${worker.extra['last_finished_status'] ?? ''}'
+      .trim();
+  if (lastFinishedStatus.isNotEmpty) {
+    chips.add(
+      openHandLocalizedText(
+        context,
+        zh: '完成状态: $lastFinishedStatus',
+        en: 'Finished: $lastFinishedStatus',
+      ),
+    );
+  }
+  return chips.take(5).toList(growable: false);
 }
 
 int _agentWorkerStatusCount(AgentProfile agent, AgentWorkerStatus status) {
