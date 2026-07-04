@@ -189,7 +189,7 @@ class WebFetchScraplingBridge {
       );
       if (response['ok'] != true) {
         final code = '${response['error'] ?? 'scrapling_fetch_failed'}';
-        final detail = '${response['detail'] ?? code}'.trim();
+        final detail = optionalStringFromValue(response['detail']) ?? code;
         _lastProbe = WebFetchScraplingProbeStatus(
           ready: false,
           code: code,
@@ -220,10 +220,9 @@ class WebFetchScraplingBridge {
           headers['${entry.key}'.toLowerCase()] = '${entry.value}';
         }
       }
+      final finalUrl = optionalStringFromValue(response['final_url']) ?? url;
       return WebFetchScraplingBridgeResult(
-        url: '${response['final_url'] ?? url}'.trim().isEmpty
-            ? url
-            : '${response['final_url']}'.trim(),
+        url: finalUrl,
         title: '${response['title'] ?? ''}',
         content: '${response['content'] ?? ''}',
         contentType:
@@ -311,7 +310,7 @@ class WebFetchScraplingBridge {
         .transform(const LineSplitter())
         .listen(
           (line) {
-            if (line.trim().isEmpty) return;
+            if (nullIfBlank(line) == null) return;
             Map<String, Object?> json;
             try {
               final decoded = jsonDecode(line);
@@ -338,7 +337,7 @@ class WebFetchScraplingBridge {
               }
               return;
             }
-            final id = '${json['id'] ?? ''}'.trim();
+            final id = optionalStringFromValue(json['id']) ?? '';
             final pending = _pending.remove(id);
             if (pending != null && !pending.isCompleted) {
               pending.complete(json);
@@ -363,8 +362,8 @@ class WebFetchScraplingBridge {
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen((line) {
-          final trimmed = line.trim();
-          if (trimmed.isEmpty) return;
+          final trimmed = nullIfBlank(line);
+          if (trimmed == null) return;
           _stderrTail = trimmed.length > 800
               ? trimmed.substring(trimmed.length - 800)
               : trimmed;
@@ -387,7 +386,7 @@ class WebFetchScraplingBridge {
     final code = ok ? 'ready' : '${response['error'] ?? 'scrapling_not_ready'}';
     final detail = ok
         ? 'Scrapling bridge ready.'
-        : '${response['detail'] ?? code}';
+        : optionalStringFromValue(response['detail']) ?? code;
     return WebFetchScraplingProbeStatus(
       ready: ok,
       code: code,
@@ -690,8 +689,7 @@ class WebFetchScraplingBridge {
         tag: 'web_fetch_scrapling_bridge.probe_certifi',
       );
       if (result.exitCode == 0) {
-        final value = '${result.stdout}'.trim();
-        return value.isEmpty ? null : value;
+        return optionalStringFromValue(result.stdout);
       }
     } catch (error, stack) {
       silentLog(
