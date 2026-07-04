@@ -9,6 +9,12 @@ const int kKnowledgeVectorDistributionPageSize = 120;
 const int kKnowledgeVectorPreviewChars = 50;
 const String kKnowledgeVectorProjectionAlgorithm =
     'deterministic_random_projection_3d';
+const int _knowledgeVectorTitleChars = 72;
+const double _projectionZeroDistanceEpsilon = 1e-9;
+const double _projectionMinCoordinate = -1.0;
+const double _projectionMaxCoordinate = 1.0;
+const double _fallbackRadiusBase = 0.34;
+const double _fallbackRadiusSpread = 0.56;
 
 class KnowledgeVectorPointKind {
   const KnowledgeVectorPointKind._();
@@ -167,8 +173,9 @@ class KnowledgeVectorDistribution {
         map['original_dimensions'],
         fallback: 0,
       ),
-      algorithm: '${map['algorithm'] ?? kKnowledgeVectorProjectionAlgorithm}'
-          .trim(),
+      algorithm:
+          nullIfBlank('${map['algorithm'] ?? ''}') ??
+          kKnowledgeVectorProjectionAlgorithm,
       sampledCount: nonNegativeIntFromValue(
         map['sampled_count'],
         fallback: points.length,
@@ -190,9 +197,7 @@ class KnowledgeVectorProjector {
     int? durationMs,
     DateTime? generatedAt,
   }) {
-    final valid = inputs
-        .where((input) => input.vector.any((value) => value.isFinite))
-        .toList(growable: false);
+    final valid = inputs.where(_hasFiniteVector).toList(growable: false);
     if (valid.isEmpty) {
       return KnowledgeVectorDistribution(
         points: const <KnowledgeVectorDistributionPoint>[],
@@ -215,7 +220,7 @@ class KnowledgeVectorProjector {
     for (final input in valid) {
       for (var i = 0; i < input.vector.length && i < dimensions; i++) {
         final value = input.vector[i];
-        if (!value.isFinite) continue;
+        if (!_isFinite(value)) continue;
         mean[i] += value;
         counts[i] += 1;
       }
@@ -234,7 +239,7 @@ class KnowledgeVectorProjector {
       var z = 0.0;
       for (var i = 0; i < input.vector.length && i < dimensions; i++) {
         final value = input.vector[i];
-        if (!value.isFinite) continue;
+        if (!_isFinite(value)) continue;
         final centered = value - mean[i];
         x += centered * _axisWeight(i, 0);
         y += centered * _axisWeight(i, 1);
@@ -277,25 +282,23 @@ class KnowledgeVectorProjector {
     for (var index = 0; index < projected.length; index++) {
       final item = projected[index];
       final fallbackAngle = index * math.pi * (3 - math.sqrt(5));
-      final fallbackRadius = projected.length <= 1
-          ? 0.0
-          : 0.34 + 0.56 * (index / math.max(1, projected.length - 1));
-      final normalized = maxDistance <= 1e-9
+      final fallbackRadius = _fallbackRadius(index, projected.length);
+      final normalized = maxDistance <= _projectionZeroDistanceEpsilon
           ? (
               x: math.cos(fallbackAngle) * fallbackRadius,
               y: math.sin(fallbackAngle) * fallbackRadius,
-              z: ((index % 7) - 3) / 5.0,
+              z: _fallbackZ(index),
             )
           : (
-              x: ((item.x - cx) / maxDistance).clamp(-1.0, 1.0),
-              y: ((item.y - cy) / maxDistance).clamp(-1.0, 1.0),
-              z: ((item.z - cz) / maxDistance).clamp(-1.0, 1.0),
+              x: _normalizedCoordinate(item.x, cx, maxDistance),
+              y: _normalizedCoordinate(item.y, cy, maxDistance),
+              z: _normalizedCoordinate(item.z, cz, maxDistance),
             );
       points.add(
         KnowledgeVectorDistributionPoint(
           id: item.input.id,
           kind: item.input.kind,
-          title: _truncate(item.input.title, 72),
+          title: _truncate(item.input.title, _knowledgeVectorTitleChars),
           preview: _truncate(item.input.preview, kKnowledgeVectorPreviewChars),
           x: normalized.x,
           y: normalized.y,
@@ -333,6 +336,30 @@ class KnowledgeVectorProjector {
     if (chars.length <= maxChars) return normalized;
     return '${chars.take(maxChars).toString()}...';
   }
+}
+
+bool _hasFiniteVector(KnowledgeVectorProjectionInput input) {
+  return input.vector.any(_isFinite);
+}
+
+bool _isFinite(double value) {
+  return value.isFinite;
+}
+
+double _normalizedCoordinate(double value, double center, double maxDistance) {
+  return ((value - center) / maxDistance)
+      .clamp(_projectionMinCoordinate, _projectionMaxCoordinate)
+      .toDouble();
+}
+
+double _fallbackRadius(int index, int total) {
+  if (total <= 1) return 0;
+  return _fallbackRadiusBase +
+      _fallbackRadiusSpread * (index / math.max(1, total - 1));
+}
+
+double _fallbackZ(int index) {
+  return ((index % 7) - 3) / 5.0;
 }
 
 DateTime? _dateTimeOrNull(Object? value) {
