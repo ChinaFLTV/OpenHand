@@ -2372,6 +2372,61 @@ domains: finance, cloud billing
     });
 
     test(
+      'track tool marks completed tasks without result as missing result',
+      () async {
+        await controller.saveAgent(
+          _agent(
+            enabled: true,
+            builtinToolNames: const <String>['AgentTaskTrack'],
+          ).copyWith(
+            tasks: <AgentTask>[
+              AgentTask(
+                id: 'task-1',
+                title: 'Completed without handoff',
+                status: AgentTaskStatus.completed,
+                progress: 1,
+                createdAt: DateTime.utc(2026, 7, 4),
+              ),
+            ],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        final result = await runtime.execute(
+          sessionId: 'session-1',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-track-missing-result',
+            name: 'AgentTaskTrack',
+            arguments: jsonEncode(const <String, Object?>{
+              'agent_id': 'agent-1',
+              'task_id': 'task-1',
+            }),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
+
+        expect(result.status, BashToolExecutionStatus.success);
+        final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+        final task = payload['task'] as Map<String, Object?>;
+        final state = task['state'] as Map<String, Object?>;
+        final handoff = task['handoff'] as Map<String, Object?>;
+        expect(task['result_available'], isFalse);
+        expect(task['next_action'], 'inspect_missing_result');
+        expect(state['next_action'], 'inspect_missing_result');
+        expect(handoff['message'], 'completed_without_result');
+        expect(handoff['next_action'], 'inspect_missing_result');
+      },
+    );
+
+    test(
       'progress and result tools expose retry state without stale failure result',
       () async {
         await controller.saveAgent(_agent(enabled: true));

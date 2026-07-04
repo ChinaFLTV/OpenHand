@@ -907,6 +907,49 @@ void main() {
       expect(find.text('下一步: 已终止'), findsOneWidget);
     });
 
+    testWidgets('shows completed tasks without result as missing result', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          enabled: true,
+          lifecycleState: AgentLifecycleState.running,
+          tasks: <AgentTask>[
+            AgentTask(
+              id: 'task-1',
+              title: 'Completed without handoff',
+              status: AgentTaskStatus.completed,
+              progress: 1,
+            ),
+          ],
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('任务台').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('下一步: 结果缺失'), findsOneWidget);
+      expect(find.text('补充结果'), findsNothing);
+
+      await tester.tap(find.text('Completed without handoff').first);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('已完成但缺少结果'), findsOneWidget);
+      expect(find.text('AgentTaskTrack'), findsOneWidget);
+      expect(find.text('AgentTaskResult'), findsNothing);
+    });
+
     testWidgets('renders activities as a typed message stream', (tester) async {
       final dependencies = _AgentEditorDependencies.empty();
       addTearDown(dependencies.dispose);

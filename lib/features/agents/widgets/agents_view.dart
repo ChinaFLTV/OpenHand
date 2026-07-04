@@ -2927,7 +2927,7 @@ _AgentTaskTrackingSummary _agentTaskTrackingSummary(
     AgentTaskStatus.completed =>
       _agentTaskResultAvailable(task)
           ? openHandLocalizedText(context, zh: '读取结果', en: 'Read result')
-          : openHandLocalizedText(context, zh: '补充结果', en: 'Fill result'),
+          : openHandLocalizedText(context, zh: '结果缺失', en: 'Result missing'),
     AgentTaskStatus.failed =>
       _agentTaskTerminalReason(task) == 'terminated'
           ? openHandLocalizedText(context, zh: '已终止', en: 'Terminated')
@@ -3008,7 +3008,7 @@ String _agentTaskRecommendedTool(AgentTask task) {
   return switch (task.status) {
     AgentTaskStatus.waitingApproval => 'AgentApprovalRequest',
     AgentTaskStatus.paused => 'AgentTaskResume',
-    AgentTaskStatus.completed => 'AgentTaskResult',
+    AgentTaskStatus.completed => 'AgentTaskTrack',
     AgentTaskStatus.failed || AgentTaskStatus.canceled => 'AgentTaskTrack',
     AgentTaskStatus.backlog ||
     AgentTaskStatus.ready ||

@@ -2459,7 +2459,8 @@ String _taskNextAction(AgentTask task, {required bool needsPolling}) {
   return switch (task.status) {
     AgentTaskStatus.waitingApproval => 'review_approval',
     AgentTaskStatus.paused => 'resume_or_cancel',
-    AgentTaskStatus.completed => 'read_result',
+    AgentTaskStatus.completed =>
+      _taskResultAvailable(task) ? 'read_result' : 'inspect_missing_result',
     AgentTaskStatus.failed =>
       _taskTerminalReason(task) == 'terminated' ? 'stop' : 'inspect_failure',
     AgentTaskStatus.canceled => 'stop',
