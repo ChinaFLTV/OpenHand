@@ -50,7 +50,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.11';
+  static const String promptVersion = '1.2.12';
 
   final Future<String> Function(String path) _loader;
 
@@ -73,7 +73,11 @@ class AgentPromptRenderer {
         .replaceAll('{{CAPABILITY_BINDINGS_JSON}}', _json(capabilities))
         .replaceAll('{{RUNTIME_POLICY_JSON}}', _json(runtimePolicy))
         .replaceAll('{{OPERATIONAL_STATE_JSON}}', _json(operationalState))
-        .replaceAll('{{TASK_CONTEXT_JSON}}', _json(effectiveTaskContext));
+        .replaceAll('{{TASK_CONTEXT_JSON}}', _json(effectiveTaskContext))
+        .replaceAll(
+          '{{AGENT_COORDINATION_GUIDANCE}}',
+          _agentCoordinationGuidance(agent),
+        );
     return AgentPromptSnapshot(
       assetPath: defaultAssetPath,
       version: promptVersion,
@@ -529,6 +533,81 @@ const Set<String> _agentPromptSensitiveMetadataKeys = <String>{
 String _json(Object? value) =>
     const JsonEncoder.withIndent('  ').convert(value);
 
+String _agentCoordinationGuidance(AgentProfile agent) {
+  final configured = normalizeAgentBuiltinToolNames(agent.builtinToolNames);
+  final defaultAll = configured.isEmpty;
+  final hasExplicitNone = agentHasNoCoordinationToolsBinding(configured);
+  final visibleTools = agentVisibleBuiltinToolNames(configured);
+  final agentTools = visibleTools
+      .where(isAgentCoordinationBuiltinToolName)
+      .map(_normalizeAgentToolName)
+      .toSet();
+  if (hasExplicitNone || (!defaultAll && agentTools.isEmpty)) {
+    return '''
+<agent_coordination_tools>
+- No Agent coordination tools are bound. Do not call `Agent*` tools.
+- Use direct bound skills, MCP, memory, knowledge, builtin tools, or ask for mentor/user input.
+</agent_coordination_tools>''';
+  }
+
+  final lines = <String>[];
+  if (defaultAll ||
+      agentTools.contains('agentlist') ||
+      agentTools.contains('agentdetail')) {
+    lines.add(
+      '- Discover first with `AgentList` or `AgentDetail` when available.',
+    );
+  }
+  if (defaultAll || agentTools.contains('agenttaskpublish')) {
+    lines.add(
+      '- Delegate only out-of-loop work with `AgentTaskPublish`; include title, content, labels, and extra context.',
+    );
+  }
+  if (defaultAll ||
+      agentTools.contains('agenttasktrack') ||
+      agentTools.contains('agenttaskprogress') ||
+      agentTools.contains('agenttaskresult')) {
+    lines.add(
+      '- Follow work with `AgentTaskTrack`, `AgentTaskProgress`, or `AgentTaskResult`; respect the recommended poll interval.',
+    );
+  }
+  if (defaultAll ||
+      agentTools.contains('agenttaskpause') ||
+      agentTools.contains('agenttaskresume') ||
+      agentTools.contains('agenttaskcancel') ||
+      agentTools.contains('agenttaskterminate') ||
+      agentTools.contains('agenttaskcomplete')) {
+    lines.add(
+      '- Change lifecycle with pause, resume, cancel, terminate, or complete tools only when intentional and allowed.',
+    );
+  }
+  if (defaultAll ||
+      agentTools.any(
+        (name) =>
+            name.startsWith('agentactivity') ||
+            name.startsWith('agentaudit') ||
+            name.startsWith('agentapproval') ||
+            name.startsWith('agentkpi') ||
+            name.startsWith('agentresource') ||
+            name.startsWith('agentcluster'),
+      )) {
+    lines.add(
+      '- Use activity, audit, approval, KPI, resource, and cluster tools only for their named domains.',
+    );
+  }
+  lines.add(
+    '- If a tool is not bound in `capability_bindings`, it is unavailable.',
+  );
+  return '''
+<agent_coordination_tools>
+${lines.join('\n')}
+</agent_coordination_tools>''';
+}
+
+String _normalizeAgentToolName(String value) {
+  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+}
+
 const String _fallbackTemplate = '''
 <identity>
 You are an OpenHand digital employee operated by Hermes Agent.
@@ -573,14 +652,7 @@ Your identity, scope, mentor, model, permissions, workspace, and capabilities ar
 - When a task completes, return result, evidence, residual risk, and next action. If incomplete, return status, blocker, and recommended poll or approval step.
 </task_dispatch>
 
-<agent_coordination_tools>
-- Discover first: `AgentList`, `AgentDetail`.
-- Delegate only out-of-loop work with `AgentTaskPublish`; include title, content, labels, and extra context.
-- Follow work with `AgentTaskTrack`, `AgentTaskProgress`, `AgentTaskResult`; respect the recommended poll interval.
-- Change lifecycle with `AgentTaskPause`/`Resume`/`Cancel`/`Terminate`/`Complete` only when intentional and allowed.
-- Use activity, audit, approval, KPI, resource, and cluster tools for their named domains.
-- If a tool is not bound in `capability_bindings`, it is unavailable.
-</agent_coordination_tools>
+{{AGENT_COORDINATION_GUIDANCE}}
 
 <approval_and_risk>
 - Follow `runtime_policy.approval_policy`.
