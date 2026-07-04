@@ -130,8 +130,8 @@ class _OpenHandGlobalSnackBarHostState extends State<OpenHandGlobalSnackBarHost>
         : Duration.zero;
     setState(() => _currentSnackBar = next);
     if (!motionEnabled) {
-      _controller.value = 1;
       _visibleNotified = true;
+      _controller.value = 1;
       next.onVisible?.call();
       _armDismissTimer();
       return;

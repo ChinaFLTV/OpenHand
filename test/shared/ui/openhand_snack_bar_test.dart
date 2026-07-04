@@ -60,6 +60,33 @@ void main() {
 
     expect(find.text('instant snack'), findsNothing);
   });
+
+  testWidgets(
+    'global snack bar continues queued items when ticker is disabled',
+    (tester) async {
+      final visible = <String>[];
+      await tester.pumpWidget(_buildHost(tickerEnabled: false));
+
+      OpenHandGlobalSnackBarHost.showSnackBar(
+        SnackBar(
+          duration: Duration.zero,
+          content: const Text('first snack'),
+          onVisible: () => visible.add('first'),
+        ),
+      );
+      OpenHandGlobalSnackBarHost.showSnackBar(
+        SnackBar(
+          content: const Text('second snack'),
+          onVisible: () => visible.add('second'),
+        ),
+      );
+      await tester.pump();
+
+      expect(visible, <String>['first', 'second']);
+      expect(find.text('first snack'), findsNothing);
+      expect(find.text('second snack'), findsOneWidget);
+    },
+  );
 }
 
 Widget _buildHost({bool tickerEnabled = true}) {
