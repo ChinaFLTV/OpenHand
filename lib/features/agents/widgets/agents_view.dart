@@ -18,6 +18,7 @@ import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -8097,13 +8098,10 @@ class _AgentDraggableChipBody extends StatelessWidget {
 }
 
 DialogAnimationSettings _agentChipAnimationSettings(BuildContext context) {
-  try {
-    return context.select<SettingsController, DialogAnimationSettings>(
-      (controller) => controller.chipAnimationSettings,
-    );
-  } catch (_) {
-    return OpenHandMotionDefaults.listItem;
+  if (!openHandTickerMotionEnabled(context)) {
+    return OpenHandMotionDefaults.disabled;
   }
+  return openHandMotionSettingsOf(context, OpenHandMotionSettingsScope.chip);
 }
 
 class _CapabilityPanel extends StatelessWidget {

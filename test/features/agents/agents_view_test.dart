@@ -570,6 +570,57 @@ void main() {
       expect(agent.taskLabels, <String>['urgent', 'slow']);
     });
 
+    testWidgets('agent editor chip motion respects disabled animations', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          workspaceScopePaths: <String>['/tmp/openhand/src'],
+          taskLabels: <String>['urgent'],
+          scaleSettings: AgentScaleSettings(tags: <String>['ops']),
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(
+          controller: controller,
+          dependencies: dependencies,
+          disableAnimations: true,
+        ),
+      );
+      final editButton = find.byTooltip('编辑配置').last;
+      await tester.ensureVisible(editButton);
+      await tester.tap(editButton);
+      await tester.pumpAndSettle();
+
+      DefaultTabController.of(
+        tester.element(find.byType(TabBar)),
+      ).animateTo(2, duration: Duration.zero);
+      await tester.pumpAndSettle();
+
+      final chipStripAnimatedSizes = tester
+          .widgetList<AnimatedSize>(
+            find.byKey(const ValueKey<String>('agent-chip-strip-list')),
+          )
+          .toList(growable: false);
+
+      expect(chipStripAnimatedSizes, isNotEmpty);
+      expect(
+        chipStripAnimatedSizes.every(
+          (widget) => widget.duration == Duration.zero,
+        ),
+        isTrue,
+      );
+    });
+
     testWidgets('preserves builtin selections across tool groups', (
       tester,
     ) async {
@@ -1713,10 +1764,15 @@ AgentsController _testAgentsController([
 }
 
 class _AgentsViewHarness extends StatelessWidget {
-  const _AgentsViewHarness({required this.controller, this.dependencies});
+  const _AgentsViewHarness({
+    required this.controller,
+    this.dependencies,
+    this.disableAnimations = false,
+  });
 
   final AgentsController controller;
   final _AgentEditorDependencies? dependencies;
+  final bool disableAnimations;
 
   @override
   Widget build(BuildContext context) {
@@ -1748,11 +1804,18 @@ class _AgentsViewHarness extends StatelessWidget {
           ),
         ],
       ],
-      child: const MaterialApp(
-        locale: Locale('zh'),
+      child: MaterialApp(
+        locale: const Locale('zh'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
+        builder: (context, child) {
+          final media = MediaQuery.maybeOf(context) ?? const MediaQueryData();
+          return MediaQuery(
+            data: media.copyWith(disableAnimations: disableAnimations),
+            child: child!,
+          );
+        },
+        home: const Scaffold(
           body: SizedBox.expand(
             child: Padding(padding: EdgeInsets.all(24), child: AgentsView()),
           ),
