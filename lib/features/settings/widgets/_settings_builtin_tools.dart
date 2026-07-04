@@ -1,5 +1,150 @@
 part of 'settings_view.dart';
 
+class _AgentBuiltinToolSummaryCard extends StatelessWidget {
+  const _AgentBuiltinToolSummaryCard({required this.configs});
+
+  final List<AiBuiltinToolConfig> configs;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final enabledCount = configs.where((config) => config.enabled).length;
+    final mutationCount = configs
+        .where((config) => config.kind.isAgentMutationTool)
+        .length;
+    final enabledMutationCount = configs
+        .where((config) => config.enabled && config.kind.isAgentMutationTool)
+        .length;
+    final readOnlyCount = configs.length - mutationCount;
+    final enabledReadOnlyCount = enabledCount - enabledMutationCount;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.primaryContainer.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.account_tree_rounded, color: cs.primary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '智能体协同工具',
+                      en: 'Agent coordination tools',
+                    ),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '全局启用只表示工具允许参与目录解析；实际进入线程会话工具目录，还需要至少一个已启用智能体在配置弹窗中绑定对应工具。',
+                      en: 'Global enablement only allows catalog resolution. A tool appears in chat sessions only when at least one enabled agent binds it in the agent configuration dialog.',
+                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _AgentToolMetricChip(
+                        icon: Icons.toggle_on_rounded,
+                        label: _localizedText(
+                          context,
+                          zh: '已启用 $enabledCount/${configs.length}',
+                          en: 'Enabled $enabledCount/${configs.length}',
+                        ),
+                      ),
+                      _AgentToolMetricChip(
+                        icon: Icons.visibility_outlined,
+                        label: _localizedText(
+                          context,
+                          zh: '只读 $enabledReadOnlyCount/$readOnlyCount',
+                          en: 'Read-only $enabledReadOnlyCount/$readOnlyCount',
+                        ),
+                      ),
+                      _AgentToolMetricChip(
+                        icon: Icons.edit_note_rounded,
+                        label: _localizedText(
+                          context,
+                          zh: '变更 $enabledMutationCount/$mutationCount',
+                          en: 'Mutating $enabledMutationCount/$mutationCount',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentToolMetricChip extends StatelessWidget {
+  const _AgentToolMetricChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: cs.primary),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Builtin Tool Tile (list item in the tool catalog overview)
 // ─────────────────────────────────────────────────────────────────────────────

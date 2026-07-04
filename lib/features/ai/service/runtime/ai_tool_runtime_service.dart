@@ -512,29 +512,7 @@ class AiToolRuntimeService {
   }
 
   bool _isAgentBuiltinKind(AiBuiltinToolKind? kind) {
-    return switch (kind) {
-      AiBuiltinToolKind.agentList ||
-      AiBuiltinToolKind.agentDetail ||
-      AiBuiltinToolKind.agentActivityLog ||
-      AiBuiltinToolKind.agentAuditReport ||
-      AiBuiltinToolKind.agentAuditRecord ||
-      AiBuiltinToolKind.agentApprovalRequest ||
-      AiBuiltinToolKind.agentKpiUpsert ||
-      AiBuiltinToolKind.agentResourceUpdate ||
-      AiBuiltinToolKind.agentClusterConfigure ||
-      AiBuiltinToolKind.agentClusterStatus ||
-      AiBuiltinToolKind.agentTaskList ||
-      AiBuiltinToolKind.agentTaskPublish ||
-      AiBuiltinToolKind.agentTaskTrack ||
-      AiBuiltinToolKind.agentTaskProgress ||
-      AiBuiltinToolKind.agentTaskCancel ||
-      AiBuiltinToolKind.agentTaskPause ||
-      AiBuiltinToolKind.agentTaskTerminate ||
-      AiBuiltinToolKind.agentTaskResume ||
-      AiBuiltinToolKind.agentTaskComplete ||
-      AiBuiltinToolKind.agentTaskResult => true,
-      _ => false,
-    };
+    return kind?.isAgentCoordinationTool ?? false;
   }
 
   int _toolNameCompare(String left, String right) {
@@ -1416,19 +1394,7 @@ class AiToolRuntimeService {
       );
       return action != null && action != 'list';
     }
-    if (_isAgentBuiltinKind(kind)) {
-      return kind == AiBuiltinToolKind.agentTaskPublish ||
-          kind == AiBuiltinToolKind.agentAuditRecord ||
-          kind == AiBuiltinToolKind.agentApprovalRequest ||
-          kind == AiBuiltinToolKind.agentKpiUpsert ||
-          kind == AiBuiltinToolKind.agentResourceUpdate ||
-          kind == AiBuiltinToolKind.agentClusterConfigure ||
-          kind == AiBuiltinToolKind.agentTaskCancel ||
-          kind == AiBuiltinToolKind.agentTaskPause ||
-          kind == AiBuiltinToolKind.agentTaskTerminate ||
-          kind == AiBuiltinToolKind.agentTaskResume ||
-          kind == AiBuiltinToolKind.agentTaskComplete;
-    }
+    if (kind.isAgentCoordinationTool) return kind.isAgentMutationTool;
     return false;
   }
 

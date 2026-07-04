@@ -10,6 +10,51 @@ export '../service/runtime/ai_tool_runtime_service.dart' show AiBuiltinToolKind;
 export 'ai_web_fetch_settings.dart';
 export 'ai_web_search_settings.dart';
 
+extension AiBuiltinToolKindAgentMetadata on AiBuiltinToolKind {
+  bool get isAgentCoordinationTool {
+    return switch (this) {
+      AiBuiltinToolKind.agentList ||
+      AiBuiltinToolKind.agentDetail ||
+      AiBuiltinToolKind.agentActivityLog ||
+      AiBuiltinToolKind.agentAuditReport ||
+      AiBuiltinToolKind.agentAuditRecord ||
+      AiBuiltinToolKind.agentApprovalRequest ||
+      AiBuiltinToolKind.agentKpiUpsert ||
+      AiBuiltinToolKind.agentResourceUpdate ||
+      AiBuiltinToolKind.agentClusterConfigure ||
+      AiBuiltinToolKind.agentClusterStatus ||
+      AiBuiltinToolKind.agentTaskList ||
+      AiBuiltinToolKind.agentTaskPublish ||
+      AiBuiltinToolKind.agentTaskTrack ||
+      AiBuiltinToolKind.agentTaskProgress ||
+      AiBuiltinToolKind.agentTaskCancel ||
+      AiBuiltinToolKind.agentTaskPause ||
+      AiBuiltinToolKind.agentTaskTerminate ||
+      AiBuiltinToolKind.agentTaskResume ||
+      AiBuiltinToolKind.agentTaskComplete ||
+      AiBuiltinToolKind.agentTaskResult => true,
+      _ => false,
+    };
+  }
+
+  bool get isAgentMutationTool {
+    return switch (this) {
+      AiBuiltinToolKind.agentTaskPublish ||
+      AiBuiltinToolKind.agentAuditRecord ||
+      AiBuiltinToolKind.agentApprovalRequest ||
+      AiBuiltinToolKind.agentKpiUpsert ||
+      AiBuiltinToolKind.agentResourceUpdate ||
+      AiBuiltinToolKind.agentClusterConfigure ||
+      AiBuiltinToolKind.agentTaskCancel ||
+      AiBuiltinToolKind.agentTaskPause ||
+      AiBuiltinToolKind.agentTaskTerminate ||
+      AiBuiltinToolKind.agentTaskResume ||
+      AiBuiltinToolKind.agentTaskComplete => true,
+      _ => false,
+    };
+  }
+}
+
 /// 内建工具的加载策略。
 enum AiBuiltinToolLoadStrategy {
   /// 立即加载（默认）：工具在目录解析时立即可用。

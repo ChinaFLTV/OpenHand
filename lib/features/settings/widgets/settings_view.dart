@@ -3600,6 +3600,9 @@ class _SettingsViewState extends State<SettingsView> {
         return cmp != 0 ? cmp : a.kind.index.compareTo(b.kind.index);
       });
     final enabledCount = sorted.where((c) => c.enabled).length;
+    final agentToolConfigs = sorted
+        .where((config) => config.kind.isAgentCoordinationTool)
+        .toList(growable: false);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3666,6 +3669,8 @@ class _SettingsViewState extends State<SettingsView> {
             ),
           ),
         ),
+        const SizedBox(height: 14),
+        _AgentBuiltinToolSummaryCard(configs: agentToolConfigs),
         const SizedBox(height: 14),
         _SettingsSubsectionCard(
           title: AppLocalizations.of(context)!.settingsToolCatalogOverview,

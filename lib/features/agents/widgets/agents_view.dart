@@ -22,7 +22,8 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
-import '../../ai/index.dart' show AiBuiltinToolConfig, AiBuiltinToolKind;
+import '../../ai/index.dart'
+    show AiBuiltinToolConfig, AiBuiltinToolKind, AiBuiltinToolKindAgentMetadata;
 import '../../crons/index.dart';
 import '../../hooks/index.dart';
 import '../../knowledge_base/index.dart';
@@ -75,32 +76,11 @@ const List<String> _agentImageExtensions = <String>[
   'gif',
   'bmp',
 ];
-const Set<AiBuiltinToolKind> _agentCoordinationBuiltinToolKinds =
-    <AiBuiltinToolKind>{
-      AiBuiltinToolKind.agentList,
-      AiBuiltinToolKind.agentDetail,
-      AiBuiltinToolKind.agentActivityLog,
-      AiBuiltinToolKind.agentAuditReport,
-      AiBuiltinToolKind.agentAuditRecord,
-      AiBuiltinToolKind.agentApprovalRequest,
-      AiBuiltinToolKind.agentKpiUpsert,
-      AiBuiltinToolKind.agentResourceUpdate,
-      AiBuiltinToolKind.agentClusterConfigure,
-      AiBuiltinToolKind.agentClusterStatus,
-      AiBuiltinToolKind.agentTaskList,
-      AiBuiltinToolKind.agentTaskPublish,
-      AiBuiltinToolKind.agentTaskTrack,
-      AiBuiltinToolKind.agentTaskProgress,
-      AiBuiltinToolKind.agentTaskCancel,
-      AiBuiltinToolKind.agentTaskPause,
-      AiBuiltinToolKind.agentTaskTerminate,
-      AiBuiltinToolKind.agentTaskResume,
-      AiBuiltinToolKind.agentTaskComplete,
-      AiBuiltinToolKind.agentTaskResult,
-    };
 
 bool _isAgentCoordinationBuiltinToolId(String id) {
-  return _agentCoordinationBuiltinToolKinds.any((kind) => kind.name == id);
+  return AiBuiltinToolKind.values.any(
+    (kind) => kind.isAgentCoordinationTool && kind.name == id,
+  );
 }
 
 String _agentRuntimeBlockingText(
@@ -5555,7 +5535,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     for (final config in configs) {
       final id = _builtinToolOptionId(config);
       final option = _Option(id, config.effectiveName, config.kind.name);
-      if (_agentCoordinationBuiltinToolKinds.contains(config.kind)) {
+      if (config.kind.isAgentCoordinationTool) {
         agentTools.add(option);
       } else {
         regularTools.add(option);
@@ -5565,7 +5545,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   }
 
   String _builtinToolOptionId(AiBuiltinToolConfig config) {
-    if (_agentCoordinationBuiltinToolKinds.contains(config.kind)) {
+    if (config.kind.isAgentCoordinationTool) {
       return config.kind.name;
     }
     return config.isCustom ? config.effectiveName : config.kind.name;
