@@ -348,6 +348,12 @@ class _AgentCard extends StatelessWidget {
                       ),
                     ),
                     _AgentIconAction(
+                      icon: Icons.edit_rounded,
+                      tooltip: l10n.agentsEditConfig,
+                      action: _AgentCardAction.edit,
+                      onAction: onAction,
+                    ),
+                    _AgentIconAction(
                       icon: Icons.history_rounded,
                       tooltip: l10n.agentsActivities,
                       action: _AgentCardAction.activities,
@@ -400,11 +406,6 @@ class _AgentCard extends StatelessWidget {
                       tooltip: l10n.agentsMore,
                       onSelected: onAction,
                       itemBuilder: (context) => [
-                        PopupMenuItem(
-                          key: ValueKey<String>('agent-card-edit-${agent.id}'),
-                          value: _AgentCardAction.edit,
-                          child: Text(l10n.agentsEditConfig),
-                        ),
                         PopupMenuItem(
                           key: ValueKey<String>(
                             'agent-card-delete-${agent.id}',
@@ -6905,64 +6906,191 @@ class _AnimatedReorderableChipStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final animationSettings = _agentChipAnimationSettings(context);
     if (values.isEmpty) {
-      return Text(
-        emptyText,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+      return _AgentChipStripSwitcher(
+        settings: animationSettings,
+        child: Text(
+          key: const ValueKey<String>('agent-chip-strip-empty'),
+          emptyText,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
-    final animationSettings = _agentChipAnimationSettings(context);
-    return SizedBox(
-      height: 48,
-      child: ReorderableListView.builder(
+    return _AgentChipStripSwitcher(
+      settings: animationSettings,
+      child: SingleChildScrollView(
+        key: const ValueKey<String>('agent-chip-strip-list'),
         scrollDirection: Axis.horizontal,
-        buildDefaultDragHandles: false,
-        proxyDecorator: (child, index, animation) {
-          return ScaleTransition(
-            scale: Tween<double>(begin: 1, end: 1.06).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
-            ),
-            child: Material(color: Colors.transparent, child: child),
-          );
-        },
-        itemCount: values.length,
-        onReorder: onReorder,
-        itemBuilder: (context, index) {
-          final value = values[index];
-          return Padding(
-            key: ValueKey<String>('$keyPrefix-$value'),
-            padding: const EdgeInsets.only(right: 8),
-            child: AnimatedRemovableChip(
-              settings: animationSettings,
-              onRemove: () => onRemove(value),
-              builder: (context, requestRemove) {
-                return _AgentDraggableChip(
-                  index: index,
-                  dragHandleKey: ValueKey<String>('$keyPrefix-drag-$value'),
-                  label: labelBuilder?.call(value) ?? value,
-                  onDeleted: requestRemove,
-                );
-              },
-            ),
-          );
-        },
+        physics: openHandDialogAwareScrollPhysics(context),
+        child: Row(
+          children: [
+            for (var index = 0; index < values.length; index++)
+              _AgentDraggableChipSlot(
+                key: ValueKey<String>('$keyPrefix-${values[index]}'),
+                index: index,
+                itemCount: values.length,
+                value: values[index],
+                settings: animationSettings,
+                dragHandleKey: ValueKey<String>(
+                  '$keyPrefix-drag-${values[index]}',
+                ),
+                label: labelBuilder?.call(values[index]) ?? values[index],
+                onMove: (oldIndex, targetIndex) {
+                  final reorderIndex = oldIndex < targetIndex
+                      ? targetIndex + 1
+                      : targetIndex;
+                  onReorder(oldIndex, reorderIndex);
+                },
+                onRemove: onRemove,
+              ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _AgentDraggableChipSlot extends StatefulWidget {
+  const _AgentDraggableChipSlot({
+    super.key,
+    required this.index,
+    required this.itemCount,
+    required this.value,
+    required this.settings,
+    required this.dragHandleKey,
+    required this.label,
+    required this.onMove,
+    required this.onRemove,
+  });
+
+  final int index;
+  final int itemCount;
+  final String value;
+  final DialogAnimationSettings settings;
+  final Key dragHandleKey;
+  final String label;
+  final void Function(int oldIndex, int targetIndex) onMove;
+  final ValueChanged<String> onRemove;
+
+  @override
+  State<_AgentDraggableChipSlot> createState() =>
+      _AgentDraggableChipSlotState();
+}
+
+class _AgentDraggableChipSlotState extends State<_AgentDraggableChipSlot> {
+  double? _dragStartDx;
+  bool _dropAccepted = false;
+
+  void _markDragStart() {
+    _dropAccepted = false;
+    final box = context.findRenderObject();
+    if (box is RenderBox && box.hasSize) {
+      _dragStartDx = box.localToGlobal(Offset.zero).dx;
+    } else {
+      _dragStartDx = null;
+    }
+  }
+
+  void _moveFromTo(int oldIndex, int targetIndex) {
+    if (oldIndex == targetIndex) return;
+    _dropAccepted = true;
+    widget.onMove(oldIndex, targetIndex);
+  }
+
+  void _handleDragEnd(DraggableDetails details) {
+    if (_dropAccepted) return;
+    final startDx = _dragStartDx;
+    _dragStartDx = null;
+    if (startDx == null) return;
+    final delta = details.offset.dx - startDx;
+    if (delta.abs() < 32) return;
+    final slots = (delta / 96).round();
+    if (slots == 0) return;
+    final targetIndex =
+        (widget.index + slots).clamp(0, math.max(0, widget.itemCount - 1))
+            as int;
+    _moveFromTo(widget.index, targetIndex);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) => details.data != widget.index,
+      onAcceptWithDetails: (details) => _moveFromTo(details.data, widget.index),
+      builder: (context, candidateData, rejectedData) {
+        final highlighted = candidateData.isNotEmpty;
+        return Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: AnimatedRemovableChip(
+            settings: widget.settings,
+            onRemove: () => widget.onRemove(widget.value),
+            builder: (context, requestRemove) {
+              final chip = _AgentDraggableChip(
+                highlighted: highlighted,
+                label: widget.label,
+                onDeleted: requestRemove,
+              );
+              return Draggable<int>(
+                key: widget.dragHandleKey,
+                data: widget.index,
+                axis: Axis.horizontal,
+                onDragStarted: _markDragStart,
+                onDragEnd: _handleDragEnd,
+                feedback: Material(
+                  color: Colors.transparent,
+                  child: Transform.scale(scale: 1.06, child: chip),
+                ),
+                childWhenDragging: Opacity(opacity: 0.36, child: chip),
+                child: chip,
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AgentChipStripSwitcher extends StatelessWidget {
+  const _AgentChipStripSwitcher({required this.settings, required this.child});
+
+  final DialogAnimationSettings settings;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: settings.duration,
+      reverseDuration: settings.duration,
+      switchInCurve: settings.curve.curve,
+      switchOutCurve: settings.curve.reverseCurve,
+      transitionBuilder: (child, animation) {
+        return SizeTransition(
+          axisAlignment: -1,
+          sizeFactor: animation,
+          child: buildAnimationStyleTransition(
+            animation: animation,
+            settings: settings,
+            child: child,
+          ),
+        );
+      },
+      child: child,
     );
   }
 }
 
 class _AgentDraggableChip extends StatelessWidget {
   const _AgentDraggableChip({
-    required this.index,
-    required this.dragHandleKey,
+    required this.highlighted,
     required this.label,
     required this.onDeleted,
   });
 
-  final int index;
-  final Key dragHandleKey;
+  final bool highlighted;
   final String label;
   final VoidCallback onDeleted;
 
@@ -6972,9 +7100,13 @@ class _AgentDraggableChip extends StatelessWidget {
     final colors = theme.colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.46),
+        color: highlighted
+            ? colors.primaryContainer.withValues(alpha: 0.62)
+            : colors.surfaceContainerHighest.withValues(alpha: 0.46),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colors.outlineVariant),
+        border: Border.all(
+          color: highlighted ? colors.primary : colors.outlineVariant,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsetsDirectional.only(
@@ -6986,10 +7118,9 @@ class _AgentDraggableChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ReorderableDragStartListener(
-              index: index,
+            MouseRegion(
+              cursor: SystemMouseCursors.grab,
               child: Tooltip(
-                key: dragHandleKey,
                 message: openHandLocalizedText(
                   context,
                   zh: '拖拽排序',
@@ -7006,7 +7137,9 @@ class _AgentDraggableChip extends StatelessWidget {
                       Icon(
                         Icons.drag_indicator_rounded,
                         size: 18,
-                        color: colors.onSurfaceVariant,
+                        color: highlighted
+                            ? colors.primary
+                            : colors.onSurfaceVariant,
                       ),
                       const SizedBox(width: 6),
                       Flexible(

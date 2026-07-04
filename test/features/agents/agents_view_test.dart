@@ -215,7 +215,7 @@ void main() {
       expect(find.textContaining('元数据字段重复：QUOTA'), findsOneWidget);
       expect(find.byType(SnackBar), findsOneWidget);
       expect(controller.agents, isEmpty);
-      expect(find.text('创建智能体'), findsOneWidget);
+      expect(find.text('创建智能体'), findsWidgets);
     });
 
     testWidgets('normalizes workspace scope paths when saving edits', (
@@ -252,13 +252,9 @@ void main() {
       await tester.pumpWidget(
         _AgentsViewHarness(controller: controller, dependencies: dependencies),
       );
-      await tester.tap(
-        find.byKey(const ValueKey<String>('agent-card-more-agent-1')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey<String>('agent-card-edit-agent-1')),
-      );
+      final editButton = find.byTooltip('编辑配置').last;
+      await tester.ensureVisible(editButton);
+      await tester.tap(editButton);
       await tester.pumpAndSettle();
       expect(find.text('编辑智能体'), findsOneWidget);
 
@@ -280,6 +276,47 @@ void main() {
         agent.workspaceScope,
         '/tmp/openhand/project/src\n/tmp/openhand/project/docs',
       );
+    });
+
+    testWidgets('shows null metadata values as empty editor fields', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          metadata: <String, Object?>{'nullable': null},
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      final editButton = find.byTooltip('编辑配置').last;
+      await tester.ensureVisible(editButton);
+      await tester.tap(editButton);
+      await tester.pumpAndSettle();
+
+      DefaultTabController.of(
+        tester.element(find.byType(TabBar)),
+      ).animateTo(4, duration: Duration.zero);
+      await tester.pumpAndSettle();
+
+      expect(find.text('nullable'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, '值').first)
+            .controller!
+            .text,
+        isEmpty,
+      );
+      expect(find.text('null'), findsNothing);
     });
 
     testWidgets('preserves builtin selections across tool groups', (
