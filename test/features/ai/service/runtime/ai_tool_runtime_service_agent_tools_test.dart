@@ -6,6 +6,7 @@ import 'package:openhand/features/agents/agents_controller.dart';
 import 'package:openhand/features/agents/data/agents_store.dart';
 import 'package:openhand/features/agents/model/agent_models.dart';
 import 'package:openhand/features/agents/service/agent_runtime_availability.dart';
+import 'package:openhand/features/ai/model/ai_builtin_tool_config.dart';
 import 'package:openhand/features/ai/model/ai_creation_mode.dart';
 import 'package:openhand/features/ai/model/ai_deny_command_rule.dart';
 import 'package:openhand/features/ai/model/ai_input_cache_runtime_config.dart';
@@ -723,6 +724,62 @@ void main() {
       expect(agentTools['mutation_tools'], <Object?>['AgentApprovalRequest']);
       expect(agentTools['count'], 3);
     });
+
+    test(
+      'agent list hides globally disabled stale agent tool bindings',
+      () async {
+        await controller.saveAgent(
+          _agent(
+            enabled: true,
+            builtinToolNames: const <String>[
+              'AgentList',
+              'AgentTaskPublish',
+              'AgentTaskProgress',
+              'Bash',
+            ],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(
+            builtinToolConfigs: const <AiBuiltinToolConfig>[
+              AiBuiltinToolConfig(kind: AiBuiltinToolKind.agentList),
+              AiBuiltinToolConfig(
+                kind: AiBuiltinToolKind.agentTaskPublish,
+                enabled: false,
+              ),
+              AiBuiltinToolConfig(kind: AiBuiltinToolKind.agentTaskProgress),
+              AiBuiltinToolConfig(kind: AiBuiltinToolKind.bash),
+            ],
+          ),
+        );
+        final result = await _executeAgentList(runtime, catalog);
+
+        expect(result.status, BashToolExecutionStatus.success);
+        expect(catalog.find('AgentTaskPublish'), isNull);
+        final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+        final agents = payload['agents'] as List<Object?>;
+        final agent = agents.single as Map<String, Object?>;
+        final agentTools = agent['agent_tools'] as Map<String, Object?>;
+        final capabilities = agent['capabilities'] as Map<String, Object?>;
+        final capabilitySummary =
+            capabilities['summary'] as Map<String, Object?>;
+
+        expect(agentTools['tools'], <Object?>[
+          'AgentList',
+          'AgentTaskProgress',
+        ]);
+        expect(agentTools['configured_count'], 3);
+        expect(agentTools['runtime_filtered'], isTrue);
+        expect(capabilities['builtin_tools'], <Object?>[
+          'AgentList',
+          'AgentTaskProgress',
+          'Bash',
+        ]);
+        expect(capabilitySummary['builtin_tools'], 3);
+        expect(capabilitySummary['agent_coordination_tools'], 2);
+      },
+    );
 
     test('agent list exposes explicit empty agent tool bindings', () async {
       await controller.saveAgent(
@@ -3240,8 +3297,10 @@ Future<AiToolExecutionResult> _executeAgentList(
   );
 }
 
-AiSessionRuntimeContext _runtimeContext() {
-  return const AiSessionRuntimeContext(
+AiSessionRuntimeContext _runtimeContext({
+  List<AiBuiltinToolConfig> builtinToolConfigs = const <AiBuiltinToolConfig>[],
+}) {
+  return AiSessionRuntimeContext(
     localeTag: 'en',
     appVersion: 'test',
     appBuildNumber: '1',
@@ -3252,6 +3311,7 @@ AiSessionRuntimeContext _runtimeContext() {
     compressionThresholdChars: 100000,
     memoryEnabled: false,
     memoryEntries: <UserMemoryEntry>[],
+    builtinToolConfigs: builtinToolConfigs,
   );
 }
 
