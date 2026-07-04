@@ -8,11 +8,17 @@ final RegExp _unsafeToolNameCharsPattern = RegExp(r'[^A-Za-z0-9_-]+');
 final RegExp _edgeUnderscoresPattern = RegExp(r'^_+|_+$');
 
 String normalizeToolNameToken(String value, {String fallback = 'tool'}) {
-  final sanitized = value
+  final sanitized = _sanitizeToolNameToken(value);
+  if (sanitized.isNotEmpty) return sanitized;
+  final sanitizedFallback = _sanitizeToolNameToken(fallback);
+  return sanitizedFallback.isEmpty ? 'tool' : sanitizedFallback;
+}
+
+String _sanitizeToolNameToken(String value) {
+  return value
       .trim()
       .replaceAll(_unsafeToolNameCharsPattern, '_')
       .replaceAll(_edgeUnderscoresPattern, '');
-  return sanitized.isEmpty ? fallback : sanitized;
 }
 
 String compactToolName({
