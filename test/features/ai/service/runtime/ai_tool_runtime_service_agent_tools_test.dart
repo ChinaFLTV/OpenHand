@@ -673,6 +673,77 @@ void main() {
       },
     );
 
+    test('filters task allowed tools by the target agent bindings', () async {
+      await controller.saveAgent(
+        _agent(
+          enabled: true,
+          builtinToolNames: const <String>[
+            'AgentTaskPublish',
+            'AgentTaskProgress',
+            'AgentTaskCancel',
+          ],
+        ),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(),
+      );
+      final publish = await runtime.execute(
+        sessionId: 'session-agent-allowed-tools',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-publish',
+          name: 'AgentTaskPublish',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-1',
+            'title': 'Check task state tools',
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(publish.status, BashToolExecutionStatus.success);
+      final publishPayload =
+          jsonDecode(publish.resultText) as Map<String, Object?>;
+      final publishedTask = publishPayload['task'] as Map<String, Object?>;
+      final publishedState = publishedTask['state'] as Map<String, Object?>;
+      final publishedHandoff = publishedTask['handoff'] as Map<String, Object?>;
+      expect(publishedTask['allowed_tools'], <Object?>['AgentTaskCancel']);
+      expect(publishedState['allowed_tools'], <Object?>['AgentTaskCancel']);
+      expect(publishedHandoff['allowed_tools'], <Object?>['AgentTaskCancel']);
+
+      final progress = await runtime.execute(
+        sessionId: 'session-agent-allowed-tools',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'call-progress',
+          name: 'AgentTaskProgress',
+          arguments: jsonEncode(<String, Object?>{
+            'agent_id': 'agent-1',
+            'task_id': controller.agentById('agent-1')!.tasks.single.id,
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: (request) async =>
+            BashCommandApprovalDecision.approved,
+      );
+
+      expect(progress.status, BashToolExecutionStatus.success);
+      final progressPayload =
+          jsonDecode(progress.resultText) as Map<String, Object?>;
+      final progressState = progressPayload['state'] as Map<String, Object?>;
+      expect(progressPayload['allowed_tools'], <Object?>['AgentTaskCancel']);
+      expect(progressState['allowed_tools'], <Object?>['AgentTaskCancel']);
+    });
+
     test('approval request tool records pending approval and audit', () async {
       await controller.saveAgent(_agent(enabled: true));
 

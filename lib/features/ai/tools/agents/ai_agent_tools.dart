@@ -1335,7 +1335,7 @@ class AiAgentTool extends AiTool {
     if (resolved.error != null) return resolved.error!;
     final task = resolved.task!;
     final assignedWorker = _assignedWorkerJson(resolved.agent!, task);
-    final state = _taskStateJson(task);
+    final state = _taskStateJson(task, agent: resolved.agent);
     return _success(
       <String, Object?>{
         'agent': _agentSummaryJson(resolved.agent!),
@@ -1346,7 +1346,7 @@ class AiAgentTool extends AiTool {
         if (state['terminal_reason'] != null)
           'terminal_reason': state['terminal_reason'],
         'result_available': _taskResultAvailable(task),
-        'handoff': _taskHandoffJson(task),
+        'handoff': _taskHandoffJson(task, agent: resolved.agent),
         if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
         if (assignedWorker != null) 'assigned_worker': assignedWorker,
         'operational_summary': _taskOperationalSummaryJson(
@@ -1372,7 +1372,7 @@ class AiAgentTool extends AiTool {
     if (resolved.error != null) return resolved.error!;
     final task = resolved.task!;
     final assignedWorker = _assignedWorkerJson(resolved.agent!, task);
-    final state = _taskStateJson(task);
+    final state = _taskStateJson(task, agent: resolved.agent);
     return _success(
       <String, Object?>{
         'agent_id': resolved.agent!.id,
@@ -1416,7 +1416,11 @@ class AiAgentTool extends AiTool {
     if (!_allowedTaskTools(resolved.task!.status).contains(_name)) {
       return AiToolUtils.invalidResult(
         _name,
-        _taskStatusToolRejectedMessage(_name, resolved.task!),
+        _taskStatusToolRejectedMessage(
+          _name,
+          resolved.task!,
+          agent: resolved.agent,
+        ),
       );
     }
     final explicitProgress = _optionalRatio(args['progress']);
@@ -1484,7 +1488,7 @@ class AiAgentTool extends AiTool {
     if (resolved.error != null) return resolved.error!;
     final task = resolved.task!;
     final assignedWorker = _assignedWorkerJson(resolved.agent!, task);
-    final state = _taskStateJson(task);
+    final state = _taskStateJson(task, agent: resolved.agent);
     return _success(
       <String, Object?>{
         'agent_id': resolved.agent!.id,
@@ -1498,7 +1502,7 @@ class AiAgentTool extends AiTool {
         if (state['terminal_reason'] != null)
           'terminal_reason': state['terminal_reason'],
         'result_available': _taskResultAvailable(task),
-        'handoff': _taskHandoffJson(task),
+        'handoff': _taskHandoffJson(task, agent: resolved.agent),
         'result': task.result,
         'note': task.note,
         'extra': _taskExtraJson(task.extra),
@@ -1733,16 +1737,11 @@ class AiAgentTool extends AiTool {
   }
 
   bool _agentAllowsCurrentTool(AgentProfile agent) {
-    final configured = trimmedNonEmptyStrings(agent.builtinToolNames);
-    if (configured.isEmpty) return true;
-    final allowed = <String>{
+    return _agentAllowsToolNames(agent, <String>{
       _normalizedAgentToolName(_name),
       _normalizedAgentToolName(_kind.name),
       _normalizedAgentToolName(_snakeName(_name)),
-    };
-    return configured.any(
-      (name) => allowed.contains(_normalizedAgentToolName(name)),
-    );
+    });
   }
 
   AiToolExecutionResult _routingRequiredResult(
@@ -2002,6 +2001,14 @@ String _normalizedAgentToolName(String value) {
   return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
 }
 
+bool _agentAllowsToolNames(AgentProfile agent, Set<String> normalizedNames) {
+  final configured = trimmedNonEmptyStrings(agent.builtinToolNames);
+  if (configured.isEmpty) return true;
+  return configured.any(
+    (name) => normalizedNames.contains(_normalizedAgentToolName(name)),
+  );
+}
+
 class _AgentResolution {
   const _AgentResolution({
     this.agent,
@@ -2197,7 +2204,7 @@ Map<String, Object?> _taskJson(AgentTask task, {AgentProfile? agent}) {
   final assignedWorker = agent == null
       ? null
       : _assignedWorkerJson(agent, task);
-  final state = _taskStateJson(task);
+  final state = _taskStateJson(task, agent: agent);
   final resultAvailable = _taskResultAvailable(task);
   return <String, Object?>{
     'id': task.id,
@@ -2212,7 +2219,7 @@ Map<String, Object?> _taskJson(AgentTask task, {AgentProfile? agent}) {
     if (state['terminal_reason'] != null)
       'terminal_reason': state['terminal_reason'],
     'result_available': resultAvailable,
-    'handoff': _taskHandoffJson(task),
+    'handoff': _taskHandoffJson(task, agent: agent),
     if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
     'result': task.result,
     'note': task.note,
@@ -2223,7 +2230,7 @@ Map<String, Object?> _taskJson(AgentTask task, {AgentProfile? agent}) {
   };
 }
 
-Map<String, Object?> _taskStateJson(AgentTask task) {
+Map<String, Object?> _taskStateJson(AgentTask task, {AgentProfile? agent}) {
   final terminal = _taskIsTerminal(task.status);
   final requiresAttention =
       task.status == AgentTaskStatus.waitingApproval ||
@@ -2236,7 +2243,7 @@ Map<String, Object?> _taskStateJson(AgentTask task) {
     'needs_polling': needsPolling,
     'requires_attention': requiresAttention,
     'next_action': _taskNextAction(task, needsPolling: needsPolling),
-    'allowed_tools': _allowedTaskTools(task.status),
+    'allowed_tools': _allowedTaskTools(task.status, agent: agent),
     if (_taskRetryJson(task) case final retry?) 'retry': retry,
     if (terminalReason != null) 'terminal_reason': terminalReason,
     if (needsPolling) 'recommended_poll_ms': _agentTaskRecommendedPollMs,
@@ -2248,8 +2255,8 @@ bool _taskResultAvailable(AgentTask task) {
       task.result.trim().isNotEmpty;
 }
 
-Map<String, Object?> _taskHandoffJson(AgentTask task) {
-  final state = _taskStateJson(task);
+Map<String, Object?> _taskHandoffJson(AgentTask task, {AgentProfile? agent}) {
+  final state = _taskStateJson(task, agent: agent);
   final resultAvailable = _taskResultAvailable(task);
   return <String, Object?>{
     'result_available': resultAvailable,
@@ -2359,8 +2366,8 @@ String? _taskTerminalReason(AgentTask task) {
   };
 }
 
-List<String> _allowedTaskTools(AgentTaskStatus status) {
-  return switch (status) {
+List<String> _allowedTaskTools(AgentTaskStatus status, {AgentProfile? agent}) {
+  final tools = switch (status) {
     AgentTaskStatus.backlog ||
     AgentTaskStatus.ready ||
     AgentTaskStatus.running => _agentTaskActiveTools,
@@ -2370,10 +2377,22 @@ List<String> _allowedTaskTools(AgentTaskStatus status) {
     AgentTaskStatus.failed ||
     AgentTaskStatus.canceled => const <String>[],
   };
+  if (agent == null || tools.isEmpty) return tools;
+  return tools
+      .where(
+        (tool) => _agentAllowsToolNames(agent, <String>{
+          _normalizedAgentToolName(tool),
+        }),
+      )
+      .toList(growable: false);
 }
 
-String _taskStatusToolRejectedMessage(String toolName, AgentTask task) {
-  final allowedTools = _allowedTaskTools(task.status);
+String _taskStatusToolRejectedMessage(
+  String toolName,
+  AgentTask task, {
+  AgentProfile? agent,
+}) {
+  final allowedTools = _allowedTaskTools(task.status, agent: agent);
   final allowedText = allowedTools.isEmpty ? 'none' : allowedTools.join(', ');
   return '$toolName is not allowed when task status is ${task.status.storageValue}. allowed_tools: $allowedText.';
 }
