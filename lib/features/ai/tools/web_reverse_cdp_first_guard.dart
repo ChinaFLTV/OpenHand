@@ -500,7 +500,7 @@ String _protectedTargetSiteHost(String host) {
 }
 
 String _normalizeHttpHost(String host) {
-  var normalized = host.trim().toLowerCase();
+  var normalized = lowercaseStringFromValue(host);
   if (normalized.startsWith('[') && normalized.endsWith(']')) {
     normalized = normalized.substring(1, normalized.length - 1);
   }

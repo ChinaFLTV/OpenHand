@@ -367,7 +367,7 @@ class _SandboxProxyInstance {
   }
 
   String _normalizeHost(String value) {
-    var host = value.trim().toLowerCase();
+    var host = lowercaseStringFromValue(value);
     if (host.startsWith('[') && host.endsWith(']')) {
       host = host.substring(1, host.length - 1);
     }
@@ -506,7 +506,7 @@ class _HttpProxyRequest {
     for (final line in headerLines) {
       final separator = line.indexOf(':');
       if (separator <= 0) continue;
-      headers[line.substring(0, separator).trim().toLowerCase()] = line
+      headers[lowercaseStringFromValue(line.substring(0, separator))] = line
           .substring(separator + 1)
           .trim();
     }
