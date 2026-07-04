@@ -1774,9 +1774,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           const SizedBox(height: 12),
         ],
         AnimatedSize(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
+          duration: openHandMotionDuration(
+            context,
+            const Duration(milliseconds: 180),
+          ),
           curve: Curves.easeOutCubic,
           child: SizedBox(
             height: widget.composerHeight,
@@ -1991,9 +1992,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               ),
               child: AnimatedRotation(
                 turns: widget.isCollapsed ? 0.5 : 0,
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 220),
+                duration: openHandMotionDuration(
+                  context,
+                  const Duration(milliseconds: 220),
+                ),
                 curve: Curves.easeOutCubic,
                 child: const Icon(Icons.keyboard_arrow_down_rounded),
               ),
@@ -2065,9 +2067,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         // SingleChildRenderObjectWidget that drives opacity via
         // RenderAnimatedOpacity.markNeedsPaint and never calls setState.
         AnimatedSwitcher(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 240),
+          duration: openHandMotionDuration(
+            context,
+            const Duration(milliseconds: 240),
+          ),
           child:
               widget.creationMode != _CreationMode.none &&
                   widget.onEditOptionsRequested != null
@@ -2181,9 +2184,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     return Card(
       color: colorScheme.surfaceContainerHigh,
       child: AnimatedContainer(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 260),
+        duration: openHandMotionDuration(
+          context,
+          const Duration(milliseconds: 260),
+        ),
         curve: Curves.easeInOutCubicEmphasized,
         padding: EdgeInsets.fromLTRB(18, 14, 18, widget.isCollapsed ? 10 : 18),
         child: Column(
@@ -2496,9 +2500,10 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
             // FadeTransition-only: ScaleTransition is unsafe inside
             // LayoutBuilder (see note in _ComposerPanelState.build).
             child: AnimatedSwitcher(
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 180),
+              duration: openHandMotionDuration(
+                context,
+                const Duration(milliseconds: 180),
+              ),
               child: Icon(
                 modeIcon,
                 key: ValueKey<String>('${widget.mode.storageValue}-$modeIcon'),
@@ -2511,9 +2516,10 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
           // FadeTransition-only: SlideTransition is unsafe inside
           // LayoutBuilder (see note in _ComposerPanelState.build).
           AnimatedSwitcher(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 180),
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 180),
+            ),
             child: Text(
               modeLabel,
               key: ValueKey<String>('${widget.mode.storageValue}-$modeLabel'),
@@ -2641,9 +2647,10 @@ class _ComposerCreationModeButtonState
             // handleBeginFrame trigger scheduleLayoutCallback assertions.
             // FadeTransition (SingleChildRenderObjectWidget) is safe.
             child: AnimatedSwitcher(
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 220),
+              duration: openHandMotionDuration(
+                context,
+                const Duration(milliseconds: 220),
+              ),
               child: Icon(
                 _iconForMode(widget.creationMode),
                 key: ValueKey<_CreationMode>(widget.creationMode),
@@ -2850,13 +2857,14 @@ class _ReorderableAttachmentWrapState
                   // 2026-05 — hover 反馈从 1.05 scale 调软到 1.02，补上
                   // primary 色调的柔和光晕 + 边框，点明“此处会被
                   // 插入”。所有过渡走 240ms easeOutCubic，由
-                  // MediaQuery.disableAnimationsOf 控制 reduceMotion 时归零。
+                  // shared motion preference 控制 reduceMotion 时归零。
                   final theme = Theme.of(context);
                   final cs = theme.colorScheme;
                   return AnimatedContainer(
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 240),
+                    duration: openHandMotionDuration(
+                      context,
+                      const Duration(milliseconds: 240),
+                    ),
                     curve: Curves.easeOutCubic,
                     transform: isHovering
                         ? (Matrix4.identity()
@@ -3147,9 +3155,10 @@ class _ReorderableProjectReferenceWrapState
                   final theme = Theme.of(context);
                   final cs = theme.colorScheme;
                   return AnimatedContainer(
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 240),
+                    duration: openHandMotionDuration(
+                      context,
+                      const Duration(milliseconds: 240),
+                    ),
                     curve: Curves.easeOutCubic,
                     transform: isHovering
                         ? (Matrix4.identity()
@@ -3411,7 +3420,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final disableAnim = MediaQuery.disableAnimationsOf(context);
+    final motionEnabled = openHandTickerMotionEnabled(context);
     final isLocalFileMode = widget.mode == _AtMentionOverlayMode.localFiles;
     final titleLabel = isLocalFileMode
         ? _localizedText(
@@ -3710,7 +3719,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel>
       ],
     );
 
-    if (disableAnim) {
+    if (!motionEnabled) {
       return content;
     }
     return buildAnimationStyleTransition(
@@ -4123,7 +4132,7 @@ class _SkillPickerTransition extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (!openHandTickerMotionEnabled(context)) {
       return child;
     }
     return buildAnimationStyleTransition(
@@ -4378,9 +4387,10 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
             // FadeTransition is safe (it is a SingleChildRenderObjectWidget
             // that drives opacity at the render level via markNeedsPaint).
             child: AnimatedSwitcher(
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 200),
+              duration: openHandMotionDuration(
+                context,
+                const Duration(milliseconds: 200),
+              ),
               child: Text(
                 label,
                 key: ValueKey<String>('creation-options-label-$label'),
