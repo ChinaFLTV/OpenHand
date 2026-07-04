@@ -20,8 +20,8 @@ final RegExp _npxPackageVersionSuffixPattern = RegExp(r'@[^/]*$');
 
 @visibleForTesting
 Map<String, Object?>? parseMcpStdioJsonRpcLine(String line) {
-  final trimmed = line.trim();
-  if (trimmed.isEmpty || !trimmed.startsWith('{')) return null;
+  final trimmed = nullIfBlank(line);
+  if (trimmed == null || !trimmed.startsWith('{')) return null;
   try {
     final decoded = jsonDecode(trimmed);
     if (decoded is! Map) return null;
@@ -423,7 +423,7 @@ class McpStdioProcessManager extends ChangeNotifier {
     final lines = data.split('\n');
     final currentLogs = List<String>.from(managed.info.logs);
     for (final line in lines) {
-      if (line.trim().isEmpty &&
+      if (nullIfBlank(line) == null &&
           currentLogs.isNotEmpty &&
           currentLogs.last.isEmpty) {
         continue; // 避免连续空行
