@@ -24,6 +24,30 @@ const int _pluginLifecycleMaxErrorMessageChars = 20000;
 const String _hermesAgentNpmPackage = 'hermes-agent';
 const String _hermesAgentPrimaryCommand = 'hermes-agent';
 const String _hermesAgentFallbackCommand = 'hermes';
+final RegExp _pluginLifecycleWhitespacePattern = RegExp(r'\s+');
+final RegExp _pluginLifecyclePythonVersionPattern = RegExp(
+  r'Python\s+(\d+\.\d+\.\d+)',
+);
+final RegExp _pluginLifecyclePipVersionPattern = RegExp(
+  r'pip\s+(\d+(?:\.\d+)+)',
+);
+final RegExp _pluginLifecycleNodeVersionPattern = RegExp(
+  r'(v\d+\.\d+(?:\.\d+)?)',
+);
+final RegExp _pluginLifecyclePlaywrightVersionPrefixPattern = RegExp(
+  r'^Version\s+',
+  caseSensitive: false,
+);
+final RegExp _pluginLifecycleSemverPattern = RegExp(r'(\d+\.\d+\.\d+)');
+final RegExp _pluginLifecycleStablePyenvVersionLinePattern = RegExp(
+  r'^\s*(\d+\.\d+\.\d+)\s*$',
+);
+final RegExp _pluginLifecyclePyenvVersionPathPattern = RegExp(
+  r'/.pyenv/versions/([^/]+)/',
+);
+final RegExp _pluginLifecycleBrewPythonFormulaPathPattern = RegExp(
+  r'/(python(?:@[\d.]+)?)(?:/|$)',
+);
 
 @visibleForTesting
 String? homebrewStableVersionFromDecoded(Object? decoded) {
@@ -361,7 +385,11 @@ fi
       tag: 'plugin_lifecycle.pyenv_version_name',
     );
     final selected = versionNameResult.exitCode == 0
-        ? versionNameResult.stdout.toString().trim().split(RegExp(r'\s+')).first
+        ? versionNameResult.stdout
+              .toString()
+              .trim()
+              .split(_pluginLifecycleWhitespacePattern)
+              .first
         : null;
     final executable = await _resolvePyenvPythonPath();
     if (executable == null) return null;
@@ -2786,17 +2814,17 @@ class _PythonRuntimeContext {
 }
 
 String? _extractPythonVersion(String output) {
-  final match = RegExp(r'Python\s+(\d+\.\d+\.\d+)').firstMatch(output);
+  final match = _pluginLifecyclePythonVersionPattern.firstMatch(output);
   return match?.group(1);
 }
 
 String? _extractPipVersion(String output) {
-  final match = RegExp(r'pip\s+(\d+(?:\.\d+)+)').firstMatch(output);
+  final match = _pluginLifecyclePipVersionPattern.firstMatch(output);
   return match?.group(1);
 }
 
 String? _extractNodeVersion(String output) {
-  final matches = RegExp(r'(v\d+\.\d+(?:\.\d+)?)').allMatches(output);
+  final matches = _pluginLifecycleNodeVersionPattern.allMatches(output);
   String? version;
   for (final match in matches) {
     version = match.group(1);
@@ -2806,13 +2834,13 @@ String? _extractNodeVersion(String output) {
 
 String _normalizePlaywrightVersion(Object? output) {
   return '$output'.trim().replaceFirst(
-    RegExp(r'^Version\s+', caseSensitive: false),
+    _pluginLifecyclePlaywrightVersionPrefixPattern,
     '',
   );
 }
 
 String? _extractFirstSemver(String output, {String? prefix}) {
-  final matches = RegExp(r'(\d+\.\d+\.\d+)').allMatches(output);
+  final matches = _pluginLifecycleSemverPattern.allMatches(output);
   for (final match in matches) {
     final value = match.group(1);
     if (value == null) continue;
@@ -2831,7 +2859,9 @@ String? _extractAbsolutePathFromOutput(String output) {
 
 List<String> _extractStablePyenvVersions(String output, {String? prefix}) {
   final versions = <String>{};
-  for (final match in RegExp(r'^\s*(\d+\.\d+\.\d+)\s*$').allMatches(output)) {
+  for (final match in _pluginLifecycleStablePyenvVersionLinePattern.allMatches(
+    output,
+  )) {
     final value = match.group(1);
     if (value == null) continue;
     if (prefix != null && !value.startsWith(prefix)) continue;
@@ -2841,7 +2871,7 @@ List<String> _extractStablePyenvVersions(String output, {String? prefix}) {
 }
 
 String? _extractPyenvVersionFromPath(String path) {
-  final match = RegExp(r'/.pyenv/versions/([^/]+)/').firstMatch(path);
+  final match = _pluginLifecyclePyenvVersionPathPattern.firstMatch(path);
   final value = match?.group(1);
   if (value != null && isStrictSemanticVersionText(value)) return value;
   return null;
@@ -2861,7 +2891,7 @@ bool _looksLikeSystemPython(String path) {
 }
 
 String? _extractBrewPythonFormulaFromPath(String path) {
-  final matches = RegExp(r'/(python(?:@[\d.]+)?)(?:/|$)').allMatches(path);
+  final matches = _pluginLifecycleBrewPythonFormulaPathPattern.allMatches(path);
   if (matches.isEmpty) return null;
   return matches.last.group(1);
 }
