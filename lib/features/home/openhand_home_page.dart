@@ -71,6 +71,7 @@ import '../../shared/ui/openhand_editor_scroll_behavior.dart';
 import '../../shared/ui/openhand_model_selector_field.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_sweep_shimmer.dart';
 import '../../shared/ui/rolling_text.dart';
 import '../../shared/ui/section_placeholder.dart';
 import '../../shared/ui/streaming_text_reveal.dart';

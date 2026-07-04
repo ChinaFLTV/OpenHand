@@ -611,13 +611,7 @@ class _HePhaseActionBar extends StatelessWidget {
   }
 }
 
-// =============================================================================
-// Sweep-shimmer pill — replicates _SweepBadge from openhand_home_page for use
-// inside the harness dashboard without introducing a cross-feature import.
-// Plays a left-to-right grey shimmer on loop while a phase is running.
-// =============================================================================
-
-class _HeSweepPill extends StatefulWidget {
+class _HeSweepPill extends StatelessWidget {
   const _HeSweepPill({
     required this.child,
     required this.backgroundColor,
@@ -629,60 +623,13 @@ class _HeSweepPill extends StatefulWidget {
   final Color sweepColor;
 
   @override
-  State<_HeSweepPill> createState() => _HeSweepPillState();
-}
-
-class _HeSweepPillState extends State<_HeSweepPill>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1350),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     const br = BorderRadius.all(Radius.circular(999));
     return ClipRRect(
       borderRadius: br,
-      child: AnimatedBuilder(
-        animation: _ctrl,
-        child: widget.child,
-        builder: (context, child) {
-          final start = -1.8 + (_ctrl.value * 2.8);
-          final end = start + 0.9;
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              color: widget.backgroundColor,
-              borderRadius: br,
-            ),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment(start, 0),
-                        end: Alignment(end, 0),
-                        colors: [
-                          Colors.transparent,
-                          widget.sweepColor,
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                child ?? const SizedBox.shrink(),
-              ],
-            ),
-          );
-        },
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: backgroundColor, borderRadius: br),
+        child: OpenHandSweepShimmer(sweepColor: sweepColor, child: child),
       ),
     );
   }

@@ -1,7 +1,5 @@
 part of '../openhand_home_page.dart';
 
-const Duration _kSweepBadgeMotionDuration = Duration(milliseconds: 1350);
-
 class _MessageMetaRow extends StatelessWidget {
   const _MessageMetaRow({
     super.key,
@@ -452,7 +450,7 @@ class _ToolCallStatusViewData {
   final String statusLabel;
 }
 
-class _SweepBadge extends StatefulWidget {
+class _SweepBadge extends StatelessWidget {
   const _SweepBadge({
     required this.child,
     this.padding = const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -470,60 +468,25 @@ class _SweepBadge extends StatefulWidget {
   final List<BoxShadow>? boxShadow;
 
   @override
-  State<_SweepBadge> createState() => _SweepBadgeState();
-}
-
-class _SweepBadgeState extends State<_SweepBadge>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: _kSweepBadgeMotionDuration,
-  );
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final animationsEnabled = openHandTickerMotionEnabled(context);
-    if (!animationsEnabled) {
-      _controller.stop();
-      return _buildBadge(context, progress: null);
-    }
-    if (!_controller.isAnimating) {
-      _controller.repeat();
-    }
-    return AnimatedBuilder(
-      animation: _controller,
-      child: Padding(padding: widget.padding, child: widget.child),
-      builder: (context, child) {
-        return _buildBadge(context, progress: _controller.value, child: child);
-      },
-    );
+    return _buildBadge(context);
   }
 
-  Widget _buildBadge(
-    BuildContext context, {
-    required double? progress,
-    Widget? child,
-  }) {
+  Widget _buildBadge(BuildContext context) {
     final theme = Theme.of(context);
     const borderRadius = BorderRadius.all(Radius.circular(999));
     final backgroundColor =
-        widget.backgroundColor ?? theme.colorScheme.surfaceContainerHigh;
+        this.backgroundColor ?? theme.colorScheme.surfaceContainerHigh;
     final borderColor =
-        widget.borderColor ??
+        this.borderColor ??
         theme.colorScheme.outlineVariant.withValues(alpha: 0.45);
     final sweepColor =
-        widget.sweepColor ??
+        this.sweepColor ??
         theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.2);
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: borderRadius,
-        boxShadow: widget.boxShadow,
+        boxShadow: boxShadow,
       ),
       child: ClipRRect(
         borderRadius: borderRadius,
@@ -533,26 +496,9 @@ class _SweepBadgeState extends State<_SweepBadge>
             borderRadius: borderRadius,
             border: borderColor.a <= 0 ? null : Border.all(color: borderColor),
           ),
-          child: Stack(
-            children: [
-              if (progress != null)
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment(-1.8 + progress * 2.8, 0),
-                        end: Alignment(-0.9 + progress * 2.8, 0),
-                        colors: [
-                          Colors.transparent,
-                          sweepColor,
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              child ?? Padding(padding: widget.padding, child: widget.child),
-            ],
+          child: OpenHandSweepShimmer(
+            sweepColor: sweepColor,
+            child: Padding(padding: padding, child: child),
           ),
         ),
       ),
