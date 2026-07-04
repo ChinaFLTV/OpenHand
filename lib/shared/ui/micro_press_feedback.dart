@@ -38,6 +38,10 @@ class _MicroPressFeedbackState extends State<MicroPressFeedback>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
+  double get _safeScale {
+    return widget.scale.isFinite && widget.scale > 0 ? widget.scale : 1.0;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -76,7 +80,7 @@ class _MicroPressFeedbackState extends State<MicroPressFeedback>
         animation: _ctrl,
         builder: (context, child) {
           final t = Curves.easeOutCubic.transform(_ctrl.value);
-          final s = 1.0 - (1.0 - widget.scale) * t;
+          final s = 1.0 - (1.0 - _safeScale) * t;
           return Transform.scale(scale: s, child: child);
         },
         child: widget.child,

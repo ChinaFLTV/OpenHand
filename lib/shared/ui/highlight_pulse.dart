@@ -40,6 +40,10 @@ class _HighlightPulseState extends State<HighlightPulse>
   late final AnimationController _ctrl;
   int? _lastSeen;
 
+  double get _safeHeight {
+    return widget.height.isFinite && widget.height > 0 ? widget.height : 0;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -96,7 +100,7 @@ class _HighlightPulseState extends State<HighlightPulse>
           opacity = Curves.easeOutCubic.transform(t);
         }
         return Container(
-          height: widget.height,
+          height: _safeHeight,
           decoration: BoxDecoration(
             borderRadius: widget.borderRadius,
             gradient: LinearGradient(

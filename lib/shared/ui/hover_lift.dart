@@ -37,10 +37,16 @@ class HoverLift extends StatefulWidget {
 class _HoverLiftState extends State<HoverLift> {
   bool _hovered = false;
 
+  double get _safeLiftDistance {
+    return widget.liftDistance.isFinite && widget.liftDistance > 0
+        ? widget.liftDistance
+        : 0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final reduceMotion = openHandReduceMotionOf(context);
-    final lift = (_hovered && !reduceMotion) ? -widget.liftDistance : 0.0;
+    final lift = (_hovered && !reduceMotion) ? -_safeLiftDistance : 0.0;
     return MouseRegion(
       onEnter: (_) {
         if (_hovered) return;
