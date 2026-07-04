@@ -459,6 +459,8 @@ void main() {
     testWidgets('preserves builtin selections across tool groups', (
       tester,
     ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       final dependencies = _AgentEditorDependencies.empty(
         builtinToolConfigs: const <AiBuiltinToolConfig>[
           AiBuiltinToolConfig(kind: AiBuiltinToolKind.bash),
@@ -497,15 +499,22 @@ void main() {
       expect(find.text('发现路由'), findsOneWidget);
       expect(find.text('任务生命周期'), findsOneWidget);
       expect(find.text('治理审计'), findsOneWidget);
+      expect(find.text('已选 0/1'), findsOneWidget);
       expect(find.textContaining('变更 1'), findsAtLeastNWidgets(1));
-      await tester.ensureVisible(bashChip);
-      await tester.tap(bashChip);
-      await tester.pump();
+      final selectAllButton = find.text('全选');
+      await tester.ensureVisible(selectAllButton);
+      await tester.tap(selectAllButton);
+      await tester.pumpAndSettle();
+      expect(find.text('已选 1/1'), findsOneWidget);
       await tester.ensureVisible(publishChip);
       await tester.tap(publishChip);
       await tester.pump();
+      final clearButton = find.text('清空');
+      await tester.ensureVisible(clearButton);
+      await tester.tap(clearButton);
+      await tester.pumpAndSettle();
 
-      expect(tester.widget<FilterChip>(bashChip).selected, isTrue);
+      expect(tester.widget<FilterChip>(bashChip).selected, isFalse);
       expect(tester.widget<FilterChip>(publishChip).selected, isTrue);
     });
 

@@ -7792,39 +7792,89 @@ class _CapabilityPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final optionIds = options.map((option) => option.id).toSet();
+    final selectedCount = selected.intersection(optionIds).length;
     return _AgentEditorPanel(
       title: title,
       icon: icon,
       child: options.isEmpty
           ? Text(
               l10n.agentsNoOptionsAvailable,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
               ),
             )
           : ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 152),
               child: SingleChildScrollView(
                 physics: openHandDialogAwareScrollPhysics(context),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final option in options)
-                      FilterChip(
-                        label: Text(
-                          option.label,
-                          overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            openHandLocalizedText(
+                              context,
+                              zh: '已选 $selectedCount/${options.length}',
+                              en: 'Selected $selectedCount/${options.length}',
+                            ),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
-                        selected: selected.contains(option.id),
-                        onSelected: (value) {
-                          final next = {...selected};
-                          value ? next.add(option.id) : next.remove(option.id);
-                          onChanged(next);
-                        },
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
+                        TextButton(
+                          onPressed: selectedCount == options.length
+                              ? null
+                              : () => onChanged({...selected, ...optionIds}),
+                          child: Text(
+                            openHandLocalizedText(context, zh: '全选', en: 'All'),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: selectedCount == 0
+                              ? null
+                              : () => onChanged(selected.difference(optionIds)),
+                          child: Text(
+                            openHandLocalizedText(
+                              context,
+                              zh: '清空',
+                              en: 'Clear',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final option in options)
+                          FilterChip(
+                            label: Text(
+                              option.label,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            selected: selected.contains(option.id),
+                            onSelected: (value) {
+                              final next = {...selected};
+                              value
+                                  ? next.add(option.id)
+                                  : next.remove(option.id);
+                              onChanged(next);
+                            },
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
