@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../agents/index.dart';
+import '../../model/ai_builtin_tool_config.dart'
+    show AiAgentBuiltinToolGroup, AiBuiltinToolKindAgentMetadata;
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
@@ -41,6 +43,28 @@ const Set<String> _agentWorkerRemovalPolicyValues = <String>{
   'newest_first',
 };
 const Set<String> _agentRetryPolicyValues = <String>{'bounded_retry', 'none'};
+const List<AiBuiltinToolKind> _agentCoordinationToolKinds = <AiBuiltinToolKind>[
+  AiBuiltinToolKind.agentList,
+  AiBuiltinToolKind.agentDetail,
+  AiBuiltinToolKind.agentActivityLog,
+  AiBuiltinToolKind.agentAuditReport,
+  AiBuiltinToolKind.agentAuditRecord,
+  AiBuiltinToolKind.agentApprovalRequest,
+  AiBuiltinToolKind.agentKpiUpsert,
+  AiBuiltinToolKind.agentResourceUpdate,
+  AiBuiltinToolKind.agentClusterConfigure,
+  AiBuiltinToolKind.agentClusterStatus,
+  AiBuiltinToolKind.agentTaskList,
+  AiBuiltinToolKind.agentTaskPublish,
+  AiBuiltinToolKind.agentTaskTrack,
+  AiBuiltinToolKind.agentTaskProgress,
+  AiBuiltinToolKind.agentTaskCancel,
+  AiBuiltinToolKind.agentTaskPause,
+  AiBuiltinToolKind.agentTaskTerminate,
+  AiBuiltinToolKind.agentTaskResume,
+  AiBuiltinToolKind.agentTaskComplete,
+  AiBuiltinToolKind.agentTaskResult,
+];
 
 enum _AgentToolOperation {
   list,
@@ -2104,11 +2128,105 @@ Map<String, Object?> _agentSummaryJson(AgentProfile agent) {
     },
     'worker_count': agent.workers.length,
     'capabilities': agentCapabilityBindingsJson(agent),
+    'agent_tools': _agentToolBindingSummaryJson(agent),
     'workspace_policy': agentWorkspacePolicyJson(agent),
     'routing': routing.toJson(includeRawPreview: false),
     'operational_summary': _agentOperationalSummaryJson(agent),
     'updated_at': _iso(agent.updatedAt),
   };
+}
+
+Map<String, Object?> _agentToolBindingSummaryJson(AgentProfile agent) {
+  final configured = trimmedNonEmptyStrings(agent.builtinToolNames);
+  final kinds = configured.isEmpty
+      ? _agentCoordinationToolKinds
+      : _agentToolKindsFromNames(configured);
+  final tools = kinds.map(_agentToolNameForKind).toList(growable: false);
+  final groups = <String, List<String>>{};
+  final mutationTools = <String>[];
+  for (final kind in kinds) {
+    final tool = _agentToolNameForKind(kind);
+    final group = _agentToolGroupStorageName(kind.agentToolGroup);
+    if (group != null) {
+      groups.putIfAbsent(group, () => <String>[]).add(tool);
+    }
+    if (kind.isAgentMutationTool) mutationTools.add(tool);
+  }
+  return <String, Object?>{
+    'binding_mode': configured.isEmpty ? 'all_agent_tools' : 'explicit',
+    'tools': tools,
+    'groups': groups,
+    'mutation_tools': mutationTools,
+    'count': tools.length,
+  };
+}
+
+List<AiBuiltinToolKind> _agentToolKindsFromNames(Iterable<String> names) {
+  final byName = <String, AiBuiltinToolKind>{
+    for (final kind in _agentCoordinationToolKinds) ...{
+      _normalizedAgentToolName(kind.name): kind,
+      _normalizedAgentToolName(_agentToolNameForKind(kind)): kind,
+      _normalizedAgentToolName(
+        _snakeAgentToolName(_agentToolNameForKind(kind)),
+      ): kind,
+    },
+  };
+  final seen = <AiBuiltinToolKind>{};
+  final result = <AiBuiltinToolKind>[];
+  for (final name in names) {
+    final kind = byName[_normalizedAgentToolName(name)];
+    if (kind == null || !seen.add(kind)) continue;
+    result.add(kind);
+  }
+  return result;
+}
+
+String _agentToolNameForKind(AiBuiltinToolKind kind) {
+  return switch (kind) {
+    AiBuiltinToolKind.agentList => 'AgentList',
+    AiBuiltinToolKind.agentDetail => 'AgentDetail',
+    AiBuiltinToolKind.agentActivityLog => 'AgentActivityLog',
+    AiBuiltinToolKind.agentAuditReport => 'AgentAuditReport',
+    AiBuiltinToolKind.agentAuditRecord => 'AgentAuditRecord',
+    AiBuiltinToolKind.agentApprovalRequest => 'AgentApprovalRequest',
+    AiBuiltinToolKind.agentKpiUpsert => 'AgentKpiUpsert',
+    AiBuiltinToolKind.agentResourceUpdate => 'AgentResourceUpdate',
+    AiBuiltinToolKind.agentClusterConfigure => 'AgentClusterConfigure',
+    AiBuiltinToolKind.agentClusterStatus => 'AgentClusterStatus',
+    AiBuiltinToolKind.agentTaskList => 'AgentTaskList',
+    AiBuiltinToolKind.agentTaskPublish => 'AgentTaskPublish',
+    AiBuiltinToolKind.agentTaskTrack => 'AgentTaskTrack',
+    AiBuiltinToolKind.agentTaskProgress => 'AgentTaskProgress',
+    AiBuiltinToolKind.agentTaskCancel => 'AgentTaskCancel',
+    AiBuiltinToolKind.agentTaskPause => 'AgentTaskPause',
+    AiBuiltinToolKind.agentTaskTerminate => 'AgentTaskTerminate',
+    AiBuiltinToolKind.agentTaskResume => 'AgentTaskResume',
+    AiBuiltinToolKind.agentTaskComplete => 'AgentTaskComplete',
+    AiBuiltinToolKind.agentTaskResult => 'AgentTaskResult',
+    _ => kind.name,
+  };
+}
+
+String? _agentToolGroupStorageName(AiAgentBuiltinToolGroup? group) {
+  return switch (group) {
+    AiAgentBuiltinToolGroup.discovery => 'discovery',
+    AiAgentBuiltinToolGroup.taskLifecycle => 'task_lifecycle',
+    AiAgentBuiltinToolGroup.governance => 'governance',
+    AiAgentBuiltinToolGroup.operations => 'operations',
+    AiAgentBuiltinToolGroup.cluster => 'cluster',
+    null => null,
+  };
+}
+
+String _snakeAgentToolName(String value) {
+  final buffer = StringBuffer();
+  for (var i = 0; i < value.length; i += 1) {
+    final code = value.codeUnitAt(i);
+    final isUpper = code >= 0x41 && code <= 0x5A;
+    if (isUpper && i > 0) buffer.write('_');
+    buffer.writeCharCode(isUpper ? code | 0x20 : code);
+  }
+  return buffer.toString();
 }
 
 Map<String, Object?> _routeCandidateJson(
@@ -2128,6 +2246,7 @@ Map<String, Object?> _routeCandidateJson(
     if (agent.department.trim().isNotEmpty) 'department': agent.department,
     if (agent.taskLabels.isNotEmpty) 'task_labels': agent.taskLabels,
     if (agent.skillNames.isNotEmpty) 'skills': agent.skillNames,
+    'agent_tools': _agentToolBindingSummaryJson(agent),
     if (routing.keywords.isNotEmpty)
       'routing_keywords': routing.keywords.take(12).toList(growable: false),
   };

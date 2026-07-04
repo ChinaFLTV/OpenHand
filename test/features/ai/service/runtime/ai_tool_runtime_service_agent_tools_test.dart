@@ -621,6 +621,44 @@ void main() {
       },
     );
 
+    test('agent list exposes normalized bound agent tool groups', () async {
+      await controller.saveAgent(
+        _agent(
+          enabled: true,
+          builtinToolNames: const <String>[
+            'AgentList',
+            'agentTaskResult',
+            'Agent Approval Request',
+            'Bash',
+          ],
+        ),
+      );
+
+      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+        runtimeContext: _runtimeContext(),
+      );
+      final result = await _executeAgentList(runtime, catalog);
+
+      expect(result.status, BashToolExecutionStatus.success);
+      final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+      final agents = payload['agents'] as List<Object?>;
+      final agent = agents.single as Map<String, Object?>;
+      final agentTools = agent['agent_tools'] as Map<String, Object?>;
+      final groups = agentTools['groups'] as Map<String, Object?>;
+
+      expect(agentTools['binding_mode'], 'explicit');
+      expect(agentTools['tools'], <Object?>[
+        'AgentList',
+        'AgentTaskResult',
+        'AgentApprovalRequest',
+      ]);
+      expect(groups['discovery'], <Object?>['AgentList']);
+      expect(groups['task_lifecycle'], <Object?>['AgentTaskResult']);
+      expect(groups['governance'], <Object?>['AgentApprovalRequest']);
+      expect(agentTools['mutation_tools'], <Object?>['AgentApprovalRequest']);
+      expect(agentTools['count'], 3);
+    });
+
     test(
       'rejects executing a catalog-exposed agent tool against an unbound target agent',
       () async {
@@ -673,51 +711,54 @@ void main() {
       },
     );
 
-    test('include disabled lookup still requires the target tool binding', () async {
-      await controller.saveAgent(
-        _agent(
-          id: 'agent-detailer',
-          name: 'Detail Agent',
-          enabled: true,
-          builtinToolNames: const <String>['AgentDetail'],
-        ),
-      );
-      await controller.saveAgent(
-        _agent(
-          id: 'agent-list-only',
-          name: 'List Only Agent',
-          enabled: true,
-          builtinToolNames: const <String>['AgentList'],
-        ),
-      );
+    test(
+      'include disabled lookup still requires the target tool binding',
+      () async {
+        await controller.saveAgent(
+          _agent(
+            id: 'agent-detailer',
+            name: 'Detail Agent',
+            enabled: true,
+            builtinToolNames: const <String>['AgentDetail'],
+          ),
+        );
+        await controller.saveAgent(
+          _agent(
+            id: 'agent-list-only',
+            name: 'List Only Agent',
+            enabled: true,
+            builtinToolNames: const <String>['AgentList'],
+          ),
+        );
 
-      final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
-        runtimeContext: _runtimeContext(),
-      );
-      expect(catalog.find('AgentDetail'), isNotNull);
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        expect(catalog.find('AgentDetail'), isNotNull);
 
-      final result = await runtime.execute(
-        sessionId: 'session-agent-include-disabled',
-        catalog: catalog,
-        toolCall: AiToolCall(
-          id: 'call-detail-unbound',
-          name: 'AgentDetail',
-          arguments: jsonEncode(<String, Object?>{
-            'agent_id': 'agent-list-only',
-            'include_disabled': true,
-          }),
-        ),
-        model: _model(),
-        previouslyReadFiles: const <String>{},
-        denyCommandRules: const <AiDenyCommandRule>[],
-        requireWriteCommandConfirmation: false,
-        confirmWriteCommand: (request) async =>
-            BashCommandApprovalDecision.approved,
-      );
+        final result = await runtime.execute(
+          sessionId: 'session-agent-include-disabled',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-detail-unbound',
+            name: 'AgentDetail',
+            arguments: jsonEncode(<String, Object?>{
+              'agent_id': 'agent-list-only',
+              'include_disabled': true,
+            }),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
 
-      expect(result.status, BashToolExecutionStatus.invalidArguments);
-      expect(result.resultText, contains('has not bound AgentDetail'));
-    });
+        expect(result.status, BashToolExecutionStatus.invalidArguments);
+        expect(result.resultText, contains('has not bound AgentDetail'));
+      },
+    );
 
     test('filters task allowed tools by the target agent bindings', () async {
       await controller.saveAgent(
@@ -2217,12 +2258,19 @@ domains: finance, cloud billing
         final candidateIds = candidates
             .map((item) => (item as Map<String, Object?>)['agent_id'])
             .toList(growable: false);
+        final firstCandidate = candidates.first as Map<String, Object?>;
+        final firstAgentTools =
+            firstCandidate['agent_tools'] as Map<String, Object?>;
 
         expect(diagnostics['ambiguous'], isTrue);
         expect(candidateIds, <Object?>[
           'finance-publisher-a',
           'finance-publisher-b',
         ]);
+        expect(firstAgentTools['tools'], <Object?>['AgentTaskPublish']);
+        expect(firstAgentTools['groups'], <String, Object?>{
+          'task_lifecycle': <Object?>['AgentTaskPublish'],
+        });
         expect(candidateIds, isNot(contains('finance-approval-only')));
       },
     );
