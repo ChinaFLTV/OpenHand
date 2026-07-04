@@ -237,6 +237,14 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
     0,
     (sum, event) => sum + event.tokenUsage,
   );
+  final recentActivities = _recentAgentPromptEvents(
+    agent.activities,
+    (event) => event.createdAt,
+  );
+  final recentAuditEvents = _recentAgentPromptEvents(
+    agent.auditEvents,
+    (event) => event.createdAt,
+  );
   return <String, Object?>{
     'task_counts': <String, Object?>{
       'total': agent.tasks.length,
@@ -290,11 +298,11 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
     'kpi_state': agent.kpis.take(12).map(_kpiJson).toList(growable: false),
     'workers': agent.workers.map(_workerJson).toList(growable: false),
     'resource_usage': agent.resourceUsage.toJson(),
-    'recent_activity': agent.activities
+    'recent_activity': recentActivities
         .take(12)
         .map(_activityJson)
         .toList(growable: false),
-    'recent_audit_events': agent.auditEvents
+    'recent_audit_events': recentAuditEvents
         .take(12)
         .map(_auditJson)
         .toList(growable: false),
@@ -302,17 +310,41 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
       'events': agent.auditEvents.length,
       'requests': requests,
       'tokens': tokens,
-      'recent_kinds': agent.auditEvents
+      'recent_kinds': recentAuditEvents
           .take(10)
           .map((event) => event.kind)
           .toList(growable: false),
-      'recent_tools': agent.auditEvents
+      'recent_tools': recentAuditEvents
           .map((event) => nullIfBlank(event.toolName))
           .nonNulls
           .take(10)
           .toList(growable: false),
     },
   };
+}
+
+List<T> _recentAgentPromptEvents<T>(
+  Iterable<T> events,
+  DateTime? Function(T event) createdAtOf,
+) {
+  final indexed = events.indexed.toList(growable: false);
+  indexed.sort((left, right) {
+    final timeCompare = _agentPromptEventSortTime(
+      right.$2,
+      createdAtOf,
+    ).compareTo(_agentPromptEventSortTime(left.$2, createdAtOf));
+    if (timeCompare != 0) return timeCompare;
+    return left.$1.compareTo(right.$1);
+  });
+  return indexed.map((entry) => entry.$2).toList(growable: false);
+}
+
+DateTime _agentPromptEventSortTime<T>(
+  T event,
+  DateTime? Function(T event) createdAtOf,
+) {
+  return createdAtOf(event) ??
+      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 }
 
 bool _taskIsTerminal(AgentTaskStatus status) {

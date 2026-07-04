@@ -105,7 +105,7 @@ domains: cloud, finops
     );
 
     final snapshot = await renderer.render(
-      agent: const AgentProfile(
+      agent: AgentProfile(
         id: 'agent-1',
         name: 'Release Agent',
         routeFrontMatter: 'keywords: release, deploy',
@@ -119,21 +119,21 @@ domains: cloud, finops
         taskLabels: <String>['release'],
         metadata: <String, Object?>{'cost_center': 'release-platform'},
         approvals: <AgentApprovalRequest>[
-          AgentApprovalRequest(
+          const AgentApprovalRequest(
             id: 'approval-1',
             title: 'Deploy production',
             requestedAction: 'deploy',
           ),
         ],
         workers: <AgentWorker>[
-          AgentWorker(
+          const AgentWorker(
             id: 'worker-1',
             status: AgentWorkerStatus.busy,
             currentTaskId: 'task-1',
           ),
         ],
         tasks: <AgentTask>[
-          AgentTask(
+          const AgentTask(
             id: 'task-1',
             title: 'Deploy release',
             content: 'Roll out the release after approval.',
@@ -144,12 +144,12 @@ domains: cloud, finops
               'agent_system_prompt': 'hidden system prompt body',
             },
           ),
-          AgentTask(
+          const AgentTask(
             id: 'task-2',
             title: 'Wait for security sign-off',
             status: AgentTaskStatus.paused,
           ),
-          AgentTask(
+          const AgentTask(
             id: 'task-3',
             title: 'Publish release notes',
             status: AgentTaskStatus.completed,
@@ -157,7 +157,7 @@ domains: cloud, finops
           ),
         ],
         kpis: <AgentKpiItem>[
-          AgentKpiItem(
+          const AgentKpiItem(
             id: 'kpi-1',
             name: 'Weekly release quality',
             target: 'Keep failed rollbacks at zero',
@@ -170,6 +170,13 @@ domains: cloud, finops
             id: 'activity-1',
             kind: 'thought',
             title: 'Review rollout risk',
+            createdAt: DateTime.utc(2026, 7, 4, 1),
+          ),
+          AgentActivityEvent(
+            id: 'activity-2',
+            kind: 'tool_call',
+            title: 'Check latest deployment',
+            createdAt: DateTime.utc(2026, 7, 4, 2),
           ),
         ],
         auditEvents: <AgentAuditEvent>[
@@ -180,6 +187,16 @@ domains: cloud, finops
             toolName: 'DeployMcp',
             tokenUsage: 42,
             requestCount: 1,
+            createdAt: DateTime.utc(2026, 7, 4, 1),
+          ),
+          AgentAuditEvent(
+            id: 'audit-2',
+            kind: 'skill_call',
+            summary: 'Collected latest release evidence',
+            toolName: 'ReleaseSkill',
+            tokenUsage: 24,
+            requestCount: 1,
+            createdAt: DateTime.utc(2026, 7, 4, 2),
           ),
         ],
       ),
@@ -273,12 +290,12 @@ domains: cloud, finops
     expect(blockedTasks, hasLength(1));
     expect(terminalTasks, hasLength(1));
     expect(kpiState, hasLength(1));
-    expect(recentActivity, hasLength(1));
+    expect(recentActivity, hasLength(2));
     expect(
-      (recentActivity.single as Map<String, Object?>)['message_type'],
-      'thought',
+      (recentActivity.first as Map<String, Object?>)['title'],
+      'Check latest deployment',
     );
-    expect(recentAudit, hasLength(1));
+    expect(recentAudit, hasLength(2));
     expect(
       (activeTasks.first as Map<String, Object?>)['extra'],
       containsPair('assigned_worker_id', 'worker-1'),
@@ -295,9 +312,16 @@ domains: cloud, finops
       'Release notes published.',
     );
     expect(
-      (recentAudit.single as Map<String, Object?>)['tool_name'],
-      'DeployMcp',
+      (recentAudit.first as Map<String, Object?>)['tool_name'],
+      'ReleaseSkill',
     );
+    final auditSummary =
+        operationalState['audit_summary'] as Map<String, Object?>;
+    expect(auditSummary['recent_kinds'], <Object?>['skill_call', 'mcp_call']);
+    expect(auditSummary['recent_tools'], <Object?>[
+      'ReleaseSkill',
+      'DeployMcp',
+    ]);
   });
 
   test(
