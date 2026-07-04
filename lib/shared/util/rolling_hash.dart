@@ -8,9 +8,10 @@ int rollingHashWithMask<T>(
   int seed = 0,
   int mask = kRollingHash30Mask,
 }) {
-  var hash = seed & mask;
+  final safeMask = mask < 0 ? kRollingHash30Mask : mask;
+  var hash = seed & safeMask;
   for (final value in values) {
-    hash = (hash * kRollingHash31Multiplier + hashOf(value)) & mask;
+    hash = (hash * kRollingHash31Multiplier + hashOf(value)) & safeMask;
   }
   return hash;
 }
