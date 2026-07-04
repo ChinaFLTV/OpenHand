@@ -23,6 +23,8 @@ const Set<String> _stopwords = <String>{
   '从', '到', '对', '一个', '一种',
 };
 
+final RegExp _latinExplicitSeparatorPattern = RegExp(r'[_\-.]+');
+
 bool _isCjk(int r) {
   return (r >= 0x3400 && r <= 0x4DBF) || // CJK Ext A
       (r >= 0x4E00 && r <= 0x9FFF) || // CJK Unified
@@ -96,7 +98,7 @@ void _emitCjkTokens(String segment, Set<String> out) {
 
 void _emitLatinTokens(String lower, Set<String> out) {
   // 先按 _ - 等显式分隔切；然后对每段按驼峰再切。
-  final pieces = lower.split(RegExp(r'[_\-\.]+'));
+  final pieces = lower.split(_latinExplicitSeparatorPattern);
   for (final piece in pieces) {
     if (piece.isEmpty) continue;
     out.add(piece);

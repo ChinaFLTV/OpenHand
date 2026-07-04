@@ -325,7 +325,7 @@ class McpKeywordIndexService {
     raw ??= tool.rawMetadata['searchHint'];
     raw ??= tool.rawMetadata['search_hint'];
     if (raw == null) return null;
-    if (raw is String) return raw.trim().isEmpty ? null : raw;
+    if (raw is String) return nullIfBlank(raw);
     if (raw is List) {
       final joined = trimmedNonEmptyStrings(raw.whereType<String>()).join(' ');
       return joined.isEmpty ? null : joined;
