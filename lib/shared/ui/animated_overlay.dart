@@ -5,6 +5,8 @@ import 'animated_dialog.dart';
 import 'motion_preference.dart';
 
 const double _kDefaultOverlayScaleBegin = 0.95;
+const double _kMinOverlayScaleBegin = 0.5;
+const double _kMaxOverlayScaleBegin = 1.0;
 
 /// Provides animated entrance effects for overlay content (hover popups,
 /// tooltips, autocomplete panels, etc.).
@@ -67,6 +69,18 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _syncAnimationPreference();
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimatedOverlayContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.useMenuSettings != widget.useMenuSettings ||
+        oldWidget.customDuration != widget.customDuration ||
+        oldWidget.customCurve != widget.customCurve ||
+        oldWidget.customSettings != widget.customSettings ||
+        oldWidget.enableScaleAnimation != widget.enableScaleAnimation) {
+      _syncAnimationPreference();
+    }
   }
 
   DialogAnimationSettings _resolveSettings() {
@@ -143,5 +157,5 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
 
 double _safeOverlayScaleBegin(double value) {
   if (!value.isFinite || value <= 0) return _kDefaultOverlayScaleBegin;
-  return value;
+  return value.clamp(_kMinOverlayScaleBegin, _kMaxOverlayScaleBegin).toDouble();
 }
