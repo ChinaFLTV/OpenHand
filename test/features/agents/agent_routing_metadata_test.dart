@@ -119,10 +119,19 @@ domains: cloud, finops
         taskLabels: <String>['release'],
         metadata: <String, Object?>{'cost_center': 'release-platform'},
         approvals: <AgentApprovalRequest>[
-          const AgentApprovalRequest(
+          AgentApprovalRequest(
             id: 'approval-1',
             title: 'Deploy production',
             requestedAction: 'deploy',
+            createdAt: DateTime.utc(2026, 7, 4, 1),
+            extra: <String, Object?>{'risk_level': 'low'},
+          ),
+          AgentApprovalRequest(
+            id: 'approval-2',
+            title: 'Rotate production secret',
+            requestedAction: 'rotate secret',
+            createdAt: DateTime.utc(2026, 7, 4, 2),
+            extra: <String, Object?>{'risk_level': 'critical'},
           ),
         ],
         workers: <AgentWorker>[
@@ -144,25 +153,50 @@ domains: cloud, finops
               'agent_system_prompt': 'hidden system prompt body',
             },
           ),
-          const AgentTask(
+          AgentTask(
             id: 'task-2',
             title: 'Wait for security sign-off',
             status: AgentTaskStatus.paused,
+            updatedAt: DateTime.utc(2026, 7, 4, 1),
           ),
-          const AgentTask(
+          AgentTask(
+            id: 'task-4',
+            title: 'Approve database migration',
+            status: AgentTaskStatus.waitingApproval,
+            updatedAt: DateTime.utc(2026, 7, 4, 2),
+          ),
+          AgentTask(
             id: 'task-3',
             title: 'Publish release notes',
             status: AgentTaskStatus.completed,
             result: 'Release notes published.',
+            updatedAt: DateTime.utc(2026, 7, 4, 1),
+          ),
+          AgentTask(
+            id: 'task-5',
+            title: 'Investigate failed smoke test',
+            status: AgentTaskStatus.failed,
+            result: 'Smoke test failed.',
+            updatedAt: DateTime.utc(2026, 7, 4, 2),
           ),
         ],
         kpis: <AgentKpiItem>[
-          const AgentKpiItem(
+          AgentKpiItem(
             id: 'kpi-1',
             name: 'Weekly release quality',
             target: 'Keep failed rollbacks at zero',
             progress: 0.6,
             plan: 'Verify release evidence before rollout.',
+            updatedAt: DateTime.utc(2026, 7, 4, 1),
+          ),
+          AgentKpiItem(
+            id: 'kpi-2',
+            name: 'Critical release blocker burn-down',
+            target: 'Resolve all critical blockers',
+            progress: 0.2,
+            status: 'at_risk',
+            plan: 'Prioritize high-risk blockers before rollout.',
+            updatedAt: DateTime.utc(2026, 7, 4, 2),
           ),
         ],
         activities: <AgentActivityEvent>[
@@ -241,7 +275,13 @@ domains: cloud, finops
       snapshot.renderedPrompt,
       isNot(contains('hidden system prompt body')),
     );
-    expect(operationalState['pending_approvals'], isNotEmpty);
+    final pendingApprovals =
+        operationalState['pending_approvals'] as List<Object?>;
+    expect(pendingApprovals, hasLength(2));
+    expect(
+      (pendingApprovals.first as Map<String, Object?>)['title'],
+      'Rotate production secret',
+    );
     expect(operationalState['workers'], isNotEmpty);
     expect(stateFlags['has_pending_approvals'], isTrue);
     expect(stateFlags['workers_saturated'], isTrue);
@@ -286,31 +326,48 @@ domains: cloud, finops
     ]);
     expect(workspacePolicy['writes_limited_to_allowed_roots'], isTrue);
     expect(workspacePolicy['requires_confirmation_when_empty'], isFalse);
-    expect(activeTasks, hasLength(2));
-    expect(blockedTasks, hasLength(1));
-    expect(terminalTasks, hasLength(1));
-    expect(kpiState, hasLength(1));
+    expect(activeTasks, hasLength(3));
+    expect(
+      (activeTasks.first as Map<String, Object?>)['title'],
+      'Approve database migration',
+    );
+    expect(blockedTasks, hasLength(3));
+    expect(
+      (blockedTasks.first as Map<String, Object?>)['title'],
+      'Approve database migration',
+    );
+    expect(terminalTasks, hasLength(2));
+    expect(
+      (terminalTasks.first as Map<String, Object?>)['title'],
+      'Investigate failed smoke test',
+    );
+    expect(kpiState, hasLength(2));
+    expect(
+      (kpiState.first as Map<String, Object?>)['name'],
+      'Critical release blocker burn-down',
+    );
     expect(recentActivity, hasLength(2));
     expect(
       (recentActivity.first as Map<String, Object?>)['title'],
       'Check latest deployment',
     );
     expect(recentAudit, hasLength(2));
+    final runningTask = activeTasks.cast<Map<String, Object?>>().firstWhere(
+      (item) => item['title'] == 'Deploy release',
+    );
     expect(
-      (activeTasks.first as Map<String, Object?>)['extra'],
+      runningTask['extra'],
       containsPair('assigned_worker_id', 'worker-1'),
     );
-    final activeTaskExtra =
-        (activeTasks.first as Map<String, Object?>)['extra']
-            as Map<String, Object?>;
+    final activeTaskExtra = runningTask['extra'] as Map<String, Object?>;
     final omittedPrompt =
         activeTaskExtra['agent_system_prompt'] as Map<String, Object?>;
     expect(omittedPrompt['omitted'], isTrue);
     expect(omittedPrompt['chars'], 25);
-    expect(
-      (terminalTasks.single as Map<String, Object?>)['result'],
-      'Release notes published.',
+    final completedTask = terminalTasks.cast<Map<String, Object?>>().firstWhere(
+      (item) => item['title'] == 'Publish release notes',
     );
+    expect(completedTask['result'], 'Release notes published.');
     expect(
       (recentAudit.first as Map<String, Object?>)['tool_name'],
       'ReleaseSkill',
