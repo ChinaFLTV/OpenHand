@@ -1548,7 +1548,7 @@ class AiTtsPlaybackService {
     required String extension,
     required AiTtsProviderSettings provider,
   }) {
-    final normalizedExtension = extension.trim().toLowerCase();
+    final normalizedExtension = lowercaseStringFromValue(extension);
     if (normalizedExtension == '.wav' || normalizedExtension == '.pcm') {
       final sampleRate = _extraInt(
         provider,
@@ -1723,7 +1723,7 @@ class AiTtsPlaybackService {
     final sampleRate = input['sample_rate'] is int
         ? input['sample_rate'] as int
         : 24000;
-    if (body is! String || body.trim().isEmpty) {
+    if (body is! String || nullIfBlank(body) == null) {
       throw StateError('Mimo TTS returned empty response.');
     }
     final decoded = jsonDecode(body);
@@ -1773,7 +1773,7 @@ class AiTtsPlaybackService {
   }
 
   static bool _isPcm16Format(String format) {
-    final normalized = format.trim().toLowerCase().replaceAll('_', '');
+    final normalized = lowercaseStringFromValue(format).replaceAll('_', '');
     return normalized == 'pcm' || normalized == 'pcm16';
   }
 
@@ -1813,7 +1813,7 @@ class AiTtsPlaybackService {
   }
 
   static String _audioExtension(String format) {
-    switch (format.trim().toLowerCase()) {
+    switch (lowercaseStringFromValue(format)) {
       case 'aac':
         return '.aac';
       case 'flac':
@@ -1941,7 +1941,7 @@ class AiTtsPlaybackService {
   }
 
   static String _bingAudioExtension(String outputFormat) {
-    final normalized = outputFormat.trim().toLowerCase();
+    final normalized = lowercaseStringFromValue(outputFormat);
     if (normalized.startsWith('riff')) return '.wav';
     if (normalized.startsWith('ogg')) return '.ogg';
     return '.mp3';
