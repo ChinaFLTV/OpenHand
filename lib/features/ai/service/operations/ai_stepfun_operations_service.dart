@@ -551,7 +551,7 @@ class AiStepFunOperationsService {
     Map<String, Object?> format = const <String, Object?>{},
     Duration timeout = const Duration(seconds: 120),
   }) async {
-    if (base64Audio.trim().isEmpty) {
+    if (nullIfBlank(base64Audio) == null) {
       throw ArgumentError.value(
         base64Audio,
         'base64Audio',
@@ -759,7 +759,7 @@ class AiStepFunOperationsService {
   }
 
   void _checkRequiredId(String value, String name) {
-    if (value.trim().isEmpty) {
+    if (nullIfBlank(value) == null) {
       throw ArgumentError.value(value, name, 'StepFun $name is empty.');
     }
   }
