@@ -478,9 +478,7 @@ class KnowledgeEmbeddingService {
     required int totalInputs,
     required Duration timeout,
   }) {
-    final modelId = model.modelId.trim().isEmpty
-        ? 'embedding model'
-        : model.modelId;
+    final modelId = _embeddingModelLabel(model);
     final batchEnd = startIndex + batchLength;
     final kind = isQuery ? '查询' : '文档';
     return '知识库 $kind embedding 请求超时：模型 $modelId 在 ${timeout.inSeconds} 秒内未返回。'
@@ -492,9 +490,7 @@ class KnowledgeEmbeddingService {
     required AiModelConfig model,
     required SocketException error,
   }) {
-    final modelId = model.modelId.trim().isEmpty
-        ? 'embedding model'
-        : model.modelId;
+    final modelId = _embeddingModelLabel(model);
     return '知识库 embedding 请求网络异常：模型 $modelId 无法连接或连接被中断。'
         '请确认模型服务地址、端口、代理与鉴权配置可用。原始错误：${error.message}';
   }
@@ -529,4 +525,8 @@ class KnowledgeEmbeddingException implements Exception {
 String? _trimmedOrNull(String? value) {
   final trimmed = value?.trim() ?? '';
   return trimmed.isEmpty ? null : trimmed;
+}
+
+String _embeddingModelLabel(AiModelConfig model) {
+  return _trimmedOrNull(model.modelId) ?? 'embedding model';
 }

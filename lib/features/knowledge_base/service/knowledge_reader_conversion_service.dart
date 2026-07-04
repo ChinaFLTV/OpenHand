@@ -5,6 +5,10 @@ const int _kReaderDefaultMaxCharsPerSegment = 60000;
 const int _kReaderMinMaxCharsPerSegment = 12000;
 const int _kReaderMaxCharsPerSegment = 90000;
 const int _kReaderMaxSegments = 8;
+final RegExp _readerConvertedOutputFencePattern = RegExp(
+  r'^```(?:markdown|md|json|text)?\s*([\s\S]*?)\s*```$',
+  caseSensitive: false,
+);
 
 class KnowledgeReaderConversionRequest {
   const KnowledgeReaderConversionRequest({
@@ -96,8 +100,8 @@ class KnowledgeReaderConversionService {
         cancelSignal: request.cancelSignal,
       );
       final text = _cleanConvertedOutput(completion.reply);
-      if (text.trim().isNotEmpty) {
-        converted.add(text.trimRight());
+      if (text.isNotEmpty) {
+        converted.add(text);
       }
     }
     final output = converted.join('\n\n').trim();
@@ -156,10 +160,7 @@ class KnowledgeReaderConversionService {
 
   String _cleanConvertedOutput(String value) {
     var text = value.trim();
-    final fence = RegExp(
-      r'^```(?:markdown|md|json|text)?\s*([\s\S]*?)\s*```$',
-      caseSensitive: false,
-    ).firstMatch(text);
+    final fence = _readerConvertedOutputFencePattern.firstMatch(text);
     if (fence != null) {
       text = fence.group(1)?.trim() ?? text;
     }
