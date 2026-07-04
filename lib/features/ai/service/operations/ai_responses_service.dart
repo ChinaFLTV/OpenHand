@@ -72,6 +72,9 @@ class AiResponsesService {
     String? user,
   }) {
     const family = AiApiFamily.responses;
+    final instructionsValue = nullIfBlank(instructions);
+    final previousResponseIdValue = nullIfBlank(previousResponseId);
+    final userValue = nullIfBlank(user);
     final endpoint = _router.resolve(
       model,
       family,
@@ -81,10 +84,9 @@ class AiResponsesService {
         AiOperationHttp.mergeBodyExtras(model, family, <String, Object?>{
           'model': model.resolveOperationModelId(family),
           'input': input,
-          if (instructions?.trim().isNotEmpty == true)
-            'instructions': instructions!.trim(),
-          if (previousResponseId?.trim().isNotEmpty == true)
-            'previous_response_id': previousResponseId!.trim(),
+          if (instructionsValue != null) 'instructions': instructionsValue,
+          if (previousResponseIdValue != null)
+            'previous_response_id': previousResponseIdValue,
           if (store != null) 'store': store,
           if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
           if (temperature != null && temperature.isFinite)
@@ -100,7 +102,7 @@ class AiResponsesService {
           if (text != null) 'text': text,
           if (tools != null) 'tools': tools,
           if (toolChoice != null) 'tool_choice': toolChoice,
-          if (user?.trim().isNotEmpty == true) 'user': user!.trim(),
+          if (userValue != null) 'user': userValue,
           if (stream) 'stream': true,
         });
     return AiResponsesRequestBlueprint(

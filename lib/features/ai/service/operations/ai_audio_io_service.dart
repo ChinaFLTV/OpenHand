@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../runtime/ai_endpoint_router.dart';
@@ -61,6 +62,12 @@ class AiAudioIoService {
       protocol: model.protocolType,
       modelId: modelId,
     );
+    final resolvedVoice =
+        nullIfBlank(voice) ??
+        nullIfBlank(model.operationRouting.defaultVoice) ??
+        (stepFunSpeech ? AiStepFunAudioPolicy.defaultVoice : null);
+    final responseFormatValue = nullIfBlank(responseFormat);
+    final speedValue = nullIfBlank(speed);
     final validationError = AiStepFunAudioPolicy.inputValidationError(
       protocol: model.protocolType,
       modelId: modelId,
@@ -73,15 +80,9 @@ class AiAudioIoService {
     final baseBody = <String, Object?>{
       'model': modelId,
       'input': input,
-      if (voice?.trim().isNotEmpty == true)
-        'voice': voice!.trim()
-      else if (model.operationRouting.defaultVoice?.trim().isNotEmpty == true)
-        'voice': model.operationRouting.defaultVoice!.trim()
-      else if (stepFunSpeech)
-        'voice': AiStepFunAudioPolicy.defaultVoice,
-      if (responseFormat?.trim().isNotEmpty == true)
-        'response_format': responseFormat!.trim(),
-      if (speed?.trim().isNotEmpty == true) 'speed': speed!.trim(),
+      if (resolvedVoice != null) 'voice': resolvedVoice,
+      if (responseFormatValue != null) 'response_format': responseFormatValue,
+      if (speedValue != null) 'speed': speedValue,
       if (instructions != null) instructionKey: instructions,
     };
     final mergedBody = AiOperationHttp.mergeBodyExtras(model, family, baseBody);
@@ -178,25 +179,30 @@ class AiAudioIoService {
     double? temperature,
     Object? timestampGranularities,
   }) async {
+    final languageValue = nullIfBlank(language);
+    final promptValue = nullIfBlank(prompt);
+    final responseFormatValue = nullIfBlank(responseFormat);
     final endpoint = _router.resolve(
       model,
       family,
       method: model.requestMethod,
       transport: 'multipart',
     );
-    final body =
-        AiOperationHttp.mergeBodyExtras(model, family, <String, Object?>{
-          'model': model.resolveOperationModelId(family),
-          'file': AiMultipartUploadFile(filePath: filePath),
-          if (language?.trim().isNotEmpty == true) 'language': language!.trim(),
-          if (prompt?.trim().isNotEmpty == true) 'prompt': prompt!.trim(),
-          if (responseFormat?.trim().isNotEmpty == true)
-            'response_format': responseFormat!.trim(),
-          if (temperature != null && temperature.isFinite)
-            'temperature': temperature,
-          if (timestampGranularities != null)
-            'timestamp_granularities': timestampGranularities,
-        });
+    final body = AiOperationHttp.mergeBodyExtras(
+      model,
+      family,
+      <String, Object?>{
+        'model': model.resolveOperationModelId(family),
+        'file': AiMultipartUploadFile(filePath: filePath),
+        if (languageValue != null) 'language': languageValue,
+        if (promptValue != null) 'prompt': promptValue,
+        if (responseFormatValue != null) 'response_format': responseFormatValue,
+        if (temperature != null && temperature.isFinite)
+          'temperature': temperature,
+        if (timestampGranularities != null)
+          'timestamp_granularities': timestampGranularities,
+      },
+    );
     final response = await _transport.sendMultipart(
       uri: AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family),
       method: endpoint.method,
