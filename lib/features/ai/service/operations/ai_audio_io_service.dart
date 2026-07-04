@@ -108,7 +108,7 @@ class AiAudioIoService {
       body: response.body,
       contextHint: 'audio/speech',
     );
-    final contentType = (response.headers['content-type'] ?? '').trim();
+    final contentType = stringFromValue(response.headers['content-type']);
     final isJson = contentType.toLowerCase().contains('json');
     final payload = isJson
         ? AiOperationHttp.jsonMapOrEmpty(
@@ -226,7 +226,10 @@ class AiAudioIoService {
       contextHint: family.storageValue,
     );
     final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
-    final text = '${payload['text'] ?? payload['output_text'] ?? ''}'.trim();
+    final text =
+        optionalStringFromValue(payload['text']) ??
+        optionalStringFromValue(payload['output_text']) ??
+        '';
     return AiAudioIoResult(
       text: text,
       rawResponse: response.body,
