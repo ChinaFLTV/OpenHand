@@ -9,7 +9,7 @@ bool webReverseRuntimeBoolFalse(Object? raw) {
 }
 
 bool webReverseCdpRuntimeHasLiveLocator(Map<Object?, Object?> value) {
-  bool hasText(Object? raw) => raw is String && raw.trim().isNotEmpty;
+  bool hasText(Object? raw) => raw is String && nullIfBlank(raw) != null;
   bool hasPort(Object? raw) => optionalPositiveIntFromValue(raw) != null;
 
   return hasPort(value['cdp_port']) ||

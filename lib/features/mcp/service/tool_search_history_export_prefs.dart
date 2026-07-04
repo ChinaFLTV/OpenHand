@@ -40,8 +40,8 @@ class ToolSearchHistoryExportPrefs {
 
   /// 写入 / 覆盖上次导出目录；空字符串等同于 [clear]。
   static Future<void> writeLastDir(String dir) async {
-    final trimmed = dir.trim();
-    if (trimmed.isEmpty) {
+    final trimmed = nullIfBlank(dir);
+    if (trimmed == null) {
       await clear();
       return;
     }

@@ -316,7 +316,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     required Map<String, Object?> extraEntryFields,
   }) async {
     if (!isCacheEnabled(settings)) return;
-    if (payload.trim().isEmpty) return;
+    if (nullIfBlank(payload) == null) return;
     chain = chain
         .then(
           (_) => _writeEntry(
