@@ -45,6 +45,10 @@ class AnimatedExpandable extends StatelessWidget {
   final AlignmentGeometry alignment;
   final double bodyTopPadding;
 
+  double get _safeBodyTopPadding {
+    return bodyTopPadding.isFinite && bodyTopPadding > 0 ? bodyTopPadding : 0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final effectiveDuration = openHandMotionDuration(context, duration);
@@ -83,7 +87,7 @@ class AnimatedExpandable extends StatelessWidget {
             child: expanded
                 ? Padding(
                     key: const ValueKey<String>('expanded'),
-                    padding: EdgeInsets.only(top: bodyTopPadding),
+                    padding: EdgeInsets.only(top: _safeBodyTopPadding),
                     child: Builder(builder: body),
                   )
                 : const SizedBox.shrink(key: ValueKey<String>('collapsed')),
@@ -111,13 +115,21 @@ class AnimatedExpandChevron extends StatelessWidget {
   final Color? color;
   final Duration duration;
 
+  double get _safeSize {
+    return size.isFinite && size > 0 ? size : 0;
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedRotation(
       turns: expanded ? 0.25 : 0.0,
       duration: openHandMotionDuration(context, duration),
       curve: Curves.easeOutCubic,
-      child: Icon(Icons.keyboard_arrow_right_rounded, size: size, color: color),
+      child: Icon(
+        Icons.keyboard_arrow_right_rounded,
+        size: _safeSize,
+        color: color,
+      ),
     );
   }
 }
