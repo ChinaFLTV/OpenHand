@@ -11,8 +11,7 @@ import 'highlight_pulse.dart';
 /// 自增即 fadeIn+decay。同一个 State 实例只会 pulse 一次；切换/重建会重新
 /// 生成 State，因此每次进入页面都会高亮一次。
 ///
-/// reduceMotion / `MediaQuery.disableAnimationsOf` 由内部的 [HighlightPulse]
-/// 自动处理（直接跳过动画）。
+/// 共享 motion preference 由内部的 [HighlightPulse] 自动处理（直接跳过动画）。
 class FirstFramePulseBox extends StatefulWidget {
   const FirstFramePulseBox({
     super.key,
