@@ -15,6 +15,29 @@ import '../chat/ai_protocol_adapter.dart';
 import '../runtime/ai_tool_runtime_service.dart';
 import 'self_learning_runner.dart';
 
+const int _selfLearningSummaryPreviewMaxChars = 120;
+
+final RegExp _selfLearningModelSeparatorPattern = RegExp(r'[\s_]+');
+final RegExp _selfLearningWhitespacePattern = RegExp(r'\s+');
+final List<RegExp> _unfulfilledIntentNegationPatterns = <RegExp>[
+  RegExp(r'无\s*变\s*更'),
+  RegExp(r'不\s*需\s*要\s*更新'),
+  RegExp(r'本\s*轮\s*放\s*弃'),
+  RegExp(r'\bno\s+changes?\b', caseSensitive: false),
+  RegExp(r'\bskip(?:ping)?\s+this\s+round\b', caseSensitive: false),
+];
+final List<RegExp> _unfulfilledIntentPatterns = <RegExp>[
+  RegExp(r'upsert_profile'),
+  RegExp(r'memory\s*\(\s*action'),
+  RegExp(r'skill[_\s-]?manager'),
+  RegExp(r'我\s*(?:将|要|准备|打算|应该|会|需要)\s*(?:调用|更新|新增|追加|删除|patch|edit|create)'),
+  RegExp(r'(?:更新|新增|追加|修订|纠正)\s*(?:画像|user_profile|记忆|技能|skill)'),
+  RegExp(
+    r'\b(?:I\s+(?:will|should|need\s+to)|let\s+me)\s+(?:call|update|append|add|delete|invoke)\b',
+    caseSensitive: false,
+  ),
+];
+
 class SelfLearningModelSelection {
   const SelfLearningModelSelection({
     required this.model,
@@ -34,9 +57,9 @@ SelfLearningModelSelection selectSelfLearningModel({
   AiModelConfig? selectedModel,
   String? preferredProviderConfigId,
 }) {
-  final preferredId = preferredProviderConfigId?.trim();
+  final preferredId = nullIfBlank(preferredProviderConfigId);
   AiModelConfig? preferred;
-  if (preferredId != null && preferredId.isNotEmpty) {
+  if (preferredId != null) {
     for (final candidate in models) {
       if (candidate.id == preferredId) {
         preferred = candidate;
@@ -105,7 +128,10 @@ bool _hasMediaGenerationCapability(Set<AiModelCapability> capabilities) {
 }
 
 bool _looksLikeDedicatedMediaGenerationModel(String modelId) {
-  final normalized = modelId.toLowerCase().replaceAll(RegExp(r'[\s_]+'), '-');
+  final normalized = modelId.toLowerCase().replaceAll(
+    _selfLearningModelSeparatorPattern,
+    '-',
+  );
   // ── Image-only generators ────────────────────────────────────────────
   const imagePrefixes = <String>[
     'sora',
@@ -529,8 +555,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
 
 /// 把一次 memory 工具调用的 args 浓缩成一段中文摘要，最多 120 字。
 String _summariseMemoryArgs(String action, String content) {
-  final flat = content.replaceAll(RegExp(r'\s+'), ' ').trim();
-  final preview = flat.length <= 120 ? flat : '${flat.substring(0, 117)}…';
+  final preview = _compactSelfLearningPreview(content);
   return switch (action) {
     'append' => preview.isEmpty ? '追加一条记忆' : preview,
     'update' => preview.isEmpty ? '更新记忆内容' : preview,
@@ -544,8 +569,7 @@ String _summariseMemoryArgs(String action, String content) {
 String _summariseSkillArgs(Map<String, Object?> args) {
   final action = AiToolUtils.readString(args['action']).toLowerCase();
   final desc = '${args['description'] ?? args['summary'] ?? ''}';
-  final flat = desc.replaceAll(RegExp(r'\s+'), ' ').trim();
-  final preview = flat.length <= 120 ? flat : '${flat.substring(0, 117)}…';
+  final preview = _compactSelfLearningPreview(desc);
   if (preview.isNotEmpty) return preview;
   return switch (action) {
     'create' => '新增技能',
@@ -554,6 +578,13 @@ String _summariseSkillArgs(Map<String, Object?> args) {
     'delete' => '删除技能',
     _ => action.isEmpty ? '技能操作' : action,
   };
+}
+
+String _compactSelfLearningPreview(String value) {
+  final flat = value.replaceAll(_selfLearningWhitespacePattern, ' ').trim();
+  if (flat.length <= _selfLearningSummaryPreviewMaxChars) return flat;
+  const keepChars = _selfLearningSummaryPreviewMaxChars - 3;
+  return '${flat.substring(0, keepChars)}…';
 }
 
 /// 启发式：当模型在 reply / reasoning 中提到了要做的更新动作（中文/英文/工具
@@ -565,30 +596,12 @@ bool _looksLikeUnfulfilledIntent({
   required String reasoning,
 }) {
   final combined = '$reply\n$reasoning';
-  if (combined.trim().isEmpty) return false;
+  if (nullIfBlank(combined) == null) return false;
   // 显式说"无变更/无更新"的情况不算光说不做。
-  final negationPatterns = <RegExp>[
-    RegExp(r'无\s*变\s*更'),
-    RegExp(r'不\s*需\s*要\s*更新'),
-    RegExp(r'本\s*轮\s*放\s*弃'),
-    RegExp(r'\bno\s+changes?\b', caseSensitive: false),
-    RegExp(r'\bskip(?:ping)?\s+this\s+round\b', caseSensitive: false),
-  ];
-  for (final neg in negationPatterns) {
+  for (final neg in _unfulfilledIntentNegationPatterns) {
     if (neg.hasMatch(combined)) return false;
   }
-  final intentPatterns = <RegExp>[
-    RegExp(r'upsert_profile'),
-    RegExp(r'memory\s*\(\s*action'),
-    RegExp(r'skill[_\s-]?manager'),
-    RegExp(r'我\s*(?:将|要|准备|打算|应该|会|需要)\s*(?:调用|更新|新增|追加|删除|patch|edit|create)'),
-    RegExp(r'(?:更新|新增|追加|修订|纠正)\s*(?:画像|user_profile|记忆|技能|skill)'),
-    RegExp(
-      r'\b(?:I\s+(?:will|should|need\s+to)|let\s+me)\s+(?:call|update|append|add|delete|invoke)\b',
-      caseSensitive: false,
-    ),
-  ];
-  for (final pat in intentPatterns) {
+  for (final pat in _unfulfilledIntentPatterns) {
     if (pat.hasMatch(combined)) return true;
   }
   return false;
