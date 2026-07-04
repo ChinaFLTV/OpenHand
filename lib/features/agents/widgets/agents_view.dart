@@ -642,6 +642,181 @@ class _AgentCapabilitySummary extends StatelessWidget {
   }
 }
 
+class _AgentDraftKpiList extends StatelessWidget {
+  const _AgentDraftKpiList({required this.items, required this.onRemove});
+
+  final List<AgentKpiItem> items;
+  final ValueChanged<AgentKpiItem> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = _agentChipAnimationSettings(context);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final child = items.isEmpty
+        ? Text(
+            key: const ValueKey<String>('agent-draft-kpi-empty'),
+            openHandLocalizedText(
+              context,
+              zh: '暂无 KPI。添加后会随智能体档案保存。',
+              en: 'No KPI yet. Added KPIs are saved with this agent.',
+            ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          )
+        : Column(
+            key: ValueKey<String>('agent-draft-kpi-list-${items.length}'),
+            children: [
+              for (var index = 0; index < items.length; index++) ...[
+                if (index > 0) const SizedBox(height: 8),
+                _AgentDraftKpiTile(
+                  key: ValueKey<String>(
+                    'agent-draft-kpi-${items[index].id}-${items[index].name}',
+                  ),
+                  item: items[index],
+                  onRemove: () => onRemove(items[index]),
+                ),
+              ],
+            ],
+          );
+    return AnimatedSwitcher(
+      duration: settings.duration,
+      reverseDuration: settings.duration,
+      switchInCurve: settings.curve.curve,
+      switchOutCurve: settings.curve.reverseCurve,
+      transitionBuilder: (child, animation) {
+        return SizeTransition(
+          axisAlignment: -1,
+          sizeFactor: animation,
+          child: buildAnimationStyleTransition(
+            animation: animation,
+            settings: settings,
+            child: child,
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+}
+
+class _AgentDraftKpiTile extends StatelessWidget {
+  const _AgentDraftKpiTile({
+    super.key,
+    required this.item,
+    required this.onRemove,
+  });
+
+  final AgentKpiItem item;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final statusColor = _agentKpiStatusColor(cs, item.status);
+    final progress = item.progress.clamp(0, 1).toDouble();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                _agentKpiStatusIcon(item.status),
+                size: 18,
+                color: statusColor,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _AgentActivityTypeChip(
+                        label: _agentKpiStatusLabel(context, item.status),
+                        color: statusColor,
+                      ),
+                      Text(
+                        '${(progress * 100).round()}%',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (item.target.trim().isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      item.target,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 6,
+                      color: statusColor,
+                      backgroundColor: cs.surfaceContainerHighest,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '删除 KPI',
+                en: 'Remove KPI',
+              ),
+              onPressed: onRemove,
+              icon: const Icon(Icons.close_rounded),
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 Future<void> _handleAgentAction(
   BuildContext context,
   AgentProfile agent,
@@ -5666,16 +5841,11 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             ),
           ],
         ),
-        for (final item in _kpis)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(item.name),
-            subtitle: Text(item.target),
-            trailing: IconButton(
-              icon: const Icon(Icons.close_rounded),
-              onPressed: () => setState(() => _kpis.remove(item)),
-            ),
-          ),
+        const SizedBox(height: 10),
+        _AgentDraftKpiList(
+          items: _kpis,
+          onRemove: (item) => setState(() => _kpis.remove(item)),
+        ),
       ],
     );
   }
