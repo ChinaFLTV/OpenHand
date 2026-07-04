@@ -3,6 +3,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/shared/ui/animated_dialog.dart';
 
 void main() {
+  testWidgets('buildOpenHandDialog normalizes invalid inset padding', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: buildOpenHandDialog(
+            insetPadding: const EdgeInsets.fromLTRB(-4, 8, -6, -2),
+            child: const SizedBox(
+              width: 120,
+              height: 80,
+              child: Center(child: Text('dialog')),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('dialog'), findsOneWidget);
+  });
+
   testWidgets('showAnimatedModalSheet normalizes invalid margins', (
     tester,
   ) async {

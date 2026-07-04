@@ -93,17 +93,21 @@ double _nonNegativeFiniteInset(double value) {
   return value.isFinite && value > 0 ? value : 0;
 }
 
+EdgeInsets _nonNegativeInsets(EdgeInsets value) {
+  return EdgeInsets.fromLTRB(
+    _nonNegativeFiniteInset(value.left),
+    _nonNegativeFiniteInset(value.top),
+    _nonNegativeFiniteInset(value.right),
+    _nonNegativeFiniteInset(value.bottom),
+  );
+}
+
 EdgeInsets _nonNegativeResolvedInsets(
   BuildContext context,
   EdgeInsetsGeometry value,
 ) {
   final resolved = value.resolve(Directionality.of(context));
-  return EdgeInsets.fromLTRB(
-    _nonNegativeFiniteInset(resolved.left),
-    _nonNegativeFiniteInset(resolved.top),
-    _nonNegativeFiniteInset(resolved.right),
-    _nonNegativeFiniteInset(resolved.bottom),
-  );
+  return _nonNegativeInsets(resolved);
 }
 
 double _safeDialogMaxDimension(double? maxValue, double minValue) {
@@ -273,7 +277,9 @@ Dialog buildOpenHandDialog({
     elevation: elevation,
     shape: shape,
     clipBehavior: clipBehavior,
-    insetPadding: insetPadding ?? kOpenHandDialogDefaultInsetPadding,
+    insetPadding: _nonNegativeInsets(
+      insetPadding ?? kOpenHandDialogDefaultInsetPadding,
+    ),
     alignment: alignment,
     child: buildOpenHandDialogConstrainedContent(
       child: buildOpenHandDialogScrollConfiguration(child: child),
@@ -906,7 +912,7 @@ Widget buildOpenHandResponsiveDialogShell({
   );
 
   return SafeArea(
-    minimum: safeAreaMinimum,
+    minimum: _nonNegativeInsets(safeAreaMinimum),
     child: buildOpenHandDialog(
       backgroundColor: backgroundColor,
       surfaceTintColor: surfaceTintColor,
