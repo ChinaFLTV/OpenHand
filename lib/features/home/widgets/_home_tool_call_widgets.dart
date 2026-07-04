@@ -2416,6 +2416,13 @@ _FormattedToolContent _formatToolContentImpl(
   if (trimmed.isEmpty) {
     return _FormattedToolContent(text: emptyFallback);
   }
+  final legacyToolSearchContent = _tryFormatLegacyToolSearchContent(trimmed);
+  if (legacyToolSearchContent != null) {
+    return _FormattedToolContent(
+      text: legacyToolSearchContent,
+      language: 'json',
+    );
+  }
   final jsonContent = _tryFormatJsonContent(trimmed);
   if (jsonContent != null) {
     return _FormattedToolContent(text: jsonContent, language: 'json');
@@ -2433,6 +2440,49 @@ _FormattedToolContent _formatToolContentImpl(
   }
   return _FormattedToolContent(text: normalized);
 }
+
+String? _tryFormatLegacyToolSearchContent(String content) {
+  final headerMatch = _legacyToolSearchHeaderPattern.firstMatch(content);
+  if (headerMatch == null) return null;
+  final functions = <Map<String, Object?>>[];
+  for (final match in _legacyToolSearchFunctionPattern.allMatches(content)) {
+    final rawFunction = match.group(1)?.trim();
+    if (rawFunction == null || rawFunction.isEmpty) continue;
+    try {
+      final decoded = jsonDecode(rawFunction);
+      if (decoded is Map) {
+        functions.add(Map<String, Object?>.from(decoded));
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+  final loadedTools = functions
+      .map((item) => '${item['name'] ?? ''}'.trim())
+      .where((name) => name.isNotEmpty)
+      .toList(growable: false);
+  final matchedCount = int.tryParse(headerMatch.group(1) ?? '') ?? 0;
+  final deferredTotal = int.tryParse(headerMatch.group(2) ?? '') ?? 0;
+  if (functions.isEmpty && matchedCount > 0) return null;
+  return const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+    'tool': 'ToolSearch',
+    'status': 'success',
+    'matched_count': matchedCount,
+    'deferred_total': deferredTotal,
+    'loaded_tools': loadedTools,
+    'message': matchedCount == 0
+        ? 'No deferred tool matched. Try different keywords or select exact names.'
+        : 'Matched tools are callable by exact name from the next model request onward.',
+    'functions': functions,
+  });
+}
+
+final RegExp _legacyToolSearchHeaderPattern = RegExp(
+  r'^ToolSearch (?:loaded|matched) (\d+) of (\d+) deferred runtime tool\(s\)\.',
+);
+final RegExp _legacyToolSearchFunctionPattern = RegExp(
+  r'<function>([\s\S]*?)</function>',
+);
 
 String? _tryFormatJsonContent(String content) {
   if (!_looksLikeJsonContent(content)) {

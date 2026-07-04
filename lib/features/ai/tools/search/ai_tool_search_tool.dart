@@ -29,6 +29,7 @@ class AiToolSearchTool extends AiTool {
   static const int _defaultMaxResults = 5;
   static const int _minMaxResults = 1;
   static const int _maxMaxResults = 50;
+  static const JsonEncoder _prettyJsonEncoder = JsonEncoder.withIndent('  ');
 
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.toolSearch;
@@ -38,7 +39,7 @@ class AiToolSearchTool extends AiTool {
   List<String> deferredToolNames = const <String>[];
 
   /// Full definitions of deferred runtime tools, keyed by name. Used to
-  /// assemble the `<functions>` payload returned to the model.
+  /// assemble the structured JSON payload returned to the model.
   Map<String, AiToolDefinition> deferredToolDefinitions =
       const <String, AiToolDefinition>{};
 
@@ -93,11 +94,17 @@ class AiToolSearchTool extends AiTool {
             .toList(growable: false)
           ..sort(_compareToolNames);
     if (deferred.isEmpty) {
+      final payload = _buildResultPayload(
+        query: query,
+        matches: const <String>[],
+        deferredTotal: 0,
+        functions: const <Map<String, Object?>>[],
+        message:
+            'No deferred runtime tools are available. Every callable tool is already loaded.',
+      );
       return AiToolUtils.simpleSuccessResult(
         command: 'ToolSearch query=$query',
-        output:
-            'No deferred runtime tools are available. Every callable tool is '
-            'already loaded directly into this turn\'s catalog.',
+        output: _encodePayload(payload),
         durationMs: stopwatch.elapsedMilliseconds,
         metadata: const <String, Object?>{
           'tool_search_loaded_names': <String>[],
@@ -111,37 +118,19 @@ class AiToolSearchTool extends AiTool {
       deferred: deferred,
       deferredDefinitions: definitionsByName,
     );
-    final functions = _renderFunctionsBlock(matches, definitionsByName);
-    final lines = <String>[];
-    if (matches.isEmpty) {
-      lines
-        ..add(
-          'ToolSearch matched 0 of ${deferred.length} deferred runtime tool(s).',
-        )
-        ..add('')
-        ..add(
-          'No deferred tool matched. Try different keywords, or list a name '
-          'explicitly via `select:NAME`.',
-        );
-    } else {
-      lines
-        ..add(
-          'ToolSearch loaded ${matches.length} of ${deferred.length} '
-          'deferred runtime tool(s).',
-        )
-        ..add('loaded: ${matches.join(', ')}')
-        ..add('')
-        ..add(
-          'The full JSONSchema of the matched tools is rendered below inside '
-          'a <functions> block. Each tool is now callable by its exact name '
-          'from the next model request onward.',
-        )
-        ..add('')
-        ..add(functions);
-    }
+    final functions = _buildFunctionDefinitions(matches, definitionsByName);
+    final payload = _buildResultPayload(
+      query: query,
+      matches: matches,
+      deferredTotal: deferred.length,
+      functions: functions,
+      message: matches.isEmpty
+          ? 'No deferred tool matched. Try different keywords or select exact names.'
+          : 'Matched tools are callable by exact name from the next model request onward.',
+    );
     return AiToolUtils.simpleSuccessResult(
       command: 'ToolSearch query=$query',
-      output: lines.join('\n'),
+      output: _encodePayload(payload),
       durationMs: stopwatch.elapsedMilliseconds,
       metadata: <String, Object?>{
         'tool_search_loaded_names': matches,
@@ -286,28 +275,46 @@ class AiToolSearchTool extends AiTool {
     return _ParsedToolName(parts: parts, full: parts.join(' '), isMcp: false);
   }
 
-  String _renderFunctionsBlock(
+  Map<String, Object?> _buildResultPayload({
+    required String query,
+    required List<String> matches,
+    required int deferredTotal,
+    required List<Map<String, Object?>> functions,
+    required String message,
+  }) {
+    return <String, Object?>{
+      'tool': 'ToolSearch',
+      'status': 'success',
+      'query': query,
+      'matched_count': matches.length,
+      'deferred_total': deferredTotal,
+      'loaded_tools': matches,
+      'message': message,
+      'functions': functions,
+    };
+  }
+
+  String _encodePayload(Map<String, Object?> payload) {
+    return _prettyJsonEncoder.convert(payload);
+  }
+
+  List<Map<String, Object?>> _buildFunctionDefinitions(
     List<String> names,
     Map<String, AiToolDefinition> definitionsByName,
   ) {
-    if (names.isEmpty) return '';
-    final buffer = StringBuffer('<functions>\n');
+    if (names.isEmpty) return const <Map<String, Object?>>[];
+    final functions = <Map<String, Object?>>[];
     for (final n in names) {
       final def = definitionsByName[n];
       if (def == null) continue;
       final stableDef = stableToolDefinitionForAiRequest(def);
-      final entry = jsonEncode(<String, Object?>{
+      functions.add(<String, Object?>{
         'name': stableDef.name,
         'description': stableDef.description,
         'parameters': stableDef.parameters,
       });
-      buffer
-        ..write('<function>')
-        ..write(entry)
-        ..writeln('</function>');
     }
-    buffer.write('</functions>');
-    return buffer.toString();
+    return functions;
   }
 }
 

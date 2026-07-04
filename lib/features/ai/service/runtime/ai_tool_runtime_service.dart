@@ -3424,12 +3424,13 @@ class AiToolRuntimeService {
           'matches against their name parts and descriptions.\n'
           '- `+github issues list` — prefix a term with `+` to make it '
           'required; remaining terms refine the ranking.\n\n'
-          'Result: matched tools are returned inside a `<functions>` block '
-          'whose entries follow the same JSONSchema encoding as the tools '
-          'declared at the top of the prompt. Once a tool appears in that '
-          'result, invoke it by exact name from the next model request onward. '
-          'Issuing the same query twice with different keywords is fine; '
-          'ToolSearch is read-only and side-effect free.',
+          'Result: matched tools are returned as structured JSON with a '
+          '`functions` array. Each entry contains `name`, `description`, and '
+          '`parameters` using the same JSON Schema shape as visible tools. '
+          'Once a tool appears in that result, invoke it by exact name from '
+          'the next model request onward. Issuing the same query twice with '
+          'different keywords is fine; ToolSearch is read-only and side-effect '
+          'free.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{

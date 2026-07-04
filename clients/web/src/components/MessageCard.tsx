@@ -4899,9 +4899,14 @@ function ToolSection({
   defaultExpanded?: boolean;
   autoFollow?: boolean;
 }) {
-  const long = content.length > 640 || content.split('\n').length > 10;
+  const formattedContent = useMemo(
+    () => formatToolSectionContent(content),
+    [content],
+  );
+  const long =
+    formattedContent.length > 640 || formattedContent.split('\n').length > 10;
   const [expanded, setExpanded] = useState(defaultExpanded || !long);
-  const preRef = useStickyBottom<HTMLPreElement>(content, autoFollow);
+  const preRef = useStickyBottom<HTMLPreElement>(formattedContent, autoFollow);
   return (
     <section class="oh-tool-section">
       <div class="oh-tool-section-header flex items-center gap-2 mb-1 text-[11px]" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -4932,9 +4937,75 @@ function ToolSection({
           overflow: long ? 'auto' : 'visible',
         }}
       >
-        {content}
+        {formattedContent}
       </pre>
     </section>
+  );
+}
+
+function formatToolSectionContent(content: string): string {
+  const normalized = content
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .trimEnd();
+  const trimmed = normalized.trim();
+  const legacyToolSearchContent = formatLegacyToolSearchContent(trimmed);
+  if (legacyToolSearchContent) return legacyToolSearchContent;
+  if (!looksLikeJsonText(trimmed)) return normalized;
+  try {
+    return JSON.stringify(JSON.parse(trimmed), null, 2);
+  } catch {
+    return normalized;
+  }
+}
+
+function looksLikeJsonText(text: string): boolean {
+  if (text.length < 2) return false;
+  return (
+    (text.startsWith('{') && text.endsWith('}')) ||
+    (text.startsWith('[') && text.endsWith(']'))
+  );
+}
+
+function formatLegacyToolSearchContent(content: string): string | null {
+  const header = content.match(
+    /^ToolSearch (?:loaded|matched) (\d+) of (\d+) deferred runtime tool\(s\)\./,
+  );
+  if (!header) return null;
+  const functions: Array<Record<string, unknown>> = [];
+  const functionPattern = /<function>([\s\S]*?)<\/function>/g;
+  for (const match of content.matchAll(functionPattern)) {
+    const rawFunction = match[1]?.trim();
+    if (!rawFunction) continue;
+    try {
+      const decoded = JSON.parse(rawFunction);
+      if (decoded && typeof decoded === 'object' && !Array.isArray(decoded)) {
+        functions.push(decoded as Record<string, unknown>);
+      }
+    } catch {
+      return null;
+    }
+  }
+  const matchedCount = Number.parseInt(header[1] ?? '0', 10) || 0;
+  const deferredTotal = Number.parseInt(header[2] ?? '0', 10) || 0;
+  if (functions.length === 0 && matchedCount > 0) return null;
+  const loadedTools = functions
+    .map((item) => (typeof item.name === 'string' ? item.name.trim() : ''))
+    .filter(Boolean);
+  return JSON.stringify(
+    {
+      tool: 'ToolSearch',
+      status: 'success',
+      matched_count: matchedCount,
+      deferred_total: deferredTotal,
+      loaded_tools: loadedTools,
+      message: matchedCount === 0
+        ? 'No deferred tool matched. Try different keywords or select exact names.'
+        : 'Matched tools are callable by exact name from the next model request onward.',
+      functions,
+    },
+    null,
+    2,
   );
 }
 

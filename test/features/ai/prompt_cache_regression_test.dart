@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/ai/index.dart';
 import 'package:openhand/features/home/model/session_cache_hit_trend.dart';
@@ -80,6 +82,64 @@ void main() {
       contains('AgentTaskProgress'),
     );
   });
+
+  test('ToolSearch returns matched schemas as structured JSON', () async {
+    const deferredDefinition = AiToolDefinition(
+      name: 'AgentTaskProgress',
+      description: 'Report task progress.',
+      parameters: <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'task_id': <String, Object?>{'type': 'string'},
+        },
+        'required': <String>['task_id'],
+      },
+    );
+    final toolSearch = AiToolSearchTool();
+    final resolvedToolSearch = _toolSearchWithDeferredDefinition(
+      deferredDefinition,
+    );
+    final result = await toolSearch.execute(
+      AiToolExecutionContext(
+        sessionId: 's1',
+        catalog: AiResolvedToolCatalog(
+          definitions: <AiToolDefinition>[resolvedToolSearch.definition],
+          toolsByName: <String, AiResolvedTool>{
+            'ToolSearch': resolvedToolSearch,
+          },
+        ),
+        toolCall: const AiToolCall(
+          id: 'tc1',
+          name: 'ToolSearch',
+          arguments: '{"query":"select:AgentTaskProgress"}',
+        ),
+        decodedArguments: const <String, Object?>{
+          'query': 'select:AgentTaskProgress',
+        },
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      ),
+    );
+
+    expect(result.stdout, isNot(contains('<functions>')));
+    final payload = jsonDecode(result.stdout) as Map<String, Object?>;
+    expect(payload['tool'], 'ToolSearch');
+    expect(payload['status'], 'success');
+    expect(payload['query'], 'select:AgentTaskProgress');
+    expect(payload['loaded_tools'], <String>['AgentTaskProgress']);
+    final functions = payload['functions'] as List<Object?>;
+    expect(functions, hasLength(1));
+    expect(
+      (functions.single as Map<String, Object?>)['name'],
+      'AgentTaskProgress',
+    );
+    expect(result.metadata['tool_search_loaded_names'], <String>[
+      'AgentTaskProgress',
+    ]);
+  });
 }
 
 AiResolvedTool _builtin(AiBuiltinToolKind kind, String name) {
@@ -96,6 +156,36 @@ AiResolvedTool _builtin(AiBuiltinToolKind kind, String name) {
       kind: kind,
       loadStrategy: AiBuiltinToolLoadStrategy.lazy,
     ),
+  );
+}
+
+AiModelConfig _model() {
+  return const AiModelConfig(
+    id: 'test-model',
+    baseUrl: 'http://localhost',
+    authScheme: AiAuthScheme.none,
+    token: '',
+    modelId: 'test',
+    protocolType: AiProtocolType.openai,
+  );
+}
+
+AiResolvedTool _toolSearchWithDeferredDefinition(AiToolDefinition definition) {
+  return AiResolvedTool(
+    name: 'ToolSearch',
+    definition: const AiToolDefinition(
+      name: 'ToolSearch',
+      description: 'ToolSearch description',
+      parameters: <String, Object?>{'type': 'object'},
+    ),
+    source: AiRuntimeToolSource.builtin,
+    builtinKind: AiBuiltinToolKind.toolSearch,
+    builtinConfig: const AiBuiltinToolConfig(
+      kind: AiBuiltinToolKind.toolSearch,
+    ),
+    toolSearchDeferredToolDefinitions: <String, AiToolDefinition>{
+      definition.name: definition,
+    },
   );
 }
 
