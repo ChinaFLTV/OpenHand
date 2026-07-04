@@ -89,6 +89,23 @@ double? _validDialogViewportFraction(double? value) {
   return value.clamp(0.05, 1.0).toDouble();
 }
 
+double _nonNegativeFiniteInset(double value) {
+  return value.isFinite && value > 0 ? value : 0;
+}
+
+EdgeInsets _nonNegativeResolvedInsets(
+  BuildContext context,
+  EdgeInsetsGeometry value,
+) {
+  final resolved = value.resolve(Directionality.of(context));
+  return EdgeInsets.fromLTRB(
+    _nonNegativeFiniteInset(resolved.left),
+    _nonNegativeFiniteInset(resolved.top),
+    _nonNegativeFiniteInset(resolved.right),
+    _nonNegativeFiniteInset(resolved.bottom),
+  );
+}
+
 double _safeDialogMaxDimension(double? maxValue, double minValue) {
   final validMax = _validDialogDimension(maxValue);
   if (validMax == null) return double.infinity;
@@ -1136,6 +1153,7 @@ Future<T?> showAnimatedModalSheet<T>({
       final theme = Theme.of(sheetContext);
       final colorScheme = theme.colorScheme;
       final sheetWidth = openHandModalSheetWidth(sheetContext);
+      final sheetMargin = _nonNegativeResolvedInsets(sheetContext, margin);
       final sheetShape =
           shape ??
           RoundedRectangleBorder(
@@ -1155,7 +1173,7 @@ Future<T?> showAnimatedModalSheet<T>({
       return SafeArea(
         top: false,
         child: Padding(
-          padding: margin,
+          padding: sheetMargin,
           child: ConstrainedBox(
             constraints: BoxConstraints.tightFor(width: sheetWidth),
             child: Material(
