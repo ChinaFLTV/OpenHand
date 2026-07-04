@@ -2633,7 +2633,7 @@ Future<void> _updateAgentTaskFromDesk(
   String note = '',
   String result = '',
 }) async {
-  await context.read<AgentsController>().updateTaskState(
+  final updated = await context.read<AgentsController>().updateTaskState(
     agent.id,
     task.id,
     status: status,
@@ -2642,6 +2642,16 @@ Future<void> _updateAgentTaskFromDesk(
     activityKind: activityKind,
     activityTitle: activityTitle,
   );
+  if (updated == null && context.mounted) {
+    OpenHandSnackBar.showError(
+      context,
+      openHandLocalizedText(
+        context,
+        zh: '任务状态已变化，请刷新后再试。',
+        en: 'Task state changed. Refresh and try again.',
+      ),
+    );
+  }
 }
 
 Future<void> _confirmAgentTaskStatus(
@@ -2743,15 +2753,12 @@ Future<void> _showCompleteTaskDialog(
     if (submitted == true && context.mounted) {
       final resultText = result.text.trim();
       if (resultText.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              openHandLocalizedText(
-                context,
-                zh: '请先填写任务结果。',
-                en: 'Enter a task result first.',
-              ),
-            ),
+        OpenHandSnackBar.showInfo(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '请先填写任务结果。',
+            en: 'Enter a task result first.',
           ),
         );
         return;
@@ -4436,15 +4443,12 @@ Future<void> _showAgentApprovalRequestDialog(
     if (submitted == true && context.mounted) {
       final titleText = title.text.trim();
       if (titleText.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              openHandLocalizedText(
-                context,
-                zh: '请先填写审批标题。',
-                en: 'Enter an approval title first.',
-              ),
-            ),
+        OpenHandSnackBar.showInfo(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '请先填写审批标题。',
+            en: 'Enter an approval title first.',
           ),
         );
         return;
@@ -4475,15 +4479,12 @@ Future<void> _resolveAgentApprovalFromDialog(
     status,
   );
   if (resolved == null && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(
-            context,
-            zh: '审批状态已变化，请刷新后再试。',
-            en: 'Approval state changed. Refresh and try again.',
-          ),
-        ),
+    OpenHandSnackBar.showError(
+      context,
+      openHandLocalizedText(
+        context,
+        zh: '审批状态已变化，请刷新后再试。',
+        en: 'Approval state changed. Refresh and try again.',
       ),
     );
   }
