@@ -146,8 +146,7 @@ class _AuditShimmerPlaceholderState extends State<_AuditShimmerPlaceholder>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: _auditShimmerPeriod)
-      ..repeat();
+    _ctrl = AnimationController(vsync: this, duration: _auditShimmerPeriod);
   }
 
   @override

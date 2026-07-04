@@ -2488,7 +2488,7 @@ class _ImageShimmerPlaceholderState extends State<_ImageShimmerPlaceholder>
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat();
+    );
   }
 
   @override
@@ -8845,7 +8845,7 @@ class _TypewriterCaretState extends State<_TypewriterCaret>
   late final AnimationController _ctrl = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 950),
-  )..repeat(reverse: true);
+  );
 
   @override
   void dispose() {

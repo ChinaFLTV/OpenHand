@@ -563,7 +563,7 @@ class _PulsingDotState extends State<_PulsingDot>
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: _kHomeSidebarPulseDuration,
-  )..repeat(reverse: true);
+  );
 
   @override
   void dispose() {

@@ -478,7 +478,7 @@ class _SweepBadgeState extends State<_SweepBadge>
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: _kSweepBadgeMotionDuration,
-  )..repeat();
+  );
 
   @override
   void dispose() {

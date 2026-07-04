@@ -1665,7 +1665,7 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
     _ctrl = AnimationController(
       vsync: this,
       duration: _kToolConstructingPulseDuration,
-    )..repeat(reverse: true);
+    );
   }
 
   @override

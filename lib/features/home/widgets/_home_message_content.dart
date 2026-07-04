@@ -4060,7 +4060,7 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
     _dotCtrl = AnimationController(
       vsync: this,
       duration: _streamingHtmlDotsDuration,
-    )..repeat();
+    );
     _dotAnim = CurvedAnimation(parent: _dotCtrl, curve: Curves.easeInOut);
   }
 
@@ -4200,7 +4200,7 @@ class _HtmlBubbleShimmerState extends State<_HtmlBubbleShimmer>
     _ctrl = AnimationController(
       vsync: this,
       duration: _htmlBubbleShimmerDuration,
-    )..repeat();
+    );
   }
 
   @override
