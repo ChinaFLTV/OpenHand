@@ -3881,6 +3881,7 @@ class _AgentResourceEditorDialogState
   late final TextEditingController _tokenBudget;
   late final TextEditingController _tokenUsed;
   late final TextEditingController _openHandles;
+  late final List<_KeyValueDraft> _extraEntries;
   late double _cpuPercent;
 
   @override
@@ -3894,6 +3895,7 @@ class _AgentResourceEditorDialogState
     _tokenBudget = TextEditingController(text: '${initial.tokenBudget}');
     _tokenUsed = TextEditingController(text: '${initial.tokenUsed}');
     _openHandles = TextEditingController(text: '${initial.openHandles}');
+    _extraEntries = _keyValueEntriesFromMap(initial.extra);
   }
 
   @override
@@ -3907,6 +3909,9 @@ class _AgentResourceEditorDialogState
       _openHandles,
     ]) {
       controller.dispose();
+    }
+    for (final entry in _extraEntries) {
+      entry.dispose();
     }
     super.dispose();
   }
@@ -3926,7 +3931,7 @@ class _AgentResourceEditorDialogState
               label: l10n.commonCancel,
             ),
             OpenHandDialogActionButton.primary(
-              onPressed: () => Navigator.of(context).pop(_buildUsage()),
+              onPressed: _submitUsage,
               label: l10n.commonSave,
             ),
           ],
@@ -3985,6 +3990,32 @@ class _AgentResourceEditorDialogState
               ),
             ),
             _resourceField(_openHandles, l10n.agentsMetricHandles),
+            _FormGridItem(
+              fullWidth: true,
+              child: _AgentKeyValueEditor(
+                title: openHandLocalizedText(
+                  context,
+                  zh: '资源元数据',
+                  en: 'Resource metadata',
+                ),
+                entries: _extraEntries,
+                keyLabel: openHandLocalizedText(context, zh: '键', en: 'Key'),
+                valueLabel: openHandLocalizedText(
+                  context,
+                  zh: '值',
+                  en: 'Value',
+                ),
+                emptyText: openHandLocalizedText(
+                  context,
+                  zh: '暂无资源元数据。可补充工作目录、产物数量、缓存占用、配额等字段。',
+                  en: 'No resource metadata yet. Add workspace, artifact count, cache usage, quota, or owner fields.',
+                ),
+                onAdd: () =>
+                    setState(() => _extraEntries.add(_KeyValueDraft())),
+                onRemove: _removeExtraEntry,
+                framed: false,
+              ),
+            ),
           ],
         ),
       ),
@@ -4001,6 +4032,29 @@ class _AgentResourceEditorDialogState
     );
   }
 
+  void _removeExtraEntry(_KeyValueDraft entry) {
+    setState(() {
+      _extraEntries.remove(entry);
+      entry.dispose();
+    });
+  }
+
+  void _submitUsage() {
+    final duplicate = _agentFirstDuplicateKey(_extraEntries);
+    if (duplicate != null) {
+      OpenHandSnackBar.showError(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '资源元数据字段重复：$duplicate',
+          en: 'Duplicate resource metadata field: $duplicate',
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).pop(_buildUsage());
+  }
+
   AgentResourceUsage _buildUsage() {
     return widget.initial.copyWith(
       cpuPercent: _cpuPercent,
@@ -4010,6 +4064,7 @@ class _AgentResourceEditorDialogState
       tokenBudget: _nonNegativeIntFromText(_tokenBudget.text),
       tokenUsed: _nonNegativeIntFromText(_tokenUsed.text),
       openHandles: _nonNegativeIntFromText(_openHandles.text),
+      extra: _agentKeyValueDraftMapFromEntries(_extraEntries),
     );
   }
 }

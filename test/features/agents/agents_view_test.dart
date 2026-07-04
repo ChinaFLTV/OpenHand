@@ -1026,6 +1026,33 @@ void main() {
       expect(find.text('artifact_count: 5'), findsOneWidget);
       expect(find.text('cache_bytes: 2048'), findsOneWidget);
 
+      await tester.tap(find.text('校准资源'));
+      await tester.pumpAndSettle();
+      expect(find.text('资源元数据'), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextField, '值').first,
+        '/tmp/openhand-v2',
+      );
+      final addFieldButton = find.byTooltip('添加字段');
+      await tester.ensureVisible(addFieldButton);
+      await tester.pumpAndSettle();
+      await tester.tap(addFieldButton);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, '键').last, 'quota');
+      await tester.enterText(find.widgetWithText(TextField, '值').last, 'soft');
+      final saveButton = find.ancestor(
+        of: find.text('保存').last,
+        matching: find.byType(FilledButton),
+      );
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      final updatedResource = controller.agentById('agent-1')!.resourceUsage;
+      expect(updatedResource.extra['workspace_path'], '/tmp/openhand-v2');
+      expect(updatedResource.extra['quota'], 'soft');
+
       await tester.tap(find.byIcon(Icons.close_rounded).last);
       await tester.pump(const Duration(milliseconds: 300));
     });
