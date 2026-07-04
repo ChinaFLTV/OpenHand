@@ -10,6 +10,17 @@ import 'knowledge_embedding_service.dart';
 import 'knowledge_vector_store.dart';
 
 const Duration _oneDay = Duration(days: 1);
+final RegExp _retrievalTokenPattern = RegExp(r'[A-Za-z0-9_\u4e00-\u9fff-]{2,}');
+final RegExp _queryTagPattern = RegExp(r'(?:^|\s)(?:tag:|#)([^\s#]+)');
+final RegExp _queryDayPattern = RegExp(
+  r'\b(19\d{2}|20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b',
+);
+final RegExp _queryMonthPattern = RegExp(
+  r'\b(19\d{2}|20\d{2})[-/.](\d{1,2})\b',
+);
+final RegExp _queryRecentDaysPattern = RegExp(
+  r'(?:最近|近|last|past)\s*(\d{1,4})\s*(?:天|日|days?)',
+);
 
 class KnowledgeRetrievalService {
   KnowledgeRetrievalService({
@@ -407,12 +418,12 @@ class KnowledgeRetrievalService {
   }
 
   String _rerankDocumentText(KnowledgeRetrievalHit hit) {
+    final originalPath = nullIfBlank(hit.source.originalPath);
+    final headingPath = nullIfBlank(hit.chunk.headingPath);
     return <String>[
       'Title: ${hit.source.title}',
-      if (hit.source.originalPath.trim().isNotEmpty)
-        'Source: ${hit.source.originalPath}',
-      if (hit.chunk.headingPath.trim().isNotEmpty)
-        'Heading: ${hit.chunk.headingPath}',
+      if (originalPath != null) 'Source: $originalPath',
+      if (headingPath != null) 'Heading: $headingPath',
       if (hit.chunk.tags.isNotEmpty) 'Tags: ${hit.chunk.tags.join(", ")}',
       '',
       hit.chunk.content.trim(),
@@ -436,7 +447,7 @@ class KnowledgeRetrievalService {
   }
 
   Set<String> _tokenSet(String value) {
-    return RegExp(r'[A-Za-z0-9_\u4e00-\u9fff-]{2,}')
+    return _retrievalTokenPattern
         .allMatches(value.toLowerCase())
         .take(96)
         .map((match) => match.group(0)!)
@@ -449,7 +460,7 @@ class KnowledgeRetrievalService {
   ) {
     final must = <Object?>[];
     final tags = stringListFromValue(
-      RegExp(r'(?:^|\s)(?:tag:|#)([^\s#]+)')
+      _queryTagPattern
           .allMatches(query)
           .map((match) => match.group(1))
           .toList(growable: false),
@@ -543,9 +554,7 @@ class KnowledgeRetrievalService {
     required bool allowNaturalLanguage,
   }) {
     final normalized = query.toLowerCase();
-    final dayMatch = RegExp(
-      r'\b(19\d{2}|20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b',
-    ).firstMatch(normalized);
+    final dayMatch = _queryDayPattern.firstMatch(normalized);
     if (dayMatch != null) {
       final start = _utcDateOrNull(
         int.parse(dayMatch.group(1)!),
@@ -555,9 +564,7 @@ class KnowledgeRetrievalService {
       if (start != null) return (start: start, end: start.add(_oneDay));
     }
 
-    final monthMatch = RegExp(
-      r'\b(19\d{2}|20\d{2})[-/.](\d{1,2})\b',
-    ).firstMatch(normalized);
+    final monthMatch = _queryMonthPattern.firstMatch(normalized);
     if (monthMatch != null) {
       final start = _utcDateOrNull(
         int.parse(monthMatch.group(1)!),
@@ -583,9 +590,7 @@ class KnowledgeRetrievalService {
       ).subtract(_oneDay);
       return (start: start, end: start.add(_oneDay));
     }
-    final recentDaysMatch = RegExp(
-      r'(?:最近|近|last|past)\s*(\d{1,4})\s*(?:天|日|days?)',
-    ).firstMatch(normalized);
+    final recentDaysMatch = _queryRecentDaysPattern.firstMatch(normalized);
     if (recentDaysMatch == null) return null;
     final days = optionalPositiveIntFromValue(recentDaysMatch.group(1));
     if (days == null || days > 3650) return null;
