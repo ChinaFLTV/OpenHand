@@ -203,7 +203,7 @@ class _HeStructuredToolTrace {
 
   factory _HeStructuredToolTrace.fromSegment(
     _HeOutputSegment segment, {
-    required bool isZh,
+    required BuildContext context,
     required bool isStreaming,
   }) {
     final lines = List<String>.from(segment.lines);
@@ -227,7 +227,7 @@ class _HeStructuredToolTrace {
     final presentation = _heToolPresentationForSegment(
       segment,
       parsedHeader,
-      isZh: isZh,
+      context: context,
     );
 
     final outputLines = <String>[];
@@ -294,7 +294,7 @@ class _HeStructuredToolTrace {
         apiMeta?.workingDirectory ?? parsedHeader?.workingDirectory ?? '';
     final durationMs = apiMeta?.durationMs ?? parsedHeader?.durationMs ?? 0;
     final actionLabel = _heToolActionLabel(
-      isZh: isZh,
+      context: context,
       status: status,
       isCommandLike: presentation.isCommandLike,
     );
@@ -315,13 +315,13 @@ class _HeStructuredToolTrace {
       exitCode: exitCode,
       statusIcon: _heToolStatusIcon(status),
       headerLabel: '${presentation.label} · $actionLabel$durationSuffix',
-      outcomeLabel: _heToolOutcomeLabel(isZh: isZh, status: status),
+      outcomeLabel: _heToolOutcomeLabel(context: context, status: status),
       inputPreview: _heBuildStructuredToolInputPreview(
         command: command,
         argumentsText: argumentsText,
       ),
       outputPreview: _heBuildStructuredToolOutputPreview(
-        isZh: isZh,
+        context: context,
         status: status,
         stdout: stdout,
         stderr: stderr,
@@ -387,7 +387,7 @@ class _HeStructuredToolTraceCardState
     final colorScheme = widget.colorScheme;
     final data = _HeStructuredToolTrace.fromSegment(
       widget.segment,
-      isZh: widget.isZh,
+      context: context,
       isStreaming: widget.isStreaming,
     );
     final isToolCall = widget.segment.kind == _HeSegmentKind.toolCall;
@@ -469,7 +469,7 @@ class _HeStructuredToolTraceCardState
                   _HeChip(
                     icon: Icons.folder_outlined,
                     label:
-                        '${widget.isZh ? '目录' : 'Dir'}: ${data.workingDirectory}',
+                        '${_heHardnessText(context, zh: '目录', zhHant: '目錄', en: 'Dir', fr: 'Dossier', de: 'Verzeichnis', ja: 'ディレクトリ')}: ${data.workingDirectory}',
                   ),
                 if (data.outcomeLabel.isNotEmpty)
                   _HeChip(icon: data.statusIcon, label: data.outcomeLabel),
@@ -477,19 +477,28 @@ class _HeStructuredToolTraceCardState
                   _HeChip(
                     icon: Icons.timer_outlined,
                     label:
-                        '${widget.isZh ? '耗时' : 'Elapsed'}: ${_heFormatToolDuration(data.durationMs)}',
+                        '${_heHardnessText(context, zh: '耗时', zhHant: '耗時', en: 'Elapsed', fr: 'Durée', de: 'Dauer', ja: '経過')}: ${_heFormatToolDuration(data.durationMs)}',
                   ),
                 if (data.exitCode != null)
                   _HeChip(
                     icon: Icons.flag_outlined,
-                    label: '${widget.isZh ? '退出码' : 'Exit'}: ${data.exitCode}',
+                    label:
+                        '${_heHardnessText(context, zh: '退出码', zhHant: '退出碼', en: 'Exit', fr: 'Code de sortie', de: 'Exitcode', ja: '終了コード')}: ${data.exitCode}',
                   ),
               ],
             ),
             if (data.hasInputSection) ...[
               const SizedBox(height: 10),
               _HeStructuredToolSection(
-                title: widget.isZh ? '工具入参' : 'Tool Input',
+                title: _heHardnessText(
+                  context,
+                  zh: '工具入参',
+                  zhHant: '工具輸入',
+                  en: 'Tool Input',
+                  fr: 'Entrée outil',
+                  de: 'Tool-Eingabe',
+                  ja: 'ツール入力',
+                ),
                 preview: data.inputPreview,
                 expanded: _inputExpanded,
                 onToggle: () {
@@ -502,7 +511,7 @@ class _HeStructuredToolTraceCardState
                   children: [
                     if (data.command.isNotEmpty)
                       _HeToolTextPanel(
-                        label: widget.isZh ? 'command' : 'command',
+                        label: 'command',
                         content: '\$ ${data.command}',
                         isZh: widget.isZh,
                         theme: widget.theme,
@@ -511,7 +520,7 @@ class _HeStructuredToolTraceCardState
                     if (data.command.isNotEmpty) const SizedBox(height: 10),
                     if (data.argumentsText.trim().isNotEmpty)
                       _HeToolTextPanel(
-                        label: widget.isZh ? 'arguments' : 'arguments',
+                        label: 'arguments',
                         content: data.argumentsText,
                         isZh: widget.isZh,
                         theme: widget.theme,
@@ -524,7 +533,15 @@ class _HeStructuredToolTraceCardState
             if (data.hasOutputSection) ...[
               const SizedBox(height: 10),
               _HeStructuredToolSection(
-                title: widget.isZh ? '结果输出' : 'Tool Output',
+                title: _heHardnessText(
+                  context,
+                  zh: '结果输出',
+                  zhHant: '結果輸出',
+                  en: 'Tool Output',
+                  fr: 'Sortie outil',
+                  de: 'Tool-Ausgabe',
+                  ja: 'ツール出力',
+                ),
                 preview: data.outputPreview,
                 expanded: _outputExpanded,
                 onToggle: () {
@@ -558,7 +575,7 @@ class _HeStructuredToolTraceCardState
                       if (data.stdout.isNotEmpty || data.stderr.isNotEmpty)
                         const SizedBox(height: 10),
                       _HeToolTextPanel(
-                        label: widget.isZh ? 'result' : 'result',
+                        label: 'result',
                         content: data.resultText,
                         isZh: widget.isZh,
                         theme: widget.theme,
@@ -569,9 +586,15 @@ class _HeStructuredToolTraceCardState
                         data.stderr.isEmpty &&
                         data.resultText.isEmpty)
                       Text(
-                        widget.isZh
-                            ? '当前还没有工具输出。'
-                            : 'There is no tool output yet.',
+                        _heHardnessText(
+                          context,
+                          zh: '当前还没有工具输出。',
+                          zhHant: '目前還沒有工具輸出。',
+                          en: 'There is no tool output yet.',
+                          fr: 'Aucune sortie outil pour le moment.',
+                          de: 'Noch keine Tool-Ausgabe vorhanden.',
+                          ja: 'まだツール出力はありません。',
+                        ),
                         style: widget.theme.textTheme.bodyMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -726,7 +749,7 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
     final lines = const LineSplitter().convert(normalized);
     final isLong = normalized.length > 900 || lines.length > 18;
     final displayText = isLong && !_expanded
-        ? '${lines.take(15).join('\n')}\n\n... [${widget.isZh ? '已折叠，点击右上角展开完整内容' : 'collapsed, expand to view the full content'}]'
+        ? '${lines.take(15).join('\n')}\n\n... [${_heHardnessText(context, zh: '已折叠，点击右上角展开完整内容', zhHant: '已摺疊，點擊右上角展開完整內容', en: 'collapsed, expand to view the full content', fr: 'replié, développez pour voir le contenu complet', de: 'eingeklappt, zum vollständigen Inhalt erweitern', ja: '折りたたみ済み、右上から全文を展開')}]'
         : normalized;
     final accentColor = widget.isError
         ? widget.colorScheme.error
@@ -771,7 +794,15 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
                     : () {
                         Clipboard.setData(ClipboardData(text: normalized));
                       },
-                tooltip: widget.isZh ? '复制' : 'Copy',
+                tooltip: _heHardnessText(
+                  context,
+                  zh: '复制',
+                  zhHant: '複製',
+                  en: 'Copy',
+                  fr: 'Copier',
+                  de: 'Kopieren',
+                  ja: 'コピー',
+                ),
                 icon: const Icon(Icons.content_copy_rounded, size: 16),
                 visualDensity: VisualDensity.compact,
                 style: IconButton.styleFrom(
@@ -786,9 +817,25 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
                       _expanded = !_expanded;
                     });
                   },
-                  tooltip: widget.isZh
-                      ? (_expanded ? '收起' : '展开全部')
-                      : (_expanded ? 'Collapse' : 'Expand'),
+                  tooltip: _expanded
+                      ? _heHardnessText(
+                          context,
+                          zh: '收起',
+                          zhHant: '收起',
+                          en: 'Collapse',
+                          fr: 'Réduire',
+                          de: 'Einklappen',
+                          ja: '折りたたむ',
+                        )
+                      : _heHardnessText(
+                          context,
+                          zh: '展开全部',
+                          zhHant: '展開全部',
+                          en: 'Expand',
+                          fr: 'Développer',
+                          de: 'Erweitern',
+                          ja: '展開',
+                        ),
                   icon: Icon(
                     _expanded
                         ? Icons.close_fullscreen_rounded
@@ -870,7 +917,7 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
 _HeToolPresentation _heToolPresentationForSegment(
   _HeOutputSegment segment,
   _HeParsedToolHeader? parsedHeader, {
-  required bool isZh,
+  required BuildContext context,
 }) {
   final role = (segment.roleLabel ?? '').trim().toLowerCase();
   final command = (parsedHeader?.command ?? '').toLowerCase();
@@ -905,14 +952,30 @@ _HeToolPresentation _heToolPresentationForSegment(
   }
   if (role == 'write' || role == 'writefile' || role == 'write_file') {
     return _HeToolPresentation(
-      label: isZh ? '写入' : 'Write',
+      label: _heHardnessText(
+        context,
+        zh: '写入',
+        zhHant: '寫入',
+        en: 'Write',
+        fr: 'Écriture',
+        de: 'Schreiben',
+        ja: '書き込み',
+      ),
       icon: Icons.edit_document,
       isCommandLike: false,
     );
   }
   if (role == 'edit' || role == 'editfile' || role == 'edit_file') {
     return _HeToolPresentation(
-      label: isZh ? '编辑' : 'Edit',
+      label: _heHardnessText(
+        context,
+        zh: '编辑',
+        zhHant: '編輯',
+        en: 'Edit',
+        fr: 'Édition',
+        de: 'Bearbeiten',
+        ja: '編集',
+      ),
       icon: Icons.edit_note_rounded,
       isCommandLike: false,
     );
@@ -928,21 +991,45 @@ _HeToolPresentation _heToolPresentationForSegment(
       role == 'semanticsearch' ||
       role == 'semantic_search') {
     return _HeToolPresentation(
-      label: isZh ? '语义搜索' : 'Semantic Search',
+      label: _heHardnessText(
+        context,
+        zh: '语义搜索',
+        zhHant: '語意搜尋',
+        en: 'Semantic Search',
+        fr: 'Recherche sémantique',
+        de: 'Semantische Suche',
+        ja: 'セマンティック検索',
+      ),
       icon: Icons.travel_explore_rounded,
       isCommandLike: false,
     );
   }
   if (segment.kind == _HeSegmentKind.toolResult || role == 'tool') {
     return _HeToolPresentation(
-      label: isZh ? '工具结果' : 'Tool Result',
+      label: _heHardnessText(
+        context,
+        zh: '工具结果',
+        zhHant: '工具結果',
+        en: 'Tool Result',
+        fr: 'Résultat outil',
+        de: 'Tool-Ergebnis',
+        ja: 'ツール結果',
+      ),
       icon: Icons.output_rounded,
       isCommandLike: false,
     );
   }
   if (role == 'function') {
     return _HeToolPresentation(
-      label: isZh ? '工具' : 'Tool',
+      label: _heHardnessText(
+        context,
+        zh: '工具',
+        zhHant: '工具',
+        en: 'Tool',
+        fr: 'Outil',
+        de: 'Tool',
+        ja: 'ツール',
+      ),
       icon: Icons.build_circle_outlined,
       isCommandLike: false,
     );
@@ -956,7 +1043,15 @@ _HeToolPresentation _heToolPresentationForSegment(
     );
   }
   return _HeToolPresentation(
-    label: isZh ? '工具' : 'Tool',
+    label: _heHardnessText(
+      context,
+      zh: '工具',
+      zhHant: '工具',
+      en: 'Tool',
+      fr: 'Outil',
+      de: 'Tool',
+      ja: 'ツール',
+    ),
     icon: Icons.build_circle_outlined,
     isCommandLike: segment.kind == _HeSegmentKind.toolCall,
   );
@@ -1000,7 +1095,7 @@ String _heBuildStructuredToolInputPreview({
 }
 
 String _heBuildStructuredToolOutputPreview({
-  required bool isZh,
+  required BuildContext context,
   required String status,
   required String stdout,
   required String stderr,
@@ -1019,9 +1114,25 @@ String _heBuildStructuredToolOutputPreview({
     return 'result · $resultLine';
   }
   if (status == 'running' || status.isEmpty) {
-    return isZh ? '工具运行中，等待新的输出...' : 'Tool is running. Waiting for output...';
+    return _heHardnessText(
+      context,
+      zh: '工具运行中，等待新的输出...',
+      zhHant: '工具執行中，等待新的輸出...',
+      en: 'Tool is running. Waiting for output...',
+      fr: 'L’outil est en cours. En attente de sortie...',
+      de: 'Tool läuft. Warte auf Ausgabe...',
+      ja: 'ツール実行中。出力を待機しています...',
+    );
   }
-  return isZh ? '点击展开查看工具输出' : 'Expand to inspect tool output';
+  return _heHardnessText(
+    context,
+    zh: '点击展开查看工具输出',
+    zhHant: '點擊展開查看工具輸出',
+    en: 'Expand to inspect tool output',
+    fr: 'Développez pour inspecter la sortie outil',
+    de: 'Erweitern, um die Tool-Ausgabe zu prüfen',
+    ja: '展開してツール出力を確認',
+  );
 }
 
 String _heNormalizeToolStatus(String rawStatus) {
@@ -1051,48 +1162,219 @@ String _heNormalizeToolStatus(String rawStatus) {
 }
 
 String _heToolActionLabel({
-  required bool isZh,
+  required BuildContext context,
   required String status,
   required bool isCommandLike,
 }) {
   switch (status) {
     case 'running':
-      return isZh ? (isCommandLike ? '执行中' : '调用中') : 'Running';
+      return isCommandLike
+          ? _heHardnessText(
+              context,
+              zh: '执行中',
+              zhHant: '執行中',
+              en: 'Running',
+              fr: 'Exécution',
+              de: 'Wird ausgeführt',
+              ja: '実行中',
+            )
+          : _heHardnessText(
+              context,
+              zh: '调用中',
+              zhHant: '呼叫中',
+              en: 'Running',
+              fr: 'Appel en cours',
+              de: 'Wird aufgerufen',
+              ja: '呼び出し中',
+            );
     case 'success':
-      return isZh ? (isCommandLike ? '执行完成' : '调用完成') : 'Completed';
+      return isCommandLike
+          ? _heHardnessText(
+              context,
+              zh: '执行完成',
+              zhHant: '執行完成',
+              en: 'Completed',
+              fr: 'Exécution terminée',
+              de: 'Ausgeführt',
+              ja: '実行完了',
+            )
+          : _heHardnessText(
+              context,
+              zh: '调用完成',
+              zhHant: '呼叫完成',
+              en: 'Completed',
+              fr: 'Appel terminé',
+              de: 'Aufruf abgeschlossen',
+              ja: '呼び出し完了',
+            );
     case 'cancelled':
-      return isZh ? '已停止' : 'Stopped';
+      return _heHardnessText(
+        context,
+        zh: '已停止',
+        zhHant: '已停止',
+        en: 'Stopped',
+        fr: 'Arrêté',
+        de: 'Gestoppt',
+        ja: '停止済み',
+      );
     case 'denied':
-      return isZh ? '已拦截' : 'Blocked';
+      return _heHardnessText(
+        context,
+        zh: '已拦截',
+        zhHant: '已攔截',
+        en: 'Blocked',
+        fr: 'Bloqué',
+        de: 'Blockiert',
+        ja: 'ブロック済み',
+      );
     case 'rejected':
-      return isZh ? '已拒绝' : 'Rejected';
+      return _heHardnessText(
+        context,
+        zh: '已拒绝',
+        zhHant: '已拒絕',
+        en: 'Rejected',
+        fr: 'Refusé',
+        de: 'Abgelehnt',
+        ja: '拒否済み',
+      );
     case 'timed_out':
-      return isZh ? (isCommandLike ? '执行超时' : '调用超时') : 'Timed Out';
+      return isCommandLike
+          ? _heHardnessText(
+              context,
+              zh: '执行超时',
+              zhHant: '執行逾時',
+              en: 'Timed Out',
+              fr: 'Délai dépassé',
+              de: 'Zeitüberschreitung',
+              ja: '実行タイムアウト',
+            )
+          : _heHardnessText(
+              context,
+              zh: '调用超时',
+              zhHant: '呼叫逾時',
+              en: 'Timed Out',
+              fr: 'Délai d’appel dépassé',
+              de: 'Aufruf-Timeout',
+              ja: '呼び出しタイムアウト',
+            );
     case 'failed':
-      return isZh ? (isCommandLike ? '执行失败' : '调用失败') : 'Failed';
+      return isCommandLike
+          ? _heHardnessText(
+              context,
+              zh: '执行失败',
+              zhHant: '執行失敗',
+              en: 'Failed',
+              fr: 'Échec',
+              de: 'Fehlgeschlagen',
+              ja: '実行失敗',
+            )
+          : _heHardnessText(
+              context,
+              zh: '调用失败',
+              zhHant: '呼叫失敗',
+              en: 'Failed',
+              fr: 'Échec de l’appel',
+              de: 'Aufruf fehlgeschlagen',
+              ja: '呼び出し失敗',
+            );
     default:
-      return isZh
-          ? (isCommandLike ? '准备执行' : '工具调用')
-          : (isCommandLike ? 'Preparing' : 'Tool Call');
+      return isCommandLike
+          ? _heHardnessText(
+              context,
+              zh: '准备执行',
+              zhHant: '準備執行',
+              en: 'Preparing',
+              fr: 'Préparation',
+              de: 'Vorbereitung',
+              ja: '実行準備中',
+            )
+          : _heHardnessText(
+              context,
+              zh: '工具调用',
+              zhHant: '工具呼叫',
+              en: 'Tool Call',
+              fr: 'Appel outil',
+              de: 'Tool-Aufruf',
+              ja: 'ツール呼び出し',
+            );
   }
 }
 
-String _heToolOutcomeLabel({required bool isZh, required String status}) {
+String _heToolOutcomeLabel({
+  required BuildContext context,
+  required String status,
+}) {
   switch (status) {
     case 'running':
-      return isZh ? '运行中' : 'Running';
+      return _heHardnessText(
+        context,
+        zh: '运行中',
+        zhHant: '執行中',
+        en: 'Running',
+        fr: 'En cours',
+        de: 'Läuft',
+        ja: '実行中',
+      );
     case 'success':
-      return isZh ? '执行成功' : 'Succeeded';
+      return _heHardnessText(
+        context,
+        zh: '执行成功',
+        zhHant: '執行成功',
+        en: 'Succeeded',
+        fr: 'Réussi',
+        de: 'Erfolgreich',
+        ja: '成功',
+      );
     case 'cancelled':
-      return isZh ? '已停止' : 'Stopped';
+      return _heHardnessText(
+        context,
+        zh: '已停止',
+        zhHant: '已停止',
+        en: 'Stopped',
+        fr: 'Arrêté',
+        de: 'Gestoppt',
+        ja: '停止済み',
+      );
     case 'denied':
-      return isZh ? '已被禁止' : 'Denied';
+      return _heHardnessText(
+        context,
+        zh: '已被禁止',
+        zhHant: '已被禁止',
+        en: 'Denied',
+        fr: 'Refusé',
+        de: 'Verweigert',
+        ja: '拒否',
+      );
     case 'rejected':
-      return isZh ? '用户拒绝' : 'Rejected';
+      return _heHardnessText(
+        context,
+        zh: '用户拒绝',
+        zhHant: '使用者拒絕',
+        en: 'Rejected',
+        fr: 'Rejeté',
+        de: 'Abgelehnt',
+        ja: 'ユーザーが拒否',
+      );
     case 'timed_out':
-      return isZh ? '执行超时' : 'Timed Out';
+      return _heHardnessText(
+        context,
+        zh: '执行超时',
+        zhHant: '執行逾時',
+        en: 'Timed Out',
+        fr: 'Délai dépassé',
+        de: 'Zeitüberschreitung',
+        ja: 'タイムアウト',
+      );
     case 'failed':
-      return isZh ? '执行失败' : 'Failed';
+      return _heHardnessText(
+        context,
+        zh: '执行失败',
+        zhHant: '執行失敗',
+        en: 'Failed',
+        fr: 'Échec',
+        de: 'Fehlgeschlagen',
+        ja: '失敗',
+      );
     default:
       return '';
   }

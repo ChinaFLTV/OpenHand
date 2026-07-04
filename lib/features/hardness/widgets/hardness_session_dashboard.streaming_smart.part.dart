@@ -229,7 +229,6 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
   @override
   Widget build(BuildContext context) {
     final colorScheme = widget.colorScheme;
-    final isZh = widget.isZh;
     final children = _markdownChildren;
 
     return Column(
@@ -308,7 +307,15 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
               ),
               const SizedBox(width: 8),
               Text(
-                isZh ? '正在输出…' : 'Streaming…',
+                _heHardnessText(
+                  context,
+                  zh: '正在输出…',
+                  zhHant: '正在輸出…',
+                  en: 'Streaming…',
+                  fr: 'Flux en cours…',
+                  de: 'Streaming…',
+                  ja: '出力中…',
+                ),
                 style: TextStyle(
                   fontSize: 11,
                   color: colorScheme.onSurfaceVariant.withValues(alpha: 0.60),

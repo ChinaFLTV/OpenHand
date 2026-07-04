@@ -328,7 +328,6 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
 
   @override
   Widget build(BuildContext context) {
-    final isZh = widget.isZh;
     final colorScheme = widget.colorScheme;
 
     return Column(
@@ -385,7 +384,15 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    isZh ? '展开全部内容' : 'Show full content',
+                    _heHardnessText(
+                      context,
+                      zh: '展开全部内容',
+                      zhHant: '展開全部內容',
+                      en: 'Show full content',
+                      fr: 'Afficher tout le contenu',
+                      de: 'Vollständigen Inhalt anzeigen',
+                      ja: '全文を表示',
+                    ),
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
@@ -808,7 +815,15 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
             context,
             SnackBar(
               content: Text(
-                openHandIsChineseLocale(context) ? '代码已复制' : 'Code copied',
+                _heHardnessText(
+                  context,
+                  zh: '代码已复制',
+                  zhHant: '程式碼已複製',
+                  en: 'Code copied',
+                  fr: 'Code copié',
+                  de: 'Code kopiert',
+                  ja: 'コードをコピーしました',
+                ),
               ),
               duration: const Duration(milliseconds: 1800),
             ),
@@ -821,7 +836,15 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
             context,
             SnackBar(
               content: Text(
-                openHandIsChineseLocale(context) ? '复制失败' : 'Copy failed',
+                _heHardnessText(
+                  context,
+                  zh: '复制失败',
+                  zhHant: '複製失敗',
+                  en: 'Copy failed',
+                  fr: 'Échec de la copie',
+                  de: 'Kopieren fehlgeschlagen',
+                  ja: 'コピーに失敗しました',
+                ),
               ),
               duration: const Duration(milliseconds: 1800),
             ),
@@ -838,7 +861,6 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
         widget.darkSurface || Theme.of(context).brightness == Brightness.dark;
     final cs = widget.colorScheme;
     final effectiveLanguage = _heNormalizeCodeLanguage(widget.language);
-    final isZh = openHandIsChineseLocale(context);
 
     final containerColor = isDark
         ? Colors.white.withValues(alpha: 0.06)
@@ -945,8 +967,24 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
                             const SizedBox(width: 5),
                             Text(
                               _copied
-                                  ? (isZh ? '已复制' : 'Copied')
-                                  : (isZh ? '复制' : 'Copy'),
+                                  ? _heHardnessText(
+                                      context,
+                                      zh: '已复制',
+                                      zhHant: '已複製',
+                                      en: 'Copied',
+                                      fr: 'Copié',
+                                      de: 'Kopiert',
+                                      ja: 'コピー済み',
+                                    )
+                                  : _heHardnessText(
+                                      context,
+                                      zh: '复制',
+                                      zhHant: '複製',
+                                      en: 'Copy',
+                                      fr: 'Copier',
+                                      de: 'Kopieren',
+                                      ja: 'コピー',
+                                    ),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -1213,7 +1251,15 @@ class _HeOutputLinesDial extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            'Lines',
+            _heHardnessText(
+              context,
+              zh: '行',
+              zhHant: '行',
+              en: 'Lines',
+              fr: 'Lignes',
+              de: 'Zeilen',
+              ja: '行',
+            ),
             style: theme.textTheme.labelMedium?.copyWith(
               fontWeight: FontWeight.w700,
               color: colorScheme.onSurfaceVariant,
@@ -1280,16 +1326,32 @@ class _HeReadyPlaceholder extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            isZh
-                ? '就绪，点击下方按钮以启动本次会话'
-                : 'Ready \u2014 press Start to run the session',
+            _heHardnessText(
+              context,
+              zh: '就绪，点击下方按钮以启动本次会话',
+              zhHant: '已就緒，點擊下方按鈕以啟動本次會話',
+              en: 'Ready — press Start to run the session',
+              fr: 'Prêt — appuyez sur Démarrer pour lancer la session',
+              de: 'Bereit — Start drücken, um die Sitzung auszuführen',
+              ja: '準備完了 — 開始を押してセッションを実行',
+            ),
             style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
           ),
           const SizedBox(height: 20),
           FilledButton.icon(
             onPressed: onStart,
             icon: const Icon(Icons.play_arrow_rounded),
-            label: Text(isZh ? '开始执行' : 'Start'),
+            label: Text(
+              _heHardnessText(
+                context,
+                zh: '开始执行',
+                zhHant: '開始執行',
+                en: 'Start',
+                fr: 'Démarrer',
+                de: 'Starten',
+                ja: '開始',
+              ),
+            ),
           ),
         ],
       ),
@@ -1323,7 +1385,15 @@ class _InitializingPlaceholder extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            isZh ? '初始化中...' : 'Initializing\u2026',
+            _heHardnessText(
+              context,
+              zh: '初始化中...',
+              zhHant: '初始化中...',
+              en: 'Initializing…',
+              fr: 'Initialisation…',
+              de: 'Initialisierung…',
+              ja: '初期化中…',
+            ),
             style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
           ),
         ],
@@ -1349,19 +1419,51 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
     final (icon, title) = switch (status) {
       HardnessOrchestratorStatus.completed => (
         Icons.check_circle_rounded,
-        isZh ? '历史会话已恢复' : 'Historical session restored',
+        _heHardnessText(
+          context,
+          zh: '历史会话已恢复',
+          zhHant: '歷史會話已恢復',
+          en: 'Historical session restored',
+          fr: 'Session historique restaurée',
+          de: 'Historische Sitzung wiederhergestellt',
+          ja: '履歴セッションを復元しました',
+        ),
       ),
       HardnessOrchestratorStatus.failed => (
         Icons.error_rounded,
-        isZh ? '历史失败会话已恢复' : 'Failed session restored',
+        _heHardnessText(
+          context,
+          zh: '历史失败会话已恢复',
+          zhHant: '歷史失敗會話已恢復',
+          en: 'Failed session restored',
+          fr: 'Session échouée restaurée',
+          de: 'Fehlgeschlagene Sitzung wiederhergestellt',
+          ja: '失敗したセッションを復元しました',
+        ),
       ),
       HardnessOrchestratorStatus.cancelled => (
         Icons.cancel_rounded,
-        isZh ? '历史中止会话已恢复' : 'Cancelled session restored',
+        _heHardnessText(
+          context,
+          zh: '历史中止会话已恢复',
+          zhHant: '歷史中止會話已恢復',
+          en: 'Cancelled session restored',
+          fr: 'Session annulée restaurée',
+          de: 'Abgebrochene Sitzung wiederhergestellt',
+          ja: '中止されたセッションを復元しました',
+        ),
       ),
       _ => (
         Icons.history_rounded,
-        isZh ? '历史会话已恢复' : 'Historical session restored',
+        _heHardnessText(
+          context,
+          zh: '历史会话已恢复',
+          zhHant: '歷史會話已恢復',
+          en: 'Historical session restored',
+          fr: 'Session historique restaurée',
+          de: 'Historische Sitzung wiederhergestellt',
+          ja: '履歴セッションを復元しました',
+        ),
       ),
     };
 
@@ -1386,9 +1488,15 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              isZh
-                  ? '该会话来自旧版持久化数据，未保存可回放的阶段日志，因此无法还原阶段卡片。'
-                  : 'This session was restored from an older persisted snapshot that did not save replayable phase logs.',
+              _heHardnessText(
+                context,
+                zh: '该会话来自旧版持久化数据，未保存可回放的阶段日志，因此无法还原阶段卡片。',
+                zhHant: '該會話來自舊版持久化資料，未保存可回放的階段日誌，因此無法還原階段卡片。',
+                en: 'This session was restored from an older persisted snapshot that did not save replayable phase logs.',
+                fr: 'Cette session vient d’un ancien instantané sans journaux de phase rejouables.',
+                de: 'Diese Sitzung stammt aus einem älteren Snapshot ohne wiederabspielbare Phasenlogs.',
+                ja: 'このセッションは古い保存データから復元され、再生可能なフェーズログがないためカードを復元できません。',
+              ),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.onSurfaceVariant,
@@ -1399,7 +1507,17 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onRestart,
               icon: const Icon(Icons.restart_alt_rounded),
-              label: Text(isZh ? '重新执行' : 'Run Again'),
+              label: Text(
+                _heHardnessText(
+                  context,
+                  zh: '重新执行',
+                  zhHant: '重新執行',
+                  en: 'Run Again',
+                  fr: 'Relancer',
+                  de: 'Erneut ausführen',
+                  ja: '再実行',
+                ),
+              ),
             ),
           ],
         ),

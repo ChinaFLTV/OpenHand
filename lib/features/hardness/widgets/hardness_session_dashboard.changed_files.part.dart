@@ -29,9 +29,15 @@ class _HeChangedFilesList extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                isZh
-                    ? '文件变动 (${files.length})'
-                    : 'Changed Files (${files.length})',
+                _heHardnessText(
+                  context,
+                  zh: '文件变动 (${files.length})',
+                  zhHant: '檔案變動 (${files.length})',
+                  en: 'Changed Files (${files.length})',
+                  fr: 'Fichiers modifiés (${files.length})',
+                  de: 'Geänderte Dateien (${files.length})',
+                  ja: '変更ファイル (${files.length})',
+                ),
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -174,9 +180,12 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final isZh = widget.isZh;
     final file = widget.file;
     final diffLines = _diffLines ?? const <String>[];
+    final additions = diffLines.where((l) => l.startsWith('+')).length - 1;
+    final deletions = diffLines.where((l) => l.startsWith('-')).length - 1;
+    final safeAdditions = additions < 0 ? 0 : additions;
+    final safeDeletions = deletions < 0 ? 0 : deletions;
 
     return buildOpenHandResponsiveDialogShell(
       context: context,
@@ -220,8 +229,15 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                           if (!_computing) ...[
                             const SizedBox(width: 8),
                             Text(
-                              '${diffLines.where((l) => l.startsWith('+')).length - 1} additions, '
-                              '${diffLines.where((l) => l.startsWith('-')).length - 1} deletions',
+                              _heHardnessText(
+                                context,
+                                zh: '$safeAdditions 处新增，$safeDeletions 处删除',
+                                zhHant: '$safeAdditions 處新增，$safeDeletions 處刪除',
+                                en: '$safeAdditions additions, $safeDeletions deletions',
+                                fr: '$safeAdditions ajouts, $safeDeletions suppressions',
+                                de: '$safeAdditions Ergänzungen, $safeDeletions Löschungen',
+                                ja: '$safeAdditions 件追加、$safeDeletions 件削除',
+                              ),
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),
@@ -264,7 +280,15 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                                 const CircularProgressIndicator(),
                                 const SizedBox(height: 16),
                                 Text(
-                                  isZh ? '正在计算差异…' : 'Computing diff…',
+                                  _heHardnessText(
+                                    context,
+                                    zh: '正在计算差异…',
+                                    zhHant: '正在計算差異…',
+                                    en: 'Computing diff…',
+                                    fr: 'Calcul du diff…',
+                                    de: 'Diff wird berechnet…',
+                                    ja: '差分を計算中…',
+                                  ),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
@@ -300,17 +324,43 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                           _showHardnessSnackBar(
                             context,
                             SnackBar(
-                              content: Text(isZh ? 'Diff 已复制' : 'Diff copied'),
+                              content: Text(
+                                _heHardnessText(
+                                  context,
+                                  zh: 'Diff 已复制',
+                                  zhHant: 'Diff 已複製',
+                                  en: 'Diff copied',
+                                  fr: 'Diff copié',
+                                  de: 'Diff kopiert',
+                                  ja: 'Diff をコピーしました',
+                                ),
+                              ),
                               duration: const Duration(seconds: 2),
                             ),
                           );
                         },
-                  label: isZh ? '复制 Diff' : 'Copy Diff',
+                  label: _heHardnessText(
+                    context,
+                    zh: '复制 Diff',
+                    zhHant: '複製 Diff',
+                    en: 'Copy Diff',
+                    fr: 'Copier le diff',
+                    de: 'Diff kopieren',
+                    ja: 'Diff をコピー',
+                  ),
                 ),
                 const SizedBox(width: 10),
                 OpenHandDialogActionButton.secondary(
                   onPressed: () => Navigator.of(context).pop(),
-                  label: isZh ? '关闭' : 'Close',
+                  label: _heHardnessText(
+                    context,
+                    zh: '关闭',
+                    zhHant: '關閉',
+                    en: 'Close',
+                    fr: 'Fermer',
+                    de: 'Schließen',
+                    ja: '閉じる',
+                  ),
                 ),
               ],
             ),
@@ -322,9 +372,33 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
 
   String _changeTypeLabel() {
     return switch (widget.file.changeType) {
-      HardnessFileChangeType.added => widget.isZh ? '新增文件' : 'Added',
-      HardnessFileChangeType.modified => widget.isZh ? '已修改' : 'Modified',
-      HardnessFileChangeType.deleted => widget.isZh ? '已删除' : 'Deleted',
+      HardnessFileChangeType.added => _heHardnessText(
+        context,
+        zh: '新增文件',
+        zhHant: '新增檔案',
+        en: 'Added',
+        fr: 'Ajouté',
+        de: 'Hinzugefügt',
+        ja: '追加',
+      ),
+      HardnessFileChangeType.modified => _heHardnessText(
+        context,
+        zh: '已修改',
+        zhHant: '已修改',
+        en: 'Modified',
+        fr: 'Modifié',
+        de: 'Geändert',
+        ja: '変更済み',
+      ),
+      HardnessFileChangeType.deleted => _heHardnessText(
+        context,
+        zh: '已删除',
+        zhHant: '已刪除',
+        en: 'Deleted',
+        fr: 'Supprimé',
+        de: 'Gelöscht',
+        ja: '削除済み',
+      ),
     };
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 
 /// Hardness header 内的 ToolSearch 重放反悔 chip：监听
@@ -102,7 +103,15 @@ class _HardnessPendingReplayBadgeState
   Widget build(BuildContext context) {
     final secs = _remainingSeconds();
     if (secs == null) return const SizedBox.shrink();
-    final label = widget.isZh ? '撤销 ${secs}s' : 'Cancel ${secs}s';
+    final label = openHandLocalizedText(
+      context,
+      zh: '撤销 ${secs}s',
+      zhHant: '撤銷 ${secs}s',
+      en: 'Cancel ${secs}s',
+      fr: 'Annuler ${secs}s',
+      de: 'Abbrechen ${secs}s',
+      ja: '取り消し ${secs}s',
+    );
     return OhPill(
       icon: Icons.history_toggle_off_rounded,
       label: label,
