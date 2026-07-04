@@ -394,6 +394,79 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
     });
 
+    testWidgets('renders capability logs as structured audit records', (
+      tester,
+    ) async {
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          enabled: true,
+          lifecycleState: AgentLifecycleState.running,
+          auditEvents: <AgentAuditEvent>[
+            AgentAuditEvent(
+              id: 'audit-1',
+              kind: 'skill_call',
+              summary: 'skill_call: collect billing evidence',
+              toolName: 'SkillRunner',
+              requestCount: 2,
+              tokenUsage: 100,
+              metadata: <String, Object?>{
+                'task_id': 'task-1',
+                'worker_id': 'worker-1',
+                'skill_name': 'billing-report',
+              },
+            ),
+            AgentAuditEvent(
+              id: 'audit-2',
+              kind: 'mcp_call',
+              summary: 'mcp_call: query tickets',
+              toolName: 'TicketMcp',
+              requestCount: 1,
+              metadata: <String, Object?>{'mcp_server': 'ticketing'},
+            ),
+            AgentAuditEvent(
+              id: 'audit-3',
+              kind: 'memory_write',
+              summary: 'memory_write: store report preference',
+              toolName: 'Memory',
+              metadata: <String, Object?>{'memory_id': 'memory-1'},
+            ),
+          ],
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('日志').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('能力调用日志 · Ops Agent'), findsOneWidget);
+      expect(find.text('事件'), findsOneWidget);
+      expect(find.text('请求量'), findsOneWidget);
+      expect(find.text('Skill'), findsOneWidget);
+      expect(find.text('MCP'), findsOneWidget);
+      expect(find.text('记忆'), findsOneWidget);
+      expect(find.text('SkillRunner'), findsOneWidget);
+      expect(find.text('TicketMcp'), findsOneWidget);
+      expect(find.text('Memory'), findsOneWidget);
+      expect(find.text('2 请求'), findsOneWidget);
+      expect(find.text('100 Token'), findsOneWidget);
+      expect(find.text('task_id: task-1'), findsOneWidget);
+      expect(find.text('worker_id: worker-1'), findsOneWidget);
+      expect(find.text('skill_name: billing-report'), findsOneWidget);
+      expect(find.text('mcp_server: ticketing'), findsOneWidget);
+      expect(find.text('memory_id: memory-1'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close_rounded).last);
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
     testWidgets('publishes a task with structured extra fields', (
       tester,
     ) async {
