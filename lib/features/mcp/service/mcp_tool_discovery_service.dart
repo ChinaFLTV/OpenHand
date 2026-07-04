@@ -800,11 +800,13 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         'mcp-session-id',
       },
     );
-    if (protocolVersion.trim().isNotEmpty) {
-      headers['mcp-protocol-version'] = protocolVersion.trim();
+    final normalizedProtocolVersion = nullIfBlank(protocolVersion);
+    if (normalizedProtocolVersion != null) {
+      headers['mcp-protocol-version'] = normalizedProtocolVersion;
     }
-    if (sessionId?.trim().isNotEmpty ?? false) {
-      headers['mcp-session-id'] = sessionId!.trim();
+    final normalizedSessionId = nullIfBlank(sessionId);
+    if (normalizedSessionId != null) {
+      headers['mcp-session-id'] = normalizedSessionId;
     }
 
     final response = await _sendRequestWithRedirects(
@@ -824,7 +826,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final responseBody = await response.stream.bytesToString();
       throw McpToolDiscoveryException(
-        'Tool scan request failed with HTTP ${response.statusCode}${responseBody.trim().isEmpty ? '' : ': ${responseBody.trim()}'}',
+        'Tool scan request failed with HTTP ${response.statusCode}${_httpResponseDetail(responseBody)}',
       );
     }
     if (!expectResponse) {
@@ -1392,7 +1394,7 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
     if (redirectCount >= maxRedirects) {
       final responseBody = await response.stream.bytesToString();
       throw McpToolDiscoveryException(
-        'Tool scan request followed too many redirects (${maxRedirects + 1})${responseBody.trim().isEmpty ? '' : ': ${responseBody.trim()}'}',
+        'Tool scan request followed too many redirects (${maxRedirects + 1})${_httpResponseDetail(responseBody)}',
       );
     }
 
@@ -1454,6 +1456,11 @@ class McpToolDiscoveryException implements Exception {
 
   @override
   String toString() => message;
+}
+
+String _httpResponseDetail(String body) {
+  final normalized = nullIfBlank(body);
+  return normalized == null ? '' : ': $normalized';
 }
 
 class _DiscoveredTools {
@@ -1553,14 +1560,14 @@ class _LegacySseSession {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final body = await response.stream.bytesToString();
       throw McpToolDiscoveryException(
-        'Tool scan could not connect to the SSE endpoint (HTTP ${response.statusCode})${body.trim().isEmpty ? '' : ': ${body.trim()}'}',
+        'Tool scan could not connect to the SSE endpoint (HTTP ${response.statusCode})${_httpResponseDetail(body)}',
       );
     }
     final contentType = readResponseHeader(response.headers, 'content-type');
     if (!contentType.toLowerCase().contains('text/event-stream')) {
       final body = await response.stream.bytesToString();
       throw McpToolDiscoveryException(
-        'Tool scan could not connect to the SSE endpoint because the server did not return an event stream${body.trim().isEmpty ? '' : ': ${body.trim()}'}',
+        'Tool scan could not connect to the SSE endpoint because the server did not return an event stream${_httpResponseDetail(body)}',
       );
     }
 
@@ -1711,7 +1718,7 @@ class _LegacySseSession {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final body = await response.stream.bytesToString();
       throw McpToolDiscoveryException(
-        'Tool scan request failed with HTTP ${response.statusCode}${body.trim().isEmpty ? '' : ': ${body.trim()}'}',
+        'Tool scan request failed with HTTP ${response.statusCode}${_httpResponseDetail(body)}',
       );
     }
     await response.stream.drain<void>();
