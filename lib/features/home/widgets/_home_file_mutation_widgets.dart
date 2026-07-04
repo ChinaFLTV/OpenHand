@@ -3168,10 +3168,10 @@ class _HoverElevateBoxState extends State<_HoverElevateBox> {
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    final dur = reduceMotion
-        ? Duration.zero
-        : const Duration(milliseconds: 200);
+    final dur = openHandMotionDuration(
+      context,
+      const Duration(milliseconds: 200),
+    );
     return MouseRegion(
       onEnter: (_) {
         if (_hover) return;
