@@ -22,8 +22,9 @@ enum AiSessionMessageKind {
   final String storageValue;
 
   static AiSessionMessageKind fromStorage(String value) {
+    final normalized = value.trim().toLowerCase();
     return AiSessionMessageKind.values.firstWhere(
-      (item) => item.storageValue == value,
+      (item) => item.storageValue == normalized,
       orElse: () => AiSessionMessageKind.user,
     );
   }
@@ -40,8 +41,9 @@ enum AiSessionMessageRole {
   final String storageValue;
 
   static AiSessionMessageRole fromStorage(String value) {
+    final normalized = value.trim().toLowerCase();
     return AiSessionMessageRole.values.firstWhere(
-      (item) => item.storageValue == value,
+      (item) => item.storageValue == normalized,
       orElse: () => AiSessionMessageRole.user,
     );
   }
@@ -62,6 +64,8 @@ const String aiSessionMessageConversationSideAi = 'ai';
 const String aiSessionMessageConversationSideSystem = 'system';
 const String aiSessionMessageSenderOriginJsonKey = 'sender_origin';
 const String aiSessionMessageConversationSideJsonKey = 'conversation_side';
+final RegExp _aiSessionMessageLineBreakPattern = RegExp(r'\r?\n');
+final RegExp _aiSessionMessagePromptBulletPrefixPattern = RegExp(r'^[-*]\s*');
 const String aiSessionMessageStartsConversationRoundJsonKey =
     'starts_conversation_round';
 const String aiSessionGoalEvaluationMessageMetadataKey =
@@ -652,7 +656,7 @@ class _AiRequestCardCodec {
   }
 
   static bool hasHeading(String content, String heading) {
-    for (final line in content.split(RegExp(r'\r?\n'))) {
+    for (final line in content.split(_aiSessionMessageLineBreakPattern)) {
       final normalized = stripPromptBullet(line);
       if (normalized == heading ||
           normalized == '$heading：' ||
@@ -668,7 +672,7 @@ class _AiRequestCardCodec {
     String label,
     Set<String> knownLabels,
   ) {
-    final lines = content.split(RegExp(r'\r?\n'));
+    final lines = content.split(_aiSessionMessageLineBreakPattern);
     for (var i = 0; i < lines.length; i++) {
       final normalized = stripPromptBullet(lines[i]);
       if (!isPromptFieldLabel(normalized, label)) {
@@ -696,7 +700,10 @@ class _AiRequestCardCodec {
   }
 
   static String stripPromptBullet(String line) {
-    return line.trim().replaceFirst(RegExp(r'^[-*]\s*'), '');
+    return line.trim().replaceFirst(
+      _aiSessionMessagePromptBulletPrefixPattern,
+      '',
+    );
   }
 
   static bool looksLikePromptField(String line, Set<String> knownLabels) {
