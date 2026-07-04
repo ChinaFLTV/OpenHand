@@ -1,5 +1,9 @@
 part of '../openhand_home_page.dart';
 
+const Duration _kHomeSidebarTileMotionDuration = Duration(milliseconds: 220);
+const Duration _kHomeSidebarPulseDuration = Duration(milliseconds: 1200);
+const Curve _kHomeSidebarTileMotionCurve = Curves.easeOutCubic;
+
 class _HarnessSessionTile extends StatelessWidget {
   const _HarnessSessionTile({
     required this.title,
@@ -323,6 +327,10 @@ class _ThreadTile extends StatelessWidget {
         ? colorScheme.onPrimaryContainer
         : colorScheme.onSurface;
     final isActive = sendPhase != AiSendPhase.idle;
+    final tileMotionDuration = openHandMotionDuration(
+      context,
+      _kHomeSidebarTileMotionDuration,
+    );
     return GestureDetector(
       onSecondaryTapDown: (details) async {
         final selected = await showAnimatedMenu<String>(
@@ -407,10 +415,8 @@ class _ThreadTile extends StatelessWidget {
         _scheduleOverlayActionAfterMenuDismissal(context, action);
       },
       child: AnimatedContainer(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
+        duration: tileMotionDuration,
+        curve: _kHomeSidebarTileMotionCurve,
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: _borderRadius18,
@@ -428,10 +434,8 @@ class _ThreadTile extends StatelessWidget {
                   Expanded(
                     child: TweenAnimationBuilder<Color?>(
                       tween: ColorTween(end: titleColor),
-                      duration: MediaQuery.disableAnimationsOf(context)
-                          ? Duration.zero
-                          : const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
+                      duration: tileMotionDuration,
+                      curve: _kHomeSidebarTileMotionCurve,
                       builder: (context, animatedColor, _) {
                         return _AnimatedSessionTitleText(
                           text: session.title,
@@ -558,7 +562,7 @@ class _PulsingDotState extends State<_PulsingDot>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1200),
+    duration: _kHomeSidebarPulseDuration,
   )..repeat(reverse: true);
 
   @override
@@ -569,9 +573,7 @@ class _PulsingDotState extends State<_PulsingDot>
 
   @override
   Widget build(BuildContext context) {
-    final animationsEnabled =
-        TickerMode.valuesOf(context).enabled &&
-        !MediaQuery.disableAnimationsOf(context);
+    final animationsEnabled = openHandTickerMotionEnabled(context);
     if (!animationsEnabled) {
       _controller.stop();
       return _buildDot(1);
