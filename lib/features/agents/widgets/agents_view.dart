@@ -5669,12 +5669,14 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           options: crons,
           selected: _cronIds,
           onChanged: (v) => setState(() => _cronIds = v),
+          keyPrefix: 'agent-cron',
         ),
         _OptionChips(
           title: 'Hooks',
           options: hooks,
           selected: _hookIds,
           onChanged: (v) => setState(() => _hookIds = v),
+          keyPrefix: 'agent-hook',
         ),
         const SizedBox(height: 8),
         Text(
@@ -7608,16 +7610,20 @@ class _OptionChips extends StatelessWidget {
     required this.options,
     required this.selected,
     required this.onChanged,
+    required this.keyPrefix,
   });
 
   final String title;
   final List<_Option> options;
   final Set<String> selected;
   final ValueChanged<Set<String>> onChanged;
+  final String keyPrefix;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final optionById = {for (final option in options) option.id: option};
+    final selectedIds = selected.toList(growable: false);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -7653,10 +7659,43 @@ class _OptionChips extends StatelessWidget {
                 ),
               ),
             ),
+          const SizedBox(height: 10),
+          Text(
+            openHandLocalizedText(context, zh: '已选顺序', en: 'Selected order'),
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+          const SizedBox(height: 6),
+          _AnimatedReorderableChipStrip(
+            values: selectedIds,
+            emptyText: openHandLocalizedText(
+              context,
+              zh: '尚未选择$title。',
+              en: 'No $title selected yet.',
+            ),
+            onRemove: (id) => onChanged({...selected}..remove(id)),
+            onReorder: (oldIndex, newIndex) {
+              final ordered = selected.toList();
+              if (oldIndex < 0 || oldIndex >= ordered.length) return;
+              final targetIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
+              if (targetIndex < 0 || targetIndex >= ordered.length) return;
+              final item = ordered.removeAt(oldIndex);
+              ordered.insert(targetIndex, item);
+              onChanged(ordered.toSet());
+            },
+            labelBuilder: (id) => _optionChipLabel(optionById[id], id),
+            keyPrefix: keyPrefix,
+          ),
         ],
       ),
     );
   }
+}
+
+String _optionChipLabel(_Option? option, String fallback) {
+  if (option == null) return fallback;
+  final subtitle = option.subtitle.trim();
+  if (subtitle.isEmpty || subtitle == option.label) return option.label;
+  return '${option.label} - $subtitle';
 }
 
 class _FormGrid extends StatelessWidget {

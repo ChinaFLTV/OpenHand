@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/app/model/cron_config.dart';
 import 'package:openhand/app/model/dialog_animation_settings.dart';
 import 'package:openhand/app/state/settings_controller.dart';
 import 'package:openhand/features/agents/data/agents_store.dart';
@@ -346,6 +347,8 @@ void main() {
             '/tmp/openhand/docs',
             '/tmp/openhand/src',
           ],
+          cronIds: <String>['daily-report', 'weekly-report'],
+          hookIds: <String>['pre-hook', 'post-hook'],
           taskLabels: <String>['slow', 'urgent'],
           scaleSettings: AgentScaleSettings(tags: <String>['ops', 'billing']),
         ),
@@ -388,6 +391,28 @@ void main() {
         tester.element(find.byType(TabBar)),
       ).animateTo(3, duration: Duration.zero);
       await tester.pumpAndSettle();
+      final weeklyCronChip = find.byKey(
+        const ValueKey<String>('agent-cron-drag-weekly-report'),
+      );
+      await tester.ensureVisible(weeklyCronChip);
+      await tester.pumpAndSettle();
+      await tester.timedDrag(
+        weeklyCronChip,
+        const Offset(-260, 0),
+        const Duration(milliseconds: 450),
+      );
+      await tester.pumpAndSettle();
+      final postHookChip = find.byKey(
+        const ValueKey<String>('agent-hook-drag-post-hook'),
+      );
+      await tester.ensureVisible(postHookChip);
+      await tester.pumpAndSettle();
+      await tester.timedDrag(
+        postHookChip,
+        const Offset(-260, 0),
+        const Duration(milliseconds: 450),
+      );
+      await tester.pumpAndSettle();
       final billingTagChip = find.byKey(
         const ValueKey<String>('agent-worker-tag-drag-billing'),
       );
@@ -425,6 +450,8 @@ void main() {
         '/tmp/openhand/src',
         '/tmp/openhand/docs',
       ]);
+      expect(agent.cronIds, <String>['weekly-report', 'daily-report']);
+      expect(agent.hookIds, <String>['post-hook', 'pre-hook']);
       expect(agent.scaleSettings.tags, <String>['billing', 'ops']);
       expect(agent.taskLabels, <String>['urgent', 'slow']);
     });
@@ -1199,6 +1226,26 @@ class _AgentEditorDependencies {
   factory _AgentEditorDependencies.empty({
     List<AiBuiltinToolConfig> builtinToolConfigs =
         const <AiBuiltinToolConfig>[],
+    List<CronEntry> cronEntries = const <CronEntry>[
+      CronEntry(
+        id: 'daily-report',
+        name: 'Daily Report',
+        cronExpression: '0 9 * * *',
+      ),
+      CronEntry(
+        id: 'weekly-report',
+        name: 'Weekly Report',
+        cronExpression: '0 9 * * 1',
+      ),
+    ],
+    List<HookEntry> hookEntries = const <HookEntry>[
+      HookEntry(id: 'pre-hook', label: 'Pre Hook', event: HookEvent.preToolUse),
+      HookEntry(
+        id: 'post-hook',
+        label: 'Post Hook',
+        event: HookEvent.postToolUse,
+      ),
+    ],
   }) {
     return _AgentEditorDependencies(
       settings: _FakeSettingsController(builtinToolConfigs: builtinToolConfigs),
@@ -1206,8 +1253,8 @@ class _AgentEditorDependencies {
       knowledgeBase: _FakeKnowledgeBaseController(),
       memory: _FakeMemoryController(),
       mcp: _FakeMcpController(),
-      crons: _FakeCronsController(),
-      hooks: _FakeHooksController(),
+      crons: _FakeCronsController(cronEntries),
+      hooks: _FakeHooksController(hookEntries),
     );
   }
 
@@ -1296,21 +1343,25 @@ class _FakeMcpController extends ChangeNotifier implements McpController {
 }
 
 class _FakeCronsController extends ChangeNotifier implements CronsController {
+  _FakeCronsController(this.entries);
+
+  @override
+  final List<CronEntry> entries;
+
   @override
   dynamic noSuchMethod(Invocation invocation) {
-    if (invocation.memberName == #entries && invocation.isGetter) {
-      return const <Never>[];
-    }
     return super.noSuchMethod(invocation);
   }
 }
 
 class _FakeHooksController extends ChangeNotifier implements HooksController {
+  _FakeHooksController(this.entries);
+
+  @override
+  final List<HookEntry> entries;
+
   @override
   dynamic noSuchMethod(Invocation invocation) {
-    if (invocation.memberName == #entries && invocation.isGetter) {
-      return const <Never>[];
-    }
     return super.noSuchMethod(invocation);
   }
 }
