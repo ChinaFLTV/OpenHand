@@ -19,6 +19,8 @@ import 'openrouter_exact_model_catalog.dart';
 class AiModelCatalog {
   AiModelCatalog._();
 
+  static final RegExp _stepContextPattern = RegExp(r'(\d+)k');
+
   // ═══════════════════════════════════════════════════════════════════════════
   // Public API
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2674,7 +2676,7 @@ class AiModelCatalog {
 
   /// Extract context size from StepFun model IDs like `step-2-16k`.
   static int? _parseStepContext(String id) {
-    final match = RegExp(r'(\d+)k').firstMatch(id);
+    final match = _stepContextPattern.firstMatch(id);
     if (match == null) return null;
     return int.parse(match.group(1)!) * 1024;
   }
