@@ -32,11 +32,28 @@ class AgentsController extends ManagedChangeNotifier {
   static const Uuid _uuid = Uuid();
   static const int _maxActivityEvents = 200;
   static const int _maxAuditEvents = 500;
+  static const String _schedulerLeastBusy = 'least_busy';
   static const String _schedulerPriorityFirst = 'priority_first';
   static const String _schedulerRoundRobin = 'round_robin';
+  static const String _workerRemovalLeastBusy = 'least_busy';
+  static const String _workerRemovalNewestFirst = 'newest_first';
   static const String _retryPolicyBoundedRetry = 'bounded_retry';
+  static const String _retryPolicyNone = 'none';
   static const String _retryableExtraKey = 'retryable';
   static const String _retryCountExtraKey = 'retry_count';
+  static const Set<String> _schedulerPolicyValues = <String>{
+    _schedulerLeastBusy,
+    _schedulerPriorityFirst,
+    _schedulerRoundRobin,
+  };
+  static const Set<String> _workerRemovalPolicyValues = <String>{
+    _workerRemovalLeastBusy,
+    _workerRemovalNewestFirst,
+  };
+  static const Set<String> _retryPolicyValues = <String>{
+    _retryPolicyBoundedRetry,
+    _retryPolicyNone,
+  };
 
   final AgentsStore _store;
   List<AgentProfile> _agents;
@@ -111,7 +128,8 @@ class AgentsController extends ManagedChangeNotifier {
       _errorMessage = null;
       notifyListeners();
       try {
-        _setAgents(await _store.load());
+        final loaded = await _store.load();
+        _setAgents(loaded.map(_normalizeAgent).toList(growable: false));
       } catch (error) {
         _errorMessage = '$error';
       } finally {
@@ -960,17 +978,13 @@ class AgentsController extends ManagedChangeNotifier {
       if (index < 0) return false;
       final agent = _agents[index];
       final now = DateTime.now().toUtc();
-      final requestedMaxWorkers = settings.maxWorkers.clamp(1, 999);
+      final requestedMaxWorkers = settings.maxWorkers.clamp(1, 999).toInt();
       final protectedWorkerCount = _protectedWorkerCount(agent.workers);
-      final maxWorkers = math.max(requestedMaxWorkers, protectedWorkerCount);
-      final normalized = settings.copyWith(
-        minWorkers: settings.minWorkers.clamp(0, maxWorkers),
-        maxWorkers: maxWorkers,
-        scaleOutThreshold: settings.scaleOutThreshold.clamp(0, 1).toDouble(),
-        scaleInThreshold: settings.scaleInThreshold.clamp(0, 1).toDouble(),
-        maxRetries: settings.maxRetries.clamp(0, 20),
-        tags: _dedupe(settings.tags),
+      final normalized = _normalizeScaleSettings(
+        settings,
+        minimumMaxWorkers: protectedWorkerCount,
       );
+      final maxWorkers = normalized.maxWorkers;
       final metadata = <String, Object?>{
         'min_workers': normalized.minWorkers,
         'max_workers': normalized.maxWorkers,
@@ -1080,10 +1094,10 @@ class AgentsController extends ManagedChangeNotifier {
   }
 
   AgentProfile _normalizeAgent(AgentProfile agent) {
-    final workerTarget = agent.scaleSettings.minWorkers.clamp(
-      0,
-      agent.scaleSettings.maxWorkers,
-    );
+    final scaleSettings = _normalizeScaleSettings(agent.scaleSettings);
+    final workerTarget = scaleSettings.minWorkers
+        .clamp(0, scaleSettings.maxWorkers)
+        .toInt();
     final now = DateTime.now().toUtc();
     final workers = List<AgentWorker>.from(agent.workers);
     while (workers.length < workerTarget) {
@@ -1093,11 +1107,12 @@ class AgentsController extends ManagedChangeNotifier {
           id: workerId,
           name: _defaultWorkerName(agent, workerId),
           updatedAt: now,
-          labels: agent.scaleSettings.tags,
+          labels: scaleSettings.tags,
         ),
       );
     }
-    return agent.copyWith(
+    final scaledAgent = agent.copyWith(scaleSettings: scaleSettings);
+    return scaledAgent.copyWith(
       name: agent.name.trim().isEmpty ? 'Unnamed Agent' : agent.name.trim(),
       skillNames: _dedupe(agent.skillNames),
       knowledgeSourceIds: _dedupe(agent.knowledgeSourceIds),
@@ -1109,8 +1124,48 @@ class AgentsController extends ManagedChangeNotifier {
       hookIds: _dedupe(agent.hookIds),
       activities: agent.activities.take(_maxActivityEvents).toList(),
       auditEvents: agent.auditEvents.take(_maxAuditEvents).toList(),
-      workers: _normalizeWorkersForScale(agent, workers),
+      workers: _normalizeWorkersForScale(scaledAgent, workers),
     );
+  }
+
+  AgentScaleSettings _normalizeScaleSettings(
+    AgentScaleSettings settings, {
+    int minimumMaxWorkers = 1,
+  }) {
+    final requestedMaxWorkers = settings.maxWorkers.clamp(1, 999).toInt();
+    final maxWorkers = math.max(requestedMaxWorkers, minimumMaxWorkers);
+    return settings.copyWith(
+      minWorkers: settings.minWorkers.clamp(0, maxWorkers).toInt(),
+      maxWorkers: maxWorkers,
+      scaleOutThreshold: settings.scaleOutThreshold.clamp(0, 1).toDouble(),
+      scaleInThreshold: settings.scaleInThreshold.clamp(0, 1).toDouble(),
+      workerRemovalPolicy: _policyOrFallback(
+        settings.workerRemovalPolicy,
+        _workerRemovalPolicyValues,
+        _workerRemovalLeastBusy,
+      ),
+      retryPolicy: _policyOrFallback(
+        settings.retryPolicy,
+        _retryPolicyValues,
+        _retryPolicyBoundedRetry,
+      ),
+      maxRetries: settings.maxRetries.clamp(0, 20).toInt(),
+      schedulerPolicy: _policyOrFallback(
+        settings.schedulerPolicy,
+        _schedulerPolicyValues,
+        _schedulerLeastBusy,
+      ),
+      tags: _dedupe(settings.tags),
+    );
+  }
+
+  String _policyOrFallback(
+    String value,
+    Set<String> allowedValues,
+    String fallback,
+  ) {
+    final normalized = value.trim().toLowerCase();
+    return allowedValues.contains(normalized) ? normalized : fallback;
   }
 
   List<String> _dedupe(List<String> values) {

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -736,6 +737,81 @@ void main() {
         agent.auditEvents.first.metadata['scheduler_policy'],
         'round_robin',
       );
+    });
+
+    test('normalizes invalid scale policies before saving', () async {
+      await controller.saveAgent(_runningAgent());
+
+      final saved = await controller.saveScaleSettings(
+        'agent-1',
+        const AgentScaleSettings(
+          minWorkers: 5,
+          maxWorkers: 0,
+          scaleOutThreshold: 2,
+          scaleInThreshold: -1,
+          workerRemovalPolicy: 'delete_busy_first',
+          retryPolicy: 'forever',
+          maxRetries: 99,
+          schedulerPolicy: 'random',
+          tags: <String>[' ops ', 'OPS', 'urgent'],
+        ),
+      );
+
+      expect(saved, isTrue);
+      final agent = controller.agentById('agent-1')!;
+      final metadata = agent.auditEvents.first.metadata;
+      expect(agent.scaleSettings.minWorkers, 1);
+      expect(agent.scaleSettings.maxWorkers, 1);
+      expect(agent.scaleSettings.scaleOutThreshold, 1);
+      expect(agent.scaleSettings.scaleInThreshold, 0);
+      expect(agent.scaleSettings.workerRemovalPolicy, 'least_busy');
+      expect(agent.scaleSettings.retryPolicy, 'bounded_retry');
+      expect(agent.scaleSettings.maxRetries, 20);
+      expect(agent.scaleSettings.schedulerPolicy, 'least_busy');
+      expect(agent.scaleSettings.tags, <String>['ops', 'urgent']);
+      expect(metadata['worker_removal_policy'], 'least_busy');
+      expect(metadata['retry_policy'], 'bounded_retry');
+      expect(metadata['scheduler_policy'], 'least_busy');
+      expect(metadata['tags'], <String>['ops', 'urgent']);
+    });
+
+    test('refresh normalizes legacy persisted scale policies', () async {
+      final file = File(p.join(tempDir.path, 'agents.json'));
+      const legacy = AgentProfile(
+        id: 'agent-legacy',
+        name: 'Legacy Agent',
+        scaleSettings: AgentScaleSettings(
+          minWorkers: 2,
+          maxWorkers: 0,
+          scaleOutThreshold: -0.5,
+          scaleInThreshold: 1.8,
+          workerRemovalPolicy: 'oldest_first',
+          retryPolicy: 'infinite',
+          maxRetries: 88,
+          schedulerPolicy: 'lottery',
+          tags: <String>['alpha', 'ALPHA', ' beta '],
+        ),
+      );
+      await file.writeAsString(
+        '${const JsonEncoder.withIndent('  ').convert(<String, Object?>{
+          'agents': <Object?>[legacy.toJson()],
+        })}\n',
+      );
+
+      await controller.refresh();
+
+      final agent = controller.agentById('agent-legacy')!;
+      expect(agent.scaleSettings.minWorkers, 1);
+      expect(agent.scaleSettings.maxWorkers, 1);
+      expect(agent.scaleSettings.scaleOutThreshold, 0);
+      expect(agent.scaleSettings.scaleInThreshold, 1);
+      expect(agent.scaleSettings.workerRemovalPolicy, 'least_busy');
+      expect(agent.scaleSettings.retryPolicy, 'bounded_retry');
+      expect(agent.scaleSettings.maxRetries, 20);
+      expect(agent.scaleSettings.schedulerPolicy, 'least_busy');
+      expect(agent.scaleSettings.tags, <String>['alpha', 'beta']);
+      expect(agent.workers, hasLength(1));
+      expect(agent.workers.single.labels, <String>['alpha', 'beta']);
     });
 
     test(
