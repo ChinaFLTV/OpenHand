@@ -4125,10 +4125,10 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
     _morph = AnimationController(vsync: this, duration: _kRefreshInterval)
       ..addListener(_handleMorphTick);
     // 直接 seed 第一帧 snapshot：initState 内禁止调用
-    // `MediaQuery.maybeDisableAnimationsOf(context)`（它会触发
+    // 共享动效偏好读取依赖 MediaQuery（它会触发
     // dependOnInheritedWidgetOfExactType<MediaQuery>() 断言），所以
     // 首次同步走 _morph.value=1.0 的"无动画跳变"路径；后续 Timer 触发的
-    // _refresh 已在 build 帧之后，可安全读 MediaQuery。
+    // _refresh 已在 build 帧之后，可安全读取共享动效偏好。
     final controller = context.read<AiSessionController>();
     final snapshot = controller.sessionStreamThroughputSnapshot(
       widget.sessionId,
@@ -4169,7 +4169,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
       return;
     }
     // 把上一帧已渲染的插值结果作为起点，向新 snapshot 平滑过渡。
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = !openHandTickerMotionEnabled(context);
     final prevDisplay = _currentDisplaySamples();
     final chartData = _buildChartData(next.displaySamples);
     final target = <double>[for (final v in chartData.samples) v.toDouble()];
@@ -4212,7 +4212,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
         nextBucket == _bucketSeconds) {
       return;
     }
-    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final reduceMotion = !openHandTickerMotionEnabled(context);
     final prevDisplay = _currentDisplaySamples();
     var sourceDisplay = _displaySamples;
     var sourceRaw = _rawSamples;
