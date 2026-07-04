@@ -1,3 +1,4 @@
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_session.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
@@ -190,7 +191,7 @@ class AiExitPlanModeTool extends AiTool {
   }
 
   bool _looksLikeConcreteCommand(String prompt) {
-    final normalized = prompt.trim().toLowerCase();
+    final normalized = lowercaseStringFromValue(prompt);
     if (normalized.isEmpty) {
       return false;
     }

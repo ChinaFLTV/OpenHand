@@ -80,7 +80,7 @@ class AiTaskTool extends AiTool {
       <AiBuiltinToolKind>{..._verifyBuiltinKinds};
 
   static String? canonicalSubagentType(String rawType) {
-    final normalized = rawType.trim().toLowerCase();
+    final normalized = lowercaseStringFromValue(rawType);
     if (normalized.isEmpty) return null;
     return subagentDescriptions.containsKey(normalized) ? normalized : null;
   }

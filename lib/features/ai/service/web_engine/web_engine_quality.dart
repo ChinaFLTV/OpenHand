@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import '../../../../shared/util/input_value_parsing.dart';
+
 const Set<String> _webQualityStopWords = <String>{
   'the',
   'a',
@@ -168,7 +170,7 @@ List<String> webQualityTerms(String input, {int limit = 24}) {
       in input
           .replaceAll(_webQualitySplitPattern, ' ')
           .split(_webQualityWhitespacePattern)) {
-    final term = part.trim().toLowerCase();
+    final term = lowercaseStringFromValue(part);
     if (term.length < 2 || _webQualityStopWords.contains(term)) continue;
     if (seen.add(term)) {
       terms.add(term);
@@ -184,7 +186,7 @@ List<String> _webQualityAllTerms(String input, {int limit = 240}) {
       in input
           .replaceAll(_webQualitySplitPattern, ' ')
           .split(_webQualityWhitespacePattern)) {
-    final term = part.trim().toLowerCase();
+    final term = lowercaseStringFromValue(part);
     if (term.length < 2 || _webQualityStopWords.contains(term)) continue;
     terms.add(term);
     if (terms.length >= limit) break;
@@ -209,8 +211,8 @@ bool webHasInformativeSearchText({
   required String snippet,
   String? rawContent,
 }) {
-  final normalizedTitle = title.trim().toLowerCase();
-  final normalizedUrl = url.trim().toLowerCase();
+  final normalizedTitle = lowercaseStringFromValue(title);
+  final normalizedUrl = lowercaseStringFromValue(url);
   final body = '${snippet.trim()} ${(rawContent ?? '').trim()}'.trim();
   if (body.length >= 8) return true;
   if (normalizedTitle.isEmpty || normalizedTitle == normalizedUrl) {

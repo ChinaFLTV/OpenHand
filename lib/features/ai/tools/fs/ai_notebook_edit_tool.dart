@@ -236,7 +236,7 @@ class AiNotebookEditTool extends AiTool {
   }
 
   String? _normalizeEditMode(String rawMode) {
-    final normalized = rawMode.trim().toLowerCase();
+    final normalized = lowercaseStringFromValue(rawMode);
     if (normalized.isEmpty) return 'replace';
     return switch (normalized) {
       'replace' || 'insert' || 'delete' => normalized,
@@ -245,7 +245,7 @@ class AiNotebookEditTool extends AiTool {
   }
 
   String? _normalizeCellType(String rawCellType) {
-    final normalized = rawCellType.trim().toLowerCase();
+    final normalized = lowercaseStringFromValue(rawCellType);
     if (normalized.isEmpty) return '';
     return switch (normalized) {
       'code' || 'markdown' || 'raw' => normalized,
