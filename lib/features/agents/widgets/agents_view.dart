@@ -7883,16 +7883,16 @@ class _AnimatedReorderableChipStrip extends StatefulWidget {
 class _AnimatedReorderableChipStripState
     extends State<_AnimatedReorderableChipStrip> {
   String? _activeDragValue;
-  int? _lastInsertIndex;
+  String? _lastMoveSignature;
 
   void _startDrag(String value) {
     _activeDragValue = value;
-    _lastInsertIndex = null;
+    _lastMoveSignature = null;
   }
 
   void _finishDrag() {
     _activeDragValue = null;
-    _lastInsertIndex = null;
+    _lastMoveSignature = null;
   }
 
   void _reorderAround(
@@ -7912,21 +7912,22 @@ class _AnimatedReorderableChipStripState
     if (_activeDragValue != payload.value) {
       _activeDragValue = payload.value;
     }
-    final oldIndex =
-        payload.sourceIndex >= 0 &&
-            payload.sourceIndex < widget.values.length &&
-            widget.values[payload.sourceIndex] == payload.value
-        ? payload.sourceIndex
-        : widget.values.indexOf(payload.value);
+    final oldIndex = widget.values.indexOf(payload.value);
     if (oldIndex < 0) return;
     final boundedInsertIndex = insertIndex
         .clamp(0, widget.values.length)
         .toInt();
-    if (oldIndex == boundedInsertIndex || oldIndex + 1 == boundedInsertIndex) {
+    final targetIndex = boundedInsertIndex > oldIndex
+        ? boundedInsertIndex - 1
+        : boundedInsertIndex;
+    if (targetIndex == oldIndex ||
+        targetIndex < 0 ||
+        targetIndex >= widget.values.length) {
       return;
     }
-    if (_lastInsertIndex == boundedInsertIndex) return;
-    _lastInsertIndex = boundedInsertIndex;
+    final moveSignature = '${payload.value}:$targetIndex';
+    if (_lastMoveSignature == moveSignature) return;
+    _lastMoveSignature = moveSignature;
     widget.onReorder(oldIndex, boundedInsertIndex);
   }
 
@@ -7960,7 +7961,6 @@ class _AnimatedReorderableChipStripState
               _AgentReorderableChipDropTarget(
                 key: ValueKey<String>('${widget.keyPrefix}-${entry.$2}'),
                 value: entry.$2,
-                index: entry.$1,
                 label: widget.labelBuilder?.call(entry.$2) ?? entry.$2,
                 settings: animationSettings,
                 onRemove: widget.onRemove,
@@ -8012,10 +8012,9 @@ class _AgentChipStripSwitcher extends StatelessWidget {
 }
 
 class _AgentChipDragPayload {
-  const _AgentChipDragPayload({required this.value, required this.sourceIndex});
+  const _AgentChipDragPayload({required this.value});
 
   final String value;
-  final int sourceIndex;
 }
 
 enum _AgentChipDropPlacement { before, after }
@@ -8024,7 +8023,6 @@ class _AgentReorderableChipDropTarget extends StatefulWidget {
   const _AgentReorderableChipDropTarget({
     super.key,
     required this.value,
-    required this.index,
     required this.label,
     required this.settings,
     required this.onRemove,
@@ -8035,7 +8033,6 @@ class _AgentReorderableChipDropTarget extends StatefulWidget {
   });
 
   final String value;
-  final int index;
   final String label;
   final DialogAnimationSettings settings;
   final ValueChanged<String> onRemove;
@@ -8130,7 +8127,6 @@ class _AgentReorderableChipDropTargetState
                   ),
                   label: widget.label,
                   value: widget.value,
-                  index: widget.index,
                   onDeleted: requestRemove,
                   onDragStarted: widget.onDragStarted,
                   onDragFinished: widget.onDragFinished,
@@ -8193,7 +8189,6 @@ class _AgentDraggableChip extends StatelessWidget {
     super.key,
     required this.label,
     required this.value,
-    required this.index,
     required this.onDeleted,
     required this.onDragStarted,
     required this.onDragFinished,
@@ -8202,7 +8197,6 @@ class _AgentDraggableChip extends StatelessWidget {
 
   final String label;
   final String value;
-  final int index;
   final VoidCallback onDeleted;
   final ValueChanged<String> onDragStarted;
   final VoidCallback onDragFinished;
@@ -8217,7 +8211,8 @@ class _AgentDraggableChip extends StatelessWidget {
       dragging: false,
     );
     return Draggable<_AgentChipDragPayload>(
-      data: _AgentChipDragPayload(value: value, sourceIndex: index),
+      data: _AgentChipDragPayload(value: value),
+      hitTestBehavior: HitTestBehavior.translucent,
       onDragStarted: () => onDragStarted(value),
       onDragEnd: (_) => onDragFinished(),
       onDraggableCanceled: (_, _) => onDragFinished(),
