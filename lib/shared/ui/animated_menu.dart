@@ -408,10 +408,15 @@ class _PopupMenuRouteLayout extends SingleChildLayoutDelegate {
       x = position.left;
     }
     // Clamp to screen.
-    x = x.clamp(padding.left, size.width - childSize.width - padding.right);
-    final clampedY = y.clamp(
-      padding.top,
-      size.height - childSize.height - padding.bottom,
+    x = _clampMenuCoordinate(
+      x,
+      lower: padding.left,
+      upper: size.width - childSize.width - padding.right,
+    );
+    final clampedY = _clampMenuCoordinate(
+      y,
+      lower: padding.top,
+      upper: size.height - childSize.height - padding.bottom,
     );
     return Offset(x, clampedY);
   }
@@ -422,6 +427,16 @@ class _PopupMenuRouteLayout extends SingleChildLayoutDelegate {
         textDirection != oldDelegate.textDirection ||
         padding != oldDelegate.padding;
   }
+}
+
+double _clampMenuCoordinate(
+  double value, {
+  required double lower,
+  required double upper,
+}) {
+  if (!value.isFinite) return lower;
+  if (upper < lower) return lower;
+  return value.clamp(lower, upper).toDouble();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
