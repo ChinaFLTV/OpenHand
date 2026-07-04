@@ -12,6 +12,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/highlight_pulse.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../service/harness_cli_catalog.dart';
@@ -101,10 +102,14 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog> {
     }
     setState(() => _logLines.add(line));
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _scrollGuard.followToBottom(
         _scrollController,
         animated: true,
-        animationDuration: const Duration(milliseconds: 100),
+        animationDuration: openHandMotionDuration(
+          context,
+          const Duration(milliseconds: 100),
+        ),
         curve: Curves.easeOut,
       );
     });

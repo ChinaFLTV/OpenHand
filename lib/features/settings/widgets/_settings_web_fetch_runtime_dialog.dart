@@ -84,7 +84,10 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
       _scrollGuard.followToBottom(
         _scrollController,
         animated: true,
-        animationDuration: const Duration(milliseconds: 100),
+        animationDuration: _settingsMotionDuration(
+          context,
+          const Duration(milliseconds: 100),
+        ),
         curve: Curves.easeOut,
       );
     });

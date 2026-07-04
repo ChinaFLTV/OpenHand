@@ -9,6 +9,7 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -72,7 +73,10 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
         _scrollGuard.followToBottom(
           _scrollController,
           animated: true,
-          animationDuration: const Duration(milliseconds: 220),
+          animationDuration: openHandMotionDuration(
+            context,
+            const Duration(milliseconds: 220),
+          ),
         );
       });
     }
@@ -823,10 +827,14 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     if (mounted) {
       setState(() {});
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         _logGuard.followToBottom(
           _logScroll,
           animated: true,
-          animationDuration: const Duration(milliseconds: 150),
+          animationDuration: openHandMotionDuration(
+            context,
+            const Duration(milliseconds: 150),
+          ),
         );
       });
     }

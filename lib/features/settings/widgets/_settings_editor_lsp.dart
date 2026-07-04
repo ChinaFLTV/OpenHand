@@ -2204,10 +2204,16 @@ class _EditorLspInstallRunnerDialogState
       _logLines.add(value);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
       _scrollGuard.followToBottom(
         _scrollController,
         animated: true,
-        animationDuration: const Duration(milliseconds: 120),
+        animationDuration: _settingsMotionDuration(
+          context,
+          const Duration(milliseconds: 120),
+        ),
       );
     });
   }
