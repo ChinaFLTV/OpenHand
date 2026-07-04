@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../model/ai_session_runtime_context.dart';
 
@@ -28,13 +29,16 @@ class AiWorkspaceInstructionService {
     required String startDirectory,
     String? homeDirectory,
   }) async {
-    final normalizedStart = p.normalize(startDirectory.trim());
-    if (normalizedStart.isEmpty || !await Directory(normalizedStart).exists()) {
+    final startValue = nullIfBlank(startDirectory);
+    if (startValue == null) {
       return const <AiWorkspaceInstructionDocument>[];
     }
-    final normalizedHome = (homeDirectory ?? '').trim().isEmpty
-        ? null
-        : p.normalize(homeDirectory!.trim());
+    final normalizedStart = p.normalize(startValue);
+    if (!await Directory(normalizedStart).exists()) {
+      return const <AiWorkspaceInstructionDocument>[];
+    }
+    final homeValue = nullIfBlank(homeDirectory);
+    final normalizedHome = homeValue == null ? null : p.normalize(homeValue);
     final cacheKey = '$normalizedStart|${normalizedHome ?? ''}';
     final cachedDocuments = _readCachedDocuments(cacheKey);
     if (cachedDocuments != null) {
