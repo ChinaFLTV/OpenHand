@@ -32,8 +32,9 @@ class FeaturePageShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final motionEnabled = openHandTickerMotionEnabled(context);
     final bodyWidget = Expanded(
-      child: animateBody
+      child: animateBody && motionEnabled
           ? AnimatedSwitcher(
               duration: openHandMotionDuration(
                 context,
@@ -43,6 +44,34 @@ class FeaturePageShell extends StatelessWidget {
             )
           : body,
     );
+    final noticeContent = _buildNoticeContent();
+    final noticesWidget = motionEnabled
+        ? AnimatedSwitcher(
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 300),
+            ),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              return SizeTransition(
+                sizeFactor: animation,
+                axisAlignment: -1.0,
+                child: FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, -0.08),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                ),
+              );
+            },
+            child: noticeContent,
+          )
+        : noticeContent;
 
     return Stack(
       children: [
@@ -82,48 +111,7 @@ class FeaturePageShell extends StatelessWidget {
               },
             ),
             SizedBox(height: headerSpacing),
-            AnimatedSwitcher(
-              duration: openHandMotionDuration(
-                context,
-                const Duration(milliseconds: 300),
-              ),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) {
-                return SizeTransition(
-                  sizeFactor: animation,
-                  axisAlignment: -1.0,
-                  child: FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, -0.08),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    ),
-                  ),
-                );
-              },
-              child: notices.isEmpty
-                  ? const SizedBox.shrink(key: ValueKey('feature-notices-empty'))
-                  : Column(
-                      key: const ValueKey('feature-notices-list'),
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        for (final notice in notices) ...<Widget>[
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxHeight: 220),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: notice,
-                            ),
-                          ),
-                          SizedBox(height: noticeSpacing),
-                        ],
-                      ],
-                    ),
-            ),
+            noticesWidget,
             bodyWidget,
           ],
         ),
@@ -134,6 +122,28 @@ class FeaturePageShell extends StatelessWidget {
             right: 0,
             child: IgnorePointer(child: HighlightPulse(signal: successSignal!)),
           ),
+      ],
+    );
+  }
+
+  Widget _buildNoticeContent() {
+    if (notices.isEmpty) {
+      return const SizedBox.shrink(key: ValueKey('feature-notices-empty'));
+    }
+    return Column(
+      key: const ValueKey('feature-notices-list'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        for (final notice in notices) ...<Widget>[
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 220),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: notice,
+            ),
+          ),
+          SizedBox(height: noticeSpacing),
+        ],
       ],
     );
   }
