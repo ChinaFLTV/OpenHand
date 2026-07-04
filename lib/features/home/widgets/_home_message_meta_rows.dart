@@ -1,5 +1,7 @@
 part of '../openhand_home_page.dart';
 
+const Duration _kSweepBadgeMotionDuration = Duration(milliseconds: 1350);
+
 class _MessageMetaRow extends StatelessWidget {
   const _MessageMetaRow({
     super.key,
@@ -475,7 +477,7 @@ class _SweepBadgeState extends State<_SweepBadge>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1350),
+    duration: _kSweepBadgeMotionDuration,
   )..repeat();
 
   @override
@@ -486,9 +488,7 @@ class _SweepBadgeState extends State<_SweepBadge>
 
   @override
   Widget build(BuildContext context) {
-    final animationsEnabled =
-        TickerMode.valuesOf(context).enabled &&
-        !MediaQuery.disableAnimationsOf(context);
+    final animationsEnabled = openHandTickerMotionEnabled(context);
     if (!animationsEnabled) {
       _controller.stop();
       return _buildBadge(context, progress: null);

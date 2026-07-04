@@ -1,5 +1,15 @@
 part of '../openhand_home_page.dart';
 
+const Duration _kToolCompletionGlowDuration = Duration(milliseconds: 620);
+const Duration _kToolSettleBounceDuration = Duration(milliseconds: 480);
+const Duration _kToolPreExecutionMotionDuration = Duration(milliseconds: 360);
+const Duration _kToolStructureSwitchDuration = Duration(milliseconds: 320);
+const Duration _kToolPhaseSwitchDuration = Duration(milliseconds: 280);
+const Duration _kToolCompactMotionDuration = Duration(milliseconds: 220);
+const Duration _kToolConstructingPulseDuration = Duration(milliseconds: 1100);
+const Duration _kToolPreviewSizeDuration = Duration(milliseconds: 200);
+const Curve _kToolCardMotionCurve = Curves.easeOutCubic;
+
 class _ToolCallBody extends StatefulWidget {
   const _ToolCallBody({required this.message, required this.selectable});
 
@@ -27,14 +37,14 @@ class _ToolCallBodyState extends State<_ToolCallBody>
     super.initState();
     _completionGlowCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 620),
+      duration: _kToolCompletionGlowDuration,
     );
     // 工具加固 v4.5：从「参数构造中」过渡到正式卡片时的 Q 弹回弹动画。
     // 480ms easeOutBack 让边框/背景/尺寸的同步收束带 ~6% 过冲，避免直
-    // 接生硬切换。受 reduceMotion / disableAnimationsOf 控制。
+    // 接生硬切换。受全局 reduceMotion / TickerMode 偏好控制。
     _settleBounceCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 480),
+      duration: _kToolSettleBounceDuration,
       value: 1.0,
     );
     final initialStatus = _toolExecutionStatus(widget.message);
@@ -61,11 +71,10 @@ class _ToolCallBodyState extends State<_ToolCallBody>
     if (!wasFresh) {
       return; // status churn (e.g. success→failure) shouldn't replay
     }
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (!openHandTickerMotionEnabled(context)) {
       // Skip the 620ms glow ceremony when the user has opted in to
-      // reduce motion (or the OS-level a11y flag is on). The glow at
-      // value=1.0 evaluates to no glow (glowActive false), so this is
-      // visually identical to a finished animation.
+      // reduce motion or the subtree ticker is paused. The glow at value=1.0
+      // evaluates to no glow, so this matches a finished animation.
       _completionGlowCtrl.value = 1.0;
       return;
     }
@@ -124,9 +133,13 @@ class _ToolCallBodyState extends State<_ToolCallBody>
     // Detect the pre-execution → executed transition once per state change
     // and schedule the Q-bounce settle. Idempotent: only fires when the
     // boolean flips from true → false, never on internal pre-exec churn.
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final motionEnabled = openHandTickerMotionEnabled(context);
+    final preExecutionMotionDuration = openHandMotionDuration(
+      context,
+      _kToolPreExecutionMotionDuration,
+    );
     if (_wasPreExecution == true && !isPreExecution) {
-      if (reduceMotion) {
+      if (!motionEnabled) {
         _settleBounceCtrl.value = 1.0;
       } else {
         _settleBounceCtrl.forward(from: 0.0);
@@ -155,10 +168,8 @@ class _ToolCallBodyState extends State<_ToolCallBody>
         : Colors.transparent;
     return ClipRect(
       child: AnimatedSize(
-        duration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 360),
-        curve: Curves.easeOutCubic,
+        duration: preExecutionMotionDuration,
+        curve: _kToolCardMotionCurve,
         alignment: Alignment.topLeft,
         child: AnimatedBuilder(
           animation: Listenable.merge(<Listenable>[
@@ -192,7 +203,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
             // 与一次轻微的 padding 保留过渡，让颜色/形状/尺寸同步收
             // 束为正式卡片。pre-execution 阶段保持稳定 radius=14。
             final settleRaw = _settleBounceCtrl.value;
-            final settleEased = reduceMotion
+            final settleEased = !motionEnabled
                 ? 1.0
                 : Curves.easeOutBack.transform(settleRaw);
             final radius = isPreExecution
@@ -202,10 +213,8 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                 ? 1.0
                 : (0.97 + 0.03 * settleEased).clamp(0.96, 1.04);
             final container = AnimatedContainer(
-              duration: reduceMotion
-                  ? Duration.zero
-                  : const Duration(milliseconds: 360),
-              curve: Curves.easeOutCubic,
+              duration: preExecutionMotionDuration,
+              curve: _kToolCardMotionCurve,
               padding: isPreExecution || glowActive
                   ? const EdgeInsets.fromLTRB(10, 8, 10, 10)
                   : EdgeInsets.zero,
@@ -216,7 +225,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
               ),
               child: child,
             );
-            if (reduceMotion || isPreExecution) {
+            if (!motionEnabled || isPreExecution) {
               return container;
             }
             // 始终用 Transform.scale 包裹（settled 时 scale=1）以保持
@@ -243,10 +252,11 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                   // popping in/out, so constructing→submitting→running
                   // feels like a single fluid morph.
                   AnimatedSwitcher(
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : const Duration(milliseconds: 280),
-                    switchInCurve: Curves.easeOutCubic,
+                    duration: openHandMotionDuration(
+                      context,
+                      _kToolPhaseSwitchDuration,
+                    ),
+                    switchInCurve: _kToolCardMotionCurve,
                     switchOutCurve: Curves.easeInCubic,
                     transitionBuilder: (child, animation) => FadeTransition(
                       opacity: animation,
@@ -406,10 +416,11 @@ class _ToolCallBodyState extends State<_ToolCallBody>
               // AnimatedSize already handles overall height.
               const SizedBox(height: 10),
               AnimatedSwitcher(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 320),
-                switchInCurve: Curves.easeOutCubic,
+                duration: openHandMotionDuration(
+                  context,
+                  _kToolStructureSwitchDuration,
+                ),
+                switchInCurve: _kToolCardMotionCurve,
                 switchOutCurve: Curves.easeInCubic,
                 layoutBuilder: (current, previous) => Stack(
                   alignment: Alignment.topLeft,
@@ -1499,12 +1510,13 @@ class _ToolExecutionChip extends StatelessWidget {
           // leading icons so preparing→constructing→submitting→running→
           // done flows as a single morph instead of a hard cut. Keyed on
           // the icon code-point so AnimatedSwitcher detects identity
-          // change. Honors MediaQuery.disableAnimationsOf via 0ms.
+          // change. Honors global motion preferences via 0ms.
           AnimatedSwitcher(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 220),
-            switchInCurve: Curves.easeOutCubic,
+            duration: openHandMotionDuration(
+              context,
+              _kToolCompactMotionDuration,
+            ),
+            switchInCurve: _kToolCardMotionCurve,
             switchOutCurve: Curves.easeInCubic,
             transitionBuilder: (child, animation) {
               return FadeTransition(
@@ -1652,7 +1664,7 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1100),
+      duration: _kToolConstructingPulseDuration,
     )..repeat(reverse: true);
   }
 
@@ -1672,15 +1684,15 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
         : cs.surfaceContainerHighest;
     final baseBorder = isSubmitting ? cs.tertiary : cs.outline;
     final fg = isSubmitting ? cs.onTertiaryContainer : cs.onSurfaceVariant;
-    final animationsEnabled =
-        TickerMode.valuesOf(context).enabled &&
-        !MediaQuery.disableAnimationsOf(context);
+    final animationsEnabled = openHandTickerMotionEnabled(context);
+    final badgeMotionDuration = openHandMotionDuration(
+      context,
+      _kToolPhaseSwitchDuration,
+    );
     Widget buildBadge(double t) {
       return AnimatedContainer(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 280),
-        curve: Curves.easeOutCubic,
+        duration: badgeMotionDuration,
+        curve: _kToolCardMotionCurve,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: baseFill.withValues(alpha: 0.55 + 0.35 * t),
@@ -3346,14 +3358,18 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
                     final colorScheme = theme.colorScheme;
                     final hasData = snapshot.hasData;
                     return AnimatedSize(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOutCubic,
+                      duration: openHandMotionDuration(
+                        context,
+                        _kToolPreviewSizeDuration,
+                      ),
+                      curve: _kToolCardMotionCurve,
                       alignment: Alignment.topLeft,
                       child: AnimatedSwitcher(
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 220),
-                        switchInCurve: Curves.easeOutCubic,
+                        duration: openHandMotionDuration(
+                          context,
+                          _kToolCompactMotionDuration,
+                        ),
+                        switchInCurve: _kToolCardMotionCurve,
                         switchOutCurve: Curves.easeInCubic,
                         child: !hasData
                             ? const SizedBox(
@@ -3825,10 +3841,8 @@ class _SelfLearningMarkdown extends StatelessWidget {
         : base.copyWith(p: theme.textTheme.bodyMedium?.copyWith(height: 1.5));
     return ClipRect(
       child: AnimatedSize(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
+        duration: openHandMotionDuration(context, _kToolCompactMotionDuration),
+        curve: _kToolCardMotionCurve,
         alignment: Alignment.topLeft,
         child: _SafeMarkdownBody(
           data: data.isEmpty ? ' ' : data,
