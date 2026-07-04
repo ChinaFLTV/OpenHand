@@ -201,7 +201,7 @@ domains: cloud, finops
     final recentAudit =
         operationalState['recent_audit_events'] as List<Object?>;
 
-    expect(snapshot.version, '1.2.8');
+    expect(snapshot.version, '1.2.9');
     expect(routing['has_route'], isTrue);
     expect(routing['keywords'], <Object?>[
       'release',
@@ -350,7 +350,7 @@ domains: cloud, finops
       final omittedPrompt =
           extra['agent_system_prompt'] as Map<String, Object?>;
 
-      expect(snapshot.version, '1.2.8');
+      expect(snapshot.version, '1.2.9');
       expect(task['content'], isA<String>());
       expect(task['content'], contains('[truncated:'));
       expect(task['content'], isNot(longContent));
@@ -367,6 +367,72 @@ domains: cloud, finops
     },
   );
 
+  test('prompt renderer bounds activity and audit metadata', () async {
+    final largeMetadata = List<String>.filled(180, '工具输出片段-').join();
+    final hiddenPrompt = List<String>.filled(
+      120,
+      'hidden-system-prompt-',
+    ).join();
+    final snapshot =
+        await AgentPromptRenderer(
+          loader: (_) async => '''
+<operational_state>
+{{OPERATIONAL_STATE_JSON}}
+</operational_state>
+''',
+        ).render(
+          agent: AgentProfile(
+            id: 'agent-metadata',
+            name: 'Metadata Agent',
+            activities: <AgentActivityEvent>[
+              AgentActivityEvent(
+                id: 'activity-large',
+                kind: 'tool_call',
+                title: 'Read tool output',
+                metadata: <String, Object?>{
+                  'tool_output': largeMetadata,
+                  'rendered_prompt': hiddenPrompt,
+                },
+              ),
+            ],
+            auditEvents: <AgentAuditEvent>[
+              AgentAuditEvent(
+                id: 'audit-large',
+                kind: 'mcp_call',
+                summary: 'Called MCP server',
+                metadata: <String, Object?>{
+                  'raw_payload': largeMetadata,
+                  'agent_system_prompt': hiddenPrompt,
+                },
+              ),
+            ],
+          ),
+        );
+
+    final operationalState =
+        snapshot.metadataJson()['operational_state'] as Map<String, Object?>;
+    final activity =
+        (operationalState['recent_activity'] as List<Object?>).single
+            as Map<String, Object?>;
+    final audit =
+        (operationalState['recent_audit_events'] as List<Object?>).single
+            as Map<String, Object?>;
+    final activityMetadata = activity['metadata'] as Map<String, Object?>;
+    final auditMetadata = audit['metadata'] as Map<String, Object?>;
+    final renderedPrompt =
+        activityMetadata['rendered_prompt'] as Map<String, Object?>;
+    final agentSystemPrompt =
+        auditMetadata['agent_system_prompt'] as Map<String, Object?>;
+
+    expect(snapshot.version, '1.2.9');
+    expect(activityMetadata['tool_output'], contains('[truncated:'));
+    expect(auditMetadata['raw_payload'], contains('[truncated:'));
+    expect(renderedPrompt['omitted'], isTrue);
+    expect(agentSystemPrompt['omitted'], isTrue);
+    expect(snapshot.renderedPrompt, isNot(contains(largeMetadata)));
+    expect(snapshot.renderedPrompt, isNot(contains(hiddenPrompt)));
+  });
+
   test(
     'prompt renderer keeps full structured fallback when asset is empty',
     () async {
@@ -381,7 +447,7 @@ domains: cloud, finops
         ),
       );
 
-      expect(snapshot.version, '1.2.8');
+      expect(snapshot.version, '1.2.9');
       expect(snapshot.renderedPrompt, contains('<operating_contract>'));
       expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
       expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));
@@ -414,7 +480,7 @@ domains: cloud, finops
       );
 
       expect(snapshot.assetPath, AgentPromptRenderer.defaultAssetPath);
-      expect(snapshot.version, '1.2.8');
+      expect(snapshot.version, '1.2.9');
       expect(snapshot.renderedPrompt, contains('<identity>'));
       expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
       expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));

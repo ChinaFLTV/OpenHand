@@ -50,7 +50,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.8';
+  static const String promptVersion = '1.2.9';
 
   final Future<String> Function(String path) _loader;
 
@@ -455,7 +455,7 @@ Map<String, Object?> _activityJson(AgentActivityEvent event) {
     'title': event.title,
     'content': event.content,
     'created_at': event.createdAt?.toUtc().toIso8601String(),
-    'metadata': event.metadata,
+    'metadata': _promptMetadataJson(event.metadata),
   };
 }
 
@@ -468,9 +468,33 @@ Map<String, Object?> _auditJson(AgentAuditEvent event) {
     'token_usage': event.tokenUsage,
     'request_count': event.requestCount,
     'created_at': event.createdAt?.toUtc().toIso8601String(),
-    'metadata': event.metadata,
+    'metadata': _promptMetadataJson(event.metadata),
   };
 }
+
+Map<String, Object?> _promptMetadataJson(Map<String, Object?> metadata) {
+  if (metadata.isEmpty) return const <String, Object?>{};
+  final sanitized = Map<String, Object?>.from(metadata);
+  for (final key in _agentPromptSensitiveMetadataKeys) {
+    final value = sanitized.remove(key);
+    if (value is String && value.isNotEmpty) {
+      sanitized[key] = <String, Object?>{
+        'omitted': true,
+        'chars': value.length,
+        'reason': 'Prompt-like metadata is omitted from agent prompt context.',
+      };
+    }
+  }
+  return _boundedPromptMap(sanitized);
+}
+
+const Set<String> _agentPromptSensitiveMetadataKeys = <String>{
+  'agent_system_prompt',
+  'rendered_prompt',
+  'system_prompt',
+  'developer_prompt',
+  'hidden_prompt',
+};
 
 String _json(Object? value) =>
     const JsonEncoder.withIndent('  ').convert(value);
