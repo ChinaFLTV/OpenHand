@@ -176,20 +176,31 @@ class AgentsController extends ManagedChangeNotifier {
       final lifecycleState = enabled
           ? AgentLifecycleState.running
           : AgentLifecycleState.stopped;
-      return agent.copyWith(
+      final stopDrain = enabled
+          ? _AgentStopDrainResult(agent: agent)
+          : _pauseRunningTasksForStop(agent, now);
+      return stopDrain.agent.copyWith(
         enabled: enabled,
         lifecycleState: lifecycleState,
         activities: _prependActivity(
-          agent.activities,
+          stopDrain.agent.activities,
           AgentActivityEvent(
             id: _uuid.v4(),
             kind: kind,
             title: kind,
             createdAt: now,
+            metadata: <String, Object?>{
+              'enabled': enabled,
+              'lifecycle_state': lifecycleState.storageValue,
+              if (stopDrain.pausedTaskCount > 0)
+                'paused_task_count': stopDrain.pausedTaskCount,
+              if (stopDrain.releasedWorkerCount > 0)
+                'released_worker_count': stopDrain.releasedWorkerCount,
+            },
           ),
         ),
         auditEvents: _prependAudit(
-          agent.auditEvents,
+          stopDrain.agent.auditEvents,
           AgentAuditEvent(
             id: _uuid.v4(),
             kind: kind,
@@ -200,6 +211,10 @@ class AgentsController extends ManagedChangeNotifier {
             metadata: <String, Object?>{
               'enabled': enabled,
               'lifecycle_state': lifecycleState.storageValue,
+              if (stopDrain.pausedTaskCount > 0)
+                'paused_task_count': stopDrain.pausedTaskCount,
+              if (stopDrain.releasedWorkerCount > 0)
+                'released_worker_count': stopDrain.releasedWorkerCount,
             },
           ),
         ),
@@ -1501,6 +1516,55 @@ class AgentsController extends ManagedChangeNotifier {
     );
   }
 
+  _AgentStopDrainResult _pauseRunningTasksForStop(
+    AgentProfile agent,
+    DateTime now,
+  ) {
+    final pausedTaskIds = <String>{};
+    final tasks = agent.tasks
+        .map((task) {
+          if (task.status != AgentTaskStatus.running) return task;
+          pausedTaskIds.add(task.id);
+          return task.copyWith(
+            status: AgentTaskStatus.paused,
+            updatedAt: now,
+            extra: <String, Object?>{
+              ...task.extra,
+              'paused_by_agent_stop': true,
+              'paused_at': now.toIso8601String(),
+            },
+          );
+        })
+        .toList(growable: false);
+    if (pausedTaskIds.isEmpty) {
+      return _AgentStopDrainResult(agent: agent);
+    }
+    var workers = agent.workers;
+    for (final task in tasks) {
+      if (!pausedTaskIds.contains(task.id)) continue;
+      workers = _releaseWorkersForTask(
+        workers,
+        task,
+        now,
+        countExecution: false,
+      );
+    }
+    final releasedWorkerCount = workers
+        .where(
+          (worker) =>
+              pausedTaskIds.contains(
+                '${worker.extra['last_finished_task_id'] ?? ''}'.trim(),
+              ) &&
+              '${worker.extra['last_finished_status'] ?? ''}' == 'paused',
+        )
+        .length;
+    return _AgentStopDrainResult(
+      agent: agent.copyWith(tasks: tasks, workers: workers),
+      pausedTaskCount: pausedTaskIds.length,
+      releasedWorkerCount: releasedWorkerCount,
+    );
+  }
+
   bool _canUpdateTaskState(AgentTask task, AgentTaskStatus? nextStatus) {
     if (_taskStatusIsTerminal(task.status)) return false;
     if (nextStatus == null) return true;
@@ -1699,4 +1763,16 @@ class AgentsController extends ManagedChangeNotifier {
       AgentTaskStatus.paused => false,
     };
   }
+}
+
+class _AgentStopDrainResult {
+  const _AgentStopDrainResult({
+    required this.agent,
+    this.pausedTaskCount = 0,
+    this.releasedWorkerCount = 0,
+  });
+
+  final AgentProfile agent;
+  final int pausedTaskCount;
+  final int releasedWorkerCount;
 }

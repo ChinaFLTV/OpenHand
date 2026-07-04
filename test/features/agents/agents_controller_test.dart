@@ -93,6 +93,42 @@ void main() {
       },
     );
 
+    test(
+      'stopping an agent pauses running tasks and releases workers',
+      () async {
+        await controller.saveAgent(_runningAgent());
+        final task = await controller.publishTaskWithResult(
+          'agent-1',
+          title: 'Prepare weekly report',
+        );
+        expect(task, isNotNull);
+        expect(task!.status, AgentTaskStatus.running);
+
+        final stopped = await controller.setAgentEnabled(
+          'agent-1',
+          enabled: false,
+        );
+
+        expect(stopped, isTrue);
+        final agent = controller.agentById('agent-1')!;
+        expect(agent.enabled, isFalse);
+        expect(agent.lifecycleState, AgentLifecycleState.stopped);
+        expect(agent.tasks.single.status, AgentTaskStatus.paused);
+        expect(agent.tasks.single.extra['paused_by_agent_stop'], isTrue);
+        expect(agent.workers.single.status, AgentWorkerStatus.idle);
+        expect(agent.workers.single.currentTaskId, isEmpty);
+        expect(agent.workers.single.executedTaskCount, 0);
+        expect(agent.workers.single.extra['last_finished_task_id'], task.id);
+        expect(agent.workers.single.extra['last_finished_status'], 'paused');
+        expect(agent.activities.first.kind, 'agent_stopped');
+        expect(agent.activities.first.metadata['paused_task_count'], 1);
+        expect(agent.activities.first.metadata['released_worker_count'], 1);
+        expect(agent.auditEvents.first.kind, 'agent_stopped');
+        expect(agent.auditEvents.first.metadata['paused_task_count'], 1);
+        expect(agent.auditEvents.first.metadata['released_worker_count'], 1);
+      },
+    );
+
     test('publishing a task assigns an idle worker', () async {
       await controller.saveAgent(_runningAgent());
 
