@@ -4122,7 +4122,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.agentTaskPublish,
       name: 'AgentTaskPublish',
       description:
-          'Publish a concrete task to an enabled digital employee only when the task matches an agent responsibility or needs delegated execution beyond the current session. Do not use this for work the current model and local tools can complete directly. Prefer an explicit agent id/name after AgentList or AgentDetail; when omitted, OpenHand routes by task context and route metadata. After publishing, inspect the returned task.state and next_poll; call only the listed follow-up tools and use AgentTaskResult when result_available is true or the user asks for the latest handoff.',
+          'Publish a concrete task to an enabled digital employee only when the task matches an agent responsibility or needs delegated execution beyond the current session. Prefer an explicit agent id/name after AgentList or AgentDetail. By default OpenHand starts the assigned worker and waits briefly for a result; inspect task.state, worker_execution, result_available, and next_poll before responding.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -4157,6 +4157,29 @@ class AiToolRuntimeService {
             'description': 'Alias for labels.',
           },
           'extra': _agentToolExtraSchema,
+          'wait_for_result': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'Defaults to true. When true, run the assigned worker in this tool call within wait_ms and return the latest result or wait state.',
+          },
+          'auto_execute': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'Alias for wait_for_result. Pass false only when you want to publish without starting the worker.',
+          },
+          'wait_ms': <String, Object?>{
+            'type': 'integer',
+            'minimum': 0,
+            'maximum': 90000,
+            'description':
+                'Automatic worker wait budget. Defaults to 30000. Use 0 to publish only.',
+          },
+          'timeout_ms': <String, Object?>{
+            'type': 'integer',
+            'minimum': 0,
+            'maximum': 90000,
+            'description': 'Alias for wait_ms.',
+          },
         },
         'required': <String>['title'],
         'additionalProperties': false,
@@ -4321,7 +4344,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.agentTaskResult,
       name: 'AgentTaskResult',
       description:
-          'Read the final or latest task result, note, status, progress, result_available, handoff, next_poll, assigned worker, and operational summary. Use when a task is terminal, requires attention, or the user asks for the current handoff.',
+          'Read the final or latest task result, note, status, progress, result_available, handoff, next_poll, assigned worker, and operational summary. Waits up to wait_ms (default 30000) while active tasks are still running.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -4330,6 +4353,22 @@ class AiToolRuntimeService {
           'agent': <String, Object?>{'type': 'string'},
           'task_id': <String, Object?>{'type': 'string'},
           'id': <String, Object?>{'type': 'string'},
+          'wait_ms': <String, Object?>{
+            'type': 'integer',
+            'minimum': 0,
+            'maximum': 90000,
+          },
+          'timeout_ms': <String, Object?>{
+            'type': 'integer',
+            'minimum': 0,
+            'maximum': 90000,
+            'description': 'Alias for wait_ms.',
+          },
+          'poll_ms': <String, Object?>{
+            'type': 'integer',
+            'minimum': 300,
+            'maximum': 6000,
+          },
         },
         'allOf': _agentToolAgentTaskAllOf,
         'additionalProperties': false,

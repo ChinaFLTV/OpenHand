@@ -134,9 +134,46 @@ class AiToolRegistry {
     // Agent digital employees — wired late so the AI runtime can start before
     // the Agents module has finished loading persisted profiles.
     if (agentsControllerProvider != null) {
-      for (final tool in AiAgentTool.all(
+      final agentTools = AiAgentTool.all(
         agentsControllerProvider: agentsControllerProvider,
-      )) {
+        backgroundChatClient: backgroundChatClient,
+        aiModelsProvider: aiModelsProvider,
+      );
+      for (final tool in agentTools) {
+        tool.withExecutor((parentContext, subContext) async {
+          final resolvedTool = subContext.catalog.find(
+            subContext.toolCall.name,
+          );
+          if (resolvedTool?.builtinKind == null) {
+            return AiToolExecutionResult(
+              status: BashToolExecutionStatus.invalidArguments,
+              command: subContext.toolCall.name,
+              workingDirectory: '',
+              stdout: '',
+              stderr:
+                  'Unsupported agent worker tool: ${subContext.toolCall.name}',
+              durationMs: 0,
+              resultText:
+                  'status: invalid_arguments\nerror: Unsupported agent worker tool: ${subContext.toolCall.name}',
+            );
+          }
+          final result = await registry.tryExecute(
+            subContext,
+            resolvedTool!.builtinKind!,
+          );
+          if (result != null) return result;
+          return AiToolExecutionResult(
+            status: BashToolExecutionStatus.invalidArguments,
+            command: subContext.toolCall.name,
+            workingDirectory: '',
+            stdout: '',
+            stderr:
+                'Agent worker tool unavailable: ${subContext.toolCall.name}',
+            durationMs: 0,
+            resultText:
+                'status: invalid_arguments\nerror: Agent worker tool unavailable: ${subContext.toolCall.name}',
+          );
+        });
         registry.register(tool);
       }
     }
