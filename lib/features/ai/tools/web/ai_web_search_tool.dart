@@ -52,7 +52,7 @@ class AiWebSearchTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final stopwatch = Stopwatch()..start();
-    final query = '${args['query'] ?? ''}'.trim();
+    final query = AiToolUtils.readString(args['query']);
     if (query.length < 2) {
       return AiToolUtils.invalidResult(
         'WebSearch',

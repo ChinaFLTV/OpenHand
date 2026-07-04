@@ -61,7 +61,7 @@ class AiSkillManagerTool extends AiTool {
   /// without needing to construct a full [AiToolExecutionContext].
   Future<AiToolExecutionResult> run(Map<String, Object?> args) async {
     final startedAt = Stopwatch()..start();
-    final action = '${args['action'] ?? ''}'.trim();
+    final action = AiToolUtils.readString(args['action']);
     if (action.isEmpty) {
       return AiToolUtils.invalidResult(
         _toolName,
@@ -114,8 +114,8 @@ class AiSkillManagerTool extends AiTool {
     String skillsRoot,
     Stopwatch startedAt,
   ) async {
-    final name = '${args['name'] ?? ''}'.trim();
-    final category = '${args['category'] ?? ''}'.trim();
+    final name = AiToolUtils.readString(args['name']);
+    final category = AiToolUtils.readString(args['category']);
     final content = '${args['content'] ?? ''}';
 
     final nameError = _validateName(name);
@@ -174,7 +174,7 @@ class AiSkillManagerTool extends AiTool {
     String skillsRoot,
     Stopwatch startedAt,
   ) async {
-    final name = '${args['name'] ?? ''}'.trim();
+    final name = AiToolUtils.readString(args['name']);
     final content = '${args['content'] ?? ''}';
 
     final nameError = _validateName(name);
@@ -218,7 +218,7 @@ class AiSkillManagerTool extends AiTool {
     String skillsRoot,
     Stopwatch startedAt,
   ) async {
-    final name = '${args['name'] ?? ''}'.trim();
+    final name = AiToolUtils.readString(args['name']);
     final nameError = _validateName(name);
     if (nameError != null) {
       return AiToolUtils.invalidResult(_toolName, nameError);
@@ -266,11 +266,11 @@ class AiSkillManagerTool extends AiTool {
     String skillsRoot,
     Stopwatch startedAt,
   ) async {
-    final name = '${args['name'] ?? ''}'.trim();
+    final name = AiToolUtils.readString(args['name']);
     final oldString = '${args['old_string'] ?? ''}';
     final newString = '${args['new_string'] ?? ''}';
     final replaceAll = AiToolUtils.readBool(args['replace_all']) == true;
-    final filePathArg = '${args['file_path'] ?? ''}'.trim();
+    final filePathArg = AiToolUtils.readString(args['file_path']);
 
     final nameError = _validateName(name);
     if (nameError != null) {
@@ -383,8 +383,8 @@ class AiSkillManagerTool extends AiTool {
     String skillsRoot,
     Stopwatch startedAt,
   ) async {
-    final name = '${args['name'] ?? ''}'.trim();
-    final filePathArg = '${args['file_path'] ?? ''}'.trim();
+    final name = AiToolUtils.readString(args['name']);
+    final filePathArg = AiToolUtils.readString(args['file_path']);
     final content = '${args['content'] ?? ''}';
 
     final nameError = _validateName(name);
@@ -431,8 +431,8 @@ class AiSkillManagerTool extends AiTool {
     String skillsRoot,
     Stopwatch startedAt,
   ) async {
-    final name = '${args['name'] ?? ''}'.trim();
-    final filePathArg = '${args['file_path'] ?? ''}'.trim();
+    final name = AiToolUtils.readString(args['name']);
+    final filePathArg = AiToolUtils.readString(args['file_path']);
 
     final nameError = _validateName(name);
     if (nameError != null) {

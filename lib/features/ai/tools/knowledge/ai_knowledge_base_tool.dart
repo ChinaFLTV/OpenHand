@@ -47,7 +47,7 @@ class AiKnowledgeSearchTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final sw = Stopwatch()..start();
     final args = context.decodedArguments;
-    final query = '${args['query'] ?? ''}'.trim();
+    final query = AiToolUtils.readString(args['query']);
     if (query.isEmpty) {
       return AiToolUtils.invalidResult(
         'KnowledgeSearch',
@@ -73,8 +73,8 @@ class AiKnowledgeSearchTool extends AiTool {
       query: query,
       terms: terms,
       sourceIds: _stringList(args['source_ids']),
-      dateFrom: '${args['date_from'] ?? ''}'.trim(),
-      dateTo: '${args['date_to'] ?? ''}'.trim(),
+      dateFrom: AiToolUtils.readString(args['date_from']),
+      dateTo: AiToolUtils.readString(args['date_to']),
       limit: _candidateLimitFor(topK),
     );
     final rankedRows = _rankSearchRows(rows, query: query, terms: terms);
@@ -100,8 +100,8 @@ class AiKnowledgeSearchTool extends AiTool {
         'matched_count': rankedRows.length,
         'filters': <String, Object?>{
           'source_ids': _stringList(args['source_ids']),
-          'date_from': '${args['date_from'] ?? ''}'.trim(),
-          'date_to': '${args['date_to'] ?? ''}'.trim(),
+          'date_from': AiToolUtils.readString(args['date_from']),
+          'date_to': AiToolUtils.readString(args['date_to']),
         },
       },
       rerank: <String, Object?>{
@@ -188,9 +188,9 @@ class AiKnowledgeReadTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final sw = Stopwatch()..start();
     final args = context.decodedArguments;
-    final chunkId = '${args['chunk_id'] ?? ''}'.trim();
-    final sourceId = '${args['source_id'] ?? ''}'.trim();
-    final aroundChunkId = '${args['around_chunk_id'] ?? ''}'.trim();
+    final chunkId = AiToolUtils.readString(args['chunk_id']);
+    final sourceId = AiToolUtils.readString(args['source_id']);
+    final aroundChunkId = AiToolUtils.readString(args['around_chunk_id']);
     if (chunkId.isEmpty && sourceId.isEmpty && aroundChunkId.isEmpty) {
       return AiToolUtils.invalidResult(
         'KnowledgeRead',

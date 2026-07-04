@@ -52,8 +52,8 @@ class AiWebFetchTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final stopwatch = Stopwatch()..start();
-    final rawUrl = '${args['url'] ?? ''}'.trim();
-    final prompt = '${args['prompt'] ?? ''}'.trim();
+    final rawUrl = AiToolUtils.readString(args['url']);
+    final prompt = AiToolUtils.readString(args['prompt']);
     if (rawUrl.isEmpty || prompt.isEmpty) {
       return AiToolUtils.invalidResult(
         'WebFetch',
