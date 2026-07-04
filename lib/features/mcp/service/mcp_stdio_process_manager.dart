@@ -15,6 +15,9 @@ import '../model/mcp_server.dart';
 import 'mcp_stdio_io_utils.dart';
 import 'mcp_tool_discovery_service.dart';
 
+final RegExp _stdioCommandTokenSeparatorPattern = RegExp(r'\s+');
+final RegExp _npxPackageVersionSuffixPattern = RegExp(r'@[^/]*$');
+
 @visibleForTesting
 Map<String, Object?>? parseMcpStdioJsonRpcLine(String line) {
   final trimmed = line.trim();
@@ -972,7 +975,7 @@ class _DirectLaunch {
 Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
   final command = server.command.trim();
   // 拆词：兼容 command="npx pkg@latest" 的写法
-  final tokens = command.split(RegExp(r'\s+'));
+  final tokens = command.split(_stdioCommandTokenSeparatorPattern);
   final executable = tokens.first;
   final inlineArgs = tokens.length > 1 ? tokens.sublist(1) : const <String>[];
   final allArgs = [...inlineArgs, ...server.args];
@@ -1029,7 +1032,7 @@ class _ResolvedNpxPackage {
 /// 通过多种策略定位 npx 包的实际安装路径和入口脚本。
 Future<_ResolvedNpxPackage?> _resolveNpxPackagePath(String packageName) async {
   // 解析包名（处理 @scope/name@version 格式）
-  final cleanName = packageName.replaceAll(RegExp(r'@[^/]*$'), '');
+  final cleanName = packageName.replaceAll(_npxPackageVersionSuffixPattern, '');
 
   // 策略 1：直接扫描 nvm 目录（最可靠，GUI 应用中 nvm 是最常见的 node 管理器）
   final home = Platform.environment['HOME'] ?? '';

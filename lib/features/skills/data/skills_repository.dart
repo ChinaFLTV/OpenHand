@@ -27,6 +27,11 @@ class SkillsRepository {
   static const String _generatedImageIconFileName = 'skill-icon.png';
   static const int _maxArchiveEntries = 2000;
   static const int _maxExtractedArchiveBytes = 160 * 1024 * 1024;
+  static final RegExp _whitespacePattern = RegExp(r'\s+');
+  static final RegExp _windowsDrivePrefixPattern = RegExp(r'^[a-zA-Z]:');
+  static final RegExp _titleSegmentSeparatorPattern = RegExp(r'[-_]+');
+  static final RegExp _slugUnsafeCharsPattern = RegExp(r'[^a-z0-9]+');
+  static final RegExp _slugEdgeHyphenPattern = RegExp(r'^-+|-+$');
 
   Future<Directory> ensureStorageDirectory(String storagePath) async {
     final directory = Directory(storagePath);
@@ -884,7 +889,7 @@ class SkillsRepository {
       if (line.isEmpty || line.startsWith('#')) {
         continue;
       }
-      return line.replaceAll(RegExp(r'\s+'), ' ');
+      return line.replaceAll(_whitespacePattern, ' ');
     }
     return fallback;
   }
@@ -1037,7 +1042,7 @@ class SkillsRepository {
     if (p.posix.isAbsolute(normalizedPath) ||
         normalizedPath.startsWith('../') ||
         normalizedPath == '..' ||
-        RegExp(r'^[a-zA-Z]:').hasMatch(normalizedPath)) {
+        _windowsDrivePrefixPattern.hasMatch(normalizedPath)) {
       throw const FileSystemException('Skill archive path is unsafe.');
     }
 
@@ -1163,7 +1168,7 @@ class SkillsRepository {
 
   String _titleFromSlug(String slug) {
     final words = slug
-        .split(RegExp(r'[-_]+'))
+        .split(_titleSegmentSeparatorPattern)
         .where((segment) => segment.isNotEmpty)
         .map((segment) => '${segment[0].toUpperCase()}${segment.substring(1)}');
     return words.isEmpty ? 'New Skill' : words.join(' ');
@@ -1173,8 +1178,8 @@ class SkillsRepository {
     final normalized = rawValue
         .trim()
         .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
-        .replaceAll(RegExp(r'^-+|-+$'), '');
+        .replaceAll(_slugUnsafeCharsPattern, '-')
+        .replaceAll(_slugEdgeHyphenPattern, '');
     return normalized.isEmpty ? _defaultSkillSlug : normalized;
   }
 
