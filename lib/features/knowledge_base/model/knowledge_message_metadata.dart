@@ -9,6 +9,19 @@ import 'knowledge_vector_distribution.dart';
 const String knowledgeBaseMessageMetadataKey = 'knowledge_base';
 const String knowledgeBasePromptAppendMetadataKey = 'prompt_append_content';
 const int _knowledgeUsagePreviewMaxChars = 420;
+final RegExp _knowledgeHeadingPathSeparatorPattern = RegExp(r'[>/\\|]+');
+final RegExp _knowledgeStableFragmentSeparatorPattern = RegExp(
+  r'[\r\n。！？!?；;]+',
+);
+final RegExp _knowledgeQuotedTitlePattern = RegExp(r'《([^》]{2,80})》');
+final RegExp _knowledgeLineBreakPattern = RegExp(r'[\r\n]+');
+final RegExp _knowledgeMarkdownTableSeparatorPattern = RegExp(
+  r'^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$',
+);
+final RegExp _knowledgeCjkPattern = RegExp(r'[\u4e00-\u9fff]');
+final RegExp _knowledgeUsageNormalizeNoisePattern = RegExp(
+  r'''[\s`~!@#$%^&*()_\-+={}\[\]|\\:;"'<>,.?/，。、《》？；：‘’“”【】（）！￥…—·、]+''',
+);
 
 class KnowledgeMessageMetadata {
   const KnowledgeMessageMetadata._();
@@ -643,7 +656,10 @@ class KnowledgeMessageMetadata {
         }
       }
       if (key == 'heading_path') {
-        yield* splitTrimmedNonEmpty(value, separator: RegExp(r'[>/\\|]+'));
+        yield* splitTrimmedNonEmpty(
+          value,
+          separator: _knowledgeHeadingPathSeparatorPattern,
+        );
       }
     }
     for (final key in const <String>['preview', 'content']) {
@@ -656,7 +672,7 @@ class KnowledgeMessageMetadata {
   }
 
   static Iterable<String> _stableTextFragments(String text) sync* {
-    final parts = text.split(RegExp(r'[\r\n。！？!?；;]+'));
+    final parts = text.split(_knowledgeStableFragmentSeparatorPattern);
     for (final part in parts) {
       final trimmed = part.trim();
       if (trimmed.length < 12) continue;
@@ -665,7 +681,7 @@ class KnowledgeMessageMetadata {
   }
 
   static Iterable<String> _quotedTitleFragments(String text) sync* {
-    final matches = RegExp(r'《([^》]{2,80})》').allMatches(text);
+    final matches = _knowledgeQuotedTitlePattern.allMatches(text);
     for (final match in matches) {
       final title = match.group(0)?.trim();
       if (title != null && title.isNotEmpty) yield title;
@@ -673,12 +689,10 @@ class KnowledgeMessageMetadata {
   }
 
   static Iterable<String> _markdownTableCellFragments(String text) sync* {
-    for (final line in text.split(RegExp(r'[\r\n]+'))) {
+    for (final line in text.split(_knowledgeLineBreakPattern)) {
       final trimmedLine = line.trim();
       if (!trimmedLine.startsWith('|') || !trimmedLine.endsWith('|')) continue;
-      if (RegExp(
-        r'^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$',
-      ).hasMatch(trimmedLine)) {
+      if (_knowledgeMarkdownTableSeparatorPattern.hasMatch(trimmedLine)) {
         continue;
       }
       for (final cell in trimmedLine.split('|')) {
@@ -691,7 +705,7 @@ class KnowledgeMessageMetadata {
 
   static bool _usageTermWorthMatching(String raw, String normalized) {
     if (normalized.isEmpty) return false;
-    final hasCjk = RegExp(r'[\u4e00-\u9fff]').hasMatch(raw);
+    final hasCjk = _knowledgeCjkPattern.hasMatch(raw);
     final minLength = hasCjk ? 4 : 8;
     if (normalized.length < minLength) return false;
     const generic = <String>{
@@ -715,12 +729,7 @@ class KnowledgeMessageMetadata {
   static String _usageNormalize(String value) {
     return value
         .toLowerCase()
-        .replaceAll(
-          RegExp(
-            r'''[\s`~!@#$%^&*()_\-+={}\[\]|\\:;"'<>,.?/，。、《》？；：‘’“”【】（）！￥…—·、]+''',
-          ),
-          '',
-        )
+        .replaceAll(_knowledgeUsageNormalizeNoisePattern, '')
         .trim();
   }
 
