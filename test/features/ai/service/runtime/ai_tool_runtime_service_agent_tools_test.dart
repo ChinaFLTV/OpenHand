@@ -518,6 +518,36 @@ void main() {
       },
     );
 
+    test(
+      'matches agent builtin bindings by enum and display-name aliases',
+      () async {
+        await controller.saveAgent(
+          _agent(
+            enabled: true,
+            builtinToolNames: const <String>[
+              'agentTaskResult',
+              'Agent Approval Request',
+            ],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+
+        expect(
+          catalog.find('AgentTaskResult')?.builtinKind,
+          AiBuiltinToolKind.agentTaskResult,
+        );
+        expect(
+          catalog.find('AgentApprovalRequest')?.builtinKind,
+          AiBuiltinToolKind.agentApprovalRequest,
+        );
+        expect(catalog.find('AgentTaskPublish'), isNull);
+        expect(catalog.find('AgentClusterStatus'), isNull);
+      },
+    );
+
     test('approval request tool records pending approval and audit', () async {
       await controller.saveAgent(_agent(enabled: true));
 

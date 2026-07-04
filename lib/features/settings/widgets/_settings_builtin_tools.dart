@@ -18,6 +18,22 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
         .length;
     final readOnlyCount = configs.length - mutationCount;
     final enabledReadOnlyCount = enabledCount - enabledMutationCount;
+    final groupSummaries = AiAgentBuiltinToolGroup.values
+        .map((group) {
+          final groupConfigs = configs
+              .where((config) => config.kind.agentToolGroup == group)
+              .toList(growable: false);
+          return _AgentToolGroupSummary(
+            group: group,
+            totalCount: groupConfigs.length,
+            enabledCount: groupConfigs.where((config) => config.enabled).length,
+            mutationCount: groupConfigs
+                .where((config) => config.kind.isAgentMutationTool)
+                .length,
+          );
+        })
+        .where((summary) => summary.totalCount > 0)
+        .toList(growable: false);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -98,10 +114,139 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (groupSummaries.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final summary in groupSummaries)
+                          _AgentToolGroupChip(summary: summary),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentToolGroupSummary {
+  const _AgentToolGroupSummary({
+    required this.group,
+    required this.totalCount,
+    required this.enabledCount,
+    required this.mutationCount,
+  });
+
+  final AiAgentBuiltinToolGroup group;
+  final int totalCount;
+  final int enabledCount;
+  final int mutationCount;
+}
+
+class _AgentToolGroupChip extends StatelessWidget {
+  const _AgentToolGroupChip({required this.summary});
+
+  final _AgentToolGroupSummary summary;
+
+  IconData _icon(AiAgentBuiltinToolGroup group) {
+    return switch (group) {
+      AiAgentBuiltinToolGroup.discovery => Icons.travel_explore_rounded,
+      AiAgentBuiltinToolGroup.taskLifecycle => Icons.playlist_add_check_rounded,
+      AiAgentBuiltinToolGroup.governance => Icons.verified_user_outlined,
+      AiAgentBuiltinToolGroup.operations => Icons.monitor_heart_outlined,
+      AiAgentBuiltinToolGroup.cluster => Icons.account_tree_rounded,
+    };
+  }
+
+  String _label(BuildContext context, AiAgentBuiltinToolGroup group) {
+    return switch (group) {
+      AiAgentBuiltinToolGroup.discovery => _localizedText(
+        context,
+        zh: '发现路由',
+        en: 'Discovery',
+      ),
+      AiAgentBuiltinToolGroup.taskLifecycle => _localizedText(
+        context,
+        zh: '任务生命周期',
+        en: 'Task lifecycle',
+      ),
+      AiAgentBuiltinToolGroup.governance => _localizedText(
+        context,
+        zh: '治理审计',
+        en: 'Governance',
+      ),
+      AiAgentBuiltinToolGroup.operations => _localizedText(
+        context,
+        zh: '运营资源',
+        en: 'Operations',
+      ),
+      AiAgentBuiltinToolGroup.cluster => _localizedText(
+        context,
+        zh: '集群调度',
+        en: 'Cluster',
+      ),
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final allEnabled = summary.enabledCount == summary.totalCount;
+    final statusColor = allEnabled ? cs.primary : cs.onSurfaceVariant;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 178, maxWidth: 236),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: cs.surface.withValues(alpha: 0.58),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.8)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          child: Row(
+            children: [
+              Icon(_icon(summary.group), size: 18, color: statusColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _label(context, summary.group),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _localizedText(
+                        context,
+                        zh: '启用 ${summary.enabledCount}/${summary.totalCount} · 变更 ${summary.mutationCount}',
+                        en: 'Enabled ${summary.enabledCount}/${summary.totalCount} · Mutating ${summary.mutationCount}',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

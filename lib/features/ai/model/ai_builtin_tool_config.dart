@@ -10,6 +10,14 @@ export '../service/runtime/ai_tool_runtime_service.dart' show AiBuiltinToolKind;
 export 'ai_web_fetch_settings.dart';
 export 'ai_web_search_settings.dart';
 
+enum AiAgentBuiltinToolGroup {
+  discovery,
+  taskLifecycle,
+  governance,
+  operations,
+  cluster,
+}
+
 extension AiBuiltinToolKindAgentMetadata on AiBuiltinToolKind {
   bool get isAgentCoordinationTool {
     return switch (this) {
@@ -34,6 +42,35 @@ extension AiBuiltinToolKindAgentMetadata on AiBuiltinToolKind {
       AiBuiltinToolKind.agentTaskComplete ||
       AiBuiltinToolKind.agentTaskResult => true,
       _ => false,
+    };
+  }
+
+  AiAgentBuiltinToolGroup? get agentToolGroup {
+    return switch (this) {
+      AiBuiltinToolKind.agentList ||
+      AiBuiltinToolKind.agentDetail => AiAgentBuiltinToolGroup.discovery,
+      AiBuiltinToolKind.agentTaskList ||
+      AiBuiltinToolKind.agentTaskPublish ||
+      AiBuiltinToolKind.agentTaskTrack ||
+      AiBuiltinToolKind.agentTaskProgress ||
+      AiBuiltinToolKind.agentTaskCancel ||
+      AiBuiltinToolKind.agentTaskPause ||
+      AiBuiltinToolKind.agentTaskTerminate ||
+      AiBuiltinToolKind.agentTaskResume ||
+      AiBuiltinToolKind.agentTaskComplete ||
+      AiBuiltinToolKind.agentTaskResult =>
+        AiAgentBuiltinToolGroup.taskLifecycle,
+      AiBuiltinToolKind.agentActivityLog ||
+      AiBuiltinToolKind.agentAuditReport ||
+      AiBuiltinToolKind.agentAuditRecord ||
+      AiBuiltinToolKind.agentApprovalRequest =>
+        AiAgentBuiltinToolGroup.governance,
+      AiBuiltinToolKind.agentKpiUpsert ||
+      AiBuiltinToolKind.agentResourceUpdate =>
+        AiAgentBuiltinToolGroup.operations,
+      AiBuiltinToolKind.agentClusterConfigure ||
+      AiBuiltinToolKind.agentClusterStatus => AiAgentBuiltinToolGroup.cluster,
+      _ => null,
     };
   }
 
