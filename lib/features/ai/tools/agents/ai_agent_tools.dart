@@ -1861,16 +1861,79 @@ Map<String, Object?> _agentSummaryJson(AgentProfile agent) {
       'pending_approvals': agent.pendingApprovalCount,
     },
     'worker_count': agent.workers.length,
-    'capabilities': <String, Object?>{
-      'skills': agent.skillNames,
-      'knowledge_sources': agent.knowledgeSourceIds,
-      'memories': agent.memoryIds,
-      'mcp_servers': agent.mcpServerNames,
-      'builtin_tools': agent.builtinToolNames,
-    },
+    'capabilities': _agentCapabilityBindingsJson(agent),
+    'workspace_policy': _agentWorkspacePolicyJson(agent),
     'routing': routing.toJson(includeRawPreview: false),
     'updated_at': _iso(agent.updatedAt),
   };
+}
+
+Map<String, Object?> _agentCapabilityBindingsJson(AgentProfile agent) {
+  final automationCount = agent.cronIds.length + agent.hookIds.length;
+  final agentBuiltinToolCount = agent.builtinToolNames
+      .where(_looksLikeAgentBuiltinToolName)
+      .length;
+  return <String, Object?>{
+    'skills': agent.skillNames,
+    'knowledge_sources': agent.knowledgeSourceIds,
+    'memories': agent.memoryIds,
+    'mcp_servers': agent.mcpServerNames,
+    'builtin_tools': agent.builtinToolNames,
+    'summary': <String, Object?>{
+      'skills': agent.skillNames.length,
+      'knowledge_sources': agent.knowledgeSourceIds.length,
+      'memories': agent.memoryIds.length,
+      'mcp_servers': agent.mcpServerNames.length,
+      'builtin_tools': agent.builtinToolNames.length,
+      'agent_coordination_tools': agentBuiltinToolCount,
+      'automations': automationCount,
+      'has_external_actions':
+          agent.mcpServerNames.isNotEmpty || agent.builtinToolNames.isNotEmpty,
+      'has_self_learning_inputs':
+          agent.skillNames.isNotEmpty ||
+          agent.knowledgeSourceIds.isNotEmpty ||
+          agent.memoryIds.isNotEmpty,
+    },
+  };
+}
+
+Map<String, Object?> _agentWorkspacePolicyJson(AgentProfile agent) {
+  final workspacePath = agent.workspacePath.trim();
+  final scopePaths = agent.normalizedWorkspaceScopePaths;
+  final allowedRoots = <String>[
+    if (workspacePath.isNotEmpty) workspacePath,
+    ...scopePaths,
+  ];
+  return <String, Object?>{
+    'allowed_roots': allowedRoots,
+    'writes_limited_to_allowed_roots': true,
+    'requires_confirmation_when_empty': allowedRoots.isEmpty,
+  };
+}
+
+bool _looksLikeAgentBuiltinToolName(String name) {
+  final normalized = _normalizeToolName(name);
+  return normalized == 'agentlist' ||
+      normalized == 'agentdetail' ||
+      normalized.startsWith('agentactivity') ||
+      normalized.startsWith('agentaudit') ||
+      normalized.startsWith('agentapproval') ||
+      normalized.startsWith('agentkpi') ||
+      normalized.startsWith('agentresource') ||
+      normalized.startsWith('agentcluster') ||
+      normalized.startsWith('agenttask');
+}
+
+String _normalizeToolName(String value) {
+  final buffer = StringBuffer();
+  for (final code in value.codeUnits) {
+    if ((code >= 0x30 && code <= 0x39) ||
+        (code >= 0x41 && code <= 0x5A) ||
+        (code >= 0x61 && code <= 0x7A)) {
+      buffer.writeCharCode(code | 0x20);
+    }
+  }
+  return buffer.toString();
 }
 
 Map<String, Object?> _agentDetailJson(
@@ -1888,6 +1951,7 @@ Map<String, Object?> _agentDetailJson(
     'workspace_path': agent.workspacePath,
     'workspace_scope': agent.workspaceScopeText,
     'workspace_scope_paths': agent.normalizedWorkspaceScopePaths,
+    'workspace_policy': _agentWorkspacePolicyJson(agent),
     'self_learning_enabled': agent.selfLearningEnabled,
     'routing': AgentRoutingMetadata.fromAgent(agent).toJson(),
     'task_labels': agent.taskLabels,

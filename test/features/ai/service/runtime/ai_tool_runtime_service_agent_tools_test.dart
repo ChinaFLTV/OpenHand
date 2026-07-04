@@ -1401,6 +1401,15 @@ void main() {
       await controller.saveAgent(
         _agent(enabled: true).copyWith(
           executionMode: AgentExecutionMode.fullAccess,
+          skillNames: const <String>['ops-triage'],
+          mcpServerNames: const <String>['ops-mcp'],
+          builtinToolNames: const <String>[
+            'AgentDetail',
+            'AgentTaskPublish',
+            'Bash',
+          ],
+          cronIds: const <String>['daily-report'],
+          hookIds: const <String>['approval-hook'],
           workspacePath: '/repo',
           workspaceScope: '/legacy/ignored',
           workspaceScopePaths: const <String>[
@@ -1439,6 +1448,23 @@ void main() {
         '/repo/app',
         '/repo/docs',
       ]);
+      final capabilities = agent['capabilities'] as Map<String, Object?>;
+      final capabilitySummary = capabilities['summary'] as Map<String, Object?>;
+      expect(capabilitySummary['skills'], 1);
+      expect(capabilitySummary['mcp_servers'], 1);
+      expect(capabilitySummary['builtin_tools'], 3);
+      expect(capabilitySummary['agent_coordination_tools'], 2);
+      expect(capabilitySummary['automations'], 2);
+      expect(capabilitySummary['has_external_actions'], isTrue);
+      expect(capabilitySummary['has_self_learning_inputs'], isTrue);
+      final workspacePolicy = agent['workspace_policy'] as Map<String, Object?>;
+      expect(workspacePolicy['allowed_roots'], <Object?>[
+        '/repo',
+        '/repo/app',
+        '/repo/docs',
+      ]);
+      expect(workspacePolicy['writes_limited_to_allowed_roots'], isTrue);
+      expect(workspacePolicy['requires_confirmation_when_empty'], isFalse);
       final approvalPolicy = agent['approval_policy'] as Map<String, Object?>;
       expect(approvalPolicy['mode'], 'full_access');
       expect(approvalPolicy['routine_actions_auto_allowed'], isTrue);
@@ -1451,6 +1477,70 @@ void main() {
         contains('credential_or_secret_access'),
       );
     });
+
+    test(
+      'list tool exposes routing summaries for delegation decisions',
+      () async {
+        await controller.saveAgent(
+          _agent(
+            enabled: true,
+            builtinToolNames: const <String>[
+              'AgentList',
+              'agentTaskResult',
+              'Bash',
+            ],
+            routeFrontMatter: 'keywords: deploy, release',
+            taskLabels: const <String>['release'],
+          ).copyWith(
+            skillNames: const <String>['release-checklist'],
+            mcpServerNames: const <String>['deploy-mcp'],
+            workspacePath: '/repo',
+            workspaceScopePaths: const <String>['/repo/app'],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        final result = await runtime.execute(
+          sessionId: 'session-1',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-1',
+            name: 'AgentList',
+            arguments: jsonEncode(<String, Object?>{}),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
+
+        expect(result.status, BashToolExecutionStatus.success);
+        final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+        final agents = payload['agents'] as List<Object?>;
+        final agent = agents.single as Map<String, Object?>;
+        final capabilities = agent['capabilities'] as Map<String, Object?>;
+        final capabilitySummary =
+            capabilities['summary'] as Map<String, Object?>;
+        final workspacePolicy =
+            agent['workspace_policy'] as Map<String, Object?>;
+        final routing = agent['routing'] as Map<String, Object?>;
+
+        expect(capabilitySummary['skills'], 1);
+        expect(capabilitySummary['mcp_servers'], 1);
+        expect(capabilitySummary['agent_coordination_tools'], 2);
+        expect(capabilitySummary['has_external_actions'], isTrue);
+        expect(workspacePolicy['allowed_roots'], <Object?>[
+          '/repo',
+          '/repo/app',
+        ]);
+        expect(routing['keywords'], contains('deploy'));
+        expect(routing['keywords'], contains('release-checklist'));
+      },
+    );
 
     test('publish tool routes to the best matching enabled agent', () async {
       await controller.saveAgent(
