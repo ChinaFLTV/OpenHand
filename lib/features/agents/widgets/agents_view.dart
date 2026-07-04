@@ -659,22 +659,7 @@ Future<void> _handleAgentAction(
     case _AgentCardAction.edit:
       await _showAgentEditor(context, initialAgent: agent);
     case _AgentCardAction.activities:
-      await _showAgentListDialog(
-        context,
-        agent: agent,
-        title: l10n.agentsActivities,
-        icon: Icons.history_rounded,
-        emptyTitle: l10n.agentsActivitiesEmptyTitle,
-        rows: agent.activities
-            .map(
-              (item) => _DialogRow(
-                title: _agentActivityTitle(l10n, item),
-                subtitle: _agentActivitySubtitle(l10n, item),
-                trailing: _agentActivityTrailing(l10n, item),
-              ),
-            )
-            .toList(),
-      );
+      await _showAgentActivitiesDialog(context, agent);
     case _AgentCardAction.logs:
       await _showAgentListDialog(
         context,
@@ -708,6 +693,223 @@ Future<void> _handleAgentAction(
       await _showAgentResourcesDialog(context, agent);
     case _AgentCardAction.delete:
       await _confirmDeleteAgent(context, agent);
+  }
+}
+
+Future<void> _showAgentActivitiesDialog(
+  BuildContext context,
+  AgentProfile agent,
+) {
+  final l10n = AppLocalizations.of(context)!;
+  return showAnimatedDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return Consumer<AgentsController>(
+        builder: (context, controller, _) {
+          final currentAgent = controller.agentById(agent.id) ?? agent;
+          final activities = currentAgent.activities;
+          return buildOpenHandDialog(
+            maxWidth: 820,
+            maxHeight: 680,
+            child: _AgentDialogScaffold(
+              icon: Icons.history_rounded,
+              title: l10n.agentsDialogTitleWithName(
+                l10n.agentsActivities,
+                currentAgent.name,
+              ),
+              child: activities.isEmpty
+                  ? FeatureStateCard.inline(
+                      icon: Icons.history_rounded,
+                      title: l10n.agentsActivitiesEmptyTitle,
+                      body: l10n.agentsListEmptyBody,
+                    )
+                  : _AgentActivityStream(activities: activities),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+class _AgentActivityStream extends StatelessWidget {
+  const _AgentActivityStream({required this.activities});
+
+  final List<AgentActivityEvent> activities;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      shrinkWrap: true,
+      padding: const EdgeInsets.only(right: 4),
+      itemCount: activities.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        return _AgentActivityBubble(event: activities[index]);
+      },
+    );
+  }
+}
+
+class _AgentActivityBubble extends StatelessWidget {
+  const _AgentActivityBubble({required this.event});
+
+  final AgentActivityEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final type = event.effectiveMessageType;
+    final tone = _agentActivityToneColor(cs, type);
+    final title = _agentActivityTitle(l10n, event);
+    final body = _agentActivitySubtitle(l10n, event);
+    final metadata = _agentActivityMetadataChips(event);
+    final timeText = event.createdAt == null
+        ? ''
+        : formatMonthDayHm(event.createdAt!.toLocal());
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: tone.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: tone.withValues(alpha: 0.34)),
+          ),
+          alignment: Alignment.center,
+          child: Icon(_agentActivityIcon(type), color: tone, size: 19),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(6),
+                topRight: Radius.circular(18),
+                bottomLeft: Radius.circular(18),
+                bottomRight: Radius.circular(18),
+              ),
+              border: Border.all(color: cs.outlineVariant),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _AgentActivityTypeChip(
+                        label: _agentActivityMessageTypeLabel(l10n, type),
+                        color: tone,
+                      ),
+                      if (timeText.isNotEmpty)
+                        Text(
+                          timeText,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (body.trim().isNotEmpty) ...[
+                    const SizedBox(height: 7),
+                    SelectableText(
+                      body,
+                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.42),
+                    ),
+                  ],
+                  if (metadata.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: metadata
+                          .map((item) => _AgentActivityMetadataChip(text: item))
+                          .toList(growable: false),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AgentActivityTypeChip extends StatelessWidget {
+  const _AgentActivityTypeChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.32)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        child: Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentActivityMetadataChip extends StatelessWidget {
+  const _AgentActivityMetadataChip({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -6367,14 +6569,6 @@ String _agentActivitySubtitle(AppLocalizations l10n, AgentActivityEvent event) {
   };
 }
 
-String _agentActivityTrailing(AppLocalizations l10n, AgentActivityEvent event) {
-  final parts = <String>[
-    _agentActivityMessageTypeLabel(l10n, event.effectiveMessageType),
-    if (event.createdAt != null) formatMonthDayHm(event.createdAt!.toLocal()),
-  ].where((item) => item.trim().isNotEmpty).toList(growable: false);
-  return parts.join(' · ');
-}
-
 String _agentActivityMessageTypeLabel(
   AppLocalizations l10n,
   AgentActivityMessageType type,
@@ -6426,6 +6620,70 @@ String _agentActivityMessageTypeLabel(
       en: 'Event',
     ),
   };
+}
+
+IconData _agentActivityIcon(AgentActivityMessageType type) {
+  return switch (type) {
+    AgentActivityMessageType.thought => Icons.psychology_alt_outlined,
+    AgentActivityMessageType.toolCall => Icons.construction_rounded,
+    AgentActivityMessageType.response => Icons.chat_bubble_outline_rounded,
+    AgentActivityMessageType.multimedia => Icons.perm_media_outlined,
+    AgentActivityMessageType.task => Icons.task_alt_rounded,
+    AgentActivityMessageType.approval => Icons.verified_user_outlined,
+    AgentActivityMessageType.lifecycle => Icons.power_settings_new_rounded,
+    AgentActivityMessageType.system => Icons.settings_suggest_outlined,
+    AgentActivityMessageType.event => Icons.bolt_outlined,
+  };
+}
+
+Color _agentActivityToneColor(ColorScheme cs, AgentActivityMessageType type) {
+  return switch (type) {
+    AgentActivityMessageType.thought => cs.tertiary,
+    AgentActivityMessageType.toolCall => cs.secondary,
+    AgentActivityMessageType.response => cs.primary,
+    AgentActivityMessageType.multimedia => cs.secondary,
+    AgentActivityMessageType.task => cs.primary,
+    AgentActivityMessageType.approval => cs.error,
+    AgentActivityMessageType.lifecycle => cs.outline,
+    AgentActivityMessageType.system => cs.onSurfaceVariant,
+    AgentActivityMessageType.event => cs.primary,
+  };
+}
+
+List<String> _agentActivityMetadataChips(AgentActivityEvent event) {
+  const keys = <String>[
+    'task_id',
+    'worker_id',
+    'tool_name',
+    'mcp_server',
+    'skill_name',
+    'memory_id',
+    'status',
+  ];
+  final chips = <String>[];
+  for (final key in keys) {
+    final value = event.metadata[key];
+    final text = _agentMetadataChipText(key, value);
+    if (text != null) chips.add(text);
+    if (chips.length >= 4) break;
+  }
+  return chips;
+}
+
+String? _agentMetadataChipText(String key, Object? value) {
+  final raw = switch (value) {
+    null => '',
+    Iterable<Object?> values =>
+      values
+          .map((item) => '$item'.trim())
+          .where((item) => item.isNotEmpty)
+          .take(3)
+          .join(', '),
+    _ => '$value'.trim(),
+  };
+  if (raw.isEmpty) return null;
+  final compact = raw.length > 64 ? '${raw.substring(0, 61)}...' : raw;
+  return '$key: $compact';
 }
 
 String _agentActivityMetadataFallback(AgentActivityEvent event) {

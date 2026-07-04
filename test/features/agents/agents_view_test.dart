@@ -334,6 +334,66 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
     });
 
+    testWidgets('renders activities as a typed message stream', (tester) async {
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(<AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          enabled: true,
+          lifecycleState: AgentLifecycleState.running,
+          activities: <AgentActivityEvent>[
+            AgentActivityEvent(
+              id: 'activity-1',
+              kind: 'thought',
+              title: '分析任务边界',
+              messageType: AgentActivityMessageType.thought,
+              content: '先检查日报所需的数据源和审批边界。',
+              createdAt: DateTime.utc(2026, 7, 4, 1, 2),
+              metadata: <String, Object?>{
+                'task_id': 'task-1',
+                'worker_id': 'worker-1',
+              },
+            ),
+            const AgentActivityEvent(
+              id: 'activity-2',
+              kind: 'tool_call',
+              title: '调用 SkillRunner',
+              messageType: AgentActivityMessageType.toolCall,
+              content: '读取账单采集技能。',
+              metadata: <String, Object?>{
+                'tool_name': 'SkillRunner',
+                'skill_name': 'billing-report',
+              },
+            ),
+          ],
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('历史活动').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('历史活动 · Ops Agent'), findsOneWidget);
+      expect(find.text('思考'), findsOneWidget);
+      expect(find.text('工具'), findsOneWidget);
+      expect(find.text('分析任务边界'), findsOneWidget);
+      expect(find.text('先检查日报所需的数据源和审批边界。'), findsOneWidget);
+      expect(find.text('调用 SkillRunner'), findsOneWidget);
+      expect(find.text('task_id: task-1'), findsOneWidget);
+      expect(find.text('worker_id: worker-1'), findsOneWidget);
+      expect(find.text('tool_name: SkillRunner'), findsOneWidget);
+      expect(find.text('skill_name: billing-report'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close_rounded).last);
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
     testWidgets('publishes a task with structured extra fields', (
       tester,
     ) async {
