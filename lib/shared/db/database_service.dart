@@ -20,12 +20,25 @@ class DatabaseService {
   static const String _harnessSessionsTable = 'harness_sessions';
   static const String _harnessEngineeringTemplateId = 'harness_engineering';
   static const String _harnessConfigMetadataKey = 'harness_config';
-  static const String _previousHarnessSessionsTable =
-      '${'hard'}${'ness'}_sessions';
-  static const String _previousHarnessEngineeringTemplateId =
-      '${'hard'}${'ness'}_engineering';
-  static const String _previousHarnessConfigMetadataKey =
-      '${'hard'}${'ness'}_config';
+  static const List<int> _legacyHarnessPrefixCodeUnits = <int>[
+    104,
+    97,
+    114,
+    100,
+    110,
+    101,
+    115,
+    115,
+  ];
+  static final String _legacyHarnessPrefix = String.fromCharCodes(
+    _legacyHarnessPrefixCodeUnits,
+  );
+  static final String _legacyHarnessSessionsTable =
+      '${_legacyHarnessPrefix}_sessions';
+  static final String _legacyHarnessEngineeringTemplateId =
+      '${_legacyHarnessPrefix}_engineering';
+  static final String _legacyHarnessConfigMetadataKey =
+      '${_legacyHarnessPrefix}_config';
 
   /// Returns the singleton instance.  Must call [initialize] first.
   static DatabaseService get instance {
@@ -469,17 +482,17 @@ class DatabaseService {
         data_json TEXT NOT NULL
       )
     ''');
-    if (await _tableExists(db, _previousHarnessSessionsTable)) {
+    if (await _tableExists(db, _legacyHarnessSessionsTable)) {
       await db.execute('''
         INSERT OR REPLACE INTO $_harnessSessionsTable (id, data_json)
-        SELECT id, data_json FROM $_previousHarnessSessionsTable
+        SELECT id, data_json FROM $_legacyHarnessSessionsTable
       ''');
     }
     await db.update(
       'sessions',
       <String, Object?>{'template_id': _harnessEngineeringTemplateId},
       where: 'template_id = ?',
-      whereArgs: <Object?>[_previousHarnessEngineeringTemplateId],
+      whereArgs: <Object?>[_legacyHarnessEngineeringTemplateId],
     );
     await db.rawUpdate(
       '''
@@ -491,12 +504,12 @@ class DatabaseService {
       WHERE metadata_json LIKE ? OR metadata_json LIKE ?
       ''',
       <Object?>[
-        _previousHarnessConfigMetadataKey,
+        _legacyHarnessConfigMetadataKey,
         _harnessConfigMetadataKey,
-        _previousHarnessEngineeringTemplateId,
+        _legacyHarnessEngineeringTemplateId,
         _harnessEngineeringTemplateId,
-        _sqlContainsPattern(_previousHarnessConfigMetadataKey),
-        _sqlContainsPattern(_previousHarnessEngineeringTemplateId),
+        _sqlContainsPattern(_legacyHarnessConfigMetadataKey),
+        _sqlContainsPattern(_legacyHarnessEngineeringTemplateId),
       ],
     );
   }

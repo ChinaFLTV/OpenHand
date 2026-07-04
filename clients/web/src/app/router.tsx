@@ -16,8 +16,6 @@ import { Appear } from '../components/Appear';
 import { t } from '../i18n';
 import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
 
-const legacyHarnessRoutePath = `/${['hard', 'ness'].join('')}`;
-
 /// 鉴权守卫：service.auth_enabled=true 且无 token 时强制跳 /login。
 /// 鉴权未开启或已登录则透传 children。
 function RequireAuth(props: { children: ComponentChildren }) {
@@ -176,7 +174,6 @@ export function AppRouter() {
       <Route path="/files" component={FilesRoute} />
       <Route path="/toolbox" component={ToolboxRoute} />
       <Route path="/harness" component={HarnessRoute} />
-      <Route path={legacyHarnessRoutePath} component={HarnessRoute} />
       <Route path="/settings" component={SettingsRoute} />
       <Route path="/plugins" component={PluginsRoute} />
       <Route path="/ops" component={OpsRoute} />

@@ -1536,13 +1536,8 @@ class WebMessagePlatformService {
       (shelf.Request r) =>
           _withAuth(r, (req, _) => _knowledgeHitDetailHandler(req)),
     );
-    const previousHarnessSessionApiPath = '/api/${'hard'}${'ness'}/session';
     router.get(
       '/api/harness/session',
-      (shelf.Request r) => _withAuth(r, (_, _) => _harnessSessionHandler()),
-    );
-    router.get(
-      previousHarnessSessionApiPath,
       (shelf.Request r) => _withAuth(r, (_, _) => _harnessSessionHandler()),
     );
     // Plugin Service: 列出插件状态 / 安装 / 更新 / 卸载 / 重新扫描
