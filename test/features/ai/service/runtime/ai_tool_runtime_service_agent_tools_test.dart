@@ -2098,6 +2098,74 @@ domains: finance, cloud billing
     });
 
     test(
+      'publish routing matches Chinese keywords and separator variants',
+      () async {
+        await controller.saveAgent(
+          _agent(
+            id: 'finops-agent',
+            name: 'FinOps 数字员工',
+            enabled: true,
+            routeFrontMatter: '''
+keywords:
+  - 云账单
+  - 月度-对账
+  - voucher_reconciliation
+domains: FinOps, 成本治理
+''',
+            taskLabels: const <String>['代金券核对'],
+          ),
+        );
+        await controller.saveAgent(
+          _agent(
+            id: 'release-agent',
+            name: 'Release Agent',
+            enabled: true,
+            routeFrontMatter: 'keywords: release, deploy, rollback',
+            taskLabels: const <String>['发布'],
+          ),
+        );
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        final result = await runtime.execute(
+          sessionId: 'session-cn-route',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-cn-route',
+            name: 'AgentTaskPublish',
+            arguments: jsonEncode(<String, Object?>{
+              'title': '请处理云账单月度对账',
+              'description': '同步核对 voucher reconciliation 返券金额。',
+              'labels': <String>['代金券核对'],
+            }),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
+
+        expect(result.status, BashToolExecutionStatus.success);
+        final payload = jsonDecode(result.resultText) as Map<String, Object?>;
+        final task = payload['task'] as Map<String, Object?>;
+        final finopsAgent = controller.agentById('finops-agent')!;
+        final releaseAgent = controller.agentById('release-agent')!;
+        final routeReason =
+            '${finopsAgent.tasks.single.extra['agent_route_reason']}';
+
+        expect(finopsAgent.tasks, hasLength(1));
+        expect(releaseAgent.tasks, isEmpty);
+        expect(task['id'], finopsAgent.tasks.single.id);
+        expect(routeReason, contains('云账单'));
+        expect(routeReason, contains('月度-对账'));
+        expect(routeReason, contains('voucher_reconciliation'));
+      },
+    );
+
+    test(
       'routable write tools return candidate diagnostics when routing is ambiguous',
       () async {
         await controller.saveAgent(

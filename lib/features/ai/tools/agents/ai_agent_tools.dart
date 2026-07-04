@@ -1934,18 +1934,21 @@ class AiAgentTool extends AiTool {
     required List<String> labels,
   }) {
     final routing = AgentRoutingMetadata.fromAgent(agent);
-    final taskText = _normalizeRouteText(
+    final taskTexts = _routeTextVariants(
       <String>[title, description, content, note, ...labels].join(' '),
     );
-    if (taskText.isEmpty) return null;
+    if (taskTexts.isEmpty) return null;
 
     var score = 0;
     final reasons = <String>[];
     void addSignal(String label, Iterable<String> values, int weight) {
       for (final value in values) {
-        final normalized = _normalizeRouteText(value);
-        if (normalized.isEmpty) continue;
-        if (taskText.contains(normalized)) {
+        final signals = _routeTextVariants(value);
+        if (signals.isEmpty) continue;
+        final matched = signals.any(
+          (signal) => taskTexts.any((taskText) => taskText.contains(signal)),
+        );
+        if (matched) {
           score += weight;
           reasons.add('$label:$value');
         }
@@ -3421,5 +3424,17 @@ bool _hasAnyArgument(Map<String, Object?> args, List<String> keys) {
 }
 
 String _normalizeRouteText(String value) {
-  return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  return value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[\s_\-./,;:|，。；、：/\\()\[\]{}<>「」『』（）【】]+'), ' ')
+      .trim()
+      .replaceAll(RegExp(r'\s+'), ' ');
+}
+
+Set<String> _routeTextVariants(String value) {
+  final normalized = _normalizeRouteText(value);
+  if (normalized.isEmpty) return const <String>{};
+  final compact = normalized.replaceAll(' ', '');
+  return <String>{normalized, if (compact.isNotEmpty) compact};
 }
