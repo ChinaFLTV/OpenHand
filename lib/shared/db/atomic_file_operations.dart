@@ -7,6 +7,10 @@ import '../../app/support/safe_subprocess.dart';
 /// are serialized on a single [Future] chain to prevent two concurrent writers
 /// from clobbering each other's `.tmp`/`.bak` files.
 final Map<String, Future<void>> _writeLocks = <String, Future<void>>{};
+const String _atomicTempSuffix = '.tmp';
+const String _atomicBackupSuffix = '.bak';
+const Duration _openDirectoryCommandTimeout = Duration(seconds: 6);
+const String _openDirectoryProcessTag = 'atomic_file_ops';
 
 /// Recovers a file from its atomic-write backup if the target is missing.
 ///
@@ -19,7 +23,7 @@ final Map<String, Future<void>> _writeLocks = <String, Future<void>>{};
 /// Call this once for each critical file **before** reading it at startup.
 /// It is safe to call even when no leftover artifacts exist.
 Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) async {
-  final tempFile = File('${targetFile.path}.tmp');
+  final tempFile = File('${targetFile.path}$_atomicTempSuffix');
 
   if (await targetFile.exists()) {
     // Target is intact — clean up any orphaned .tmp file.
@@ -51,7 +55,7 @@ Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) async {
   }
 
   // Restore from backup if available.
-  final backupFile = File('${targetFile.path}.bak');
+  final backupFile = File('${targetFile.path}$_atomicBackupSuffix');
   if (await backupFile.exists()) {
     await backupFile.rename(targetFile.path);
   }
@@ -65,31 +69,33 @@ Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) async {
 /// targeting the same absolute path are serialized via a per-path lock so that
 /// two writers cannot race on the `.tmp`/`.bak` files.
 Future<void> writeFileAtomically(File targetFile, String content) {
-  final key = targetFile.absolute.path;
-  final previous = _writeLocks[key] ?? Future<void>.value();
-  final current = previous
-      .catchError((Object _, StackTrace _) {})
-      .then((_) => _writeFileAtomicallyLocked(targetFile, content));
-  _writeLocks[key] = current;
-  // Remove the lock once this write finishes (success or failure) and no
-  // other caller queued behind it.
-  current.whenComplete(() {
-    if (identical(_writeLocks[key], current)) {
-      _writeLocks.remove(key);
-    }
-  });
-  return current;
+  return _runWithAtomicWriteLock(
+    targetFile,
+    () => _writeFileAtomicallyLocked(targetFile, content),
+  );
 }
 
 /// Writes binary [bytes] to [targetFile] with the same lock/rename/rollback
 /// behavior as [writeFileAtomically].
 Future<void> writeFileBytesAtomically(File targetFile, List<int> bytes) {
+  return _runWithAtomicWriteLock(
+    targetFile,
+    () => _writeFileBytesAtomicallyLocked(targetFile, bytes),
+  );
+}
+
+Future<void> _runWithAtomicWriteLock(
+  File targetFile,
+  Future<void> Function() operation,
+) {
   final key = targetFile.absolute.path;
   final previous = _writeLocks[key] ?? Future<void>.value();
-  final current = previous
-      .catchError((Object _, StackTrace _) {})
-      .then((_) => _writeFileBytesAtomicallyLocked(targetFile, bytes));
+  final current = previous.catchError((Object _, StackTrace _) {}).then((_) {
+    return operation();
+  });
   _writeLocks[key] = current;
+  // Remove the lock once this write finishes (success or failure) and no
+  // other caller queued behind it.
   current.whenComplete(() {
     if (identical(_writeLocks[key], current)) {
       _writeLocks.remove(key);
@@ -132,8 +138,8 @@ Future<void> _writeAtomicallyLocked(
     }
   }
 
-  final tempFile = File('${targetFile.path}.tmp');
-  final backupFile = File('${targetFile.path}.bak');
+  final tempFile = File('${targetFile.path}$_atomicTempSuffix');
+  final backupFile = File('${targetFile.path}$_atomicBackupSuffix');
 
   if (await tempFile.exists()) {
     await tempFile.delete();
@@ -198,22 +204,22 @@ Future<void> openDirectoryInFileManager(Directory directory) async {
       result = await runProcessWithTimeout(
         'open',
         <String>[directory.path],
-        timeout: const Duration(seconds: 6),
-        tag: 'atomic_file_ops',
+        timeout: _openDirectoryCommandTimeout,
+        tag: _openDirectoryProcessTag,
       );
     } else if (Platform.isWindows) {
       result = await runProcessWithTimeout(
         'explorer',
         <String>[directory.path],
-        timeout: const Duration(seconds: 6),
-        tag: 'atomic_file_ops',
+        timeout: _openDirectoryCommandTimeout,
+        tag: _openDirectoryProcessTag,
       );
     } else if (Platform.isLinux) {
       result = await runProcessWithTimeout(
         'xdg-open',
         <String>[directory.path],
-        timeout: const Duration(seconds: 6),
-        tag: 'atomic_file_ops',
+        timeout: _openDirectoryCommandTimeout,
+        tag: _openDirectoryProcessTag,
       );
     } else {
       throw const FileSystemException('Unsupported platform.');
