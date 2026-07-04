@@ -27,16 +27,20 @@ Future<void> deleteEmptyAncestorDirectories({
   bool continuePastMissing = true,
 }) async {
   final stopPath = p.normalize(stopAt.path);
-  var currentPath = p.normalize(start.path);
+  final startPath = p.normalize(start.path);
+  if (p.equals(stopPath, startPath) ||
+      !isPathWithinOrEqual(stopPath, startPath)) {
+    return;
+  }
 
-  while (!p.equals(stopPath, currentPath) &&
-      isPathWithinOrEqual(stopPath, currentPath)) {
+  for (final currentPath in ancestorDirectoriesFrom(startPath)) {
+    if (p.equals(stopPath, currentPath) ||
+        !isPathWithinOrEqual(stopPath, currentPath)) {
+      return;
+    }
     final current = Directory(currentPath);
     if (!await current.exists()) {
       if (!continuePastMissing) return;
-      final parentPath = p.dirname(currentPath);
-      if (parentPath == currentPath) return;
-      currentPath = parentPath;
       continue;
     }
     if (!await isDirectoryEmpty(current)) return;
@@ -47,9 +51,5 @@ Future<void> deleteEmptyAncestorDirectories({
       await onError(current, error, stack);
       return;
     }
-
-    final parentPath = p.dirname(currentPath);
-    if (parentPath == currentPath) return;
-    currentPath = parentPath;
   }
 }
