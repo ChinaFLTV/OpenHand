@@ -1,33 +1,29 @@
-/// 通用指数退避公式：第 `attempt` 次重试前等待 `baseMs * 2^(attempt-1)` 毫秒，
-/// clamp 到 [baseMs, capMs]。
-///
-/// 设计点：
-/// * 用 1<<(attempt-1) 而非 pow，避免 double 误差与中间装箱。
-/// * `attempt` 必须 ≥ 1（attempt=1 即首次重试，等待 `baseMs`）；attempt ≤ 0 时
-///   返回零等待（让调用方按"零延迟立刻重试"的约定走）。
-/// * `cap < base` 时按 `base` 处理（避免负 clamp 抛 RangeError）。
-/// * 不做 jitter——目前的 web_engine / cron_executor 都不需要；如未来要加，
-///   在此添加即可，调用方都共享。
-///
-/// 单位完全交给调用方：把 `baseMs` / `capMs` 替换成秒/分钟 helper 时，整体保持
-/// 同一公式即可。
+const int _kMinimumBackoffUnit = 1;
+const int _kMaxBackoffDoublings = 62;
+
+/// 通用指数退避公式：第 `attempt` 次重试前等待 `base * 2^(attempt-1)`，
+/// 并限制在 [base, cap] 内。
 int exponentialBackoffMs({
   required int attempt,
   required int baseMs,
   required int capMs,
 }) {
   if (attempt <= 0) return 0;
-  final safeBaseMs = baseMs <= 0 ? 1 : baseMs;
+  final safeBaseMs = baseMs <= 0 ? _kMinimumBackoffUnit : baseMs;
   final safeCapMs = capMs < safeBaseMs ? safeBaseMs : capMs;
-  // 防 1<<(attempt-1) 在大 attempt 时溢出：6 次后 base*32 已经远超 capMs，
-  // 提前 clamp attempt 到 30 已绰绰有余。
-  final safeAttempt = attempt.clamp(1, 30);
-  final raw = safeBaseMs * (1 << (safeAttempt - 1));
-  final lo = safeBaseMs;
-  final hi = safeCapMs;
-  if (raw < lo) return lo;
-  if (raw > hi) return hi;
-  return raw;
+
+  var value = safeBaseMs;
+  var remainingDoublings = attempt - 1;
+  var doublings = 0;
+  while (remainingDoublings > 0 && doublings < _kMaxBackoffDoublings) {
+    if (value >= safeCapMs || value > safeCapMs ~/ 2) {
+      return safeCapMs;
+    }
+    value *= 2;
+    remainingDoublings--;
+    doublings++;
+  }
+  return remainingDoublings > 0 ? safeCapMs : value;
 }
 
 /// 秒级糖：和 [exponentialBackoffMs] 同一公式，仅单位换成秒。
