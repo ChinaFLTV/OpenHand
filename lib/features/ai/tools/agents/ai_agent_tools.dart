@@ -2031,14 +2031,10 @@ String _normalizedAgentToolName(String value) {
 bool _agentAllowsToolNames(AgentProfile agent, Set<String> normalizedNames) {
   final configured = trimmedNonEmptyStrings(agent.builtinToolNames);
   if (configured.isEmpty) return true;
-  if (configured.any(_isNoAgentCoordinationToolsBinding)) return false;
+  if (agentHasNoCoordinationToolsBinding(configured)) return false;
   return configured.any(
     (name) => normalizedNames.contains(_normalizedAgentToolName(name)),
   );
-}
-
-bool _isNoAgentCoordinationToolsBinding(String value) {
-  return value.trim() == agentNoCoordinationToolsBinding;
 }
 
 class _AgentResolution {
@@ -2146,7 +2142,10 @@ Map<String, Object?> _agentSummaryJson(AgentProfile agent) {
 
 Map<String, Object?> _agentToolBindingSummaryJson(AgentProfile agent) {
   final configured = trimmedNonEmptyStrings(agent.builtinToolNames);
-  final kinds = configured.isEmpty
+  final hasExplicitNone = agentHasNoCoordinationToolsBinding(configured);
+  final kinds = hasExplicitNone
+      ? const <AiBuiltinToolKind>[]
+      : configured.isEmpty
       ? _agentCoordinationToolKinds
       : _agentToolKindsFromNames(configured);
   final tools = kinds.map(_agentToolNameForKind).toList(growable: false);
@@ -2161,7 +2160,11 @@ Map<String, Object?> _agentToolBindingSummaryJson(AgentProfile agent) {
     if (kind.isAgentMutationTool) mutationTools.add(tool);
   }
   return <String, Object?>{
-    'binding_mode': configured.isEmpty ? 'all_agent_tools' : 'explicit',
+    'binding_mode': hasExplicitNone
+        ? 'none'
+        : configured.isEmpty
+        ? 'all_agent_tools'
+        : 'explicit',
     'tools': tools,
     'groups': groups,
     'mutation_tools': mutationTools,

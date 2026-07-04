@@ -622,6 +622,9 @@ class _AgentCapabilitySummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final visibleBuiltinTools = agentVisibleBuiltinToolNames(
+      agent.builtinToolNames,
+    );
     final rows = <String>[
       if (agent.skillNames.isNotEmpty)
         l10n.agentsCapabilitySkillsCount(agent.skillNames.length),
@@ -630,8 +633,8 @@ class _AgentCapabilitySummary extends StatelessWidget {
       if (agent.memoryIds.isNotEmpty)
         l10n.agentsCapabilityMemoryCount(agent.memoryIds.length),
       if (agent.mcpServerNames.isNotEmpty) 'MCP ${agent.mcpServerNames.length}',
-      if (agent.builtinToolNames.isNotEmpty)
-        l10n.agentsCapabilityToolsCount(agent.builtinToolNames.length),
+      if (visibleBuiltinTools.isNotEmpty)
+        l10n.agentsCapabilityToolsCount(visibleBuiltinTools.length),
       if (agent.cronIds.isNotEmpty)
         l10n.agentsCapabilityCronsCount(agent.cronIds.length),
       if (agent.hookIds.isNotEmpty)

@@ -96,6 +96,33 @@ void main() {
       expect(controller.agentById('agent-1')!.enabled, isFalse);
     });
 
+    testWidgets('hides internal agent-tool empty binding from card summary', (
+      tester,
+    ) async {
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          builtinToolNames: <String>['bash', agentNoCoordinationToolsBinding],
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+
+      expect(find.textContaining('工具 1'), findsOneWidget);
+      expect(find.textContaining('工具 2'), findsNothing);
+      expect(
+        find.textContaining(agentNoCoordinationToolsBinding),
+        findsNothing,
+      );
+    });
+
     testWidgets('saves structured routing and metadata fields', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));

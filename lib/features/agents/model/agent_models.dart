@@ -6,6 +6,20 @@ final RegExp _agentDelimitedTextSeparatorPattern = RegExp(r'[\r\n,，;；]+');
 
 const String agentNoCoordinationToolsBinding = '__openhand_agent_tools_none__';
 
+bool isAgentNoCoordinationToolsBinding(String value) {
+  return value.trim() == agentNoCoordinationToolsBinding;
+}
+
+bool agentHasNoCoordinationToolsBinding(Iterable<String> names) {
+  return names.any(isAgentNoCoordinationToolsBinding);
+}
+
+List<String> agentVisibleBuiltinToolNames(Iterable<String> names) {
+  return trimmedNonEmptyStrings(
+    names,
+  ).where((name) => !isAgentNoCoordinationToolsBinding(name)).toList();
+}
+
 enum AgentExecutionMode {
   normal('normal'),
   fullAccess('full_access');

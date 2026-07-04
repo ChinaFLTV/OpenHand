@@ -2,9 +2,7 @@ import '../model/agent_models.dart';
 
 Map<String, Object?> agentCapabilityBindingsJson(AgentProfile agent) {
   final automationCount = agent.cronIds.length + agent.hookIds.length;
-  final builtinToolNames = agent.builtinToolNames
-      .where((name) => name.trim() != agentNoCoordinationToolsBinding)
-      .toList(growable: false);
+  final builtinToolNames = agentVisibleBuiltinToolNames(agent.builtinToolNames);
   final agentBuiltinToolCount = builtinToolNames
       .where(_looksLikeAgentBuiltinToolName)
       .length;
