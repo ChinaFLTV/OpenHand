@@ -53,5 +53,22 @@ void main() {
         expect(findTextMatchOffsets(text: 'aİbc', query: 'bc'), <int>[2]);
       },
     );
+
+    test('matches expanded lowercase characters by original offsets', () {
+      expect(findTextMatchOffsets(text: 'İabc', query: 'i'), <int>[0]);
+      expect(findTextMatchOffsets(text: 'İİ', query: 'i'), <int>[0, 1]);
+      expect(findTextMatchOffsets(text: 'İİ', query: 'İ'), <int>[0, 1]);
+    });
+
+    test('uses one folded text source for expanded lowercase searches', () {
+      expect(findTextMatchOffsets(text: 'İΟΣ', query: 'Σ'), <int>[2]);
+    });
+
+    test('keeps non-overlapping searches finite after lowercase expansion', () {
+      expect(
+        findTextMatchOffsets(text: 'İİİ', query: 'İ', allowOverlapping: false),
+        <int>[0, 1, 2],
+      );
+    });
   });
 }
