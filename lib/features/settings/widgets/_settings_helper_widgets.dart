@@ -5218,7 +5218,7 @@ class _SettingsSavePulse extends StatelessWidget {
 ///
 /// 用 [AnimatedSize]（高度弹性伸缩，easeOutBack 曲线）+ [AnimatedSwitcher]
 /// （淡入淡出）组合，实现 Q 弹自然的条目显示/隐藏动效。
-/// 自动遵守 [MediaQuery.disableAnimationsOf] 无动画设置。
+/// 自动遵守设置页共享 motion preference。
 class _AnimatedSettingReveal extends StatelessWidget {
   const _AnimatedSettingReveal({required this.visible, required this.child});
 
