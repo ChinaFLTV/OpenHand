@@ -11,6 +11,7 @@ void putIfNotBlank(Map<String, Object?> target, String key, String? value) {
 }
 
 final RegExp _looseDelimitedValueSeparator = RegExp(r'[\s,，;；]+');
+const int _autoMillisecondsTimestampThreshold = 1000000000000;
 const Set<String> _truthyBoolTexts = <String>{
   '1',
   'true',
@@ -355,7 +356,7 @@ DateTime? _dateTimeFromNumericTimestamp(
     DateTimeNumericTimestampMode.milliseconds => raw,
     DateTimeNumericTimestampMode.seconds => raw * 1000,
     DateTimeNumericTimestampMode.secondsOrMilliseconds =>
-      raw > 1000000000000 ? raw : raw * 1000,
+      raw >= _autoMillisecondsTimestampThreshold ? raw : raw * 1000,
   };
   try {
     return DateTime.fromMillisecondsSinceEpoch(milliseconds, isUtc: true);

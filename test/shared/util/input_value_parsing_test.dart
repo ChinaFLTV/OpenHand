@@ -332,6 +332,14 @@ void main() {
         )?.toUtc(),
         DateTime.fromMillisecondsSinceEpoch(1710000000000, isUtc: true),
       );
+      expect(
+        dateTimeFromValue(
+          1000000000000,
+          numericTimestampMode:
+              DateTimeNumericTimestampMode.secondsOrMilliseconds,
+        )?.toUtc(),
+        DateTime.fromMillisecondsSinceEpoch(1000000000000, isUtc: true),
+      );
     });
 
     test('can reject non-positive numeric timestamps', () {
