@@ -7345,6 +7345,7 @@ class _AnimatedReorderableChipStrip extends StatelessWidget {
                     onDeleted: requestRemove,
                     dragIndex: index,
                     dragKey: ValueKey<String>('$keyPrefix-drag-$value'),
+                    bodyKey: ValueKey<String>('$keyPrefix-body-$value'),
                   );
                 },
               ),
@@ -7391,96 +7392,100 @@ class _AgentDraggableChip extends StatelessWidget {
     required this.onDeleted,
     required this.dragIndex,
     required this.dragKey,
+    required this.bodyKey,
   });
 
   final String label;
   final VoidCallback onDeleted;
   final int dragIndex;
   final Key dragKey;
+  final Key bodyKey;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.46),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsetsDirectional.only(
-          start: 8,
-          end: 4,
-          top: 6,
-          bottom: 6,
+    final labelContent = MouseRegion(
+      cursor: SystemMouseCursors.grab,
+      child: Tooltip(
+        message: openHandLocalizedText(
+          context,
+          zh: '拖拽排序',
+          en: 'Drag to reorder',
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ReorderableDragStartListener(
-              key: dragKey,
-              index: dragIndex,
-              child: MouseRegion(
-                cursor: SystemMouseCursors.grab,
-                child: Tooltip(
-                  message: openHandLocalizedText(
-                    context,
-                    zh: '拖拽排序',
-                    en: 'Drag to reorder',
+        child: Semantics(
+          label: openHandLocalizedText(
+            context,
+            zh: '拖拽排序 $label',
+            en: 'Drag to reorder $label',
+          ),
+          button: true,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 28, maxWidth: 304),
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(
+                start: 8,
+                end: 40,
+                top: 6,
+                bottom: 6,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.drag_indicator_rounded,
+                    size: 18,
+                    color: colors.onSurfaceVariant,
                   ),
-                  child: Semantics(
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '拖拽排序 $label',
-                      en: 'Drag to reorder $label',
-                    ),
-                    button: true,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        minHeight: 28,
-                        maxWidth: 304,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.drag_indicator_rounded,
-                            size: 18,
-                            color: colors.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                color: colors.onSurface,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: colors.onSurface,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: openHandLocalizedText(context, zh: '删除', en: 'Remove'),
-              onPressed: onDeleted,
-              icon: const Icon(Icons.close_rounded),
-              iconSize: 18,
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 28, height: 28),
-            ),
-          ],
+          ),
         ),
       ),
+    );
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: AlignmentDirectional.centerEnd,
+      children: [
+        ReorderableDragStartListener(
+          key: dragKey,
+          index: dragIndex,
+          child: DecoratedBox(
+            key: bodyKey,
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerHighest.withValues(alpha: 0.46),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: colors.outlineVariant),
+            ),
+            child: labelContent,
+          ),
+        ),
+        PositionedDirectional(
+          end: 4,
+          child: IconButton(
+            tooltip: openHandLocalizedText(context, zh: '删除', en: 'Remove'),
+            onPressed: onDeleted,
+            icon: const Icon(Icons.close_rounded),
+            iconSize: 18,
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -376,7 +376,7 @@ void main() {
       ).animateTo(2, duration: Duration.zero);
       await tester.pumpAndSettle();
       final srcScopeChip = find.byKey(
-        const ValueKey<String>('agent-workspace-scope-drag-/tmp/openhand/src'),
+        const ValueKey<String>('agent-workspace-scope-body-/tmp/openhand/src'),
       );
       await tester.ensureVisible(srcScopeChip);
       await tester.pumpAndSettle();
@@ -392,7 +392,7 @@ void main() {
       ).animateTo(3, duration: Duration.zero);
       await tester.pumpAndSettle();
       final weeklyCronChip = find.byKey(
-        const ValueKey<String>('agent-cron-drag-weekly-report'),
+        const ValueKey<String>('agent-cron-body-weekly-report'),
       );
       await tester.ensureVisible(weeklyCronChip);
       await tester.pumpAndSettle();
@@ -403,7 +403,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       final postHookChip = find.byKey(
-        const ValueKey<String>('agent-hook-drag-post-hook'),
+        const ValueKey<String>('agent-hook-body-post-hook'),
       );
       await tester.ensureVisible(postHookChip);
       await tester.pumpAndSettle();
@@ -414,7 +414,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       final billingTagChip = find.byKey(
-        const ValueKey<String>('agent-worker-tag-drag-billing'),
+        const ValueKey<String>('agent-worker-tag-body-billing'),
       );
       await tester.ensureVisible(billingTagChip);
       await tester.pumpAndSettle();
@@ -425,7 +425,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       final urgentLabelChip = find.byKey(
-        const ValueKey<String>('agent-task-label-drag-urgent'),
+        const ValueKey<String>('agent-task-label-body-urgent'),
       );
       await tester.ensureVisible(urgentLabelChip);
       await tester.pumpAndSettle();
