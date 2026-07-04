@@ -2,11 +2,12 @@ import 'input_value_parsing.dart';
 
 final RegExp _looseVersionTokenPattern = RegExp(r'\d+(?:\.\d+)*');
 final RegExp _strictSemanticVersionPattern = RegExp(r'^\d+\.\d+\.\d+$');
+final RegExp _leadingVersionPrefixPattern = RegExp(r'^[vV]');
 
 List<int> versionPartsFromText(String value) {
   final normalized = value
       .trim()
-      .replaceFirst(RegExp(r'^[vV]'), '')
+      .replaceFirst(_leadingVersionPrefixPattern, '')
       .split('+')
       .first
       .split('-')

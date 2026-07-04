@@ -373,6 +373,17 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.agentTaskResume,
         AiBuiltinToolKind.agentTaskComplete,
       };
+  static final RegExp _unsafeToolOutputStorageCharsPattern = RegExp(
+    r'[^A-Za-z0-9_.-]+',
+  );
+  static final RegExp _repeatedUnderscoresPattern = RegExp(r'_+');
+  static final RegExp _cdpIdentityTokenPattern = RegExp(
+    r'(^|[^a-z0-9])cdp([^a-z0-9]|$)',
+  );
+  static final RegExp _markdownLinkTargetPattern = RegExp(
+    r'\[[^\]]+\]\(([^)]+)\)',
+    multiLine: true,
+  );
 
   final AiBashToolService _bashToolService;
   final AiClaudeHookService _hookService;
@@ -1312,8 +1323,8 @@ class AiToolRuntimeService {
 
   String _safeToolOutputStorageIdentifier(String raw, String fallback) {
     final normalized = (nullIfBlank(raw) ?? '')
-        .replaceAll(RegExp(r'[^A-Za-z0-9_.-]+'), '_')
-        .replaceAll(RegExp(r'_+'), '_');
+        .replaceAll(_unsafeToolOutputStorageCharsPattern, '_')
+        .replaceAll(_repeatedUnderscoresPattern, '_');
     final value = normalized.isEmpty ? fallback : normalized;
     return value.length <= 120 ? value : value.substring(0, 120);
   }
@@ -1792,7 +1803,7 @@ class AiToolRuntimeService {
           'javascript reverse',
           'web reverse',
         ]) ||
-        RegExp(r'(^|[^a-z0-9])cdp([^a-z0-9]|$)').hasMatch(identity);
+        _cdpIdentityTokenPattern.hasMatch(identity);
   }
 
   String _mcpToolIdentity(AiResolvedTool tool) {
@@ -2070,7 +2081,7 @@ class AiToolRuntimeService {
     String skillDirectoryPath,
     String manifestContent,
   ) async {
-    final linkedPaths = RegExp(r'\[[^\]]+\]\(([^)]+)\)', multiLine: true)
+    final linkedPaths = _markdownLinkTargetPattern
         .allMatches(manifestContent)
         .map((match) => nullIfBlank(match.group(1)))
         .whereType<String>()
