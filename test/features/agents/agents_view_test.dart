@@ -12,6 +12,7 @@ import 'package:openhand/features/mcp/index.dart';
 import 'package:openhand/features/memory/index.dart';
 import 'package:openhand/features/skills/index.dart';
 import 'package:openhand/l10n/app_localizations.dart';
+import 'package:openhand/shared/ui/animated_appearance.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -151,6 +152,131 @@ void main() {
       expect(agent.metadata['quota'], 42);
     });
 
+    testWidgets('rejects duplicate metadata keys before saving', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.setRuntimeAvailabilityProvider(
+        () => const AgentRuntimeAvailability(
+          isLoading: false,
+          isInstalled: true,
+          isEnabled: true,
+          pluginName: 'Hermes Agent',
+        ),
+      );
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.text('创建智能体'));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.enterText(
+        find.widgetWithText(TextField, '名称 *'),
+        'Ops Agent',
+      );
+
+      DefaultTabController.of(
+        tester.element(find.byType(TabBar)),
+      ).animateTo(4, duration: Duration.zero);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('添加字段'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, '值').first)
+            .controller!
+            .text,
+        isEmpty,
+      );
+      await tester.tap(find.byTooltip('添加字段'));
+      await tester.pump();
+      await tester.enterText(
+        find.widgetWithText(TextField, '键').at(0),
+        'quota',
+      );
+      await tester.enterText(find.widgetWithText(TextField, '值').at(0), '1');
+      await tester.enterText(
+        find.widgetWithText(TextField, '键').at(1),
+        'QUOTA',
+      );
+      await tester.enterText(find.widgetWithText(TextField, '值').at(1), '2');
+
+      final saveButton = find.ancestor(
+        of: find.text('保存'),
+        matching: find.byType(FilledButton),
+      );
+      await tester.tap(saveButton);
+      await tester.pump();
+
+      expect(find.textContaining('元数据字段重复：QUOTA'), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(controller.agents, isEmpty);
+      expect(find.text('创建智能体'), findsOneWidget);
+    });
+
+    testWidgets('normalizes workspace scope paths when saving edits', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          workspacePath: '/tmp/openhand/project',
+          workspaceScopePaths: <String>[
+            '/tmp/openhand/project',
+            '/tmp/openhand/project/src',
+            '/tmp/openhand/project/src',
+            '  /tmp/openhand/project/docs  ',
+          ],
+        ),
+      ]);
+      controller.setRuntimeAvailabilityProvider(
+        () => const AgentRuntimeAvailability(
+          isLoading: false,
+          isInstalled: true,
+          isEnabled: true,
+          pluginName: 'Hermes Agent',
+        ),
+      );
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('更多'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('配置'));
+      await tester.pumpAndSettle();
+
+      final saveButton = find.ancestor(
+        of: find.text('保存'),
+        matching: find.byType(FilledButton),
+      );
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      final agent = controller.agentById('agent-1')!;
+      expect(agent.workspaceScopePaths, <String>[
+        '/tmp/openhand/project/src',
+        '/tmp/openhand/project/docs',
+      ]);
+      expect(
+        agent.workspaceScope,
+        '/tmp/openhand/project/src\n/tmp/openhand/project/docs',
+      );
+    });
+
     testWidgets('preserves builtin selections across tool groups', (
       tester,
     ) async {
@@ -241,6 +367,12 @@ void main() {
       await tester.tap(addButton);
       await tester.pump();
       expect(find.text('urgent'), findsOneWidget);
+      expect(find.byType(AnimatedRemovableChip), findsAtLeastNWidgets(2));
+      await tester.drag(
+        find.byKey(const ValueKey<String>('cluster-tag-drag-urgent')),
+        const Offset(-240, 0),
+      );
+      await tester.pumpAndSettle();
 
       final saveButton = find.ancestor(
         of: find.text('保存').last,
@@ -252,8 +384,8 @@ void main() {
       await tester.pump();
 
       expect(controller.agentById('agent-1')!.scaleSettings.tags, <String>[
-        'ops',
         'urgent',
+        'ops',
       ]);
     });
 
@@ -952,6 +1084,10 @@ class _FakeSettingsController extends ChangeNotifier
   @override
   dynamic noSuchMethod(Invocation invocation) {
     if (invocation.memberName == #listItemAnimationSettings &&
+        invocation.isGetter) {
+      return OpenHandMotionDefaults.listItem;
+    }
+    if (invocation.memberName == #chipAnimationSettings &&
         invocation.isGetter) {
       return OpenHandMotionDefaults.listItem;
     }

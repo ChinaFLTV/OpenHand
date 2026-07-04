@@ -8,9 +8,11 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../../app/model/app_settings_snapshot.dart';
+import '../../../app/model/dialog_animation_settings.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
@@ -1910,8 +1912,6 @@ class _AgentClusterSettingsEditorState
   }
 
   Widget _clusterTagEditor({required String label}) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     return InputDecorator(
       decoration: InputDecoration(labelText: label),
       child: Column(
@@ -1944,59 +1944,18 @@ class _AgentClusterSettingsEditorState
             ],
           ),
           const SizedBox(height: 10),
-          if (_tags.isEmpty)
-            Text(
-              openHandLocalizedText(
-                context,
-                zh: '暂无 Worker 标签。',
-                en: 'No worker tags yet.',
-              ),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            )
-          else
-            SizedBox(
-              height: 44,
-              child: ReorderableListView.builder(
-                scrollDirection: Axis.horizontal,
-                buildDefaultDragHandles: false,
-                proxyDecorator: (child, index, animation) {
-                  return ScaleTransition(
-                    scale: Tween<double>(begin: 1, end: 1.04).animate(
-                      CurvedAnimation(
-                        parent: animation,
-                        curve: Curves.easeOutCubic,
-                      ),
-                    ),
-                    child: Material(color: Colors.transparent, child: child),
-                  );
-                },
-                itemCount: _tags.length,
-                onReorder: (oldIndex, newIndex) =>
-                    setState(() => _reorderClusterTag(oldIndex, newIndex)),
-                itemBuilder: (context, index) {
-                  final tag = _tags[index];
-                  return Padding(
-                    key: ValueKey<String>('cluster-tag-$tag'),
-                    padding: const EdgeInsets.only(right: 8),
-                    child: InputChip(
-                      avatar: ReorderableDragStartListener(
-                        index: index,
-                        child: const Icon(
-                          Icons.drag_indicator_rounded,
-                          size: 18,
-                        ),
-                      ),
-                      label: Text(tag, overflow: TextOverflow.ellipsis),
-                      onDeleted: () => setState(() => _tags.remove(tag)),
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  );
-                },
-              ),
+          _AnimatedReorderableChipStrip(
+            values: _tags,
+            emptyText: openHandLocalizedText(
+              context,
+              zh: '暂无 Worker 标签。',
+              en: 'No worker tags yet.',
             ),
+            keyPrefix: 'cluster-tag',
+            onRemove: (tag) => setState(() => _tags.remove(tag)),
+            onReorder: (oldIndex, newIndex) =>
+                setState(() => _reorderClusterTag(oldIndex, newIndex)),
+          ),
         ],
       ),
     );
@@ -6094,50 +6053,12 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     required void Function(int oldIndex, int newIndex) onReorder,
     String Function(String value)? labelBuilder,
   }) {
-    if (values.isEmpty) {
-      return Text(
-        emptyText,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-      );
-    }
-    return SizedBox(
-      height: 44,
-      child: ReorderableListView.builder(
-        scrollDirection: Axis.horizontal,
-        buildDefaultDragHandles: false,
-        proxyDecorator: (child, index, animation) {
-          return ScaleTransition(
-            scale: Tween<double>(begin: 1, end: 1.04).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-            ),
-            child: Material(color: Colors.transparent, child: child),
-          );
-        },
-        itemCount: values.length,
-        onReorder: onReorder,
-        itemBuilder: (context, index) {
-          final value = values[index];
-          return Padding(
-            key: ValueKey<String>('chip-$value'),
-            padding: const EdgeInsets.only(right: 8),
-            child: InputChip(
-              avatar: ReorderableDragStartListener(
-                index: index,
-                child: const Icon(Icons.drag_indicator_rounded, size: 18),
-              ),
-              label: Text(
-                labelBuilder?.call(value) ?? value,
-                overflow: TextOverflow.ellipsis,
-              ),
-              onDeleted: () => onRemove(value),
-              visualDensity: VisualDensity.compact,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          );
-        },
-      ),
+    return _AnimatedReorderableChipStrip(
+      values: values,
+      emptyText: emptyText,
+      onRemove: onRemove,
+      onReorder: onReorder,
+      labelBuilder: labelBuilder,
     );
   }
 
@@ -6320,9 +6241,18 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   Future<void> _pickWorkspacePath() async {
     final path = await _pickDirectory();
     if (path == null || !mounted) return;
-    setState(
-      () => _workspacePath.text = OpenHandPaths.normalizeOptionalPath(path),
-    );
+    final normalized = OpenHandPaths.normalizeOptionalPath(path);
+    setState(() {
+      _workspacePath.text = normalized;
+      if (normalized.isNotEmpty) {
+        final workspaceKey = normalized.toLowerCase();
+        _workspaceScopePaths.removeWhere(
+          (value) =>
+              OpenHandPaths.normalizeOptionalPath(value).toLowerCase() ==
+              workspaceKey,
+        );
+      }
+    });
   }
 
   Future<void> _pickWorkspaceScopePath() async {
@@ -6456,10 +6386,35 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     required BuildContext dialogContext,
     required List<AiBuiltinToolConfig> builtinToolConfigs,
   }) {
+    final validationError = _validateDraft();
+    if (validationError != null) {
+      OpenHandSnackBar.showError(context, validationError);
+      return;
+    }
     final metadata = _metadataMapFromEntries();
     Navigator.of(dialogContext, rootNavigator: true).pop(
       _buildAgent(builtinToolConfigs: builtinToolConfigs, metadata: metadata),
     );
+  }
+
+  String? _validateDraft() {
+    final duplicateMetadata = _firstDuplicateKey(_metadataEntries);
+    if (duplicateMetadata != null) {
+      return openHandLocalizedText(
+        context,
+        zh: '元数据字段重复：$duplicateMetadata',
+        en: 'Duplicate metadata field: $duplicateMetadata',
+      );
+    }
+    final duplicateRoute = _firstDuplicateKey(_routeExtraFields);
+    if (duplicateRoute != null) {
+      return openHandLocalizedText(
+        context,
+        zh: '路由扩展字段重复：$duplicateRoute',
+        en: 'Duplicate routing field: $duplicateRoute',
+      );
+    }
+    return null;
   }
 
   AgentRoutingMetadata _routePreview() {
@@ -6484,6 +6439,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     final minWorkers = _minWorkers.clamp(0, maxWorkers);
     final taskLabels = _dedupeStrings(_taskLabelValues);
     final workerTags = _dedupeStrings(_workerTagValues);
+    final workspacePath = _normalizedWorkspacePath();
+    final workspaceScopePaths = _normalizedWorkspaceScopePaths(workspacePath);
     final builtinToolNames = _normalizedBuiltinToolSelection(
       builtinToolConfigs,
     ).toList();
@@ -6509,9 +6466,9 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       taskLabels: taskLabels,
       mcpServerNames: _mcpServerNames.toList(),
       builtinToolNames: builtinToolNames,
-      workspacePath: _workspacePath.text.trim(),
-      workspaceScope: _dedupeStrings(_workspaceScopePaths).join('\n'),
-      workspaceScopePaths: _dedupeStrings(_workspaceScopePaths),
+      workspacePath: workspacePath,
+      workspaceScope: workspaceScopePaths.join('\n'),
+      workspaceScopePaths: workspaceScopePaths,
       cronIds: _cronIds.toList(),
       hookIds: _hookIds.toList(),
       selfLearningEnabled: _selfLearningEnabled,
@@ -6571,6 +6528,28 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
 
   Map<String, Object?> _mapFromEntries(List<_KeyValueDraft> entries) {
     return _agentKeyValueDraftMapFromEntries(entries);
+  }
+
+  String? _firstDuplicateKey(List<_KeyValueDraft> entries) {
+    return _agentFirstDuplicateKey(entries);
+  }
+
+  String _normalizedWorkspacePath() {
+    return OpenHandPaths.normalizeOptionalPath(_workspacePath.text);
+  }
+
+  List<String> _normalizedWorkspaceScopePaths(String workspacePath) {
+    final workspaceKey = workspacePath.trim().toLowerCase();
+    final seen = <String>{};
+    final result = <String>[];
+    for (final raw in _workspaceScopePaths) {
+      final value = OpenHandPaths.normalizeOptionalPath(raw);
+      if (value.isEmpty) continue;
+      final key = value.toLowerCase();
+      if (workspaceKey.isNotEmpty && key == workspaceKey) continue;
+      if (seen.add(key)) result.add(value);
+    }
+    return result;
   }
 
   Object? _parseStructuredValue(String raw) {
@@ -6902,6 +6881,162 @@ class _AgentEditorPanel extends StatelessWidget {
   }
 }
 
+class _AnimatedReorderableChipStrip extends StatelessWidget {
+  const _AnimatedReorderableChipStrip({
+    required this.values,
+    required this.emptyText,
+    required this.onRemove,
+    required this.onReorder,
+    this.labelBuilder,
+    this.keyPrefix = 'agent-chip',
+  });
+
+  final List<String> values;
+  final String emptyText;
+  final ValueChanged<String> onRemove;
+  final void Function(int oldIndex, int newIndex) onReorder;
+  final String Function(String value)? labelBuilder;
+  final String keyPrefix;
+
+  @override
+  Widget build(BuildContext context) {
+    if (values.isEmpty) {
+      return Text(
+        emptyText,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      );
+    }
+    final animationSettings = _agentChipAnimationSettings(context);
+    return SizedBox(
+      height: 48,
+      child: ReorderableListView.builder(
+        scrollDirection: Axis.horizontal,
+        buildDefaultDragHandles: false,
+        proxyDecorator: (child, index, animation) {
+          return ScaleTransition(
+            scale: Tween<double>(begin: 1, end: 1.06).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+            ),
+            child: Material(color: Colors.transparent, child: child),
+          );
+        },
+        itemCount: values.length,
+        onReorder: onReorder,
+        itemBuilder: (context, index) {
+          final value = values[index];
+          return Padding(
+            key: ValueKey<String>('$keyPrefix-$value'),
+            padding: const EdgeInsets.only(right: 8),
+            child: AnimatedRemovableChip(
+              settings: animationSettings,
+              onRemove: () => onRemove(value),
+              builder: (context, requestRemove) {
+                return _AgentDraggableChip(
+                  index: index,
+                  dragHandleKey: ValueKey<String>('$keyPrefix-drag-$value'),
+                  label: labelBuilder?.call(value) ?? value,
+                  onDeleted: requestRemove,
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AgentDraggableChip extends StatelessWidget {
+  const _AgentDraggableChip({
+    required this.index,
+    required this.dragHandleKey,
+    required this.label,
+    required this.onDeleted,
+  });
+
+  final int index;
+  final Key dragHandleKey;
+  final String label;
+  final VoidCallback onDeleted;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.46),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.only(
+          start: 8,
+          end: 4,
+          top: 6,
+          bottom: 6,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ReorderableDragStartListener(
+              index: index,
+              child: Tooltip(
+                key: dragHandleKey,
+                message: openHandLocalizedText(
+                  context,
+                  zh: '拖拽排序',
+                  en: 'Drag to reorder',
+                ),
+                child: Icon(
+                  Icons.drag_indicator_rounded,
+                  size: 18,
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: colors.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: openHandLocalizedText(context, zh: '删除', en: 'Remove'),
+              onPressed: onDeleted,
+              icon: const Icon(Icons.close_rounded),
+              iconSize: 18,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+DialogAnimationSettings _agentChipAnimationSettings(BuildContext context) {
+  try {
+    return context.select<SettingsController, DialogAnimationSettings>(
+      (controller) => controller.chipAnimationSettings,
+    );
+  } catch (_) {
+    return OpenHandMotionDefaults.listItem;
+  }
+}
+
 class _CapabilityPanel extends StatelessWidget {
   const _CapabilityPanel({
     required this.title,
@@ -6975,7 +7110,7 @@ class _KeyValueDraft {
   }
 
   static String _valueText(Object? value) {
-    if (value == null) return 'null';
+    if (value == null) return '';
     if (value is String) return value;
     try {
       return jsonEncode(value);
@@ -6995,6 +7130,17 @@ Map<String, Object?> _agentKeyValueDraftMapFromEntries(
     result[key] = _agentParseStructuredValue(entry.value.text);
   }
   return result;
+}
+
+String? _agentFirstDuplicateKey(Iterable<_KeyValueDraft> entries) {
+  final seen = <String>{};
+  for (final entry in entries) {
+    final key = entry.key.text.trim();
+    if (key.isEmpty) continue;
+    final normalized = key.toLowerCase();
+    if (!seen.add(normalized)) return key;
+  }
+  return null;
 }
 
 Object? _agentParseStructuredValue(String raw) {
