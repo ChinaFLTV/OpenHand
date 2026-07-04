@@ -63,6 +63,27 @@ void main() {
     },
   );
 
+  test(
+    'does not count unknown agent-prefixed builtin names as coordination',
+    () {
+      const agent = AgentProfile(
+        id: 'agent-1',
+        name: 'Ops Agent',
+        builtinToolNames: <String>['AgentTaskFoo', 'AgentList'],
+      );
+
+      final bindings = agentCapabilityBindingsJson(agent);
+      final summary = bindings['summary'] as Map<String, Object?>;
+
+      expect(bindings['builtin_tools'], <String>['AgentTaskFoo', 'AgentList']);
+      expect(summary['builtin_tools'], 2);
+      expect(summary['agent_coordination_tools'], 1);
+      expect(summary['agent_coordination_tool_groups'], <String, int>{
+        'discovery': 1,
+      });
+    },
+  );
+
   test('builds workspace policy from workspace path and scoped roots', () {
     const scoped = AgentProfile(
       id: 'agent-1',

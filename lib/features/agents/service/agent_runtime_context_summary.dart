@@ -4,7 +4,7 @@ Map<String, Object?> agentCapabilityBindingsJson(AgentProfile agent) {
   final automationCount = agent.cronIds.length + agent.hookIds.length;
   final builtinToolNames = agentVisibleBuiltinToolNames(agent.builtinToolNames);
   final agentBuiltinToolCount = builtinToolNames
-      .where(_looksLikeAgentBuiltinToolName)
+      .where(isAgentCoordinationBuiltinToolName)
       .length;
   final agentToolGroups = _agentBuiltinToolGroupCounts(builtinToolNames);
   return <String, Object?>{
@@ -50,6 +50,7 @@ Map<String, int> _agentBuiltinToolGroupCounts(Iterable<String> names) {
 }
 
 String? _agentBuiltinToolGroupName(String name) {
+  if (!isAgentCoordinationBuiltinToolName(name)) return null;
   final normalized = _normalizeToolName(name);
   if (normalized == 'agentlist' || normalized == 'agentdetail') {
     return 'discovery';
@@ -80,19 +81,6 @@ Map<String, Object?> agentWorkspacePolicyJson(AgentProfile agent) {
     'writes_limited_to_allowed_roots': true,
     'requires_confirmation_when_empty': allowedRoots.isEmpty,
   };
-}
-
-bool _looksLikeAgentBuiltinToolName(String name) {
-  final normalized = _normalizeToolName(name);
-  return normalized == 'agentlist' ||
-      normalized == 'agentdetail' ||
-      normalized.startsWith('agentactivity') ||
-      normalized.startsWith('agentaudit') ||
-      normalized.startsWith('agentapproval') ||
-      normalized.startsWith('agentkpi') ||
-      normalized.startsWith('agentresource') ||
-      normalized.startsWith('agentcluster') ||
-      normalized.startsWith('agenttask');
 }
 
 String _normalizeToolName(String value) {
