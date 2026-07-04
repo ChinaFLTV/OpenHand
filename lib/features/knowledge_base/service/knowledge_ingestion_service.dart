@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/reader_file_type.dart';
 import '../../../shared/util/stable_hash.dart';
 import '../../ai/index.dart';
@@ -92,20 +93,16 @@ class KnowledgeIngestionService {
     cancelToken?.throwIfCancelled();
     final now = DateTime.now().toUtc();
     final sourceId = _uuid.v4();
+    final title = _titleOrFallback(parsed.title, initialTitle);
     report(
       KnowledgeIndexingProgress(
         phase: KnowledgeIndexingPhase.storing,
-        sourceTitle: parsed.title?.trim().isNotEmpty == true
-            ? parsed.title!.trim()
-            : initialTitle,
+        sourceTitle: title,
       ),
     );
     final storedPath = settings.copyImportedFiles
         ? await _copyToKnowledgeStorage(file, sourceId)
         : file.path;
-    final title = parsed.title?.trim().isNotEmpty == true
-        ? parsed.title!.trim()
-        : p.basename(file.path);
     var source = KnowledgeSource(
       id: sourceId,
       title: title,
@@ -352,13 +349,17 @@ class KnowledgeIngestionService {
           ? null
           : await _parserRegistry.parse(request);
       final sourceText = localParsed?.text ?? await _readTextFile(request.file);
+      final sourceTitle = _titleOrFallback(
+        localParsed?.title,
+        p.basename(request.file.path),
+      );
       final conversion = await _readerConversionService.convert(
         KnowledgeReaderConversionRequest(
           model: readerModel,
           sourceType: sourceType,
           targetType: rule.targetType,
           content: sourceText,
-          sourceTitle: localParsed?.title ?? p.basename(request.file.path),
+          sourceTitle: sourceTitle,
           cancelSignal: cancelToken?.whenCancelled,
         ),
       );
@@ -369,7 +370,7 @@ class KnowledgeIngestionService {
         kind: targetType,
         mimeType: ReaderFileType.mimeType(targetType),
         parserId: 'model_reader_conversion',
-        title: localParsed?.title ?? p.basename(request.file.path),
+        title: sourceTitle,
         metadata: <String, Object?>{
           if (localParsed != null) ...localParsed.metadata,
           'reader_parse_mode': KnowledgeReaderParserMode.model,
@@ -455,4 +456,8 @@ class KnowledgeIngestionService {
       _readerConversionService.dispose();
     }
   }
+}
+
+String _titleOrFallback(String? title, String fallback) {
+  return nullIfBlank(title) ?? fallback;
 }
