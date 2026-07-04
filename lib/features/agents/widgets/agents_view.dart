@@ -74,6 +74,7 @@ const List<String> _agentKpiStatusOptions = <String>[
   'done',
   'paused',
 ];
+const int _agentTaskRecommendedPollMs = 1500;
 const int _agentRoutePreviewKeywordLimit = 10;
 const List<String> _agentImageExtensions = <String>[
   'jpg',
@@ -2298,6 +2299,7 @@ class _AgentTaskCard extends StatelessWidget {
     final created = task.createdAt == null
         ? ''
         : formatMonthDayHm(task.createdAt!.toLocal());
+    final tracking = _agentTaskTrackingChips(context, task);
     final metadata = _agentTaskMetadataChips(task);
     final progress = task.progress.clamp(0, 1).toDouble();
 
@@ -2403,12 +2405,15 @@ class _AgentTaskCard extends StatelessWidget {
                       ),
                       if (task.result.trim().isNotEmpty ||
                           task.note.trim().isNotEmpty ||
+                          tracking.isNotEmpty ||
                           metadata.isNotEmpty) ...[
                         const SizedBox(height: 9),
                         Wrap(
                           spacing: 6,
                           runSpacing: 6,
                           children: [
+                            for (final item in tracking)
+                              _AgentActivityMetadataChip(text: item),
                             if (task.result.trim().isNotEmpty)
                               _AgentActivityMetadataChip(
                                 text: openHandLocalizedText(
@@ -2451,6 +2456,7 @@ Future<void> _showAgentTaskDetailDialog(
 ) {
   final l10n = AppLocalizations.of(context)!;
   final assignedWorker = _agentTaskAssignedWorkerLabel(l10n, task);
+  final trackingSummary = _agentTaskTrackingSummary(context, task);
   final extraText = const JsonEncoder.withIndent(
     '  ',
   ).convert(_agentTaskExtraDisplayJson(task.extra));
@@ -2480,6 +2486,10 @@ Future<void> _showAgentTaskDetailDialog(
                     en: 'Progress',
                   ),
                   value: '${(task.progress * 100).round()}%',
+                ),
+                _MetricTile(
+                  label: openHandLocalizedText(context, zh: '下一步', en: 'Next'),
+                  value: trackingSummary.nextAction,
                 ),
                 _MetricTile(
                   label: openHandLocalizedText(
@@ -2519,6 +2529,24 @@ Future<void> _showAgentTaskDetailDialog(
                     en: 'Updated',
                   ),
                   body: _agentDateTimeLabel(task.updatedAt),
+                  compact: true,
+                ),
+                _AgentTaskDetailBlock(
+                  title: openHandLocalizedText(
+                    context,
+                    zh: '交接状态',
+                    en: 'Handoff',
+                  ),
+                  body: trackingSummary.handoff,
+                  compact: true,
+                ),
+                _AgentTaskDetailBlock(
+                  title: openHandLocalizedText(
+                    context,
+                    zh: '推荐工具',
+                    en: 'Recommended tool',
+                  ),
+                  body: trackingSummary.recommendedTool,
                   compact: true,
                 ),
                 _AgentTaskDetailBlock(
@@ -2801,6 +2829,187 @@ List<String> _agentTaskMetadataChips(AgentTask task) {
     if (chips.length >= 4) break;
   }
   return chips;
+}
+
+List<String> _agentTaskTrackingChips(BuildContext context, AgentTask task) {
+  final summary = _agentTaskTrackingSummary(context, task);
+  final chips = <String>[
+    openHandLocalizedText(
+      context,
+      zh: '下一步: ${summary.nextAction}',
+      en: 'Next: ${summary.nextAction}',
+    ),
+  ];
+  if (_agentTaskNeedsPolling(task.status)) {
+    chips.add(
+      openHandLocalizedText(
+        context,
+        zh: '轮询: ${summary.recommendedTool}',
+        en: 'Poll: ${summary.recommendedTool}',
+      ),
+    );
+  } else if (_agentTaskResultAvailable(task)) {
+    chips.add(
+      openHandLocalizedText(
+        context,
+        zh: '结果可读: ${summary.recommendedTool}',
+        en: 'Result: ${summary.recommendedTool}',
+      ),
+    );
+  } else if (task.status == AgentTaskStatus.waitingApproval) {
+    chips.add(openHandLocalizedText(context, zh: '需审批', en: 'Approval'));
+  } else if (task.status == AgentTaskStatus.paused) {
+    chips.add(openHandLocalizedText(context, zh: '已暂停', en: 'Paused'));
+  }
+  final retryCount = nonNegativeIntFromValue(
+    task.extra['retry_count'],
+    fallback: 0,
+  );
+  if (retryCount > 0) {
+    chips.add(
+      openHandLocalizedText(
+        context,
+        zh: '重试: $retryCount',
+        en: 'Retry: $retryCount',
+      ),
+    );
+  }
+  return chips;
+}
+
+_AgentTaskTrackingSummary _agentTaskTrackingSummary(
+  BuildContext context,
+  AgentTask task,
+) {
+  final nextAction = switch (task.status) {
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running => openHandLocalizedText(
+      context,
+      zh: '轮询进度',
+      en: 'Poll progress',
+    ),
+    AgentTaskStatus.waitingApproval => openHandLocalizedText(
+      context,
+      zh: '处理审批',
+      en: 'Review approval',
+    ),
+    AgentTaskStatus.paused => openHandLocalizedText(
+      context,
+      zh: '恢复或取消',
+      en: 'Resume or cancel',
+    ),
+    AgentTaskStatus.completed =>
+      _agentTaskResultAvailable(task)
+          ? openHandLocalizedText(context, zh: '读取结果', en: 'Read result')
+          : openHandLocalizedText(context, zh: '补充结果', en: 'Fill result'),
+    AgentTaskStatus.failed =>
+      _agentTaskTerminalReason(task) == 'terminated'
+          ? openHandLocalizedText(context, zh: '已终止', en: 'Terminated')
+          : openHandLocalizedText(context, zh: '检查失败', en: 'Inspect failure'),
+    AgentTaskStatus.canceled => openHandLocalizedText(
+      context,
+      zh: '已取消',
+      en: 'Canceled',
+    ),
+  };
+  final handoff = switch (task.status) {
+    AgentTaskStatus.waitingApproval => openHandLocalizedText(
+      context,
+      zh: '等待审批后继续执行',
+      en: 'Waiting for approval before continuing',
+    ),
+    AgentTaskStatus.paused => openHandLocalizedText(
+      context,
+      zh: '任务已暂停，需要恢复或取消',
+      en: 'Task is paused; resume or cancel it',
+    ),
+    AgentTaskStatus.completed =>
+      _agentTaskResultAvailable(task)
+          ? openHandLocalizedText(context, zh: '结果已就绪', en: 'Result ready')
+          : openHandLocalizedText(
+              context,
+              zh: '已完成但缺少结果',
+              en: 'Completed without result',
+            ),
+    AgentTaskStatus.failed =>
+      _agentTaskTerminalReason(task) == 'terminated'
+          ? openHandLocalizedText(context, zh: '任务已终止', en: 'Task terminated')
+          : openHandLocalizedText(context, zh: '任务失败待排查', en: 'Task failed'),
+    AgentTaskStatus.canceled => openHandLocalizedText(
+      context,
+      zh: '任务已取消',
+      en: 'Task canceled',
+    ),
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running => openHandLocalizedText(
+      context,
+      zh: '结果未就绪，建议定时轮询',
+      en: 'Result is not ready; poll periodically',
+    ),
+  };
+  final recommendedTool = _agentTaskRecommendedTool(task);
+  return _AgentTaskTrackingSummary(
+    nextAction: nextAction,
+    handoff: handoff,
+    recommendedTool: recommendedTool,
+  );
+}
+
+bool _agentTaskNeedsPolling(AgentTaskStatus status) {
+  return switch (status) {
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running => true,
+    AgentTaskStatus.waitingApproval ||
+    AgentTaskStatus.paused ||
+    AgentTaskStatus.completed ||
+    AgentTaskStatus.failed ||
+    AgentTaskStatus.canceled => false,
+  };
+}
+
+bool _agentTaskResultAvailable(AgentTask task) {
+  return task.status == AgentTaskStatus.completed &&
+      task.result.trim().isNotEmpty;
+}
+
+String _agentTaskRecommendedTool(AgentTask task) {
+  if (_agentTaskNeedsPolling(task.status)) {
+    return 'AgentTaskProgress · ${_agentTaskRecommendedPollMs}ms';
+  }
+  if (_agentTaskResultAvailable(task)) return 'AgentTaskResult';
+  return switch (task.status) {
+    AgentTaskStatus.waitingApproval => 'AgentApprovalRequest',
+    AgentTaskStatus.paused => 'AgentTaskResume',
+    AgentTaskStatus.completed => 'AgentTaskResult',
+    AgentTaskStatus.failed || AgentTaskStatus.canceled => 'AgentTaskTrack',
+    AgentTaskStatus.backlog ||
+    AgentTaskStatus.ready ||
+    AgentTaskStatus.running => 'AgentTaskProgress',
+  };
+}
+
+String? _agentTaskTerminalReason(AgentTask task) {
+  if (task.status == AgentTaskStatus.completed) return 'completed';
+  if (task.status == AgentTaskStatus.canceled) return 'canceled';
+  if (task.status != AgentTaskStatus.failed) return null;
+  return '${task.extra['tool_action'] ?? ''}'.trim() == 'task_terminated'
+      ? 'terminated'
+      : 'failed';
+}
+
+class _AgentTaskTrackingSummary {
+  const _AgentTaskTrackingSummary({
+    required this.nextAction,
+    required this.handoff,
+    required this.recommendedTool,
+  });
+
+  final String nextAction;
+  final String handoff;
+  final String recommendedTool;
 }
 
 Future<void> _updateAgentTaskFromDesk(

@@ -644,6 +644,8 @@ void main() {
       expect(find.text('进行中'), findsAtLeastNWidgets(1));
       expect(find.text('平均进度'), findsOneWidget);
       expect(find.text('80%'), findsAtLeastNWidgets(1));
+      expect(find.text('下一步: 轮询进度'), findsOneWidget);
+      expect(find.text('轮询: AgentTaskProgress · 1500ms'), findsOneWidget);
       expect(find.text('结果: Draft report is ready.'), findsOneWidget);
       expect(find.text('备注: Needs mentor review.'), findsOneWidget);
       expect(find.text('assigned_worker_id: worker-1'), findsOneWidget);
@@ -656,6 +658,9 @@ void main() {
 
       expect(find.text('任务详情'), findsOneWidget);
       expect(find.text('task-1'), findsOneWidget);
+      expect(find.text('交接状态'), findsOneWidget);
+      expect(find.text('结果未就绪，建议定时轮询'), findsOneWidget);
+      expect(find.text('AgentTaskProgress · 1500ms'), findsOneWidget);
       expect(
         find.text('Prepare the quarterly review.'),
         findsAtLeastNWidgets(1),
