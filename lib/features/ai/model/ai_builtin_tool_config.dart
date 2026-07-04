@@ -45,6 +45,16 @@ extension AiBuiltinToolKindAgentMetadata on AiBuiltinToolKind {
     };
   }
 
+  bool get isAgentCoreCoordinationTool {
+    return switch (this) {
+      AiBuiltinToolKind.agentList ||
+      AiBuiltinToolKind.agentTaskPublish ||
+      AiBuiltinToolKind.agentTaskTrack ||
+      AiBuiltinToolKind.agentTaskResult => true,
+      _ => false,
+    };
+  }
+
   AiAgentBuiltinToolGroup? get agentToolGroup {
     return switch (this) {
       AiBuiltinToolKind.agentList ||
@@ -527,6 +537,9 @@ class AiBuiltinToolConfig {
   static AiBuiltinToolLoadStrategy defaultLoadStrategyForKind(
     AiBuiltinToolKind kind,
   ) {
+    if (kind.isAgentCoreCoordinationTool) {
+      return AiBuiltinToolLoadStrategy.eager;
+    }
     switch (kind) {
       case AiBuiltinToolKind.task:
       case AiBuiltinToolKind.bash:

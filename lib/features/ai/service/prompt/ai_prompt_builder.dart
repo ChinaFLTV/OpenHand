@@ -68,18 +68,21 @@ class _PromptSection {
 class _PromptAssemblyPlan {
   const _PromptAssemblyPlan({
     required this.stablePrefixTurns,
+    required this.runtimePrefixTurns,
     required this.historyTurns,
     required this.latestUserTurns,
     required this.volatileTailTurns,
   });
 
   final List<AiChatTurn> stablePrefixTurns;
+  final List<AiChatTurn> runtimePrefixTurns;
   final List<AiChatTurn> historyTurns;
   final List<AiChatTurn> latestUserTurns;
   final List<AiChatTurn> volatileTailTurns;
 
   List<AiChatTurn> materialize() => <AiChatTurn>[
     ...stablePrefixTurns,
+    ...runtimePrefixTurns,
     ...historyTurns,
     ...latestUserTurns,
     ...volatileTailTurns,
@@ -512,16 +515,6 @@ class AiPromptBuilder {
         AiPromptSectionHeaders.developerInstructions,
         templateBundle.developerInstructions,
       ),
-      _systemSectionTurn(
-        AiPromptSectionHeaders.toolCatalog,
-        _renderRuntimeToolCatalog(
-          promptCatalogTools,
-          compact: true,
-          templatePolicy: templatePolicy,
-          awaitingPlanApproval: session.awaitingPlanApproval,
-          useDsmlToolCalls: useDsmlToolCalls,
-        ),
-      ),
       // 2026-05-23 v4 → v5（prefix-extension cache 架构）
       // Session State 拆分为静态/动态两部分：
       // - [3s] Static（session 标识、环境、限制、workspace_instructions）— 会话内不变。
@@ -595,6 +588,18 @@ class AiPromptBuilder {
       ),
       ...outputFormatReminderTurns,
     ];
+    final runtimePrefixTurns = <AiChatTurn>[
+      _systemSectionTurn(
+        AiPromptSectionHeaders.toolCatalog,
+        _renderRuntimeToolCatalog(
+          promptCatalogTools,
+          compact: true,
+          templatePolicy: templatePolicy,
+          awaitingPlanApproval: session.awaitingPlanApproval,
+          useDsmlToolCalls: useDsmlToolCalls,
+        ),
+      ),
+    ];
     final volatileTailTurns = <AiChatTurn>[
       if (includeDynamicSessionState)
         _jsonRuntimeContextSectionTurn(
@@ -622,17 +627,18 @@ class AiPromptBuilder {
     ];
     // ─────────────────────────────────────────────────────────────
     // Cache-friendly unified assembly:
-    //   stable prefix → persisted history → latest user → volatile tail.
+    //   stable core prefix → runtime catalog prefix → persisted history
+    //   → latest user → volatile tail.
     //
-    // All templates share this same skeleton. Stable constraints stay before
-    // history; truly per-turn state stays after the latest user and is omitted
-    // when it only carries default/static values. This keeps OpenAI-compatible
-    // automatic provider caches (StepFun/Kimi/Qwen/etc.) on the pure append
-    // path instead of inserting a disappearing system block after every user
-    // turn.
+    // All templates share this same skeleton. The cache affinity key is derived
+    // only from the stable core; mutable tool catalogs stay in a separate
+    // leading prefix so lazy-loading cannot rotate the provider cache key.
+    // Truly per-turn state stays after the latest user and is omitted when it
+    // only carries default/static values.
     // ─────────────────────────────────────────────────────────────
     final promptAssembly = _PromptAssemblyPlan(
       stablePrefixTurns: stablePrefixTurns,
+      runtimePrefixTurns: runtimePrefixTurns,
       historyTurns: historyTurns,
       latestUserTurns: latestUserNonSystemTurns,
       volatileTailTurns: volatileTailTurns,
@@ -648,6 +654,7 @@ class AiPromptBuilder {
       (sum, item) => sum + item.promptCharacterCount,
     );
     final stablePrefixMessageCount = stablePrefixTurns.length;
+    final runtimePrefixMessageCount = runtimePrefixTurns.length;
     final historyMessageCount = historyTurns.length;
     final latestUserMessageCount = latestUserNonSystemTurns.length;
     final volatileTailMessageCount = volatileTailTurns.length;
@@ -676,12 +683,13 @@ class AiPromptBuilder {
       session: session,
       model: model,
       stablePrefixHash: stablePrefixHash,
-      toolCatalogHash: toolCatalogHash,
     );
     final previousCapturedAt =
         '${session.lastPromptMetadata['captured_at'] ?? ''}'.trim();
     final previousStablePrefixHash =
         '${session.lastPromptMetadata['stable_prefix_hash'] ?? ''}'.trim();
+    final previousCacheAnchorHash =
+        '${session.lastPromptMetadata['cache_anchor_hash'] ?? ''}'.trim();
     final currentCapturedAt = DateTime.now().toUtc();
     final idleGapSeconds = () {
       if (previousCapturedAt.isEmpty) return null;
@@ -694,8 +702,15 @@ class AiPromptBuilder {
       ..['current_prompt_character_count'] = promptCharacterCount
       ..['stable_prefix_hash'] = stablePrefixHash
       ..['previous_stable_prefix_hash'] = previousStablePrefixHash
+      ..['cache_anchor_hash'] = stablePrefixHash
+      ..['previous_cache_anchor_hash'] = previousCacheAnchorHash
       ..['stable_prefix_message_count'] = stablePrefixMessageCount
       ..['stable_prefix_character_count'] = stablePrefixTurns.fold<int>(
+        0,
+        (sum, turn) => sum + turn.promptCharacterCount,
+      )
+      ..['runtime_prefix_message_count'] = runtimePrefixMessageCount
+      ..['runtime_prefix_character_count'] = runtimePrefixTurns.fold<int>(
         0,
         (sum, turn) => sum + turn.promptCharacterCount,
       )
@@ -703,6 +718,7 @@ class AiPromptBuilder {
       ..['latest_user_message_count'] = latestUserMessageCount
       ..['volatile_tail_message_count'] = volatileTailMessageCount
       ..['non_stable_prompt_message_count'] =
+          runtimePrefixMessageCount +
           historyMessageCount +
           latestUserMessageCount +
           volatileTailMessageCount
@@ -1902,7 +1918,6 @@ class AiPromptBuilder {
     required AiSession session,
     required AiModelConfig model,
     required String stablePrefixHash,
-    required String toolCatalogHash,
   }) {
     return stableSha256Hex(
       [
@@ -1914,7 +1929,6 @@ class AiPromptBuilder {
         model.providerKind.storageValue,
         model.modelId,
         stablePrefixHash,
-        toolCatalogHash,
       ].join('\n'),
     );
   }

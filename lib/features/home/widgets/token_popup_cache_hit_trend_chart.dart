@@ -304,12 +304,12 @@ class _TokenPopupCacheHitTrendChartState
                   _CacheHitModeChip(
                     label: openHandLocalizedText(
                       context,
-                      zh: '排除极端值',
-                      zhHant: '排除極端值',
-                      en: 'Exclude extremes',
-                      fr: 'Exclure les extrêmes',
-                      de: 'Ausreißer ausschließen',
-                      ja: '極端値を除外',
+                      zh: '用户轮视角',
+                      zhHant: '使用者輪視角',
+                      en: 'User rounds',
+                      fr: 'Tours utilisateur',
+                      de: 'Nutzerrunden',
+                      ja: 'ユーザーターン',
                     ),
                     selected:
                         widget.displayMode ==
@@ -326,12 +326,12 @@ class _TokenPopupCacheHitTrendChartState
                   _CacheHitModeChip(
                     label: openHandLocalizedText(
                       context,
-                      zh: '包括全部',
-                      zhHant: '包含全部',
-                      en: 'Include all',
-                      fr: 'Tout inclure',
-                      de: 'Alle einschließen',
-                      ja: 'すべて含める',
+                      zh: '全部请求',
+                      zhHant: '全部請求',
+                      en: 'All requests',
+                      fr: 'Toutes requêtes',
+                      de: 'Alle Anfragen',
+                      ja: '全リクエスト',
                     ),
                     selected:
                         widget.displayMode ==

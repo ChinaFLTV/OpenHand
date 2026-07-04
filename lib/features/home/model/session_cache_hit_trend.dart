@@ -208,17 +208,19 @@ class SessionCacheHitTrend {
   bool get hasExtremeIdleExpiryMisses => points.any(_isExtremeIdleExpiryMiss);
 
   SessionCacheHitDisplayData displayData(SessionCacheHitDisplayMode mode) {
-    // A cache round starts at each non-AI-side input: explicit user messages
-    // and OpenHand-produced tool results. The first round is still visible in
-    // "include all", but excluded from the cleaned trend and averages because
-    // it is a structural cold miss.
+    // A raw cache round starts at each non-AI-side input: explicit user
+    // messages and OpenHand-produced tool results. The default cleaned view is
+    // user-cost oriented: it keeps explicit user rounds, while excluding the
+    // structural cold start, internal tool-continuation rounds, and true idle
+    // expiry outliers. "Include all" remains the exact transport-level view.
     final filteredPoints = switch (mode) {
       SessionCacheHitDisplayMode.includeAll => points,
       SessionCacheHitDisplayMode.excludeExtremeMisses =>
         points
             .where(
               (point) =>
-                  point.turnIndex != 1 && !_isExtremeIdleExpiryMiss(point),
+                  !_isStructuralCacheRound(point) &&
+                  !_isExtremeIdleExpiryMiss(point),
             )
             .toList(growable: false),
     };
@@ -356,6 +358,12 @@ class SessionCacheHitTrend {
       claudeStyle: claudeStyle,
     );
   }
+}
+
+bool _isStructuralCacheRound(SessionCacheHitTurnPoint point) {
+  return point.turnIndex == 1 ||
+      point.starterOrigin == aiSessionMessageSenderOriginOpenHandBackground ||
+      point.starterOrigin == aiSessionMessageSenderOriginOpenHandSystem;
 }
 
 class _CacheHitDiagnostics {

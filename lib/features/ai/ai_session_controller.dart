@@ -6403,6 +6403,8 @@ class AiSessionController extends ChangeNotifier {
       preRequestTimingsMs['assistant_pre_request_elapsed'] =
           assistantBootstrapStopwatch.elapsedMilliseconds;
       var preStreamTelemetryPreviewed = false;
+      final telemetryAnchorMessageId =
+          activeLatestUserMessageId ?? activeRoundAnchorMessageId;
       if (activeLatestUserMessageId != null) {
         final reminderSession =
             _applyPromptInlinedRuntimeRemindersToUserMessage(
@@ -6414,13 +6416,15 @@ class AiSessionController extends ChangeNotifier {
           workingSession = reminderSession;
           _previewSession(workingSession);
         }
-        final nextSession = _applyPreStreamTelemetryToUserMessage(
+      }
+      if (telemetryAnchorMessageId != null) {
+        final nextSession = _applyPreStreamTelemetryToMessage(
           session: workingSession,
           model: model,
           runtimeContext: runtimeContext,
           promptResult: promptResult,
           preRequestTimingsMs: preRequestTimingsMs,
-          userMessageId: activeLatestUserMessageId,
+          messageId: telemetryAnchorMessageId,
         );
         if (!identical(nextSession, workingSession)) {
           workingSession = nextSession;
@@ -6429,11 +6433,12 @@ class AiSessionController extends ChangeNotifier {
         }
       }
       void previewRequestStartTelemetry(AiChatRequestTelemetry telemetry) {
-        final userMessageId = activeLatestUserMessageId;
-        if (userMessageId == null || userMessageId.isEmpty) {
+        final anchorMessageId =
+            activeLatestUserMessageId ?? activeRoundAnchorMessageId;
+        if (anchorMessageId == null || anchorMessageId.isEmpty) {
           return;
         }
-        final nextSession = _applyRequestStartTelemetryToUserMessage(
+        final nextSession = _applyRequestStartTelemetryToMessage(
           session: workingSession,
           model: model,
           runtimeContext: runtimeContext,
@@ -6443,7 +6448,7 @@ class AiSessionController extends ChangeNotifier {
             'request_started_elapsed':
                 assistantBootstrapStopwatch.elapsedMilliseconds,
           },
-          userMessageId: userMessageId,
+          messageId: anchorMessageId,
         );
         if (identical(nextSession, workingSession)) {
           return;
@@ -6518,7 +6523,8 @@ class AiSessionController extends ChangeNotifier {
             error: error,
             runtimeContext: runtimeContext,
             model: model,
-            userMessageId: activeLatestUserMessageId,
+            userMessageId:
+                activeLatestUserMessageId ?? activeRoundAnchorMessageId,
           ),
           stage: errorStage,
           message: '$error',
@@ -7243,7 +7249,8 @@ class AiSessionController extends ChangeNotifier {
             );
             streamedSession = applyUsageToMessageIfPresent(
               streamedSession,
-              messageId: activeLatestUserMessageId,
+              messageId:
+                  activeLatestUserMessageId ?? activeRoundAnchorMessageId,
               usage: usage,
             );
             sessionChanged = true;
@@ -7539,7 +7546,7 @@ class AiSessionController extends ChangeNotifier {
         runtimeContext: runtimeContext,
         model: model,
         promptResult: promptResult,
-        userMessageId: activeLatestUserMessageId,
+        userMessageId: activeLatestUserMessageId ?? activeRoundAnchorMessageId,
         assistantMessageId: assistantMessageId,
         reasoningMessageId: reasoningMessageId,
       );
@@ -7572,7 +7579,7 @@ class AiSessionController extends ChangeNotifier {
         );
         streamedSession = applyUsageToMessageIfPresent(
           streamedSession,
-          messageId: activeLatestUserMessageId,
+          messageId: activeLatestUserMessageId ?? activeRoundAnchorMessageId,
           usage: effectiveUsage,
         );
       }
@@ -12627,8 +12634,8 @@ $tail''';
     if (targetIds.isEmpty) {
       return session;
     }
-    // Composed prompt data has already been applied by the pre-stream phase
-    // (_applyPreStreamTelemetryToUserMessage). Here we only apply
+    // Composed prompt data has already been applied by the pre-stream phase.
+    // Here we only apply
     // response-dependent data (timing, request/response payload, etc.) to
     // ALL target messages without duplicating the prompt fields.
     final updatedMessages = <AiSessionMessage>[];
@@ -12803,15 +12810,15 @@ $tail''';
     return payload;
   }
 
-  AiSession _applyRequestStartTelemetryToUserMessage({
+  AiSession _applyRequestStartTelemetryToMessage({
     required AiSession session,
     required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
     required AiChatRequestTelemetry telemetry,
     Map<String, int> preRequestTimingsMs = const <String, int>{},
-    required String userMessageId,
+    required String messageId,
   }) {
-    if (!runtimeContext.telemetryDebugEnabled || userMessageId.isEmpty) {
+    if (!runtimeContext.telemetryDebugEnabled || messageId.isEmpty) {
       return session;
     }
     final metadata = <String, Object?>{
@@ -12823,17 +12830,17 @@ $tail''';
       if (telemetry.requestBody != null)
         ..._requestPayloadPrefixTelemetry(
           session: session,
-          userMessageId: userMessageId,
+          messageId: messageId,
           requestBody: telemetry.requestBody!,
         ),
     };
-    if (metadata.isEmpty || userMessageId.isEmpty) {
+    if (metadata.isEmpty || messageId.isEmpty) {
       return session;
     }
     final updatedMessages = <AiSessionMessage>[];
     var changed = false;
     for (final message in session.messages) {
-      if (message.id != userMessageId) {
+      if (message.id != messageId) {
         updatedMessages.add(message);
         continue;
       }
@@ -12918,18 +12925,20 @@ $tail''';
 
   Map<String, Object?> _requestPayloadPrefixTelemetry({
     required AiSession session,
-    required String userMessageId,
+    required String messageId,
     required Map<String, Object?> requestBody,
   }) {
-    final currentJson = jsonEncode(requestBody);
-    final currentHash = stableFnv1a32Hex(currentJson);
-    final previousUser = _previousUserMessageForTelemetry(
-      session: session,
-      userMessageId: userMessageId,
+    final currentJson = jsonEncode(
+      _sanitizeTelemetryValue(requestBody, 0) as Map<String, Object?>,
     );
-    final previousPayload = previousUser == null
+    final currentHash = stableFnv1a32Hex(currentJson);
+    final previousRound = _previousRoundAnchorMessageForTelemetry(
+      session: session,
+      messageId: messageId,
+    );
+    final previousPayload = previousRound == null
         ? null
-        : _metadataMap(previousUser.metadata['request_payload']);
+        : _metadataMap(previousRound.metadata['request_payload']);
     if (previousPayload == null) {
       return <String, Object?>{
         'request_payload_json_length': currentJson.length,
@@ -12957,19 +12966,19 @@ $tail''';
     };
   }
 
-  AiSessionMessage? _previousUserMessageForTelemetry({
+  AiSessionMessage? _previousRoundAnchorMessageForTelemetry({
     required AiSession session,
-    required String userMessageId,
+    required String messageId,
   }) {
     final startIndex = session.messages.indexWhere(
-      (message) => message.id == userMessageId,
+      (message) => message.id == messageId,
     );
     if (startIndex <= 0) {
       return null;
     }
     for (var index = startIndex - 1; index >= 0; index -= 1) {
       final message = session.messages[index];
-      if (!message.isDeleted && message.kind == AiSessionMessageKind.user) {
+      if (!message.isDeleted && message.startsConversationRound) {
         return message;
       }
     }
@@ -13015,8 +13024,12 @@ $tail''';
       'dynamic_session_state_delivery',
       'stable_prefix_hash',
       'previous_stable_prefix_hash',
+      'cache_anchor_hash',
+      'previous_cache_anchor_hash',
       'stable_prefix_message_count',
       'stable_prefix_character_count',
+      'runtime_prefix_message_count',
+      'runtime_prefix_character_count',
       'history_message_count',
       'latest_user_message_count',
       'volatile_tail_message_count',
@@ -13107,18 +13120,18 @@ $tail''';
   /// metadata and environment snapshot to the user message immediately so that
   /// the audit dialog already has meaningful data while the AI is still
   /// streaming its response.
-  AiSession _applyPreStreamTelemetryToUserMessage({
+  AiSession _applyPreStreamTelemetryToMessage({
     required AiSession session,
     required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
     required AiPromptBuildResult promptResult,
     Map<String, int> preRequestTimingsMs = const <String, int>{},
-    required String userMessageId,
+    required String messageId,
   }) {
     if (!runtimeContext.telemetryDebugEnabled) {
       return session;
     }
-    if (userMessageId.isEmpty) return session;
+    if (messageId.isEmpty) return session;
     final maxChars = runtimeContext.telemetryMaxPayloadChars;
     final composedPromptTurns = _composedPromptTurnsForAudit(
       promptResult.messages,
@@ -13173,7 +13186,7 @@ $tail''';
     final updatedMessages = <AiSessionMessage>[];
     var changed = false;
     for (final message in session.messages) {
-      if (message.id != userMessageId) {
+      if (message.id != messageId) {
         updatedMessages.add(message);
         continue;
       }
