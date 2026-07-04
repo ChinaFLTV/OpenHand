@@ -608,7 +608,7 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
   }
 
   Duration _resolveDialogExitDelay(BuildContext context) {
-    if (MediaQuery.maybeDisableAnimationsOf(context) == true) {
+    if (!_settingsMotionEnabled(context)) {
       return Duration.zero;
     }
     try {
