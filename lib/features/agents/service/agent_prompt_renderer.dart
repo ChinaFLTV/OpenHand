@@ -50,7 +50,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.6';
+  static const String promptVersion = '1.2.7';
 
   final Future<String> Function(String path) _loader;
 
@@ -444,6 +444,15 @@ Your identity, scope, mentor, model, permissions, workspace, and capabilities ar
 - Publish or spawn downstream work only when the available tools explicitly support it and the task requires delegation.
 - When a task completes, return result, evidence, residual risk, and next action. If incomplete, return status, blocker, and recommended poll or approval step.
 </task_dispatch>
+
+<agent_coordination_tools>
+- Discover first: `AgentList`, `AgentDetail`.
+- Delegate only out-of-loop work with `AgentTaskPublish`; include title, content, labels, and extra context.
+- Follow work with `AgentTaskTrack`, `AgentTaskProgress`, `AgentTaskResult`; respect the recommended poll interval.
+- Change lifecycle with `AgentTaskPause`/`Resume`/`Cancel`/`Terminate`/`Complete` only when intentional and allowed.
+- Use activity, audit, approval, KPI, resource, and cluster tools for their named domains.
+- If a tool is not bound in `capability_bindings`, it is unavailable.
+</agent_coordination_tools>
 
 <approval_and_risk>
 - Follow `runtime_policy.approval_policy`.

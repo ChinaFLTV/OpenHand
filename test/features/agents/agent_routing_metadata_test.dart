@@ -201,7 +201,7 @@ domains: cloud, finops
     final recentAudit =
         operationalState['recent_audit_events'] as List<Object?>;
 
-    expect(snapshot.version, '1.2.6');
+    expect(snapshot.version, '1.2.7');
     expect(routing['has_route'], isTrue);
     expect(routing['keywords'], <Object?>[
       'release',
@@ -218,6 +218,7 @@ domains: cloud, finops
     expect(snapshot.renderedPrompt, contains('"workspace_scope_paths"'));
     expect(snapshot.renderedPrompt, contains('"workspace_policy"'));
     expect(snapshot.renderedPrompt, contains('"agent_coordination_tools"'));
+    expect(snapshot.renderedPrompt, contains('AgentTaskPublish'));
     expect(snapshot.renderedPrompt, contains('<operational_state>'));
     expect(
       snapshot.renderedPrompt,
@@ -313,9 +314,11 @@ domains: cloud, finops
         ),
       );
 
-      expect(snapshot.version, '1.2.6');
+      expect(snapshot.version, '1.2.7');
       expect(snapshot.renderedPrompt, contains('<operating_contract>'));
       expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
+      expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));
+      expect(snapshot.renderedPrompt, contains('AgentTaskResult'));
       expect(snapshot.renderedPrompt, contains('<approval_and_risk>'));
       expect(
         snapshot.renderedPrompt,
@@ -344,9 +347,11 @@ domains: cloud, finops
       );
 
       expect(snapshot.assetPath, AgentPromptRenderer.defaultAssetPath);
-      expect(snapshot.version, '1.2.6');
+      expect(snapshot.version, '1.2.7');
       expect(snapshot.renderedPrompt, contains('<identity>'));
       expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
+      expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));
+      expect(snapshot.renderedPrompt, contains('AgentTaskResult'));
       expect(snapshot.renderedPrompt, contains('<approval_and_risk>'));
       expect(snapshot.renderedPrompt, contains('<self_learning>'));
       expect(
