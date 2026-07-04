@@ -5,6 +5,34 @@ part of 'web_reverse_dashboard_dialog.dart';
 const int _kWebcrackMaxInputChars = 2 * 1024 * 1024;
 const int _kWebcrackMaxOutputBytes = 8 * 1024 * 1024;
 
+String _advancedText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) => _wrText(context, zh: zh, zhHant: zhHant, en: en, fr: fr, de: de, ja: ja);
+
+String _advancedTextForLocale(
+  Locale locale, {
+  required String zh,
+  required String en,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) => openHandLocalizedTextForLocale(
+  locale,
+  zh: zh,
+  zhHant: zhHant,
+  en: en,
+  fr: fr,
+  de: de,
+  ja: ja,
+);
+
 class _AdvancedMenuDialog extends StatelessWidget {
   const _AdvancedMenuDialog({required this.controller, required this.isZh});
 
@@ -15,13 +43,41 @@ class _AdvancedMenuDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    String tr({
+      required String zh,
+      required String en,
+      String? zhHant,
+      String? fr,
+      String? de,
+      String? ja,
+    }) => _wrText(
+      context,
+      zh: zh,
+      zhHant: zhHant,
+      en: en,
+      fr: fr,
+      de: de,
+      ja: ja,
+    );
     final entries = <_AdvancedEntry>[
       _AdvancedEntry(
         icon: Icons.archive_rounded,
-        title: isZh ? '导出会话体检报告' : 'Export session bundle',
-        subtitle: isZh
-            ? '一键打包 HAR + console + 截图 + recorder 为 .zip'
-            : 'Bundle HAR + console + screenshots + recorder as .zip',
+        title: tr(
+          zh: '导出会话体检报告',
+          zhHant: '匯出會話體檢報告',
+          en: 'Export session bundle',
+          fr: 'Exporter le bundle de session',
+          de: 'Sitzungsbundle exportieren',
+          ja: 'セッションバンドルをエクスポート',
+        ),
+        subtitle: tr(
+          zh: '一键打包 HAR + console + 截图 + recorder 为 .zip',
+          zhHant: '一鍵打包 HAR + console + 截圖 + recorder 為 .zip',
+          en: 'Bundle HAR + console + screenshots + recorder as .zip',
+          fr: 'Regroupe HAR, console, captures et recorder en .zip',
+          de: 'Bundelt HAR, Konsole, Screenshots und Recorder als .zip',
+          ja: 'HAR、console、スクリーンショット、recorder を .zip にまとめます',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           final messenger = ScaffoldMessenger.of(context);
@@ -31,14 +87,28 @@ class _AdvancedMenuDialog extends StatelessWidget {
             OpenHandSnackBar.showErrorOn(
               context,
               messenger,
-              isZh ? '导出失败' : 'Export failed',
+              tr(
+                zh: '导出失败',
+                zhHant: '匯出失敗',
+                en: 'Export failed',
+                fr: 'Echec de l export',
+                de: 'Export fehlgeschlagen',
+                ja: 'エクスポートに失敗しました',
+              ),
               duration: const Duration(seconds: 3),
             );
           } else {
             OpenHandSnackBar.showSuccessOn(
               context,
               messenger,
-              isZh ? '已导出到 $path' : 'Exported to $path',
+              tr(
+                zh: '已导出到 $path',
+                zhHant: '已匯出到 $path',
+                en: 'Exported to $path',
+                fr: 'Exporte vers $path',
+                de: 'Exportiert nach $path',
+                ja: '$path にエクスポートしました',
+              ),
               duration: const Duration(seconds: 3),
             );
           }
@@ -46,124 +116,261 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.add_link_rounded,
-        title: isZh ? '持久注入 Headers' : 'Persistent Headers',
-        subtitle: isZh
-            ? '所有请求自动追加 Header（X-Debug 等场景）'
-            : 'Auto-append headers on every request',
+        title: tr(
+          zh: '持久注入 Headers',
+          zhHant: '持久注入 Headers',
+          en: 'Persistent Headers',
+          fr: 'Headers persistants',
+          de: 'Persistente Header',
+          ja: '永続 Headers 注入',
+        ),
+        subtitle: tr(
+          zh: '所有请求自动追加 Header（X-Debug 等场景）',
+          zhHant: '所有請求自動追加 Header（X-Debug 等場景）',
+          en: 'Auto-append headers on every request',
+          fr: 'Ajoute automatiquement des headers a chaque requete',
+          de: 'Fugt jeder Anfrage automatisch Header hinzu',
+          ja: 'すべてのリクエストに Header を自動追加します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
-          await _showExtraHeadersDialog(context, controller, isZh);
+          await _showExtraHeadersDialog(context, controller);
         },
       ),
       _AdvancedEntry(
         icon: Icons.alt_route_rounded,
-        title: isZh ? '网络拦截规则' : 'Network intercept rules',
-        subtitle: isZh
-            ? 'URL 通配 → block / 重写 URL / 追加 Header；命中即自动放行'
-            : 'URL pattern → block / rewrite URL / inject headers',
+        title: tr(
+          zh: '网络拦截规则',
+          zhHant: '網路攔截規則',
+          en: 'Network intercept rules',
+          fr: 'Regles d interception reseau',
+          de: 'Netzwerk-Abfangregeln',
+          ja: 'ネットワークインターセプト規則',
+        ),
+        subtitle: tr(
+          zh: 'URL 通配 → block / 重写 URL / 追加 Header；命中即自动放行',
+          zhHant: 'URL 通配 → block / 重寫 URL / 追加 Header；命中即自動放行',
+          en: 'URL pattern → block / rewrite URL / inject headers',
+          fr: 'Motif URL → bloquer / reecrire URL / injecter headers',
+          de: 'URL-Muster → blockieren / URL umschreiben / Header einfugen',
+          ja: 'URL パターン → block / URL 書き換え / Header 注入',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
-          await _showInterceptRulesDialog(context, controller, isZh);
+          await _showInterceptRulesDialog(context, controller);
         },
       ),
       _AdvancedEntry(
         icon: Icons.code_rounded,
-        title: isZh ? 'CDP 命令面板' : 'CDP Command Palette',
-        subtitle: isZh
-            ? '原始 CDP method + JSON params；power-user 逃生通道'
-            : 'Raw CDP method + JSON params; power-user escape hatch',
+        title: tr(
+          zh: 'CDP 命令面板',
+          zhHant: 'CDP 命令面板',
+          en: 'CDP Command Palette',
+          fr: 'Palette de commandes CDP',
+          de: 'CDP-Befehlspalette',
+          ja: 'CDP コマンドパレット',
+        ),
+        subtitle: tr(
+          zh: '原始 CDP method + JSON params；power-user 逃生通道',
+          zhHant: '原始 CDP method + JSON params；power-user 逃生通道',
+          en: 'Raw CDP method + JSON params; power-user escape hatch',
+          fr: 'Method CDP brut + params JSON pour usages avances',
+          de: 'Rohe CDP-Method + JSON-Parameter fur Power-User',
+          ja: 'Raw CDP method + JSON params の上級者向け入口',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
-          await _showCdpPaletteDialog(context, controller, isZh);
+          await _showCdpPaletteDialog(context, controller);
         },
       ),
       _AdvancedEntry(
         icon: Icons.auto_awesome_rounded,
-        title: isZh ? 'AI 分析最近请求' : 'AI analyse latest requests',
-        subtitle: isZh
-            ? '把最近 10 条请求摘要复制到剪贴板，粘贴回会话即由 AI 解读'
-            : 'Copy last 10 request summaries; paste into chat for AI analysis',
+        title: tr(
+          zh: 'AI 分析最近请求',
+          zhHant: 'AI 分析最近請求',
+          en: 'AI analyse latest requests',
+          fr: 'Analyse IA des dernieres requetes',
+          de: 'AI analysiert letzte Anfragen',
+          ja: 'AI で最近のリクエストを分析',
+        ),
+        subtitle: tr(
+          zh: '把最近 10 条请求摘要复制到剪贴板，粘贴回会话即由 AI 解读',
+          zhHant: '將最近 10 筆請求摘要複製到剪貼簿，貼回會話即可由 AI 解讀',
+          en: 'Copy last 10 request summaries; paste into chat for AI analysis',
+          fr: 'Copie les 10 dernieres requetes pour les analyser dans le chat',
+          de: 'Kopiert die letzten 10 Anfragen zur AI-Analyse in den Chat',
+          ja: '直近 10 件の要約をコピーし、チャットへ貼り付けて AI 分析します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
-          await _copyRecentRequestsForAi(context, controller, isZh);
+          await _copyRecentRequestsForAi(context, controller);
         },
       ),
       _AdvancedEntry(
         icon: Icons.compare_arrows_rounded,
-        title: isZh ? '对比两个请求' : 'Diff two requests',
-        subtitle: isZh
-            ? '选两条请求查 headers / body / response 字段差异'
-            : 'Pick two requests to diff headers / body / response',
+        title: tr(
+          zh: '对比两个请求',
+          zhHant: '對比兩個請求',
+          en: 'Diff two requests',
+          fr: 'Comparer deux requetes',
+          de: 'Zwei Anfragen vergleichen',
+          ja: '2 つのリクエストを比較',
+        ),
+        subtitle: tr(
+          zh: '选两条请求查 headers / body / response 字段差异',
+          zhHant: '選兩筆請求查看 headers / body / response 欄位差異',
+          en: 'Pick two requests to diff headers / body / response',
+          fr: 'Compare headers, body et response de deux requetes',
+          de: 'Vergleicht Header, Body und Response zweier Anfragen',
+          ja: '2 件の headers / body / response の差分を確認します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
-          await _showDiffPicker(context, controller, isZh);
+          await _showDiffPicker(context, controller);
         },
       ),
       _AdvancedEntry(
         icon: Icons.cloud_off_rounded,
-        title: isZh ? 'Service Worker 列表' : 'Service Workers',
-        subtitle: isZh
-            ? '查看注册的 SW + 一键 unregister'
-            : 'Inspect registered SWs and unregister',
+        title: tr(
+          zh: 'Service Worker 列表',
+          zhHant: 'Service Worker 清單',
+          en: 'Service Workers',
+          fr: 'Service Workers',
+          de: 'Service Worker',
+          ja: 'Service Worker 一覧',
+        ),
+        subtitle: tr(
+          zh: '查看注册的 SW + 一键 unregister',
+          zhHant: '查看已註冊 SW + 一鍵 unregister',
+          en: 'Inspect registered SWs and unregister',
+          fr: 'Inspecte les SW enregistres et les desinscrit',
+          de: 'Registrierte SWs ansehen und abmelden',
+          ja: '登録済み SW の確認と unregister',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
-          await _showServiceWorkersDialog(context, controller, isZh);
+          await _showServiceWorkersDialog(context, controller);
         },
       ),
       _AdvancedEntry(
         icon: Icons.dns_rounded,
-        title: isZh ? '启动 HAR 重放服务器' : 'Start HAR replay server',
-        subtitle: isZh
-            ? '把当前 HAR 跑成本地 mock，复现脚本走 127.0.0.1:N'
-            : 'Mock current HAR on localhost; reproduce scripts can hit 127.0.0.1:N',
+        title: tr(
+          zh: '启动 HAR 重放服务器',
+          zhHant: '啟動 HAR 重放伺服器',
+          en: 'Start HAR replay server',
+          fr: 'Demarrer le serveur de replay HAR',
+          de: 'HAR-Replay-Server starten',
+          ja: 'HAR リプレイサーバーを起動',
+        ),
+        subtitle: tr(
+          zh: '把当前 HAR 跑成本地 mock，复现脚本走 127.0.0.1:N',
+          zhHant: '將目前 HAR 跑成本地 mock，重現腳本走 127.0.0.1:N',
+          en: 'Mock current HAR on localhost; reproduce scripts can hit 127.0.0.1:N',
+          fr: 'Expose le HAR courant en mock local sur 127.0.0.1:N',
+          de: 'Mockt das aktuelle HAR lokal auf 127.0.0.1:N',
+          ja: '現在の HAR を localhost mock として 127.0.0.1:N で再現します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
-          await _toggleHarReplayServer(context, controller, isZh);
+          await _toggleHarReplayServer(context, controller);
         },
       ),
       _AdvancedEntry(
         icon: Icons.swap_calls_rounded,
         title: controller.mitmproxyBridge == null
-            ? (isZh ? '启动 mitmproxy 桥接' : 'Start mitmproxy bridge')
-            : (isZh
-                  ? '停止 mitmproxy 桥接（已抓 ${controller.mitmproxyCount}）'
-                  : 'Stop mitmproxy bridge (${controller.mitmproxyCount})'),
-        subtitle: isZh
-            ? '系统级抓包：把 App 内嵌 webview / 第三方应用流量也接入 dashboard'
-            : 'System-wide capture via mitmdump; routes 3rd-party app traffic into dashboard',
+            ? tr(
+                zh: '启动 mitmproxy 桥接',
+                zhHant: '啟動 mitmproxy 橋接',
+                en: 'Start mitmproxy bridge',
+                fr: 'Demarrer le pont mitmproxy',
+                de: 'mitmproxy-Bridge starten',
+                ja: 'mitmproxy ブリッジを起動',
+              )
+            : tr(
+                zh: '停止 mitmproxy 桥接（已抓 ${controller.mitmproxyCount}）',
+                zhHant: '停止 mitmproxy 橋接（已抓 ${controller.mitmproxyCount}）',
+                en: 'Stop mitmproxy bridge (${controller.mitmproxyCount})',
+                fr: 'Arreter le pont mitmproxy (${controller.mitmproxyCount})',
+                de: 'mitmproxy-Bridge stoppen (${controller.mitmproxyCount})',
+                ja: 'mitmproxy ブリッジを停止（${controller.mitmproxyCount} 件）',
+              ),
+        subtitle: tr(
+          zh: '系统级抓包：把 App 内嵌 webview / 第三方应用流量也接入 dashboard',
+          zhHant: '系統級抓包：將 App 內嵌 webview / 第三方應用流量也接入 dashboard',
+          en: 'System-wide capture via mitmdump; routes 3rd-party app traffic into dashboard',
+          fr: 'Capture systeme via mitmdump, y compris webview et apps tierces',
+          de: 'Systemweite Erfassung per mitmdump, auch Webview- und Drittanbieter-Traffic',
+          ja: 'mitmdump によるシステム全体キャプチャ。webview や他アプリの通信も dashboard へ送ります',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
-          await _toggleMitmproxyBridge(context, controller, isZh);
+          await _toggleMitmproxyBridge(context, controller);
         },
       ),
       _AdvancedEntry(
         icon: Icons.video_camera_back_rounded,
-        title: isZh ? 'WebRTC 资源捕获' : 'WebRTC capture',
-        subtitle: isZh
-            ? '注入 RTCPeerConnection hook，抓 SDP / ICE / Track 事件'
-            : 'Hook RTCPeerConnection to capture SDP / ICE / Track events',
+        title: tr(
+          zh: 'WebRTC 资源捕获',
+          zhHant: 'WebRTC 資源捕獲',
+          en: 'WebRTC capture',
+          fr: 'Capture WebRTC',
+          de: 'WebRTC-Erfassung',
+          ja: 'WebRTC キャプチャ',
+        ),
+        subtitle: tr(
+          zh: '注入 RTCPeerConnection hook，抓 SDP / ICE / Track 事件',
+          zhHant: '注入 RTCPeerConnection hook，抓 SDP / ICE / Track 事件',
+          en: 'Hook RTCPeerConnection to capture SDP / ICE / Track events',
+          fr: 'Hook RTCPeerConnection pour capturer SDP / ICE / Track',
+          de: 'Hookt RTCPeerConnection fur SDP-, ICE- und Track-Events',
+          ja: 'RTCPeerConnection hook を注入し SDP / ICE / Track イベントを取得します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
-          await _toggleWebRtcCapture(context, controller, isZh);
+          await _toggleWebRtcCapture(context, controller);
         },
       ),
       _AdvancedEntry(
         icon: Icons.code_off_rounded,
-        title: isZh ? 'JS 反混淆（webcrack）' : 'JS deobfuscate (webcrack)',
-        subtitle: isZh
-            ? '用 npx webcrack 把粘贴的 JS 还原成可读形式（需 Node.js）'
-            : 'Run npx webcrack on pasted JS (Node.js required)',
+        title: tr(
+          zh: 'JS 反混淆（webcrack）',
+          zhHant: 'JS 反混淆（webcrack）',
+          en: 'JS deobfuscate (webcrack)',
+          fr: 'Desobfuscation JS (webcrack)',
+          de: 'JS deobfuskieren (webcrack)',
+          ja: 'JS 難読化解除（webcrack）',
+        ),
+        subtitle: tr(
+          zh: '用 npx webcrack 把粘贴的 JS 还原成可读形式（需 Node.js）',
+          zhHant: '用 npx webcrack 將貼上的 JS 還原成可讀形式（需 Node.js）',
+          en: 'Run npx webcrack on pasted JS (Node.js required)',
+          fr: 'Execute npx webcrack sur le JS colle (Node.js requis)',
+          de: 'Fuhrt npx webcrack auf eingefugtem JS aus (Node.js erforderlich)',
+          ja: '貼り付けた JS を npx webcrack で読みやすくします（Node.js 必須）',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
-          await _showWebcrackDialog(context, isZh);
+          await _showWebcrackDialog(context);
         },
       ),
       _AdvancedEntry(
         icon: Icons.fingerprint_rounded,
-        title: isZh ? '签名字段变量定位器' : 'Signature Field Locator',
-        subtitle: isZh
-            ? '同 endpoint 多次抓包后自动识别动态字段（sign / ts / nonce）'
-            : 'Identify dynamic fields (sign / ts / nonce) across repeated captures',
+        title: tr(
+          zh: '签名字段变量定位器',
+          zhHant: '簽名欄位變數定位器',
+          en: 'Signature Field Locator',
+          fr: 'Localisateur de champs de signature',
+          de: 'Signaturfeld-Finder',
+          ja: '署名フィールド変数ロケーター',
+        ),
+        subtitle: tr(
+          zh: '同 endpoint 多次抓包后自动识别动态字段（sign / ts / nonce）',
+          zhHant: '同 endpoint 多次抓包後自動識別動態欄位（sign / ts / nonce）',
+          en: 'Identify dynamic fields (sign / ts / nonce) across repeated captures',
+          fr: 'Detecte les champs dynamiques sign / ts / nonce sur captures repetees',
+          de: 'Erkennt dynamische Felder wie sign / ts / nonce in wiederholten Captures',
+          ja: '同じ endpoint の複数キャプチャから sign / ts / nonce などの動的フィールドを検出します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseSignatureDiffDialog(
@@ -174,10 +381,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.notifications_active_rounded,
-        title: isZh ? '报文条件断点' : 'Request Breakpoints',
-        subtitle: isZh
-            ? 'URL/Body 子串命中 → 记录命中事件 + 可选触发 JS 表达式'
-            : 'URL/body substring match → log hits + optional JS eval',
+        title: tr(
+          zh: '报文条件断点',
+          zhHant: '報文條件斷點',
+          en: 'Request Breakpoints',
+          fr: 'Breakpoints de requete',
+          de: 'Request-Breakpoints',
+          ja: 'リクエスト条件ブレークポイント',
+        ),
+        subtitle: tr(
+          zh: 'URL/Body 子串命中 → 记录命中事件 + 可选触发 JS 表达式',
+          zhHant: 'URL/Body 子字串命中 → 記錄命中事件 + 可選觸發 JS 表達式',
+          en: 'URL/body substring match → log hits + optional JS eval',
+          fr: 'Match URL/body → journalise et peut evaluer du JS',
+          de: 'URL-/Body-Treffer → protokollieren und optional JS auswerten',
+          ja: 'URL/body 部分一致でヒット記録と任意の JS 評価を実行します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseRequestBreakpointsDialog(
@@ -188,10 +407,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.switch_account_rounded,
-        title: isZh ? '多账号会话快照' : 'Account Snapshots',
-        subtitle: isZh
-            ? '保存 cookies + storage → 一键在不同账号间切换'
-            : 'Save cookies + storage → one-click switch between accounts',
+        title: tr(
+          zh: '多账号会话快照',
+          zhHant: '多帳號會話快照',
+          en: 'Account Snapshots',
+          fr: 'Instantanes de comptes',
+          de: 'Account-Snapshots',
+          ja: '複数アカウントスナップショット',
+        ),
+        subtitle: tr(
+          zh: '保存 cookies + storage → 一键在不同账号间切换',
+          zhHant: '儲存 cookies + storage → 一鍵在不同帳號間切換',
+          en: 'Save cookies + storage → one-click switch between accounts',
+          fr: 'Sauve cookies + storage pour changer de compte en un clic',
+          de: 'Speichert Cookies + Storage fur Account-Wechsel per Klick',
+          ja: 'cookies + storage を保存し、アカウントをワンクリックで切り替えます',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseAccountSnapshotsDialog(
@@ -202,10 +433,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.bar_chart_rounded,
-        title: isZh ? '代码覆盖率面板' : 'JS Coverage',
-        subtitle: isZh
-            ? 'Start → 操作页面 → Take 查看哪些脚本被执行'
-            : 'Start → use the page → Take to see which scripts ran',
+        title: tr(
+          zh: '代码覆盖率面板',
+          zhHant: '程式碼覆蓋率面板',
+          en: 'JS Coverage',
+          fr: 'Couverture JS',
+          de: 'JS-Abdeckung',
+          ja: 'JS カバレッジ',
+        ),
+        subtitle: tr(
+          zh: 'Start → 操作页面 → Take 查看哪些脚本被执行',
+          zhHant: 'Start → 操作頁面 → Take 查看哪些腳本被執行',
+          en: 'Start → use the page → Take to see which scripts ran',
+          fr: 'Start → utilisez la page → Take pour voir les scripts executes',
+          de: 'Start → Seite nutzen → Take zeigt ausgefuhrte Skripte',
+          ja: 'Start → ページ操作 → Take で実行されたスクリプトを確認します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseCoverageDialog(context, controller: controller);
@@ -213,10 +456,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.ios_share_rounded,
-        title: isZh ? 'API 集合导出' : 'Export Collection',
-        subtitle: isZh
-            ? 'Postman / Insomnia / Bruno / cURL / HAR 一键复制'
-            : 'Postman / Insomnia / Bruno / cURL / HAR — copy to clipboard',
+        title: tr(
+          zh: 'API 集合导出',
+          zhHant: 'API 集合匯出',
+          en: 'Export Collection',
+          fr: 'Exporter la collection',
+          de: 'Collection exportieren',
+          ja: 'API コレクションをエクスポート',
+        ),
+        subtitle: tr(
+          zh: 'Postman / Insomnia / Bruno / cURL / HAR 一键复制',
+          zhHant: 'Postman / Insomnia / Bruno / cURL / HAR 一鍵複製',
+          en: 'Postman / Insomnia / Bruno / cURL / HAR — copy to clipboard',
+          fr: 'Copie Postman / Insomnia / Bruno / cURL / HAR',
+          de: 'Kopiert Postman / Insomnia / Bruno / cURL / HAR',
+          ja: 'Postman / Insomnia / Bruno / cURL / HAR をワンクリックコピー',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseCollectionExportDialog(
@@ -227,10 +482,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.wifi_tethering_rounded,
-        title: isZh ? 'WebSocket 主动注入' : 'WebSocket Inject',
-        subtitle: isZh
-            ? '代理 window.WebSocket → 选中连接 → 注入任意文本帧'
-            : 'Proxy window.WebSocket → pick a socket → inject any text frame',
+        title: tr(
+          zh: 'WebSocket 主动注入',
+          zhHant: 'WebSocket 主動注入',
+          en: 'WebSocket Inject',
+          fr: 'Injection WebSocket',
+          de: 'WebSocket-Injektion',
+          ja: 'WebSocket 注入',
+        ),
+        subtitle: tr(
+          zh: '代理 window.WebSocket → 选中连接 → 注入任意文本帧',
+          zhHant: '代理 window.WebSocket → 選中連線 → 注入任意文字影格',
+          en: 'Proxy window.WebSocket → pick a socket → inject any text frame',
+          fr: 'Proxy window.WebSocket → choisir une connexion → injecter du texte',
+          de: 'Proxy fur window.WebSocket → Socket wahlen → Text-Frame injizieren',
+          ja: 'window.WebSocket をプロキシし、接続を選んで任意のテキストフレームを注入します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseWsInjectDialog(context, controller: controller);
@@ -238,10 +505,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.alt_route_rounded,
-        title: isZh ? '本地 Mock 拦截' : 'Local Mock',
-        subtitle: isZh
-            ? 'URL 通配命中 → 自定义 status/headers/body 直接返回'
-            : 'URL match → return canned status/headers/body',
+        title: tr(
+          zh: '本地 Mock 拦截',
+          zhHant: '本地 Mock 攔截',
+          en: 'Local Mock',
+          fr: 'Mock local',
+          de: 'Lokaler Mock',
+          ja: 'ローカル Mock',
+        ),
+        subtitle: tr(
+          zh: 'URL 通配命中 → 自定义 status/headers/body 直接返回',
+          zhHant: 'URL 通配命中 → 自訂 status/headers/body 直接返回',
+          en: 'URL match → return canned status/headers/body',
+          fr: 'Match URL → renvoie status/headers/body definis',
+          de: 'URL-Treffer → gibt vordefinierte status/headers/body zuruck',
+          ja: 'URL 一致でカスタム status/headers/body を直接返します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseMockRulesDialog(context, controller: controller);
@@ -249,10 +528,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.visibility_rounded,
-        title: isZh ? '变量监视器' : 'Watch Expressions',
-        subtitle: isZh
-            ? '定时 Runtime.evaluate 任意 JS 表达式，记录历史采样'
-            : 'Periodic Runtime.evaluate on JS expressions, history tracked',
+        title: tr(
+          zh: '变量监视器',
+          zhHant: '變數監視器',
+          en: 'Watch Expressions',
+          fr: 'Expressions surveillees',
+          de: 'Watch-Ausdrucke',
+          ja: '監視式',
+        ),
+        subtitle: tr(
+          zh: '定时 Runtime.evaluate 任意 JS 表达式，记录历史采样',
+          zhHant: '定時 Runtime.evaluate 任意 JS 表達式，記錄歷史採樣',
+          en: 'Periodic Runtime.evaluate on JS expressions, history tracked',
+          fr: 'Runtime.evaluate periodique sur expressions JS avec historique',
+          de: 'Periodisches Runtime.evaluate fur JS-Ausdrucke mit Historie',
+          ja: '任意の JS 式を定期的に Runtime.evaluate し、履歴を記録します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseWatchDialog(context, controller: controller);
@@ -260,10 +551,23 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.timeline_rounded,
-        title: isZh ? 'DOM Mutation 录制' : 'DOM Mutation Recorder',
-        subtitle: isZh
-            ? '注入 MutationObserver → attributes/characterData/childList 时间线'
-            : 'Inject MutationObserver → timeline of all DOM changes',
+        title: tr(
+          zh: 'DOM Mutation 录制',
+          zhHant: 'DOM Mutation 錄製',
+          en: 'DOM Mutation Recorder',
+          fr: 'Enregistreur DOM Mutation',
+          de: 'DOM-Mutation-Recorder',
+          ja: 'DOM Mutation レコーダー',
+        ),
+        subtitle: tr(
+          zh: '注入 MutationObserver → attributes/characterData/childList 时间线',
+          zhHant:
+              '注入 MutationObserver → attributes/characterData/childList 時間線',
+          en: 'Inject MutationObserver → timeline of all DOM changes',
+          fr: 'Injecte MutationObserver pour une timeline des changements DOM',
+          de: 'Injiziert MutationObserver fur eine DOM-Anderungs-Timeline',
+          ja: 'MutationObserver を注入し DOM 変更のタイムラインを記録します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseDomMutationDialog(
@@ -274,10 +578,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.public_rounded,
-        title: isZh ? '地理 / 时区 / 语言覆盖' : 'Geo / TZ / Locale Override',
-        subtitle: isZh
-            ? '一键伪装当前 target 的 GPS / timezone / navigator.language'
-            : 'Spoof current target GPS / timezone / navigator.language',
+        title: tr(
+          zh: '地理 / 时区 / 语言覆盖',
+          zhHant: '地理 / 時區 / 語言覆寫',
+          en: 'Geo / TZ / Locale Override',
+          fr: 'Override geo / TZ / locale',
+          de: 'Geo-/TZ-/Locale-Uberschreibung',
+          ja: '位置 / TZ / Locale 上書き',
+        ),
+        subtitle: tr(
+          zh: '一键伪装当前 target 的 GPS / timezone / navigator.language',
+          zhHant: '一鍵偽裝目前 target 的 GPS / timezone / navigator.language',
+          en: 'Spoof current target GPS / timezone / navigator.language',
+          fr: 'Simule GPS, timezone et navigator.language de la cible',
+          de: 'Spooft GPS, timezone und navigator.language des Targets',
+          ja: '現在の target の GPS / timezone / navigator.language を偽装します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseGeoOverrideDialog(
@@ -288,10 +604,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.fingerprint_rounded,
-        title: isZh ? 'WebAuthn 虚拟认证器' : 'WebAuthn Virtual Authenticator',
-        subtitle: isZh
-            ? '注入虚拟 FIDO2 设备，无物理密钥完成 navigator.credentials 流程'
-            : 'Inject virtual FIDO2 device, complete navigator.credentials without hardware',
+        title: tr(
+          zh: 'WebAuthn 虚拟认证器',
+          zhHant: 'WebAuthn 虛擬驗證器',
+          en: 'WebAuthn Virtual Authenticator',
+          fr: 'Authentificateur virtuel WebAuthn',
+          de: 'Virtueller WebAuthn-Authenticator',
+          ja: 'WebAuthn 仮想認証器',
+        ),
+        subtitle: tr(
+          zh: '注入虚拟 FIDO2 设备，无物理密钥完成 navigator.credentials 流程',
+          zhHant: '注入虛擬 FIDO2 裝置，無物理金鑰完成 navigator.credentials 流程',
+          en: 'Inject virtual FIDO2 device, complete navigator.credentials without hardware',
+          fr: 'Injecte un FIDO2 virtuel pour finir navigator.credentials sans cle physique',
+          de: 'Injiziert virtuelles FIDO2-Gerät fur navigator.credentials ohne Hardware',
+          ja: '仮想 FIDO2 デバイスを注入し、物理キーなしで navigator.credentials を完了します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseWebAuthnDialog(context, controller: controller);
@@ -299,10 +627,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.vpn_key_rounded,
-        title: isZh ? 'JWT 自动续期' : 'JWT Auto Refresh',
-        subtitle: isZh
-            ? '扫描 cookies/localStorage/sessionStorage 中的 JWT，临近过期自动跰刷新脚本'
-            : 'Scan JWT in cookies/storage, run refresh JS near expiry',
+        title: tr(
+          zh: 'JWT 自动续期',
+          zhHant: 'JWT 自動續期',
+          en: 'JWT Auto Refresh',
+          fr: 'Rafraichissement auto JWT',
+          de: 'JWT Auto-Refresh',
+          ja: 'JWT 自動更新',
+        ),
+        subtitle: tr(
+          zh: '扫描 cookies/localStorage/sessionStorage 中的 JWT，临近过期自动跑刷新脚本',
+          zhHant: '掃描 cookies/localStorage/sessionStorage 中的 JWT，臨近過期自動跑刷新腳本',
+          en: 'Scan JWT in cookies/storage, run refresh JS near expiry',
+          fr: 'Scanne les JWT dans cookies/storage et lance le JS avant expiration',
+          de: 'Scannt JWT in Cookies/Storage und fuhrt Refresh-JS vor Ablauf aus',
+          ja: 'cookies/storage 内の JWT をスキャンし、期限前に更新 JS を実行します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseJwtRefreshDialog(context, controller: controller);
@@ -310,10 +650,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.lock_open_rounded,
-        title: isZh ? 'AI 加密参数还原' : 'AI Crypto Param Recover',
-        subtitle: isZh
-            ? '同 endpoint 多次 diff + JS 全文搜索命中，复制成 AI 可吃的提示词'
-            : 'Diff repeated endpoint hits + search JS, copy as AI-ready prompt',
+        title: tr(
+          zh: 'AI 加密参数还原',
+          zhHant: 'AI 加密參數還原',
+          en: 'AI Crypto Param Recover',
+          fr: 'Recuperation IA des parametres crypto',
+          de: 'AI-Krypto-Parameter rekonstruieren',
+          ja: 'AI 暗号パラメータ復元',
+        ),
+        subtitle: tr(
+          zh: '同 endpoint 多次 diff + JS 全文搜索命中，复制成 AI 可吃的提示词',
+          zhHant: '同 endpoint 多次 diff + JS 全文搜尋命中，複製成 AI 可用提示詞',
+          en: 'Diff repeated endpoint hits + search JS, copy as AI-ready prompt',
+          fr: 'Diffs repetes + recherche JS, puis copie un prompt pret pour IA',
+          de: 'Diff wiederholter Endpoint-Hits + JS-Suche als AI-fertiger Prompt',
+          ja: '同 endpoint の diff と JS 全文検索から AI 用プロンプトを作成します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseAiCryptoDialog(context, controller: controller);
@@ -321,10 +673,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.swap_horiz_rounded,
-        title: isZh ? 'postMessage 追踪' : 'postMessage Trace',
-        subtitle: isZh
-            ? '注入 hook 收录跨窗口消息，含发送方向与 iframe'
-            : 'Inject hook to capture cross-window messages incl. iframe',
+        title: tr(
+          zh: 'postMessage 追踪',
+          zhHant: 'postMessage 追蹤',
+          en: 'postMessage Trace',
+          fr: 'Trace postMessage',
+          de: 'postMessage-Trace',
+          ja: 'postMessage トレース',
+        ),
+        subtitle: tr(
+          zh: '注入 hook 收录跨窗口消息，含发送方向与 iframe',
+          zhHant: '注入 hook 收錄跨視窗訊息，含發送方向與 iframe',
+          en: 'Inject hook to capture cross-window messages incl. iframe',
+          fr: 'Capture les messages inter-fenetres avec direction et iframe',
+          de: 'Erfasst fensterubergreifende Messages inklusive Richtung und iframe',
+          ja: 'hook を注入し、方向と iframe を含むウィンドウ間メッセージを取得します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReversePostMessageDialog(
@@ -335,10 +699,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.timeline_rounded,
-        title: isZh ? '请求瀑布图' : 'Network Waterfall',
-        subtitle: isZh
-            ? 'TTFB / 下载两段可视化，按耗时/大小/时间排序'
-            : 'Visualize TTFB / download segments, sort by time/size/duration',
+        title: tr(
+          zh: '请求瀑布图',
+          zhHant: '請求瀑布圖',
+          en: 'Network Waterfall',
+          fr: 'Cascade reseau',
+          de: 'Netzwerk-Wasserfall',
+          ja: 'ネットワークウォーターフォール',
+        ),
+        subtitle: tr(
+          zh: 'TTFB / 下载两段可视化，按耗时/大小/时间排序',
+          zhHant: 'TTFB / 下載兩段可視化，按耗時/大小/時間排序',
+          en: 'Visualize TTFB / download segments, sort by time/size/duration',
+          fr: 'Visualise TTFB / telechargement et trie par duree/taille/temps',
+          de: 'Visualisiert TTFB/Download und sortiert nach Dauer/Große/Zeit',
+          ja: 'TTFB / ダウンロード区間を可視化し、時間/サイズ/期間で並べ替えます',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseWaterfallDialog(
@@ -350,10 +726,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.account_tree_rounded,
-        title: isZh ? 'JS 调用图' : 'JS Callgraph',
-        subtitle: isZh
-            ? '启发式正则解析所有 frame 脚本，构造 caller→callees 邻接表'
-            : 'Heuristic regex parsing of frame scripts; build caller→callees graph',
+        title: tr(
+          zh: 'JS 调用图',
+          zhHant: 'JS 呼叫圖',
+          en: 'JS Callgraph',
+          fr: 'Graphe d appels JS',
+          de: 'JS-Aufrufgraph',
+          ja: 'JS コールグラフ',
+        ),
+        subtitle: tr(
+          zh: '启发式正则解析所有 frame 脚本，构造 caller→callees 邻接表',
+          zhHant: '啟發式正則解析所有 frame 腳本，構造 caller→callees 鄰接表',
+          en: 'Heuristic regex parsing of frame scripts; build caller→callees graph',
+          fr: 'Parse les scripts de frames et construit le graphe caller→callees',
+          de: 'Parst Frame-Skripte heuristisch und baut caller→callees-Graph',
+          ja: 'frame スクリプトをヒューリスティック解析し caller→callees グラフを構築します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseCallgraphDialog(context, controller: controller);
@@ -361,8 +749,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.network_check_rounded,
-        title: _wrText(
-          context,
+        title: tr(
           zh: '网络限速模拟',
           zhHant: '網路限速模擬',
           en: 'Network Throttle',
@@ -370,8 +757,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           de: 'Netzwerkdrosselung',
           ja: 'ネットワーク制限',
         ),
-        subtitle: _wrText(
-          context,
+        subtitle: tr(
           zh: 'Network.emulateNetworkConditions 预设/自定义 kbps + 延迟 + 离线 + 禁用缓存',
           zhHant:
               'Network.emulateNetworkConditions 預設/自訂 kbps + 延遲 + 離線 + 停用快取',
@@ -387,10 +773,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.save_as_rounded,
-        title: isZh ? 'HAR 全量持久化' : 'HAR Persistence',
-        subtitle: isZh
-            ? '立即落盘 / 反向加载 / 周期自动轮转'
-            : 'Save now / Load back / Periodic rotation',
+        title: tr(
+          zh: 'HAR 全量持久化',
+          zhHant: 'HAR 全量持久化',
+          en: 'HAR Persistence',
+          fr: 'Persistance HAR',
+          de: 'HAR-Persistenz',
+          ja: 'HAR 永続化',
+        ),
+        subtitle: tr(
+          zh: '立即落盘 / 反向加载 / 周期自动轮转',
+          zhHant: '立即落盤 / 反向載入 / 週期自動輪轉',
+          en: 'Save now / Load back / Periodic rotation',
+          fr: 'Sauvegarder / recharger / rotation periodique',
+          de: 'Sofort speichern / zuruckladen / periodische Rotation',
+          ja: '即時保存 / 読み戻し / 定期ローテーション',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseHarPersistenceDialog(
@@ -402,10 +800,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.cookie_rounded,
-        title: isZh ? 'Cookie 编辑器' : 'Cookie Editor',
-        subtitle: isZh
-            ? 'Network.getCookies / setCookie / deleteCookies 精修级 CRUD'
-            : 'Network.getCookies / setCookie / deleteCookies — fine CRUD',
+        title: tr(
+          zh: 'Cookie 编辑器',
+          zhHant: 'Cookie 編輯器',
+          en: 'Cookie Editor',
+          fr: 'Editeur de cookies',
+          de: 'Cookie-Editor',
+          ja: 'Cookie エディタ',
+        ),
+        subtitle: tr(
+          zh: 'Network.getCookies / setCookie / deleteCookies 精修级 CRUD',
+          zhHant: 'Network.getCookies / setCookie / deleteCookies 精修級 CRUD',
+          en: 'Network.getCookies / setCookie / deleteCookies — fine CRUD',
+          fr: 'CRUD precis via Network.getCookies / setCookie / deleteCookies',
+          de: 'Feines CRUD mit Network.getCookies / setCookie / deleteCookies',
+          ja: 'Network.getCookies / setCookie / deleteCookies による詳細 CRUD',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseCookieEditorDialog(
@@ -416,10 +826,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.miscellaneous_services_rounded,
-        title: isZh ? 'Service Worker 调试' : 'Service Worker Debug',
-        subtitle: isZh
-            ? '启停 / 强制更新 / 注销 / 触发 sync / 送 push'
-            : 'Start/stop, force-update, unregister, dispatch sync, push',
+        title: tr(
+          zh: 'Service Worker 调试',
+          zhHant: 'Service Worker 除錯',
+          en: 'Service Worker Debug',
+          fr: 'Debug Service Worker',
+          de: 'Service-Worker-Debug',
+          ja: 'Service Worker デバッグ',
+        ),
+        subtitle: tr(
+          zh: '启停 / 强制更新 / 注销 / 触发 sync / 送 push',
+          zhHant: '啟停 / 強制更新 / 註銷 / 觸發 sync / 送 push',
+          en: 'Start/stop, force-update, unregister, dispatch sync, push',
+          fr: 'Demarrer/arreter, mise a jour forcee, unregister, sync, push',
+          de: 'Start/Stop, Force-Update, unregister, sync und push auslosen',
+          ja: '起動/停止、強制更新、unregister、sync、push を実行します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseSwDebugDialog(
@@ -431,10 +853,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.timeline_rounded,
-        title: isZh ? 'Performance Trace' : 'Performance Trace',
-        subtitle: isZh
-            ? '录制 Tracing → chrome-trace JSON（Perfetto 可加载）'
-            : 'Record Tracing → chrome-trace JSON',
+        title: tr(
+          zh: 'Performance Trace',
+          zhHant: 'Performance Trace',
+          en: 'Performance Trace',
+          fr: 'Trace de performance',
+          de: 'Performance-Trace',
+          ja: 'Performance Trace',
+        ),
+        subtitle: tr(
+          zh: '录制 Tracing → chrome-trace JSON（Perfetto 可加载）',
+          zhHant: '錄製 Tracing → chrome-trace JSON（Perfetto 可載入）',
+          en: 'Record Tracing → chrome-trace JSON',
+          fr: 'Enregistre Tracing vers JSON chrome-trace',
+          de: 'Zeichnet Tracing als chrome-trace-JSON auf',
+          ja: 'Tracing を記録して chrome-trace JSON を出力します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReversePerfTraceDialog(context, controller: controller);
@@ -442,10 +876,23 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.memory_rounded,
-        title: isZh ? 'Heap Snapshot' : 'Heap Snapshot',
-        subtitle: isZh
-            ? 'HeapProfiler.takeHeapSnapshot → .heapsnapshot（DevTools Memory 可加载）'
-            : 'HeapProfiler.takeHeapSnapshot → .heapsnapshot',
+        title: tr(
+          zh: 'Heap Snapshot',
+          zhHant: 'Heap Snapshot',
+          en: 'Heap Snapshot',
+          fr: 'Snapshot du tas',
+          de: 'Heap-Snapshot',
+          ja: 'Heap Snapshot',
+        ),
+        subtitle: tr(
+          zh: 'HeapProfiler.takeHeapSnapshot → .heapsnapshot（DevTools Memory 可加载）',
+          zhHant:
+              'HeapProfiler.takeHeapSnapshot → .heapsnapshot（DevTools Memory 可載入）',
+          en: 'HeapProfiler.takeHeapSnapshot → .heapsnapshot',
+          fr: 'HeapProfiler.takeHeapSnapshot → .heapsnapshot',
+          de: 'HeapProfiler.takeHeapSnapshot → .heapsnapshot',
+          ja: 'HeapProfiler.takeHeapSnapshot → .heapsnapshot',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseHeapSnapshotDialog(
@@ -456,10 +903,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.terminal_rounded,
-        title: isZh ? 'Console REPL' : 'Console REPL',
-        subtitle: isZh
-            ? 'Runtime.evaluate · 多行 JS · 历史记录 + 快捷键'
-            : 'Runtime.evaluate · multi-line JS · history + shortcuts',
+        title: tr(
+          zh: 'Console REPL',
+          zhHant: 'Console REPL',
+          en: 'Console REPL',
+          fr: 'Console REPL',
+          de: 'Console REPL',
+          ja: 'Console REPL',
+        ),
+        subtitle: tr(
+          zh: 'Runtime.evaluate · 多行 JS · 历史记录 + 快捷键',
+          zhHant: 'Runtime.evaluate · 多行 JS · 歷史記錄 + 快捷鍵',
+          en: 'Runtime.evaluate · multi-line JS · history + shortcuts',
+          fr: 'Runtime.evaluate · JS multi-ligne · historique + raccourcis',
+          de: 'Runtime.evaluate · Mehrzeilen-JS · Verlauf + Shortcuts',
+          ja: 'Runtime.evaluate · 複数行 JS · 履歴 + ショートカット',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseReplDialog(context, controller: controller);
@@ -467,10 +926,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.account_tree_rounded,
-        title: isZh ? 'Frame 树查看器' : 'Frame Tree',
-        subtitle: isZh
-            ? 'Page.getFrameTree · 主框架 + 嵌套 iframe 递归'
-            : 'Page.getFrameTree · main + nested iframes',
+        title: tr(
+          zh: 'Frame 树查看器',
+          zhHant: 'Frame 樹查看器',
+          en: 'Frame Tree',
+          fr: 'Arbre des frames',
+          de: 'Frame-Baum',
+          ja: 'Frame ツリー',
+        ),
+        subtitle: tr(
+          zh: 'Page.getFrameTree · 主框架 + 嵌套 iframe 递归',
+          zhHant: 'Page.getFrameTree · 主框架 + 巢狀 iframe 遞迴',
+          en: 'Page.getFrameTree · main + nested iframes',
+          fr: 'Page.getFrameTree · frame principal + iframes imbriques',
+          de: 'Page.getFrameTree · Hauptframe + verschachtelte iframes',
+          ja: 'Page.getFrameTree · メイン + ネスト iframe を再帰表示',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseFrameTreeDialog(context, controller: controller);
@@ -478,10 +949,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.style_rounded,
-        title: isZh ? 'CSS 规则使用率' : 'CSS Rule Coverage',
-        subtitle: isZh
-            ? 'CSS.startRuleUsageTracking · 找出未命中的死代码'
-            : 'CSS.startRuleUsageTracking · find dead rules',
+        title: tr(
+          zh: 'CSS 规则使用率',
+          zhHant: 'CSS 規則使用率',
+          en: 'CSS Rule Coverage',
+          fr: 'Couverture des regles CSS',
+          de: 'CSS-Regelabdeckung',
+          ja: 'CSS ルールカバレッジ',
+        ),
+        subtitle: tr(
+          zh: 'CSS.startRuleUsageTracking · 找出未命中的死代码',
+          zhHant: 'CSS.startRuleUsageTracking · 找出未命中的死碼',
+          en: 'CSS.startRuleUsageTracking · find dead rules',
+          fr: 'CSS.startRuleUsageTracking · trouve les regles mortes',
+          de: 'CSS.startRuleUsageTracking · findet ungenutzte Regeln',
+          ja: 'CSS.startRuleUsageTracking · 未使用ルールを検出します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseCssCoverageDialog(
@@ -492,10 +975,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.animation_rounded,
-        title: isZh ? 'Animations 调试' : 'Animations',
-        subtitle: isZh
-            ? '全局倍速 + 暂停 / 继续 / 取消 + 活跃动画快照'
-            : 'global rate · pause/resume/cancel · live snapshot',
+        title: tr(
+          zh: 'Animations 调试',
+          zhHant: 'Animations 除錯',
+          en: 'Animations',
+          fr: 'Animations',
+          de: 'Animationen',
+          ja: 'Animations',
+        ),
+        subtitle: tr(
+          zh: '全局倍速 + 暂停 / 继续 / 取消 + 活跃动画快照',
+          zhHant: '全域倍速 + 暫停 / 繼續 / 取消 + 活躍動畫快照',
+          en: 'global rate · pause/resume/cancel · live snapshot',
+          fr: 'vitesse globale · pause/reprise/annulation · instantane',
+          de: 'globale Rate · Pause/Fortsetzen/Abbrechen · Live-Snapshot',
+          ja: '全体速度 · 一時停止/再開/取消 · アクティブアニメーションのスナップショット',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseAnimationsDialog(
@@ -507,10 +1002,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.layers_rounded,
-        title: isZh ? 'Rendering 调试' : 'Rendering',
-        subtitle: isZh
-            ? 'Paint / Layout shift / Layers / FPS / 媒体仿真 / CPU 节流'
-            : 'Paint · Layout shift · Layers · FPS · media · CPU throttle',
+        title: tr(
+          zh: 'Rendering 调试',
+          zhHant: 'Rendering 除錯',
+          en: 'Rendering',
+          fr: 'Rendu',
+          de: 'Rendering',
+          ja: 'Rendering',
+        ),
+        subtitle: tr(
+          zh: 'Paint / Layout shift / Layers / FPS / 媒体仿真 / CPU 节流',
+          zhHant: 'Paint / Layout shift / Layers / FPS / 媒體仿真 / CPU 節流',
+          en: 'Paint · Layout shift · Layers · FPS · media · CPU throttle',
+          fr: 'Paint · Layout shift · Layers · FPS · media · CPU throttle',
+          de: 'Paint · Layout shift · Layers · FPS · Medien · CPU-Drossel',
+          ja: 'Paint · Layout shift · Layers · FPS · media · CPU throttle',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseRenderingDialog(
@@ -522,10 +1029,23 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.report_problem_rounded,
-        title: isZh ? 'Issues 面板' : 'Issues',
-        subtitle: isZh
-            ? 'Audits.issueAdded · 安全 / Cookie / Mixed Content / Deprecation'
-            : 'Audits.issueAdded · security / cookie / deprecation',
+        title: tr(
+          zh: 'Issues 面板',
+          zhHant: 'Issues 面板',
+          en: 'Issues',
+          fr: 'Issues',
+          de: 'Issues',
+          ja: 'Issues',
+        ),
+        subtitle: tr(
+          zh: 'Audits.issueAdded · 安全 / Cookie / Mixed Content / Deprecation',
+          zhHant:
+              'Audits.issueAdded · 安全 / Cookie / Mixed Content / Deprecation',
+          en: 'Audits.issueAdded · security / cookie / deprecation',
+          fr: 'Audits.issueAdded · securite / cookie / deprecation',
+          de: 'Audits.issueAdded · Sicherheit / Cookie / Deprecation',
+          ja: 'Audits.issueAdded · security / cookie / deprecation',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseIssuesDialog(context, controller: controller);
@@ -533,10 +1053,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.speed_rounded,
-        title: isZh ? 'Web Vitals 报告' : 'Web Vitals',
-        subtitle: isZh
-            ? 'PerformanceObserver · LCP / CLS / INP / FCP / TTFB 实时采集'
-            : 'PerformanceObserver · LCP / CLS / INP / FCP / TTFB',
+        title: tr(
+          zh: 'Web Vitals 报告',
+          zhHant: 'Web Vitals 報告',
+          en: 'Web Vitals',
+          fr: 'Web Vitals',
+          de: 'Web Vitals',
+          ja: 'Web Vitals',
+        ),
+        subtitle: tr(
+          zh: 'PerformanceObserver · LCP / CLS / INP / FCP / TTFB 实时采集',
+          zhHant: 'PerformanceObserver · LCP / CLS / INP / FCP / TTFB 即時採集',
+          en: 'PerformanceObserver · LCP / CLS / INP / FCP / TTFB',
+          fr: 'PerformanceObserver · LCP / CLS / INP / FCP / TTFB',
+          de: 'PerformanceObserver · LCP / CLS / INP / FCP / TTFB',
+          ja: 'PerformanceObserver · LCP / CLS / INP / FCP / TTFB',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseVitalsDialog(context, controller: controller);
@@ -544,10 +1076,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.replay_circle_filled_rounded,
-        title: isZh ? '网络请求重放器' : 'Network Replayer',
-        subtitle: isZh
-            ? '多选请求 · 顺序重发 · 对比状态'
-            : 'multi-select · sequential replay · status diff',
+        title: tr(
+          zh: '网络请求重放器',
+          zhHant: '網路請求重放器',
+          en: 'Network Replayer',
+          fr: 'Relecteur reseau',
+          de: 'Netzwerk-Replayer',
+          ja: 'ネットワークリプレイヤー',
+        ),
+        subtitle: tr(
+          zh: '多选请求 · 顺序重发 · 对比状态',
+          zhHant: '多選請求 · 順序重發 · 對比狀態',
+          en: 'multi-select · sequential replay · status diff',
+          fr: 'selection multiple · replay sequentiel · diff de statut',
+          de: 'Mehrfachauswahl · sequenzielles Replay · Statusvergleich',
+          ja: '複数選択 · 順次再送 · ステータス差分',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseReplayDialog(context, controller: controller);
@@ -555,10 +1099,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.ads_click_rounded,
-        title: isZh ? '输入事件模拟' : 'Input Simulator',
-        subtitle: isZh
-            ? 'dispatchMouseEvent / dispatchKeyEvent / insertText'
-            : 'dispatchMouseEvent / dispatchKeyEvent / insertText',
+        title: tr(
+          zh: '输入事件模拟',
+          zhHant: '輸入事件模擬',
+          en: 'Input Simulator',
+          fr: 'Simulateur d entree',
+          de: 'Eingabe-Simulator',
+          ja: '入力イベントシミュレーター',
+        ),
+        subtitle: tr(
+          zh: 'dispatchMouseEvent / dispatchKeyEvent / insertText',
+          zhHant: 'dispatchMouseEvent / dispatchKeyEvent / insertText',
+          en: 'dispatchMouseEvent / dispatchKeyEvent / insertText',
+          fr: 'dispatchMouseEvent / dispatchKeyEvent / insertText',
+          de: 'dispatchMouseEvent / dispatchKeyEvent / insertText',
+          ja: 'dispatchMouseEvent / dispatchKeyEvent / insertText',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseInputSimDialog(
@@ -570,10 +1126,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.devices_other_rounded,
-        title: isZh ? '设备模拟' : 'Device Emulation',
-        subtitle: isZh
-            ? '尺寸 / DPR / mobile flag / UA 覆写'
-            : 'metrics / DPR / mobile / UA override',
+        title: tr(
+          zh: '设备模拟',
+          zhHant: '裝置模擬',
+          en: 'Device Emulation',
+          fr: 'Emulation d appareil',
+          de: 'Gerateemulation',
+          ja: 'デバイスエミュレーション',
+        ),
+        subtitle: tr(
+          zh: '尺寸 / DPR / mobile flag / UA 覆写',
+          zhHant: '尺寸 / DPR / mobile flag / UA 覆寫',
+          en: 'metrics / DPR / mobile / UA override',
+          fr: 'metrics / DPR / mobile / override UA',
+          de: 'Metriken / DPR / mobile / UA-Uberschreibung',
+          ja: 'metrics / DPR / mobile / UA override',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseDeviceEmulationDialog(
@@ -584,10 +1152,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.speed_rounded,
-        title: isZh ? 'CPU 限速' : 'CPU Throttling',
-        subtitle: isZh
-            ? 'Emulation.setCPUThrottlingRate · 1×–20×'
-            : 'Emulation.setCPUThrottlingRate · 1×–20×',
+        title: tr(
+          zh: 'CPU 限速',
+          zhHant: 'CPU 限速',
+          en: 'CPU Throttling',
+          fr: 'Limitation CPU',
+          de: 'CPU-Drosselung',
+          ja: 'CPU スロットリング',
+        ),
+        subtitle: tr(
+          zh: 'Emulation.setCPUThrottlingRate · 1×–20×',
+          zhHant: 'Emulation.setCPUThrottlingRate · 1×–20×',
+          en: 'Emulation.setCPUThrottlingRate · 1×–20×',
+          fr: 'Emulation.setCPUThrottlingRate · 1×–20×',
+          de: 'Emulation.setCPUThrottlingRate · 1×–20×',
+          ja: 'Emulation.setCPUThrottlingRate · 1×–20×',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseCpuThrottleDialog(
@@ -598,10 +1178,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.travel_explore_rounded,
-        title: isZh ? 'DOM 选择器搜索' : 'DOM Selector Search',
-        subtitle: isZh
-            ? 'DOM.performSearch · CSS / text / XPath · 高亮'
-            : 'DOM.performSearch · CSS / text / XPath · highlight',
+        title: tr(
+          zh: 'DOM 选择器搜索',
+          zhHant: 'DOM 選擇器搜尋',
+          en: 'DOM Selector Search',
+          fr: 'Recherche de selecteur DOM',
+          de: 'DOM-Selektorsuche',
+          ja: 'DOM セレクター検索',
+        ),
+        subtitle: tr(
+          zh: 'DOM.performSearch · CSS / text / XPath · 高亮',
+          zhHant: 'DOM.performSearch · CSS / text / XPath · 高亮',
+          en: 'DOM.performSearch · CSS / text / XPath · highlight',
+          fr: 'DOM.performSearch · CSS / texte / XPath · surbrillance',
+          de: 'DOM.performSearch · CSS / Text / XPath · Highlight',
+          ja: 'DOM.performSearch · CSS / text / XPath · ハイライト',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseDomSearchDialog(context, controller: controller);
@@ -609,10 +1201,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.alt_route_rounded,
-        title: isZh ? 'SourceMap 反解析' : 'SourceMap Resolver',
-        subtitle: isZh
-            ? 'min file:line:col → 原始 source:line:col'
-            : 'min file:line:col → original source:line:col',
+        title: tr(
+          zh: 'SourceMap 反解析',
+          zhHant: 'SourceMap 反解析',
+          en: 'SourceMap Resolver',
+          fr: 'Resolveur SourceMap',
+          de: 'SourceMap-Resolver',
+          ja: 'SourceMap リゾルバー',
+        ),
+        subtitle: tr(
+          zh: 'min file:line:col → 原始 source:line:col',
+          zhHant: 'min file:line:col → 原始 source:line:col',
+          en: 'min file:line:col → original source:line:col',
+          fr: 'min file:line:col → source original:line:col',
+          de: 'min file:line:col → originale source:line:col',
+          ja: 'min file:line:col → original source:line:col',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseSourceMapDialog(context, controller: controller);
@@ -620,8 +1224,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.swap_horiz_rounded,
-        title: _wrText(
-          context,
+        title: tr(
           zh: 'WebSocket 帧',
           zhHant: 'WebSocket 影格',
           en: 'WebSocket Frames',
@@ -629,8 +1232,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
           de: 'WebSocket-Frames',
           ja: 'WebSocket フレーム',
         ),
-        subtitle: _wrText(
-          context,
+        subtitle: tr(
           zh: '查看帧 · 重放 sent 帧到新连接',
           zhHant: '查看影格 · 將 sent 影格重放到新連線',
           en: 'inspect frames · replay sent frames',
@@ -645,10 +1247,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.shield_moon_rounded,
-        title: isZh ? 'CORS Preflight 测试' : 'CORS Preflight',
-        subtitle: isZh
-            ? 'OPTIONS · Allow-Origin / Methods / Headers 诊断'
-            : 'OPTIONS · diagnose Allow-Origin / Methods / Headers',
+        title: tr(
+          zh: 'CORS Preflight 测试',
+          zhHant: 'CORS Preflight 測試',
+          en: 'CORS Preflight',
+          fr: 'Preflight CORS',
+          de: 'CORS-Preflight',
+          ja: 'CORS Preflight',
+        ),
+        subtitle: tr(
+          zh: 'OPTIONS · Allow-Origin / Methods / Headers 诊断',
+          zhHant: 'OPTIONS · Allow-Origin / Methods / Headers 診斷',
+          en: 'OPTIONS · diagnose Allow-Origin / Methods / Headers',
+          fr: 'OPTIONS · diagnostic Allow-Origin / Methods / Headers',
+          de: 'OPTIONS · Diagnose fur Allow-Origin / Methods / Headers',
+          ja: 'OPTIONS · Allow-Origin / Methods / Headers 診断',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseCorsPreflightDialog(
@@ -659,10 +1273,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.storage_rounded,
-        title: isZh ? '存储管理器' : 'Storage Manager',
-        subtitle: isZh
-            ? 'Cookies / Local / Session / IndexedDB 浏览与编辑'
-            : 'browse / edit Cookies / Local / Session / IndexedDB',
+        title: tr(
+          zh: '存储管理器',
+          zhHant: '儲存管理器',
+          en: 'Storage Manager',
+          fr: 'Gestionnaire de stockage',
+          de: 'Storage-Manager',
+          ja: 'ストレージマネージャー',
+        ),
+        subtitle: tr(
+          zh: 'Cookies / Local / Session / IndexedDB 浏览与编辑',
+          zhHant: 'Cookies / Local / Session / IndexedDB 瀏覽與編輯',
+          en: 'browse / edit Cookies / Local / Session / IndexedDB',
+          fr: 'parcourir / editer Cookies / Local / Session / IndexedDB',
+          de: 'Cookies / Local / Session / IndexedDB ansehen und bearbeiten',
+          ja: 'Cookies / Local / Session / IndexedDB の閲覧と編集',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseStorageDialog(context, controller: controller);
@@ -670,10 +1296,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.terminal_rounded,
-        title: isZh ? 'CDP Raw 控制台' : 'CDP Raw Console',
-        subtitle: isZh
-            ? '带历史 · 快捷键 · 任意 CDP method/params'
-            : 'history · shortcuts · arbitrary CDP method/params',
+        title: tr(
+          zh: 'CDP Raw 控制台',
+          zhHant: 'CDP Raw 主控台',
+          en: 'CDP Raw Console',
+          fr: 'Console CDP Raw',
+          de: 'CDP-Raw-Konsole',
+          ja: 'CDP Raw コンソール',
+        ),
+        subtitle: tr(
+          zh: '带历史 · 快捷键 · 任意 CDP method/params',
+          zhHant: '帶歷史 · 快捷鍵 · 任意 CDP method/params',
+          en: 'history · shortcuts · arbitrary CDP method/params',
+          fr: 'historique · raccourcis · CDP method/params arbitraires',
+          de: 'Verlauf · Shortcuts · beliebige CDP method/params',
+          ja: '履歴 · ショートカット · 任意の CDP method/params',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseCdpConsoleDialog(context, controller: controller);
@@ -681,10 +1319,22 @@ class _AdvancedMenuDialog extends StatelessWidget {
       ),
       _AdvancedEntry(
         icon: Icons.bug_report_rounded,
-        title: isZh ? 'Console 错误聚类' : 'Console Clusters',
-        subtitle: isZh
-            ? '按 level + 归一化首行去重 · 展开原始条目'
-            : 'dedupe by level + normalized first line',
+        title: tr(
+          zh: 'Console 错误聚类',
+          zhHant: 'Console 錯誤聚類',
+          en: 'Console Clusters',
+          fr: 'Clusters console',
+          de: 'Konsolen-Cluster',
+          ja: 'Console クラスター',
+        ),
+        subtitle: tr(
+          zh: '按 level + 归一化首行去重 · 展开原始条目',
+          zhHant: '按 level + 正規化首行去重 · 展開原始條目',
+          en: 'dedupe by level + normalized first line',
+          fr: 'dedoublonne par level + premiere ligne normalisee',
+          de: 'Dedupliziert nach Level + normalisierter erster Zeile',
+          ja: 'level + 正規化した先頭行で重複排除します',
+        ),
         onTap: () async {
           Navigator.of(context).pop();
           await showWebReverseConsoleClusterDialog(
@@ -705,7 +1355,14 @@ class _AdvancedMenuDialog extends StatelessWidget {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.tune_rounded,
-            title: isZh ? '高级工具' : 'Advanced tools',
+            title: tr(
+              zh: '高级工具',
+              zhHant: '進階工具',
+              en: 'Advanced tools',
+              fr: 'Outils avances',
+              de: 'Erweiterte Tools',
+              ja: '高度なツール',
+            ),
           ),
           Divider(height: 1, color: cs.outlineVariant),
           Flexible(
@@ -782,7 +1439,6 @@ class _AdvancedEntry {
 Future<void> _showExtraHeadersDialog(
   BuildContext context,
   WebReverseSessionController ctrl,
-  bool isZh,
 ) async {
   final ctrlText = TextEditingController(
     text: _formatHeaderLines(ctrl.extraHeaders),
@@ -791,9 +1447,33 @@ Future<void> _showExtraHeadersDialog(
   try {
     final ok = await showOpenHandFormDialog<bool>(
       context: context,
-      title: isZh ? '持久注入 Headers' : 'Persistent Headers',
-      submitLabel: isZh ? '保存' : 'Save',
-      cancelLabel: isZh ? '取消' : 'Cancel',
+      title: _advancedText(
+        context,
+        zh: '持久注入 Headers',
+        zhHant: '持久注入 Headers',
+        en: 'Persistent Headers',
+        fr: 'Headers persistants',
+        de: 'Persistente Header',
+        ja: '永続 Headers 注入',
+      ),
+      submitLabel: _advancedText(
+        context,
+        zh: '保存',
+        zhHant: '儲存',
+        en: 'Save',
+        fr: 'Enregistrer',
+        de: 'Speichern',
+        ja: '保存',
+      ),
+      cancelLabel: _advancedText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      ),
       maxWidth: 520,
       onSubmit: (_) => true,
       contentBuilder: (dialogContext) => SizedBox(
@@ -803,9 +1483,15 @@ Future<void> _showExtraHeadersDialog(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              isZh
-                  ? '每行一个 Key: Value；保存后所有请求自动附带，留空则清空。'
-                  : 'One header per line in `Key: Value` form; empty to clear.',
+              _advancedText(
+                context,
+                zh: '每行一个 Key: Value；保存后所有请求自动附带，留空则清空。',
+                zhHant: '每行一個 Key: Value；儲存後所有請求自動附帶，留空則清空。',
+                en: 'One header per line in `Key: Value` form; empty to clear.',
+                fr: 'Un header par ligne au format `Key: Value`; vide pour effacer.',
+                de: 'Ein Header pro Zeile im Format `Key: Value`; leer lassen zum Loschen.',
+                ja: '`Key: Value` 形式で 1 行 1 Header。空にするとクリアします。',
+              ),
               style: Theme.of(dialogContext).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
@@ -828,15 +1514,29 @@ Future<void> _showExtraHeadersDialog(
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh
-            ? '已注入 ${headers.length} 个 Header'
-            : 'Injected ${headers.length} headers',
+        _advancedText(
+          context,
+          zh: '已注入 ${headers.length} 个 Header',
+          zhHant: '已注入 ${headers.length} 個 Header',
+          en: 'Injected ${headers.length} headers',
+          fr: '${headers.length} headers injectes',
+          de: '${headers.length} Header injiziert',
+          ja: '${headers.length} 個の Header を注入しました',
+        ),
       );
     } else {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '保存失败' : 'Save failed',
+        _advancedText(
+          context,
+          zh: '保存失败',
+          zhHant: '儲存失敗',
+          en: 'Save failed',
+          fr: 'Echec de l enregistrement',
+          de: 'Speichern fehlgeschlagen',
+          ja: '保存に失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
     }
@@ -848,7 +1548,6 @@ Future<void> _showExtraHeadersDialog(
 Future<void> _showCdpPaletteDialog(
   BuildContext context,
   WebReverseSessionController ctrl,
-  bool isZh,
 ) async {
   final method = TextEditingController();
   final params = TextEditingController(text: '{}');
@@ -858,7 +1557,17 @@ Future<void> _showCdpPaletteDialog(
     await showWebReverseToolDialog<void>(
       context: context,
       builder: (dialogContext) => buildOpenHandAlertDialog(
-        title: Text(isZh ? 'CDP 命令面板' : 'CDP Command Palette'),
+        title: Text(
+          _advancedText(
+            dialogContext,
+            zh: 'CDP 命令面板',
+            zhHant: 'CDP 命令面板',
+            en: 'CDP Command Palette',
+            fr: 'Palette de commandes CDP',
+            de: 'CDP-Befehlspalette',
+            ja: 'CDP コマンドパレット',
+          ),
+        ),
         content: SizedBox(
           width: 640,
           child: SingleChildScrollView(
@@ -899,9 +1608,15 @@ Future<void> _showCdpPaletteDialog(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
                     title: Text(
-                      isZh
-                          ? '在当前 Page 会话内执行（关掉则用 Browser 根 session）'
-                          : 'Use current page session (off = browser root session)',
+                      _advancedText(
+                        dialogContext,
+                        zh: '在当前 Page 会话内执行（关掉则用 Browser 根 session）',
+                        zhHant: '在目前 Page 會話內執行（關掉則用 Browser 根 session）',
+                        en: 'Use current page session (off = browser root session)',
+                        fr: 'Utiliser la session Page courante (desactive = session racine Browser)',
+                        de: 'Aktuelle Page-Session nutzen (aus = Browser-Root-Session)',
+                        ja: '現在の Page セッションで実行（オフなら Browser root session）',
+                      ),
                     ),
                     value: v,
                     onChanged: (n) => useSession.value = n,
@@ -944,7 +1659,15 @@ Future<void> _showCdpPaletteDialog(
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            label: isZh ? '关闭' : 'Close',
+            label: _advancedText(
+              dialogContext,
+              zh: '关闭',
+              zhHant: '關閉',
+              en: 'Close',
+              fr: 'Fermer',
+              de: 'Schliessen',
+              ja: '閉じる',
+            ),
           ),
           OpenHandDialogActionButton.primary(
             onPressed: () async {
@@ -968,10 +1691,26 @@ Future<void> _showCdpPaletteDialog(
                   stack,
                 );
                 if (!dialogContext.mounted) return;
-                result.value = isZh ? '执行失败：$error' : 'Run failed: $error';
+                result.value = _advancedText(
+                  dialogContext,
+                  zh: '执行失败：$error',
+                  zhHant: '執行失敗：$error',
+                  en: 'Run failed: $error',
+                  fr: 'Echec de l execution : $error',
+                  de: 'Ausfuhrung fehlgeschlagen: $error',
+                  ja: '実行に失敗しました: $error',
+                );
               }
             },
-            label: isZh ? '执行' : 'Run',
+            label: _advancedText(
+              dialogContext,
+              zh: '执行',
+              zhHant: '執行',
+              en: 'Run',
+              fr: 'Executer',
+              de: 'Ausfuhren',
+              ja: '実行',
+            ),
           ),
         ],
       ),
@@ -987,7 +1726,6 @@ Future<void> _showCdpPaletteDialog(
 Future<void> _copyRecentRequestsForAi(
   BuildContext context,
   WebReverseSessionController ctrl,
-  bool isZh,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
   final entries = ctrl.networkRequests.reversed.take(10).toList();
@@ -995,16 +1733,31 @@ Future<void> _copyRecentRequestsForAi(
     OpenHandSnackBar.showInfoOn(
       context,
       messenger,
-      isZh ? '当前无请求可分析' : 'No requests yet',
+      _advancedText(
+        context,
+        zh: '当前无请求可分析',
+        zhHant: '目前沒有請求可分析',
+        en: 'No requests yet',
+        fr: 'Aucune requete pour le moment',
+        de: 'Noch keine Anfragen',
+        ja: '分析できるリクエストがまだありません',
+      ),
       duration: const Duration(seconds: 2),
     );
     return;
   }
   final buf = StringBuffer()
     ..writeln(
-      isZh
-          ? '请帮我分析这 ${entries.length} 条请求里哪些是关键加密参数（sign / token / encrypt 等），并指出可能的算法与种子。'
-          : 'Please identify the encryption-relevant fields (sign / token / encrypt) in these ${entries.length} requests and guess the algorithm.',
+      _advancedText(
+        context,
+        zh: '请帮我分析这 ${entries.length} 条请求里哪些是关键加密参数（sign / token / encrypt 等），并指出可能的算法与种子。',
+        zhHant:
+            '請幫我分析這 ${entries.length} 筆請求裡哪些是關鍵加密參數（sign / token / encrypt 等），並指出可能的演算法與種子。',
+        en: 'Please identify the encryption-relevant fields (sign / token / encrypt) in these ${entries.length} requests and guess the algorithm.',
+        fr: 'Identifie les champs lies au chiffrement (sign / token / encrypt) dans ces ${entries.length} requetes et estime l algorithme.',
+        de: 'Bitte identifiziere verschlusselungsrelevante Felder (sign / token / encrypt) in diesen ${entries.length} Anfragen und schatze den Algorithmus.',
+        ja: 'この ${entries.length} 件のリクエストから暗号関連フィールド（sign / token / encrypt など）を特定し、可能なアルゴリズムを推測してください。',
+      ),
     )
     ..writeln('---');
   for (final e in entries) {
@@ -1040,8 +1793,16 @@ Future<void> _copyRecentRequestsForAi(
     context,
     messenger,
     webReverseClipboardSnackMessage(
-      isZh: isZh,
-      base: isZh ? '请求摘要已复制，回到会话粘贴即可让 AI 分析' : 'Summary copied; paste in chat',
+      context: context,
+      base: _advancedText(
+        context,
+        zh: '请求摘要已复制，回到会话粘贴即可让 AI 分析',
+        zhHant: '請求摘要已複製，回到會話貼上即可讓 AI 分析',
+        en: 'Summary copied; paste in chat',
+        fr: 'Resume copie ; collez-le dans le chat',
+        de: 'Zusammenfassung kopiert; im Chat einfugen',
+        ja: '要約をコピーしました。チャットに貼り付けて分析できます',
+      ),
       result: copied,
     ),
     duration: const Duration(seconds: 3),
@@ -1051,13 +1812,20 @@ Future<void> _copyRecentRequestsForAi(
 Future<void> _showDiffPicker(
   BuildContext context,
   WebReverseSessionController ctrl,
-  bool isZh,
 ) async {
   final all = ctrl.networkRequests;
   if (all.length < 2) {
     OpenHandSnackBar.showInfo(
       context,
-      isZh ? '请求数不足，无法对比' : 'Need at least 2 requests',
+      _advancedText(
+        context,
+        zh: '请求数不足，无法对比',
+        zhHant: '請求數不足，無法對比',
+        en: 'Need at least 2 requests',
+        fr: 'Au moins 2 requetes sont necessaires',
+        de: 'Mindestens 2 Anfragen erforderlich',
+        ja: '比較には 2 件以上のリクエストが必要です',
+      ),
       duration: const Duration(seconds: 2),
     );
     return;
@@ -1067,7 +1835,17 @@ Future<void> _showDiffPicker(
   await showOpenHandStatefulDialog<void>(
     context: context,
     builder: (dialogContext, setState) => buildOpenHandAlertDialog(
-      title: Text(isZh ? '选择两个请求对比' : 'Pick two requests'),
+      title: Text(
+        _advancedText(
+          dialogContext,
+          zh: '选择两个请求对比',
+          zhHant: '選擇兩個請求對比',
+          en: 'Pick two requests',
+          fr: 'Choisir deux requetes',
+          de: 'Zwei Anfragen auswahlen',
+          ja: '比較する 2 件のリクエストを選択',
+        ),
+      ),
       content: SizedBox(
         width: 640,
         height: 460,
@@ -1127,7 +1905,15 @@ Future<void> _showDiffPicker(
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          label: isZh ? '取消' : 'Cancel',
+          label: _advancedText(
+            dialogContext,
+            zh: '取消',
+            zhHant: '取消',
+            en: 'Cancel',
+            fr: 'Annuler',
+            de: 'Abbrechen',
+            ja: 'キャンセル',
+          ),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: (a == null || b == null)
@@ -1136,10 +1922,18 @@ Future<void> _showDiffPicker(
                   Navigator.of(dialogContext).pop();
                   showWebReverseToolDialog<void>(
                     context: context,
-                    builder: (_) => _DiffViewerDialog(a: a!, b: b!, isZh: isZh),
+                    builder: (_) => _DiffViewerDialog(a: a!, b: b!),
                   );
                 },
-          label: isZh ? '对比' : 'Diff',
+          label: _advancedText(
+            dialogContext,
+            zh: '对比',
+            zhHant: '對比',
+            en: 'Diff',
+            fr: 'Comparer',
+            de: 'Vergleichen',
+            ja: '比較',
+          ),
         ),
       ],
     ),
@@ -1147,15 +1941,10 @@ Future<void> _showDiffPicker(
 }
 
 class _DiffViewerDialog extends StatelessWidget {
-  const _DiffViewerDialog({
-    required this.a,
-    required this.b,
-    required this.isZh,
-  });
+  const _DiffViewerDialog({required this.a, required this.b});
 
   final CdpNetworkEntry a;
   final CdpNetworkEntry b;
-  final bool isZh;
 
   @override
   Widget build(BuildContext context) {
@@ -1184,9 +1973,17 @@ class _DiffViewerDialog extends StatelessWidget {
             const SizedBox(height: 6),
             Text('status=${e.statusCode ?? '-'} mime=${e.mimeType ?? '-'}'),
             const Divider(),
-            const Text(
-              'Request headers:',
-              style: TextStyle(fontWeight: FontWeight.w700),
+            Text(
+              _advancedText(
+                context,
+                zh: '请求 Headers:',
+                zhHant: '請求 Headers:',
+                en: 'Request headers:',
+                fr: 'Headers de requete :',
+                de: 'Request-Header:',
+                ja: 'リクエスト Headers:',
+              ),
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -1233,7 +2030,6 @@ class _DiffViewerDialog extends StatelessWidget {
 Future<void> _showServiceWorkersDialog(
   BuildContext context,
   WebReverseSessionController ctrl,
-  bool isZh,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
   final list = await ctrl.listServiceWorkers();
@@ -1241,11 +2037,31 @@ Future<void> _showServiceWorkersDialog(
   await showWebReverseToolDialog<void>(
     context: context,
     builder: (dialogContext) => buildOpenHandAlertDialog(
-      title: Text(isZh ? 'Service Workers' : 'Service Workers'),
+      title: Text(
+        _advancedText(
+          dialogContext,
+          zh: 'Service Workers',
+          zhHant: 'Service Workers',
+          en: 'Service Workers',
+          fr: 'Service Workers',
+          de: 'Service Worker',
+          ja: 'Service Workers',
+        ),
+      ),
       content: SizedBox(
         width: 560,
         child: list.isEmpty
-            ? Text(isZh ? '当前 origin 无 SW 注册' : 'No service workers')
+            ? Text(
+                _advancedText(
+                  dialogContext,
+                  zh: '当前 origin 无 SW 注册',
+                  zhHant: '目前 origin 無 SW 註冊',
+                  en: 'No service workers',
+                  fr: 'Aucun service worker',
+                  de: 'Keine Service Worker',
+                  ja: 'Service Worker はありません',
+                ),
+              )
             : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1271,7 +2087,15 @@ Future<void> _showServiceWorkersDialog(
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          label: isZh ? '关闭' : 'Close',
+          label: _advancedText(
+            dialogContext,
+            zh: '关闭',
+            zhHant: '關閉',
+            en: 'Close',
+            fr: 'Fermer',
+            de: 'Schliessen',
+            ja: '閉じる',
+          ),
         ),
         if (list.isNotEmpty)
           OpenHandDialogActionButton.destructive(
@@ -1286,18 +2110,42 @@ Future<void> _showServiceWorkersDialog(
                 OpenHandSnackBar.showErrorOn(
                   context,
                   messenger,
-                  isZh ? '反注册失败' : 'Unregister failed',
+                  _advancedText(
+                    context,
+                    zh: '反注册失败',
+                    zhHant: '反註冊失敗',
+                    en: 'Unregister failed',
+                    fr: 'Echec du unregister',
+                    de: 'Unregister fehlgeschlagen',
+                    ja: '登録解除に失敗しました',
+                  ),
                   duration: const Duration(seconds: 2),
                 );
               } else {
                 OpenHandSnackBar.showSuccessOn(
                   context,
                   messenger,
-                  isZh ? '已反注册 $r 个 SW' : 'Unregistered $r SWs',
+                  _advancedText(
+                    context,
+                    zh: '已反注册 $r 个 SW',
+                    zhHant: '已反註冊 $r 個 SW',
+                    en: 'Unregistered $r SWs',
+                    fr: '$r SW desinscrits',
+                    de: '$r SWs abgemeldet',
+                    ja: '$r 個の SW を登録解除しました',
+                  ),
                 );
               }
             },
-            label: isZh ? '全部反注册' : 'Unregister all',
+            label: _advancedText(
+              dialogContext,
+              zh: '全部反注册',
+              zhHant: '全部反註冊',
+              en: 'Unregister all',
+              fr: 'Tout unregister',
+              de: 'Alle abmelden',
+              ja: 'すべて登録解除',
+            ),
           ),
       ],
     ),
@@ -1307,7 +2155,6 @@ Future<void> _showServiceWorkersDialog(
 Future<void> _toggleHarReplayServer(
   BuildContext context,
   WebReverseSessionController ctrl,
-  bool isZh,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
   final running = ctrl.harReplayServer;
@@ -1317,7 +2164,15 @@ Future<void> _toggleHarReplayServer(
     OpenHandSnackBar.showInfoOn(
       context,
       messenger,
-      isZh ? '已停止 HAR 重放服务器' : 'HAR replay server stopped',
+      _advancedText(
+        context,
+        zh: '已停止 HAR 重放服务器',
+        zhHant: '已停止 HAR 重放伺服器',
+        en: 'HAR replay server stopped',
+        fr: 'Serveur de replay HAR arrete',
+        de: 'HAR-Replay-Server gestoppt',
+        ja: 'HAR リプレイサーバーを停止しました',
+      ),
       duration: const Duration(seconds: 2),
     );
     return;
@@ -1328,7 +2183,15 @@ Future<void> _toggleHarReplayServer(
     OpenHandSnackBar.showErrorOn(
       context,
       messenger,
-      isZh ? '启动失败：HAR 不可用或端口被占' : 'Failed to start',
+      _advancedText(
+        context,
+        zh: '启动失败：HAR 不可用或端口被占',
+        zhHant: '啟動失敗：HAR 不可用或連接埠被占用',
+        en: 'Failed to start',
+        fr: 'Echec du demarrage',
+        de: 'Start fehlgeschlagen',
+        ja: '起動に失敗しました',
+      ),
       duration: const Duration(seconds: 3),
     );
     return;
@@ -1338,12 +2201,27 @@ Future<void> _toggleHarReplayServer(
     messenger,
     OpenHandSnackBar.info(
       context,
-      isZh
-          ? 'HAR 重放服务器已启动：http://127.0.0.1:${r.port}/  · 已加载 ${r.entryCount} 条'
-          : 'Replay server up at http://127.0.0.1:${r.port}/  · ${r.entryCount} entries',
+      _advancedText(
+        context,
+        zh: 'HAR 重放服务器已启动：http://127.0.0.1:${r.port}/  · 已加载 ${r.entryCount} 条',
+        zhHant:
+            'HAR 重放伺服器已啟動：http://127.0.0.1:${r.port}/  · 已載入 ${r.entryCount} 筆',
+        en: 'Replay server up at http://127.0.0.1:${r.port}/  · ${r.entryCount} entries',
+        fr: 'Serveur de replay actif sur http://127.0.0.1:${r.port}/  · ${r.entryCount} entrees',
+        de: 'Replay-Server lauft unter http://127.0.0.1:${r.port}/  · ${r.entryCount} Eintrage',
+        ja: 'リプレイサーバー起動: http://127.0.0.1:${r.port}/  · ${r.entryCount} 件',
+      ),
       duration: const Duration(seconds: 6),
       action: SnackBarAction(
-        label: isZh ? '复制端口' : 'Copy port',
+        label: _advancedText(
+          context,
+          zh: '复制端口',
+          zhHant: '複製連接埠',
+          en: 'Copy port',
+          fr: 'Copier le port',
+          de: 'Port kopieren',
+          ja: 'ポートをコピー',
+        ),
         onPressed: () => unawaited(setWebReverseClipboardText('${r.port}')),
       ),
     ),
@@ -1353,7 +2231,6 @@ Future<void> _toggleHarReplayServer(
 Future<void> _toggleMitmproxyBridge(
   BuildContext context,
   WebReverseSessionController ctrl,
-  bool isZh,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
   if (ctrl.mitmproxyBridge != null) {
@@ -1362,7 +2239,15 @@ Future<void> _toggleMitmproxyBridge(
     OpenHandSnackBar.showInfoOn(
       context,
       messenger,
-      isZh ? '已停止 mitmproxy 桥接' : 'mitmproxy bridge stopped',
+      _advancedText(
+        context,
+        zh: '已停止 mitmproxy 桥接',
+        zhHant: '已停止 mitmproxy 橋接',
+        en: 'mitmproxy bridge stopped',
+        fr: 'Pont mitmproxy arrete',
+        de: 'mitmproxy-Bridge gestoppt',
+        ja: 'mitmproxy ブリッジを停止しました',
+      ),
       duration: const Duration(seconds: 2),
     );
     return;
@@ -1373,14 +2258,47 @@ Future<void> _toggleMitmproxyBridge(
     if (!context.mounted) return;
     await showOpenHandInfoDialog(
       context: context,
-      title: isZh ? '未检测到 mitmdump' : 'mitmdump not found',
-      closeLabel: isZh ? '关闭' : 'Close',
-      message: isZh
-          ? '请先安装 mitmproxy（macOS：brew install mitmproxy；Linux：sudo apt install mitmproxy；Windows：从 https://mitmproxy.org 下载），'
-                '并把 mitmdump 加入 PATH。\n\n'
-                '装好后在客户端把代理指向 127.0.0.1:8080，并访问 http://mitm.it 安装根证书。'
-          : 'Install mitmproxy (macOS: brew install mitmproxy; Linux: sudo apt install mitmproxy; Windows: https://mitmproxy.org), '
-                'then set client proxy to 127.0.0.1:8080 and trust the root cert via http://mitm.it.',
+      title: _advancedText(
+        context,
+        zh: '未检测到 mitmdump',
+        zhHant: '未偵測到 mitmdump',
+        en: 'mitmdump not found',
+        fr: 'mitmdump introuvable',
+        de: 'mitmdump nicht gefunden',
+        ja: 'mitmdump が見つかりません',
+      ),
+      closeLabel: _advancedText(
+        context,
+        zh: '关闭',
+        zhHant: '關閉',
+        en: 'Close',
+        fr: 'Fermer',
+        de: 'Schliessen',
+        ja: '閉じる',
+      ),
+      message: _advancedText(
+        context,
+        zh:
+            '请先安装 mitmproxy（macOS：brew install mitmproxy；Linux：sudo apt install mitmproxy；Windows：从 https://mitmproxy.org 下载），'
+            '并把 mitmdump 加入 PATH。\n\n'
+            '装好后在客户端把代理指向 127.0.0.1:8080，并访问 http://mitm.it 安装根证书。',
+        zhHant:
+            '請先安裝 mitmproxy（macOS：brew install mitmproxy；Linux：sudo apt install mitmproxy；Windows：從 https://mitmproxy.org 下載），'
+            '並把 mitmdump 加入 PATH。\n\n'
+            '裝好後在客戶端把代理指向 127.0.0.1:8080，並訪問 http://mitm.it 安裝根憑證。',
+        en:
+            'Install mitmproxy (macOS: brew install mitmproxy; Linux: sudo apt install mitmproxy; Windows: https://mitmproxy.org), '
+            'then set client proxy to 127.0.0.1:8080 and trust the root cert via http://mitm.it.',
+        fr:
+            'Installez mitmproxy (macOS : brew install mitmproxy ; Linux : sudo apt install mitmproxy ; Windows : https://mitmproxy.org), '
+            'puis configurez le proxy client sur 127.0.0.1:8080 et faites confiance au certificat via http://mitm.it.',
+        de:
+            'Installieren Sie mitmproxy (macOS: brew install mitmproxy; Linux: sudo apt install mitmproxy; Windows: https://mitmproxy.org), '
+            'setzen Sie danach den Client-Proxy auf 127.0.0.1:8080 und vertrauen Sie dem Zertifikat uber http://mitm.it.',
+        ja:
+            'mitmproxy をインストールしてください（macOS: brew install mitmproxy、Linux: sudo apt install mitmproxy、Windows: https://mitmproxy.org）。'
+            'その後、クライアントのプロキシを 127.0.0.1:8080 に設定し、http://mitm.it でルート証明書を信頼してください。',
+      ),
     );
     return;
   }
@@ -1388,12 +2306,43 @@ Future<void> _toggleMitmproxyBridge(
   if (!context.mounted) return;
   final go = await showOpenHandConfirmDialog(
     context: context,
-    title: isZh ? '即将启动 mitmproxy 桥接' : 'Start mitmproxy bridge',
-    message: isZh
-        ? '将以 mitmdump -p 8080 启动；启动后请把目标客户端代理指向 127.0.0.1:8080。\n\n首次使用须信任根证书：访问 http://mitm.it 按平台说明安装。\n\n所有抓到的请求会以 mitmproxy 资源类型出现在 Network 列表。'
-        : 'Will run mitmdump -p 8080; route your client proxy to 127.0.0.1:8080.\n\nFirst time? Trust the CA via http://mitm.it.\n\nCaptured traffic shows up under the mitmproxy resource type.',
-    cancelLabel: isZh ? '取消' : 'Cancel',
-    confirmLabel: isZh ? '启动' : 'Start',
+    title: _advancedText(
+      context,
+      zh: '即将启动 mitmproxy 桥接',
+      zhHant: '即將啟動 mitmproxy 橋接',
+      en: 'Start mitmproxy bridge',
+      fr: 'Demarrer le pont mitmproxy',
+      de: 'mitmproxy-Bridge starten',
+      ja: 'mitmproxy ブリッジを起動',
+    ),
+    message: _advancedText(
+      context,
+      zh: '将以 mitmdump -p 8080 启动；启动后请把目标客户端代理指向 127.0.0.1:8080。\n\n首次使用须信任根证书：访问 http://mitm.it 按平台说明安装。\n\n所有抓到的请求会以 mitmproxy 资源类型出现在 Network 列表。',
+      zhHant:
+          '將以 mitmdump -p 8080 啟動；啟動後請把目標客戶端代理指向 127.0.0.1:8080。\n\n首次使用須信任根憑證：訪問 http://mitm.it 按平台說明安裝。\n\n所有抓到的請求會以 mitmproxy 資源類型出現在 Network 清單。',
+      en: 'Will run mitmdump -p 8080; route your client proxy to 127.0.0.1:8080.\n\nFirst time? Trust the CA via http://mitm.it.\n\nCaptured traffic shows up under the mitmproxy resource type.',
+      fr: 'Lance mitmdump -p 8080 ; pointez le proxy client vers 127.0.0.1:8080.\n\nPremiere utilisation ? Faites confiance a la CA via http://mitm.it.\n\nLe trafic capture apparaitra comme ressource mitmproxy dans Network.',
+      de: 'Startet mitmdump -p 8080; richten Sie den Client-Proxy auf 127.0.0.1:8080.\n\nZum ersten Mal? CA uber http://mitm.it vertrauen.\n\nErfasster Traffic erscheint als mitmproxy-Ressource in Network.',
+      ja: 'mitmdump -p 8080 で起動します。起動後、対象クライアントのプロキシを 127.0.0.1:8080 に向けてください。\n\n初回は http://mitm.it で CA を信頼してください。\n\n取得した通信は Network リストに mitmproxy リソースとして表示されます。',
+    ),
+    cancelLabel: _advancedText(
+      context,
+      zh: '取消',
+      zhHant: '取消',
+      en: 'Cancel',
+      fr: 'Annuler',
+      de: 'Abbrechen',
+      ja: 'キャンセル',
+    ),
+    confirmLabel: _advancedText(
+      context,
+      zh: '启动',
+      zhHant: '啟動',
+      en: 'Start',
+      fr: 'Demarrer',
+      de: 'Starten',
+      ja: '起動',
+    ),
   );
   if (go != true || !context.mounted) return;
   final r = await ctrl.startMitmproxyBridge();
@@ -1402,7 +2351,15 @@ Future<void> _toggleMitmproxyBridge(
     OpenHandSnackBar.showErrorOn(
       context,
       messenger,
-      isZh ? '启动失败（端口 8080 可能已被占）' : 'Failed (port 8080 in use?)',
+      _advancedText(
+        context,
+        zh: '启动失败（端口 8080 可能已被占）',
+        zhHant: '啟動失敗（連接埠 8080 可能已被占用）',
+        en: 'Failed (port 8080 in use?)',
+        fr: 'Echec (port 8080 deja utilise ?)',
+        de: 'Fehlgeschlagen (Port 8080 belegt?)',
+        ja: '失敗しました（ポート 8080 が使用中の可能性があります）',
+      ),
       duration: const Duration(seconds: 3),
     );
     return;
@@ -1410,9 +2367,16 @@ Future<void> _toggleMitmproxyBridge(
   OpenHandSnackBar.showSuccessOn(
     context,
     messenger,
-    isZh
-        ? 'mitmproxy 桥接已启动：客户端代理 127.0.0.1:${r.mitmPort}（回调 :${r.callbackPort}）'
-        : 'mitmproxy up: proxy via 127.0.0.1:${r.mitmPort} (callback :${r.callbackPort})',
+    _advancedText(
+      context,
+      zh: 'mitmproxy 桥接已启动：客户端代理 127.0.0.1:${r.mitmPort}（回调 :${r.callbackPort}）',
+      zhHant:
+          'mitmproxy 橋接已啟動：客戶端代理 127.0.0.1:${r.mitmPort}（回調 :${r.callbackPort}）',
+      en: 'mitmproxy up: proxy via 127.0.0.1:${r.mitmPort} (callback :${r.callbackPort})',
+      fr: 'mitmproxy actif : proxy 127.0.0.1:${r.mitmPort} (callback :${r.callbackPort})',
+      de: 'mitmproxy aktiv: Proxy 127.0.0.1:${r.mitmPort} (Callback :${r.callbackPort})',
+      ja: 'mitmproxy 起動: proxy 127.0.0.1:${r.mitmPort}（callback :${r.callbackPort}）',
+    ),
     duration: const Duration(seconds: 6),
   );
 }
@@ -1420,7 +2384,6 @@ Future<void> _toggleMitmproxyBridge(
 Future<void> _toggleWebRtcCapture(
   BuildContext context,
   WebReverseSessionController ctrl,
-  bool isZh,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
   final ok = await ctrl.installWebRtcCapture();
@@ -1429,14 +2392,22 @@ Future<void> _toggleWebRtcCapture(
     OpenHandSnackBar.showErrorOn(
       context,
       messenger,
-      isZh ? '注入失败（page 可能尚未就绪）' : 'Install failed',
+      _advancedText(
+        context,
+        zh: '注入失败（page 可能尚未就绪）',
+        zhHant: '注入失敗（page 可能尚未就緒）',
+        en: 'Install failed',
+        fr: 'Echec de l injection',
+        de: 'Installation fehlgeschlagen',
+        ja: '注入に失敗しました',
+      ),
       duration: const Duration(seconds: 2),
     );
     return;
   }
   await showWebReverseToolDialog<void>(
     context: context,
-    builder: (_) => _WebRtcLiveDialog(controller: ctrl, isZh: isZh),
+    builder: (_) => _WebRtcLiveDialog(controller: ctrl),
   );
 }
 
@@ -1445,10 +2416,9 @@ Future<void> _toggleWebRtcCapture(
 ///    bytesSent / bytesReceived / packetsLost / rtt），用 _RtcChart 渲染
 ///    四条折线 + 当前值 chip；② 事件流：完整 JSON 日志 SelectableText。
 class _WebRtcLiveDialog extends StatefulWidget {
-  const _WebRtcLiveDialog({required this.controller, required this.isZh});
+  const _WebRtcLiveDialog({required this.controller});
 
   final WebReverseSessionController controller;
-  final bool isZh;
 
   @override
   State<_WebRtcLiveDialog> createState() => _WebRtcLiveDialogState();
@@ -1558,7 +2528,6 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   /// packets_lost,rtt_ms。每行一个 sample，buckets 0 = 当前秒。
   Future<void> _exportSeriesCsv() async {
     if (_series.isEmpty) return;
-    final isZh = widget.isZh;
     final messenger = ScaffoldMessenger.of(context);
     final buf = StringBuffer()
       ..writeln(
@@ -1601,7 +2570,15 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
       OpenHandSnackBar.showSuccessOn(
         context,
         messenger,
-        isZh ? 'CSV 已保存' : 'CSV saved',
+        _advancedText(
+          context,
+          zh: 'CSV 已保存',
+          zhHant: 'CSV 已儲存',
+          en: 'CSV saved',
+          fr: 'CSV enregistre',
+          de: 'CSV gespeichert',
+          ja: 'CSV を保存しました',
+        ),
       );
     } catch (error, stack) {
       silentLog('web_reverse_dashboard', 'rtc csv write', error, stack);
@@ -1609,7 +2586,15 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
       OpenHandSnackBar.showErrorOn(
         context,
         messenger,
-        isZh ? '保存失败' : 'Save failed',
+        _advancedText(
+          context,
+          zh: '保存失败',
+          zhHant: '儲存失敗',
+          en: 'Save failed',
+          fr: 'Echec de l enregistrement',
+          de: 'Speichern fehlgeschlagen',
+          ja: '保存に失敗しました',
+        ),
         duration: const Duration(seconds: 2),
       );
     }
@@ -1619,7 +2604,6 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     return buildOpenHandToolDialogShell(
       context: context,
       maxWidth: 880,
@@ -1630,7 +2614,15 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.video_camera_back_rounded,
-            title: isZh ? 'WebRTC 实时面板' : 'WebRTC live panel',
+            title: _advancedText(
+              context,
+              zh: 'WebRTC 实时面板',
+              zhHant: 'WebRTC 即時面板',
+              en: 'WebRTC live panel',
+              fr: 'Panneau WebRTC live',
+              de: 'WebRTC-Live-Panel',
+              ja: 'WebRTC ライブパネル',
+            ),
             actions: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1639,9 +2631,15 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  isZh
-                      ? '${_series.length} 连接 · 1s 采样'
-                      : '${_series.length} pc · 1s sample',
+                  _advancedText(
+                    context,
+                    zh: '${_series.length} 连接 · 1s 采样',
+                    zhHant: '${_series.length} 連線 · 1s 採樣',
+                    en: '${_series.length} pc · 1s sample',
+                    fr: '${_series.length} pc · echantillon 1s',
+                    de: '${_series.length} PC · 1s Sample',
+                    ja: '${_series.length} PC · 1s サンプル',
+                  ),
                   style: theme.textTheme.labelSmall,
                 ),
               ),
@@ -1652,25 +2650,57 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
             child: Row(
               children: [
                 _RtcTab(
-                  label: isZh ? '实时图表' : 'Live charts',
+                  label: _advancedText(
+                    context,
+                    zh: '实时图表',
+                    zhHant: '即時圖表',
+                    en: 'Live charts',
+                    fr: 'Graphiques live',
+                    de: 'Live-Charts',
+                    ja: 'ライブチャート',
+                  ),
                   selected: _tab == 0,
                   onTap: () => setState(() => _tab = 0),
                 ),
                 const SizedBox(width: 8),
                 _RtcTab(
-                  label: isZh ? 'ICE 拓扑' : 'ICE topology',
+                  label: _advancedText(
+                    context,
+                    zh: 'ICE 拓扑',
+                    zhHant: 'ICE 拓撲',
+                    en: 'ICE topology',
+                    fr: 'Topologie ICE',
+                    de: 'ICE-Topologie',
+                    ja: 'ICE トポロジー',
+                  ),
                   selected: _tab == 1,
                   onTap: () => setState(() => _tab = 1),
                 ),
                 const SizedBox(width: 8),
                 _RtcTab(
-                  label: isZh ? 'SDP Diff' : 'SDP diff',
+                  label: _advancedText(
+                    context,
+                    zh: 'SDP Diff',
+                    zhHant: 'SDP Diff',
+                    en: 'SDP diff',
+                    fr: 'Diff SDP',
+                    de: 'SDP-Diff',
+                    ja: 'SDP diff',
+                  ),
                   selected: _tab == 2,
                   onTap: () => setState(() => _tab = 2),
                 ),
                 const SizedBox(width: 8),
                 _RtcTab(
-                  label: isZh ? '事件流' : 'Events',
+                  label: _advancedText(
+                    context,
+                    zh: '事件流',
+                    zhHant: '事件流',
+                    en: 'Events',
+                    fr: 'Evenements',
+                    de: 'Events',
+                    ja: 'イベント',
+                  ),
                   selected: _tab == 3,
                   onTap: () => setState(() => _tab = 3),
                 ),
@@ -1679,7 +2709,17 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                   OutlinedButton.icon(
                     onPressed: _exportSeriesCsv,
                     icon: const Icon(Icons.download_rounded, size: 16),
-                    label: Text(isZh ? '导出 CSV' : 'Export CSV'),
+                    label: Text(
+                      _advancedText(
+                        context,
+                        zh: '导出 CSV',
+                        zhHant: '匯出 CSV',
+                        en: 'Export CSV',
+                        fr: 'Exporter CSV',
+                        de: 'CSV exportieren',
+                        ja: 'CSV をエクスポート',
+                      ),
+                    ),
                   ),
                 if (_tab == 3 && _events.isNotEmpty)
                   OutlinedButton.icon(
@@ -1693,15 +2733,33 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                         context,
                         messenger,
                         webReverseClipboardSnackMessage(
-                          isZh: isZh,
-                          base: isZh ? '已复制' : 'Copied',
+                          context: context,
+                          base: _advancedText(
+                            context,
+                            zh: '已复制',
+                            zhHant: '已複製',
+                            en: 'Copied',
+                            fr: 'Copie',
+                            de: 'Kopiert',
+                            ja: 'コピーしました',
+                          ),
                           result: copied,
                         ),
                         duration: const Duration(seconds: 1),
                       );
                     },
                     icon: const Icon(Icons.copy_all_rounded, size: 16),
-                    label: Text(isZh ? '复制事件' : 'Copy events'),
+                    label: Text(
+                      _advancedText(
+                        context,
+                        zh: '复制事件',
+                        zhHant: '複製事件',
+                        en: 'Copy events',
+                        fr: 'Copier les evenements',
+                        de: 'Events kopieren',
+                        ja: 'イベントをコピー',
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -1726,16 +2784,21 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
 
   Widget _buildChartsTab(ThemeData theme) {
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     if (_series.isEmpty) {
       return Padding(
         key: const ValueKey('empty-charts'),
         padding: const EdgeInsets.all(36),
         child: Center(
           child: Text(
-            isZh
-                ? '当前页面尚未发起 WebRTC。\n触发音视频通话或 datachannel 后会自动出现采样曲线。'
-                : 'No WebRTC yet. Trigger a call/datachannel; samples will appear automatically.',
+            _advancedText(
+              context,
+              zh: '当前页面尚未发起 WebRTC。\n触发音视频通话或 datachannel 后会自动出现采样曲线。',
+              zhHant: '目前頁面尚未發起 WebRTC。\n觸發音視訊通話或 datachannel 後會自動出現採樣曲線。',
+              en: 'No WebRTC yet. Trigger a call/datachannel; samples will appear automatically.',
+              fr: 'Aucun WebRTC pour l instant. Lancez un appel ou datachannel pour voir les echantillons.',
+              de: 'Noch kein WebRTC. Starten Sie einen Call oder datachannel, dann erscheinen Samples automatisch.',
+              ja: 'まだ WebRTC はありません。通話または datachannel を開始するとサンプル曲線が表示されます。',
+            ),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
@@ -1772,17 +2835,41 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
             runSpacing: 6,
             children: [
               _RtcStatChip(
-                label: isZh ? '已发送' : 'Sent',
+                label: _advancedText(
+                  context,
+                  zh: '已发送',
+                  zhHant: '已傳送',
+                  en: 'Sent',
+                  fr: 'Envoye',
+                  de: 'Gesendet',
+                  ja: '送信済み',
+                ),
                 value: _formatBytes(last?.bytesSent ?? 0),
                 color: cs.primary,
               ),
               _RtcStatChip(
-                label: isZh ? '已接收' : 'Recv',
+                label: _advancedText(
+                  context,
+                  zh: '已接收',
+                  zhHant: '已接收',
+                  en: 'Recv',
+                  fr: 'Recu',
+                  de: 'Empfangen',
+                  ja: '受信済み',
+                ),
                 value: _formatBytes(last?.bytesReceived ?? 0),
                 color: cs.tertiary,
               ),
               _RtcStatChip(
-                label: isZh ? '丢包' : 'Lost',
+                label: _advancedText(
+                  context,
+                  zh: '丢包',
+                  zhHant: '遺失封包',
+                  en: 'Lost',
+                  fr: 'Perdus',
+                  de: 'Verloren',
+                  ja: 'ロスト',
+                ),
                 value: '${(last?.packetsLost ?? 0).toInt()}',
                 color: cs.error,
               ),
@@ -1825,7 +2912,6 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   /// 看清拓扑。
   Widget _buildIceTab(ThemeData theme) {
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     final ids = _iceLog.keys.toList()..sort();
     if (ids.isEmpty) {
       return Padding(
@@ -1833,7 +2919,15 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         padding: const EdgeInsets.all(36),
         child: Center(
           child: Text(
-            isZh ? '暂无 ICE 事件' : 'No ICE events',
+            _advancedText(
+              context,
+              zh: '暂无 ICE 事件',
+              zhHant: '暫無 ICE 事件',
+              en: 'No ICE events',
+              fr: 'Aucun evenement ICE',
+              de: 'Keine ICE-Events',
+              ja: 'ICE イベントはありません',
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
             ),
@@ -1869,12 +2963,32 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                   ButtonSegment(
                     value: false,
                     icon: const Icon(Icons.list_rounded, size: 14),
-                    label: Text(isZh ? '时序' : 'List'),
+                    label: Text(
+                      _advancedText(
+                        context,
+                        zh: '时序',
+                        zhHant: '時序',
+                        en: 'List',
+                        fr: 'Liste',
+                        de: 'Liste',
+                        ja: 'リスト',
+                      ),
+                    ),
                   ),
                   ButtonSegment(
                     value: true,
                     icon: const Icon(Icons.hub_rounded, size: 14),
-                    label: Text(isZh ? '图' : 'Graph'),
+                    label: Text(
+                      _advancedText(
+                        context,
+                        zh: '图',
+                        zhHant: '圖',
+                        en: 'Graph',
+                        fr: 'Graphe',
+                        de: 'Graph',
+                        ja: 'グラフ',
+                      ),
+                    ),
                   ),
                 ],
                 selected: {_iceGraphMode},
@@ -1902,7 +3016,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                     itemBuilder: (_, i) {
                       // 倒序展示：最新事件在顶部更易观察。
                       final entry = entries[entries.length - 1 - i];
-                      final summary = _summarizeIce(entry, isZh);
+                      final summary = _summarizeIce(entry);
                       final color = _iceTone(entry.kind, cs);
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 3),
@@ -1954,7 +3068,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
     return cs.onSurfaceVariant;
   }
 
-  String _summarizeIce(_IceEntry entry, bool isZh) {
+  String _summarizeIce(_IceEntry entry) {
     final p = entry.payload;
     switch (entry.kind) {
       case 'pc.create':
@@ -1984,7 +3098,6 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   /// （绿 = 新增，红 = 删除，灰 = 不变）。第一次接到 SDP 时只渲染单列。
   Widget _buildSdpDiffTab(ThemeData theme) {
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     final ids = _sdps.keys.toList()..sort();
     if (ids.isEmpty) {
       return Padding(
@@ -1992,9 +3105,16 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         padding: const EdgeInsets.all(36),
         child: Center(
           child: Text(
-            isZh
-                ? '暂无 SDP。\n触发 setLocalDescription / setRemoteDescription 后会出现。'
-                : 'No SDP yet.',
+            _advancedText(
+              context,
+              zh: '暂无 SDP。\n触发 setLocalDescription / setRemoteDescription 后会出现。',
+              zhHant:
+                  '暫無 SDP。\n觸發 setLocalDescription / setRemoteDescription 後會出現。',
+              en: 'No SDP yet.',
+              fr: 'Aucun SDP pour l instant.',
+              de: 'Noch kein SDP.',
+              ja: 'SDP はまだありません。',
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
             ),
@@ -2030,7 +3150,15 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
               children: [
                 Expanded(
                   child: _SdpDiffColumn(
-                    title: isZh ? '本地 SDP' : 'Local SDP',
+                    title: _advancedText(
+                      context,
+                      zh: '本地 SDP',
+                      zhHant: '本地 SDP',
+                      en: 'Local SDP',
+                      fr: 'SDP local',
+                      de: 'Lokales SDP',
+                      ja: 'ローカル SDP',
+                    ),
                     current: pair.local,
                     previous: pair.prevLocal,
                   ),
@@ -2038,7 +3166,15 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _SdpDiffColumn(
-                    title: isZh ? '远端 SDP' : 'Remote SDP',
+                    title: _advancedText(
+                      context,
+                      zh: '远端 SDP',
+                      zhHant: '遠端 SDP',
+                      en: 'Remote SDP',
+                      fr: 'SDP distant',
+                      de: 'Remote-SDP',
+                      ja: 'リモート SDP',
+                    ),
                     current: pair.remote,
                     previous: pair.prevRemote,
                   ),
@@ -2053,14 +3189,21 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
 
   Widget _buildEventsTab(ThemeData theme) {
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     if (_events.isEmpty) {
       return Padding(
         key: const ValueKey('empty-events'),
         padding: const EdgeInsets.all(36),
         child: Center(
           child: Text(
-            isZh ? '暂无事件' : 'No events',
+            _advancedText(
+              context,
+              zh: '暂无事件',
+              zhHant: '暫無事件',
+              en: 'No events',
+              fr: 'Aucun evenement',
+              de: 'Keine Events',
+              ja: 'イベントはありません',
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: cs.onSurfaceVariant,
             ),
@@ -2328,7 +3471,7 @@ class _RtcChartPainter extends CustomPainter {
   bool shouldRepaint(covariant _RtcChartPainter old) => old.series != series;
 }
 
-Future<void> _showWebcrackDialog(BuildContext context, bool isZh) async {
+Future<void> _showWebcrackDialog(BuildContext context) async {
   final input = TextEditingController();
   final output = ValueNotifier<String?>(null);
   final running = ValueNotifier<bool>(false);
@@ -2336,16 +3479,33 @@ Future<void> _showWebcrackDialog(BuildContext context, bool isZh) async {
     await showWebReverseToolDialog<void>(
       context: context,
       builder: (dialogContext) => buildOpenHandAlertDialog(
-        title: Text(isZh ? 'JS 反混淆（webcrack）' : 'JS deobfuscate (webcrack)'),
+        title: Text(
+          _advancedText(
+            dialogContext,
+            zh: 'JS 反混淆（webcrack）',
+            zhHant: 'JS 反混淆（webcrack）',
+            en: 'JS deobfuscate (webcrack)',
+            fr: 'Desobfuscation JS (webcrack)',
+            de: 'JS deobfuskieren (webcrack)',
+            ja: 'JS 難読化解除（webcrack）',
+          ),
+        ),
         content: SizedBox(
           width: 760,
           height: 520,
           child: Column(
             children: [
               Text(
-                isZh
-                    ? '把混淆后的 JS 粘到这里 → 点"反混淆"将自动写到 /tmp 并跑 npx webcrack。需要本机已装 Node.js 与 npm。'
-                    : 'Paste obfuscated JS, then click Deobfuscate. Requires Node.js + npm; uses npx webcrack.',
+                _advancedText(
+                  dialogContext,
+                  zh: '把混淆后的 JS 粘到这里 → 点"反混淆"将自动写到 /tmp 并跑 npx webcrack。需要本机已装 Node.js 与 npm。',
+                  zhHant:
+                      '把混淆後的 JS 貼到這裡 → 點「反混淆」會自動寫到 /tmp 並跑 npx webcrack。需要本機已安裝 Node.js 與 npm。',
+                  en: 'Paste obfuscated JS, then click Deobfuscate. Requires Node.js + npm; uses npx webcrack.',
+                  fr: 'Collez le JS obfusque puis cliquez sur Desobfuscation. Requiert Node.js + npm et utilise npx webcrack.',
+                  de: 'Obfuskiertes JS einfugen und Deobfuskieren klicken. Erfordert Node.js + npm und nutzt npx webcrack.',
+                  ja: '難読化された JS を貼り付けて「難読化解除」を押します。Node.js と npm が必要で、npx webcrack を使用します。',
+                ),
                 style: Theme.of(dialogContext).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -2384,9 +3544,15 @@ Future<void> _showWebcrackDialog(BuildContext context, bool isZh) async {
                     child: SingleChildScrollView(
                       child: SelectableText(
                         v ??
-                            (isZh
-                                ? '反混淆结果会显示在这里。'
-                                : 'Deobfuscated result appears here.'),
+                            _advancedText(
+                              dialogContext,
+                              zh: '反混淆结果会显示在这里。',
+                              zhHant: '反混淆結果會顯示在這裡。',
+                              en: 'Deobfuscated result appears here.',
+                              fr: 'Le resultat desobfusque apparait ici.',
+                              de: 'Das deobfuskierte Ergebnis erscheint hier.',
+                              ja: '難読化解除の結果がここに表示されます。',
+                            ),
                         style: const TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 11.5,
@@ -2402,7 +3568,15 @@ Future<void> _showWebcrackDialog(BuildContext context, bool isZh) async {
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            label: isZh ? '关闭' : 'Close',
+            label: _advancedText(
+              dialogContext,
+              zh: '关闭',
+              zhHant: '關閉',
+              en: 'Close',
+              fr: 'Fermer',
+              de: 'Schliessen',
+              ja: '閉じる',
+            ),
           ),
           ValueListenableBuilder<bool>(
             valueListenable: running,
@@ -2412,14 +3586,33 @@ Future<void> _showWebcrackDialog(BuildContext context, bool isZh) async {
                   : () async {
                       if (input.text.trim().isEmpty) return;
                       running.value = true;
-                      final result = await _runWebcrack(input.text);
+                      final result = await _runWebcrack(
+                        input.text,
+                        locale: Localizations.localeOf(dialogContext),
+                      );
                       if (!dialogContext.mounted) return;
                       running.value = false;
                       output.value = result;
                     },
               label: busy
-                  ? (isZh ? '处理中…' : 'Working…')
-                  : (isZh ? '反混淆' : 'Deobfuscate'),
+                  ? _advancedText(
+                      dialogContext,
+                      zh: '处理中…',
+                      zhHant: '處理中…',
+                      en: 'Working…',
+                      fr: 'Traitement…',
+                      de: 'Wird verarbeitet…',
+                      ja: '処理中…',
+                    )
+                  : _advancedText(
+                      dialogContext,
+                      zh: '反混淆',
+                      zhHant: '反混淆',
+                      en: 'Deobfuscate',
+                      fr: 'Desobfusquer',
+                      de: 'Deobfuskieren',
+                      ja: '難読化解除',
+                    ),
             ),
           ),
         ],
@@ -2432,11 +3625,20 @@ Future<void> _showWebcrackDialog(BuildContext context, bool isZh) async {
   }
 }
 
-Future<String> _runWebcrack(String src) async {
+Future<String> _runWebcrack(String src, {required Locale locale}) async {
   // 写入 temp 文件 + 跑 `npx -y webcrack@latest -o <outDir> <inFile>`，
   // 完成后读 outDir/deobfuscated.js（或 webcrack 默认输出）回显。
   if (src.length > _kWebcrackMaxInputChars) {
-    return '[webcrack 输入过大：${src.length} chars，limit $_kWebcrackMaxInputChars chars]';
+    return _advancedTextForLocale(
+      locale,
+      zh: '[webcrack 输入过大：${src.length} chars，limit $_kWebcrackMaxInputChars chars]',
+      zhHant:
+          '[webcrack 輸入過大：${src.length} chars，limit $_kWebcrackMaxInputChars chars]',
+      en: '[webcrack input too large: ${src.length} chars, limit $_kWebcrackMaxInputChars chars]',
+      fr: '[entree webcrack trop volumineuse : ${src.length} chars, limite $_kWebcrackMaxInputChars chars]',
+      de: '[webcrack-Eingabe zu gross: ${src.length} chars, Limit $_kWebcrackMaxInputChars chars]',
+      ja: '[webcrack 入力が大きすぎます: ${src.length} chars, limit $_kWebcrackMaxInputChars chars]',
+    );
   }
   final tmpDir = await Directory.systemTemp.createTemp('oh-webcrack-');
   final input = File('${tmpDir.path}/input.js');
@@ -2452,12 +3654,20 @@ Future<String> _runWebcrack(String src) async {
       environment: SystemProxyResolver.instance.resolveSubprocessEnvironment(),
     );
     if (result.exitCode != 0) {
-      return '[webcrack 失败 exit=${result.exitCode}]\n${result.stderr}';
+      return _advancedTextForLocale(
+        locale,
+        zh: '[webcrack 失败 exit=${result.exitCode}]\n${result.stderr}',
+        zhHant: '[webcrack 失敗 exit=${result.exitCode}]\n${result.stderr}',
+        en: '[webcrack failed exit=${result.exitCode}]\n${result.stderr}',
+        fr: '[echec webcrack exit=${result.exitCode}]\n${result.stderr}',
+        de: '[webcrack fehlgeschlagen exit=${result.exitCode}]\n${result.stderr}',
+        ja: '[webcrack 失敗 exit=${result.exitCode}]\n${result.stderr}',
+      );
     }
     // webcrack 默认输出 deobfuscated.js + 其他文件；优先取它。
     final out = File('${tmpDir.path}/deobfuscated.js');
     if (await out.exists()) {
-      return await _readWebcrackOutputFile(out);
+      return await _readWebcrackOutputFile(out, locale: locale);
     }
     // 兜底：把整个 outDir 下所有 .js 拼起来。
     final buf = StringBuffer();
@@ -2467,22 +3677,49 @@ Future<String> _runWebcrack(String src) async {
         final bytes = await entity.length();
         if (totalBytes + bytes > _kWebcrackMaxOutputBytes) {
           buf.writeln(
-            '[webcrack 输出已按上限停止：$totalBytes/$_kWebcrackMaxOutputBytes bytes]',
+            _advancedTextForLocale(
+              locale,
+              zh: '[webcrack 输出已按上限停止：$totalBytes/$_kWebcrackMaxOutputBytes bytes]',
+              zhHant:
+                  '[webcrack 輸出已依上限停止：$totalBytes/$_kWebcrackMaxOutputBytes bytes]',
+              en: '[webcrack output stopped at limit: $totalBytes/$_kWebcrackMaxOutputBytes bytes]',
+              fr: '[sortie webcrack arretee a la limite : $totalBytes/$_kWebcrackMaxOutputBytes bytes]',
+              de: '[webcrack-Ausgabe am Limit gestoppt: $totalBytes/$_kWebcrackMaxOutputBytes bytes]',
+              ja: '[webcrack 出力を上限で停止しました: $totalBytes/$_kWebcrackMaxOutputBytes bytes]',
+            ),
           );
           break;
         }
         totalBytes += bytes;
         buf
           ..writeln('// ─── ${entity.path} ───')
-          ..writeln(await _readWebcrackOutputFile(entity))
+          ..writeln(await _readWebcrackOutputFile(entity, locale: locale))
           ..writeln();
       }
     }
     final s = buf.toString();
-    return s.isEmpty ? '[webcrack 无输出]' : s;
+    return s.isEmpty
+        ? _advancedTextForLocale(
+            locale,
+            zh: '[webcrack 无输出]',
+            zhHant: '[webcrack 無輸出]',
+            en: '[webcrack produced no output]',
+            fr: '[webcrack n a produit aucune sortie]',
+            de: '[webcrack hat keine Ausgabe erzeugt]',
+            ja: '[webcrack の出力はありません]',
+          )
+        : s;
   } catch (error, stack) {
     silentLog('web_reverse_dashboard_dialog', 'webcrack', error, stack);
-    return '[执行异常]\n$error';
+    return _advancedTextForLocale(
+      locale,
+      zh: '[执行异常]\n$error',
+      zhHant: '[執行異常]\n$error',
+      en: '[execution error]\n$error',
+      fr: '[erreur d execution]\n$error',
+      de: '[Ausfuhrungsfehler]\n$error',
+      ja: '[実行エラー]\n$error',
+    );
   } finally {
     try {
       await tmpDir.delete(recursive: true);
@@ -2497,10 +3734,22 @@ Future<String> _runWebcrack(String src) async {
   }
 }
 
-Future<String> _readWebcrackOutputFile(File file) async {
+Future<String> _readWebcrackOutputFile(
+  File file, {
+  required Locale locale,
+}) async {
   final bytes = await file.length();
   if (bytes > _kWebcrackMaxOutputBytes) {
-    return '[webcrack 输出过大：$bytes bytes，limit $_kWebcrackMaxOutputBytes bytes]';
+    return _advancedTextForLocale(
+      locale,
+      zh: '[webcrack 输出过大：$bytes bytes，limit $_kWebcrackMaxOutputBytes bytes]',
+      zhHant:
+          '[webcrack 輸出過大：$bytes bytes，limit $_kWebcrackMaxOutputBytes bytes]',
+      en: '[webcrack output too large: $bytes bytes, limit $_kWebcrackMaxOutputBytes bytes]',
+      fr: '[sortie webcrack trop volumineuse : $bytes bytes, limite $_kWebcrackMaxOutputBytes bytes]',
+      de: '[webcrack-Ausgabe zu gross: $bytes bytes, Limit $_kWebcrackMaxOutputBytes bytes]',
+      ja: '[webcrack 出力が大きすぎます: $bytes bytes, limit $_kWebcrackMaxOutputBytes bytes]',
+    );
   }
   return file.readAsString();
 }
@@ -2508,18 +3757,16 @@ Future<String> _readWebcrackOutputFile(File file) async {
 Future<void> _showInterceptRulesDialog(
   BuildContext context,
   WebReverseSessionController controller,
-  bool isZh,
 ) async {
   await showWebReverseToolDialog<void>(
     context: context,
-    builder: (_) => _InterceptRulesDialog(controller: controller, isZh: isZh),
+    builder: (_) => _InterceptRulesDialog(controller: controller),
   );
 }
 
 class _InterceptRulesDialog extends StatefulWidget {
-  const _InterceptRulesDialog({required this.controller, required this.isZh});
+  const _InterceptRulesDialog({required this.controller});
   final WebReverseSessionController controller;
-  final bool isZh;
 
   @override
   State<_InterceptRulesDialog> createState() => _InterceptRulesDialogState();
@@ -2548,7 +3795,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
         : _rules[index];
     final updated = await showWebReverseToolDialog<WebReverseInterceptRule>(
       context: context,
-      builder: (_) => _InterceptRuleEditor(initial: initial, isZh: widget.isZh),
+      builder: (_) => _InterceptRuleEditor(initial: initial),
     );
     if (updated == null) return;
     setState(() {
@@ -2564,7 +3811,6 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isZh = widget.isZh;
     return buildOpenHandToolDialogShell(
       context: context,
       maxWidth: 720,
@@ -2575,12 +3821,30 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
           buildOpenHandToolDialogHeader(
             context: context,
             icon: Icons.alt_route_rounded,
-            title: isZh ? '网络拦截规则' : 'Network intercept rules',
+            title: _advancedText(
+              context,
+              zh: '网络拦截规则',
+              zhHant: '網路攔截規則',
+              en: 'Network intercept rules',
+              fr: 'Regles d interception reseau',
+              de: 'Netzwerk-Abfangregeln',
+              ja: 'ネットワークインターセプト規則',
+            ),
             actions: [
               TextButton.icon(
                 onPressed: () => _editRule(null),
                 icon: const Icon(Icons.add_rounded, size: 16),
-                label: Text(isZh ? '新增规则' : 'Add rule'),
+                label: Text(
+                  _advancedText(
+                    context,
+                    zh: '新增规则',
+                    zhHant: '新增規則',
+                    en: 'Add rule',
+                    fr: 'Ajouter une regle',
+                    de: 'Regel hinzufugen',
+                    ja: '規則を追加',
+                  ),
+                ),
               ),
             ],
           ),
@@ -2590,9 +3854,16 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                 ? Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      isZh
-                          ? '无规则。点「新增规则」开始：URL 通配 → block / 改写。\n命中规则的请求会自动放行/改写，不再走拦截队列。'
-                          : 'No rules. Click Add rule to start: URL pattern → block / rewrite.',
+                      _advancedText(
+                        context,
+                        zh: '无规则。点「新增规则」开始：URL 通配 → block / 改写。\n命中规则的请求会自动放行/改写，不再走拦截队列。',
+                        zhHant:
+                            '無規則。點「新增規則」開始：URL 通配 → block / 改寫。\n命中規則的請求會自動放行/改寫，不再走攔截佇列。',
+                        en: 'No rules. Click Add rule to start: URL pattern → block / rewrite.',
+                        fr: 'Aucune regle. Ajoutez une regle : motif URL → block / rewrite.',
+                        de: 'Keine Regeln. Regel hinzufugen: URL-Muster → block / rewrite.',
+                        ja: '規則はありません。「規則を追加」から URL パターン → block / rewrite を設定します。',
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),
@@ -2622,22 +3893,59 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                         ),
                         subtitle: Text(
                           r.block
-                              ? (isZh ? '动作: 屏蔽' : 'Action: block')
+                              ? _advancedText(
+                                  context,
+                                  zh: '动作: 屏蔽',
+                                  zhHant: '動作: 屏蔽',
+                                  en: 'Action: block',
+                                  fr: 'Action : bloquer',
+                                  de: 'Aktion: blockieren',
+                                  ja: 'アクション: ブロック',
+                                )
                               : r.replaceUrl != null && r.replaceUrl!.isNotEmpty
-                              ? (isZh
-                                    ? '动作: 重定向到 ${r.replaceUrl}'
-                                    : 'Action: redirect → ${r.replaceUrl}')
+                              ? _advancedText(
+                                  context,
+                                  zh: '动作: 重定向到 ${r.replaceUrl}',
+                                  zhHant: '動作: 重新導向到 ${r.replaceUrl}',
+                                  en: 'Action: redirect → ${r.replaceUrl}',
+                                  fr: 'Action : rediriger → ${r.replaceUrl}',
+                                  de: 'Aktion: weiterleiten → ${r.replaceUrl}',
+                                  ja: 'アクション: リダイレクト → ${r.replaceUrl}',
+                                )
                               : r.headerOverrides.isEmpty
-                              ? (isZh ? '动作: 仅标记' : 'Action: tag only')
-                              : (isZh
-                                    ? '动作: 注入 ${r.headerOverrides.length} 个 header'
-                                    : 'Action: inject ${r.headerOverrides.length} headers'),
+                              ? _advancedText(
+                                  context,
+                                  zh: '动作: 仅标记',
+                                  zhHant: '動作: 僅標記',
+                                  en: 'Action: tag only',
+                                  fr: 'Action : marquer seulement',
+                                  de: 'Aktion: nur markieren',
+                                  ja: 'アクション: タグのみ',
+                                )
+                              : _advancedText(
+                                  context,
+                                  zh: '动作: 注入 ${r.headerOverrides.length} 个 header',
+                                  zhHant:
+                                      '動作: 注入 ${r.headerOverrides.length} 個 header',
+                                  en: 'Action: inject ${r.headerOverrides.length} headers',
+                                  fr: 'Action : injecter ${r.headerOverrides.length} headers',
+                                  de: 'Aktion: ${r.headerOverrides.length} Header injizieren',
+                                  ja: 'アクション: ${r.headerOverrides.length} 個の header を注入',
+                                ),
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              tooltip: isZh ? '编辑' : 'Edit',
+                              tooltip: _advancedText(
+                                context,
+                                zh: '编辑',
+                                zhHant: '編輯',
+                                en: 'Edit',
+                                fr: 'Modifier',
+                                de: 'Bearbeiten',
+                                ja: '編集',
+                              ),
                               visualDensity: VisualDensity.compact,
                               iconSize: 18,
                               padding: const EdgeInsets.all(6),
@@ -2650,7 +3958,15 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                             ),
                             const SizedBox(width: 4),
                             IconButton(
-                              tooltip: isZh ? '删除' : 'Delete',
+                              tooltip: _advancedText(
+                                context,
+                                zh: '删除',
+                                zhHant: '刪除',
+                                en: 'Delete',
+                                fr: 'Supprimer',
+                                de: 'Loschen',
+                                ja: '削除',
+                              ),
                               visualDensity: VisualDensity.compact,
                               iconSize: 18,
                               padding: const EdgeInsets.all(6),
@@ -2680,12 +3996,28 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
               children: [
                 OpenHandDialogActionButton.secondary(
                   onPressed: () => Navigator.of(context).pop(),
-                  label: isZh ? '取消' : 'Cancel',
+                  label: _advancedText(
+                    context,
+                    zh: '取消',
+                    zhHant: '取消',
+                    en: 'Cancel',
+                    fr: 'Annuler',
+                    de: 'Abbrechen',
+                    ja: 'キャンセル',
+                  ),
                 ),
                 const SizedBox(width: 8),
                 OpenHandDialogActionButton.primary(
                   onPressed: _save,
-                  label: isZh ? '保存' : 'Save',
+                  label: _advancedText(
+                    context,
+                    zh: '保存',
+                    zhHant: '儲存',
+                    en: 'Save',
+                    fr: 'Enregistrer',
+                    de: 'Speichern',
+                    ja: '保存',
+                  ),
                 ),
               ],
             ),
@@ -2697,9 +4029,8 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
 }
 
 class _InterceptRuleEditor extends StatefulWidget {
-  const _InterceptRuleEditor({required this.initial, required this.isZh});
+  const _InterceptRuleEditor({required this.initial});
   final WebReverseInterceptRule initial;
-  final bool isZh;
 
   @override
   State<_InterceptRuleEditor> createState() => _InterceptRuleEditorState();
@@ -2734,9 +4065,18 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final isZh = widget.isZh;
     return buildOpenHandAlertDialog(
-      title: Text(isZh ? '编辑规则' : 'Edit rule'),
+      title: Text(
+        _advancedText(
+          context,
+          zh: '编辑规则',
+          zhHant: '編輯規則',
+          en: 'Edit rule',
+          fr: 'Modifier la regle',
+          de: 'Regel bearbeiten',
+          ja: '規則を編集',
+        ),
+      ),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
         child: SingleChildScrollView(
@@ -2746,17 +4086,45 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
               TextField(
                 controller: _patternCtrl,
                 decoration: InputDecoration(
-                  labelText: isZh ? 'URL 通配（* / ?）' : 'URL pattern (* / ?)',
+                  labelText: _advancedText(
+                    context,
+                    zh: 'URL 通配（* / ?）',
+                    zhHant: 'URL 通配（* / ?）',
+                    en: 'URL pattern (* / ?)',
+                    fr: 'Motif URL (* / ?)',
+                    de: 'URL-Muster (* / ?)',
+                    ja: 'URL パターン（* / ?）',
+                  ),
                   hintText: '*://api.example.com/v1/*',
                 ),
               ),
               SwitchListTile(
-                title: Text(isZh ? '启用' : 'Enabled'),
+                title: Text(
+                  _advancedText(
+                    context,
+                    zh: '启用',
+                    zhHant: '啟用',
+                    en: 'Enabled',
+                    fr: 'Active',
+                    de: 'Aktiviert',
+                    ja: '有効',
+                  ),
+                ),
                 value: _enabled,
                 onChanged: (v) => setState(() => _enabled = v),
               ),
               SwitchListTile(
-                title: Text(isZh ? '屏蔽请求 (Block)' : 'Block request'),
+                title: Text(
+                  _advancedText(
+                    context,
+                    zh: '屏蔽请求 (Block)',
+                    zhHant: '屏蔽請求 (Block)',
+                    en: 'Block request',
+                    fr: 'Bloquer la requete',
+                    de: 'Anfrage blockieren',
+                    ja: 'リクエストをブロック',
+                  ),
+                ),
                 value: _block,
                 onChanged: (v) => setState(() => _block = v),
               ),
@@ -2764,7 +4132,15 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
               TextField(
                 controller: _replaceCtrl,
                 decoration: InputDecoration(
-                  labelText: isZh ? '重写 URL（可选）' : 'Replace URL (optional)',
+                  labelText: _advancedText(
+                    context,
+                    zh: '重写 URL（可选）',
+                    zhHant: '重寫 URL（可選）',
+                    en: 'Replace URL (optional)',
+                    fr: 'Remplacer URL (optionnel)',
+                    de: 'URL ersetzen (optional)',
+                    ja: 'URL を置換（任意）',
+                  ),
                   hintText: 'https://mock.local/v1/',
                 ),
               ),
@@ -2773,9 +4149,15 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
                 controller: _headersCtrl,
                 maxLines: 5,
                 decoration: InputDecoration(
-                  labelText: isZh
-                      ? 'Header 覆盖（每行 Key: Value）'
-                      : 'Header overrides (Key: Value per line)',
+                  labelText: _advancedText(
+                    context,
+                    zh: 'Header 覆盖（每行 Key: Value）',
+                    zhHant: 'Header 覆寫（每行 Key: Value）',
+                    en: 'Header overrides (Key: Value per line)',
+                    fr: 'Overrides headers (Key: Value par ligne)',
+                    de: 'Header-Uberschreibungen (Key: Value pro Zeile)',
+                    ja: 'Header 上書き（1 行に Key: Value）',
+                  ),
                   hintText: 'X-Debug: 1\nAuthorization: Bearer xxx',
                 ),
               ),
@@ -2786,7 +4168,15 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
-          label: isZh ? '取消' : 'Cancel',
+          label: _advancedText(
+            context,
+            zh: '取消',
+            zhHant: '取消',
+            en: 'Cancel',
+            fr: 'Annuler',
+            de: 'Abbrechen',
+            ja: 'キャンセル',
+          ),
         ),
         OpenHandDialogActionButton.primary(
           onPressed: () {
@@ -2802,7 +4192,15 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
               ),
             );
           },
-          label: isZh ? '保存' : 'Save',
+          label: _advancedText(
+            context,
+            zh: '保存',
+            zhHant: '儲存',
+            en: 'Save',
+            fr: 'Enregistrer',
+            de: 'Speichern',
+            ja: '保存',
+          ),
         ),
       ],
     );
