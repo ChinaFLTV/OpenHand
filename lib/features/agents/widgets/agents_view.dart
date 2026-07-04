@@ -7572,7 +7572,9 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     for (final config in configs) {
       final id = _builtinToolOptionId(config);
       if (config.kind.isAgentCoordinationTool) {
-        agentTools.add(_agentToolOption(context, id, config.kind));
+        agentTools.add(
+          _agentToolOption(context, id, config.kind, enabled: config.enabled),
+        );
       } else {
         regularTools.add(_Option(id, config.effectiveName, config.kind.name));
       }
@@ -7592,10 +7594,15 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   ) {
     final aliases = <String, String>{};
     final availableAgentToolIds = <String>{};
+    final disabledAgentToolIds = <String>{};
     for (final config in configs) {
       final id = _builtinToolOptionId(config);
       if (config.kind.isAgentCoordinationTool) {
-        availableAgentToolIds.add(id);
+        if (config.enabled) {
+          availableAgentToolIds.add(id);
+        } else {
+          disabledAgentToolIds.add(id);
+        }
       }
       aliases[config.kind.name.toLowerCase()] = id;
       aliases[config.effectiveName.toLowerCase()] = id;
@@ -7612,7 +7619,9 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       if (value.isEmpty || value == agentNoCoordinationToolsBinding) {
         continue;
       }
-      normalized.add(aliases[value.toLowerCase()] ?? value);
+      final resolved = aliases[value.toLowerCase()] ?? value;
+      if (disabledAgentToolIds.contains(resolved)) continue;
+      normalized.add(resolved);
     }
     return normalized;
   }
@@ -8525,6 +8534,9 @@ class _AgentToolGroupSection extends StatelessWidget {
     final enabled = options
         .where((option) => selected.contains(option.id))
         .length;
+    final globallyDisabledCount = options
+        .where((option) => !option.enabled)
+        .length;
     final mutationCount = options
         .where(
           (option) =>
@@ -8561,11 +8573,17 @@ class _AgentToolGroupSection extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '启用 $enabled/${options.length} · 变更 $mutationCount',
-                    en: 'Enabled $enabled/${options.length} · Mutating $mutationCount',
-                  ),
+                  globallyDisabledCount == 0
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '启用 $enabled/${options.length} · 变更 $mutationCount',
+                          en: 'Enabled $enabled/${options.length} · Mutating $mutationCount',
+                        )
+                      : openHandLocalizedText(
+                          context,
+                          zh: '启用 $enabled/${options.length} · 全局关闭 $globallyDisabledCount',
+                          en: 'Enabled $enabled/${options.length} · Global off $globallyDisabledCount',
+                        ),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
@@ -8580,9 +8598,10 @@ class _AgentToolGroupSection extends StatelessWidget {
                 for (final option in options)
                   _AgentToolFilterChip(
                     option: option,
-                    selected: selected.contains(option.id),
+                    selected: option.enabled && selected.contains(option.id),
                     onSelected: (value) {
                       final next = {...selected};
+                      if (!option.enabled) return;
                       value ? next.add(option.id) : next.remove(option.id);
                       onChanged(next);
                     },
@@ -8611,7 +8630,13 @@ class _AgentToolFilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final kind = _agentToolKindForOption(option);
     final isMutation = kind?.isAgentMutationTool ?? false;
-    final tooltip = isMutation
+    final tooltip = !option.enabled
+        ? openHandLocalizedText(
+            context,
+            zh: '${option.label} 已在全局内建工具设置中关闭，需先全局启用后才能绑定。',
+            en: '${option.label} is disabled in global built-in tool settings. Enable it globally before binding.',
+          )
+        : isMutation
         ? openHandLocalizedText(
             context,
             zh: '${option.label} 会变更智能体任务、审批、KPI、资源或集群状态。',
@@ -8631,7 +8656,7 @@ class _AgentToolFilterChip extends StatelessWidget {
         ),
         label: Text(option.label, overflow: TextOverflow.ellipsis),
         selected: selected,
-        onSelected: onSelected,
+        onSelected: option.enabled ? onSelected : null,
         visualDensity: VisualDensity.compact,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
@@ -8725,14 +8750,16 @@ AiBuiltinToolKind? _agentToolKindForOption(_Option option) {
 _Option _agentToolOption(
   BuildContext context,
   String id,
-  AiBuiltinToolKind kind,
-) {
+  AiBuiltinToolKind kind, {
+  bool enabled = true,
+}) {
   final toolName = agentBuiltinToolCanonicalName(kind);
   final summary = agentBuiltinToolSummary(context, kind);
   return _Option(
     id,
     agentBuiltinToolLabel(context, kind),
     '$toolName · $summary',
+    enabled: enabled,
   );
 }
 
@@ -8940,11 +8967,12 @@ class _AgentRoutePreviewCard extends StatelessWidget {
 }
 
 class _Option {
-  const _Option(this.id, this.label, this.subtitle);
+  const _Option(this.id, this.label, this.subtitle, {this.enabled = true});
 
   final String id;
   final String label;
   final String subtitle;
+  final bool enabled;
 }
 
 Set<String> _mergeOptionGroupSelection({

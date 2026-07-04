@@ -703,6 +703,68 @@ void main() {
       expect(agent.builtinToolNames, isNot(contains('agentTaskPublish')));
     });
 
+    testWidgets('agent editor disables globally disabled agent tools', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty(
+        builtinToolConfigs: const <AiBuiltinToolConfig>[
+          AiBuiltinToolConfig(
+            kind: AiBuiltinToolKind.agentList,
+            enabled: false,
+          ),
+          AiBuiltinToolConfig(kind: AiBuiltinToolKind.agentTaskPublish),
+        ],
+      );
+      addTearDown(dependencies.dispose);
+      controller.setRuntimeAvailabilityProvider(
+        () => const AgentRuntimeAvailability(
+          isLoading: false,
+          isInstalled: true,
+          isEnabled: true,
+          pluginName: 'Hermes Agent',
+        ),
+      );
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.text('创建智能体'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, '名称 *'),
+        'Ops Agent',
+      );
+      await tester.pump();
+      DefaultTabController.of(
+        tester.element(find.byType(TabBar)),
+      ).animateTo(1, duration: Duration.zero);
+      await tester.pumpAndSettle();
+
+      expect(find.text('启用 0/1 · 全局关闭 1'), findsOneWidget);
+      expect(find.text('启用 1/1 · 变更 1'), findsOneWidget);
+      final listChip = find.widgetWithText(FilterChip, '智能体列表');
+      final publishChip = find.widgetWithText(FilterChip, '任务发布');
+      expect(tester.widget<FilterChip>(listChip).onSelected, isNull);
+      expect(tester.widget<FilterChip>(listChip).selected, isFalse);
+      expect(tester.widget<FilterChip>(publishChip).selected, isTrue);
+
+      final saveButton = find.ancestor(
+        of: find.text('保存'),
+        matching: find.byType(FilledButton),
+      );
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      final agent = controller.agents.single;
+      expect(agent.builtinToolNames, contains('agentTaskPublish'));
+      expect(agent.builtinToolNames, isNot(contains('AgentList')));
+      expect(agent.builtinToolNames, isNot(contains('agentList')));
+    });
+
     testWidgets('edits cluster worker tags with structured chips', (
       tester,
     ) async {
