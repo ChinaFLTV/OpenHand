@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../runtime/ai_endpoint_router.dart';
@@ -64,18 +65,18 @@ class AiRealtimeService {
       method: 'GET',
       transport: 'websocket',
     );
-    final endpointUrl = model.realtime.urlOverride?.trim().isNotEmpty == true
-        ? model.realtime.urlOverride!.trim()
-        : endpoint.url;
+    final endpointUrl = nullIfBlank(model.realtime.urlOverride) ?? endpoint.url;
+    final transport =
+        nullIfBlank(model.realtime.transport) ?? endpoint.transport;
     return AiRealtimeSessionDescriptor(
       url: _realtimeWebSocketUrl(endpointUrl, model),
-      transport: model.realtime.transport?.trim().isNotEmpty == true
-          ? model.realtime.transport!.trim()
-          : endpoint.transport,
+      transport: transport,
       modelId: model.resolveOperationModelId(AiApiFamily.realtime),
-      voice: model.realtime.voice ?? model.operationRouting.defaultVoice,
-      inputFormat: model.realtime.inputFormat,
-      outputFormat: model.realtime.outputFormat,
+      voice:
+          nullIfBlank(model.realtime.voice) ??
+          nullIfBlank(model.operationRouting.defaultVoice),
+      inputFormat: nullIfBlank(model.realtime.inputFormat),
+      outputFormat: nullIfBlank(model.realtime.outputFormat),
       sampleRate: model.realtime.sampleRate,
     );
   }
@@ -104,32 +105,30 @@ class AiRealtimeService {
       method: model.requestMethod,
       fallbackPath: 'v1/realtime/sessions',
     );
-    final body = AiOperationHttp.mergeBodyExtras(
-      model,
-      family,
-      <String, Object?>{
-        ...model.realtime.sessionDefaults,
-        'model': model.resolveOperationModelId(family),
-        if (modalities != null) 'modalities': modalities,
-        if (instructions != null) 'instructions': instructions,
-        if (turnDetection != null) 'turn_detection': turnDetection,
-        if (tools != null) 'tools': tools,
-        if (voice?.trim().isNotEmpty == true)
-          'voice': voice!.trim()
-        else if (model.realtime.voice?.trim().isNotEmpty == true)
-          'voice': model.realtime.voice!.trim()
-        else if (model.operationRouting.defaultVoice?.trim().isNotEmpty == true)
-          'voice': model.operationRouting.defaultVoice!.trim(),
-        if (inputAudioFormat?.trim().isNotEmpty == true)
-          'input_audio_format': inputAudioFormat!.trim()
-        else if (model.realtime.inputFormat?.trim().isNotEmpty == true)
-          'input_audio_format': model.realtime.inputFormat!.trim(),
-        if (outputAudioFormat?.trim().isNotEmpty == true)
-          'output_audio_format': outputAudioFormat!.trim()
-        else if (model.realtime.outputFormat?.trim().isNotEmpty == true)
-          'output_audio_format': model.realtime.outputFormat!.trim(),
-      },
-    );
+    final resolvedVoice =
+        nullIfBlank(voice) ??
+        nullIfBlank(model.realtime.voice) ??
+        nullIfBlank(model.operationRouting.defaultVoice);
+    final resolvedInputAudioFormat =
+        nullIfBlank(inputAudioFormat) ??
+        nullIfBlank(model.realtime.inputFormat);
+    final resolvedOutputAudioFormat =
+        nullIfBlank(outputAudioFormat) ??
+        nullIfBlank(model.realtime.outputFormat);
+    final body =
+        AiOperationHttp.mergeBodyExtras(model, family, <String, Object?>{
+          ...model.realtime.sessionDefaults,
+          'model': model.resolveOperationModelId(family),
+          if (modalities != null) 'modalities': modalities,
+          if (instructions != null) 'instructions': instructions,
+          if (turnDetection != null) 'turn_detection': turnDetection,
+          if (tools != null) 'tools': tools,
+          if (resolvedVoice != null) 'voice': resolvedVoice,
+          if (resolvedInputAudioFormat != null)
+            'input_audio_format': resolvedInputAudioFormat,
+          if (resolvedOutputAudioFormat != null)
+            'output_audio_format': resolvedOutputAudioFormat,
+        });
     final response = await _transport.sendJson(
       uri: AiOperationHttp.uriWithExtraQuery(endpoint.url, model, family),
       method: endpoint.method,
@@ -153,18 +152,15 @@ class AiRealtimeService {
     final payload = AiOperationHttp.jsonMapOrEmpty(decoded);
     final clientSecret = payload['client_secret'];
     final nestedSecret = AiOperationHttp.jsonMapOrEmpty(clientSecret);
+    final sessionId = optionalStringFromValue(payload['id']);
+    final clientSecretValue = optionalStringFromValue(
+      nestedSecret['value'] ?? payload['client_secret'],
+    );
     return AiRealtimeSessionResult(
       rawResponse: response.body,
       payload: payload,
-      sessionId: '${payload['id'] ?? ''}'.trim().isEmpty
-          ? null
-          : '${payload['id']}'.trim(),
-      clientSecret:
-          '${nestedSecret['value'] ?? payload['client_secret'] ?? ''}'
-              .trim()
-              .isEmpty
-          ? null
-          : '${nestedSecret['value'] ?? payload['client_secret']}'.trim(),
+      sessionId: sessionId,
+      clientSecret: clientSecretValue,
     );
   }
 
