@@ -72,12 +72,53 @@ class ReaderFileType {
     rtf,
   };
 
+  static const Map<String, String> _normalizedAliases = <String, String>{
+    'plaintext': text,
+    'text/plain': text,
+    'text/markdown': markdown,
+    'text/xmarkdown': markdown,
+    'application/json': json,
+    'application/jsonl': jsonl,
+    'application/xjsonl': jsonl,
+    'application/ndjson': jsonl,
+    'application/xndjson': jsonl,
+    'application/yaml': yaml,
+    'application/xyaml': yaml,
+    'text/yaml': yaml,
+    'text/xyaml': yaml,
+    'application/toml': toml,
+    'application/xml': xml,
+    'text/xml': xml,
+    'image/svg+xml': xml,
+    'text/csv': csv,
+    'text/tabseparatedvalues': tsv,
+    'application/xlatex': latex,
+    'application/rtf': rtf,
+    'text/rtf': rtf,
+    'application/pdf': pdf,
+    'application/vnd.openxmlformatsofficedocument.wordprocessingml.document':
+        docx,
+    'application/vnd.openxmlformatsofficedocument.spreadsheetml.sheet': xlsx,
+    'application/vnd.openxmlformatsofficedocument.presentationml.presentation':
+        pptx,
+    'javascript': code,
+    'typescript': code,
+    'python': code,
+    'kotlin': code,
+    'shell': code,
+    'shellscript': code,
+    'cplusplus': code,
+    'csharp': code,
+  };
+
   static String normalize(String value) {
     final normalized = value
         .trim()
         .toLowerCase()
         .replaceFirst(_leadingDotPattern, '')
         .replaceAll(_separatorPattern, '');
+    final aliased = _normalizedAliases[normalized];
+    if (aliased != null) return aliased;
     return switch (normalized) {
       'md' || 'markdown' => markdown,
       'txt' || 'text' || 'log' => text,
