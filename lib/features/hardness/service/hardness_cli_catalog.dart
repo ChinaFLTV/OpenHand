@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show Locale;
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/localized_text.dart';
 
 enum HardnessCliAuthProbeMode { commandExitCode, localStateFile }
 
@@ -487,13 +489,38 @@ String describeHardnessCliModel(
   HardnessCli? cli,
   String modelId, {
   bool isZh = false,
+  Locale? locale,
 }) {
   final normalizedModel = modelId.trim();
+  final Locale resolvedLocale;
+  if (locale != null) {
+    resolvedLocale = locale;
+  } else if (isZh) {
+    resolvedLocale = const Locale('zh');
+  } else {
+    resolvedLocale = const Locale('en');
+  }
   if (normalizedModel == kHardnessGeminiDefaultModelId) {
-    return isZh ? 'Gemini CLI 默认（自动）' : 'Gemini CLI default (auto)';
+    return openHandLocalizedTextForLocale(
+      resolvedLocale,
+      zh: 'Gemini CLI 默认（自动）',
+      zhHant: 'Gemini CLI 預設（自動）',
+      en: 'Gemini CLI default (auto)',
+      fr: 'Gemini CLI par défaut (auto)',
+      de: 'Gemini CLI Standard (automatisch)',
+      ja: 'Gemini CLI デフォルト（自動）',
+    );
   }
   if (normalizedModel.isEmpty) {
-    return isZh ? '默认' : 'Default';
+    return openHandLocalizedTextForLocale(
+      resolvedLocale,
+      zh: '默认',
+      zhHant: '預設',
+      en: 'Default',
+      fr: 'Par défaut',
+      de: 'Standard',
+      ja: 'デフォルト',
+    );
   }
   return normalizedModel;
 }

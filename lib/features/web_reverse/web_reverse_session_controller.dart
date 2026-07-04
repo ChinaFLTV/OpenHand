@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show Locale;
 
 import 'package:flutter/foundation.dart';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/localized_text.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_browser_launcher.dart';
@@ -297,14 +299,33 @@ class WebReverseSessionController extends ChangeNotifier {
       await Future<void>.delayed(_kInitialTargetPickDelay);
     }
     if (chosen == null) {
-      throw const CdpException(
+      throw CdpException(
         code: -1,
-        message: '未发现目标 page target；浏览器可能没有打开目标页面',
+        message: openHandLocalizedTextForLocaleName(
+          Platform.localeName,
+          zh: '未发现目标 page target；浏览器可能没有打开目标页面',
+          zhHant: '未發現目標 page target；瀏覽器可能沒有開啟目標頁面',
+          en: 'No target page target was found. The browser may not have opened the target page.',
+          fr: 'Aucune cible page target trouvée. Le navigateur n’a peut-être pas ouvert la page cible.',
+          de: 'Kein Ziel-page target gefunden. Der Browser hat die Zielseite möglicherweise nicht geöffnet.',
+          ja: '対象の page target が見つかりません。ブラウザで対象ページが開かれていない可能性があります。',
+        ),
       );
     }
     final targetId = '${chosen['targetId'] ?? ''}';
     if (targetId.isEmpty) {
-      throw const CdpException(code: -1, message: '目标 page target 缺少 targetId');
+      throw CdpException(
+        code: -1,
+        message: openHandLocalizedTextForLocaleName(
+          Platform.localeName,
+          zh: '目标 page target 缺少 targetId',
+          zhHant: '目標 page target 缺少 targetId',
+          en: 'The target page target is missing targetId.',
+          fr: 'La cible page target ne contient pas targetId.',
+          de: 'Dem Ziel-page target fehlt targetId.',
+          ja: '対象の page target に targetId がありません。',
+        ),
+      );
     }
     // 订阅 page target 的创建 / 销毁 / 信息变化，让 dashboard 实时更新 tab strip。
     await cdp.send(
@@ -7924,7 +7945,11 @@ enum WebReverseThrottlePreset {
   none(
     id: 'no-throttle',
     zhLabel: '不限速',
+    zhHantLabel: '不限速',
     label: 'No throttling',
+    frLabel: 'Aucune limitation',
+    deLabel: 'Keine Drosselung',
+    jaLabel: 'スロットリングなし',
     isOffline: false,
     latencyMs: 0,
     downloadKbps: 0,
@@ -7933,7 +7958,11 @@ enum WebReverseThrottlePreset {
   offline(
     id: 'offline',
     zhLabel: '离线',
+    zhHantLabel: '離線',
     label: 'Offline',
+    frLabel: 'Hors ligne',
+    deLabel: 'Offline',
+    jaLabel: 'オフライン',
     isOffline: true,
     latencyMs: 0,
     downloadKbps: 0,
@@ -7942,7 +7971,11 @@ enum WebReverseThrottlePreset {
   gprs(
     id: 'gprs',
     zhLabel: 'GPRS (50/20kbps, 500ms)',
+    zhHantLabel: 'GPRS (50/20kbps, 500ms)',
     label: 'GPRS (50/20kbps, 500ms)',
+    frLabel: 'GPRS (50/20kbps, 500ms)',
+    deLabel: 'GPRS (50/20kbps, 500ms)',
+    jaLabel: 'GPRS (50/20kbps, 500ms)',
     isOffline: false,
     latencyMs: 500,
     downloadKbps: 50,
@@ -7951,7 +7984,11 @@ enum WebReverseThrottlePreset {
   slow3g(
     id: 'slow-3g',
     zhLabel: '慢速 3G (400/400kbps, 400ms)',
+    zhHantLabel: '慢速 3G (400/400kbps, 400ms)',
     label: 'Slow 3G',
+    frLabel: '3G lente',
+    deLabel: 'Langsames 3G',
+    jaLabel: '低速 3G',
     isOffline: false,
     latencyMs: 400,
     downloadKbps: 400,
@@ -7960,7 +7997,11 @@ enum WebReverseThrottlePreset {
   fast3g(
     id: 'fast-3g',
     zhLabel: '快速 3G (1.6/750kbps, 150ms)',
+    zhHantLabel: '快速 3G (1.6/750kbps, 150ms)',
     label: 'Fast 3G',
+    frLabel: '3G rapide',
+    deLabel: 'Schnelles 3G',
+    jaLabel: '高速 3G',
     isOffline: false,
     latencyMs: 150,
     downloadKbps: 1600,
@@ -7969,7 +8010,11 @@ enum WebReverseThrottlePreset {
   fourG(
     id: '4g',
     zhLabel: '4G (4/3 Mbps, 80ms)',
+    zhHantLabel: '4G (4/3 Mbps, 80ms)',
     label: '4G (4/3 Mbps, 80ms)',
+    frLabel: '4G (4/3 Mbps, 80ms)',
+    deLabel: '4G (4/3 Mbps, 80ms)',
+    jaLabel: '4G (4/3 Mbps, 80ms)',
     isOffline: false,
     latencyMs: 80,
     downloadKbps: 4000,
@@ -7978,7 +8023,11 @@ enum WebReverseThrottlePreset {
   weakWifi(
     id: 'wifi',
     zhLabel: '弱 Wi-Fi (10/5 Mbps, 40ms)',
+    zhHantLabel: '弱 Wi-Fi (10/5 Mbps, 40ms)',
     label: 'Weak Wi-Fi (10/5 Mbps, 40ms)',
+    frLabel: 'Wi-Fi faible (10/5 Mbps, 40ms)',
+    deLabel: 'Schwaches Wi-Fi (10/5 Mbps, 40ms)',
+    jaLabel: '弱い Wi-Fi (10/5 Mbps, 40ms)',
     isOffline: false,
     latencyMs: 40,
     downloadKbps: 10000,
@@ -7987,7 +8036,11 @@ enum WebReverseThrottlePreset {
   custom(
     id: 'custom',
     zhLabel: '自定义',
+    zhHantLabel: '自訂',
     label: 'Custom',
+    frLabel: 'Personnalisé',
+    deLabel: 'Benutzerdefiniert',
+    jaLabel: 'カスタム',
     isOffline: false,
     latencyMs: 0,
     downloadKbps: 0,
@@ -7998,6 +8051,10 @@ enum WebReverseThrottlePreset {
     required this.id,
     required this.zhLabel,
     required this.label,
+    required this.zhHantLabel,
+    required this.frLabel,
+    required this.deLabel,
+    required this.jaLabel,
     required this.isOffline,
     required this.latencyMs,
     required this.downloadKbps,
@@ -8006,7 +8063,11 @@ enum WebReverseThrottlePreset {
 
   final String id;
   final String zhLabel;
+  final String zhHantLabel;
   final String label;
+  final String frLabel;
+  final String deLabel;
+  final String jaLabel;
   final bool isOffline;
   final int latencyMs;
   final int downloadKbps;
@@ -8014,7 +8075,15 @@ enum WebReverseThrottlePreset {
 
   bool get isSelectable => this != WebReverseThrottlePreset.custom;
 
-  String displayLabel(bool isZh) => isZh ? zhLabel : label;
+  String displayLabel(Locale locale) => openHandLocalizedTextForLocale(
+    locale,
+    zh: zhLabel,
+    zhHant: zhHantLabel,
+    en: label,
+    fr: frLabel,
+    de: deLabel,
+    ja: jaLabel,
+  );
 
   Map<String, Object?> get cdpParams => <String, Object?>{
     'offline': isOffline,

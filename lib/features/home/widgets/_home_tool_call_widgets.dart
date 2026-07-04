@@ -378,9 +378,17 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                       message:
                           message.metadata['tool_execution_stall_warning']
                               as String,
-                      child: const _ToolExecutionChip(
+                      child: _ToolExecutionChip(
                         icon: Icons.warning_amber_outlined,
-                        label: '可能停滞',
+                        label: openHandLocalizedText(
+                          context,
+                          zh: '可能停滞',
+                          zhHant: '可能停滯',
+                          en: 'Possibly stalled',
+                          fr: 'Possiblement bloqué',
+                          de: 'Möglicherweise blockiert',
+                          ja: '停止している可能性',
+                        ),
                       ),
                     ),
                   // 当工具调用仍登记在执行中心时，提供独立 Stop 按钮：

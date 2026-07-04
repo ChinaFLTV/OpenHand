@@ -148,7 +148,6 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       const SizedBox(width: 8),
                       _ToolbarThrottleButton(
                         value: ctrl.networkThrottlePreset,
-                        isZh: isZh,
                         onChanged: (preset) async {
                           final ok = await ctrl.setNetworkThrottling(preset);
                           if (!ok && mounted) {
@@ -1956,20 +1955,16 @@ class _ToolbarPrimaryPill extends StatelessWidget {
 }
 
 class _ToolbarThrottleButton extends StatelessWidget {
-  const _ToolbarThrottleButton({
-    required this.value,
-    required this.isZh,
-    required this.onChanged,
-  });
+  const _ToolbarThrottleButton({required this.value, required this.onChanged});
 
   final WebReverseThrottlePreset value;
-  final bool isZh;
   final ValueChanged<WebReverseThrottlePreset> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final locale = Localizations.localeOf(context);
     return SizedBox(
       height: _kToolbarHeight,
       child: AnimatedPopupMenuButton<WebReverseThrottlePreset>(
@@ -1987,7 +1982,8 @@ class _ToolbarThrottleButton extends StatelessWidget {
         itemBuilder: (context) => WebReverseThrottlePreset.values
             .where((p) => p.isSelectable)
             .map(
-              (p) => PopupMenuItem(value: p, child: Text(p.displayLabel(isZh))),
+              (p) =>
+                  PopupMenuItem(value: p, child: Text(p.displayLabel(locale))),
             )
             .toList(growable: false),
         child: Container(
@@ -2015,7 +2011,7 @@ class _ToolbarThrottleButton extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                value.displayLabel(isZh),
+                value.displayLabel(locale),
                 style: theme.textTheme.bodySmall?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: value == WebReverseThrottlePreset.none

@@ -298,7 +298,6 @@ Widget _buildProgrammingExpertConfigSection(
 Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  final isZh = openHandIsChineseLocale(context);
   final sectionTitle = _localizedText(
     context,
     zh: 'Harness Engineering 配置',
@@ -512,7 +511,7 @@ Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
                 ja: '未設定',
               );
             }
-            return '${rc.cliName} · ${describeHardnessCliModel(findHardnessCliByName(rc.cliName), rc.modelId, isZh: isZh)}';
+            return '${rc.cliName} · ${describeHardnessCliModel(findHardnessCliByName(rc.cliName), rc.modelId, locale: Localizations.localeOf(context))}';
           }(),
         ),
     ],
