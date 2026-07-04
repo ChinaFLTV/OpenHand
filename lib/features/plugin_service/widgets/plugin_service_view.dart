@@ -1586,10 +1586,14 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
     if (mounted) {
       setState(() {});
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         _logGuard.followToBottom(
           _logScroll,
           animated: true,
-          animationDuration: const Duration(milliseconds: 200),
+          animationDuration: openHandMotionDuration(
+            context,
+            const Duration(milliseconds: 200),
+          ),
         );
       });
     }
