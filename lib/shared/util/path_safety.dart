@@ -1,6 +1,11 @@
 import 'package:path/path.dart' as p;
 
 const int kOpenHandMaxAncestorDirectoryDepth = 256;
+const String _kEmptyPathError = 'path must not be empty.';
+const String _kRelativePathError = 'path must be relative.';
+const String _kParentTraversalError =
+    'path must not traverse parent directories.';
+const String _kNullBytePathError = 'path must not contain null bytes.';
 
 /// Returns true when [candidate] resolves to [parent] or a descendant of it.
 ///
@@ -18,25 +23,40 @@ bool isPathWithinOrEqual(String parent, String candidate) {
 String? safeRelativePathError(String relativePath) {
   final raw = relativePath.trim();
   if (raw.isEmpty) {
-    return 'path must not be empty.';
+    return _kEmptyPathError;
   }
-  if (p.isAbsolute(raw)) {
-    return 'path must be relative.';
+  if (raw.contains('\u0000')) {
+    return _kNullBytePathError;
   }
-  if (p.split(raw).contains('..')) {
-    return 'path must not traverse parent directories.';
+  if (_hasAnyRootPrefix(raw)) {
+    return _kRelativePathError;
+  }
+  if (_containsParentDirectorySegment(raw)) {
+    return _kParentTraversalError;
   }
   final normalized = p.normalize(raw);
   if (normalized.isEmpty || normalized == '.') {
-    return 'path must not be empty.';
+    return _kEmptyPathError;
   }
-  if (p.isAbsolute(normalized)) {
-    return 'path must be relative.';
+  if (_hasAnyRootPrefix(normalized)) {
+    return _kRelativePathError;
   }
-  if (p.split(normalized).contains('..')) {
-    return 'path must not traverse parent directories.';
+  if (_containsParentDirectorySegment(normalized)) {
+    return _kParentTraversalError;
   }
   return null;
+}
+
+bool _hasAnyRootPrefix(String path) {
+  return p.rootPrefix(path).isNotEmpty ||
+      p.windows.rootPrefix(path).isNotEmpty ||
+      p.url.rootPrefix(path).isNotEmpty;
+}
+
+bool _containsParentDirectorySegment(String path) {
+  return p.split(path).contains('..') ||
+      p.windows.split(path).contains('..') ||
+      p.url.split(path).contains('..');
 }
 
 /// Returns a display path relative to [from] only when the target stays inside
