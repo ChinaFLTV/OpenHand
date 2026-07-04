@@ -201,7 +201,7 @@ domains: cloud, finops
     final recentAudit =
         operationalState['recent_audit_events'] as List<Object?>;
 
-    expect(snapshot.version, '1.2.9');
+    expect(snapshot.version, '1.2.10');
     expect(routing['has_route'], isTrue);
     expect(routing['keywords'], <Object?>[
       'release',
@@ -350,7 +350,7 @@ domains: cloud, finops
       final omittedPrompt =
           extra['agent_system_prompt'] as Map<String, Object?>;
 
-      expect(snapshot.version, '1.2.9');
+      expect(snapshot.version, '1.2.10');
       expect(task['content'], isA<String>());
       expect(task['content'], contains('[truncated:'));
       expect(task['content'], isNot(longContent));
@@ -369,6 +369,8 @@ domains: cloud, finops
 
   test('prompt renderer bounds activity and audit metadata', () async {
     final largeMetadata = List<String>.filled(180, '工具输出片段-').join();
+    final largeActivityContent = List<String>.filled(180, '活动正文片段-').join();
+    final largeAuditSummary = List<String>.filled(180, '审计摘要片段-').join();
     final hiddenPrompt = List<String>.filled(
       120,
       'hidden-system-prompt-',
@@ -389,6 +391,7 @@ domains: cloud, finops
                 id: 'activity-large',
                 kind: 'tool_call',
                 title: 'Read tool output',
+                content: largeActivityContent,
                 metadata: <String, Object?>{
                   'tool_output': largeMetadata,
                   'rendered_prompt': hiddenPrompt,
@@ -399,7 +402,7 @@ domains: cloud, finops
               AgentAuditEvent(
                 id: 'audit-large',
                 kind: 'mcp_call',
-                summary: 'Called MCP server',
+                summary: largeAuditSummary,
                 metadata: <String, Object?>{
                   'raw_payload': largeMetadata,
                   'agent_system_prompt': hiddenPrompt,
@@ -424,11 +427,15 @@ domains: cloud, finops
     final agentSystemPrompt =
         auditMetadata['agent_system_prompt'] as Map<String, Object?>;
 
-    expect(snapshot.version, '1.2.9');
+    expect(snapshot.version, '1.2.10');
+    expect(activity['content'], contains('[truncated:'));
+    expect(audit['summary'], contains('[truncated:'));
     expect(activityMetadata['tool_output'], contains('[truncated:'));
     expect(auditMetadata['raw_payload'], contains('[truncated:'));
     expect(renderedPrompt['omitted'], isTrue);
     expect(agentSystemPrompt['omitted'], isTrue);
+    expect(snapshot.renderedPrompt, isNot(contains(largeActivityContent)));
+    expect(snapshot.renderedPrompt, isNot(contains(largeAuditSummary)));
     expect(snapshot.renderedPrompt, isNot(contains(largeMetadata)));
     expect(snapshot.renderedPrompt, isNot(contains(hiddenPrompt)));
   });
@@ -447,7 +454,7 @@ domains: cloud, finops
         ),
       );
 
-      expect(snapshot.version, '1.2.9');
+      expect(snapshot.version, '1.2.10');
       expect(snapshot.renderedPrompt, contains('<operating_contract>'));
       expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
       expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));
@@ -480,7 +487,7 @@ domains: cloud, finops
       );
 
       expect(snapshot.assetPath, AgentPromptRenderer.defaultAssetPath);
-      expect(snapshot.version, '1.2.9');
+      expect(snapshot.version, '1.2.10');
       expect(snapshot.renderedPrompt, contains('<identity>'));
       expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
       expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));

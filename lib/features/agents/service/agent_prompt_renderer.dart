@@ -50,7 +50,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.9';
+  static const String promptVersion = '1.2.10';
 
   final Future<String> Function(String path) _loader;
 
@@ -387,6 +387,8 @@ Map<String, Object?> _taskExtraJson(Map<String, Object?> extra) {
 
 const int _agentPromptTaskTextMaxChars = 1600;
 const int _agentPromptTaskNoteMaxChars = 800;
+const int _agentPromptEventTextMaxChars = 1200;
+const int _agentPromptAuditSummaryMaxChars = 1000;
 const int _agentPromptExtraStringMaxChars = 800;
 const int _agentPromptExtraCollectionMaxItems = 40;
 const int _agentPromptExtraMaxDepth = 4;
@@ -453,7 +455,10 @@ Map<String, Object?> _activityJson(AgentActivityEvent event) {
     'kind': event.kind,
     'message_type': event.effectiveMessageType.storageValue,
     'title': event.title,
-    'content': event.content,
+    'content': _boundedPromptText(
+      event.content,
+      maxChars: _agentPromptEventTextMaxChars,
+    ),
     'created_at': event.createdAt?.toUtc().toIso8601String(),
     'metadata': _promptMetadataJson(event.metadata),
   };
@@ -463,7 +468,10 @@ Map<String, Object?> _auditJson(AgentAuditEvent event) {
   return <String, Object?>{
     'id': event.id,
     'kind': event.kind,
-    'summary': event.summary,
+    'summary': _boundedPromptText(
+      event.summary,
+      maxChars: _agentPromptAuditSummaryMaxChars,
+    ),
     'tool_name': event.toolName,
     'token_usage': event.tokenUsage,
     'request_count': event.requestCount,
