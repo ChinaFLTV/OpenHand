@@ -56,6 +56,17 @@ class _KeyTweakableSliderState extends State<KeyTweakableSlider> {
     debugLabel: widget.debugLabel ?? 'KeyTweakableSlider',
   );
 
+  ({int lower, int upper}) get _bounds {
+    return widget.min <= widget.max
+        ? (lower: widget.min, upper: widget.max)
+        : (lower: widget.max, upper: widget.min);
+  }
+
+  int get _safeValue {
+    final (:lower, :upper) = _bounds;
+    return widget.value.clamp(lower, upper).toInt();
+  }
+
   @override
   void dispose() {
     _focus.dispose();
@@ -76,8 +87,10 @@ class _KeyTweakableSliderState extends State<KeyTweakableSlider> {
     } else {
       return KeyEventResult.ignored;
     }
-    final next = (widget.value + delta).clamp(widget.min, widget.max);
-    if (next == widget.value) return KeyEventResult.handled;
+    final (:lower, :upper) = _bounds;
+    final current = _safeValue;
+    final next = (current + delta).clamp(lower, upper).toInt();
+    if (next == current) return KeyEventResult.handled;
     HapticFeedback.selectionClick();
     widget.onChanged(next);
     return KeyEventResult.handled;
@@ -88,7 +101,7 @@ class _KeyTweakableSliderState extends State<KeyTweakableSlider> {
     return Focus(
       focusNode: _focus,
       onKeyEvent: _handleKey,
-      child: widget.buildSlider(context, widget.value),
+      child: widget.buildSlider(context, _safeValue),
     );
   }
 }
