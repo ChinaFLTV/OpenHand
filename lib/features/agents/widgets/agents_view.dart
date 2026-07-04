@@ -80,6 +80,9 @@ const List<String> _agentKpiStatusOptions = <String>[
 ];
 const int _agentTaskRecommendedPollMs = 1500;
 const int _agentOpenHandlePressureLimit = 128;
+const String _agentTaskProgressToolName = 'AgentTaskProgress';
+const String _agentTaskResultToolName = 'AgentTaskResult';
+const String _agentTaskTrackToolName = 'AgentTaskTrack';
 const int _agentRoutePreviewKeywordLimit = 10;
 const List<String> _agentImageExtensions = <String>[
   'jpg',
@@ -2327,7 +2330,7 @@ class _AgentTaskCard extends StatelessWidget {
     final created = task.createdAt == null
         ? ''
         : formatMonthDayHm(task.createdAt!.toLocal());
-    final tracking = _agentTaskTrackingChips(context, task);
+    final tracking = _agentTaskTrackingChips(context, agent, task);
     final metadata = _agentTaskMetadataChips(task);
     final progress = task.progress.clamp(0, 1).toDouble();
 
@@ -2484,7 +2487,7 @@ Future<void> _showAgentTaskDetailDialog(
 ) {
   final l10n = AppLocalizations.of(context)!;
   final assignedWorker = _agentTaskAssignedWorkerLabel(l10n, task);
-  final trackingSummary = _agentTaskTrackingSummary(context, task);
+  final trackingSummary = _agentTaskTrackingSummary(context, agent, task);
   final extraText = const JsonEncoder.withIndent(
     '  ',
   ).convert(_agentTaskExtraDisplayJson(task.extra));
@@ -2860,8 +2863,12 @@ List<String> _agentTaskMetadataChips(AgentTask task) {
   return chips;
 }
 
-List<String> _agentTaskTrackingChips(BuildContext context, AgentTask task) {
-  final summary = _agentTaskTrackingSummary(context, task);
+List<String> _agentTaskTrackingChips(
+  BuildContext context,
+  AgentProfile agent,
+  AgentTask task,
+) {
+  final summary = _agentTaskTrackingSummary(context, agent, task);
   final chips = <String>[
     openHandLocalizedText(
       context,
@@ -2908,16 +2915,21 @@ List<String> _agentTaskTrackingChips(BuildContext context, AgentTask task) {
 
 _AgentTaskTrackingSummary _agentTaskTrackingSummary(
   BuildContext context,
+  AgentProfile agent,
   AgentTask task,
 ) {
+  final canPoll = _agentTaskCanPoll(agent);
   final nextAction = switch (task.status) {
     AgentTaskStatus.backlog ||
     AgentTaskStatus.ready ||
-    AgentTaskStatus.running => openHandLocalizedText(
-      context,
-      zh: '轮询进度',
-      en: 'Poll progress',
-    ),
+    AgentTaskStatus.running =>
+      canPoll
+          ? openHandLocalizedText(context, zh: '轮询进度', en: 'Poll progress')
+          : openHandLocalizedText(
+              context,
+              zh: '开启轮询工具',
+              en: 'Enable polling tool',
+            ),
     AgentTaskStatus.waitingApproval => openHandLocalizedText(
       context,
       zh: '处理审批',
@@ -2972,13 +2984,20 @@ _AgentTaskTrackingSummary _agentTaskTrackingSummary(
     ),
     AgentTaskStatus.backlog ||
     AgentTaskStatus.ready ||
-    AgentTaskStatus.running => openHandLocalizedText(
-      context,
-      zh: '结果未就绪，建议定时轮询',
-      en: 'Result is not ready; poll periodically',
-    ),
+    AgentTaskStatus.running =>
+      canPoll
+          ? openHandLocalizedText(
+              context,
+              zh: '结果未就绪，建议定时轮询',
+              en: 'Result is not ready; poll periodically',
+            )
+          : openHandLocalizedText(
+              context,
+              zh: '结果未就绪，请先为该智能体开启轮询工具',
+              en: 'Result is not ready; enable a polling tool for this agent',
+            ),
   };
-  final recommendedTool = _agentTaskRecommendedTool(task);
+  final recommendedTool = _agentTaskRecommendedTool(context, agent, task);
   return _AgentTaskTrackingSummary(
     nextAction: nextAction,
     handoff: handoff,
@@ -3004,20 +3023,83 @@ bool _agentTaskResultAvailable(AgentTask task) {
       task.result.trim().isNotEmpty;
 }
 
-String _agentTaskRecommendedTool(AgentTask task) {
+String _agentTaskRecommendedTool(
+  BuildContext context,
+  AgentProfile agent,
+  AgentTask task,
+) {
   if (_agentTaskNeedsPolling(task.status)) {
-    return 'AgentTaskProgress · ${_agentTaskRecommendedPollMs}ms';
+    if (_agentTaskToolAvailable(agent, _agentTaskProgressToolName)) {
+      return '$_agentTaskProgressToolName · ${_agentTaskRecommendedPollMs}ms';
+    }
+    if (_agentTaskToolAvailable(agent, _agentTaskResultToolName)) {
+      return '$_agentTaskResultToolName · ${_agentTaskRecommendedPollMs}ms';
+    }
+    return openHandLocalizedText(
+      context,
+      zh: '需开启 AgentTaskProgress 或 AgentTaskResult',
+      en: 'Enable AgentTaskProgress or AgentTaskResult',
+    );
   }
-  if (_agentTaskResultAvailable(task)) return 'AgentTaskResult';
+  if (_agentTaskResultAvailable(task) &&
+      _agentTaskToolAvailable(agent, _agentTaskResultToolName)) {
+    return _agentTaskResultToolName;
+  } else if (_agentTaskResultAvailable(task)) {
+    return openHandLocalizedText(
+      context,
+      zh: '需开启 AgentTaskResult',
+      en: 'Enable AgentTaskResult',
+    );
+  }
   return switch (task.status) {
     AgentTaskStatus.waitingApproval => 'AgentApprovalRequest',
     AgentTaskStatus.paused => 'AgentTaskResume',
-    AgentTaskStatus.completed => 'AgentTaskTrack',
-    AgentTaskStatus.failed || AgentTaskStatus.canceled => 'AgentTaskTrack',
+    AgentTaskStatus.completed =>
+      _agentTaskToolAvailable(agent, _agentTaskTrackToolName)
+          ? _agentTaskTrackToolName
+          : openHandLocalizedText(
+              context,
+              zh: '需开启 AgentTaskTrack',
+              en: 'Enable AgentTaskTrack',
+            ),
+    AgentTaskStatus.failed || AgentTaskStatus.canceled =>
+      _agentTaskToolAvailable(agent, _agentTaskTrackToolName)
+          ? _agentTaskTrackToolName
+          : openHandLocalizedText(
+              context,
+              zh: '需开启 AgentTaskTrack',
+              en: 'Enable AgentTaskTrack',
+            ),
     AgentTaskStatus.backlog ||
     AgentTaskStatus.ready ||
-    AgentTaskStatus.running => 'AgentTaskProgress',
+    AgentTaskStatus.running =>
+      _agentTaskToolAvailable(agent, _agentTaskProgressToolName)
+          ? _agentTaskProgressToolName
+          : openHandLocalizedText(
+              context,
+              zh: '需开启 AgentTaskProgress',
+              en: 'Enable AgentTaskProgress',
+            ),
   };
+}
+
+bool _agentTaskCanPoll(AgentProfile agent) {
+  return _agentTaskToolAvailable(agent, _agentTaskProgressToolName) ||
+      _agentTaskToolAvailable(agent, _agentTaskResultToolName);
+}
+
+bool _agentTaskToolAvailable(AgentProfile agent, String toolName) {
+  final configured = normalizeAgentBuiltinToolNames(agent.builtinToolNames);
+  if (configured.isEmpty) return true;
+  if (agentHasNoCoordinationToolsBinding(configured)) return false;
+  final normalizedTool = _normalizeAgentTaskToolName(toolName);
+  return agentVisibleBuiltinToolNames(
+    configured,
+  ).any((name) => _normalizeAgentTaskToolName(name) == normalizedTool);
+}
+
+String _normalizeAgentTaskToolName(String value) {
+  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
 }
 
 String? _agentTaskTerminalReason(AgentTask task) {

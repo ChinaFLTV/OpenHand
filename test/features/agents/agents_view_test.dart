@@ -943,6 +943,56 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
     });
 
+    testWidgets('task desk reflects missing polling tool bindings', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          enabled: true,
+          lifecycleState: AgentLifecycleState.running,
+          builtinToolNames: <String>['AgentTaskPublish', 'AgentTaskCancel'],
+          tasks: <AgentTask>[
+            AgentTask(
+              id: 'task-1',
+              title: 'Needs polling setup',
+              status: AgentTaskStatus.running,
+              progress: 0.2,
+            ),
+          ],
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('任务台').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('下一步: 开启轮询工具'), findsOneWidget);
+      expect(
+        find.text('轮询: 需开启 AgentTaskProgress 或 AgentTaskResult'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('AgentTaskProgress · 1500ms'), findsNothing);
+
+      await tester.tap(find.text('Needs polling setup').first);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('结果未就绪，请先为该智能体开启轮询工具'), findsOneWidget);
+      expect(
+        find.text('需开启 AgentTaskProgress 或 AgentTaskResult'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('terminates a task from task desk with terminal metadata', (
       tester,
     ) async {
