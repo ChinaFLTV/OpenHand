@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'motion_preference.dart';
+
 /// Reusable image interaction shell for preview dialogs.
 ///
 /// `InteractiveViewer` supplies native pinch zoom and one-finger pan on touch
@@ -33,11 +35,18 @@ class _OpenHandInteractiveImagePreviewState
   Animation<Matrix4>? _resetAnimation;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!openHandTickerMotionEnabled(context)) {
+      _stopResetAnimation(settleToIdentity: _resetAnimation != null);
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant OpenHandInteractiveImagePreview oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.child.key != widget.child.key) {
-      _resetController?.stop();
-      _resetAnimation = null;
+      _stopResetAnimation();
       _controller.value = Matrix4.identity();
     }
   }
@@ -63,7 +72,19 @@ class _OpenHandInteractiveImagePreviewState
     _controller.value = animation.value;
   }
 
+  void _stopResetAnimation({bool settleToIdentity = false}) {
+    _resetController?.stop();
+    _resetAnimation = null;
+    if (settleToIdentity) {
+      _controller.value = Matrix4.identity();
+    }
+  }
+
   void _animateReset() {
+    if (!openHandTickerMotionEnabled(context)) {
+      _stopResetAnimation(settleToIdentity: true);
+      return;
+    }
     final resetController = _ensureResetController();
     resetController.stop();
     _resetAnimation = Matrix4Tween(
@@ -88,7 +109,7 @@ class _OpenHandInteractiveImagePreviewState
         transformationController: _controller,
         minScale: minScale,
         maxScale: maxScale,
-        onInteractionStart: (_) => _resetController?.stop(),
+        onInteractionStart: (_) => _stopResetAnimation(),
         trackpadScrollCausesScale: true,
         child: widget.child,
       ),
