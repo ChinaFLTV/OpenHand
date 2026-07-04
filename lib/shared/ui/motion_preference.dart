@@ -16,14 +16,14 @@ bool openHandTickerMotionEnabled(BuildContext context) {
 }
 
 Duration openHandMotionDuration(BuildContext context, Duration duration) {
-  if (duration <= Duration.zero || openHandReduceMotionOf(context)) {
+  if (duration <= Duration.zero || !openHandTickerMotionEnabled(context)) {
     return Duration.zero;
   }
   return duration;
 }
 
 Duration openHandMotionDurationMs(BuildContext context, int milliseconds) {
-  if (milliseconds <= 0 || openHandReduceMotionOf(context)) {
+  if (milliseconds <= 0 || !openHandTickerMotionEnabled(context)) {
     return Duration.zero;
   }
   return Duration(milliseconds: milliseconds);
