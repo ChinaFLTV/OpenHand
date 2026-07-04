@@ -1809,6 +1809,102 @@ domains: finance, cloud billing
     });
 
     test(
+      'progress and result tools expose retry state without stale failure result',
+      () async {
+        await controller.saveAgent(_agent(enabled: true));
+        final task = await controller.publishTaskWithResult(
+          'agent-1',
+          title: 'Retry transient operation',
+        );
+        expect(task, isNotNull);
+
+        final retried = await controller.updateTaskState(
+          'agent-1',
+          task!.id,
+          status: AgentTaskStatus.failed,
+          result: 'transient network failure',
+          note: 'first attempt timed out',
+          activityKind: 'task_failed',
+          activityTitle: 'task_failed',
+        );
+        expect(retried, isNotNull);
+        expect(retried!.status, AgentTaskStatus.running);
+
+        final catalog = runtime.resolveCatalogFromRuntimeSnapshot(
+          runtimeContext: _runtimeContext(),
+        );
+        final progress = await runtime.execute(
+          sessionId: 'session-1',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-progress',
+            name: 'AgentTaskProgress',
+            arguments: jsonEncode(<String, Object?>{
+              'agent_id': 'agent-1',
+              'task_id': task.id,
+            }),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
+        final progressPayload =
+            jsonDecode(progress.resultText) as Map<String, Object?>;
+        final progressState = progressPayload['state'] as Map<String, Object?>;
+        final progressRetry = progressState['retry'] as Map<String, Object?>;
+
+        expect(progress.status, BashToolExecutionStatus.success);
+        expect(progressPayload['result_available'], isFalse);
+        expect(progressState['needs_polling'], isTrue);
+        expect(progressRetry['retry_count'], 1);
+        expect(
+          progressRetry['last_failure_result'],
+          'transient network failure',
+        );
+        expect(progressRetry['last_failure_note'], 'first attempt timed out');
+
+        final taskResult = await runtime.execute(
+          sessionId: 'session-1',
+          catalog: catalog,
+          toolCall: AiToolCall(
+            id: 'call-result',
+            name: 'AgentTaskResult',
+            arguments: jsonEncode(<String, Object?>{
+              'agent_id': 'agent-1',
+              'task_id': task.id,
+            }),
+          ),
+          model: _model(),
+          previouslyReadFiles: const <String>{},
+          denyCommandRules: const <AiDenyCommandRule>[],
+          requireWriteCommandConfirmation: false,
+          confirmWriteCommand: (request) async =>
+              BashCommandApprovalDecision.approved,
+        );
+        final resultPayload =
+            jsonDecode(taskResult.resultText) as Map<String, Object?>;
+        final resultState = resultPayload['state'] as Map<String, Object?>;
+        final resultRetry = resultState['retry'] as Map<String, Object?>;
+        final handoff = resultPayload['handoff'] as Map<String, Object?>;
+        final handoffRetry = handoff['retry'] as Map<String, Object?>;
+
+        expect(taskResult.status, BashToolExecutionStatus.success);
+        expect(resultPayload['result'], isEmpty);
+        expect(resultPayload['note'], isEmpty);
+        expect(resultPayload['result_available'], isFalse);
+        expect(resultRetry['retry_count'], 1);
+        expect(handoff['message'], 'result_not_ready_poll');
+        expect(
+          handoffRetry['last_failure_result'],
+          'transient network failure',
+        );
+      },
+    );
+
+    test(
       'terminate tool marks task terminal and tells the model to stop',
       () async {
         await controller.saveAgent(_agent(enabled: true));

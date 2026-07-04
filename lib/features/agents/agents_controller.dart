@@ -1571,6 +1571,8 @@ class AgentsController extends ManagedChangeNotifier {
     return task.copyWith(
       status: AgentTaskStatus.ready,
       progress: 0,
+      result: '',
+      note: '',
       updatedAt: now,
       extra: <String, Object?>{
         ...task.extra,

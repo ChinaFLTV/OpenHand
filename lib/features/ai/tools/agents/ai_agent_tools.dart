@@ -1972,6 +1972,7 @@ Map<String, Object?> _taskStateJson(AgentTask task) {
     'requires_attention': requiresAttention,
     'next_action': _taskNextAction(task, needsPolling: needsPolling),
     'allowed_tools': _allowedTaskTools(task.status),
+    if (_taskRetryJson(task) case final retry?) 'retry': retry,
     if (terminalReason != null) 'terminal_reason': terminalReason,
     if (needsPolling) 'recommended_poll_ms': _agentTaskRecommendedPollMs,
   };
@@ -1994,11 +1995,29 @@ Map<String, Object?> _taskHandoffJson(AgentTask task) {
     'requires_attention': state['requires_attention'],
     'terminal': state['terminal'],
     'allowed_tools': state['allowed_tools'],
+    if (state['retry'] != null) 'retry': state['retry'],
     if (state['terminal_reason'] != null)
       'terminal_reason': state['terminal_reason'],
     if (resultAvailable) 'result': task.result,
     if (task.note.trim().isNotEmpty) 'note': task.note,
     if (_taskNextPollJson(task) case final nextPoll?) 'next_poll': nextPoll,
+  };
+}
+
+Map<String, Object?>? _taskRetryJson(AgentTask task) {
+  final retryCount = nonNegativeIntFromValue(
+    task.extra['retry_count'],
+    fallback: 0,
+  );
+  if (retryCount <= 0) return null;
+  final lastFailureResult = '${task.extra['last_failure_result'] ?? ''}'.trim();
+  final lastFailureNote = '${task.extra['last_failure_note'] ?? ''}'.trim();
+  return <String, Object?>{
+    'retry_count': retryCount,
+    if (task.extra['last_retry_at'] != null)
+      'last_retry_at': '${task.extra['last_retry_at']}',
+    if (lastFailureResult.isNotEmpty) 'last_failure_result': lastFailureResult,
+    if (lastFailureNote.isNotEmpty) 'last_failure_note': lastFailureNote,
   };
 }
 

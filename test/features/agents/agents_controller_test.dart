@@ -357,8 +357,15 @@ void main() {
 
       expect(retried, isNotNull);
       expect(retried!.status, AgentTaskStatus.running);
+      expect(retried.result, isEmpty);
+      expect(retried.note, isEmpty);
       expect(retried.extra['retry_count'], 1);
+      expect(retried.extra['last_failure_result'], 'transient failure');
       final agent = controller.agentById('agent-1')!;
+      final agentTask = agent.tasks.single;
+      expect(agentTask.result, isEmpty);
+      expect(agentTask.note, isEmpty);
+      expect(agentTask.extra['last_failure_result'], 'transient failure');
       expect(agent.workers.single.status, AgentWorkerStatus.busy);
       expect(agent.workers.single.executedTaskCount, 1);
       expect(
