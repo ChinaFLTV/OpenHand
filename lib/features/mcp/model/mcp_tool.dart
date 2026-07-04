@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 enum McpToolCatalogStatus { idle, loading, ready, failed }
 
 class McpToolCatalog {
@@ -20,9 +22,9 @@ class McpToolCatalog {
   bool get isLoading => status == McpToolCatalogStatus.loading;
   bool get hasError =>
       status == McpToolCatalogStatus.failed &&
-      (errorMessage?.trim().isNotEmpty ?? false);
-  bool get hasWarning => warningMessage?.trim().isNotEmpty ?? false;
-  bool get hasServerInstructions => serverInstructions.trim().isNotEmpty;
+      nullIfBlank(errorMessage) != null;
+  bool get hasWarning => nullIfBlank(warningMessage) != null;
+  bool get hasServerInstructions => nullIfBlank(serverInstructions) != null;
 
   McpToolCatalog copyWith({
     McpToolCatalogStatus? status,
@@ -83,9 +85,8 @@ class McpTool {
   final Map<String, Object?> rawMetadata;
   final String? metadataWarning;
 
-  bool get hasMetadataWarning => metadataWarning?.trim().isNotEmpty ?? false;
-  bool get hasOutputDescription =>
-      outputDescription?.trim().isNotEmpty ?? false;
+  bool get hasMetadataWarning => nullIfBlank(metadataWarning) != null;
+  bool get hasOutputDescription => nullIfBlank(outputDescription) != null;
   bool get hasOutputSchema =>
       rawOutputSchema != null ||
       (outputSchema != null && outputSchema!.isNotEmpty);

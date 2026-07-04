@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 enum McpServerHealthStatus { idle, checking, healthy, unhealthy }
 
 /// 单次探测的最简记录，用于服务卡片侧抽屉展示「最近探测历史」。
@@ -46,7 +48,7 @@ class McpServerHealth {
   bool get isHealthy => status == McpServerHealthStatus.healthy;
   bool get hasError =>
       status == McpServerHealthStatus.unhealthy &&
-      (errorMessage?.trim().isNotEmpty ?? false);
+      nullIfBlank(errorMessage) != null;
 
   /// 是否需要在 UI 上显眼地提醒用户介入处理（连续失败 >= 3 次）。
   bool get needsAttention => consecutiveFailures >= 3;

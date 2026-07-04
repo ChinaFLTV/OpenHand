@@ -2,6 +2,8 @@ import 'package:characters/characters.dart';
 
 import '../../../shared/util/input_value_parsing.dart';
 
+final RegExp _agentDelimitedTextSeparatorPattern = RegExp(r'[\r\n,，;；]+');
+
 enum AgentExecutionMode {
   normal('normal'),
   fullAccess('full_access');
@@ -973,8 +975,8 @@ class AgentProfile {
   final DateTime? updatedAt;
 
   String get initials {
-    final source = name.trim().isNotEmpty ? name.trim() : id.trim();
-    if (source.isEmpty) return 'A';
+    final source = nullIfBlank(name) ?? nullIfBlank(id);
+    if (source == null) return 'A';
     return source.characters.first.toUpperCase();
   }
 
@@ -1188,14 +1190,14 @@ List<String> _workspaceScopePathsFromValue(
 }) {
   final structured = stringListFromValue(
     raw,
-    separator: RegExp(r'[\r\n,，;；]+'),
+    separator: _agentDelimitedTextSeparatorPattern,
     ignoreLiteralNull: true,
   );
   if (structured.isNotEmpty) return _dedupeNonEmptyStrings(structured);
   return _dedupeNonEmptyStrings(
     stringListFromValue(
       legacyText,
-      separator: RegExp(r'[\r\n,，;；]+'),
+      separator: _agentDelimitedTextSeparatorPattern,
       ignoreLiteralNull: true,
     ),
   );
@@ -1205,8 +1207,8 @@ List<String> _dedupeNonEmptyStrings(Iterable<String> values) {
   final seen = <String>{};
   final result = <String>[];
   for (final raw in values) {
-    final value = raw.trim();
-    if (value.isEmpty) continue;
+    final value = nullIfBlank(raw);
+    if (value == null) continue;
     if (seen.add(value.toLowerCase())) result.add(value);
   }
   return result;
