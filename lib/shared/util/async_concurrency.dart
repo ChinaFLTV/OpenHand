@@ -3,6 +3,7 @@ import 'dart:async';
 typedef OpenHandAsyncContinuePredicate = bool Function();
 
 const int kOpenHandMaxAsyncConcurrency = 64;
+const Duration _kOpenHandAsyncDelayCheckInterval = Duration(milliseconds: 50);
 
 int _boundedConcurrency({required int itemCount, required int maxConcurrency}) {
   if (itemCount <= 0) return 0;
@@ -77,7 +78,11 @@ Future<void> forEachIndexWithConcurrencyLimit({
       if (delayBetweenItems > Duration.zero &&
           index < itemCount - 1 &&
           nextIndex < itemCount) {
-        await Future<void>.delayed(delayBetweenItems);
+        final stillActive = await _delayWhileContinuing(
+          delayBetweenItems,
+          keepGoing,
+        );
+        if (!stillActive) return;
       }
     }
   }
@@ -85,4 +90,23 @@ Future<void> forEachIndexWithConcurrencyLimit({
   await Future.wait<void>(
     List<Future<void>>.generate(workerCount, (_) => worker()),
   );
+}
+
+Future<bool> _delayWhileContinuing(
+  Duration delay,
+  OpenHandAsyncContinuePredicate shouldContinue,
+) async {
+  if (delay <= Duration.zero) return shouldContinue();
+  final stopwatch = Stopwatch()..start();
+  while (stopwatch.elapsed < delay) {
+    if (!shouldContinue()) return false;
+    final remaining = delay - stopwatch.elapsed;
+    final step = remaining < _kOpenHandAsyncDelayCheckInterval
+        ? remaining
+        : _kOpenHandAsyncDelayCheckInterval;
+    if (step > Duration.zero) {
+      await Future<void>.delayed(step);
+    }
+  }
+  return shouldContinue();
 }
