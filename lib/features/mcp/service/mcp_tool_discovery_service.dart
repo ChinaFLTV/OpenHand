@@ -13,6 +13,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
@@ -25,6 +26,25 @@ final RegExp _shellWhitespacePattern = RegExp(r'\s');
 final RegExp _stdioLineBreakPattern = RegExp(r'[\r\n]');
 final RegExp _stdioLineBreaksPattern = RegExp(r'[\r\n]+');
 final RegExp _npxPackageVersionSuffixPattern = RegExp(r'@[^/]*$');
+
+String _mcpDiscoveryText({
+  required String zh,
+  required String en,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedTextForLocaleName(
+    Platform.localeName,
+    zh: zh,
+    zhHant: zhHant,
+    en: en,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
 
 abstract class McpToolDiscoveryService {
   Future<McpToolCatalog> discoverTools(McpServer server);
@@ -2939,33 +2959,154 @@ String _friendlyMcpDiscoveryError(McpServer server, Object error) {
   if (error is ProcessException) {
     final processPath = Platform.environment['PATH'] ?? '';
     final shellPath = _cachedLoginShellPath ?? '';
+    final emptyPathText = _mcpDiscoveryText(
+      zh: '(空)',
+      zhHant: '(空)',
+      en: '(empty)',
+      fr: '(vide)',
+      de: '(leer)',
+      ja: '(空)',
+    );
     String pathHint;
     if (shellPath.isNotEmpty) {
-      pathHint =
-          '登录 shell 探测: $shellPath\n  · 进程 PATH: '
-          '${processPath.isEmpty ? '(空)' : processPath}';
+      pathHint = _mcpDiscoveryText(
+        zh:
+            '登录 shell 探测: $shellPath\n'
+            '  · 进程 PATH: ${processPath.isEmpty ? emptyPathText : processPath}',
+        zhHant:
+            '登入 shell 探測: $shellPath\n'
+            '  · 行程 PATH: ${processPath.isEmpty ? emptyPathText : processPath}',
+        en:
+            'Login shell probe: $shellPath\n'
+            '  · Process PATH: ${processPath.isEmpty ? emptyPathText : processPath}',
+        fr:
+            'Sonde du shell de connexion : $shellPath\n'
+            '  · PATH du processus : ${processPath.isEmpty ? emptyPathText : processPath}',
+        de:
+            'Login-Shell-Prüfung: $shellPath\n'
+            '  · Prozess-PATH: ${processPath.isEmpty ? emptyPathText : processPath}',
+        ja:
+            'ログイン shell の検出: $shellPath\n'
+            '  · プロセス PATH: ${processPath.isEmpty ? emptyPathText : processPath}',
+      );
     } else {
-      pathHint = processPath.isEmpty ? '(空)' : processPath;
+      pathHint = processPath.isEmpty ? emptyPathText : processPath;
     }
     return AiTransportDiagnosticMessages.format(
-      title: 'MCP stdio launch failed · MCP 进程启动失败 [${server.name}]',
-      reason:
-          '尝试以子进程方式启动 MCP 服务时被操作系统拒绝：\n'
-          '  · 命令: ${error.executable}${error.arguments.isEmpty ? '' : ' ${error.arguments.join(' ')}'}\n'
-          '  · 退出 / errno: ${error.errorCode}\n'
-          '  · 解析后的 PATH: $pathHint\n'
-          '常见诱因：\n'
-          '  · 命令不在 PATH 上 (GUI 启动的应用 PATH 极简，不含 Homebrew / nvm / volta / npm-global 等)\n'
-          '  · 命令拼写错误 / 二进制未安装 (例如未装 Node 就写了 npx)\n'
-          '  · 可执行文件缺少执行权限 (chmod +x)\n'
-          '  · 依赖未安装 (例如 npm 包未 install / Python venv 未激活)\n'
-          '  · 沙盒 / SIP / Gatekeeper 拒绝该二进制运行',
-      try_:
-          '· 在终端独立运行该命令复现报错：`which npx && npx <pkg>`\n'
-          '· 把 command 改成绝对路径 (如 /opt/homebrew/bin/npx) 再保存\n'
-          '· 用 nvm / volta 的用户：在登录 shell 启动应用，或用 corepack/volta shim\n'
-          '· 检查 PATH 与可执行权限\n'
-          '· 重新安装该 MCP 工具的依赖',
+      title: _mcpDiscoveryText(
+        zh: 'MCP 进程启动失败 [${server.name}]',
+        zhHant: 'MCP 行程啟動失敗 [${server.name}]',
+        en: 'MCP stdio launch failed [${server.name}]',
+        fr: 'Échec du lancement stdio MCP [${server.name}]',
+        de: 'MCP-stdio-Start fehlgeschlagen [${server.name}]',
+        ja: 'MCP stdio の起動に失敗しました [${server.name}]',
+      ),
+      reason: _mcpDiscoveryText(
+        zh:
+            '尝试以子进程方式启动 MCP 服务时被操作系统拒绝：\n'
+            '  · 命令: ${error.executable}${error.arguments.isEmpty ? '' : ' ${error.arguments.join(' ')}'}\n'
+            '  · 退出 / errno: ${error.errorCode}\n'
+            '  · 解析后的 PATH: $pathHint\n'
+            '常见诱因：\n'
+            '  · 命令不在 PATH 上 (GUI 启动的应用 PATH 极简，不含 Homebrew / nvm / volta / npm-global 等)\n'
+            '  · 命令拼写错误 / 二进制未安装 (例如未装 Node 就写了 npx)\n'
+            '  · 可执行文件缺少执行权限 (chmod +x)\n'
+            '  · 依赖未安装 (例如 npm 包未 install / Python venv 未激活)\n'
+            '  · 沙盒 / SIP / Gatekeeper 拒绝该二进制运行',
+        zhHant:
+            '嘗試以子行程啟動 MCP 服務時被作業系統拒絕：\n'
+            '  · 命令: ${error.executable}${error.arguments.isEmpty ? '' : ' ${error.arguments.join(' ')}'}\n'
+            '  · 退出 / errno: ${error.errorCode}\n'
+            '  · 解析後的 PATH: $pathHint\n'
+            '常見原因：\n'
+            '  · 命令不在 PATH 上 (GUI 啟動的應用 PATH 很精簡，不含 Homebrew / nvm / volta / npm-global 等)\n'
+            '  · 命令拼寫錯誤 / 二進位未安裝 (例如未安裝 Node 卻使用 npx)\n'
+            '  · 可執行檔缺少執行權限 (chmod +x)\n'
+            '  · 依賴未安裝 (例如 npm 包未 install / Python venv 未啟用)\n'
+            '  · 沙盒 / SIP / Gatekeeper 拒絕該二進位執行',
+        en:
+            'The operating system refused to start the MCP service as a child process:\n'
+            '  · Command: ${error.executable}${error.arguments.isEmpty ? '' : ' ${error.arguments.join(' ')}'}\n'
+            '  · Exit / errno: ${error.errorCode}\n'
+            '  · Resolved PATH: $pathHint\n'
+            'Common causes:\n'
+            '  · The command is not on PATH (GUI-launched apps often have a minimal PATH without Homebrew / nvm / volta / npm-global)\n'
+            '  · The command is misspelled or the binary is not installed (for example npx without Node)\n'
+            '  · The executable lacks permission (chmod +x)\n'
+            '  · Dependencies are missing (for example npm install not run or Python venv not activated)\n'
+            '  · Sandbox / SIP / Gatekeeper blocked the binary',
+        fr:
+            'Le système a refusé de lancer le service MCP comme sous-processus :\n'
+            '  · Commande : ${error.executable}${error.arguments.isEmpty ? '' : ' ${error.arguments.join(' ')}'}\n'
+            '  · Sortie / errno : ${error.errorCode}\n'
+            '  · PATH résolu : $pathHint\n'
+            'Causes fréquentes :\n'
+            '  · La commande n’est pas dans PATH (les apps lancées par GUI ont souvent un PATH minimal sans Homebrew / nvm / volta / npm-global)\n'
+            '  · Commande mal orthographiée ou binaire absent (par exemple npx sans Node)\n'
+            '  · Permission d’exécution manquante (chmod +x)\n'
+            '  · Dépendances non installées (npm install absent ou venv Python non activé)\n'
+            '  · Sandbox / SIP / Gatekeeper bloque le binaire',
+        de:
+            'Das Betriebssystem hat den Start des MCP-Dienstes als Kindprozess verweigert:\n'
+            '  · Befehl: ${error.executable}${error.arguments.isEmpty ? '' : ' ${error.arguments.join(' ')}'}\n'
+            '  · Exit / errno: ${error.errorCode}\n'
+            '  · Aufgelöster PATH: $pathHint\n'
+            'Häufige Ursachen:\n'
+            '  · Der Befehl liegt nicht auf PATH (GUI-Apps haben oft einen minimalen PATH ohne Homebrew / nvm / volta / npm-global)\n'
+            '  · Befehl falsch geschrieben oder Binary nicht installiert (z. B. npx ohne Node)\n'
+            '  · Ausführungsrecht fehlt (chmod +x)\n'
+            '  · Abhängigkeiten fehlen (z. B. npm install nicht ausgeführt oder Python venv nicht aktiv)\n'
+            '  · Sandbox / SIP / Gatekeeper blockiert das Binary',
+        ja:
+            'MCP サービスを子プロセスとして起動しようとしましたが、OS に拒否されました:\n'
+            '  · コマンド: ${error.executable}${error.arguments.isEmpty ? '' : ' ${error.arguments.join(' ')}'}\n'
+            '  · 終了 / errno: ${error.errorCode}\n'
+            '  · 解決後の PATH: $pathHint\n'
+            'よくある原因:\n'
+            '  · コマンドが PATH にない (GUI から起動したアプリの PATH は最小限で、Homebrew / nvm / volta / npm-global などを含まないことがあります)\n'
+            '  · コマンドのスペルミス、またはバイナリ未インストール (Node なしで npx を使うなど)\n'
+            '  · 実行権限がない (chmod +x)\n'
+            '  · 依存関係が未インストール (npm install 未実行、Python venv 未有効化など)\n'
+            '  · Sandbox / SIP / Gatekeeper がバイナリを拒否',
+      ),
+      try_: _mcpDiscoveryText(
+        zh:
+            '· 在终端独立运行该命令复现报错：`which npx && npx <pkg>`\n'
+            '· 把 command 改成绝对路径 (如 /opt/homebrew/bin/npx) 再保存\n'
+            '· 用 nvm / volta 的用户：在登录 shell 启动应用，或用 corepack/volta shim\n'
+            '· 检查 PATH 与可执行权限\n'
+            '· 重新安装该 MCP 工具的依赖',
+        zhHant:
+            '· 在終端獨立執行該命令重現錯誤：`which npx && npx <pkg>`\n'
+            '· 將 command 改成絕對路徑 (如 /opt/homebrew/bin/npx) 後儲存\n'
+            '· 使用 nvm / volta：從登入 shell 啟動應用，或使用 corepack/volta shim\n'
+            '· 檢查 PATH 與執行權限\n'
+            '· 重新安裝該 MCP 工具的依賴',
+        en:
+            '· Run the command directly in a terminal to reproduce it: `which npx && npx <pkg>`\n'
+            '· Save command as an absolute path, such as /opt/homebrew/bin/npx\n'
+            '· For nvm / volta users: launch the app from a login shell, or use a corepack/volta shim\n'
+            '· Check PATH and executable permissions\n'
+            '· Reinstall this MCP tool’s dependencies',
+        fr:
+            '· Exécutez la commande dans un terminal : `which npx && npx <pkg>`\n'
+            '· Enregistrez command avec un chemin absolu, par exemple /opt/homebrew/bin/npx\n'
+            '· Avec nvm / volta : lancez l’app depuis un shell de connexion, ou utilisez un shim corepack/volta\n'
+            '· Vérifiez PATH et les permissions d’exécution\n'
+            '· Réinstallez les dépendances de cet outil MCP',
+        de:
+            '· Führe den Befehl direkt im Terminal aus: `which npx && npx <pkg>`\n'
+            '· Speichere command als absoluten Pfad, z. B. /opt/homebrew/bin/npx\n'
+            '· Für nvm / volta: App aus einer Login-Shell starten oder corepack/volta shim nutzen\n'
+            '· PATH und Ausführungsrechte prüfen\n'
+            '· Abhängigkeiten dieses MCP-Tools neu installieren',
+        ja:
+            '· ターミナルで直接コマンドを実行して再現してください: `which npx && npx <pkg>`\n'
+            '· command を /opt/homebrew/bin/npx などの絶対パスにして保存してください\n'
+            '· nvm / volta 利用時はログイン shell からアプリを起動するか、corepack/volta shim を使ってください\n'
+            '· PATH と実行権限を確認してください\n'
+            '· この MCP ツールの依存関係を再インストールしてください',
+      ),
       raw: error.message.isEmpty ? null : error.message,
     );
   }
@@ -2981,27 +3122,121 @@ String _friendlyTimeoutMessage(
 }) {
   final label = 'MCP · ${server.name}';
   final stageLabel = switch (stage) {
-    'discover' => 'tool discovery / 工具扫描',
-    'health' => 'health check / 健康检查',
+    'discover' => _mcpDiscoveryText(
+      zh: '工具扫描',
+      zhHant: '工具掃描',
+      en: 'tool discovery',
+      fr: 'découverte des outils',
+      de: 'Tool-Erkennung',
+      ja: 'ツール検出',
+    ),
+    'health' => _mcpDiscoveryText(
+      zh: '健康检查',
+      zhHant: '健康檢查',
+      en: 'health check',
+      fr: 'contrôle de santé',
+      de: 'Health Check',
+      ja: 'ヘルスチェック',
+    ),
     _ => stage,
   };
   final humanLimit = limit.inSeconds >= 90
-      ? '${(limit.inSeconds / 60).toStringAsFixed(limit.inSeconds % 60 == 0 ? 0 : 1)} 分钟'
-      : '${limit.inSeconds} 秒';
+      ? _mcpDiscoveryText(
+          zh: '${(limit.inSeconds / 60).toStringAsFixed(limit.inSeconds % 60 == 0 ? 0 : 1)} 分钟',
+          zhHant:
+              '${(limit.inSeconds / 60).toStringAsFixed(limit.inSeconds % 60 == 0 ? 0 : 1)} 分鐘',
+          en: '${(limit.inSeconds / 60).toStringAsFixed(limit.inSeconds % 60 == 0 ? 0 : 1)} min',
+          fr: '${(limit.inSeconds / 60).toStringAsFixed(limit.inSeconds % 60 == 0 ? 0 : 1)} min',
+          de: '${(limit.inSeconds / 60).toStringAsFixed(limit.inSeconds % 60 == 0 ? 0 : 1)} Min.',
+          ja: '${(limit.inSeconds / 60).toStringAsFixed(limit.inSeconds % 60 == 0 ? 0 : 1)} 分',
+        )
+      : _mcpDiscoveryText(
+          zh: '${limit.inSeconds} 秒',
+          zhHant: '${limit.inSeconds} 秒',
+          en: '${limit.inSeconds} sec',
+          fr: '${limit.inSeconds} s',
+          de: '${limit.inSeconds} Sek.',
+          ja: '${limit.inSeconds} 秒',
+        );
   return AiTransportDiagnosticMessages.format(
-    title: 'MCP timed out · MCP 超时 [${server.name}]',
-    reason:
-        '$stageLabel 在 $humanLimit 内未完成。常见诱因：\n'
-        '  · stdio 服务进程启动慢 (npx / uvx 首次 cold start 拉镜像 / 依赖，'
-        'chrome-devtools-mcp 这类还会下载 Chrome Beta ≈250MB)\n'
-        '  · HTTP / SSE 服务被网络层 (代理 / 防火墙) 拦在中途\n'
-        '  · 服务自身内部死锁或在等待外部 API 响应\n'
-        '  · 该机器 CPU / IO 极度繁忙',
-    try_:
-        '· 在终端单独跑一遍 server.command 看下载是否走得通 (网络/代理/镜像源)\n'
-        '· 已把 stdio 缓存隔离到 ~/.openhand/mcp/package-cache，可手动 rm -rf 重置\n'
-        '· 首启过后命中缓存即恢复秒级，故失败可直接重试\n'
-        '· 必要时给 npm/uv 配镜像源 (例：~/.npmrc → registry=https://registry.npmmirror.com)',
+    title: _mcpDiscoveryText(
+      zh: 'MCP 超时 [${server.name}]',
+      zhHant: 'MCP 逾時 [${server.name}]',
+      en: 'MCP timed out [${server.name}]',
+      fr: 'MCP a expiré [${server.name}]',
+      de: 'MCP-Zeitüberschreitung [${server.name}]',
+      ja: 'MCP がタイムアウトしました [${server.name}]',
+    ),
+    reason: _mcpDiscoveryText(
+      zh:
+          '$stageLabel 在 $humanLimit 内未完成。常见诱因：\n'
+          '  · stdio 服务进程启动慢 (npx / uvx 首次 cold start 拉镜像 / 依赖，chrome-devtools-mcp 这类还会下载 Chrome Beta ≈250MB)\n'
+          '  · HTTP / SSE 服务被网络层 (代理 / 防火墙) 拦在中途\n'
+          '  · 服务自身内部死锁或在等待外部 API 响应\n'
+          '  · 该机器 CPU / IO 极度繁忙',
+      zhHant:
+          '$stageLabel 在 $humanLimit 內未完成。常見原因：\n'
+          '  · stdio 服務行程啟動慢 (npx / uvx 首次 cold start 拉映像 / 依賴，chrome-devtools-mcp 這類還會下載 Chrome Beta ≈250MB)\n'
+          '  · HTTP / SSE 服務被網路層 (代理 / 防火牆) 中途攔截\n'
+          '  · 服務內部死鎖或正在等待外部 API 回應\n'
+          '  · 此機器 CPU / IO 極度繁忙',
+      en:
+          '$stageLabel did not finish within $humanLimit. Common causes:\n'
+          '  · The stdio service starts slowly (npx / uvx first cold start may fetch images / dependencies; chrome-devtools-mcp may also download Chrome Beta ≈250MB)\n'
+          '  · An HTTP / SSE service is blocked by the network layer (proxy / firewall)\n'
+          '  · The service is deadlocked internally or waiting for an external API\n'
+          '  · This machine is under heavy CPU / IO load',
+      fr:
+          '$stageLabel ne s’est pas terminé en $humanLimit. Causes fréquentes :\n'
+          '  · Le service stdio démarre lentement (npx / uvx au premier cold start peut récupérer images / dépendances ; chrome-devtools-mcp peut aussi télécharger Chrome Beta ≈250 Mo)\n'
+          '  · Un service HTTP / SSE est bloqué par le réseau (proxy / pare-feu)\n'
+          '  · Le service est bloqué en interne ou attend une API externe\n'
+          '  · La machine est très chargée en CPU / IO',
+      de:
+          '$stageLabel wurde nicht innerhalb von $humanLimit abgeschlossen. Häufige Ursachen:\n'
+          '  · Der stdio-Dienst startet langsam (npx / uvx kann beim ersten Cold Start Images / Abhängigkeiten laden; chrome-devtools-mcp lädt ggf. Chrome Beta ≈250 MB)\n'
+          '  · Ein HTTP / SSE-Dienst wird durch Netzwerk, Proxy oder Firewall blockiert\n'
+          '  · Der Dienst hängt intern oder wartet auf eine externe API\n'
+          '  · Diese Maschine ist stark durch CPU / IO belastet',
+      ja:
+          '$stageLabel が $humanLimit 以内に完了しませんでした。よくある原因:\n'
+          '  · stdio サービスの起動が遅い (npx / uvx の初回 cold start でイメージ / 依存関係を取得し、chrome-devtools-mcp は Chrome Beta ≈250MB をダウンロードする場合があります)\n'
+          '  · HTTP / SSE サービスがネットワーク層 (プロキシ / ファイアウォール) でブロックされている\n'
+          '  · サービス内部でデッドロックしている、または外部 API を待っている\n'
+          '  · このマシンの CPU / IO 負荷が非常に高い',
+    ),
+    try_: _mcpDiscoveryText(
+      zh:
+          '· 在终端单独跑一遍 server.command 看下载是否走得通 (网络/代理/镜像源)\n'
+          '· 已把 stdio 缓存隔离到 ~/.openhand/mcp/package-cache，可手动 rm -rf 重置\n'
+          '· 首启过后命中缓存即恢复秒级，故失败可直接重试\n'
+          '· 必要时给 npm/uv 配镜像源 (例：~/.npmrc -> registry=https://registry.npmmirror.com)',
+      zhHant:
+          '· 在終端單獨執行 server.command，確認下載是否可行 (網路/代理/映像源)\n'
+          '· stdio 快取已隔離到 ~/.openhand/mcp/package-cache，可手動 rm -rf 重置\n'
+          '· 首次啟動後命中快取即可恢復秒級，失敗時可直接重試\n'
+          '· 必要時為 npm/uv 設定映像源 (例：~/.npmrc -> registry=https://registry.npmmirror.com)',
+      en:
+          '· Run server.command directly in a terminal to verify downloads (network / proxy / mirror)\n'
+          '· stdio cache is isolated at ~/.openhand/mcp/package-cache and can be reset with rm -rf\n'
+          '· After the first successful launch, cache hits should return to seconds; retrying is fine\n'
+          '· Configure npm/uv mirrors if needed, for example ~/.npmrc -> registry=https://registry.npmmirror.com',
+      fr:
+          '· Exécutez server.command dans un terminal pour vérifier les téléchargements (réseau / proxy / miroir)\n'
+          '· Le cache stdio est isolé dans ~/.openhand/mcp/package-cache et peut être réinitialisé avec rm -rf\n'
+          '· Après le premier lancement réussi, le cache ramène le délai à quelques secondes ; vous pouvez réessayer\n'
+          '· Configurez des miroirs npm/uv si nécessaire, par exemple ~/.npmrc -> registry=https://registry.npmmirror.com',
+      de:
+          '· Führe server.command im Terminal aus, um Downloads zu prüfen (Netzwerk / Proxy / Mirror)\n'
+          '· Der stdio-Cache liegt isoliert unter ~/.openhand/mcp/package-cache und kann mit rm -rf zurückgesetzt werden\n'
+          '· Nach dem ersten erfolgreichen Start sollten Cache-Treffer wieder Sekunden dauern; erneutes Versuchen ist ok\n'
+          '· Konfiguriere bei Bedarf npm/uv-Mirrors, z. B. ~/.npmrc -> registry=https://registry.npmmirror.com',
+      ja:
+          '· ターミナルで server.command を直接実行し、ダウンロード可否を確認してください (ネットワーク / プロキシ / ミラー)\n'
+          '· stdio キャッシュは ~/.openhand/mcp/package-cache に分離されており、rm -rf でリセットできます\n'
+          '· 初回成功後はキャッシュにより秒単位に戻るため、失敗時はそのまま再試行できます\n'
+          '· 必要なら npm/uv のミラーを設定してください。例: ~/.npmrc -> registry=https://registry.npmmirror.com',
+    ),
     raw: label,
   );
 }

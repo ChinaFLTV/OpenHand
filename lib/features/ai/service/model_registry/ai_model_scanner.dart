@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/ui/structured_error_text.dart';
+import '../../../../shared/util/localized_text.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../chat/ai_transport_diagnostic_messages.dart';
@@ -471,12 +472,46 @@ class AiModelScanner {
         return AiModelScanResult(
           modelIds: fallback,
           error: _ScanErrorMessages._format(
-            title: 'Empty model list · 未返回任何模型',
-            reason:
-                '服务端 /v1/models 端点连通但返回了空列表。多数中转 代理不提供该接口，或者仅准许某一个账号调用后才返回。',
-            try_:
-                '· 在「手动添加模型 ID」处直接录入希望使用的模型名\n'
-                '· 联系中转方确认 /v1/models 是否需要付费 / 鉴权',
+            title: openHandLocalizedTextForLocaleName(
+              Platform.localeName,
+              zh: '未返回任何模型',
+              zhHant: '未返回任何模型',
+              en: 'Empty model list',
+              fr: 'Liste de modèles vide',
+              de: 'Leere Modellliste',
+              ja: 'モデル一覧が空です',
+            ),
+            reason: openHandLocalizedTextForLocaleName(
+              Platform.localeName,
+              zh: '服务端 /v1/models 端点连通但返回了空列表。多数中转代理不提供该接口，或者仅准许某一个账号调用后才返回。',
+              zhHant:
+                  '服務端 /v1/models 端點可連通但返回了空列表。多數中轉代理不提供該介面，或只允許特定帳號呼叫後才返回。',
+              en: 'The /v1/models endpoint is reachable but returned an empty list. Many relay providers do not expose this endpoint, or only return data for specific accounts.',
+              fr: 'Le point de terminaison /v1/models répond, mais renvoie une liste vide. Beaucoup de relais ne l’exposent pas, ou le réservent à certains comptes.',
+              de: 'Der Endpunkt /v1/models ist erreichbar, liefert aber eine leere Liste. Viele Relay-Anbieter stellen ihn nicht bereit oder erlauben ihn nur für bestimmte Konten.',
+              ja: '/v1/models エンドポイントには接続できましたが、空の一覧が返りました。多くの中継プロバイダーはこの API を公開していないか、特定アカウントだけに返します。',
+            ),
+            try_: openHandLocalizedTextForLocaleName(
+              Platform.localeName,
+              zh:
+                  '· 在“手动添加模型 ID”处直接录入希望使用的模型名\n'
+                  '· 联系中转方确认 /v1/models 是否需要付费或额外鉴权',
+              zhHant:
+                  '· 在「手動新增模型 ID」處直接輸入要使用的模型名\n'
+                  '· 聯絡中轉方確認 /v1/models 是否需要付費或額外鑑權',
+              en:
+                  '· Add the model name directly in “Manually add model ID”\n'
+                  '· Ask the relay provider whether /v1/models requires payment or extra authorization',
+              fr:
+                  '· Ajoutez directement le nom dans « Ajouter manuellement un ID de modèle »\n'
+                  '· Vérifiez auprès du relais si /v1/models exige un paiement ou une autorisation supplémentaire',
+              de:
+                  '· Trage den Modellnamen direkt unter „Modell-ID manuell hinzufügen“ ein\n'
+                  '· Frage den Relay-Anbieter, ob /v1/models Zahlung oder zusätzliche Autorisierung erfordert',
+              ja:
+                  '· 「モデル ID を手動追加」に使用したいモデル名を直接入力してください\n'
+                  '· /v1/models に支払いまたは追加認証が必要か中継プロバイダーに確認してください',
+            ),
           ),
         );
       }

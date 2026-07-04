@@ -228,11 +228,12 @@ class AiPromptTemplateRepository {
 const String _defaultTemplateId = AiPromptTemplatePolicies.defaultTemplateId;
 
 AiThreadTemplate _threadTemplateFromInfo(AiPromptTemplateInfo info) {
+  final locale = PlatformDispatcher.instance.locale;
   return AiThreadTemplate(
     id: info.id,
-    name: info.name,
+    name: info.nameForLocale(locale),
     iconName: info.iconName,
-    description: info.description,
+    description: info.descriptionForLocale(locale),
     internalVersion: info.internalVersion,
     promptAssetDirectory: info.promptAssetDirectory,
     availability: _availabilityFromScope(info.availability),

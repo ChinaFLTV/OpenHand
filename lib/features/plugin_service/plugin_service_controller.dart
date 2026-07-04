@@ -1,9 +1,29 @@
 import 'package:flutter/foundation.dart';
 
 import '../../shared/core/managed_change_notifier.dart';
+import '../../shared/util/localized_text.dart';
 import 'model/plugin_info.dart';
 import 'service/plugin_lifecycle_service.dart';
 import 'service/plugin_scanner_service.dart';
+
+String _pluginServiceText({
+  required String zh,
+  required String en,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedTextForLocale(
+    PlatformDispatcher.instance.locale,
+    zh: zh,
+    zhHant: zhHant,
+    en: en,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
 
 /// 插件服务控制器。
 ///
@@ -247,7 +267,10 @@ class PluginServiceController extends ManagedChangeNotifier {
         ),
         'docker' => await _lifecycle.installDocker(onProgress: _addLog),
         'qdrant' => await _lifecycle.installQdrant(onProgress: _addLog),
-        _ => const PluginOperationResult(success: false, message: '未知插件'),
+        _ => PluginOperationResult(
+          success: false,
+          message: _unknownPluginMessage(),
+        ),
       };
       if (result.success) {
         _operationSuccessPulse.emit();
@@ -303,7 +326,10 @@ class PluginServiceController extends ManagedChangeNotifier {
         ),
         'docker' => await _lifecycle.updateDocker(onProgress: _addLog),
         'qdrant' => await _lifecycle.updateQdrant(onProgress: _addLog),
-        _ => const PluginOperationResult(success: false, message: '未知插件'),
+        _ => PluginOperationResult(
+          success: false,
+          message: _unknownPluginMessage(),
+        ),
       };
       if (result.success) {
         _operationSuccessPulse.emit();
@@ -334,7 +360,14 @@ class PluginServiceController extends ManagedChangeNotifier {
     final plugin = pluginById(pluginId);
     if (plugin == null || !plugin.isInstalled) return false;
     if (!plugin.supportsUninstall) {
-      _errorMessage = '${plugin.name} 不支持卸载';
+      _errorMessage = _pluginServiceText(
+        zh: '${plugin.name} 不支持卸载',
+        zhHant: '${plugin.name} 不支援卸載',
+        en: '${plugin.name} does not support uninstall.',
+        fr: '${plugin.name} ne prend pas en charge la désinstallation.',
+        de: '${plugin.name} unterstützt keine Deinstallation.',
+        ja: '${plugin.name} はアンインストールに対応していません。',
+      );
       notifyListeners();
       return false;
     }
@@ -342,8 +375,15 @@ class PluginServiceController extends ManagedChangeNotifier {
       for (final dependentId in plugin.dependents) {
         final dependent = pluginById(dependentId);
         if (dependent != null && dependent.isInstalled) {
-          _errorMessage =
-              '${dependent.name} 依赖 ${plugin.name}，请先卸载 ${dependent.name}';
+          _errorMessage = _pluginServiceText(
+            zh: '${dependent.name} 依赖 ${plugin.name}，请先卸载 ${dependent.name}',
+            zhHant:
+                '${dependent.name} 依賴 ${plugin.name}，請先卸載 ${dependent.name}',
+            en: '${dependent.name} depends on ${plugin.name}. Uninstall ${dependent.name} first.',
+            fr: '${dependent.name} dépend de ${plugin.name}. Désinstallez d’abord ${dependent.name}.',
+            de: '${dependent.name} hängt von ${plugin.name} ab. Deinstalliere zuerst ${dependent.name}.',
+            ja: '${dependent.name} は ${plugin.name} に依存しています。先に ${dependent.name} をアンインストールしてください。',
+          );
           notifyListeners();
           return false;
         }
@@ -382,7 +422,10 @@ class PluginServiceController extends ManagedChangeNotifier {
         ),
         'docker' => await _lifecycle.uninstallDocker(onProgress: _addLog),
         'qdrant' => await _lifecycle.uninstallQdrant(onProgress: _addLog),
-        _ => const PluginOperationResult(success: false, message: '未知插件'),
+        _ => PluginOperationResult(
+          success: false,
+          message: _unknownPluginMessage(),
+        ),
       };
       if (result.success) {
         _operationSuccessPulse.emit();
@@ -406,6 +449,17 @@ class PluginServiceController extends ManagedChangeNotifier {
       _isOperating = false;
       notifyListeners();
     }
+  }
+
+  String _unknownPluginMessage() {
+    return _pluginServiceText(
+      zh: '未知插件',
+      zhHant: '未知外掛',
+      en: 'Unknown plugin',
+      fr: 'Plugin inconnu',
+      de: 'Unbekanntes Plugin',
+      ja: '不明なプラグイン',
+    );
   }
 
   void clearError() {
