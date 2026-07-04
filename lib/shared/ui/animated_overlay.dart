@@ -4,6 +4,8 @@ import '../../app/model/dialog_animation_settings.dart';
 import 'animated_dialog.dart';
 import 'motion_preference.dart';
 
+const double _kDefaultOverlayScaleBegin = 0.95;
+
 /// Provides animated entrance effects for overlay content (hover popups,
 /// tooltips, autocomplete panels, etc.).
 ///
@@ -18,7 +20,7 @@ class AnimatedOverlayContent extends StatefulWidget {
     this.customDuration,
     this.customCurve,
     this.enableScaleAnimation = true,
-    this.scaleBegin = 0.95,
+    this.scaleBegin = _kDefaultOverlayScaleBegin,
     this.customSettings,
   });
 
@@ -112,6 +114,17 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
     super.dispose();
   }
 
+  OpenHandAnimationTransitionProfile _transitionProfile() {
+    final scaleBegin = _safeOverlayScaleBegin(widget.scaleBegin);
+    return OpenHandAnimationTransitionProfile(
+      fadeScaleBegin: scaleBegin,
+      expandScaleBegin: scaleBegin,
+      rotateScaleBegin: scaleBegin,
+      elasticScaleBegin: scaleBegin,
+      springScaleBegin: scaleBegin,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_animationsDisabled) {
@@ -120,9 +133,15 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
     return buildAnimationStyleTransition(
       animation: _controller,
       settings: _settings,
+      profile: _transitionProfile(),
       curveOverride: widget.customCurve,
       reverseCurveOverride: widget.customCurve,
       child: widget.child,
     );
   }
+}
+
+double _safeOverlayScaleBegin(double value) {
+  if (!value.isFinite || value <= 0) return _kDefaultOverlayScaleBegin;
+  return value;
 }

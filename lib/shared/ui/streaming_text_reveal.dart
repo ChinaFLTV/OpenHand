@@ -323,6 +323,7 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
     }
     final appendOnly =
         text.startsWith(previousText) &&
+        _isGraphemeBoundary(text, previousText.length) &&
         (_graphemeEnds.isEmpty
             ? previousText.isEmpty
             : _graphemeEnds.last == previousText.length);
@@ -411,3 +412,15 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
 }
 
 int _minInt(int a, int b) => a < b ? a : b;
+
+bool _isGraphemeBoundary(String text, int offset) {
+  if (offset <= 0 || offset >= text.length) {
+    return offset == 0 || offset == text.length;
+  }
+  var cursor = 0;
+  for (final cluster in text.characters) {
+    cursor += cluster.length;
+    if (cursor >= offset) return cursor == offset;
+  }
+  return false;
+}
