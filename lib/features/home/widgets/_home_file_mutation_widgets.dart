@@ -10,6 +10,12 @@ String _fileMutationKind(AiSessionMessage message) =>
 const int _kFileMutationUndoConcurrency = 4;
 const Color _kFileMutationAddedColor = Color(0xFF2E7D32);
 const double _kFileMutationLineDeltaGap = 4;
+const Duration _kFileMutationOverlaySwitchDuration = Duration(
+  milliseconds: 220,
+);
+const Duration _kFileMutationRowStateDuration = Duration(milliseconds: 220);
+const Duration _kFileMutationRowSlideDuration = Duration(milliseconds: 320);
+const Duration _kFileMutationRowChevronDuration = Duration(milliseconds: 180);
 
 /// 聚合「单文件 (`file_mutation_path`)」与「多文件
 /// (`file_mutation_paths`)」两路 metadata，去重后按出现顺序返回。
@@ -63,8 +69,7 @@ FileMutationLineDelta _sumFileMutationLineDeltas(
 ///   恢复，行为与 ledger 语义对齐。
 /// - 内联 diff 默认折叠，点击行展开；双击行回退到旧的 [_FileDiffDialog]
 ///   全屏对比 (兼容历史无 ledger 的会话)。
-/// - 全程使用 M3 expressive 配色；动画走 `MediaQuery.disableAnimationsOf`
-///   降级。
+/// - 全程使用 M3 expressive 配色；动画走共享 motion preference 降级。
 class _FileMutationCard extends StatefulWidget {
   const _FileMutationCard({super.key, required this.message});
 
@@ -756,9 +761,10 @@ class _FileMutationCardState extends State<_FileMutationCard> {
             child: IgnorePointer(
               ignoring: !_bulkUndoBusy,
               child: AnimatedSwitcher(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 220),
+                duration: openHandMotionDuration(
+                  context,
+                  _kFileMutationOverlaySwitchDuration,
+                ),
                 child: _bulkUndoBusy
                     ? _BulkUndoOverlay(
                         key: const ValueKey('bulk-undo-overlay'),
@@ -1087,11 +1093,20 @@ class _FileMutationCardRow extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final greyOut = view.isEffectivelyUndone;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final rowStateDuration = openHandMotionDuration(
+      context,
+      _kFileMutationRowStateDuration,
+    );
+    final rowSlideDuration = openHandMotionDuration(
+      context,
+      _kFileMutationRowSlideDuration,
+    );
+    final chevronDuration = openHandMotionDuration(
+      context,
+      _kFileMutationRowChevronDuration,
+    );
     return AnimatedContainer(
-      duration: reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 220),
+      duration: rowStateDuration,
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: greyOut
@@ -1099,9 +1114,7 @@ class _FileMutationCardRow extends StatelessWidget {
             : Colors.transparent,
       ),
       child: AnimatedSlide(
-        duration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 320),
+        duration: rowSlideDuration,
         curve: Curves.easeOutBack,
         offset: Offset(view.cascadeUndone ? 0.025 : 0.0, 0.0),
         child: Column(
@@ -1169,9 +1182,7 @@ class _FileMutationCardRow extends StatelessWidget {
                     child: Row(
                       children: [
                         AnimatedRotation(
-                          duration: reduceMotion
-                              ? Duration.zero
-                              : const Duration(milliseconds: 180),
+                          duration: chevronDuration,
                           turns: expanded ? 0.25 : 0,
                           child: Icon(
                             Icons.chevron_right_rounded,
@@ -1281,9 +1292,7 @@ class _FileMutationCardRow extends StatelessWidget {
               ),
             ),
             AnimatedSize(
-              duration: reduceMotion
-                  ? Duration.zero
-                  : const Duration(milliseconds: 220),
+              duration: rowStateDuration,
               curve: Curves.easeOutCubic,
               alignment: Alignment.topCenter,
               child: expanded
@@ -2734,7 +2743,7 @@ class _FileMutationHistoryInspectorDialogState
                 final paths = groups.keys.toList()..sort();
                 // 分组 staggered AppearOnce——
                 // 80ms/张，封顶 1.2s（reduceMotion 跳过）。
-                final reduceMotion = MediaQuery.disableAnimationsOf(context);
+                final reduceMotion = !openHandTickerMotionEnabled(context);
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: paths.length,
@@ -3756,7 +3765,7 @@ class _RoundFileMutationSummaryCardState
     _ensureFutureBound();
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = !openHandTickerMotionEnabled(context);
     return AppearOnce(
       child: Stack(
         clipBehavior: Clip.none,
@@ -3850,9 +3859,10 @@ class _RoundFileMutationSummaryCardState
             child: IgnorePointer(
               ignoring: !_bulkUndoBusy,
               child: AnimatedSwitcher(
-                duration: reduceMotion
-                    ? Duration.zero
-                    : const Duration(milliseconds: 220),
+                duration: openHandMotionDuration(
+                  context,
+                  _kFileMutationOverlaySwitchDuration,
+                ),
                 child: _bulkUndoBusy
                     ? _BulkUndoOverlay(
                         key: const ValueKey('round-bulk-undo-overlay'),
