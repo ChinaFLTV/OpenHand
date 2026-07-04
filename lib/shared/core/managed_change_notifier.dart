@@ -40,7 +40,11 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
       }
       try {
         final result = await operation();
-        completer.complete(result);
+        if (_isDisposed) {
+          completer.completeError(_disposedError);
+        } else {
+          completer.complete(result);
+        }
       } catch (error, stackTrace) {
         if (!completer.isCompleted) {
           completer.completeError(error, stackTrace);
