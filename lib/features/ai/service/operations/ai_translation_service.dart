@@ -403,8 +403,8 @@ class AiTranslationService {
           headers: <String, String>{
             'content-type': 'application/json; charset=utf-8',
             'Ocp-Apim-Subscription-Key': providerSettings.apiKey,
-            if (providerSettings.region.trim().isNotEmpty)
-              'Ocp-Apim-Subscription-Region': providerSettings.region.trim(),
+            if (nullIfBlank(providerSettings.region) case final region?)
+              'Ocp-Apim-Subscription-Region': region,
           },
           body: jsonEncode(<Map<String, String>>[
             <String, String>{'Text': text},
@@ -439,7 +439,8 @@ class AiTranslationService {
     required AiTranslationProviderSettings providerSettings,
     required Duration timeout,
   }) async {
-    if (providerSettings.endpoint.trim().isEmpty) {
+    final endpoint = nullIfBlank(providerSettings.endpoint);
+    if (endpoint == null) {
       throw const AiTranslationException(
         'Apple 翻译需要填写本机或私有桥接服务地址。',
         provider: AiTranslationProvider.apple,
@@ -447,14 +448,14 @@ class AiTranslationService {
     }
     final headers = <String, String>{
       'content-type': 'application/json; charset=utf-8',
-      if (providerSettings.apiKey.trim().isNotEmpty)
-        'x-api-key': providerSettings.apiKey.trim(),
-      if (providerSettings.accessToken.trim().isNotEmpty)
-        'authorization': 'Bearer ${providerSettings.accessToken.trim()}',
+      if (nullIfBlank(providerSettings.apiKey) case final apiKey?)
+        'x-api-key': apiKey,
+      if (nullIfBlank(providerSettings.accessToken) case final accessToken?)
+        'authorization': 'Bearer $accessToken',
     };
     final response = await _client
         .post(
-          Uri.parse(providerSettings.endpoint.trim()),
+          Uri.parse(endpoint),
           headers: headers,
           body: jsonEncode(<String, Object?>{
             'text': text,
@@ -521,10 +522,10 @@ class AiTranslationService {
     required AiTranslationProviderSettings providerSettings,
     required Duration timeout,
   }) async {
-    final apiKey = providerSettings.apiKey.trim();
-    final appId = providerSettings.appId.trim();
-    final accessKey = providerSettings.apiSecret.trim();
-    if (apiKey.isEmpty && (appId.isEmpty || accessKey.isEmpty)) {
+    final apiKey = nullIfBlank(providerSettings.apiKey);
+    final appId = nullIfBlank(providerSettings.appId);
+    final accessKey = nullIfBlank(providerSettings.apiSecret);
+    if (apiKey == null && (appId == null || accessKey == null)) {
       throw const AiTranslationException(
         'Doubao translation needs API Key or App ID + Access Key.',
         provider: AiTranslationProvider.doubao,
@@ -535,9 +536,10 @@ class AiTranslationService {
       'resource_id',
       fallback: _doubaoDefaultResourceId,
     );
-    final requestId = _extraString(providerSettings, 'request_id').isEmpty
+    final configuredRequestId = _extraString(providerSettings, 'request_id');
+    final requestId = configuredRequestId.isEmpty
         ? const Uuid().v4()
-        : _extraString(providerSettings, 'request_id');
+        : configuredRequestId;
     final body = <String, Object?>{
       'target_language': _doubaoLanguage(settings.targetLanguage),
       'text_list': <String>[text],
@@ -552,9 +554,9 @@ class AiTranslationService {
       'content-type': 'application/json; charset=utf-8',
       'X-Api-Resource-Id': resourceId,
       'X-Api-Request-Id': requestId,
-      if (apiKey.isNotEmpty) 'X-Api-Key': apiKey,
-      if (apiKey.isEmpty) 'X-Api-App-Key': appId,
-      if (apiKey.isEmpty) 'X-Api-Access-Key': accessKey,
+      if (apiKey != null) 'X-Api-Key': apiKey,
+      if (apiKey == null && appId != null) 'X-Api-App-Key': appId,
+      if (apiKey == null && accessKey != null) 'X-Api-Access-Key': accessKey,
     };
     final response = await _client
         .post(
@@ -653,7 +655,7 @@ class AiTranslationService {
   }) {
     final missing = <String>[];
     for (final entry in fields.entries) {
-      if (entry.value.trim().isEmpty) missing.add(entry.key);
+      if (nullIfBlank(entry.value) == null) missing.add(entry.key);
     }
     if (missing.isNotEmpty) {
       throw AiTranslationException(
@@ -699,9 +701,8 @@ class AiTranslationService {
   }
 
   String _endpointOrDefault(AiTranslationProviderSettings settings) {
-    final endpoint = settings.endpoint.trim();
-    if (endpoint.isNotEmpty) return endpoint;
-    return AiTranslationProviderSettings.defaults(settings.provider).endpoint;
+    return nullIfBlank(settings.endpoint) ??
+        AiTranslationProviderSettings.defaults(settings.provider).endpoint;
   }
 
   String _truncateText(String text, int maxCharacters) {
@@ -725,7 +726,7 @@ class AiTranslationService {
       'result',
     ]) {
       final value = json[key];
-      if (value is String && value.trim().isNotEmpty) return value;
+      if (value is String && nullIfBlank(value) != null) return value;
       if (value is List && value.isNotEmpty) return '${value.first}';
     }
     throw const AiTranslationException('翻译响应中没有可用文本。');
@@ -815,8 +816,7 @@ class AiTranslationService {
   }) {
     final value = settings.extra[key];
     if (value is String) {
-      final trimmed = value.trim();
-      return trimmed.isEmpty ? fallback : trimmed;
+      return nullIfBlank(value) ?? fallback;
     }
     return fallback;
   }
