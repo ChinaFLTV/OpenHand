@@ -37,6 +37,10 @@ const double _kGoalStartSwitchRowGap = 16;
 const double _kGoalStartFormItemSpacing = 22;
 const double _kGoalStartEnabledFieldTopPadding = 12;
 const double _kGoalStartEnabledFieldBottomPadding = 4;
+const Duration _kGoalStartEnabledFieldMotionDuration = Duration(
+  milliseconds: 180,
+);
+const Curve _kGoalStartEnabledFieldMotionCurve = Curves.easeOutCubic;
 
 class _GoalStartDialogResult {
   const _GoalStartDialogResult({
@@ -204,6 +208,10 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
         (_turnLimitEnabled && _readPositiveInt(_turnLimitController) == null) ||
         (_tokenBudgetEnabled &&
             _readPositiveInt(_tokenBudgetController) == null);
+    final enabledFieldMotionDuration = openHandMotionDuration(
+      context,
+      _kGoalStartEnabledFieldMotionDuration,
+    );
     return buildOpenHandAlertDialog(
       title: Text(
         _localizedText(context, zh: '启动目标模式', en: 'Start Goal Mode'),
@@ -248,15 +256,11 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
               ),
             ),
             AnimatedSize(
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
+              duration: enabledFieldMotionDuration,
+              curve: _kGoalStartEnabledFieldMotionCurve,
               alignment: Alignment.topCenter,
               child: AnimatedSwitcher(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 180),
+                duration: enabledFieldMotionDuration,
                 child: _turnLimitEnabled
                     ? Padding(
                         key: const ValueKey<String>('turn-limit-field'),
@@ -303,15 +307,11 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
               ),
             ),
             AnimatedSize(
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
+              duration: enabledFieldMotionDuration,
+              curve: _kGoalStartEnabledFieldMotionCurve,
               alignment: Alignment.topCenter,
               child: AnimatedSwitcher(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 180),
+                duration: enabledFieldMotionDuration,
                 child: _tokenBudgetEnabled
                     ? Padding(
                         key: const ValueKey<String>('token-budget-field'),
