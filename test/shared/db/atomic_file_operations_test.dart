@@ -37,6 +37,21 @@ void main() {
   });
 
   group('recoverAtomicWriteBackupIfNeeded', () {
+    test('cleans orphaned artifacts when target file is intact', () async {
+      final dir = await Directory.systemTemp.createTemp('openhand_atomic_');
+      addTearDown(() => dir.delete(recursive: true));
+      final target = File('${dir.path}/state.json');
+      await target.writeAsString('current');
+      await File('${target.path}.tmp').writeAsString('temp');
+      await File('${target.path}.bak').writeAsString('backup');
+
+      await recoverAtomicWriteBackupIfNeeded(target);
+
+      expect(await target.readAsString(), 'current');
+      expect(await File('${target.path}.tmp').exists(), isFalse);
+      expect(await File('${target.path}.bak').exists(), isFalse);
+    });
+
     test(
       'restores an orphaned temp file before falling back to backup',
       () async {

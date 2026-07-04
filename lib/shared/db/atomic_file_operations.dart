@@ -24,12 +24,20 @@ const String _openDirectoryProcessTag = 'atomic_file_ops';
 /// It is safe to call even when no leftover artifacts exist.
 Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) async {
   final tempFile = File('${targetFile.path}$_atomicTempSuffix');
+  final backupFile = File('${targetFile.path}$_atomicBackupSuffix');
 
   if (await targetFile.exists()) {
-    // Target is intact — clean up any orphaned .tmp file.
+    // Target is intact — clean up any orphaned atomic-write artifacts.
     if (await tempFile.exists()) {
       try {
         await tempFile.delete();
+      } on FileSystemException {
+        // Best-effort cleanup; ignore if the file cannot be deleted.
+      }
+    }
+    if (await backupFile.exists()) {
+      try {
+        await backupFile.delete();
       } on FileSystemException {
         // Best-effort cleanup; ignore if the file cannot be deleted.
       }
@@ -55,7 +63,6 @@ Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) async {
   }
 
   // Restore from backup if available.
-  final backupFile = File('${targetFile.path}$_atomicBackupSuffix');
   if (await backupFile.exists()) {
     await backupFile.rename(targetFile.path);
   }
