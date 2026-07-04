@@ -199,7 +199,7 @@ domains: cloud, finops
     final recentAudit =
         operationalState['recent_audit_events'] as List<Object?>;
 
-    expect(snapshot.version, '1.2.4');
+    expect(snapshot.version, '1.2.5');
     expect(routing['has_route'], isTrue);
     expect(routing['keywords'], <Object?>[
       'release',
@@ -293,4 +293,38 @@ domains: cloud, finops
       'DeployMcp',
     );
   });
+
+  test(
+    'prompt renderer keeps full structured fallback when asset fails',
+    () async {
+      final renderer = AgentPromptRenderer(
+        loader: (_) async => throw StateError('missing prompt asset'),
+      );
+
+      final snapshot = await renderer.render(
+        agent: const AgentProfile(
+          id: 'agent-fallback',
+          name: 'Fallback Agent',
+          position: 'Ops Partner',
+          responsibilityBoundary: 'Handle safe operational checks.',
+        ),
+      );
+
+      expect(snapshot.version, '1.2.5');
+      expect(snapshot.renderedPrompt, contains('<work_loop>'));
+      expect(snapshot.renderedPrompt, contains('<mentor_escalation>'));
+      expect(
+        snapshot.renderedPrompt,
+        contains('<tool_and_capability_discipline>'),
+      );
+      expect(snapshot.renderedPrompt, contains('<memory_and_learning>'));
+      expect(snapshot.renderedPrompt, contains('<stop_condition>'));
+      expect(snapshot.renderedPrompt, contains('"name": "Fallback Agent"'));
+      expect(
+        snapshot.renderedPrompt,
+        isNot(contains('{{AGENT_PROFILE_JSON}}')),
+      );
+      expect(snapshot.renderedPrompt, isNot(contains('{{TASK_CONTEXT_JSON}}')));
+    },
+  );
 }
