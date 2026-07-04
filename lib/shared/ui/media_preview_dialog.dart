@@ -178,7 +178,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       rawViewport.width * kOpenHandDialogViewportFraction,
       rawViewport.height * kOpenHandDialogViewportFraction,
     );
-    final disableAnim = MediaQuery.disableAnimationsOf(context);
+    final motionEnabled = openHandTickerMotionEnabled(context);
     final motionSettings = openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.dialog,
@@ -235,9 +235,9 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       maxHeight: maxDialogH,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: AnimatedSize(
-        duration: disableAnim
-            ? Duration.zero
-            : const Duration(milliseconds: 320),
+        duration: motionEnabled
+            ? const Duration(milliseconds: 320)
+            : Duration.zero,
         curve: Curves.easeOutCubic,
         child: ConstrainedBox(
           constraints: BoxConstraints(
