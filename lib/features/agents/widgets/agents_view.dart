@@ -3414,6 +3414,7 @@ class _AgentKpiBody extends StatelessWidget {
                   kpis.length *
                   100)
               .round();
+    final visibleKpis = _sortedAgentKpis(kpis);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -3451,15 +3452,43 @@ class _AgentKpiBody extends StatelessWidget {
         ListView.separated(
           shrinkWrap: true,
           primary: false,
-          itemCount: kpis.length,
+          itemCount: visibleKpis.length,
           separatorBuilder: (_, _) => const SizedBox(height: 10),
           itemBuilder: (context, index) {
-            return _AgentKpiCard(agent: agent, item: kpis[index]);
+            return _AgentKpiCard(agent: agent, item: visibleKpis[index]);
           },
         ),
       ],
     );
   }
+}
+
+List<AgentKpiItem> _sortedAgentKpis(List<AgentKpiItem> kpis) {
+  return List<AgentKpiItem>.from(kpis)..sort((left, right) {
+    final statusCompare = _agentKpiStatusRank(
+      left.status,
+    ).compareTo(_agentKpiStatusRank(right.status));
+    if (statusCompare != 0) return statusCompare;
+    final progressCompare = left.progress.compareTo(right.progress);
+    if (progressCompare != 0) return progressCompare;
+    return _agentKpiSortTime(right).compareTo(_agentKpiSortTime(left));
+  });
+}
+
+int _agentKpiStatusRank(String status) {
+  return switch (status.trim().toLowerCase()) {
+    'at_risk' => 0,
+    'tracking' => 1,
+    'paused' => 2,
+    'done' => 3,
+    _ => 4,
+  };
+}
+
+DateTime _agentKpiSortTime(AgentKpiItem item) {
+  return item.updatedAt ??
+      item.createdAt ??
+      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 }
 
 class _AgentKpiCard extends StatelessWidget {

@@ -1528,6 +1528,10 @@ void main() {
       expect(find.text('有风险'), findsAtLeastNWidgets(1));
       expect(find.text('平均进度'), findsOneWidget);
       expect(find.text('Weekly report SLA'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Incident response')).dy,
+        lessThan(tester.getTopLeft(find.text('Weekly report SLA')).dy),
+      );
       expect(find.text('Publish every Friday before 18:00.'), findsOneWidget);
       expect(
         find.text('Collect evidence, draft, review, then publish.'),
@@ -1540,7 +1544,7 @@ void main() {
       expect(find.text('deadline: 2026-07-05'), findsOneWidget);
       expect(find.byTooltip('编辑 KPI'), findsAtLeastNWidgets(1));
 
-      await tester.tap(find.byTooltip('编辑 KPI').first);
+      await tester.tap(find.byTooltip('编辑 KPI').at(1));
       await tester.pumpAndSettle();
       expect(find.text('KPI 元数据'), findsOneWidget);
       await tester.enterText(
