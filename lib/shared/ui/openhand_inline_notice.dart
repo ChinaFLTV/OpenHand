@@ -76,7 +76,16 @@ class _OpenHandInlineNoticeState extends State<OpenHandInlineNotice> {
         return SizeTransition(
           sizeFactor: animation,
           axisAlignment: -1,
-          child: FadeTransition(opacity: animation, child: child),
+          child: FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, -0.04),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          ),
         );
       },
       child: child,
