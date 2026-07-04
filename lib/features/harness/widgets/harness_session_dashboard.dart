@@ -25,6 +25,7 @@ import '../../../shared/ui/animated_overlay.dart';
 import '../../../shared/ui/error_snackbar.dart';
 import '../../../shared/ui/markdown_math.dart';
 import '../../../shared/ui/model_search_selector.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -60,6 +61,10 @@ part 'harness_session_dashboard.steering.part.dart';
 
 void _showHarnessSnackBar(BuildContext context, SnackBar snackBar) {
   OpenHandSnackBar.showInContext(context, snackBar);
+}
+
+Duration _harnessMotionDuration(BuildContext context, Duration duration) {
+  return openHandTickerMotionEnabled(context) ? duration : Duration.zero;
 }
 
 // Pre-compiled regex for detecting log-level prefixes in output lines.

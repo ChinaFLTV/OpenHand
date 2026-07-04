@@ -242,9 +242,10 @@ class _HeComposer extends StatelessWidget {
     }
 
     final expandedContent = AnimatedContainer(
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 260),
+      duration: _harnessMotionDuration(
+        context,
+        const Duration(milliseconds: 260),
+      ),
       curve: Curves.easeInOutCubicEmphasized,
       width: double.infinity,
       height: manualPhaseEnabled ? 176 : 80,
@@ -420,9 +421,10 @@ class _HeComposer extends StatelessWidget {
               ),
               child: AnimatedRotation(
                 turns: isCollapsed ? 0.5 : 0,
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 220),
+                duration: _harnessMotionDuration(
+                  context,
+                  const Duration(milliseconds: 220),
+                ),
                 curve: Curves.easeOutCubic,
                 child: const Icon(Icons.keyboard_arrow_down_rounded),
               ),
@@ -555,9 +557,10 @@ class _HeComposer extends StatelessWidget {
     return Card(
       color: colorScheme.surfaceContainerHigh,
       child: AnimatedContainer(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 260),
+        duration: _harnessMotionDuration(
+          context,
+          const Duration(milliseconds: 260),
+        ),
         curve: Curves.easeInOutCubicEmphasized,
         padding: EdgeInsets.fromLTRB(18, 14, 18, isCollapsed ? 10 : 18),
         child: Column(

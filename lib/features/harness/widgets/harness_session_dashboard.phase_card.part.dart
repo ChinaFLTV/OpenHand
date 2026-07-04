@@ -245,9 +245,10 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     // running → completed). AnimatedContainer handles backgroundColor and
     // borderColor interpolation automatically.
     return AnimatedContainer(
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 380),
+      duration: _harnessMotionDuration(
+        context,
+        const Duration(milliseconds: 380),
+      ),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: backgroundColor,
@@ -723,9 +724,10 @@ class _HePhaseMetaRow extends StatelessWidget {
     // While running the icon position is kept empty; the sweep animation on
     // the pill itself already signals activity.
     final statusIndicator = AnimatedSwitcher(
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 260),
+      duration: _harnessMotionDuration(
+        context,
+        const Duration(milliseconds: 260),
+      ),
       transitionBuilder: (child, animation) {
         return FadeTransition(
           opacity: animation,
@@ -773,9 +775,10 @@ class _HePhaseMetaRow extends StatelessWidget {
           const SizedBox(width: 6),
           AnimatedRotation(
             turns: expanded ? 0.5 : 0,
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 220),
+            duration: _harnessMotionDuration(
+              context,
+              const Duration(milliseconds: 220),
+            ),
             curve: Curves.easeOutCubic,
             child: Icon(
               Icons.keyboard_arrow_down_rounded,
