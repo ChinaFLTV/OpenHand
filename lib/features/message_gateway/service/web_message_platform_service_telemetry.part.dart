@@ -1,5 +1,7 @@
 part of 'web_message_platform_service.dart';
 
+final RegExp _macSwapUsedPattern = RegExp(r'used\s*=\s*([0-9.]+)([MG]?)');
+
 /// 进程级遥测快照（CPU/线程/句柄/Swap），由
 /// [_refreshProcessDiagnosticsIfStale] 节流采集，2 秒内复用。
 class _ProcessDiagnostics {
@@ -26,7 +28,7 @@ class _LinuxCpuSample {
 
 /// 解析 macOS `sysctl vm.swapusage` 输出中的 `used = 1234.5M` 数字。
 int? _parseMacSwapBytes(String value) {
-  final match = RegExp(r'used\s*=\s*([0-9.]+)([MG]?)').firstMatch(value);
+  final match = _macSwapUsedPattern.firstMatch(value);
   if (match == null) return null;
   final number = optionalDoubleFromValue(match.group(1));
   if (number == null) return null;

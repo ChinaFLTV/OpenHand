@@ -10,12 +10,14 @@ import '../../../shared/util/input_value_parsing.dart';
 class CronParser {
   CronParser._();
 
+  static final RegExp _fieldSeparatorPattern = RegExp(r'\s+');
+
   /// Returns the next occurrence after [after] for the given 5-field
   /// [expression], or null if the expression is invalid.
   ///
   /// Safety: bails out after scanning 366 days to prevent infinite loops.
   static DateTime? nextRun(String expression, {DateTime? after}) {
-    final fields = expression.trim().split(RegExp(r'\s+'));
+    final fields = expression.trim().split(_fieldSeparatorPattern);
     if (fields.length != 5) return null;
 
     final minutes = _parseField(fields[0], 0, 59);
@@ -62,7 +64,7 @@ class CronParser {
   /// Validates a 5-field cron expression. Returns null if valid, or a
   /// localized error description if invalid.
   static String? validate(String expression, {required AppLocalizations l10n}) {
-    final fields = expression.trim().split(RegExp(r'\s+'));
+    final fields = expression.trim().split(_fieldSeparatorPattern);
     if (fields.length != 5) {
       return l10n.cronParserFieldCountError;
     }
