@@ -215,8 +215,8 @@ class SettingsController extends ChangeNotifier {
        _showSelfLearningMessages = snapshot.showSelfLearningMessages,
        _cronAutoCleanupEnabled = snapshot.cronAutoCleanupEnabled,
        _cronAutoCleanupRetentionDays = snapshot.cronAutoCleanupRetentionDays,
-       _hardnessToolSearchHistoryMaxPhases =
-           snapshot.hardnessToolSearchHistoryMaxPhases,
+       _harnessToolSearchHistoryMaxPhases =
+           snapshot.harnessToolSearchHistoryMaxPhases,
        _toolSearchReplayCancelWindowSeconds =
            snapshot.toolSearchReplayCancelWindowSeconds,
        _reduceMotion = snapshot.reduceMotion,
@@ -349,7 +349,7 @@ class SettingsController extends ChangeNotifier {
   bool _showSelfLearningMessages;
   bool _cronAutoCleanupEnabled;
   int _cronAutoCleanupRetentionDays;
-  int _hardnessToolSearchHistoryMaxPhases;
+  int _harnessToolSearchHistoryMaxPhases;
   int _toolSearchReplayCancelWindowSeconds;
   bool _reduceMotion;
   AppProxySettings _proxySettings;
@@ -627,8 +627,8 @@ class SettingsController extends ChangeNotifier {
 
   /// Harness ToolSearch 加载历史按 phase-session 分桶保留的上限
   /// （LRU 阐出最早者）。默认 8，范围 [1, 64]。
-  int get hardnessToolSearchHistoryMaxPhases =>
-      _hardnessToolSearchHistoryMaxPhases;
+  int get harnessToolSearchHistoryMaxPhases =>
+      _harnessToolSearchHistoryMaxPhases;
 
   /// ToolSearch 历史「重放」按下后的反悔窗口（秒）。在窗口内点
   /// snackbar 上的 Cancel 可撤销发送。默认 3，范围 [1, 30]。
@@ -2445,16 +2445,16 @@ class SettingsController extends ChangeNotifier {
 
   /// 调整 Harness ToolSearch 历史 LRU 桶上限。超出 [1, 64] 会被
   /// clamp；快速重复写入只会走 successNoChange 路径。
-  Future<bool> updateHardnessToolSearchHistoryMaxPhases(int value) async {
+  Future<bool> updateHarnessToolSearchHistoryMaxPhases(int value) async {
     final clamped = value.clamp(
-      AppSettingsSnapshot.minHardnessToolSearchHistoryMaxPhases,
-      AppSettingsSnapshot.maxHardnessToolSearchHistoryMaxPhases,
+      AppSettingsSnapshot.minHarnessToolSearchHistoryMaxPhases,
+      AppSettingsSnapshot.maxHarnessToolSearchHistoryMaxPhases,
     );
     return _commitMutation(() {
-      if (_hardnessToolSearchHistoryMaxPhases == clamped) {
+      if (_harnessToolSearchHistoryMaxPhases == clamped) {
         return _MutationDisposition.successNoChange;
       }
-      _hardnessToolSearchHistoryMaxPhases = clamped;
+      _harnessToolSearchHistoryMaxPhases = clamped;
       return _MutationDisposition.apply;
     });
   }
@@ -2782,7 +2782,7 @@ class SettingsController extends ChangeNotifier {
       showSelfLearningMessages: _showSelfLearningMessages,
       cronAutoCleanupEnabled: _cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: _cronAutoCleanupRetentionDays,
-      hardnessToolSearchHistoryMaxPhases: _hardnessToolSearchHistoryMaxPhases,
+      harnessToolSearchHistoryMaxPhases: _harnessToolSearchHistoryMaxPhases,
       toolSearchReplayCancelWindowSeconds: _toolSearchReplayCancelWindowSeconds,
       reduceMotion: _reduceMotion,
       proxySettings: _proxySettings,
@@ -2924,8 +2924,8 @@ class SettingsController extends ChangeNotifier {
     _selfLearningStreamFlushIntervalMs =
         snapshot.selfLearningStreamFlushIntervalMs;
     _showSelfLearningMessages = snapshot.showSelfLearningMessages;
-    _hardnessToolSearchHistoryMaxPhases =
-        snapshot.hardnessToolSearchHistoryMaxPhases;
+    _harnessToolSearchHistoryMaxPhases =
+        snapshot.harnessToolSearchHistoryMaxPhases;
     _toolSearchReplayCancelWindowSeconds =
         snapshot.toolSearchReplayCancelWindowSeconds;
     _reduceMotion = snapshot.reduceMotion;

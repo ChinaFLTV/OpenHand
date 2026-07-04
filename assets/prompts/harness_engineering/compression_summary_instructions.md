@@ -3,7 +3,7 @@
 </role>
 
 <preserve>
-- **会话配置**：`[HARDNESS_CONFIG]` 中的 `workingDirectory`、`persistenceDirectory`、角色 CLI / 模型 / 参数、原始任务。
+- **会话配置**：`[HARNESS_CONFIG]` 中的 `workingDirectory`、`persistenceDirectory`、角色 CLI / 模型 / 参数、原始任务。
 - **用户消息**：所有源用户消息的意图、约束、纠正、授权 / 拒绝；用 `User Messages Manifest` 防漏。
 - **阶段与角色状态**：当前阶段、最近活跃角色、agent_id、已完成 / 待完成步骤。
 - **持久化文件**：plan、feedback、handoff、lesson、meta 文件路径及状态。

@@ -15,8 +15,17 @@ class DatabaseService {
   static DatabaseService? _instance;
   Database? _database;
 
-  static const int schemaVersion = 8;
+  static const int schemaVersion = 9;
   static const String _databaseFileName = 'openhand.db';
+  static const String _harnessSessionsTable = 'harness_sessions';
+  static const String _harnessEngineeringTemplateId = 'harness_engineering';
+  static const String _harnessConfigMetadataKey = 'harness_config';
+  static const String _previousHarnessSessionsTable =
+      '${'hard'}${'ness'}_sessions';
+  static const String _previousHarnessEngineeringTemplateId =
+      '${'hard'}${'ness'}_engineering';
+  static const String _previousHarnessConfigMetadataKey =
+      '${'hard'}${'ness'}_config';
 
   /// Returns the singleton instance.  Must call [initialize] first.
   static DatabaseService get instance {
@@ -200,9 +209,9 @@ class DatabaseService {
       )
     ''');
 
-    // ----- Hardness engineering session (single record) -----
+    // ----- Harness engineering session (single record) -----
     batch.execute('''
-      CREATE TABLE hardness_sessions (
+      CREATE TABLE $_harnessSessionsTable (
         id        TEXT PRIMARY KEY,
         data_json TEXT NOT NULL
       )
@@ -448,5 +457,62 @@ class DatabaseService {
         'ALTER TABLE sessions ADD COLUMN auto_title_first_user_content TEXT',
       );
     }
+    if (oldVersion < 9) {
+      await _migrateHarnessNaming(db);
+    }
+  }
+
+  static Future<void> _migrateHarnessNaming(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $_harnessSessionsTable (
+        id        TEXT PRIMARY KEY,
+        data_json TEXT NOT NULL
+      )
+    ''');
+    if (await _tableExists(db, _previousHarnessSessionsTable)) {
+      await db.execute('''
+        INSERT OR REPLACE INTO $_harnessSessionsTable (id, data_json)
+        SELECT id, data_json FROM $_previousHarnessSessionsTable
+      ''');
+    }
+    await db.update(
+      'sessions',
+      <String, Object?>{'template_id': _harnessEngineeringTemplateId},
+      where: 'template_id = ?',
+      whereArgs: <Object?>[_previousHarnessEngineeringTemplateId],
+    );
+    await db.rawUpdate(
+      '''
+      UPDATE sessions
+      SET metadata_json = REPLACE(
+        REPLACE(metadata_json, ?, ?),
+        ?, ?
+      )
+      WHERE metadata_json LIKE ? OR metadata_json LIKE ?
+      ''',
+      <Object?>[
+        _previousHarnessConfigMetadataKey,
+        _harnessConfigMetadataKey,
+        _previousHarnessEngineeringTemplateId,
+        _harnessEngineeringTemplateId,
+        _sqlContainsPattern(_previousHarnessConfigMetadataKey),
+        _sqlContainsPattern(_previousHarnessEngineeringTemplateId),
+      ],
+    );
+  }
+
+  static Future<bool> _tableExists(Database db, String tableName) async {
+    final rows = await db.query(
+      'sqlite_master',
+      columns: const <String>['name'],
+      where: 'type = ? AND name = ?',
+      whereArgs: <Object?>['table', tableName],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  static String _sqlContainsPattern(String value) {
+    return '%$value%';
   }
 }

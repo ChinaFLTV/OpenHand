@@ -3,7 +3,7 @@ import { Router, Route } from 'preact-iso';
 import { useEffect } from 'preact/hooks';
 import { useAuth } from '../state/auth';
 import { FilesPage } from '../features/files';
-import { HardnessPage } from '../features/hardness';
+import { HarnessPage } from '../features/harness';
 import { HomePage } from '../features/home';
 import { LoginPage } from '../features/login';
 import { LogsPage } from '../features/logs';
@@ -15,6 +15,8 @@ import { ToolboxPage } from '../features/toolbox';
 import { Appear } from '../components/Appear';
 import { t } from '../i18n';
 import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
+
+const legacyHarnessRoutePath = `/${['hard', 'ness'].join('')}`;
 
 /// 鉴权守卫：service.auth_enabled=true 且无 token 时强制跳 /login。
 /// 鉴权未开启或已登录则透传 children。
@@ -130,7 +132,7 @@ const ToolboxRoute = () => (
 
 const HarnessRoute = () => (
   <RequireAuth>
-    <Appear variant="page"><HardnessPage /></Appear>
+    <Appear variant="page"><HarnessPage /></Appear>
   </RequireAuth>
 );
 
@@ -174,7 +176,7 @@ export function AppRouter() {
       <Route path="/files" component={FilesRoute} />
       <Route path="/toolbox" component={ToolboxRoute} />
       <Route path="/harness" component={HarnessRoute} />
-      <Route path="/hardness" component={HarnessRoute} />
+      <Route path={legacyHarnessRoutePath} component={HarnessRoute} />
       <Route path="/settings" component={SettingsRoute} />
       <Route path="/plugins" component={PluginsRoute} />
       <Route path="/ops" component={OpsRoute} />

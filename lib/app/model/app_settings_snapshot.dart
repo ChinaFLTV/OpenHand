@@ -242,8 +242,8 @@ class AppSettingsSnapshot {
     this.showSelfLearningMessages = true,
     this.cronAutoCleanupEnabled = true,
     this.cronAutoCleanupRetentionDays = defaultCronAutoCleanupRetentionDays,
-    this.hardnessToolSearchHistoryMaxPhases =
-        defaultHardnessToolSearchHistoryMaxPhases,
+    this.harnessToolSearchHistoryMaxPhases =
+        defaultHarnessToolSearchHistoryMaxPhases,
     this.toolSearchReplayCancelWindowSeconds =
         defaultToolSearchReplayCancelWindowSeconds,
     this.reduceMotion = false,
@@ -290,9 +290,9 @@ class AppSettingsSnapshot {
   /// Harness ToolSearch 历史按 phase-session 分桶存储，同时保留
   /// 的最近 phase 个数（LRU 淘汰）。默认 8，允许 1..64，避免
   /// 长会话内存膨胀。
-  static const int defaultHardnessToolSearchHistoryMaxPhases = 8;
-  static const int minHardnessToolSearchHistoryMaxPhases = 1;
-  static const int maxHardnessToolSearchHistoryMaxPhases = 64;
+  static const int defaultHarnessToolSearchHistoryMaxPhases = 8;
+  static const int minHarnessToolSearchHistoryMaxPhases = 1;
+  static const int maxHarnessToolSearchHistoryMaxPhases = 64;
   static const int defaultToolSearchReplayCancelWindowSeconds = 3;
   static const int minToolSearchReplayCancelWindowSeconds = 1;
   static const int maxToolSearchReplayCancelWindowSeconds = 30;
@@ -862,7 +862,7 @@ class AppSettingsSnapshot {
 
   /// Harness ToolSearch 加载历史 LRU 桶上限，但到该上限后会从
   /// 「全会话」维度淘汰最早的 phase 桶。默认 8。
-  final int hardnessToolSearchHistoryMaxPhases;
+  final int harnessToolSearchHistoryMaxPhases;
 
   /// ToolSearch 历史「重放」按钮按下后的反悔窗口（秒）。该窗口期内
   /// 用户可在 snackbar 上点 Cancel 撤销发送，超时则提交。范围 1..30。
@@ -995,7 +995,7 @@ class AppSettingsSnapshot {
     bool? showSelfLearningMessages,
     bool? cronAutoCleanupEnabled,
     int? cronAutoCleanupRetentionDays,
-    int? hardnessToolSearchHistoryMaxPhases,
+    int? harnessToolSearchHistoryMaxPhases,
     int? toolSearchReplayCancelWindowSeconds,
     bool? reduceMotion,
     AppProxySettings? proxySettings,
@@ -1203,9 +1203,9 @@ class AppSettingsSnapshot {
           cronAutoCleanupEnabled ?? this.cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays:
           cronAutoCleanupRetentionDays ?? this.cronAutoCleanupRetentionDays,
-      hardnessToolSearchHistoryMaxPhases:
-          hardnessToolSearchHistoryMaxPhases ??
-          this.hardnessToolSearchHistoryMaxPhases,
+      harnessToolSearchHistoryMaxPhases:
+          harnessToolSearchHistoryMaxPhases ??
+          this.harnessToolSearchHistoryMaxPhases,
       toolSearchReplayCancelWindowSeconds:
           toolSearchReplayCancelWindowSeconds ??
           this.toolSearchReplayCancelWindowSeconds,

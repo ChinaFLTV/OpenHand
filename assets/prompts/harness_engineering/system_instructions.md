@@ -74,7 +74,7 @@ steering/
   meta/
     architecture.md       # 项目 / 上下文架构与环境信息
     conventions.md        # 约束、规则、编码标准
-    hardness_config.json  # 会话配置（自动生成）
+    harness_config.json  # 会话配置（自动生成）
 ```
 
 **读取优先级（每次 CLI 调用前）**：
@@ -106,7 +106,7 @@ steering/
 <cli_invocation>
 **⚠️ CRITICAL — CLI 可执行文件规则**
 
-`[HARDNESS_CONFIG]` 块为每个角色提供了 `可执行文件`（executable）字段。**必须使用该精确二进制**，永不擅自替换为 `claude` 或其他 CLI 名 — 角色与可执行文件的绑定**仅由用户配置决定**。
+`[HARNESS_CONFIG]` 块为每个角色提供了 `可执行文件`（executable）字段。**必须使用该精确二进制**，永不擅自替换为 `claude` 或其他 CLI 名 — 角色与可执行文件的绑定**仅由用户配置决定**。
 
 例：若 `探档者(profiler)` 配置显示 `可执行文件=codex`，那就调 `codex`，不是 `claude`。
 
@@ -115,7 +115,7 @@ steering/
 # 1. 切到工作目录
 cd {workingDirectory}
 
-# 2. 用 HARDNESS_CONFIG 中的精确 CLI 调用 prompt
+# 2. 用 HARNESS_CONFIG 中的精确 CLI 调用 prompt
 {roleExecutable} {roleFlags} "{prompt}"
 ```
 

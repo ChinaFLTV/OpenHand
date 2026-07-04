@@ -726,8 +726,8 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                 label: Text(l10n.snackToolSearchLoadedSourceFilterAi),
               ),
               ButtonSegment(
-                value: AiToolSearchLoadSource.hardnessPhase,
-                label: Text(l10n.snackToolSearchLoadedSourceFilterHardness),
+                value: AiToolSearchLoadSource.harnessPhase,
+                label: Text(l10n.snackToolSearchLoadedSourceFilterHarness),
               ),
             ],
             selected: <AiToolSearchLoadSource?>{_historySourceFilter},
@@ -1002,11 +1002,11 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     AppLocalizations l10n,
     AiToolSearchLoadSource source,
   ) {
-    final isHardness = source == AiToolSearchLoadSource.hardnessPhase;
-    final label = isHardness
-        ? l10n.snackToolSearchLoadedSourceHardness
+    final isHarness = source == AiToolSearchLoadSource.harnessPhase;
+    final label = isHarness
+        ? l10n.snackToolSearchLoadedSourceHarness
         : l10n.snackToolSearchLoadedSourceAi;
-    final color = isHardness
+    final color = isHarness
         ? theme.colorScheme.tertiary
         : theme.colorScheme.secondary;
     return Container(

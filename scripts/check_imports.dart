@@ -75,7 +75,7 @@ Future<int> _scanDart(String root) async {
       final sub = segs.skip(1).join('/');
 
       if (target == owner) {
-        // 同 feature 内部跳转一律允许：widget-bundle 形态（hardness/settings）
+        // 同 feature 内部跳转一律允许：widget-bundle 形态（harness/settings）
         // 没有 Controller 中介，widgets 直接调 service 是合理的；其它有
         // Controller 的 feature 也允许同 feature 内部 widgets→service，因为
         // 强制约束已被实践证明会强行重写大量稳定代码而无收益。

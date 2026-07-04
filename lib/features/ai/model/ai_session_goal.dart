@@ -486,7 +486,7 @@ class AiSessionGoalStartOptions {
 bool aiSessionGoalModeAllowedForTemplate(String templateId) {
   return !const <String>{
     'machine_expert',
-    'hardness_engineering',
+    'harness_engineering',
     'web_reverse_expert',
     'android_reverse_expert',
   }.contains(templateId.trim());

@@ -349,7 +349,7 @@ class _TemplatePromptFallbacks {
       developerInstructions: expertDeveloperInstructions,
       compressionSummaryInstructions: expertCompressionSummaryInstructions,
     ),
-    AiPromptTemplatePolicies.hardnessEngineeringTemplateId: _default,
+    AiPromptTemplatePolicies.harnessEngineeringTemplateId: _default,
     AiPromptTemplatePolicies.programmingExpertTemplateId:
         _TemplatePromptFallback(
           systemInstructions: programmingExpertSystemInstructions,

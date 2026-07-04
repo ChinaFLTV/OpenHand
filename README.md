@@ -125,7 +125,7 @@ lib/
   features/
     ai/                会话、模型协议、工具运行时和提示词构建
     home/              主界面、线程列表、编辑器和模板入口
-    hardness/          Harness Engineering 流水线
+    harness/          Harness Engineering 流水线
     web_reverse/       Web 逆向与浏览器调试能力
     skills/            技能管理
     memory/            记忆系统

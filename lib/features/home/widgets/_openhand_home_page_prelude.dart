@@ -13,7 +13,7 @@ enum AppSection {
   knowledgeBase,
   agents,
   settings,
-  hardnessSession,
+  harnessSession,
 }
 
 const double _desktopNavigationWidth = 264;
@@ -61,9 +61,7 @@ const double _autoFollowResumeDistance = 24;
 const int _transcriptPreparationFrameBudget = 6;
 const Duration _transcriptPreparationHardTimeout = Duration(milliseconds: 1600);
 const Duration _editorTabsPersistenceDebounce = Duration(milliseconds: 500);
-const Duration _hardnessSessionPersistenceDebounce = Duration(
-  milliseconds: 320,
-);
+const Duration _harnessSessionPersistenceDebounce = Duration(milliseconds: 320);
 const Duration _webReverseRuntimeMetadataDebounce = Duration(milliseconds: 500);
 const int _workspaceSwitchMaxDurationMs = 800;
 const int _disabledSwitchBookkeepingDurationMs = 200;

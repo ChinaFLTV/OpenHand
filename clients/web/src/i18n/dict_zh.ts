@@ -119,7 +119,7 @@ export const dict_zh: Record<string, string> = {
   'home.openOps': 'Ops',
   'home.openLogs': '日志',
   'home.openToolbox': '工具箱',
-  'home.openHardness': 'Harness',
+  'home.openHarness': 'Harness',
   'home.openSettings': '设置',
   'detail.remoteRunning': '另一处客户端已发送消息，AI 正在生成回复中。如本端正在编辑草稿，建议等回复完成后再发送，避免消息顺序混乱。',
   'detail.unreadSuffix': '条新消息',

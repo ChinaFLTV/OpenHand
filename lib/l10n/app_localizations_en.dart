@@ -1295,243 +1295,243 @@ class AppLocalizationsEn extends AppLocalizations {
       'Please enter an integer between 1000 and 1000000.';
 
   @override
-  String get settingsHardnessToolSearchHistoryCapLabel =>
+  String get settingsHarnessToolSearchHistoryCapLabel =>
       'Harness ToolSearch history cap';
 
   @override
-  String get settingsHardnessToolSearchHistoryCapBody =>
+  String get settingsHarnessToolSearchHistoryCapBody =>
       'Maximum number of recent Harness phases for which the ToolSearch loaded-list dialog retains history. Older phases are evicted (LRU).';
 
   @override
-  String settingsHardnessToolSearchHistoryCapValue(int cap) {
+  String settingsHarnessToolSearchHistoryCapValue(int cap) {
     return 'Currently keeping the last $cap phase(s)';
   }
 
   @override
-  String settingsHardnessToolSearchHistoryCapRange(int min, int max) {
+  String settingsHarnessToolSearchHistoryCapRange(int min, int max) {
     return 'Range: $min–$max (default 8)';
   }
 
   @override
-  String settingsHardnessToolSearchHistoryCapResetTooltip(int defaultCap) {
+  String settingsHarnessToolSearchHistoryCapResetTooltip(int defaultCap) {
     return 'Reset to default ($defaultCap)';
   }
 
   @override
-  String get hardnessCliLoginNoOutputHint =>
+  String get harnessCliLoginNoOutputHint =>
       '[Hint] CLI has not produced output yet. It may be initializing, or waiting for browser-based authorization.\n';
 
   @override
-  String get hardnessCliLoginTtyRequiredHint =>
+  String get harnessCliLoginTtyRequiredHint =>
       '[Hint] This CLI may require a real terminal (TTY) for interactive login.\nUse the \"Open in Terminal\" button below to complete login in the system terminal.\n';
 
   @override
-  String hardnessCliLoginStreamError(Object error) {
+  String harnessCliLoginStreamError(Object error) {
     return '[Stream error: $error]';
   }
 
   @override
-  String hardnessCliLoginFailedToStartProcess(Object message) {
+  String harnessCliLoginFailedToStartProcess(Object message) {
     return 'Failed to start process: $message';
   }
 
   @override
-  String hardnessCliLoginOpenTerminalError(Object error) {
+  String harnessCliLoginOpenTerminalError(Object error) {
     return '[Error opening terminal: $error]';
   }
 
   @override
-  String get hardnessCliLoginStatusFailed => 'Failed to launch';
+  String get harnessCliLoginStatusFailed => 'Failed to launch';
 
   @override
-  String get hardnessCliLoginStatusStarting => 'Starting login flow...';
+  String get harnessCliLoginStatusStarting => 'Starting login flow...';
 
   @override
-  String get hardnessCliLoginStatusFinished => 'Process finished';
+  String get harnessCliLoginStatusFinished => 'Process finished';
 
   @override
-  String hardnessCliLoginStatusFinishedWithExit(int exitCode) {
+  String harnessCliLoginStatusFinishedWithExit(int exitCode) {
     return 'Process finished · exit $exitCode';
   }
 
   @override
-  String get hardnessCliLoginStatusWaiting => 'Waiting for CLI interaction...';
+  String get harnessCliLoginStatusWaiting => 'Waiting for CLI interaction...';
 
   @override
-  String hardnessCliLoginTitle(Object name) {
+  String harnessCliLoginTitle(Object name) {
     return '$name Login';
   }
 
   @override
-  String get hardnessCliLoginDescription =>
+  String get harnessCliLoginDescription =>
       'This dialog runs the CLI login flow in-app. The CLI may open your browser externally during authentication.';
 
   @override
-  String get hardnessCliLoginCopyCommandTooltip => 'Copy command';
+  String get harnessCliLoginCopyCommandTooltip => 'Copy command';
 
   @override
-  String get hardnessCliLoginEmptyOutput => 'Waiting for CLI output...';
+  String get harnessCliLoginEmptyOutput => 'Waiting for CLI output...';
 
   @override
-  String get hardnessCliLoginInputLabel => 'Send input';
+  String get harnessCliLoginInputLabel => 'Send input';
 
   @override
-  String get hardnessCliLoginInputHint =>
+  String get harnessCliLoginInputHint =>
       'Type a reply and press Enter; leave empty to send Enter';
 
   @override
-  String get hardnessCliLoginSend => 'Send';
+  String get harnessCliLoginSend => 'Send';
 
   @override
-  String get hardnessCliLoginSendEsc => 'Send Esc';
+  String get harnessCliLoginSendEsc => 'Send Esc';
 
   @override
-  String get hardnessCliLoginOpenInTerminal => 'Open in Terminal';
+  String get harnessCliLoginOpenInTerminal => 'Open in Terminal';
 
   @override
-  String get hardnessCliInstallLogSuccess => '✓ Installed successfully';
+  String get harnessCliInstallLogSuccess => '✓ Installed successfully';
 
   @override
-  String hardnessCliInstallLogSuccessWithPath(Object path) {
+  String harnessCliInstallLogSuccessWithPath(Object path) {
     return '✓ Installed successfully (path: $path)';
   }
 
   @override
-  String hardnessCliInstallLogFailureExitCode(int exitCode) {
+  String harnessCliInstallLogFailureExitCode(int exitCode) {
     return '✗ Installation failed (exit code: $exitCode)';
   }
 
   @override
-  String hardnessCliInstallLogStartProcessFailed(Object message) {
+  String harnessCliInstallLogStartProcessFailed(Object message) {
     return '✗ Failed to start install process: $message';
   }
 
   @override
-  String hardnessCliInstallLogGenericError(Object error) {
+  String harnessCliInstallLogGenericError(Object error) {
     return '✗ Error: $error';
   }
 
   @override
-  String get hardnessCliInstallHintInstallNode =>
+  String get harnessCliInstallHintInstallNode =>
       '  → Install Node.js first: https://nodejs.org';
 
   @override
-  String get hardnessCliInstallHintRetryAdminButton =>
+  String get harnessCliInstallHintRetryAdminButton =>
       '  → Click the \"Retry with Admin\" button below';
 
   @override
-  String hardnessCliInstallHintTrySudo(Object command) {
+  String harnessCliInstallHintTrySudo(Object command) {
     return '  → Try: sudo $command';
   }
 
   @override
-  String get hardnessCliInstallHintCheckNetworkDocs =>
+  String get harnessCliInstallHintCheckNetworkDocs =>
       '  → Check your network connection or see the official docs';
 
   @override
-  String get hardnessCliInstallHintInstallPipx =>
+  String get harnessCliInstallHintInstallPipx =>
       '  → Install pipx first: https://pipx.pypa.io/stable/installation/';
 
   @override
-  String get hardnessCliInstallHintUsePipInstallUserAider =>
+  String get harnessCliInstallHintUsePipInstallUserAider =>
       '    Or use: pip install --user aider-chat';
 
   @override
-  String get hardnessCliInstallHintHomebrewNoSudo =>
+  String get harnessCliInstallHintHomebrewNoSudo =>
       '  → Homebrew usually should not be installed with sudo; check directory permissions';
 
   @override
-  String get hardnessCliInstallHintHomebrewFix =>
+  String get harnessCliInstallHintHomebrewFix =>
       '  → Suggested fix: https://docs.brew.sh/FAQ#why-does-homebrew-say-sudo-is-not-allowed';
 
   @override
-  String get hardnessCliInstallHintInstallPython =>
+  String get harnessCliInstallHintInstallPython =>
       '  → Install Python first: https://www.python.org';
 
   @override
-  String hardnessCliInstallHintPipInstallUser(Object packageName) {
+  String harnessCliInstallHintPipInstallUser(Object packageName) {
     return '  → Try: pip install --user $packageName';
   }
 
   @override
-  String hardnessCliInstallHintOfficialDocs(Object url) {
+  String harnessCliInstallHintOfficialDocs(Object url) {
     return '  → Official docs: $url';
   }
 
   @override
-  String get hardnessCliInstallLogCancelled => '⚠ Installation was cancelled';
+  String get harnessCliInstallLogCancelled => '⚠ Installation was cancelled';
 
   @override
-  String get hardnessCliInstallWindowsAdminManual =>
+  String get harnessCliInstallWindowsAdminManual =>
       'Run manually in PowerShell with administrator privileges:';
 
   @override
-  String hardnessCliInstallAdminCommand(Object command) {
+  String harnessCliInstallAdminCommand(Object command) {
     return '> [Admin] $command';
   }
 
   @override
-  String get hardnessCliInstallAdminTimeout =>
+  String get harnessCliInstallAdminTimeout =>
       '✗ Admin authorization dialog timed out or failed to start; forcibly ended the osascript child process';
 
   @override
-  String get hardnessCliInstallUserCancelledAuth =>
+  String get harnessCliInstallUserCancelledAuth =>
       '⚠ Authorization was cancelled';
 
   @override
-  String get hardnessCliInstallAdminPermissionFailed =>
+  String get harnessCliInstallAdminPermissionFailed =>
       '✗ Could not obtain administrator privileges';
 
   @override
-  String hardnessCliInstallPathMissingWarning(Object executable) {
+  String harnessCliInstallPathMissingWarning(Object executable) {
     return '⚠ Installation completed, but $executable was not found in the current PATH';
   }
 
   @override
-  String get hardnessCliInstallRestartPathHint =>
+  String get harnessCliInstallRestartPathHint =>
       '  → Try restarting OpenHand or launching it from a terminal to load the new PATH';
 
   @override
-  String get hardnessCliInstallTimeoutManual =>
+  String get harnessCliInstallTimeoutManual =>
       '✗ Installation timed out (over 5 minutes). Run manually:';
 
   @override
-  String hardnessCliInstallOsascriptStartFailed(Object message) {
+  String harnessCliInstallOsascriptStartFailed(Object message) {
     return '✗ Failed to start osascript: $message';
   }
 
   @override
-  String get hardnessCliInstallLinuxSudoManual =>
+  String get harnessCliInstallLinuxSudoManual =>
       'Run manually in a terminal (root privileges required):';
 
   @override
-  String get hardnessCliInstallStatusInstalling => 'Installing...';
+  String get harnessCliInstallStatusInstalling => 'Installing...';
 
   @override
-  String get hardnessCliInstallStatusSuccess => 'Installed successfully';
+  String get harnessCliInstallStatusSuccess => 'Installed successfully';
 
   @override
-  String get hardnessCliInstallStatusCancelled => 'Cancelled';
+  String get harnessCliInstallStatusCancelled => 'Cancelled';
 
   @override
-  String get hardnessCliInstallStatusFailed => 'Installation failed';
+  String get harnessCliInstallStatusFailed => 'Installation failed';
 
   @override
-  String hardnessCliInstallTitle(Object name) {
+  String harnessCliInstallTitle(Object name) {
     return 'Install $name';
   }
 
   @override
-  String get hardnessCliInstallCopyDocUrl => 'Copy Doc URL';
+  String get harnessCliInstallCopyDocUrl => 'Copy Doc URL';
 
   @override
-  String get hardnessCliInstallCancel => 'Cancel install';
+  String get harnessCliInstallCancel => 'Cancel install';
 
   @override
-  String get hardnessCliInstallRetryAdmin => 'Retry with Admin';
+  String get harnessCliInstallRetryAdmin => 'Retry with Admin';
 
   @override
-  String get hardnessCliInstallDoneContinue => 'Done, continue';
+  String get harnessCliInstallDoneContinue => 'Done, continue';
 
   @override
   String get settingsToolSearchReplayCancelWindowLabel =>
@@ -4687,7 +4687,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get snackToolSearchLoadedSourceAi => 'AI session';
 
   @override
-  String get snackToolSearchLoadedSourceHardness => 'Harness phase';
+  String get snackToolSearchLoadedSourceHarness => 'Harness phase';
 
   @override
   String get snackToolSearchLoadedReplayedToast =>
@@ -4711,7 +4711,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get snackToolSearchLoadedSourceFilterAi => 'AI only';
 
   @override
-  String get snackToolSearchLoadedSourceFilterHardness => 'Harness only';
+  String get snackToolSearchLoadedSourceFilterHarness => 'Harness only';
 
   @override
   String snackToolSearchLoadedSummary(int queries, int tools) {

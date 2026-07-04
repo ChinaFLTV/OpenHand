@@ -13,12 +13,12 @@ class _NavigationPane extends StatefulWidget {
     required this.onExportSession,
     this.onGenerateTitleForSession,
     required this.onSectionSelected,
-    this.activeHardnessOrchestrator,
-    this.hardnessSessionRecord,
-    this.onHardnessSessionSelected,
-    this.onRenameHardnessSession,
-    this.onDeleteHardnessSession,
-    this.onExportHardnessSession,
+    this.activeHarnessOrchestrator,
+    this.harnessSessionRecord,
+    this.onHarnessSessionSelected,
+    this.onRenameHarnessSession,
+    this.onDeleteHarnessSession,
+    this.onExportHarnessSession,
   });
 
   final AppSection selectedSection;
@@ -32,12 +32,12 @@ class _NavigationPane extends StatefulWidget {
   final Future<void> Function(AiSession session) onExportSession;
   final void Function(AiSession session)? onGenerateTitleForSession;
   final ValueChanged<AppSection> onSectionSelected;
-  final HardnessOrchestrator? activeHardnessOrchestrator;
-  final HardnessSessionRecord? hardnessSessionRecord;
-  final VoidCallback? onHardnessSessionSelected;
-  final VoidCallback? onRenameHardnessSession;
-  final VoidCallback? onDeleteHardnessSession;
-  final VoidCallback? onExportHardnessSession;
+  final HarnessOrchestrator? activeHarnessOrchestrator;
+  final HarnessSessionRecord? harnessSessionRecord;
+  final VoidCallback? onHarnessSessionSelected;
+  final VoidCallback? onRenameHarnessSession;
+  final VoidCallback? onDeleteHarnessSession;
+  final VoidCallback? onExportHarnessSession;
 
   @override
   State<_NavigationPane> createState() => _NavigationPaneState();
@@ -55,7 +55,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
   // phase ticks during streaming.
   final Map<String, _ThreadTileCacheEntry> _threadTileCache =
       <String, _ThreadTileCacheEntry>{};
-  _HardnessTileCacheEntry? _hardnessTileCache;
+  _HarnessTileCacheEntry? _harnessTileCache;
 
   // Tracks which thread ids have already appeared in the sidebar at
   // least once. Newly appended sessions (or a freshly created HE record)
@@ -116,8 +116,8 @@ class _NavigationPaneState extends State<_NavigationPane> {
   /// are already sorted by the store; we simply merge-insert the HE record at
   /// the correct position.
   List<Widget> _buildMergedThreadTiles({
-    required HardnessSessionRecord? heRecord,
-    required HardnessOrchestratorStatus? heStatus,
+    required HarnessSessionRecord? heRecord,
+    required HarnessOrchestratorStatus? heStatus,
     required bool heAwaitingApproval,
   }) {
     final tiles = <Widget>[];
@@ -130,8 +130,8 @@ class _NavigationPaneState extends State<_NavigationPane> {
       if (record == null || status == null) {
         return const SizedBox.shrink();
       }
-      final isSelected = widget.selectedSection == AppSection.hardnessSession;
-      final cached = _hardnessTileCache;
+      final isSelected = widget.selectedSection == AppSection.harnessSession;
+      final cached = _harnessTileCache;
       if (cached != null &&
           cached.recordId == record.id &&
           cached.title == record.title &&
@@ -145,15 +145,15 @@ class _NavigationPaneState extends State<_NavigationPane> {
         key: ValueKey<String>('he-thread-${record.id}'),
         padding: const EdgeInsets.only(bottom: 10),
         child: RepaintBoundary(
-          child: _HardnessSessionTile(
+          child: _HarnessSessionTile(
             title: record.title,
             status: status,
             awaitingApproval: heAwaitingApproval,
             isSelected: isSelected,
-            onTap: widget.onHardnessSessionSelected ?? () {},
-            onRename: widget.onRenameHardnessSession ?? () {},
-            onDelete: widget.onDeleteHardnessSession ?? () {},
-            onExport: widget.onExportHardnessSession ?? () {},
+            onTap: widget.onHarnessSessionSelected ?? () {},
+            onRename: widget.onRenameHarnessSession ?? () {},
+            onDelete: widget.onDeleteHarnessSession ?? () {},
+            onExport: widget.onExportHarnessSession ?? () {},
           ),
         ),
       );
@@ -170,7 +170,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
               child: built,
             )
           : built;
-      _hardnessTileCache = _HardnessTileCacheEntry(
+      _harnessTileCache = _HarnessTileCacheEntry(
         recordId: record.id,
         title: record.title,
         updatedAtMs: record.updatedAt.millisecondsSinceEpoch,
@@ -290,15 +290,15 @@ class _NavigationPaneState extends State<_NavigationPane> {
     // running/completed/failed/cancelled; fall back to the persisted record
     // status when the live orchestrator is idle (e.g. an orchestrator that
     // was reconstructed from a persisted record on app restart).
-    final liveHeStatus = widget.activeHardnessOrchestrator?.status;
+    final liveHeStatus = widget.activeHarnessOrchestrator?.status;
     final heAwaitingApprovalForTile =
-        widget.activeHardnessOrchestrator?.awaitingApprovalPhase != null;
-    final heStatusForTile = widget.hardnessSessionRecord == null
+        widget.activeHarnessOrchestrator?.awaitingApprovalPhase != null;
+    final heStatusForTile = widget.harnessSessionRecord == null
         ? null
         : (liveHeStatus != null &&
-              liveHeStatus != HardnessOrchestratorStatus.idle)
+              liveHeStatus != HarnessOrchestratorStatus.idle)
         ? liveHeStatus
-        : widget.hardnessSessionRecord!.status;
+        : widget.harnessSessionRecord!.status;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -391,7 +391,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
             ),
             // Unified thread list: merge AI sessions and HE session,
             // sorted by updatedAt descending (most recently updated first).
-            if (widget.sessions.isEmpty && widget.hardnessSessionRecord == null)
+            if (widget.sessions.isEmpty && widget.harnessSessionRecord == null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: Text(
@@ -407,7 +407,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: _buildMergedThreadTiles(
-                    heRecord: widget.hardnessSessionRecord,
+                    heRecord: widget.harnessSessionRecord,
                     heStatus: heStatusForTile,
                     heAwaitingApproval: heAwaitingApprovalForTile,
                   ),
@@ -460,8 +460,8 @@ class _ThreadTileCacheEntry {
   final Widget widget;
 }
 
-class _HardnessTileCacheEntry {
-  const _HardnessTileCacheEntry({
+class _HarnessTileCacheEntry {
+  const _HarnessTileCacheEntry({
     required this.recordId,
     required this.title,
     required this.updatedAtMs,
@@ -474,7 +474,7 @@ class _HardnessTileCacheEntry {
   final String recordId;
   final String title;
   final int updatedAtMs;
-  final HardnessOrchestratorStatus status;
+  final HarnessOrchestratorStatus status;
   final bool awaitingApproval;
   final bool isSelected;
   final Widget widget;

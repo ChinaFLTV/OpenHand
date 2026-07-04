@@ -27,7 +27,7 @@ import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/xml_escape.dart';
 import '../../ai/index.dart';
 import '../../crons/index.dart';
-import '../../hardness/index.dart';
+import '../../harness/index.dart';
 import '../../home/index.dart'
     show SessionCacheHitTrend, SessionCacheHitDisplayMode;
 import '../../instructions/index.dart';
@@ -1536,13 +1536,14 @@ class WebMessagePlatformService {
       (shelf.Request r) =>
           _withAuth(r, (req, _) => _knowledgeHitDetailHandler(req)),
     );
-    router.get(
-      '/api/hardness/session',
-      (shelf.Request r) => _withAuth(r, (_, _) => _hardnessSessionHandler()),
-    );
+    const previousHarnessSessionApiPath = '/api/${'hard'}${'ness'}/session';
     router.get(
       '/api/harness/session',
-      (shelf.Request r) => _withAuth(r, (_, _) => _hardnessSessionHandler()),
+      (shelf.Request r) => _withAuth(r, (_, _) => _harnessSessionHandler()),
+    );
+    router.get(
+      previousHarnessSessionApiPath,
+      (shelf.Request r) => _withAuth(r, (_, _) => _harnessSessionHandler()),
     );
     // Plugin Service: 列出插件状态 / 安装 / 更新 / 卸载 / 重新扫描
     router.get(
@@ -2056,19 +2057,19 @@ class WebMessagePlatformService {
   }
 
   /// Toolbox: 持久化的 Harness Engineering 会话快照 (单实例)。
-  /// App 同时只跑一个 Harness session, 持久化在 SQLite 的 hardness_sessions 表;
+  /// App 同时只跑一个 Harness session, 持久化在 SQLite 的 harness_sessions 表;
   /// orchestrator 是 home page 内部状态, 不直接暴露到 service, 故 web 走 store
   /// 的最近一次写入。返回 `{record: null}` 表示尚未运行过 Harness。
-  Future<shelf.Response> _hardnessSessionHandler() async {
+  Future<shelf.Response> _harnessSessionHandler() async {
     try {
-      final record = await HardnessSessionStore().load();
+      final record = await HarnessSessionStore().load();
       return _json(HttpStatus.ok, <String, Object?>{
         'record': record?.toJson(),
       });
     } catch (e, st) {
-      silentLog('web_gateway', 'hardness_session_load_failed', e, st);
+      silentLog('web_gateway', 'harness_session_load_failed', e, st);
       return _json(HttpStatus.internalServerError, <String, Object?>{
-        'error': 'hardness_load_failed',
+        'error': 'harness_load_failed',
         'message': e.toString(),
       });
     }

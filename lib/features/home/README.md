@@ -14,7 +14,7 @@ widget-bundle。无自身全局 Controller — 状态分布在：
 入口：`features/home/index.dart`。
 
 - `OpenHandHomePage` — 主页面 widget
-- `message_path_linking.dart` 全部公开：`MessageResolvedPath / MessagePathCodeSyntax / MessageFilePathSyntax / resolveMarkdownMessageLinkPath / resolveExistingMessagePath / resolveExistingMessagePathAsync / parseSupportedMessageLinkUri / messageFilePathRoots`（供 hardness session_dashboard 使用）
+- `message_path_linking.dart` 全部公开：`MessageResolvedPath / MessagePathCodeSyntax / MessageFilePathSyntax / resolveMarkdownMessageLinkPath / resolveExistingMessagePath / resolveExistingMessagePathAsync / parseSupportedMessageLinkUri / messageFilePathRoots`（供 harness session_dashboard 使用）
 
 ## 目录组织
 
@@ -48,7 +48,7 @@ lib/features/home/
 
 ## 跨 feature 依赖
 - 入向：openhand_app.dart 通过 `import '../features/home/openhand_home_page.dart'` 注入到 MaterialApp.home
-- 出向（通过 sibling barrel）：ai / mcp / hardness / settings / crons / hooks / instructions / memory / skills / plugin_service / message_gateway
+- 出向（通过 sibling barrel）：ai / mcp / harness / settings / crons / hooks / instructions / memory / skills / plugin_service / message_gateway
 
 ## 拆分边界
 - 页面部件归 `widgets/`，工具归 `util/`，轻量模型归 `model/`。

@@ -295,7 +295,7 @@ Widget _buildProgrammingExpertConfigSection(
   );
 }
 
-Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
+Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
   final sectionTitle = _localizedText(
@@ -307,7 +307,7 @@ Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
     de: 'Harness-Engineering-Konfiguration',
     ja: 'Harness Engineering 設定',
   );
-  final configMap = _threadTemplateMetadataMap(session, 'hardness_config');
+  final configMap = _threadTemplateMetadataMap(session, 'harness_config');
   if (configMap == null) {
     return _MetadataSection(
       title: sectionTitle,
@@ -330,11 +330,11 @@ Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
     );
   }
 
-  HardnessRoleConfig? parseRole(String key) {
+  HarnessRoleConfig? parseRole(String key) {
     final raw = configMap[key];
-    if (raw is Map<String, Object?>) return HardnessRoleConfig.fromJson(raw);
+    if (raw is Map<String, Object?>) return HarnessRoleConfig.fromJson(raw);
     if (raw is Map) {
-      return HardnessRoleConfig.fromJson(stringKeyedMapFromValue(raw));
+      return HarnessRoleConfig.fromJson(stringKeyedMapFromValue(raw));
     }
     return null;
   }
@@ -345,7 +345,7 @@ Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
       .trim();
   final firstRunRaw = configMap['first_run'];
 
-  final roleConfigs = <(String, HardnessRoleConfig?)>[
+  final roleConfigs = <(String, HarnessRoleConfig?)>[
     (
       _localizedText(
         context,
@@ -511,7 +511,7 @@ Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
                 ja: '未設定',
               );
             }
-            return '${rc.cliName} · ${describeHardnessCliModel(findHardnessCliByName(rc.cliName), rc.modelId, locale: Localizations.localeOf(context))}';
+            return '${rc.cliName} · ${describeHarnessCliModel(findHarnessCliByName(rc.cliName), rc.modelId, locale: Localizations.localeOf(context))}';
           }(),
         ),
     ],

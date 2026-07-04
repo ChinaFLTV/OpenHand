@@ -89,7 +89,7 @@ export default defineConfig({
           if (id.includes('/features/sessions/')) return 'feature-sessions';
           if (id.includes('/features/logs/')) return 'feature-logs';
           if (id.includes('/features/ops/')) return 'feature-ops';
-          if (id.includes('/features/hardness/')) return 'feature-hardness';
+          if (id.includes('/features/harness/')) return 'feature-harness';
           if (id.includes('/features/toolbox/')) return 'feature-toolbox';
           if (id.includes('/features/files/')) return 'feature-files';
           if (id.includes('/features/plugins/')) return 'feature-plugins';

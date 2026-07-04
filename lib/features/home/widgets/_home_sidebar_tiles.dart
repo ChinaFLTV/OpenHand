@@ -1,7 +1,7 @@
 part of '../openhand_home_page.dart';
 
-class _HardnessSessionTile extends StatelessWidget {
-  const _HardnessSessionTile({
+class _HarnessSessionTile extends StatelessWidget {
+  const _HarnessSessionTile({
     required this.title,
     required this.status,
     required this.awaitingApproval,
@@ -13,7 +13,7 @@ class _HardnessSessionTile extends StatelessWidget {
   });
 
   final String title;
-  final HardnessOrchestratorStatus status;
+  final HarnessOrchestratorStatus status;
   final bool awaitingApproval;
   final bool isSelected;
   final VoidCallback onTap;
@@ -33,8 +33,8 @@ class _HardnessSessionTile extends StatelessWidget {
         : colorScheme.onSurface;
     final showBadge =
         awaitingApproval ||
-        (status != HardnessOrchestratorStatus.idle &&
-            status != HardnessOrchestratorStatus.completed);
+        (status != HarnessOrchestratorStatus.idle &&
+            status != HarnessOrchestratorStatus.completed);
 
     return GestureDetector(
       onSecondaryTapDown: (details) async {
@@ -121,7 +121,7 @@ class _HardnessSessionTile extends StatelessWidget {
                 ),
                 if (showBadge) ...[
                   const SizedBox(width: 12),
-                  _HardnessStatusCapsule(
+                  _HarnessStatusCapsule(
                     status: status,
                     awaitingApproval: awaitingApproval,
                     isSelected: isSelected,
@@ -140,14 +140,14 @@ class _HardnessSessionTile extends StatelessWidget {
 /// Uses the same [_SweepBadge] animation for the running state and a static
 /// rounded capsule for terminal states — matching the [_ActiveThreadBadge]
 /// pattern used for AI thread sessions.
-class _HardnessStatusCapsule extends StatelessWidget {
-  const _HardnessStatusCapsule({
+class _HarnessStatusCapsule extends StatelessWidget {
+  const _HarnessStatusCapsule({
     required this.status,
     required this.awaitingApproval,
     required this.isSelected,
   });
 
-  final HardnessOrchestratorStatus status;
+  final HarnessOrchestratorStatus status;
   final bool awaitingApproval;
   final bool isSelected;
 
@@ -191,7 +191,7 @@ class _HardnessStatusCapsule extends StatelessWidget {
     }
 
     final (Color fg, String label) = switch (status) {
-      HardnessOrchestratorStatus.running => (
+      HarnessOrchestratorStatus.running => (
         isSelected ? colorScheme.onPrimaryContainer : colorScheme.primary,
         openHandLocalizedText(
           context,
@@ -203,7 +203,7 @@ class _HardnessStatusCapsule extends StatelessWidget {
           ja: '実行中',
         ),
       ),
-      HardnessOrchestratorStatus.completed => (
+      HarnessOrchestratorStatus.completed => (
         const Color(0xFF5F7C53),
         openHandLocalizedText(
           context,
@@ -215,7 +215,7 @@ class _HardnessStatusCapsule extends StatelessWidget {
           ja: '完了',
         ),
       ),
-      HardnessOrchestratorStatus.failed => (
+      HarnessOrchestratorStatus.failed => (
         const Color(0xFFC84B4B),
         openHandLocalizedText(
           context,
@@ -227,7 +227,7 @@ class _HardnessStatusCapsule extends StatelessWidget {
           ja: '失敗',
         ),
       ),
-      HardnessOrchestratorStatus.cancelled => (
+      HarnessOrchestratorStatus.cancelled => (
         const Color(0xFFD97A33),
         openHandLocalizedText(
           context,
@@ -239,11 +239,11 @@ class _HardnessStatusCapsule extends StatelessWidget {
           ja: 'キャンセル済み',
         ),
       ),
-      HardnessOrchestratorStatus.idle => (colorScheme.outline, ''),
+      HarnessOrchestratorStatus.idle => (colorScheme.outline, ''),
     };
 
-    if (status == HardnessOrchestratorStatus.idle ||
-        status == HardnessOrchestratorStatus.completed) {
+    if (status == HarnessOrchestratorStatus.idle ||
+        status == HarnessOrchestratorStatus.completed) {
       return const SizedBox.shrink();
     }
 
@@ -257,7 +257,7 @@ class _HardnessStatusCapsule extends StatelessWidget {
       ),
     );
 
-    if (status == HardnessOrchestratorStatus.running) {
+    if (status == HarnessOrchestratorStatus.running) {
       return _SweepBadge(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         backgroundColor: bg,

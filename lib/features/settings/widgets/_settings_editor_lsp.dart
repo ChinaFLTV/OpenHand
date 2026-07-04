@@ -2261,8 +2261,8 @@ class _EditorLspInstallRunnerDialogState
       return startTrackedProcess('cmd', ['/c', shellCommand], runInShell: true);
     }
     return startTrackedProcess(
-      resolveHardnessCliShellExecutable(),
-      buildHardnessCliShellArgs(shellCommand),
+      resolveHarnessCliShellExecutable(),
+      buildHarnessCliShellArgs(shellCommand),
       environment: const <String, String>{'FORCE_COLOR': '1'},
     );
   }

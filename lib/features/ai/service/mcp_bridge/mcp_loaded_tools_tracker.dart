@@ -30,8 +30,8 @@ enum AiToolSearchLoadSource {
   /// 普通 AI 会话内部的 ToolSearch 调用。
   aiSession,
 
-  /// Harness Engineering phase（HardnessApiPhaseRunner）内部的 ToolSearch 调用。
-  hardnessPhase,
+  /// Harness Engineering phase（HarnessApiPhaseRunner）内部的 ToolSearch 调用。
+  harnessPhase,
 }
 
 /// 单次 `ToolSearch` 加载在历史时间线中的一条记录。

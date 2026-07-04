@@ -40,7 +40,7 @@ export const KNOWLEDGE_BASE_MESSAGE_METADATA_KEY = 'knowledge_base';
 
 export const GOAL_MODE_BLOCKED_TEMPLATE_IDS = new Set([
   'machine_expert',
-  'hardness_engineering',
+  'harness_engineering',
   'web_reverse_expert',
   'android_reverse_expert',
 ]);

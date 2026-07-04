@@ -736,7 +736,7 @@ class AiSessionController extends ChangeNotifier {
   final String Function() _idGenerator;
   final DateTime Function() _clock;
 
-  /// Exposes the chat client for subsystems (e.g. Hardness API phase runner)
+  /// Exposes the chat client for subsystems (e.g. Harness API phase runner)
   /// that need to perform API calls independently of the session loop.
   AiChatClient get chatClient => _chatClient;
 

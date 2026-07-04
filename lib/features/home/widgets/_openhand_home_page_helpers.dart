@@ -374,13 +374,13 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
 extension on AppSection {
   /// Returns the drawer index for this section, or -1 if this section
   /// does not correspond to a NavigationDrawerDestination (e.g. workspace
-  /// or hardnessSession which are displayed as thread tiles instead).
+  /// or harnessSession which are displayed as thread tiles instead).
   /// Using -1 instead of null ensures NavigationDrawer deselects all
   /// destinations when switching to a thread.
   int get drawerIndex {
     return switch (this) {
       AppSection.workspace => -1,
-      AppSection.hardnessSession => -1,
+      AppSection.harnessSession => -1,
       AppSection.skills => 0,
       AppSection.memory => 1,
       AppSection.mcp => 2,

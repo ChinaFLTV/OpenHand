@@ -205,9 +205,9 @@ class _SessionMetadataDialog extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (session.templateId == 'hardness_engineering') ...[
+                    if (session.templateId == 'harness_engineering') ...[
                       const SizedBox(height: 16),
-                      _buildHardnessConfigSection(context, session),
+                      _buildHarnessConfigSection(context, session),
                     ],
                     if (session.templateId == 'programming_expert') ...[
                       const SizedBox(height: 16),
@@ -220,8 +220,8 @@ class _SessionMetadataDialog extends StatelessWidget {
                     if (session.metadata.entries
                         .where(
                           (e) =>
-                              !(session.templateId == 'hardness_engineering' &&
-                                  e.key == 'hardness_config') &&
+                              !(session.templateId == 'harness_engineering' &&
+                                  e.key == 'harness_config') &&
                               !(session.templateId == 'programming_expert' &&
                                   e.key == 'programming_expert_config') &&
                               !(session.templateId == 'web_reverse_expert' &&
@@ -237,8 +237,8 @@ class _SessionMetadataDialog extends StatelessWidget {
                             .where(
                               (e) =>
                                   !(session.templateId ==
-                                          'hardness_engineering' &&
-                                      e.key == 'hardness_config') &&
+                                          'harness_engineering' &&
+                                      e.key == 'harness_config') &&
                                   !(session.templateId ==
                                           'programming_expert' &&
                                       e.key == 'programming_expert_config') &&

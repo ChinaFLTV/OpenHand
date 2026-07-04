@@ -63,7 +63,7 @@ function templateIconGlyph(template: ApiMetaTemplate): string {
   }
   if (raw.includes('program') || raw.includes('code')) return '</>';
   if (raw.includes('machine') || raw.includes('expert')) return 'OPS';
-  if (raw.includes('hardness') || raw.includes('engineering')) return 'ENG';
+  if (raw.includes('harness') || raw.includes('engineering')) return 'ENG';
   if (raw.includes('hermes') || raw.includes('talk')) return 'MSG';
   if (raw.includes('default') || raw.includes('chat')) return 'AI';
   return 'AI';

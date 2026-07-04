@@ -125,7 +125,7 @@ lib/
   features/
     ai/                sessions, model protocols, tool runtime, prompts
     home/              main UI, thread list, editor, and template entrypoints
-    hardness/          Harness Engineering pipeline
+    harness/          Harness Engineering pipeline
     web_reverse/       Web reverse engineering and browser debugging
     skills/            skill management
     memory/            memory system

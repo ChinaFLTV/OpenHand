@@ -119,7 +119,7 @@
 | 禁忌 | 改成 |
 |---|---|
 | orchestrator 自行写代码 | 委托给配置的 CLI |
-| 调用 `claude` 而 HARDNESS_CONFIG 写的是 `codex` | 严格按 `可执行文件=` 字段 |
+| 调用 `claude` 而 HARNESS_CONFIG 写的是 `codex` | 严格按 `可执行文件=` 字段 |
 | 验收者只读源码就 `PASS` | 必须真实跑 lint / test / 构建 |
 | CLI 反复失败 ≥3 次仍重试 | 立即汇报用户 |
 | 把代码块塞到聊天让用户复制粘贴 | 走 CLI 实施 |

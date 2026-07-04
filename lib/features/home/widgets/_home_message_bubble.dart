@@ -1172,7 +1172,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
       onEntranceConsumed: widget.onActionPanelEntranceConsumed,
       message: message,
       attachments: attachments,
-      hardnessAnnotation: heAnnotation,
+      harnessAnnotation: heAnnotation,
       textColor: textColor,
       showModelLabel: !isUser,
       associatedKnowledgeBaseMetadata: associatedKnowledgeBaseMetadata,
@@ -1521,7 +1521,7 @@ class _SelectedMessageActionPanelSlot extends StatefulWidget {
     required this.actions,
     required this.message,
     required this.attachments,
-    required this.hardnessAnnotation,
+    required this.harnessAnnotation,
     required this.textColor,
     required this.showModelLabel,
     this.associatedKnowledgeBaseMetadata,
@@ -1536,7 +1536,7 @@ class _SelectedMessageActionPanelSlot extends StatefulWidget {
   final List<_MessageActionSpec> actions;
   final AiSessionMessage message;
   final List<AiMessageAttachment> attachments;
-  final _HeAnnotation? hardnessAnnotation;
+  final _HeAnnotation? harnessAnnotation;
   final Color textColor;
   final bool showModelLabel;
   final Map<String, Object?>? associatedKnowledgeBaseMetadata;
@@ -1667,7 +1667,7 @@ class _SelectedMessageActionPanelSlotState
         actions: widget.actions,
         message: widget.message,
         attachments: widget.attachments,
-        hardnessAnnotation: widget.hardnessAnnotation,
+        harnessAnnotation: widget.harnessAnnotation,
         textColor: widget.textColor,
         showModelLabel: widget.showModelLabel,
         associatedKnowledgeBaseMetadata: widget.associatedKnowledgeBaseMetadata,
@@ -1706,7 +1706,7 @@ class _SelectedMessageActionPanel extends StatelessWidget {
     required this.actions,
     required this.message,
     required this.attachments,
-    required this.hardnessAnnotation,
+    required this.harnessAnnotation,
     required this.textColor,
     required this.showModelLabel,
     this.associatedKnowledgeBaseMetadata,
@@ -1717,7 +1717,7 @@ class _SelectedMessageActionPanel extends StatelessWidget {
   final List<_MessageActionSpec> actions;
   final AiSessionMessage message;
   final List<AiMessageAttachment> attachments;
-  final _HeAnnotation? hardnessAnnotation;
+  final _HeAnnotation? harnessAnnotation;
   final Color textColor;
   final bool showModelLabel;
   final Map<String, Object?>? associatedKnowledgeBaseMetadata;
@@ -1751,7 +1751,7 @@ class _SelectedMessageActionPanel extends StatelessWidget {
           _SelectedMessageContextRow(
             message: message,
             attachments: attachments,
-            hardnessAnnotation: hardnessAnnotation,
+            harnessAnnotation: harnessAnnotation,
             textColor: textColor,
             alignEnd: alignEnd,
             showModelLabel: showModelLabel,
@@ -7175,7 +7175,7 @@ class _SelectedMessageContextRow extends StatelessWidget {
   const _SelectedMessageContextRow({
     required this.message,
     required this.attachments,
-    required this.hardnessAnnotation,
+    required this.harnessAnnotation,
     required this.textColor,
     required this.alignEnd,
     required this.showModelLabel,
@@ -7185,7 +7185,7 @@ class _SelectedMessageContextRow extends StatelessWidget {
 
   final AiSessionMessage message;
   final List<AiMessageAttachment> attachments;
-  final _HeAnnotation? hardnessAnnotation;
+  final _HeAnnotation? harnessAnnotation;
   final Color textColor;
   final bool alignEnd;
   final bool showModelLabel;
@@ -7279,10 +7279,10 @@ class _SelectedMessageContextRow extends StatelessWidget {
         _CreationModeChip(request: creationRequest, textColor: textColor),
       if (_UserSkillSelectionChip.nameFromMetadata(skillMetadata).isNotEmpty)
         _UserSkillSelectionChip(metadata: skillMetadata, textColor: textColor),
-      if (hardnessAnnotation != null && hardnessAnnotation!.hasAnnotations)
-        ..._HardnessAnnotationContextCapsules.build(
+      if (harnessAnnotation != null && harnessAnnotation!.hasAnnotations)
+        ..._HarnessAnnotationContextCapsules.build(
           context,
-          annotation: hardnessAnnotation!,
+          annotation: harnessAnnotation!,
           textColor: textColor,
         ),
       for (final attachment in attachments)
@@ -7314,8 +7314,8 @@ class _SelectedMessageContextRow extends StatelessWidget {
   }
 }
 
-class _HardnessAnnotationContextCapsules {
-  const _HardnessAnnotationContextCapsules._();
+class _HarnessAnnotationContextCapsules {
+  const _HarnessAnnotationContextCapsules._();
 
   static List<Widget> build(
     BuildContext context, {

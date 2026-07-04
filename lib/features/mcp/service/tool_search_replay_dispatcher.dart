@@ -52,7 +52,7 @@ class ToolSearchReplayDispatcher {
   bool _settled = false;
   bool _disposed = false;
 
-  /// 广播「当前是否有 pending 的反悔窗口在跑」。订阅者（例如 hardness phase
+  /// 广播「当前是否有 pending 的反悔窗口在跑」。订阅者（例如 harness phase
   /// header、托盘指示器）只读地监听此 [ValueListenable]：
   ///   - true：用户刚点过「重放」，正在 [defaultWindow] 内可以撤销
   ///   - false：要么从未调度过，要么已 fire / 已 cancel / 已 dispose
@@ -62,7 +62,7 @@ class ToolSearchReplayDispatcher {
   final ValueNotifier<bool> _pendingNotifier = ValueNotifier<bool>(false);
 
   /// 广播本次反悔窗口的截止时刻。订阅者可以基于 `deadline.difference(now)`
-  /// 渲染倒计时（hardness phase header、托盘指示器等）。idle 时为 null。
+  /// 渲染倒计时（harness phase header、托盘指示器等）。idle 时为 null。
   /// 始终与 [pendingListenable] 同步：true ⇒ deadline != null，false ⇒ null。
   ValueListenable<DateTime?> get pendingDeadlineListenable => _deadlineNotifier;
   final ValueNotifier<DateTime?> _deadlineNotifier = ValueNotifier<DateTime?>(

@@ -30,15 +30,15 @@ Future<AiSessionExportConfig?> showAiSessionExportConfigDialog({
   );
 }
 
-/// Shows the Hardness session export configuration dialog.
-Future<HardnessSessionExportConfig?> showHardnessSessionExportConfigDialog({
+/// Shows the Harness session export configuration dialog.
+Future<HarnessSessionExportConfig?> showHarnessSessionExportConfigDialog({
   required BuildContext context,
   required int totalPhaseLogs,
-  HardnessSessionExportConfig initial = HardnessSessionExportConfig.defaults,
+  HarnessSessionExportConfig initial = HarnessSessionExportConfig.defaults,
 }) {
-  return showAnimatedDialog<HardnessSessionExportConfig>(
+  return showAnimatedDialog<HarnessSessionExportConfig>(
     context: context,
-    builder: (dialogContext) => _HardnessSessionExportConfigDialog(
+    builder: (dialogContext) => _HarnessSessionExportConfigDialog(
       totalPhaseLogs: totalPhaseLogs,
       initial: initial,
     ),
@@ -53,7 +53,7 @@ class _ExportIndexRange {
 }
 
 const double _kAiSessionExportDialogWidth = 480;
-const double _kHardnessExportDialogWidth = 460;
+const double _kHarnessExportDialogWidth = 460;
 const double _kExportRangeFieldSpacing = 12;
 const double _kExportSectionGap = 8;
 
@@ -430,22 +430,22 @@ class _AiSessionExportConfigDialogState
   }
 }
 
-class _HardnessSessionExportConfigDialog extends StatefulWidget {
-  const _HardnessSessionExportConfigDialog({
+class _HarnessSessionExportConfigDialog extends StatefulWidget {
+  const _HarnessSessionExportConfigDialog({
     required this.totalPhaseLogs,
     required this.initial,
   });
 
   final int totalPhaseLogs;
-  final HardnessSessionExportConfig initial;
+  final HarnessSessionExportConfig initial;
 
   @override
-  State<_HardnessSessionExportConfigDialog> createState() =>
-      _HardnessSessionExportConfigDialogState();
+  State<_HarnessSessionExportConfigDialog> createState() =>
+      _HarnessSessionExportConfigDialogState();
 }
 
-class _HardnessSessionExportConfigDialogState
-    extends State<_HardnessSessionExportConfigDialog> {
+class _HarnessSessionExportConfigDialogState
+    extends State<_HarnessSessionExportConfigDialog> {
   late bool _useRange;
   late TextEditingController _startController;
   late TextEditingController _endController;
@@ -473,7 +473,7 @@ class _HardnessSessionExportConfigDialogState
     super.dispose();
   }
 
-  HardnessSessionExportConfig? _buildConfig() {
+  HarnessSessionExportConfig? _buildConfig() {
     final l10n = AppLocalizations.of(context)!;
     int? start;
     int? end;
@@ -493,7 +493,7 @@ class _HardnessSessionExportConfigDialogState
       end = range.endIndex;
     }
     setState(() => _rangeError = null);
-    return HardnessSessionExportConfig(startIndex: start, endIndex: end);
+    return HarnessSessionExportConfig(startIndex: start, endIndex: end);
   }
 
   @override
@@ -503,7 +503,7 @@ class _HardnessSessionExportConfigDialogState
     return buildOpenHandAlertDialog(
       title: Text(l10n.exportSessionSettingsTitle),
       content: buildOpenHandDialogConstrainedContent(
-        width: _kHardnessExportDialogWidth,
+        width: _kHarnessExportDialogWidth,
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

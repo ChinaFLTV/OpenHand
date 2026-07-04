@@ -56,7 +56,7 @@ import '../../../shared/util/reader_file_type.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../../crons/crons_controller.dart';
-import '../../hardness/index.dart';
+import '../../harness/index.dart';
 import '../../hooks/hooks_controller.dart';
 import '../../instructions/instructions_controller.dart';
 import '../../mcp/index.dart';
@@ -4115,7 +4115,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 18),
         FirstFramePulseBox(
-          child: _buildHardnessToolSearchHistoryRow(
+          child: _buildHarnessToolSearchHistoryRow(
             context,
             settingsController,
             l10n,
@@ -4135,19 +4135,19 @@ class _SettingsViewState extends State<SettingsView> {
 
   /// Harness ToolSearch 历史 LRU 桶上限滑块，1..64，默认 8。
   /// 与 cron retention 同款 Slider，无需 TextEditingController。
-  Widget _buildHardnessToolSearchHistoryRow(
+  Widget _buildHarnessToolSearchHistoryRow(
     BuildContext context,
     SettingsController settingsController,
     AppLocalizations l10n,
   ) {
-    final cap = settingsController.hardnessToolSearchHistoryMaxPhases;
-    const minCap = AppSettingsSnapshot.minHardnessToolSearchHistoryMaxPhases;
-    const maxCap = AppSettingsSnapshot.maxHardnessToolSearchHistoryMaxPhases;
+    final cap = settingsController.harnessToolSearchHistoryMaxPhases;
+    const minCap = AppSettingsSnapshot.minHarnessToolSearchHistoryMaxPhases;
+    const maxCap = AppSettingsSnapshot.maxHarnessToolSearchHistoryMaxPhases;
     const defaultCap =
-        AppSettingsSnapshot.defaultHardnessToolSearchHistoryMaxPhases;
+        AppSettingsSnapshot.defaultHarnessToolSearchHistoryMaxPhases;
     return _ResponsiveSettingRow(
-      title: l10n.settingsHardnessToolSearchHistoryCapLabel,
-      subtitle: l10n.settingsHardnessToolSearchHistoryCapBody,
+      title: l10n.settingsHarnessToolSearchHistoryCapLabel,
+      subtitle: l10n.settingsHarnessToolSearchHistoryCapBody,
       controlMaxWidth: 360,
       control: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4156,12 +4156,12 @@ class _SettingsViewState extends State<SettingsView> {
             children: [
               Expanded(
                 child: Text(
-                  l10n.settingsHardnessToolSearchHistoryCapValue(cap),
+                  l10n.settingsHarnessToolSearchHistoryCapValue(cap),
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
               IconButton(
-                tooltip: l10n.settingsHardnessToolSearchHistoryCapResetTooltip(
+                tooltip: l10n.settingsHarnessToolSearchHistoryCapResetTooltip(
                   defaultCap,
                 ),
                 visualDensity: VisualDensity.compact,
@@ -4170,7 +4170,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ? null
                     : () async {
                         final saved = await settingsController
-                            .updateHardnessToolSearchHistoryMaxPhases(
+                            .updateHarnessToolSearchHistoryMaxPhases(
                               defaultCap,
                             );
                         if (!context.mounted || saved) return;
@@ -4185,7 +4185,7 @@ class _SettingsViewState extends State<SettingsView> {
             max: maxCap,
             onChanged: (next) async {
               final saved = await settingsController
-                  .updateHardnessToolSearchHistoryMaxPhases(next);
+                  .updateHarnessToolSearchHistoryMaxPhases(next);
               if (!context.mounted || saved) return;
               _showPersistenceFailureSnackBar(context);
             },
@@ -4197,14 +4197,14 @@ class _SettingsViewState extends State<SettingsView> {
               label: '$value',
               onChanged: (v) async {
                 final saved = await settingsController
-                    .updateHardnessToolSearchHistoryMaxPhases(v.round());
+                    .updateHarnessToolSearchHistoryMaxPhases(v.round());
                 if (!context.mounted || saved) return;
                 _showPersistenceFailureSnackBar(context);
               },
             ),
           ),
           Text(
-            l10n.settingsHardnessToolSearchHistoryCapRange(minCap, maxCap),
+            l10n.settingsHarnessToolSearchHistoryCapRange(minCap, maxCap),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),

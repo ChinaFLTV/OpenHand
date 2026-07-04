@@ -72,7 +72,7 @@ lib/features/ai/
 
 ## 跨 feature 依赖
 - 入向：hooks executor / skills dir / memory controller provider 通过 `AiModule.bootstrap()` 注入
-- 出向（通过对应 sibling 的 barrel）：mcp / memory / skills / hardness / crons
+- 出向（通过对应 sibling 的 barrel）：mcp / memory / skills / harness / crons
 
 ## 拆分边界
 - `service/` 与 `tools/` 已按职责分层；新增能力优先落到对应子目录。

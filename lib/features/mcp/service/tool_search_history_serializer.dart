@@ -81,7 +81,7 @@ class ToolSearchHistorySerializer {
   /// 元数据 + `entries` 数组。便于后续调试 / 回放 / diff 工具二次解析。
   ///
   /// 单条 entry 字段保持稳定 key（snake_case 与 CSV header 对齐）：
-  /// `timestamp` (ISO8601), `source` (`ai`/`hardness` 等), `query`,
+  /// `timestamp` (ISO8601), `source` (`ai`/`harness` 等), `query`,
   /// `added_count`, `total_deferred`, `added_names` (`List&lt;String&gt;`).
   static String toJson(List<AiToolSearchLoadHistoryEntry> entries) {
     final root = <String, Object?>{

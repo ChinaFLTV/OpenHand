@@ -5,7 +5,7 @@ import 'dart:io';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
-import '../../../hardness/index.dart';
+import '../../../harness/index.dart';
 import '../../model/ai_attachment.dart';
 import '../../model/ai_session.dart';
 import '../../model/ai_session_message.dart';
@@ -184,9 +184,9 @@ class AiSessionExportConfig {
   };
 }
 
-/// User-tunable configuration for a Hardness session export operation.
-class HardnessSessionExportConfig {
-  const HardnessSessionExportConfig({this.startIndex, this.endIndex});
+/// User-tunable configuration for a Harness session export operation.
+class HarnessSessionExportConfig {
+  const HarnessSessionExportConfig({this.startIndex, this.endIndex});
 
   /// 1-based inclusive lower bound on phase logs.
   final int? startIndex;
@@ -194,8 +194,8 @@ class HardnessSessionExportConfig {
   /// 1-based inclusive upper bound on phase logs.
   final int? endIndex;
 
-  static const HardnessSessionExportConfig defaults =
-      HardnessSessionExportConfig();
+  static const HarnessSessionExportConfig defaults =
+      HarnessSessionExportConfig();
 
   Map<String, Object?> toJson() => <String, Object?>{
     'start_index': startIndex,
@@ -1034,16 +1034,16 @@ Future<ExportResult> exportAiSessionToJsonl({
   }
 }
 
-/// Exports a [HardnessSessionRecord] to a JSONL file at [destinationPath].
+/// Exports a [HarnessSessionRecord] to a JSONL file at [destinationPath].
 ///
 /// Layout:
-///   line 1   : `{"type":"hardness_session", ...}` header (sans phase_logs).
-///   line 2..N: one `{"type":"phase_log", ...}` per [HardnessPhaseLogSnapshot].
-Future<ExportResult> exportHardnessSessionToJsonl({
-  required HardnessSessionRecord record,
+///   line 1   : `{"type":"harness_session", ...}` header (sans phase_logs).
+///   line 2..N: one `{"type":"phase_log", ...}` per [HarnessPhaseLogSnapshot].
+Future<ExportResult> exportHarnessSessionToJsonl({
+  required HarnessSessionRecord record,
   required String destinationPath,
   required ExportCancelToken cancelToken,
-  HardnessSessionExportConfig config = HardnessSessionExportConfig.defaults,
+  HarnessSessionExportConfig config = HarnessSessionExportConfig.defaults,
   void Function(ExportProgress progress)? onProgress,
 }) async {
   final targetFile = File(destinationPath);
@@ -1077,7 +1077,7 @@ Future<ExportResult> exportHardnessSessionToJsonl({
     final fullJson = record.toJson();
     fullJson.remove('phase_logs');
     await emit(<String, Object?>{
-      'type': 'hardness_session',
+      'type': 'harness_session',
       'version': 1,
       'phase_log_count': logs.length,
       'total_phase_log_count': fullLogs.length,
@@ -1122,13 +1122,13 @@ Future<ExportResult> exportHardnessSessionToJsonl({
       linesWritten: lines,
     );
   } catch (error, stack) {
-    silentLog('ai_session_jsonl_exporter', 'export hardness', error, stack);
+    silentLog('ai_session_jsonl_exporter', 'export harness', error, stack);
     try {
       await sink?.close();
     } catch (closeError, closeStack) {
       silentLog(
         'ai_session_jsonl_exporter',
-        'sink close after hardness failure',
+        'sink close after harness failure',
         closeError,
         closeStack,
       );
@@ -1148,7 +1148,7 @@ Future<ExportResult> exportHardnessSessionToJsonl({
       } catch (closeError, closeStack) {
         silentLog(
           'ai_session_jsonl_exporter',
-          'sink close in hardness finally',
+          'sink close in harness finally',
           closeError,
           closeStack,
         );

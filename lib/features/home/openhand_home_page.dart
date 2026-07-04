@@ -93,7 +93,7 @@ import '../agents/index.dart';
 import '../ai/index.dart';
 import '../android_reverse/index.dart';
 import '../crons/index.dart';
-import '../hardness/index.dart';
+import '../harness/index.dart';
 import '../hooks/index.dart';
 import '../instructions/index.dart';
 import '../knowledge_base/index.dart';
@@ -133,7 +133,7 @@ part 'widgets/_home_token_dial.dart';
 part 'widgets/_home_thread_template_dialog.dart';
 part 'widgets/_home_programming_expert_project_dialog.dart';
 part 'widgets/_home_programming_expert_file_explorer.dart';
-part 'widgets/_home_hardness_annotations.dart';
+part 'widgets/_home_harness_annotations.dart';
 part 'widgets/_home_motion_tokens.dart';
 part 'widgets/_openhand_home_page_helpers.dart';
 part 'widgets/_openhand_home_page_prelude.dart';
@@ -352,18 +352,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   );
 
   // Active Harness Engineering session (null when no HE session is running).
-  HardnessOrchestrator? _activeHardnessOrchestrator;
-  HardnessSessionConfig? _activeHardnessConfig;
+  HarnessOrchestrator? _activeHarnessOrchestrator;
+  HarnessSessionConfig? _activeHarnessConfig;
   bool _heFullAccessPermission = false;
-  final HardnessSessionPaneController _hardnessSessionPaneController =
-      HardnessSessionPaneController();
+  final HarnessSessionPaneController _harnessSessionPaneController =
+      HarnessSessionPaneController();
 
   // Persisted record for the last HE session (survives app restarts).
-  final HardnessSessionStore _hardnessSessionStore = HardnessSessionStore();
-  HardnessSessionRecord? _persistedHardnessSession;
-  late final OpenHandDebouncer _hardnessSessionSaveDebouncer =
-      OpenHandDebouncer(delay: _hardnessSessionPersistenceDebounce);
-  HardnessPhase? _lastHardnessAwaitingApprovalPhase;
+  final HarnessSessionStore _harnessSessionStore = HarnessSessionStore();
+  HarnessSessionRecord? _persistedHarnessSession;
+  late final OpenHandDebouncer _harnessSessionSaveDebouncer = OpenHandDebouncer(
+    delay: _harnessSessionPersistenceDebounce,
+  );
+  HarnessPhase? _lastHarnessAwaitingApprovalPhase;
 
   // Active Web Reverse Expert sessions, keyed by session id. Each holds a
   // controller managing one external Chrome process + CDP channel.
@@ -586,8 +587,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return null;
   }
 
-  void _cacheHardnessShellState(HardnessOrchestrator? orchestrator) {
-    _lastHardnessAwaitingApprovalPhase = orchestrator?.awaitingApprovalPhase;
+  void _cacheHarnessShellState(HarnessOrchestrator? orchestrator) {
+    _lastHarnessAwaitingApprovalPhase = orchestrator?.awaitingApprovalPhase;
   }
 
   AiSessionMode _effectiveComposerMode(AiSessionController sessionController) {
@@ -806,14 +807,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     InputRepairService.instance.registerSoftRecoveryHook(
       _runComposerImeSoftRecovery,
     );
-    _loadPersistedHardnessSession();
+    _loadPersistedHarnessSession();
     _initNativeMenuChannel();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appLifecycleState = state;
-    // 2026-04-13: Flush pending Hardness session state to disk whenever the
+    // 2026-04-13: Flush pending Harness session state to disk whenever the
     // app enters background / inactive states. This ensures the session record
     // survives if the OS terminates the process before dispose() runs.
     if (state == AppLifecycleState.paused ||
@@ -821,12 +822,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
       unawaited(_ttsPlaybackService.stop());
-      final pendingHardnessRecord = _persistedHardnessSession;
-      if (pendingHardnessRecord != null) {
+      final pendingHarnessRecord = _persistedHarnessSession;
+      if (pendingHarnessRecord != null) {
         // Cancel debounced timer and flush immediately.
-        _hardnessSessionSaveDebouncer.cancel();
+        _harnessSessionSaveDebouncer.cancel();
         unawaited(
-          _hardnessSessionStore.save(pendingHardnessRecord).catchError((_) {}),
+          _harnessSessionStore.save(pendingHarnessRecord).catchError((_) {}),
         );
       }
     }
@@ -893,9 +894,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _toolSearchReplayDispatcher.dispose();
     unawaited(_ttsPlaybackService.dispose());
     _translationService.dispose();
-    _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
-    _activeHardnessOrchestrator?.cancel();
-    _activeHardnessOrchestrator?.dispose();
+    _activeHarnessOrchestrator?.removeListener(_onHarnessOrchestratorChanged);
+    _activeHarnessOrchestrator?.cancel();
+    _activeHarnessOrchestrator?.dispose();
     _webReverseCdpMcpBridge.dispose();
     for (final entry in _webReverseControllers.entries) {
       _disposeWebReverseControllerAfterStop(entry.key, entry.value);
@@ -908,16 +909,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     _androidReverseControllers.clear();
     _androidReverseRuntimeMetadataSignatures.clear();
-    _hardnessSessionSaveDebouncer.cancel();
+    _harnessSessionSaveDebouncer.cancel();
     _editorTabsSaveDebouncer.cancel();
     // Flush pending editor tabs before disposal.
     if (_editorTabsSessionId != null) {
       unawaited(_persistEditorTabs().catchError((_) {}));
     }
-    final pendingHardnessRecord = _persistedHardnessSession;
-    if (pendingHardnessRecord != null) {
+    final pendingHarnessRecord = _persistedHarnessSession;
+    if (pendingHarnessRecord != null) {
       unawaited(
-        _hardnessSessionStore.save(pendingHardnessRecord).catchError((_) {}),
+        _harnessSessionStore.save(pendingHarnessRecord).catchError((_) {}),
       );
     }
     WidgetsBinding.instance.removeObserver(this);
@@ -1340,30 +1341,30 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// ToolSearch 历史时间线，供 dialog 展示。用 [LinkedHashMap] 的插入序
   /// 天然实现 LRU：每次写入都先 remove 再 put，让最近活跃的 phase 落在
   /// Map 末尾；新增时若超过用户配置的上限（运行时读自
-  /// [SettingsController.hardnessToolSearchHistoryMaxPhases]，默认值由
-  /// [AppSettingsSnapshot.defaultHardnessToolSearchHistoryMaxPhases] 给出，
+  /// [SettingsController.harnessToolSearchHistoryMaxPhases]，默认值由
+  /// [AppSettingsSnapshot.defaultHarnessToolSearchHistoryMaxPhases] 给出，
   /// 上下界 1..64），淘汰最早的 phase 桶，防止长会话内存膨胀（即使
   /// onPhaseEnded 因异常路径漏调也兜底）。
   final Map<String, List<AiToolSearchLoadHistoryEntry>>
-  _hardnessToolSearchHistory = <String, List<AiToolSearchLoadHistoryEntry>>{};
+  _harnessToolSearchHistory = <String, List<AiToolSearchLoadHistoryEntry>>{};
 
   /// 获取（或创建）指定 phase 的历史桶，并将其在 LRU Map 中提升为最近使用。
-  List<AiToolSearchLoadHistoryEntry> _touchHardnessHistoryBucket(
+  List<AiToolSearchLoadHistoryEntry> _touchHarnessHistoryBucket(
     String phaseSessionId,
   ) {
-    final existing = _hardnessToolSearchHistory.remove(phaseSessionId);
+    final existing = _harnessToolSearchHistory.remove(phaseSessionId);
     final bucket = existing ?? <AiToolSearchLoadHistoryEntry>[];
-    _hardnessToolSearchHistory[phaseSessionId] = bucket;
+    _harnessToolSearchHistory[phaseSessionId] = bucket;
     final cap = context
         .read<SettingsController>()
-        .hardnessToolSearchHistoryMaxPhases;
-    while (_hardnessToolSearchHistory.length > cap) {
-      _hardnessToolSearchHistory.remove(_hardnessToolSearchHistory.keys.first);
+        .harnessToolSearchHistoryMaxPhases;
+    while (_harnessToolSearchHistory.length > cap) {
+      _harnessToolSearchHistory.remove(_harnessToolSearchHistory.keys.first);
     }
     return bucket;
   }
 
-  void _handleHardnessToolSearchLoaded({
+  void _handleHarnessToolSearchLoaded({
     required String phaseSessionId,
     required List<String> loadedNames,
     required int totalLoadedSoFar,
@@ -1380,9 +1381,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       query: query,
       addedNames: loadedNames,
       totalDeferred: totalDeferred,
-      source: AiToolSearchLoadSource.hardnessPhase,
+      source: AiToolSearchLoadSource.harnessPhase,
     );
-    _touchHardnessHistoryBucket(phaseSessionId).add(entry);
+    _touchHarnessHistoryBucket(phaseSessionId).add(entry);
     _showHomeSnackBarWithMessenger(
       context,
       messenger,
@@ -1404,7 +1405,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           onPressed: () => _showToolSearchLoadedDialog(
             names: List<String>.from(loadedNames)..sort(),
             history: List<AiToolSearchLoadHistoryEntry>.unmodifiable(
-              _hardnessToolSearchHistory[phaseSessionId] ??
+              _harnessToolSearchHistory[phaseSessionId] ??
                   const <AiToolSearchLoadHistoryEntry>[],
             ),
             // Harness phase 自身的 tool loop 是自治的，无法直接重放；
@@ -1418,11 +1419,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  /// HardnessApiPhaseRunner.runPhase 在结束（成功/失败/取消/异常）时回调
-  /// 本方法。借机清理 [_hardnessToolSearchHistory] 中与该 phase 关联的
+  /// HarnessApiPhaseRunner.runPhase 在结束（成功/失败/取消/异常）时回调
+  /// 本方法。借机清理 [_harnessToolSearchHistory] 中与该 phase 关联的
   /// 加载历史，避免长期累积。
-  void _handleHardnessPhaseEnded({required String phaseSessionId}) {
-    _hardnessToolSearchHistory.remove(phaseSessionId);
+  void _handleHarnessPhaseEnded({required String phaseSessionId}) {
+    _harnessToolSearchHistory.remove(phaseSessionId);
   }
 
   void _showToolSearchLoadedDialog({
@@ -1534,8 +1535,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return completer.future;
   }
 
-  /// Hardness 路径专用：先创建一个全新 AI session，再在新 session 里
-  /// 发起 select: 查询，避免污染当前 hardness 活跃会话的上下文。
+  /// Harness 路径专用：先创建一个全新 AI session，再在新 session 里
+  /// 发起 select: 查询，避免污染当前 harness 活跃会话的上下文。
   /// 模板沿用当前 AI session 的 templateId（若有），否则 fallback
   /// 到模板仓库的第一个模板。
   Future<void> _replayToolSearchInFreshSession(List<String> names) async {
@@ -2543,7 +2544,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _handleGlobalShortcutKeyEvent(KeyEvent event) {
     if (!mounted ||
         (_selectedSection != AppSection.workspace &&
-            _selectedSection != AppSection.hardnessSession) ||
+            _selectedSection != AppSection.harnessSession) ||
         (event is! KeyDownEvent && event is! KeyRepeatEvent)) {
       return false;
     }
@@ -2583,12 +2584,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           _composerFocusNode.hasFocus &&
           (shortcutAction == OpenHandShortcutAction.sendMessage ||
               shortcutAction == OpenHandShortcutAction.toggleComposer);
-      final hardnessComposerShortcutAllowed =
-          _selectedSection == AppSection.hardnessSession &&
-          _hardnessSessionPaneController.shouldAllowEditableShortcut(
+      final harnessComposerShortcutAllowed =
+          _selectedSection == AppSection.harnessSession &&
+          _harnessSessionPaneController.shouldAllowEditableShortcut(
             shortcutAction,
           );
-      if (!composerShortcutAllowed && !hardnessComposerShortcutAllowed) {
+      if (!composerShortcutAllowed && !harnessComposerShortcutAllowed) {
         return false;
       }
       // 2026-04-28: Single-source-of-truth dispatch.
@@ -2801,12 +2802,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Future<void> _performShortcutAction(OpenHandShortcutAction action) async {
     final sessionController = context.read<AiSessionController>();
-    if (_selectedSection == AppSection.hardnessSession) {
+    if (_selectedSection == AppSection.harnessSession) {
       switch (action) {
         case OpenHandShortcutAction.sendMessage:
         case OpenHandShortcutAction.toggleComposer:
         case OpenHandShortcutAction.toggleAutoFollow:
-          await _hardnessSessionPaneController.invokeShortcut(action);
+          await _harnessSessionPaneController.invokeShortcut(action);
           return;
         case OpenHandShortcutAction.selectPreviousSession:
           await _cycleSessionSelection(-1);
@@ -3306,12 +3307,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       return created;
     }
-    if (templateId == 'hardness_engineering') {
+    if (templateId == 'harness_engineering') {
       final settingsCtrl = context.read<SettingsController>();
-      final config = await showAnimatedDialog<HardnessSessionConfig>(
+      final config = await showAnimatedDialog<HarnessSessionConfig>(
         context: context,
         builder: (context) =>
-            HardnessEngineeringDialog(settingsController: settingsCtrl),
+            HarnessEngineeringDialog(settingsController: settingsCtrl),
       );
       if (!mounted || config == null) {
         return false;
@@ -3331,21 +3332,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       // Launch the program-driven HE session inside the app's content pane
       // instead of a full-screen modal, so the navigation sidebar stays
       // visible and the user can switch between sections freely.
-      _activeHardnessOrchestrator?.removeListener(
-        _onHardnessOrchestratorChanged,
-      );
-      _activeHardnessOrchestrator?.cancel();
-      _activeHardnessOrchestrator?.dispose();
-      final orchestrator = HardnessOrchestrator(config);
+      _activeHarnessOrchestrator?.removeListener(_onHarnessOrchestratorChanged);
+      _activeHarnessOrchestrator?.cancel();
+      _activeHarnessOrchestrator?.dispose();
+      final orchestrator = HarnessOrchestrator(config);
       orchestrator.fullAccessPermission = _heFullAccessPermission;
       orchestrator.onPhaseApprovalRequired = _handlePhaseApprovalRequired;
-      _wireHardnessApiMode(orchestrator);
+      _wireHarnessApiMode(orchestrator);
       final now = DateTime.now().toUtc();
-      final record = HardnessSessionRecord(
+      final record = HarnessSessionRecord(
         id: const Uuid().v4(),
-        title: _hardnessTitleFromTask(config.task),
+        title: _harnessTitleFromTask(config.task),
         config: config,
-        statusValue: HardnessOrchestratorStatus.running.name,
+        statusValue: HarnessOrchestratorStatus.running.name,
         createdAt: now,
         updatedAt: now,
       );
@@ -3353,21 +3352,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       // before starting the orchestrator, preventing data loss if the app
       // closes before the async save completes.
       try {
-        await _hardnessSessionStore.save(record);
+        await _harnessSessionStore.save(record);
       } catch (_) {
         // Log but continue - failing to persist should not block execution.
       }
-      orchestrator.addListener(_onHardnessOrchestratorChanged);
-      _cacheHardnessShellState(orchestrator);
+      orchestrator.addListener(_onHarnessOrchestratorChanged);
+      _cacheHarnessShellState(orchestrator);
       setState(() {
-        _activeHardnessOrchestrator = orchestrator;
-        _activeHardnessConfig = config;
-        _persistedHardnessSession = record;
-        _selectedSection = AppSection.hardnessSession;
+        _activeHarnessOrchestrator = orchestrator;
+        _activeHarnessConfig = config;
+        _persistedHarnessSession = record;
+        _selectedSection = AppSection.harnessSession;
       });
       unawaited(orchestrator.start());
       unawaited(
-        _generateHardnessAutoTitle(
+        _generateHarnessAutoTitle(
           record.id,
           config,
           expectedCurrentTitle: record.title,
@@ -4802,9 +4801,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return controller;
   }
 
-  HardnessSessionRecord _snapshotHardnessRecord(
-    HardnessSessionRecord base,
-    HardnessOrchestrator orchestrator,
+  HarnessSessionRecord _snapshotHarnessRecord(
+    HarnessSessionRecord base,
+    HarnessOrchestrator orchestrator,
   ) {
     return base.copyWith(
       config: orchestrator.config,
@@ -4820,45 +4819,45 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  void _scheduleHardnessSessionSave(
-    HardnessSessionRecord record, {
+  void _scheduleHarnessSessionSave(
+    HarnessSessionRecord record, {
     bool immediate = false,
   }) {
-    _hardnessSessionSaveDebouncer.cancel();
+    _harnessSessionSaveDebouncer.cancel();
     if (immediate) {
-      unawaited(_hardnessSessionStore.save(record).catchError((_) {}));
+      unawaited(_harnessSessionStore.save(record).catchError((_) {}));
       return;
     }
-    _hardnessSessionSaveDebouncer.schedule(() {
-      unawaited(_hardnessSessionStore.save(record).catchError((_) {}));
+    _harnessSessionSaveDebouncer.schedule(() {
+      unawaited(_harnessSessionStore.save(record).catchError((_) {}));
     });
   }
 
-  HardnessSessionRecord _normalizeRestoredHardnessRecord(
-    HardnessSessionRecord record,
+  HarnessSessionRecord _normalizeRestoredHarnessRecord(
+    HarnessSessionRecord record,
   ) {
     final interruptedByAppClose =
-        record.status == HardnessOrchestratorStatus.running ||
-        (record.status == HardnessOrchestratorStatus.cancelled &&
+        record.status == HarnessOrchestratorStatus.running ||
+        (record.status == HarnessOrchestratorStatus.cancelled &&
             record.errorMessage ==
                 'Session was interrupted because the app closed.');
     if (!interruptedByAppClose) {
       return record;
     }
 
-    HardnessPhase? resumePhase;
+    HarnessPhase? resumePhase;
     final normalizedPhaseLogs = record.phaseLogs
         .map((entry) {
           final isInterruptedPhase =
-              entry.status == HardnessPhaseStatus.running ||
-              entry.status == HardnessPhaseStatus.paused ||
+              entry.status == HarnessPhaseStatus.running ||
+              entry.status == HarnessPhaseStatus.paused ||
               (resumePhase == null &&
-                  entry.status == HardnessPhaseStatus.pending);
+                  entry.status == HarnessPhaseStatus.pending);
           if (!isInterruptedPhase) {
             return entry;
           }
           final nextLines = List<String>.from(entry.lines);
-          final restoreMessage = entry.status == HardnessPhaseStatus.running
+          final restoreMessage = entry.status == HarnessPhaseStatus.running
               ? '⚠ 应用关闭后，该阶段已暂停；恢复执行前需要重新审批。'
               : '⚠ 应用关闭后，会话已恢复；继续执行前需要重新审批。';
           if (!nextLines.contains(restoreMessage)) {
@@ -4869,14 +4868,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           }
           resumePhase ??= entry.phase;
           return entry.copyWith(
-            statusValue: HardnessPhaseStatus.paused.name,
+            statusValue: HarnessPhaseStatus.paused.name,
             lines: nextLines,
           );
         })
         .toList(growable: false);
 
     return record.copyWith(
-      statusValue: HardnessOrchestratorStatus.idle.name,
+      statusValue: HarnessOrchestratorStatus.idle.name,
       updatedAt: DateTime.now().toUtc(),
       phaseLogs: normalizedPhaseLogs,
       errorMessage: null,
@@ -4884,18 +4883,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  /// Wires API-mode (URL) support on a [HardnessOrchestrator] so that phases
-  /// configured with [HardnessExecutionMode.url] can run through the AI
+  /// Wires API-mode (URL) support on a [HarnessOrchestrator] so that phases
+  /// configured with [HarnessExecutionMode.url] can run through the AI
   /// chat infrastructure instead of a CLI tool.
-  void _wireHardnessApiMode(HardnessOrchestrator orchestrator) {
+  void _wireHarnessApiMode(HarnessOrchestrator orchestrator) {
     final aiCtrl = context.read<AiSessionController>();
-    orchestrator.apiPhaseRunner = HardnessApiPhaseRunner(
+    orchestrator.apiPhaseRunner = HarnessApiPhaseRunner(
       chatClient: aiCtrl.chatClient,
       toolRuntimeService: aiCtrl.toolRuntimeService,
       templateRepository: aiCtrl.templateRepository,
-      confirmWriteCommand: _confirmHardnessApiWriteCommand,
-      onToolSearchLoaded: _handleHardnessToolSearchLoaded,
-      onPhaseEnded: _handleHardnessPhaseEnded,
+      confirmWriteCommand: _confirmHarnessApiWriteCommand,
+      onToolSearchLoaded: _handleHarnessToolSearchLoaded,
+      onPhaseEnded: _handleHarnessPhaseEnded,
     );
     orchestrator.resolveAiModelConfig = (String configId) {
       final settingsCtrl = context.read<SettingsController>();
@@ -4912,25 +4911,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   /// Loads the last-persisted Harness Engineering session record from disk
   /// and displays it in the navigation sidebar.
-  Future<void> _loadPersistedHardnessSession() async {
+  Future<void> _loadPersistedHarnessSession() async {
     try {
-      final record = await _hardnessSessionStore.load();
+      final record = await _harnessSessionStore.load();
       if (!mounted || record == null) {
         return;
       }
-      final migratedRecord = _migrateLegacyHardnessAutoRewrittenModels(record);
-      final effectiveRecord = _normalizeRestoredHardnessRecord(migratedRecord);
+      final migratedRecord = _migrateLegacyHarnessAutoRewrittenModels(record);
+      final effectiveRecord = _normalizeRestoredHarnessRecord(migratedRecord);
       if (effectiveRecord != record) {
-        _scheduleHardnessSessionSave(effectiveRecord, immediate: true);
+        _scheduleHarnessSessionSave(effectiveRecord, immediate: true);
       }
-      _activeHardnessOrchestrator?.removeListener(
-        _onHardnessOrchestratorChanged,
-      );
-      final restoredOrchestrator = HardnessOrchestrator(effectiveRecord.config);
+      _activeHarnessOrchestrator?.removeListener(_onHarnessOrchestratorChanged);
+      final restoredOrchestrator = HarnessOrchestrator(effectiveRecord.config);
       restoredOrchestrator.fullAccessPermission = _heFullAccessPermission;
       restoredOrchestrator.onPhaseApprovalRequired =
           _handlePhaseApprovalRequired;
-      _wireHardnessApiMode(restoredOrchestrator);
+      _wireHarnessApiMode(restoredOrchestrator);
       restoredOrchestrator.restoreSnapshot(
         status: effectiveRecord.status,
         phaseLogs: effectiveRecord.phaseLogs,
@@ -4941,36 +4938,35 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         queuedManualPhaseInputPhase:
             effectiveRecord.queuedManualPhaseInputPhase,
       );
-      restoredOrchestrator.addListener(_onHardnessOrchestratorChanged);
-      _cacheHardnessShellState(restoredOrchestrator);
+      restoredOrchestrator.addListener(_onHarnessOrchestratorChanged);
+      _cacheHarnessShellState(restoredOrchestrator);
       setState(() {
-        _persistedHardnessSession = effectiveRecord;
-        _activeHardnessConfig = effectiveRecord.config;
-        _activeHardnessOrchestrator = restoredOrchestrator;
+        _persistedHarnessSession = effectiveRecord;
+        _activeHarnessConfig = effectiveRecord.config;
+        _activeHarnessOrchestrator = restoredOrchestrator;
       });
     } catch (e) {
       // Silently fail on restore errors
     }
   }
 
-  /// Called whenever the active [HardnessOrchestrator] notifies listeners.
+  /// Called whenever the active [HarnessOrchestrator] notifies listeners.
   /// Propagates status changes to the navigation tile and persisted record.
-  void _onHardnessOrchestratorChanged() {
+  void _onHarnessOrchestratorChanged() {
     if (!mounted) return;
-    final orchestrator = _activeHardnessOrchestrator;
-    final currentRecord = _persistedHardnessSession;
+    final orchestrator = _activeHarnessOrchestrator;
+    final currentRecord = _persistedHarnessSession;
     if (orchestrator == null || currentRecord == null) return;
-    final updatedRecord = _snapshotHardnessRecord(currentRecord, orchestrator);
+    final updatedRecord = _snapshotHarnessRecord(currentRecord, orchestrator);
     final statusChanged =
         updatedRecord.statusValue != currentRecord.statusValue;
     final awaitingApprovalChanged =
-        _lastHardnessAwaitingApprovalPhase !=
-        orchestrator.awaitingApprovalPhase;
-    _persistedHardnessSession = updatedRecord;
-    _lastHardnessAwaitingApprovalPhase = orchestrator.awaitingApprovalPhase;
-    _scheduleHardnessSessionSave(
+        _lastHarnessAwaitingApprovalPhase != orchestrator.awaitingApprovalPhase;
+    _persistedHarnessSession = updatedRecord;
+    _lastHarnessAwaitingApprovalPhase = orchestrator.awaitingApprovalPhase;
+    _scheduleHarnessSessionSave(
       updatedRecord,
-      immediate: orchestrator.status != HardnessOrchestratorStatus.running,
+      immediate: orchestrator.status != HarnessOrchestratorStatus.running,
     );
     if (statusChanged || awaitingApprovalChanged) {
       setState(() {});
@@ -4985,34 +4981,34 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         if (confirmed && mounted) {
           setState(() {
             _heFullAccessPermission = true;
-            _activeHardnessOrchestrator?.fullAccessPermission = true;
+            _activeHarnessOrchestrator?.fullAccessPermission = true;
           });
         }
       });
     } else {
       setState(() {
         _heFullAccessPermission = false;
-        _activeHardnessOrchestrator?.fullAccessPermission = false;
+        _activeHarnessOrchestrator?.fullAccessPermission = false;
       });
     }
   }
 
-  void _handleHeConfigChanged(HardnessSessionConfig newConfig) {
+  void _handleHeConfigChanged(HarnessSessionConfig newConfig) {
     if (!mounted) return;
-    final currentRecord = _persistedHardnessSession;
+    final currentRecord = _persistedHarnessSession;
     final updatedRecord = currentRecord?.copyWith(
       config: newConfig,
       updatedAt: DateTime.now().toUtc(),
     );
     setState(() {
-      _activeHardnessConfig = newConfig;
+      _activeHarnessConfig = newConfig;
       if (updatedRecord != null) {
-        _persistedHardnessSession = updatedRecord;
+        _persistedHarnessSession = updatedRecord;
       }
     });
-    _activeHardnessOrchestrator?.updateConfig(newConfig);
+    _activeHarnessOrchestrator?.updateConfig(newConfig);
     if (updatedRecord != null) {
-      _scheduleHardnessSessionSave(updatedRecord);
+      _scheduleHarnessSessionSave(updatedRecord);
     }
     unawaited(newConfig.initializePersistenceDirectories().catchError((_) {}));
   }
@@ -5021,10 +5017,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     r'^ℹ 检测到旧模型标识 "([^"]+)"，已自动改用 ',
   );
 
-  HardnessSessionRecord _migrateLegacyHardnessAutoRewrittenModels(
-    HardnessSessionRecord record,
+  HarnessSessionRecord _migrateLegacyHarnessAutoRewrittenModels(
+    HarnessSessionRecord record,
   ) {
-    final recoveredModels = <HardnessPhase, String>{};
+    final recoveredModels = <HarnessPhase, String>{};
     for (final snapshot in record.phaseLogs) {
       for (final rawLine in snapshot.lines.reversed) {
         final match = _legacyHeAutoModelRewritePattern.firstMatch(
@@ -5046,9 +5042,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return record;
     }
 
-    HardnessRoleConfig restoreRoleConfig(
-      HardnessRoleConfig roleConfig,
-      HardnessPhase phase,
+    HarnessRoleConfig restoreRoleConfig(
+      HarnessRoleConfig roleConfig,
+      HarnessPhase phase,
     ) {
       final restoredModel = recoveredModels[phase];
       if (restoredModel == null || restoredModel.isEmpty) {
@@ -5066,23 +5062,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final updatedConfig = record.config.copyWith(
       profilerConfig: restoreRoleConfig(
         record.config.profilerConfig,
-        HardnessPhase.metaCollection,
+        HarnessPhase.metaCollection,
       ),
       readerConfig: restoreRoleConfig(
         record.config.readerConfig,
-        HardnessPhase.reading,
+        HarnessPhase.reading,
       ),
       plannerConfig: restoreRoleConfig(
         record.config.plannerConfig,
-        HardnessPhase.planning,
+        HarnessPhase.planning,
       ),
       implementerConfig: restoreRoleConfig(
         record.config.implementerConfig,
-        HardnessPhase.implementing,
+        HarnessPhase.implementing,
       ),
       reviewerConfig: restoreRoleConfig(
         record.config.reviewerConfig,
-        HardnessPhase.reviewing,
+        HarnessPhase.reviewing,
       ),
     );
 
@@ -5100,7 +5096,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  void _handlePhaseApprovalRequired(HardnessPhase nextPhase) {
+  void _handlePhaseApprovalRequired(HarnessPhase nextPhase) {
     // The orchestrator pauses, creates a completer, and sets awaitingApprovalPhase.
     // The UI banner (_HePhaseApprovalBanner) handles user interaction.
     // resolvePhaseApproval() is called from the banner's approve/reject buttons,
@@ -5110,23 +5106,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   /// Extracts a short display title from the raw task text.
-  static String _hardnessTitleFromTask(String task) {
+  static String _harnessTitleFromTask(String task) {
     final firstLine =
         splitTrimmedNonEmpty(task, separator: '\n').firstOrNull ?? task.trim();
     if (firstLine.length <= 45) return firstLine;
     return '${firstLine.substring(0, 45)}…';
   }
 
-  Future<void> _generateHardnessAutoTitle(
+  Future<void> _generateHarnessAutoTitle(
     String sessionId,
-    HardnessSessionConfig config, {
+    HarnessSessionConfig config, {
     required String expectedCurrentTitle,
   }) async {
     final settingsController = context.read<SettingsController>();
     if (!settingsController.aiAutoTitleEnabled) {
       return;
     }
-    final model = _resolveHardnessAutoTitleModel(
+    final model = _resolveHarnessAutoTitleModel(
       config: config,
       settingsController: settingsController,
     );
@@ -5138,7 +5134,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || generatedTitle == null || generatedTitle.isEmpty) {
         return;
       }
-      final current = _persistedHardnessSession;
+      final current = _persistedHarnessSession;
       if (current == null || current.id != sessionId) return;
       if (current.title != expectedCurrentTitle) {
         return;
@@ -5147,20 +5143,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         title: generatedTitle,
         updatedAt: DateTime.now().toUtc(),
       );
-      unawaited(_hardnessSessionStore.save(updated).catchError((_) {}));
+      unawaited(_harnessSessionStore.save(updated).catchError((_) {}));
       setState(() {
-        _persistedHardnessSession = updated;
+        _persistedHarnessSession = updated;
       });
     } catch (error, stack) {
       silentLog('openhand_home_page', 'generate HE auto title', error, stack);
     }
   }
 
-  AiModelConfig? _resolveHardnessAutoTitleModel({
-    required HardnessSessionConfig config,
+  AiModelConfig? _resolveHarnessAutoTitleModel({
+    required HarnessSessionConfig config,
     required SettingsController settingsController,
   }) {
-    for (final roleConfig in <HardnessRoleConfig>[
+    for (final roleConfig in <HarnessRoleConfig>[
       config.profilerConfig,
       config.readerConfig,
       config.plannerConfig,
@@ -7776,7 +7772,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return AndroidReverseAdbCommandGuard.isGlobalAdbRecoveryCommand(command);
   }
 
-  Future<BashCommandApprovalDecision> _confirmHardnessApiWriteCommand(
+  Future<BashCommandApprovalDecision> _confirmHarnessApiWriteCommand(
     BashCommandApprovalRequest request,
   ) {
     return _confirmWriteCommand(request, trackSessionBadge: false);
@@ -7932,7 +7928,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       ),
       AppSection.agents => _localizedText(context, zh: '智能体', en: 'Agents'),
       AppSection.settings => _localizedText(context, zh: '设置', en: 'Settings'),
-      AppSection.hardnessSession => _localizedText(
+      AppSection.harnessSession => _localizedText(
         context,
         zh: 'Harness 会话',
         en: 'Harness Session',
@@ -8350,8 +8346,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  Future<void> _renameHardnessSession() async {
-    final record = _persistedHardnessSession;
+  Future<void> _renameHarnessSession() async {
+    final record = _persistedHarnessSession;
     if (record == null) return;
     final submitted = await showOpenHandTextInputDialog(
       context: context,
@@ -8376,12 +8372,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       title: submitted,
       updatedAt: DateTime.now(),
     );
-    setState(() => _persistedHardnessSession = updated);
-    unawaited(_hardnessSessionStore.save(updated).catchError((_) {}));
+    setState(() => _persistedHarnessSession = updated);
+    unawaited(_harnessSessionStore.save(updated).catchError((_) {}));
   }
 
-  Future<void> _deleteHardnessSession() async {
-    final record = _persistedHardnessSession;
+  Future<void> _deleteHarnessSession() async {
+    final record = _persistedHarnessSession;
     if (record == null) return;
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
@@ -8398,18 +8394,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (confirmed != true || !mounted) {
       return;
     }
-    _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
-    _activeHardnessOrchestrator?.dispose();
-    _hardnessSessionSaveDebouncer.cancel();
+    _activeHarnessOrchestrator?.removeListener(_onHarnessOrchestratorChanged);
+    _activeHarnessOrchestrator?.dispose();
+    _harnessSessionSaveDebouncer.cancel();
     setState(() {
-      _activeHardnessOrchestrator = null;
-      _activeHardnessConfig = null;
-      _persistedHardnessSession = null;
-      if (_selectedSection == AppSection.hardnessSession) {
+      _activeHarnessOrchestrator = null;
+      _activeHarnessConfig = null;
+      _persistedHarnessSession = null;
+      if (_selectedSection == AppSection.harnessSession) {
         _selectedSection = AppSection.workspace;
       }
     });
-    unawaited(_hardnessSessionStore.clear().catchError((_) {}));
+    unawaited(_harnessSessionStore.clear().catchError((_) {}));
   }
 
   /// Sanitises a session title for use in a default filename. Strips path
@@ -8571,13 +8567,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _showExportResultSnackBar(messenger, result, destinationPath);
   }
 
-  Future<void> _exportHardnessSession() async {
-    final record = _persistedHardnessSession;
+  Future<void> _exportHarnessSession() async {
+    final record = _persistedHarnessSession;
     if (record == null) return;
     final messenger = ScaffoldMessenger.of(context);
 
     // Step 1: collect the export configuration from the user.
-    final config = await showHardnessSessionExportConfigDialog(
+    final config = await showHarnessSessionExportConfigDialog(
       context: context,
       totalPhaseLogs: record.phaseLogs.length,
     );
@@ -8597,7 +8593,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     } catch (error, stack) {
       silentLog(
         'openhand_home_page',
-        '_exportHardnessSession.getSaveLocation',
+        '_exportHarnessSession.getSaveLocation',
         error,
         stack,
       );
@@ -8640,7 +8636,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     ExportResult result;
     try {
       result =
-          await exportHardnessSessionToJsonl(
+          await exportHarnessSessionToJsonl(
             record: record,
             destinationPath: destinationPath,
             cancelToken: cancelToken,
@@ -8656,7 +8652,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     } catch (error, stack) {
       silentLog(
         'openhand_home_page',
-        '_exportHardnessSession.run',
+        '_exportHarnessSession.run',
         error,
         stack,
       );
@@ -9110,21 +9106,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                     onExportSession: _exportSession,
                     onGenerateTitleForSession: _generateTitleForSession,
                     onSectionSelected: _selectSection,
-                    activeHardnessOrchestrator: _activeHardnessOrchestrator,
-                    hardnessSessionRecord: _persistedHardnessSession,
-                    onHardnessSessionSelected:
-                        _persistedHardnessSession != null ||
-                            _activeHardnessOrchestrator != null
-                        ? () => _selectSection(AppSection.hardnessSession)
+                    activeHarnessOrchestrator: _activeHarnessOrchestrator,
+                    harnessSessionRecord: _persistedHarnessSession,
+                    onHarnessSessionSelected:
+                        _persistedHarnessSession != null ||
+                            _activeHarnessOrchestrator != null
+                        ? () => _selectSection(AppSection.harnessSession)
                         : null,
-                    onRenameHardnessSession: _persistedHardnessSession != null
-                        ? _renameHardnessSession
+                    onRenameHarnessSession: _persistedHarnessSession != null
+                        ? _renameHarnessSession
                         : null,
-                    onDeleteHardnessSession: _persistedHardnessSession != null
-                        ? _deleteHardnessSession
+                    onDeleteHarnessSession: _persistedHarnessSession != null
+                        ? _deleteHarnessSession
                         : null,
-                    onExportHardnessSession: _persistedHardnessSession != null
-                        ? _exportHardnessSession
+                    onExportHarnessSession: _persistedHarnessSession != null
+                        ? _exportHarnessSession
                         : null,
                   );
 
@@ -9643,44 +9639,44 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         value: _toolSearchReplayDispatcher,
         child: const SettingsView(),
       ),
-      AppSection.hardnessSession =>
-        _activeHardnessOrchestrator != null && _activeHardnessConfig != null
-            ? HardnessSessionPane(
-                controller: _hardnessSessionPaneController,
-                config: _activeHardnessConfig!,
-                orchestrator: _activeHardnessOrchestrator!,
+      AppSection.harnessSession =>
+        _activeHarnessOrchestrator != null && _activeHarnessConfig != null
+            ? HarnessSessionPane(
+                controller: _harnessSessionPaneController,
+                config: _activeHarnessConfig!,
+                orchestrator: _activeHarnessOrchestrator!,
                 isZh: openHandIsChineseLocale(context),
-                sessionTitle: _persistedHardnessSession?.title,
-                updatedAtLabel: _persistedHardnessSession == null
+                sessionTitle: _persistedHarnessSession?.title,
+                updatedAtLabel: _persistedHarnessSession == null
                     ? null
-                    : _formatDateTime(_persistedHardnessSession!.updatedAt),
-                sessionId: _persistedHardnessSession?.id,
-                createdAtLabel: _persistedHardnessSession == null
+                    : _formatDateTime(_persistedHarnessSession!.updatedAt),
+                sessionId: _persistedHarnessSession?.id,
+                createdAtLabel: _persistedHarnessSession == null
                     ? null
-                    : _formatDateTime(_persistedHardnessSession!.createdAt),
+                    : _formatDateTime(_persistedHarnessSession!.createdAt),
                 fullAccessPermission: _heFullAccessPermission,
                 onToggleFullAccessPermission: _handleHeFullAccessToggle,
                 onConfigChanged: _handleHeConfigChanged,
                 filePathRoots: [
-                  if ((_activeHardnessConfig?.workingDirectory ?? '')
+                  if ((_activeHarnessConfig?.workingDirectory ?? '')
                       .trim()
                       .isNotEmpty)
-                    _activeHardnessConfig!.workingDirectory,
-                  if ((_activeHardnessConfig?.persistenceDirectory ?? '')
+                    _activeHarnessConfig!.workingDirectory,
+                  if ((_activeHarnessConfig?.persistenceDirectory ?? '')
                       .trim()
                       .isNotEmpty)
-                    _activeHardnessConfig!.persistenceDirectory,
-                  if ((_activeHardnessConfig?.persistenceDirectory ?? '')
+                    _activeHarnessConfig!.persistenceDirectory,
+                  if ((_activeHarnessConfig?.persistenceDirectory ?? '')
                       .trim()
                       .isNotEmpty)
                     p.join(
-                      _activeHardnessConfig!.persistenceDirectory,
+                      _activeHarnessConfig!.persistenceDirectory,
                       'steering',
                     ),
                 ],
                 onRestart: () {
-                  setState(() => _selectedSection = AppSection.hardnessSession);
-                  _activeHardnessOrchestrator?.startOrResume();
+                  setState(() => _selectedSection = AppSection.harnessSession);
+                  _activeHarnessOrchestrator?.startOrResume();
                 },
                 replayPendingDeadlineListenable:
                     _toolSearchReplayDispatcher.pendingDeadlineListenable,

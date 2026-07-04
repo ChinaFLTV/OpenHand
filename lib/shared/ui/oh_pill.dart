@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// 通用的 32px 高、圆角药丸状 chip：左侧小图标 + 右侧文本，可选 onTap。
 ///
-/// 设计来自 hardness session header 的 `_HePill`，这里抽到 shared 让
+/// 设计来自 harness session header 的 `_HePill`，这里抽到 shared 让
 /// settings / mcp 等其他面板也能复用同一视觉。
 ///
 /// - [foregroundColor] 同时控制图标颜色和文本颜色（默认 primary）；传入

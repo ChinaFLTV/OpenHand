@@ -159,7 +159,7 @@ class AiPromptTemplatePolicies {
 
   static const String defaultTemplateId = 'default';
   static const String machineExpertTemplateId = 'machine_expert';
-  static const String hardnessEngineeringTemplateId = 'hardness_engineering';
+  static const String harnessEngineeringTemplateId = 'harness_engineering';
   static const String programmingExpertTemplateId = 'programming_expert';
   static const String hermesTalkerTemplateId = 'hermes_talker';
   static const String webReverseExpertTemplateId = 'web_reverse_expert';
@@ -169,7 +169,7 @@ class AiPromptTemplatePolicies {
   static const String defaultPromptAssetDirectory = 'assets/prompts/default';
   static const String machineExpertPromptAssetDirectory =
       'assets/prompts/machine_expert';
-  static const String hardnessEngineeringPromptAssetDirectory =
+  static const String harnessEngineeringPromptAssetDirectory =
       'assets/prompts/harness_engineering';
   static const String programmingExpertPromptAssetDirectory =
       'assets/prompts/programming_expert';
@@ -248,7 +248,7 @@ class AiPromptTemplatePolicies {
     ),
     AiPromptTemplateCatalogEntry(
       info: AiPromptTemplateInfo(
-        id: hardnessEngineeringTemplateId,
+        id: harnessEngineeringTemplateId,
         name: 'Harness Engineering',
         nameZhHant: 'Harness Engineering',
         nameEn: 'Harness Engineering',
@@ -269,11 +269,11 @@ class AiPromptTemplatePolicies {
         descriptionJa:
             '複数ロールのオーケストレーション。OpenHand が設定済み CLI ツールへ実装作業を委譲し、構造化された永続コンテキストを管理します。',
         internalVersion: '1.0.0',
-        promptAssetDirectory: hardnessEngineeringPromptAssetDirectory,
+        promptAssetDirectory: harnessEngineeringPromptAssetDirectory,
       ),
       policy: AiPromptTemplatePolicy(
-        templateId: hardnessEngineeringTemplateId,
-        promptAssetDirectory: hardnessEngineeringPromptAssetDirectory,
+        templateId: harnessEngineeringTemplateId,
+        promptAssetDirectory: harnessEngineeringPromptAssetDirectory,
         toolCatalogProfile: AiPromptToolCatalogProfile.generic,
         extensionSections: <AiPromptSharedSectionSpec>[],
         compressionIdentity:

@@ -760,18 +760,18 @@
   "mcpLazyLoadingThresholdSave": "儲存閾值",
   "mcpLazyLoadingThresholdSaved": "MCP 工具懶載入閾值已儲存。",
   "mcpLazyLoadingThresholdInvalid": "請填寫 1000 ~ 1000000 之間的整數。",
-  "settingsHardnessToolSearchHistoryCapLabel": "Harness ToolSearch 歷史保留上限",
-  "settingsHardnessToolSearchHistoryCapBody": "ToolSearch 已載入清單對話框保留的 Harness phase 最大個數，超出後以 LRU 淘汰。",
-  "settingsHardnessToolSearchHistoryCapValue": "當前保留最近 {cap} 個 phase",
-  "@settingsHardnessToolSearchHistoryCapValue": {
+  "settingsHarnessToolSearchHistoryCapLabel": "Harness ToolSearch 歷史保留上限",
+  "settingsHarnessToolSearchHistoryCapBody": "ToolSearch 已載入清單對話框保留的 Harness phase 最大個數，超出後以 LRU 淘汰。",
+  "settingsHarnessToolSearchHistoryCapValue": "當前保留最近 {cap} 個 phase",
+  "@settingsHarnessToolSearchHistoryCapValue": {
     "placeholders": {
       "cap": {
         "type": "int"
       }
     }
   },
-  "settingsHardnessToolSearchHistoryCapRange": "範圍：{min}–{max}（預設 8）",
-  "@settingsHardnessToolSearchHistoryCapRange": {
+  "settingsHarnessToolSearchHistoryCapRange": "範圍：{min}–{max}（預設 8）",
+  "@settingsHarnessToolSearchHistoryCapRange": {
     "placeholders": {
       "min": {
         "type": "int"
@@ -781,285 +781,285 @@
       }
     }
   },
-  "settingsHardnessToolSearchHistoryCapResetTooltip": "重設為預設值（{defaultCap}）",
-  "@settingsHardnessToolSearchHistoryCapResetTooltip": {
+  "settingsHarnessToolSearchHistoryCapResetTooltip": "重設為預設值（{defaultCap}）",
+  "@settingsHarnessToolSearchHistoryCapResetTooltip": {
     "placeholders": {
       "defaultCap": {
         "type": "int"
       }
     }
   },
-  "hardnessCliLoginNoOutputHint": "[提示] CLI 尚未產生輸出。可能正在初始化，或需要在外部瀏覽器中完成授權。\n",
-  "@hardnessCliLoginNoOutputHint": {
-    "description": "Hardness CLI login dialog terminal hint when no output arrives."
+  "harnessCliLoginNoOutputHint": "[提示] CLI 尚未產生輸出。可能正在初始化，或需要在外部瀏覽器中完成授權。\n",
+  "@harnessCliLoginNoOutputHint": {
+    "description": "Harness CLI login dialog terminal hint when no output arrives."
   },
-  "hardnessCliLoginTtyRequiredHint": "[提示] 此 CLI 可能需要真實終端機 (TTY) 才能完成互動式登入。\n請點選下方「在終端機中開啟」按鈕，在系統終端機中完成登入流程。\n",
-  "@hardnessCliLoginTtyRequiredHint": {
-    "description": "Hardness CLI login dialog terminal hint when a TTY may be required."
+  "harnessCliLoginTtyRequiredHint": "[提示] 此 CLI 可能需要真實終端機 (TTY) 才能完成互動式登入。\n請點選下方「在終端機中開啟」按鈕，在系統終端機中完成登入流程。\n",
+  "@harnessCliLoginTtyRequiredHint": {
+    "description": "Harness CLI login dialog terminal hint when a TTY may be required."
   },
-  "hardnessCliLoginStreamError": "[串流錯誤：{error}]",
-  "@hardnessCliLoginStreamError": {
-    "description": "Hardness CLI login dialog stream error log line.",
+  "harnessCliLoginStreamError": "[串流錯誤：{error}]",
+  "@harnessCliLoginStreamError": {
+    "description": "Harness CLI login dialog stream error log line.",
     "placeholders": {
       "error": {}
     }
   },
-  "hardnessCliLoginFailedToStartProcess": "無法啟動行程：{message}",
-  "@hardnessCliLoginFailedToStartProcess": {
-    "description": "Hardness CLI login dialog process startup failure.",
+  "harnessCliLoginFailedToStartProcess": "無法啟動行程：{message}",
+  "@harnessCliLoginFailedToStartProcess": {
+    "description": "Harness CLI login dialog process startup failure.",
     "placeholders": {
       "message": {}
     }
   },
-  "hardnessCliLoginOpenTerminalError": "[無法開啟終端機：{error}]",
-  "@hardnessCliLoginOpenTerminalError": {
-    "description": "Hardness CLI login dialog open-terminal failure log line.",
+  "harnessCliLoginOpenTerminalError": "[無法開啟終端機：{error}]",
+  "@harnessCliLoginOpenTerminalError": {
+    "description": "Harness CLI login dialog open-terminal failure log line.",
     "placeholders": {
       "error": {}
     }
   },
-  "hardnessCliLoginStatusFailed": "啟動失敗",
-  "@hardnessCliLoginStatusFailed": {
-    "description": "Hardness CLI login dialog status label."
+  "harnessCliLoginStatusFailed": "啟動失敗",
+  "@harnessCliLoginStatusFailed": {
+    "description": "Harness CLI login dialog status label."
   },
-  "hardnessCliLoginStatusStarting": "正在啟動登入流程...",
-  "@hardnessCliLoginStatusStarting": {
-    "description": "Hardness CLI login dialog status label."
+  "harnessCliLoginStatusStarting": "正在啟動登入流程...",
+  "@harnessCliLoginStatusStarting": {
+    "description": "Harness CLI login dialog status label."
   },
-  "hardnessCliLoginStatusFinished": "流程已結束",
-  "@hardnessCliLoginStatusFinished": {
-    "description": "Hardness CLI login dialog status label without exit code."
+  "harnessCliLoginStatusFinished": "流程已結束",
+  "@harnessCliLoginStatusFinished": {
+    "description": "Harness CLI login dialog status label without exit code."
   },
-  "hardnessCliLoginStatusFinishedWithExit": "流程已結束 · 結束碼 {exitCode}",
-  "@hardnessCliLoginStatusFinishedWithExit": {
-    "description": "Hardness CLI login dialog status label with exit code.",
+  "harnessCliLoginStatusFinishedWithExit": "流程已結束 · 結束碼 {exitCode}",
+  "@harnessCliLoginStatusFinishedWithExit": {
+    "description": "Harness CLI login dialog status label with exit code.",
     "placeholders": {
       "exitCode": {
         "type": "int"
       }
     }
   },
-  "hardnessCliLoginStatusWaiting": "等待 CLI 互動...",
-  "@hardnessCliLoginStatusWaiting": {
-    "description": "Hardness CLI login dialog status label."
+  "harnessCliLoginStatusWaiting": "等待 CLI 互動...",
+  "@harnessCliLoginStatusWaiting": {
+    "description": "Harness CLI login dialog status label."
   },
-  "hardnessCliLoginTitle": "{name} 登入",
-  "@hardnessCliLoginTitle": {
-    "description": "Hardness CLI login dialog title.",
+  "harnessCliLoginTitle": "{name} 登入",
+  "@harnessCliLoginTitle": {
+    "description": "Harness CLI login dialog title.",
     "placeholders": {
       "name": {}
     }
   },
-  "hardnessCliLoginDescription": "此彈窗會在應用程式內啟動互動式 CLI 登入流程。過程中 CLI 可能會自動開啟外部瀏覽器，請依提示完成授權。",
-  "@hardnessCliLoginDescription": {
-    "description": "Hardness CLI login dialog description."
+  "harnessCliLoginDescription": "此彈窗會在應用程式內啟動互動式 CLI 登入流程。過程中 CLI 可能會自動開啟外部瀏覽器，請依提示完成授權。",
+  "@harnessCliLoginDescription": {
+    "description": "Harness CLI login dialog description."
   },
-  "hardnessCliLoginCopyCommandTooltip": "複製命令",
-  "@hardnessCliLoginCopyCommandTooltip": {
-    "description": "Hardness CLI login dialog copy-command tooltip."
+  "harnessCliLoginCopyCommandTooltip": "複製命令",
+  "@harnessCliLoginCopyCommandTooltip": {
+    "description": "Harness CLI login dialog copy-command tooltip."
   },
-  "hardnessCliLoginEmptyOutput": "等待 CLI 輸出...",
-  "@hardnessCliLoginEmptyOutput": {
-    "description": "Hardness CLI login dialog empty terminal placeholder."
+  "harnessCliLoginEmptyOutput": "等待 CLI 輸出...",
+  "@harnessCliLoginEmptyOutput": {
+    "description": "Harness CLI login dialog empty terminal placeholder."
   },
-  "hardnessCliLoginInputLabel": "傳送輸入",
-  "@hardnessCliLoginInputLabel": {
-    "description": "Hardness CLI login dialog stdin input label."
+  "harnessCliLoginInputLabel": "傳送輸入",
+  "@harnessCliLoginInputLabel": {
+    "description": "Harness CLI login dialog stdin input label."
   },
-  "hardnessCliLoginInputHint": "輸入內容後按 Enter；留空可直接傳送 Enter",
-  "@hardnessCliLoginInputHint": {
-    "description": "Hardness CLI login dialog stdin input hint."
+  "harnessCliLoginInputHint": "輸入內容後按 Enter；留空可直接傳送 Enter",
+  "@harnessCliLoginInputHint": {
+    "description": "Harness CLI login dialog stdin input hint."
   },
-  "hardnessCliLoginSend": "傳送",
-  "@hardnessCliLoginSend": {
-    "description": "Hardness CLI login dialog send button."
+  "harnessCliLoginSend": "傳送",
+  "@harnessCliLoginSend": {
+    "description": "Harness CLI login dialog send button."
   },
-  "hardnessCliLoginSendEsc": "傳送 Esc",
-  "@hardnessCliLoginSendEsc": {
-    "description": "Hardness CLI login dialog send-Esc button."
+  "harnessCliLoginSendEsc": "傳送 Esc",
+  "@harnessCliLoginSendEsc": {
+    "description": "Harness CLI login dialog send-Esc button."
   },
-  "hardnessCliLoginOpenInTerminal": "在終端機中開啟",
-  "@hardnessCliLoginOpenInTerminal": {
-    "description": "Hardness CLI login dialog open-in-terminal button."
+  "harnessCliLoginOpenInTerminal": "在終端機中開啟",
+  "@harnessCliLoginOpenInTerminal": {
+    "description": "Harness CLI login dialog open-in-terminal button."
   },
-  "hardnessCliInstallLogSuccess": "✓ 安裝成功",
-  "@hardnessCliInstallLogSuccess": {
-    "description": "Hardness CLI install dialog success log line."
+  "harnessCliInstallLogSuccess": "✓ 安裝成功",
+  "@harnessCliInstallLogSuccess": {
+    "description": "Harness CLI install dialog success log line."
   },
-  "hardnessCliInstallLogSuccessWithPath": "✓ 安裝成功（路徑：{path}）",
-  "@hardnessCliInstallLogSuccessWithPath": {
-    "description": "Hardness CLI install dialog success log line with path.",
+  "harnessCliInstallLogSuccessWithPath": "✓ 安裝成功（路徑：{path}）",
+  "@harnessCliInstallLogSuccessWithPath": {
+    "description": "Harness CLI install dialog success log line with path.",
     "placeholders": {
       "path": {}
     }
   },
-  "hardnessCliInstallLogFailureExitCode": "✗ 安裝失敗（結束碼：{exitCode}）",
-  "@hardnessCliInstallLogFailureExitCode": {
-    "description": "Hardness CLI install dialog failure log line with exit code.",
+  "harnessCliInstallLogFailureExitCode": "✗ 安裝失敗（結束碼：{exitCode}）",
+  "@harnessCliInstallLogFailureExitCode": {
+    "description": "Harness CLI install dialog failure log line with exit code.",
     "placeholders": {
       "exitCode": {
         "type": "int"
       }
     }
   },
-  "hardnessCliInstallLogStartProcessFailed": "✗ 無法啟動安裝行程：{message}",
-  "@hardnessCliInstallLogStartProcessFailed": {
-    "description": "Hardness CLI install dialog process startup failure log line.",
+  "harnessCliInstallLogStartProcessFailed": "✗ 無法啟動安裝行程：{message}",
+  "@harnessCliInstallLogStartProcessFailed": {
+    "description": "Harness CLI install dialog process startup failure log line.",
     "placeholders": {
       "message": {}
     }
   },
-  "hardnessCliInstallLogGenericError": "✗ 發生錯誤：{error}",
-  "@hardnessCliInstallLogGenericError": {
-    "description": "Hardness CLI install dialog generic error log line.",
+  "harnessCliInstallLogGenericError": "✗ 發生錯誤：{error}",
+  "@harnessCliInstallLogGenericError": {
+    "description": "Harness CLI install dialog generic error log line.",
     "placeholders": {
       "error": {}
     }
   },
-  "hardnessCliInstallHintInstallNode": "  → 請先安裝 Node.js：https://nodejs.org",
-  "@hardnessCliInstallHintInstallNode": {
-    "description": "Hardness CLI install dialog Node.js missing hint."
+  "harnessCliInstallHintInstallNode": "  → 請先安裝 Node.js：https://nodejs.org",
+  "@harnessCliInstallHintInstallNode": {
+    "description": "Harness CLI install dialog Node.js missing hint."
   },
-  "hardnessCliInstallHintRetryAdminButton": "  → 點選下方「以管理員權限重試」按鈕",
-  "@hardnessCliInstallHintRetryAdminButton": {
-    "description": "Hardness CLI install dialog admin retry hint."
+  "harnessCliInstallHintRetryAdminButton": "  → 點選下方「以管理員權限重試」按鈕",
+  "@harnessCliInstallHintRetryAdminButton": {
+    "description": "Harness CLI install dialog admin retry hint."
   },
-  "hardnessCliInstallHintTrySudo": "  → 嘗試：sudo {command}",
-  "@hardnessCliInstallHintTrySudo": {
-    "description": "Hardness CLI install dialog sudo retry hint.",
+  "harnessCliInstallHintTrySudo": "  → 嘗試：sudo {command}",
+  "@harnessCliInstallHintTrySudo": {
+    "description": "Harness CLI install dialog sudo retry hint.",
     "placeholders": {
       "command": {}
     }
   },
-  "hardnessCliInstallHintCheckNetworkDocs": "  → 請檢查網路連線或查閱官方文件",
-  "@hardnessCliInstallHintCheckNetworkDocs": {
-    "description": "Hardness CLI install dialog network/docs hint."
+  "harnessCliInstallHintCheckNetworkDocs": "  → 請檢查網路連線或查閱官方文件",
+  "@harnessCliInstallHintCheckNetworkDocs": {
+    "description": "Harness CLI install dialog network/docs hint."
   },
-  "hardnessCliInstallHintInstallPipx": "  → 請先安裝 pipx：https://pipx.pypa.io/stable/installation/",
-  "@hardnessCliInstallHintInstallPipx": {
-    "description": "Hardness CLI install dialog pipx missing hint."
+  "harnessCliInstallHintInstallPipx": "  → 請先安裝 pipx：https://pipx.pypa.io/stable/installation/",
+  "@harnessCliInstallHintInstallPipx": {
+    "description": "Harness CLI install dialog pipx missing hint."
   },
-  "hardnessCliInstallHintUsePipInstallUserAider": "    或使用：pip install --user aider-chat",
-  "@hardnessCliInstallHintUsePipInstallUserAider": {
-    "description": "Hardness CLI install dialog pip fallback hint."
+  "harnessCliInstallHintUsePipInstallUserAider": "    或使用：pip install --user aider-chat",
+  "@harnessCliInstallHintUsePipInstallUserAider": {
+    "description": "Harness CLI install dialog pip fallback hint."
   },
-  "hardnessCliInstallHintHomebrewNoSudo": "  → Homebrew 通常不應以 sudo 安裝，請檢查目錄權限",
-  "@hardnessCliInstallHintHomebrewNoSudo": {
-    "description": "Hardness CLI install dialog Homebrew permission hint."
+  "harnessCliInstallHintHomebrewNoSudo": "  → Homebrew 通常不應以 sudo 安裝，請檢查目錄權限",
+  "@harnessCliInstallHintHomebrewNoSudo": {
+    "description": "Harness CLI install dialog Homebrew permission hint."
   },
-  "hardnessCliInstallHintHomebrewFix": "  → 修復建議：https://docs.brew.sh/FAQ#why-does-homebrew-say-sudo-is-not-allowed",
-  "@hardnessCliInstallHintHomebrewFix": {
-    "description": "Hardness CLI install dialog Homebrew fix link hint."
+  "harnessCliInstallHintHomebrewFix": "  → 修復建議：https://docs.brew.sh/FAQ#why-does-homebrew-say-sudo-is-not-allowed",
+  "@harnessCliInstallHintHomebrewFix": {
+    "description": "Harness CLI install dialog Homebrew fix link hint."
   },
-  "hardnessCliInstallHintInstallPython": "  → 請先安裝 Python：https://www.python.org",
-  "@hardnessCliInstallHintInstallPython": {
-    "description": "Hardness CLI install dialog Python missing hint."
+  "harnessCliInstallHintInstallPython": "  → 請先安裝 Python：https://www.python.org",
+  "@harnessCliInstallHintInstallPython": {
+    "description": "Harness CLI install dialog Python missing hint."
   },
-  "hardnessCliInstallHintPipInstallUser": "  → 嘗試：pip install --user {packageName}",
-  "@hardnessCliInstallHintPipInstallUser": {
-    "description": "Hardness CLI install dialog pip user install hint.",
+  "harnessCliInstallHintPipInstallUser": "  → 嘗試：pip install --user {packageName}",
+  "@harnessCliInstallHintPipInstallUser": {
+    "description": "Harness CLI install dialog pip user install hint.",
     "placeholders": {
       "packageName": {}
     }
   },
-  "hardnessCliInstallHintOfficialDocs": "  → 官方文件：{url}",
-  "@hardnessCliInstallHintOfficialDocs": {
-    "description": "Hardness CLI install dialog official docs hint.",
+  "harnessCliInstallHintOfficialDocs": "  → 官方文件：{url}",
+  "@harnessCliInstallHintOfficialDocs": {
+    "description": "Harness CLI install dialog official docs hint.",
     "placeholders": {
       "url": {}
     }
   },
-  "hardnessCliInstallLogCancelled": "⚠ 安裝已取消",
-  "@hardnessCliInstallLogCancelled": {
-    "description": "Hardness CLI install dialog cancellation log line."
+  "harnessCliInstallLogCancelled": "⚠ 安裝已取消",
+  "@harnessCliInstallLogCancelled": {
+    "description": "Harness CLI install dialog cancellation log line."
   },
-  "hardnessCliInstallWindowsAdminManual": "請在管理員權限的 PowerShell 中手動執行：",
-  "@hardnessCliInstallWindowsAdminManual": {
-    "description": "Hardness CLI install dialog Windows admin manual-run hint."
+  "harnessCliInstallWindowsAdminManual": "請在管理員權限的 PowerShell 中手動執行：",
+  "@harnessCliInstallWindowsAdminManual": {
+    "description": "Harness CLI install dialog Windows admin manual-run hint."
   },
-  "hardnessCliInstallAdminCommand": "> [管理員] {command}",
-  "@hardnessCliInstallAdminCommand": {
-    "description": "Hardness CLI install dialog elevated command log line.",
+  "harnessCliInstallAdminCommand": "> [管理員] {command}",
+  "@harnessCliInstallAdminCommand": {
+    "description": "Harness CLI install dialog elevated command log line.",
     "placeholders": {
       "command": {}
     }
   },
-  "hardnessCliInstallAdminTimeout": "✗ 管理員授權對話框逾時或啟動失敗，已強制結束 osascript 子行程",
-  "@hardnessCliInstallAdminTimeout": {
-    "description": "Hardness CLI install dialog admin authorization timeout log line."
+  "harnessCliInstallAdminTimeout": "✗ 管理員授權對話框逾時或啟動失敗，已強制結束 osascript 子行程",
+  "@harnessCliInstallAdminTimeout": {
+    "description": "Harness CLI install dialog admin authorization timeout log line."
   },
-  "hardnessCliInstallUserCancelledAuth": "⚠ 使用者已取消授權",
-  "@hardnessCliInstallUserCancelledAuth": {
-    "description": "Hardness CLI install dialog user-cancelled authorization log line."
+  "harnessCliInstallUserCancelledAuth": "⚠ 使用者已取消授權",
+  "@harnessCliInstallUserCancelledAuth": {
+    "description": "Harness CLI install dialog user-cancelled authorization log line."
   },
-  "hardnessCliInstallAdminPermissionFailed": "✗ 無法取得管理員權限",
-  "@hardnessCliInstallAdminPermissionFailed": {
-    "description": "Hardness CLI install dialog admin privilege failure log line."
+  "harnessCliInstallAdminPermissionFailed": "✗ 無法取得管理員權限",
+  "@harnessCliInstallAdminPermissionFailed": {
+    "description": "Harness CLI install dialog admin privilege failure log line."
   },
-  "hardnessCliInstallPathMissingWarning": "⚠ 安裝完成，但未在目前 PATH 中偵測到 {executable}",
-  "@hardnessCliInstallPathMissingWarning": {
-    "description": "Hardness CLI install dialog PATH warning log line.",
+  "harnessCliInstallPathMissingWarning": "⚠ 安裝完成，但未在目前 PATH 中偵測到 {executable}",
+  "@harnessCliInstallPathMissingWarning": {
+    "description": "Harness CLI install dialog PATH warning log line.",
     "placeholders": {
       "executable": {}
     }
   },
-  "hardnessCliInstallRestartPathHint": "  → 請嘗試重新啟動 OpenHand，或從終端機啟動以載入新的 PATH",
-  "@hardnessCliInstallRestartPathHint": {
-    "description": "Hardness CLI install dialog restart/PATH hint."
+  "harnessCliInstallRestartPathHint": "  → 請嘗試重新啟動 OpenHand，或從終端機啟動以載入新的 PATH",
+  "@harnessCliInstallRestartPathHint": {
+    "description": "Harness CLI install dialog restart/PATH hint."
   },
-  "hardnessCliInstallTimeoutManual": "✗ 安裝逾時（超過 5 分鐘），請手動執行：",
-  "@hardnessCliInstallTimeoutManual": {
-    "description": "Hardness CLI install dialog timeout manual-run hint."
+  "harnessCliInstallTimeoutManual": "✗ 安裝逾時（超過 5 分鐘），請手動執行：",
+  "@harnessCliInstallTimeoutManual": {
+    "description": "Harness CLI install dialog timeout manual-run hint."
   },
-  "hardnessCliInstallOsascriptStartFailed": "✗ 無法啟動 osascript：{message}",
-  "@hardnessCliInstallOsascriptStartFailed": {
-    "description": "Hardness CLI install dialog osascript startup failure log line.",
+  "harnessCliInstallOsascriptStartFailed": "✗ 無法啟動 osascript：{message}",
+  "@harnessCliInstallOsascriptStartFailed": {
+    "description": "Harness CLI install dialog osascript startup failure log line.",
     "placeholders": {
       "message": {}
     }
   },
-  "hardnessCliInstallLinuxSudoManual": "請在終端機手動執行（需要 root 權限）：",
-  "@hardnessCliInstallLinuxSudoManual": {
-    "description": "Hardness CLI install dialog Linux sudo manual-run hint."
+  "harnessCliInstallLinuxSudoManual": "請在終端機手動執行（需要 root 權限）：",
+  "@harnessCliInstallLinuxSudoManual": {
+    "description": "Harness CLI install dialog Linux sudo manual-run hint."
   },
-  "hardnessCliInstallStatusInstalling": "安裝中...",
-  "@hardnessCliInstallStatusInstalling": {
-    "description": "Hardness CLI install dialog status label."
+  "harnessCliInstallStatusInstalling": "安裝中...",
+  "@harnessCliInstallStatusInstalling": {
+    "description": "Harness CLI install dialog status label."
   },
-  "hardnessCliInstallStatusSuccess": "安裝成功",
-  "@hardnessCliInstallStatusSuccess": {
-    "description": "Hardness CLI install dialog status label."
+  "harnessCliInstallStatusSuccess": "安裝成功",
+  "@harnessCliInstallStatusSuccess": {
+    "description": "Harness CLI install dialog status label."
   },
-  "hardnessCliInstallStatusCancelled": "已取消",
-  "@hardnessCliInstallStatusCancelled": {
-    "description": "Hardness CLI install dialog status label."
+  "harnessCliInstallStatusCancelled": "已取消",
+  "@harnessCliInstallStatusCancelled": {
+    "description": "Harness CLI install dialog status label."
   },
-  "hardnessCliInstallStatusFailed": "安裝失敗",
-  "@hardnessCliInstallStatusFailed": {
-    "description": "Hardness CLI install dialog status label."
+  "harnessCliInstallStatusFailed": "安裝失敗",
+  "@harnessCliInstallStatusFailed": {
+    "description": "Harness CLI install dialog status label."
   },
-  "hardnessCliInstallTitle": "安裝 {name}",
-  "@hardnessCliInstallTitle": {
-    "description": "Hardness CLI install dialog title.",
+  "harnessCliInstallTitle": "安裝 {name}",
+  "@harnessCliInstallTitle": {
+    "description": "Harness CLI install dialog title.",
     "placeholders": {
       "name": {}
     }
   },
-  "hardnessCliInstallCopyDocUrl": "複製文件連結",
-  "@hardnessCliInstallCopyDocUrl": {
-    "description": "Hardness CLI install dialog copy docs URL button."
+  "harnessCliInstallCopyDocUrl": "複製文件連結",
+  "@harnessCliInstallCopyDocUrl": {
+    "description": "Harness CLI install dialog copy docs URL button."
   },
-  "hardnessCliInstallCancel": "取消安裝",
-  "@hardnessCliInstallCancel": {
-    "description": "Hardness CLI install dialog cancel button."
+  "harnessCliInstallCancel": "取消安裝",
+  "@harnessCliInstallCancel": {
+    "description": "Harness CLI install dialog cancel button."
   },
-  "hardnessCliInstallRetryAdmin": "以管理員權限重試",
-  "@hardnessCliInstallRetryAdmin": {
-    "description": "Hardness CLI install dialog retry with admin button."
+  "harnessCliInstallRetryAdmin": "以管理員權限重試",
+  "@harnessCliInstallRetryAdmin": {
+    "description": "Harness CLI install dialog retry with admin button."
   },
-  "hardnessCliInstallDoneContinue": "完成，繼續",
-  "@hardnessCliInstallDoneContinue": {
-    "description": "Hardness CLI install dialog done/continue button."
+  "harnessCliInstallDoneContinue": "完成，繼續",
+  "@harnessCliInstallDoneContinue": {
+    "description": "Harness CLI install dialog done/continue button."
   },
   "settingsToolSearchReplayCancelWindowLabel": "重播後悔視窗",
   "settingsToolSearchReplayCancelWindowBody": "snackbar 送出前等待的秒數；期間按取消即可撤銷。",
@@ -2408,14 +2408,14 @@
   "snackToolSearchLoadedFilterHint": "依名稱過濾…",
   "snackToolSearchLoadedHistoryFilterHint": "依名稱或查詢過濾…",
   "snackToolSearchLoadedSourceAi": "AI 對話",
-  "snackToolSearchLoadedSourceHardness": "Harness 階段",
+  "snackToolSearchLoadedSourceHarness": "Harness 階段",
   "snackToolSearchLoadedReplayedToast": "已重新發起 ToolSearch",
   "snackToolSearchLoadedReplayPendingToast": "即將發起，3 秒內可點擊「撤銷」",
   "snackToolSearchLoadedReplayCancelAction": "撤銷",
   "snackToolSearchLoadedReplayCancelledToast": "已撤銷 — composer 已清空",
   "snackToolSearchLoadedSourceFilterAll": "全部",
   "snackToolSearchLoadedSourceFilterAi": "僅 AI",
-  "snackToolSearchLoadedSourceFilterHardness": "僅 Harness",
+  "snackToolSearchLoadedSourceFilterHarness": "僅 Harness",
   "snackToolSearchLoadedSummary": "本對話已從 {queries} 個查詢中載入 {tools} 個 MCP 工具",
   "@snackToolSearchLoadedSummary": {
     "placeholders": {

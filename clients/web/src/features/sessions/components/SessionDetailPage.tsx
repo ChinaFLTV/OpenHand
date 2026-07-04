@@ -1423,7 +1423,7 @@ function ComposerInstructionsStrip({ entries, skipped, disabled, onToggle, onRes
   }, []);
   useEffect(() => () => cancelHover(), [cancelHover]);
 
-  // Ctrl/Meta + 0..9 快捷键：与 App 端 hardness 同款思路，
+  // Ctrl/Meta + 0..9 快捷键：与 App 端 harness 同款思路，
   // 全局监听 keydown，仅在没有命中文本输入复合键（IME composing）时生效。
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent): void {
@@ -8044,7 +8044,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   const hasCompressionPoint = Boolean(metadataString(latestCompressionPoint['id']));
   const sidecarStatus = !hasCompressionPoint ? '未生成' : compressionRestored ? '已恢复' : sidecarPresent ? '已登记' : '等待下次 Prompt 刷新';
   const visibleMetadataEntries = Object.entries(metadata).filter(([key]) => {
-    if (session.template_id === 'hardness_engineering' && key === 'hardness_config') return false;
+    if (session.template_id === 'harness_engineering' && key === 'harness_config') return false;
     if (session.template_id === 'programming_expert' && key === 'programming_expert_config') return false;
     if (session.template_id === 'web_reverse_expert' && key === 'web_reverse_config') return false;
     if (session.template_id === 'android_reverse_expert' && key === 'android_reverse_config') return false;
@@ -8159,8 +8159,8 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
     );
   };
 
-  const renderHardnessConfig = () => {
-    const config = recordFromUnknown(metadata['hardness_config']);
+  const renderHarnessConfig = () => {
+    const config = recordFromUnknown(metadata['harness_config']);
     const roleKeys = ['profiler', 'reader', 'planner', 'implementer', 'reviewer'];
     return (
       <Section title="Harness Engineering 配置">
@@ -8312,7 +8312,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
             <EntryRow label={metadataFieldLabel('compression_checkpoint')} value={session.latest_compression_checkpoint_message_id || '—'} />
             <EntryRow label={metadataFieldLabel('latest_compression_at')} value={formatDialogDate(session.latest_compression_at)} />
           </Section>
-          {session.template_id === 'hardness_engineering' ? renderHardnessConfig() : null}
+          {session.template_id === 'harness_engineering' ? renderHarnessConfig() : null}
           {session.template_id === 'programming_expert' ? renderProgrammingConfig() : null}
           {session.template_id === 'android_reverse_expert' ? renderAndroidReverseConfig() : null}
           {visibleMetadataEntries.length > 0 ? (

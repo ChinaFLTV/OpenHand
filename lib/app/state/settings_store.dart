@@ -298,8 +298,8 @@ class SettingsStore {
       'show_self_learning_messages': snapshot.showSelfLearningMessages,
       'cron_auto_cleanup_enabled': snapshot.cronAutoCleanupEnabled,
       'cron_auto_cleanup_retention_days': snapshot.cronAutoCleanupRetentionDays,
-      'hardness_tool_search_history_max_phases':
-          snapshot.hardnessToolSearchHistoryMaxPhases,
+      'harness_tool_search_history_max_phases':
+          snapshot.harnessToolSearchHistoryMaxPhases,
       'tool_search_replay_cancel_window_seconds':
           snapshot.toolSearchReplayCancelWindowSeconds,
       'reduce_motion': snapshot.reduceMotion,
@@ -1018,11 +1018,11 @@ class SettingsStore {
       max: AppSettingsSnapshot.maxCronAutoCleanupRetentionDays,
     );
 
-    final hardnessToolSearchHistoryMaxPhases = clampedIntFromValue(
-      json['hardness_tool_search_history_max_phases'],
-      fallback: AppSettingsSnapshot.defaultHardnessToolSearchHistoryMaxPhases,
-      min: AppSettingsSnapshot.minHardnessToolSearchHistoryMaxPhases,
-      max: AppSettingsSnapshot.maxHardnessToolSearchHistoryMaxPhases,
+    final harnessToolSearchHistoryMaxPhases = clampedIntFromValue(
+      json['harness_tool_search_history_max_phases'],
+      fallback: AppSettingsSnapshot.defaultHarnessToolSearchHistoryMaxPhases,
+      min: AppSettingsSnapshot.minHarnessToolSearchHistoryMaxPhases,
+      max: AppSettingsSnapshot.maxHarnessToolSearchHistoryMaxPhases,
     );
 
     final toolSearchReplayCancelWindowSeconds = clampedIntFromValue(
@@ -1164,7 +1164,7 @@ class SettingsStore {
       showSelfLearningMessages: showSelfLearningMessages,
       cronAutoCleanupEnabled: cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: cronAutoCleanupRetentionDays,
-      hardnessToolSearchHistoryMaxPhases: hardnessToolSearchHistoryMaxPhases,
+      harnessToolSearchHistoryMaxPhases: harnessToolSearchHistoryMaxPhases,
       toolSearchReplayCancelWindowSeconds: toolSearchReplayCancelWindowSeconds,
       reduceMotion: reduceMotion,
       proxySettings: proxySettings,

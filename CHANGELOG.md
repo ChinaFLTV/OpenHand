@@ -32,7 +32,7 @@ All notable changes to OpenHand will be documented in this file.
     most recently undone ToolSearch replay via the new
     `ToolSearchReplayDispatcher.replayLastCancelled()`. Disabled when
     nothing is replayable; toast distinguishes fired vs no-op.
-  - `HardnessPendingReplayBadge` extracted as a public widget with
+  - `HarnessPendingReplayBadge` extracted as a public widget with
     injectable `tickInterval` / `nowProvider` for deterministic testing.
 
 ### Added
@@ -58,5 +58,5 @@ All notable changes to OpenHand will be documented in this file.
   draws on stored memories.
 - `CronScriptType.agent` added for system-managed jobs.
 - `AiBuiltinToolKind.memory` enum value added; all exhaustive switches
-  updated (hardness affinity treats it as un-categorized, settings icon uses
+  updated (harness affinity treats it as un-categorized, settings icon uses
   `psychology_rounded`).

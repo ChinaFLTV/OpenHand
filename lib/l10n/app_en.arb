@@ -761,18 +761,18 @@
   "mcpLazyLoadingThresholdSaved": "MCP lazy-loading threshold saved.",
   "mcpLazyLoadingHowItWorks": "When lazy loading is active, MCP tool descriptions are folded into a name index. The built-in ToolSearch tool fetches full JSON Schema on demand via three query forms:\n• select:NAME (direct, space-separated for multi-select)\n• keyword (scored against name/description)\n• +KEYWORD (required term to filter noise)\nResolved tools are added to the per-session loaded set so the next turn calls them directly with no extra search.",
   "mcpLazyLoadingThresholdInvalid": "Please enter an integer between 1000 and 1000000.",
-  "settingsHardnessToolSearchHistoryCapLabel": "Harness ToolSearch history cap",
-  "settingsHardnessToolSearchHistoryCapBody": "Maximum number of recent Harness phases for which the ToolSearch loaded-list dialog retains history. Older phases are evicted (LRU).",
-  "settingsHardnessToolSearchHistoryCapValue": "Currently keeping the last {cap} phase(s)",
-  "@settingsHardnessToolSearchHistoryCapValue": {
+  "settingsHarnessToolSearchHistoryCapLabel": "Harness ToolSearch history cap",
+  "settingsHarnessToolSearchHistoryCapBody": "Maximum number of recent Harness phases for which the ToolSearch loaded-list dialog retains history. Older phases are evicted (LRU).",
+  "settingsHarnessToolSearchHistoryCapValue": "Currently keeping the last {cap} phase(s)",
+  "@settingsHarnessToolSearchHistoryCapValue": {
     "placeholders": {
       "cap": {
         "type": "int"
       }
     }
   },
-  "settingsHardnessToolSearchHistoryCapRange": "Range: {min}–{max} (default 8)",
-  "@settingsHardnessToolSearchHistoryCapRange": {
+  "settingsHarnessToolSearchHistoryCapRange": "Range: {min}–{max} (default 8)",
+  "@settingsHarnessToolSearchHistoryCapRange": {
     "placeholders": {
       "min": {
         "type": "int"
@@ -782,285 +782,285 @@
       }
     }
   },
-  "settingsHardnessToolSearchHistoryCapResetTooltip": "Reset to default ({defaultCap})",
-  "@settingsHardnessToolSearchHistoryCapResetTooltip": {
+  "settingsHarnessToolSearchHistoryCapResetTooltip": "Reset to default ({defaultCap})",
+  "@settingsHarnessToolSearchHistoryCapResetTooltip": {
     "placeholders": {
       "defaultCap": {
         "type": "int"
       }
     }
   },
-  "hardnessCliLoginNoOutputHint": "[Hint] CLI has not produced output yet. It may be initializing, or waiting for browser-based authorization.\n",
-  "@hardnessCliLoginNoOutputHint": {
-    "description": "Hardness CLI login dialog terminal hint when no output arrives."
+  "harnessCliLoginNoOutputHint": "[Hint] CLI has not produced output yet. It may be initializing, or waiting for browser-based authorization.\n",
+  "@harnessCliLoginNoOutputHint": {
+    "description": "Harness CLI login dialog terminal hint when no output arrives."
   },
-  "hardnessCliLoginTtyRequiredHint": "[Hint] This CLI may require a real terminal (TTY) for interactive login.\nUse the \"Open in Terminal\" button below to complete login in the system terminal.\n",
-  "@hardnessCliLoginTtyRequiredHint": {
-    "description": "Hardness CLI login dialog terminal hint when a TTY may be required."
+  "harnessCliLoginTtyRequiredHint": "[Hint] This CLI may require a real terminal (TTY) for interactive login.\nUse the \"Open in Terminal\" button below to complete login in the system terminal.\n",
+  "@harnessCliLoginTtyRequiredHint": {
+    "description": "Harness CLI login dialog terminal hint when a TTY may be required."
   },
-  "hardnessCliLoginStreamError": "[Stream error: {error}]",
-  "@hardnessCliLoginStreamError": {
-    "description": "Hardness CLI login dialog stream error log line.",
+  "harnessCliLoginStreamError": "[Stream error: {error}]",
+  "@harnessCliLoginStreamError": {
+    "description": "Harness CLI login dialog stream error log line.",
     "placeholders": {
       "error": {}
     }
   },
-  "hardnessCliLoginFailedToStartProcess": "Failed to start process: {message}",
-  "@hardnessCliLoginFailedToStartProcess": {
-    "description": "Hardness CLI login dialog process startup failure.",
+  "harnessCliLoginFailedToStartProcess": "Failed to start process: {message}",
+  "@harnessCliLoginFailedToStartProcess": {
+    "description": "Harness CLI login dialog process startup failure.",
     "placeholders": {
       "message": {}
     }
   },
-  "hardnessCliLoginOpenTerminalError": "[Error opening terminal: {error}]",
-  "@hardnessCliLoginOpenTerminalError": {
-    "description": "Hardness CLI login dialog open-terminal failure log line.",
+  "harnessCliLoginOpenTerminalError": "[Error opening terminal: {error}]",
+  "@harnessCliLoginOpenTerminalError": {
+    "description": "Harness CLI login dialog open-terminal failure log line.",
     "placeholders": {
       "error": {}
     }
   },
-  "hardnessCliLoginStatusFailed": "Failed to launch",
-  "@hardnessCliLoginStatusFailed": {
-    "description": "Hardness CLI login dialog status label."
+  "harnessCliLoginStatusFailed": "Failed to launch",
+  "@harnessCliLoginStatusFailed": {
+    "description": "Harness CLI login dialog status label."
   },
-  "hardnessCliLoginStatusStarting": "Starting login flow...",
-  "@hardnessCliLoginStatusStarting": {
-    "description": "Hardness CLI login dialog status label."
+  "harnessCliLoginStatusStarting": "Starting login flow...",
+  "@harnessCliLoginStatusStarting": {
+    "description": "Harness CLI login dialog status label."
   },
-  "hardnessCliLoginStatusFinished": "Process finished",
-  "@hardnessCliLoginStatusFinished": {
-    "description": "Hardness CLI login dialog status label without exit code."
+  "harnessCliLoginStatusFinished": "Process finished",
+  "@harnessCliLoginStatusFinished": {
+    "description": "Harness CLI login dialog status label without exit code."
   },
-  "hardnessCliLoginStatusFinishedWithExit": "Process finished · exit {exitCode}",
-  "@hardnessCliLoginStatusFinishedWithExit": {
-    "description": "Hardness CLI login dialog status label with exit code.",
+  "harnessCliLoginStatusFinishedWithExit": "Process finished · exit {exitCode}",
+  "@harnessCliLoginStatusFinishedWithExit": {
+    "description": "Harness CLI login dialog status label with exit code.",
     "placeholders": {
       "exitCode": {
         "type": "int"
       }
     }
   },
-  "hardnessCliLoginStatusWaiting": "Waiting for CLI interaction...",
-  "@hardnessCliLoginStatusWaiting": {
-    "description": "Hardness CLI login dialog status label."
+  "harnessCliLoginStatusWaiting": "Waiting for CLI interaction...",
+  "@harnessCliLoginStatusWaiting": {
+    "description": "Harness CLI login dialog status label."
   },
-  "hardnessCliLoginTitle": "{name} Login",
-  "@hardnessCliLoginTitle": {
-    "description": "Hardness CLI login dialog title.",
+  "harnessCliLoginTitle": "{name} Login",
+  "@harnessCliLoginTitle": {
+    "description": "Harness CLI login dialog title.",
     "placeholders": {
       "name": {}
     }
   },
-  "hardnessCliLoginDescription": "This dialog runs the CLI login flow in-app. The CLI may open your browser externally during authentication.",
-  "@hardnessCliLoginDescription": {
-    "description": "Hardness CLI login dialog description."
+  "harnessCliLoginDescription": "This dialog runs the CLI login flow in-app. The CLI may open your browser externally during authentication.",
+  "@harnessCliLoginDescription": {
+    "description": "Harness CLI login dialog description."
   },
-  "hardnessCliLoginCopyCommandTooltip": "Copy command",
-  "@hardnessCliLoginCopyCommandTooltip": {
-    "description": "Hardness CLI login dialog copy-command tooltip."
+  "harnessCliLoginCopyCommandTooltip": "Copy command",
+  "@harnessCliLoginCopyCommandTooltip": {
+    "description": "Harness CLI login dialog copy-command tooltip."
   },
-  "hardnessCliLoginEmptyOutput": "Waiting for CLI output...",
-  "@hardnessCliLoginEmptyOutput": {
-    "description": "Hardness CLI login dialog empty terminal placeholder."
+  "harnessCliLoginEmptyOutput": "Waiting for CLI output...",
+  "@harnessCliLoginEmptyOutput": {
+    "description": "Harness CLI login dialog empty terminal placeholder."
   },
-  "hardnessCliLoginInputLabel": "Send input",
-  "@hardnessCliLoginInputLabel": {
-    "description": "Hardness CLI login dialog stdin input label."
+  "harnessCliLoginInputLabel": "Send input",
+  "@harnessCliLoginInputLabel": {
+    "description": "Harness CLI login dialog stdin input label."
   },
-  "hardnessCliLoginInputHint": "Type a reply and press Enter; leave empty to send Enter",
-  "@hardnessCliLoginInputHint": {
-    "description": "Hardness CLI login dialog stdin input hint."
+  "harnessCliLoginInputHint": "Type a reply and press Enter; leave empty to send Enter",
+  "@harnessCliLoginInputHint": {
+    "description": "Harness CLI login dialog stdin input hint."
   },
-  "hardnessCliLoginSend": "Send",
-  "@hardnessCliLoginSend": {
-    "description": "Hardness CLI login dialog send button."
+  "harnessCliLoginSend": "Send",
+  "@harnessCliLoginSend": {
+    "description": "Harness CLI login dialog send button."
   },
-  "hardnessCliLoginSendEsc": "Send Esc",
-  "@hardnessCliLoginSendEsc": {
-    "description": "Hardness CLI login dialog send-Esc button."
+  "harnessCliLoginSendEsc": "Send Esc",
+  "@harnessCliLoginSendEsc": {
+    "description": "Harness CLI login dialog send-Esc button."
   },
-  "hardnessCliLoginOpenInTerminal": "Open in Terminal",
-  "@hardnessCliLoginOpenInTerminal": {
-    "description": "Hardness CLI login dialog open-in-terminal button."
+  "harnessCliLoginOpenInTerminal": "Open in Terminal",
+  "@harnessCliLoginOpenInTerminal": {
+    "description": "Harness CLI login dialog open-in-terminal button."
   },
-  "hardnessCliInstallLogSuccess": "✓ Installed successfully",
-  "@hardnessCliInstallLogSuccess": {
-    "description": "Hardness CLI install dialog success log line."
+  "harnessCliInstallLogSuccess": "✓ Installed successfully",
+  "@harnessCliInstallLogSuccess": {
+    "description": "Harness CLI install dialog success log line."
   },
-  "hardnessCliInstallLogSuccessWithPath": "✓ Installed successfully (path: {path})",
-  "@hardnessCliInstallLogSuccessWithPath": {
-    "description": "Hardness CLI install dialog success log line with path.",
+  "harnessCliInstallLogSuccessWithPath": "✓ Installed successfully (path: {path})",
+  "@harnessCliInstallLogSuccessWithPath": {
+    "description": "Harness CLI install dialog success log line with path.",
     "placeholders": {
       "path": {}
     }
   },
-  "hardnessCliInstallLogFailureExitCode": "✗ Installation failed (exit code: {exitCode})",
-  "@hardnessCliInstallLogFailureExitCode": {
-    "description": "Hardness CLI install dialog failure log line with exit code.",
+  "harnessCliInstallLogFailureExitCode": "✗ Installation failed (exit code: {exitCode})",
+  "@harnessCliInstallLogFailureExitCode": {
+    "description": "Harness CLI install dialog failure log line with exit code.",
     "placeholders": {
       "exitCode": {
         "type": "int"
       }
     }
   },
-  "hardnessCliInstallLogStartProcessFailed": "✗ Failed to start install process: {message}",
-  "@hardnessCliInstallLogStartProcessFailed": {
-    "description": "Hardness CLI install dialog process startup failure log line.",
+  "harnessCliInstallLogStartProcessFailed": "✗ Failed to start install process: {message}",
+  "@harnessCliInstallLogStartProcessFailed": {
+    "description": "Harness CLI install dialog process startup failure log line.",
     "placeholders": {
       "message": {}
     }
   },
-  "hardnessCliInstallLogGenericError": "✗ Error: {error}",
-  "@hardnessCliInstallLogGenericError": {
-    "description": "Hardness CLI install dialog generic error log line.",
+  "harnessCliInstallLogGenericError": "✗ Error: {error}",
+  "@harnessCliInstallLogGenericError": {
+    "description": "Harness CLI install dialog generic error log line.",
     "placeholders": {
       "error": {}
     }
   },
-  "hardnessCliInstallHintInstallNode": "  → Install Node.js first: https://nodejs.org",
-  "@hardnessCliInstallHintInstallNode": {
-    "description": "Hardness CLI install dialog Node.js missing hint."
+  "harnessCliInstallHintInstallNode": "  → Install Node.js first: https://nodejs.org",
+  "@harnessCliInstallHintInstallNode": {
+    "description": "Harness CLI install dialog Node.js missing hint."
   },
-  "hardnessCliInstallHintRetryAdminButton": "  → Click the \"Retry with Admin\" button below",
-  "@hardnessCliInstallHintRetryAdminButton": {
-    "description": "Hardness CLI install dialog admin retry hint."
+  "harnessCliInstallHintRetryAdminButton": "  → Click the \"Retry with Admin\" button below",
+  "@harnessCliInstallHintRetryAdminButton": {
+    "description": "Harness CLI install dialog admin retry hint."
   },
-  "hardnessCliInstallHintTrySudo": "  → Try: sudo {command}",
-  "@hardnessCliInstallHintTrySudo": {
-    "description": "Hardness CLI install dialog sudo retry hint.",
+  "harnessCliInstallHintTrySudo": "  → Try: sudo {command}",
+  "@harnessCliInstallHintTrySudo": {
+    "description": "Harness CLI install dialog sudo retry hint.",
     "placeholders": {
       "command": {}
     }
   },
-  "hardnessCliInstallHintCheckNetworkDocs": "  → Check your network connection or see the official docs",
-  "@hardnessCliInstallHintCheckNetworkDocs": {
-    "description": "Hardness CLI install dialog network/docs hint."
+  "harnessCliInstallHintCheckNetworkDocs": "  → Check your network connection or see the official docs",
+  "@harnessCliInstallHintCheckNetworkDocs": {
+    "description": "Harness CLI install dialog network/docs hint."
   },
-  "hardnessCliInstallHintInstallPipx": "  → Install pipx first: https://pipx.pypa.io/stable/installation/",
-  "@hardnessCliInstallHintInstallPipx": {
-    "description": "Hardness CLI install dialog pipx missing hint."
+  "harnessCliInstallHintInstallPipx": "  → Install pipx first: https://pipx.pypa.io/stable/installation/",
+  "@harnessCliInstallHintInstallPipx": {
+    "description": "Harness CLI install dialog pipx missing hint."
   },
-  "hardnessCliInstallHintUsePipInstallUserAider": "    Or use: pip install --user aider-chat",
-  "@hardnessCliInstallHintUsePipInstallUserAider": {
-    "description": "Hardness CLI install dialog pip fallback hint."
+  "harnessCliInstallHintUsePipInstallUserAider": "    Or use: pip install --user aider-chat",
+  "@harnessCliInstallHintUsePipInstallUserAider": {
+    "description": "Harness CLI install dialog pip fallback hint."
   },
-  "hardnessCliInstallHintHomebrewNoSudo": "  → Homebrew usually should not be installed with sudo; check directory permissions",
-  "@hardnessCliInstallHintHomebrewNoSudo": {
-    "description": "Hardness CLI install dialog Homebrew permission hint."
+  "harnessCliInstallHintHomebrewNoSudo": "  → Homebrew usually should not be installed with sudo; check directory permissions",
+  "@harnessCliInstallHintHomebrewNoSudo": {
+    "description": "Harness CLI install dialog Homebrew permission hint."
   },
-  "hardnessCliInstallHintHomebrewFix": "  → Suggested fix: https://docs.brew.sh/FAQ#why-does-homebrew-say-sudo-is-not-allowed",
-  "@hardnessCliInstallHintHomebrewFix": {
-    "description": "Hardness CLI install dialog Homebrew fix link hint."
+  "harnessCliInstallHintHomebrewFix": "  → Suggested fix: https://docs.brew.sh/FAQ#why-does-homebrew-say-sudo-is-not-allowed",
+  "@harnessCliInstallHintHomebrewFix": {
+    "description": "Harness CLI install dialog Homebrew fix link hint."
   },
-  "hardnessCliInstallHintInstallPython": "  → Install Python first: https://www.python.org",
-  "@hardnessCliInstallHintInstallPython": {
-    "description": "Hardness CLI install dialog Python missing hint."
+  "harnessCliInstallHintInstallPython": "  → Install Python first: https://www.python.org",
+  "@harnessCliInstallHintInstallPython": {
+    "description": "Harness CLI install dialog Python missing hint."
   },
-  "hardnessCliInstallHintPipInstallUser": "  → Try: pip install --user {packageName}",
-  "@hardnessCliInstallHintPipInstallUser": {
-    "description": "Hardness CLI install dialog pip user install hint.",
+  "harnessCliInstallHintPipInstallUser": "  → Try: pip install --user {packageName}",
+  "@harnessCliInstallHintPipInstallUser": {
+    "description": "Harness CLI install dialog pip user install hint.",
     "placeholders": {
       "packageName": {}
     }
   },
-  "hardnessCliInstallHintOfficialDocs": "  → Official docs: {url}",
-  "@hardnessCliInstallHintOfficialDocs": {
-    "description": "Hardness CLI install dialog official docs hint.",
+  "harnessCliInstallHintOfficialDocs": "  → Official docs: {url}",
+  "@harnessCliInstallHintOfficialDocs": {
+    "description": "Harness CLI install dialog official docs hint.",
     "placeholders": {
       "url": {}
     }
   },
-  "hardnessCliInstallLogCancelled": "⚠ Installation was cancelled",
-  "@hardnessCliInstallLogCancelled": {
-    "description": "Hardness CLI install dialog cancellation log line."
+  "harnessCliInstallLogCancelled": "⚠ Installation was cancelled",
+  "@harnessCliInstallLogCancelled": {
+    "description": "Harness CLI install dialog cancellation log line."
   },
-  "hardnessCliInstallWindowsAdminManual": "Run manually in PowerShell with administrator privileges:",
-  "@hardnessCliInstallWindowsAdminManual": {
-    "description": "Hardness CLI install dialog Windows admin manual-run hint."
+  "harnessCliInstallWindowsAdminManual": "Run manually in PowerShell with administrator privileges:",
+  "@harnessCliInstallWindowsAdminManual": {
+    "description": "Harness CLI install dialog Windows admin manual-run hint."
   },
-  "hardnessCliInstallAdminCommand": "> [Admin] {command}",
-  "@hardnessCliInstallAdminCommand": {
-    "description": "Hardness CLI install dialog elevated command log line.",
+  "harnessCliInstallAdminCommand": "> [Admin] {command}",
+  "@harnessCliInstallAdminCommand": {
+    "description": "Harness CLI install dialog elevated command log line.",
     "placeholders": {
       "command": {}
     }
   },
-  "hardnessCliInstallAdminTimeout": "✗ Admin authorization dialog timed out or failed to start; forcibly ended the osascript child process",
-  "@hardnessCliInstallAdminTimeout": {
-    "description": "Hardness CLI install dialog admin authorization timeout log line."
+  "harnessCliInstallAdminTimeout": "✗ Admin authorization dialog timed out or failed to start; forcibly ended the osascript child process",
+  "@harnessCliInstallAdminTimeout": {
+    "description": "Harness CLI install dialog admin authorization timeout log line."
   },
-  "hardnessCliInstallUserCancelledAuth": "⚠ Authorization was cancelled",
-  "@hardnessCliInstallUserCancelledAuth": {
-    "description": "Hardness CLI install dialog user-cancelled authorization log line."
+  "harnessCliInstallUserCancelledAuth": "⚠ Authorization was cancelled",
+  "@harnessCliInstallUserCancelledAuth": {
+    "description": "Harness CLI install dialog user-cancelled authorization log line."
   },
-  "hardnessCliInstallAdminPermissionFailed": "✗ Could not obtain administrator privileges",
-  "@hardnessCliInstallAdminPermissionFailed": {
-    "description": "Hardness CLI install dialog admin privilege failure log line."
+  "harnessCliInstallAdminPermissionFailed": "✗ Could not obtain administrator privileges",
+  "@harnessCliInstallAdminPermissionFailed": {
+    "description": "Harness CLI install dialog admin privilege failure log line."
   },
-  "hardnessCliInstallPathMissingWarning": "⚠ Installation completed, but {executable} was not found in the current PATH",
-  "@hardnessCliInstallPathMissingWarning": {
-    "description": "Hardness CLI install dialog PATH warning log line.",
+  "harnessCliInstallPathMissingWarning": "⚠ Installation completed, but {executable} was not found in the current PATH",
+  "@harnessCliInstallPathMissingWarning": {
+    "description": "Harness CLI install dialog PATH warning log line.",
     "placeholders": {
       "executable": {}
     }
   },
-  "hardnessCliInstallRestartPathHint": "  → Try restarting OpenHand or launching it from a terminal to load the new PATH",
-  "@hardnessCliInstallRestartPathHint": {
-    "description": "Hardness CLI install dialog restart/PATH hint."
+  "harnessCliInstallRestartPathHint": "  → Try restarting OpenHand or launching it from a terminal to load the new PATH",
+  "@harnessCliInstallRestartPathHint": {
+    "description": "Harness CLI install dialog restart/PATH hint."
   },
-  "hardnessCliInstallTimeoutManual": "✗ Installation timed out (over 5 minutes). Run manually:",
-  "@hardnessCliInstallTimeoutManual": {
-    "description": "Hardness CLI install dialog timeout manual-run hint."
+  "harnessCliInstallTimeoutManual": "✗ Installation timed out (over 5 minutes). Run manually:",
+  "@harnessCliInstallTimeoutManual": {
+    "description": "Harness CLI install dialog timeout manual-run hint."
   },
-  "hardnessCliInstallOsascriptStartFailed": "✗ Failed to start osascript: {message}",
-  "@hardnessCliInstallOsascriptStartFailed": {
-    "description": "Hardness CLI install dialog osascript startup failure log line.",
+  "harnessCliInstallOsascriptStartFailed": "✗ Failed to start osascript: {message}",
+  "@harnessCliInstallOsascriptStartFailed": {
+    "description": "Harness CLI install dialog osascript startup failure log line.",
     "placeholders": {
       "message": {}
     }
   },
-  "hardnessCliInstallLinuxSudoManual": "Run manually in a terminal (root privileges required):",
-  "@hardnessCliInstallLinuxSudoManual": {
-    "description": "Hardness CLI install dialog Linux sudo manual-run hint."
+  "harnessCliInstallLinuxSudoManual": "Run manually in a terminal (root privileges required):",
+  "@harnessCliInstallLinuxSudoManual": {
+    "description": "Harness CLI install dialog Linux sudo manual-run hint."
   },
-  "hardnessCliInstallStatusInstalling": "Installing...",
-  "@hardnessCliInstallStatusInstalling": {
-    "description": "Hardness CLI install dialog status label."
+  "harnessCliInstallStatusInstalling": "Installing...",
+  "@harnessCliInstallStatusInstalling": {
+    "description": "Harness CLI install dialog status label."
   },
-  "hardnessCliInstallStatusSuccess": "Installed successfully",
-  "@hardnessCliInstallStatusSuccess": {
-    "description": "Hardness CLI install dialog status label."
+  "harnessCliInstallStatusSuccess": "Installed successfully",
+  "@harnessCliInstallStatusSuccess": {
+    "description": "Harness CLI install dialog status label."
   },
-  "hardnessCliInstallStatusCancelled": "Cancelled",
-  "@hardnessCliInstallStatusCancelled": {
-    "description": "Hardness CLI install dialog status label."
+  "harnessCliInstallStatusCancelled": "Cancelled",
+  "@harnessCliInstallStatusCancelled": {
+    "description": "Harness CLI install dialog status label."
   },
-  "hardnessCliInstallStatusFailed": "Installation failed",
-  "@hardnessCliInstallStatusFailed": {
-    "description": "Hardness CLI install dialog status label."
+  "harnessCliInstallStatusFailed": "Installation failed",
+  "@harnessCliInstallStatusFailed": {
+    "description": "Harness CLI install dialog status label."
   },
-  "hardnessCliInstallTitle": "Install {name}",
-  "@hardnessCliInstallTitle": {
-    "description": "Hardness CLI install dialog title.",
+  "harnessCliInstallTitle": "Install {name}",
+  "@harnessCliInstallTitle": {
+    "description": "Harness CLI install dialog title.",
     "placeholders": {
       "name": {}
     }
   },
-  "hardnessCliInstallCopyDocUrl": "Copy Doc URL",
-  "@hardnessCliInstallCopyDocUrl": {
-    "description": "Hardness CLI install dialog copy docs URL button."
+  "harnessCliInstallCopyDocUrl": "Copy Doc URL",
+  "@harnessCliInstallCopyDocUrl": {
+    "description": "Harness CLI install dialog copy docs URL button."
   },
-  "hardnessCliInstallCancel": "Cancel install",
-  "@hardnessCliInstallCancel": {
-    "description": "Hardness CLI install dialog cancel button."
+  "harnessCliInstallCancel": "Cancel install",
+  "@harnessCliInstallCancel": {
+    "description": "Harness CLI install dialog cancel button."
   },
-  "hardnessCliInstallRetryAdmin": "Retry with Admin",
-  "@hardnessCliInstallRetryAdmin": {
-    "description": "Hardness CLI install dialog retry with admin button."
+  "harnessCliInstallRetryAdmin": "Retry with Admin",
+  "@harnessCliInstallRetryAdmin": {
+    "description": "Harness CLI install dialog retry with admin button."
   },
-  "hardnessCliInstallDoneContinue": "Done, continue",
-  "@hardnessCliInstallDoneContinue": {
-    "description": "Hardness CLI install dialog done/continue button."
+  "harnessCliInstallDoneContinue": "Done, continue",
+  "@harnessCliInstallDoneContinue": {
+    "description": "Harness CLI install dialog done/continue button."
   },
   "settingsToolSearchReplayCancelWindowLabel": "Replay cancel window",
   "settingsToolSearchReplayCancelWindowBody": "How long the snackbar waits before sending; press Cancel inside this window to discard.",
@@ -2407,14 +2407,14 @@
   "snackToolSearchLoadedFilterHint": "Filter by name…",
   "snackToolSearchLoadedHistoryFilterHint": "Filter by name or query…",
   "snackToolSearchLoadedSourceAi": "AI session",
-  "snackToolSearchLoadedSourceHardness": "Harness phase",
+  "snackToolSearchLoadedSourceHarness": "Harness phase",
   "snackToolSearchLoadedReplayedToast": "Re-issued ToolSearch with previous selection",
   "snackToolSearchLoadedReplayPendingToast": "About to dispatch — tap Cancel to abort",
   "snackToolSearchLoadedReplayCancelAction": "Cancel",
   "snackToolSearchLoadedReplayCancelledToast": "Dispatch cancelled — composer cleared",
   "snackToolSearchLoadedSourceFilterAll": "All",
   "snackToolSearchLoadedSourceFilterAi": "AI only",
-  "snackToolSearchLoadedSourceFilterHardness": "Harness only",
+  "snackToolSearchLoadedSourceFilterHarness": "Harness only",
   "snackToolSearchLoadedSummary": "Loaded {tools} MCP tool(s) from {queries} query(ies) in this session",
   "@snackToolSearchLoadedSummary": {
     "placeholders": {
