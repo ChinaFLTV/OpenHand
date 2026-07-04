@@ -201,7 +201,7 @@ domains: cloud, finops
     final recentAudit =
         operationalState['recent_audit_events'] as List<Object?>;
 
-    expect(snapshot.version, '1.2.13');
+    expect(snapshot.version, '1.2.14');
     expect(routing['has_route'], isTrue);
     expect(routing['keywords'], <Object?>[
       'release',
@@ -350,7 +350,7 @@ domains: cloud, finops
       final omittedPrompt =
           extra['agent_system_prompt'] as Map<String, Object?>;
 
-      expect(snapshot.version, '1.2.13');
+      expect(snapshot.version, '1.2.14');
       expect(task['content'], isA<String>());
       expect(task['content'], contains('[truncated:'));
       expect(task['content'], isNot(longContent));
@@ -427,7 +427,7 @@ domains: cloud, finops
     final agentSystemPrompt =
         auditMetadata['agent_system_prompt'] as Map<String, Object?>;
 
-    expect(snapshot.version, '1.2.13');
+    expect(snapshot.version, '1.2.14');
     expect(activity['content'], contains('[truncated:'));
     expect(audit['summary'], contains('[truncated:'));
     expect(activityMetadata['tool_output'], contains('[truncated:'));
@@ -437,6 +437,84 @@ domains: cloud, finops
     expect(snapshot.renderedPrompt, isNot(contains(largeActivityContent)));
     expect(snapshot.renderedPrompt, isNot(contains(largeAuditSummary)));
     expect(snapshot.renderedPrompt, isNot(contains(largeMetadata)));
+    expect(snapshot.renderedPrompt, isNot(contains(hiddenPrompt)));
+  });
+
+  test('prompt renderer bounds profile metadata and KPI extras', () async {
+    final longArchive = List<String>.filled(480, '档案片段-').join();
+    final longPersona = List<String>.filled(260, '人设片段-').join();
+    final longRoute = List<String>.filled(180, 'route-fragment-').join();
+    final longMetadata = List<String>.filled(180, '画像元数据-').join();
+    final hiddenPrompt = List<String>.filled(
+      120,
+      'profile-hidden-prompt-',
+    ).join();
+
+    final snapshot =
+        await AgentPromptRenderer(
+          loader: (_) async => '''
+<agent_profile>
+{{AGENT_PROFILE_JSON}}
+</agent_profile>
+<runtime_policy>
+{{RUNTIME_POLICY_JSON}}
+</runtime_policy>
+<operational_state>
+{{OPERATIONAL_STATE_JSON}}
+</operational_state>
+''',
+        ).render(
+          agent: AgentProfile(
+            id: 'agent-profile-bounds',
+            name: 'Profile Bounds Agent',
+            archive: longArchive,
+            persona: longPersona,
+            routeFrontMatter: longRoute,
+            metadata: <String, Object?>{
+              'large_profile': longMetadata,
+              'agent_system_prompt': hiddenPrompt,
+            },
+            kpis: <AgentKpiItem>[
+              AgentKpiItem(
+                id: 'kpi-large',
+                name: 'Profile prompt hygiene',
+                extra: <String, Object?>{
+                  'large_kpi_context': longMetadata,
+                  'rendered_prompt': hiddenPrompt,
+                },
+              ),
+            ],
+          ),
+        );
+
+    final profile = snapshot.profile;
+    final profileMetadata = profile['metadata'] as Map<String, Object?>;
+    final omittedProfilePrompt =
+        profileMetadata['agent_system_prompt'] as Map<String, Object?>;
+    final runtimePolicy = snapshot.runtimePolicy;
+    final runtimeKpi =
+        (runtimePolicy['kpis'] as List<Object?>).single as Map<String, Object?>;
+    final runtimeKpiExtra = runtimeKpi['extra'] as Map<String, Object?>;
+    final operationalState = snapshot.operationalState;
+    final stateKpi =
+        (operationalState['kpi_state'] as List<Object?>).single
+            as Map<String, Object?>;
+    final stateKpiExtra = stateKpi['extra'] as Map<String, Object?>;
+
+    expect(snapshot.version, '1.2.14');
+    expect(profile['archive'], contains('[truncated:'));
+    expect(profile['persona'], contains('[truncated:'));
+    expect(profile['route_front_matter'], contains('[truncated:'));
+    expect(profileMetadata['large_profile'], contains('[truncated:'));
+    expect(omittedProfilePrompt['omitted'], isTrue);
+    expect(runtimeKpiExtra['large_kpi_context'], contains('[truncated:'));
+    expect((runtimeKpiExtra['rendered_prompt'] as Map)['omitted'], isTrue);
+    expect(stateKpiExtra['large_kpi_context'], contains('[truncated:'));
+    expect((stateKpiExtra['rendered_prompt'] as Map)['omitted'], isTrue);
+    expect(snapshot.renderedPrompt, isNot(contains(longArchive)));
+    expect(snapshot.renderedPrompt, isNot(contains(longPersona)));
+    expect(snapshot.renderedPrompt, isNot(contains(longRoute)));
+    expect(snapshot.renderedPrompt, isNot(contains(longMetadata)));
     expect(snapshot.renderedPrompt, isNot(contains(hiddenPrompt)));
   });
 
@@ -481,7 +559,7 @@ domains: cloud, finops
       final omittedPrompt =
           incomingTask['rendered_prompt'] as Map<String, Object?>;
 
-      expect(snapshot.version, '1.2.13');
+      expect(snapshot.version, '1.2.14');
       expect(explicitTask['id'], 'task-explicit');
       expect(explicitTask['title'], 'Explicit task wins');
       expect(incomingTask['content'], contains('[truncated:'));
@@ -506,7 +584,7 @@ domains: cloud, finops
         ),
       );
 
-      expect(snapshot.version, '1.2.13');
+      expect(snapshot.version, '1.2.14');
       expect(snapshot.renderedPrompt, contains('<operating_contract>'));
       expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
       expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));
@@ -538,7 +616,7 @@ domains: cloud, finops
         ),
       );
 
-      expect(snapshot.version, '1.2.13');
+      expect(snapshot.version, '1.2.14');
       expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));
       expect(
         snapshot.renderedPrompt,
@@ -564,7 +642,7 @@ domains: cloud, finops
       ),
     );
 
-    expect(snapshot.version, '1.2.13');
+    expect(snapshot.version, '1.2.14');
     expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));
     expect(snapshot.renderedPrompt, contains('AgentTaskTrack'));
     expect(snapshot.renderedPrompt, isNot(contains('AgentTaskProgress')));
@@ -587,7 +665,7 @@ domains: cloud, finops
       );
 
       expect(snapshot.assetPath, AgentPromptRenderer.defaultAssetPath);
-      expect(snapshot.version, '1.2.13');
+      expect(snapshot.version, '1.2.14');
       expect(snapshot.renderedPrompt, contains('<identity>'));
       expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
       expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));

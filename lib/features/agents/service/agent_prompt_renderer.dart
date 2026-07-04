@@ -50,7 +50,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.13';
+  static const String promptVersion = '1.2.14';
 
   final Future<String> Function(String path) _loader;
 
@@ -116,14 +116,32 @@ Map<String, Object?> _profileJson(AgentProfile agent) {
     'department': agent.department,
     'mentor': agent.mentor,
     'level': agent.level,
-    'introduction': agent.introduction,
-    'persona': agent.persona,
-    'responsibility_boundary': agent.responsibilityBoundary,
-    'welcome_message': agent.welcomeMessage,
-    'archive': agent.archive,
-    'route_front_matter': agent.routeFrontMatter,
+    'introduction': _boundedPromptText(
+      agent.introduction,
+      maxChars: _agentPromptProfileTextMaxChars,
+    ),
+    'persona': _boundedPromptText(
+      agent.persona,
+      maxChars: _agentPromptProfileTextMaxChars,
+    ),
+    'responsibility_boundary': _boundedPromptText(
+      agent.responsibilityBoundary,
+      maxChars: _agentPromptProfileTextMaxChars,
+    ),
+    'welcome_message': _boundedPromptText(
+      agent.welcomeMessage,
+      maxChars: _agentPromptProfileTextMaxChars,
+    ),
+    'archive': _boundedPromptText(
+      agent.archive,
+      maxChars: _agentPromptArchiveMaxChars,
+    ),
+    'route_front_matter': _boundedPromptText(
+      agent.routeFrontMatter,
+      maxChars: _agentPromptProfileTextMaxChars,
+    ),
     'routing': routing.toJson(),
-    'metadata': agent.metadata,
+    'metadata': _promptMetadataJson(agent.metadata),
   };
 }
 
@@ -151,7 +169,7 @@ Map<String, Object?> _runtimePolicyJson(AgentProfile agent) {
     'workspace_policy': agentWorkspacePolicyJson(agent),
     'task_labels': agent.taskLabels,
     'scale_settings': agent.scaleSettings.toJson(),
-    'kpis': agent.kpis.map((item) => item.toJson()).toList(growable: false),
+    'kpis': agent.kpis.take(12).map(_kpiJson).toList(growable: false),
   };
 }
 
@@ -328,7 +346,7 @@ Map<String, Object?> _kpiJson(AgentKpiItem item) {
     'plan': item.plan,
     'created_at': item.createdAt?.toUtc().toIso8601String(),
     'updated_at': item.updatedAt?.toUtc().toIso8601String(),
-    'extra': item.extra,
+    'extra': _promptMetadataJson(item.extra),
   };
 }
 
@@ -391,6 +409,8 @@ Map<String, Object?> _taskExtraJson(Map<String, Object?> extra) {
 
 const int _agentPromptTaskTextMaxChars = 1600;
 const int _agentPromptTaskNoteMaxChars = 800;
+const int _agentPromptProfileTextMaxChars = 1200;
+const int _agentPromptArchiveMaxChars = 2000;
 const int _agentPromptEventTextMaxChars = 1200;
 const int _agentPromptAuditSummaryMaxChars = 1000;
 const int _agentPromptExtraStringMaxChars = 800;
