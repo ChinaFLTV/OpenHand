@@ -1106,50 +1106,20 @@ Future<void> _showAgentApprovalsDialog(
                       title: l10n.agentsApprovalsEmptyTitle,
                       body: l10n.agentsListEmptyBody,
                     )
-                  : ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: currentAgent.approvals.length,
-                      separatorBuilder: (_, _) => const Divider(height: 18),
-                      itemBuilder: (context, index) {
-                        final approval = currentAgent.approvals[index];
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(approval.title),
-                          subtitle: Text(
-                            [
-                                  approval.reason,
-                                  approval.requestedAction,
-                                  _agentApprovalTimeLabel(context, approval),
-                                ]
-                                .where((item) => item.trim().isNotEmpty)
-                                .join(' · '),
-                          ),
-                          trailing:
-                              approval.status == AgentApprovalStatus.pending
-                              ? _AgentApprovalActions(
-                                  onApproved: () =>
-                                      _resolveAgentApprovalFromDialog(
-                                        dialogContext,
-                                        currentAgent,
-                                        approval,
-                                        AgentApprovalStatus.approved,
-                                      ),
-                                  onRejected: () =>
-                                      _resolveAgentApprovalFromDialog(
-                                        dialogContext,
-                                        currentAgent,
-                                        approval,
-                                        AgentApprovalStatus.rejected,
-                                      ),
-                                )
-                              : Text(
-                                  _agentApprovalStatusLabel(
-                                    l10n,
-                                    approval.status,
-                                  ),
-                                ),
-                        );
-                      },
+                  : _AgentApprovalsBody(
+                      approvals: currentAgent.approvals,
+                      onApproved: (approval) => _resolveAgentApprovalFromDialog(
+                        dialogContext,
+                        currentAgent,
+                        approval,
+                        AgentApprovalStatus.approved,
+                      ),
+                      onRejected: (approval) => _resolveAgentApprovalFromDialog(
+                        dialogContext,
+                        currentAgent,
+                        approval,
+                        AgentApprovalStatus.rejected,
+                      ),
                     ),
             ),
           );
@@ -1157,6 +1127,192 @@ Future<void> _showAgentApprovalsDialog(
       );
     },
   );
+}
+
+class _AgentApprovalsBody extends StatelessWidget {
+  const _AgentApprovalsBody({
+    required this.approvals,
+    required this.onApproved,
+    required this.onRejected,
+  });
+
+  final List<AgentApprovalRequest> approvals;
+  final ValueChanged<AgentApprovalRequest> onApproved;
+  final ValueChanged<AgentApprovalRequest> onRejected;
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = approvals
+        .where((item) => item.status == AgentApprovalStatus.pending)
+        .length;
+    final resolved = approvals.length - pending;
+    final highRisk = approvals
+        .where(
+          (item) => _agentApprovalIsHighRisk(_agentApprovalRiskLevel(item)),
+        )
+        .length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _MetricTile(
+              label: openHandLocalizedText(context, zh: '待审批', en: 'Pending'),
+              value: '$pending',
+            ),
+            _MetricTile(
+              label: openHandLocalizedText(context, zh: '已处理', en: 'Resolved'),
+              value: '$resolved',
+            ),
+            _MetricTile(
+              label: openHandLocalizedText(context, zh: '高风险', en: 'High risk'),
+              value: '$highRisk',
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        ListView.separated(
+          shrinkWrap: true,
+          primary: false,
+          itemCount: approvals.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          itemBuilder: (context, index) => _AgentApprovalRequestCard(
+            approval: approvals[index],
+            onApproved: () => onApproved(approvals[index]),
+            onRejected: () => onRejected(approvals[index]),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AgentApprovalRequestCard extends StatelessWidget {
+  const _AgentApprovalRequestCard({
+    required this.approval,
+    required this.onApproved,
+    required this.onRejected,
+  });
+
+  final AgentApprovalRequest approval;
+  final VoidCallback onApproved;
+  final VoidCallback onRejected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final statusColor = _agentApprovalStatusColor(cs, approval.status);
+    final riskLevel = _agentApprovalRiskLevel(approval);
+    final riskColor = _agentApprovalRiskColor(cs, riskLevel);
+    final metadata = _agentApprovalMetadataChips(approval);
+    final timeText = _agentApprovalTimeLabel(context, approval);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                _agentApprovalStatusIcon(approval.status),
+                color: statusColor,
+                size: 19,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _AgentActivityTypeChip(
+                        label: _agentApprovalStatusLabel(l10n, approval.status),
+                        color: statusColor,
+                      ),
+                      _AgentActivityTypeChip(
+                        label: _agentApprovalRiskLabel(context, riskLevel),
+                        color: riskColor,
+                      ),
+                      if (timeText.isNotEmpty)
+                        Text(
+                          timeText,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    approval.title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (approval.requestedAction.trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    SelectableText(
+                      approval.requestedAction,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                  if (approval.reason.trim().isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    SelectableText(
+                      approval.reason,
+                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
+                    ),
+                  ],
+                  if (metadata.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: metadata
+                          .map((item) => _AgentActivityMetadataChip(text: item))
+                          .toList(growable: false),
+                    ),
+                  ],
+                  if (approval.status == AgentApprovalStatus.pending) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: _AgentApprovalActions(
+                        onApproved: onApproved,
+                        onRejected: onRejected,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 Future<void> _showAgentClusterDialog(BuildContext context, AgentProfile agent) {
@@ -3667,6 +3823,80 @@ String _agentApprovalTimeLabel(
       ? openHandLocalizedText(context, zh: '创建', en: 'Created')
       : openHandLocalizedText(context, zh: '处理', en: 'Resolved');
   return '$prefix ${formatMonthDayHm(time.toLocal())}';
+}
+
+IconData _agentApprovalStatusIcon(AgentApprovalStatus status) {
+  return switch (status) {
+    AgentApprovalStatus.pending => Icons.hourglass_top_rounded,
+    AgentApprovalStatus.approved => Icons.check_circle_rounded,
+    AgentApprovalStatus.rejected => Icons.cancel_rounded,
+    AgentApprovalStatus.expired => Icons.schedule_rounded,
+  };
+}
+
+Color _agentApprovalStatusColor(ColorScheme cs, AgentApprovalStatus status) {
+  return switch (status) {
+    AgentApprovalStatus.pending => cs.primary,
+    AgentApprovalStatus.approved => cs.tertiary,
+    AgentApprovalStatus.rejected => cs.error,
+    AgentApprovalStatus.expired => cs.onSurfaceVariant,
+  };
+}
+
+String _agentApprovalRiskLevel(AgentApprovalRequest approval) {
+  final raw =
+      approval.extra['risk_level'] ??
+      approval.extra['riskLevel'] ??
+      approval.extra['risk'];
+  return '$raw'.trim().toLowerCase();
+}
+
+bool _agentApprovalIsHighRisk(String riskLevel) {
+  return riskLevel == 'high' ||
+      riskLevel == 'critical' ||
+      riskLevel == 'destructive';
+}
+
+Color _agentApprovalRiskColor(ColorScheme cs, String riskLevel) {
+  return switch (riskLevel) {
+    'critical' || 'destructive' || 'high' => cs.error,
+    'medium' => cs.tertiary,
+    'low' => cs.primary,
+    _ => cs.onSurfaceVariant,
+  };
+}
+
+String _agentApprovalRiskLabel(BuildContext context, String riskLevel) {
+  return switch (riskLevel) {
+    'critical' ||
+    'destructive' => openHandLocalizedText(context, zh: '高危', en: 'Critical'),
+    'high' => openHandLocalizedText(context, zh: '高风险', en: 'High risk'),
+    'medium' => openHandLocalizedText(context, zh: '中风险', en: 'Medium risk'),
+    'low' => openHandLocalizedText(context, zh: '低风险', en: 'Low risk'),
+    _ => openHandLocalizedText(context, zh: '常规', en: 'Standard'),
+  };
+}
+
+List<String> _agentApprovalMetadataChips(AgentApprovalRequest approval) {
+  const keys = <String>[
+    'permissions',
+    'permission',
+    'scope',
+    'resource',
+    'resource_path',
+    'tool_name',
+    'mcp_server',
+    'task_id',
+    'worker_id',
+    'expires_at',
+  ];
+  final chips = <String>[];
+  for (final key in keys) {
+    final text = _agentMetadataChipText(key, approval.extra[key]);
+    if (text != null) chips.add(text);
+    if (chips.length >= 5) break;
+  }
+  return chips;
 }
 
 Future<void> _showPublishTaskDialog(

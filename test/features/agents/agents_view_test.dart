@@ -467,6 +467,79 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
     });
 
+    testWidgets('renders approval requests as governance cards', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dependencies = _AgentEditorDependencies.empty();
+      addTearDown(dependencies.dispose);
+      controller.dispose();
+      controller = _testAgentsController(const <AgentProfile>[
+        AgentProfile(
+          id: 'agent-1',
+          name: 'Ops Agent',
+          enabled: true,
+          lifecycleState: AgentLifecycleState.running,
+          approvals: <AgentApprovalRequest>[
+            AgentApprovalRequest(
+              id: 'approval-1',
+              title: 'Allow workspace write',
+              reason: 'Needs to update generated report files.',
+              requestedAction: 'Write /tmp/openhand/report.md',
+              extra: <String, Object?>{
+                'risk_level': 'high',
+                'permissions': <String>['filesystem', 'write'],
+                'scope': '/tmp/openhand',
+                'task_id': 'task-1',
+              },
+            ),
+            AgentApprovalRequest(
+              id: 'approval-2',
+              title: 'Read knowledge base',
+              requestedAction: 'Read kb://ops',
+              status: AgentApprovalStatus.approved,
+              extra: <String, Object?>{'risk_level': 'low'},
+            ),
+          ],
+        ),
+      ]);
+      await controller.refresh();
+
+      await tester.pumpWidget(
+        _AgentsViewHarness(controller: controller, dependencies: dependencies),
+      );
+      await tester.tap(find.byTooltip('审批').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('审批 · Ops Agent'), findsOneWidget);
+      expect(find.text('待审批'), findsAtLeastNWidgets(1));
+      expect(find.text('已处理'), findsOneWidget);
+      expect(find.text('高风险'), findsAtLeastNWidgets(1));
+      expect(find.text('低风险'), findsOneWidget);
+      expect(find.text('Allow workspace write'), findsOneWidget);
+      expect(find.text('Write /tmp/openhand/report.md'), findsOneWidget);
+      expect(
+        find.text('Needs to update generated report files.'),
+        findsOneWidget,
+      );
+      expect(find.text('permissions: filesystem, write'), findsOneWidget);
+      expect(find.text('scope: /tmp/openhand'), findsOneWidget);
+      expect(find.text('task_id: task-1'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('批准'));
+      await tester.pumpAndSettle();
+
+      final updated = controller
+          .agentById('agent-1')!
+          .approvals
+          .firstWhere((item) => item.id == 'approval-1');
+      expect(updated.status, AgentApprovalStatus.approved);
+
+      await tester.tap(find.byIcon(Icons.close_rounded).last);
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
     testWidgets('publishes a task with structured extra fields', (
       tester,
     ) async {
