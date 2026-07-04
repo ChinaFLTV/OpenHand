@@ -50,7 +50,7 @@ class AgentPromptRenderer {
 
   static const String defaultAssetPath =
       'assets/prompts/agents/digital_employee_system_instructions.md';
-  static const String promptVersion = '1.2.10';
+  static const String promptVersion = '1.2.11';
 
   final Future<String> Function(String path) _loader;
 
@@ -64,10 +64,10 @@ class AgentPromptRenderer {
     final capabilities = _capabilitiesJson(agent);
     final runtimePolicy = _runtimePolicyJson(agent);
     final operationalState = _operationalStateJson(agent);
-    final effectiveTaskContext = <String, Object?>{
-      if (task != null) 'task': _taskJson(task),
-      ...taskContext,
-    };
+    final effectiveTaskContext = _promptContextJson(taskContext);
+    if (task != null) {
+      effectiveTaskContext['task'] = _taskJson(task);
+    }
     final rendered = template
         .replaceAll('{{AGENT_PROFILE_JSON}}', _json(profile))
         .replaceAll('{{CAPABILITY_BINDINGS_JSON}}', _json(capabilities))
@@ -401,8 +401,17 @@ String _boundedPromptText(String value, {required int maxChars}) {
 
 Map<String, Object?> _boundedPromptMap(Map<String, Object?> value) {
   return value.map(
-    (key, item) => MapEntry(key, _boundedPromptValue(item, depth: 0)),
+    (key, item) => MapEntry(key, _boundedPromptEntry(key, item, depth: 0)),
   );
+}
+
+Object? _boundedPromptEntry(String key, Object? value, {required int depth}) {
+  if (_agentPromptSensitiveMetadataKeys.contains(key) &&
+      value is String &&
+      value.isNotEmpty) {
+    return _omittedPromptLikeValue(value);
+  }
+  return _boundedPromptValue(value, depth: depth);
 }
 
 Object? _boundedPromptValue(Object? value, {required int depth}) {
@@ -415,7 +424,11 @@ Object? _boundedPromptValue(Object? value, {required int depth}) {
     final entries = value.entries.take(_agentPromptExtraCollectionMaxItems);
     return <String, Object?>{
       for (final entry in entries)
-        '${entry.key}': _boundedPromptValue(entry.value, depth: depth + 1),
+        '${entry.key}': _boundedPromptEntry(
+          '${entry.key}',
+          entry.value,
+          depth: depth + 1,
+        ),
       if (value.length > _agentPromptExtraCollectionMaxItems)
         '_truncated_items': value.length - _agentPromptExtraCollectionMaxItems,
     };
@@ -486,14 +499,23 @@ Map<String, Object?> _promptMetadataJson(Map<String, Object?> metadata) {
   for (final key in _agentPromptSensitiveMetadataKeys) {
     final value = sanitized.remove(key);
     if (value is String && value.isNotEmpty) {
-      sanitized[key] = <String, Object?>{
-        'omitted': true,
-        'chars': value.length,
-        'reason': 'Prompt-like metadata is omitted from agent prompt context.',
-      };
+      sanitized[key] = _omittedPromptLikeValue(value);
     }
   }
   return _boundedPromptMap(sanitized);
+}
+
+Map<String, Object?> _omittedPromptLikeValue(String value) {
+  return <String, Object?>{
+    'omitted': true,
+    'chars': value.length,
+    'reason': 'Prompt-like metadata is omitted from agent prompt context.',
+  };
+}
+
+Map<String, Object?> _promptContextJson(Map<String, Object?> context) {
+  if (context.isEmpty) return <String, Object?>{};
+  return _promptMetadataJson(context);
 }
 
 const Set<String> _agentPromptSensitiveMetadataKeys = <String>{

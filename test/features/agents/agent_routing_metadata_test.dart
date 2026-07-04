@@ -201,7 +201,7 @@ domains: cloud, finops
     final recentAudit =
         operationalState['recent_audit_events'] as List<Object?>;
 
-    expect(snapshot.version, '1.2.10');
+    expect(snapshot.version, '1.2.11');
     expect(routing['has_route'], isTrue);
     expect(routing['keywords'], <Object?>[
       'release',
@@ -350,7 +350,7 @@ domains: cloud, finops
       final omittedPrompt =
           extra['agent_system_prompt'] as Map<String, Object?>;
 
-      expect(snapshot.version, '1.2.10');
+      expect(snapshot.version, '1.2.11');
       expect(task['content'], isA<String>());
       expect(task['content'], contains('[truncated:'));
       expect(task['content'], isNot(longContent));
@@ -427,7 +427,7 @@ domains: cloud, finops
     final agentSystemPrompt =
         auditMetadata['agent_system_prompt'] as Map<String, Object?>;
 
-    expect(snapshot.version, '1.2.10');
+    expect(snapshot.version, '1.2.11');
     expect(activity['content'], contains('[truncated:'));
     expect(audit['summary'], contains('[truncated:'));
     expect(activityMetadata['tool_output'], contains('[truncated:'));
@@ -439,6 +439,58 @@ domains: cloud, finops
     expect(snapshot.renderedPrompt, isNot(contains(largeMetadata)));
     expect(snapshot.renderedPrompt, isNot(contains(hiddenPrompt)));
   });
+
+  test(
+    'prompt renderer bounds external task context and preserves task priority',
+    () async {
+      final longIncomingContent = List<String>.filled(260, '外部任务上下文片段-').join();
+      final hiddenPrompt = List<String>.filled(100, 'hidden-prompt-').join();
+      final snapshot =
+          await AgentPromptRenderer(
+            loader: (_) async => '''
+<task_context>
+{{TASK_CONTEXT_JSON}}
+</task_context>
+''',
+          ).render(
+            agent: const AgentProfile(
+              id: 'agent-context',
+              name: 'Context Agent',
+            ),
+            task: const AgentTask(
+              id: 'task-explicit',
+              title: 'Explicit task wins',
+              content: 'Use this explicit task.',
+            ),
+            taskContext: <String, Object?>{
+              'task': <String, Object?>{
+                'id': 'task-overridden',
+                'title': 'External task should not override',
+              },
+              'incoming_task': <String, Object?>{
+                'title': 'Long incoming task',
+                'content': longIncomingContent,
+                'rendered_prompt': hiddenPrompt,
+              },
+            },
+          );
+
+      final incomingTask =
+          snapshot.taskContext['incoming_task'] as Map<String, Object?>;
+      final explicitTask = snapshot.taskContext['task'] as Map<String, Object?>;
+      final omittedPrompt =
+          incomingTask['rendered_prompt'] as Map<String, Object?>;
+
+      expect(snapshot.version, '1.2.11');
+      expect(explicitTask['id'], 'task-explicit');
+      expect(explicitTask['title'], 'Explicit task wins');
+      expect(incomingTask['content'], contains('[truncated:'));
+      expect(omittedPrompt['omitted'], isTrue);
+      expect(snapshot.renderedPrompt, isNot(contains(longIncomingContent)));
+      expect(snapshot.renderedPrompt, isNot(contains(hiddenPrompt)));
+      expect(snapshot.renderedPrompt, isNot(contains('task-overridden')));
+    },
+  );
 
   test(
     'prompt renderer keeps full structured fallback when asset is empty',
@@ -454,7 +506,7 @@ domains: cloud, finops
         ),
       );
 
-      expect(snapshot.version, '1.2.10');
+      expect(snapshot.version, '1.2.11');
       expect(snapshot.renderedPrompt, contains('<operating_contract>'));
       expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
       expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));
@@ -487,7 +539,7 @@ domains: cloud, finops
       );
 
       expect(snapshot.assetPath, AgentPromptRenderer.defaultAssetPath);
-      expect(snapshot.version, '1.2.10');
+      expect(snapshot.version, '1.2.11');
       expect(snapshot.renderedPrompt, contains('<identity>'));
       expect(snapshot.renderedPrompt, contains('<task_dispatch>'));
       expect(snapshot.renderedPrompt, contains('<agent_coordination_tools>'));
