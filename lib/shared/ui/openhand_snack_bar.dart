@@ -9,6 +9,15 @@ import '../util/timer_safety.dart';
 import 'animated_dialog.dart';
 import 'motion_preference.dart';
 
+const EdgeInsets _kDefaultSnackBarFloatingMargin = EdgeInsets.symmetric(
+  horizontal: 20,
+  vertical: 14,
+);
+const EdgeInsets _kDefaultSnackBarContentPadding = EdgeInsets.symmetric(
+  horizontal: 16,
+  vertical: 14,
+);
+
 enum OpenHandSnackKind { info, success, error }
 
 class OpenHandGlobalSnackBarHost extends StatefulWidget {
@@ -603,10 +612,20 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
     final behavior =
         snackBar.behavior ?? snackBarTheme.behavior ?? SnackBarBehavior.fixed;
     final margin = behavior == SnackBarBehavior.floating
-        ? snackBar.margin?.resolve(Directionality.of(context)) ??
-              snackBarTheme.insetPadding ??
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 14)
+        ? _safeSnackBarInsets(
+            context,
+            snackBar.margin ?? snackBarTheme.insetPadding,
+            _kDefaultSnackBarFloatingMargin,
+          )
         : EdgeInsets.zero;
+    final padding = _safeSnackBarInsets(
+      context,
+      snackBar.padding,
+      _kDefaultSnackBarContentPadding,
+    );
+    final width =
+        _safeSnackBarWidth(snackBar.width ?? snackBarTheme.width) ??
+        double.infinity;
     final shape =
         snackBar.shape ??
         snackBarTheme.shape ??
@@ -653,12 +672,7 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
       elevation: elevation,
       color: backgroundColor,
       clipBehavior: snackBar.clipBehavior,
-      child: Padding(
-        padding:
-            snackBar.padding ??
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: body,
-      ),
+      child: Padding(padding: padding, child: body),
     );
 
     child = Semantics(
@@ -698,10 +712,7 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
         bottom: false,
         child: Padding(
           padding: margin,
-          child: SizedBox(
-            width: snackBar.width ?? double.infinity,
-            child: child,
-          ),
+          child: SizedBox(width: width, child: child),
         ),
       );
     } else {
@@ -713,6 +724,30 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
 
     return child;
   }
+}
+
+EdgeInsets _safeSnackBarInsets(
+  BuildContext context,
+  EdgeInsetsGeometry? insets,
+  EdgeInsets fallback,
+) {
+  final resolved = insets?.resolve(Directionality.of(context)) ?? fallback;
+  if (!_isSafeSnackBarInset(resolved.left) ||
+      !_isSafeSnackBarInset(resolved.top) ||
+      !_isSafeSnackBarInset(resolved.right) ||
+      !_isSafeSnackBarInset(resolved.bottom)) {
+    return fallback;
+  }
+  return resolved;
+}
+
+bool _isSafeSnackBarInset(double value) {
+  return value.isFinite && value >= 0;
+}
+
+double? _safeSnackBarWidth(double? width) {
+  if (width == null || !width.isFinite || width <= 0) return null;
+  return width;
 }
 
 class _OpenHandSnackBarMessage extends StatelessWidget {
