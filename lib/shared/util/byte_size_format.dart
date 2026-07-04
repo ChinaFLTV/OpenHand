@@ -3,6 +3,7 @@ import 'input_value_parsing.dart';
 const int kBytesPerKiB = 1024;
 const int kBytesPerMiB = kBytesPerKiB * 1024;
 const int kBytesPerGiB = kBytesPerMiB * 1024;
+const List<String> _byteSizeUnits = <String>['KB', 'MB', 'GB', 'TB', 'PB'];
 
 final RegExp _trailingFractionZerosPattern = RegExp(r'0+$');
 final RegExp _trailingDecimalPointPattern = RegExp(r'\.$');
@@ -11,16 +12,16 @@ String formatByteSize(int bytes) {
   if (bytes <= 0) return '0 B';
   if (bytes < kBytesPerKiB) return '$bytes B';
 
-  const units = <String>['KB', 'MB', 'GB', 'TB', 'PB'];
   double size = bytes / kBytesPerKiB;
   var unitIndex = 0;
-  while (size >= kBytesPerKiB && unitIndex < units.length - 1) {
+  while (size >= kBytesPerKiB && unitIndex < _byteSizeUnits.length - 1) {
     size /= kBytesPerKiB;
     unitIndex++;
   }
 
   final fractionDigits = size >= 100 ? 0 : (size >= 10 ? 1 : 2);
-  return '${size.toStringAsFixed(fractionDigits)} ${units[unitIndex]}';
+  return '${_trimFractionZeros(size.toStringAsFixed(fractionDigits))} '
+      '${_byteSizeUnits[unitIndex]}';
 }
 
 String formatNullableByteSize(int? bytes, {String pendingLabel = '...'}) {
