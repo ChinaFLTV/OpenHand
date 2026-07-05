@@ -280,9 +280,10 @@ Map<String, Object?> _operationalStateJson(AgentProfile agent) {
       .where((worker) => worker.status == AgentWorkerStatus.offline)
       .length;
   final resourceUsage = agent.resourceUsage;
-  final tokenRatio = resourceUsage.tokenBudget <= 0
-      ? 0
-      : resourceUsage.tokenUsed / resourceUsage.tokenBudget;
+  final tokenRatio = unitRatio(
+    resourceUsage.tokenUsed,
+    resourceUsage.tokenBudget,
+  );
   final resourcePressure =
       resourceUsage.cpuPercent >= 0.85 || tokenRatio >= 0.85;
   final requests = agent.auditEvents.fold<int>(

@@ -589,6 +589,12 @@ double unitRatio(num numerator, num denominator) {
   return clampUnitInterval(numerator / denominator);
 }
 
+int nonNegativeRemaining(int capacity, int used) {
+  if (capacity <= 0) return 0;
+  final remaining = capacity - used;
+  return remaining < 0 ? 0 : remaining;
+}
+
 int clampedIntFromText(
   String value, {
   required int fallback,

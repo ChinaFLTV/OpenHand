@@ -5770,11 +5770,11 @@ class _AgentResourceBody extends StatelessWidget {
       handlePressure,
     ].reduce(math.max);
     final metadata = _agentResourceMetadataChips(context, resource);
-    final remainingTokens = _agentResourceRemaining(
+    final remainingTokens = nonNegativeRemaining(
       resource.tokenBudget,
       resource.tokenUsed,
     );
-    final remainingPersistedBytes = _agentResourceRemaining(
+    final remainingPersistedBytes = nonNegativeRemaining(
       resource.diskBytes,
       resource.persistedBytes,
     );
@@ -6316,11 +6316,6 @@ double _agentResourcePressureValueWidth(
   return estimated
       .clamp(_agentResourcePressureValueMinWidth, upperBound)
       .toDouble();
-}
-
-int _agentResourceRemaining(int budget, int used) {
-  if (budget <= 0) return 0;
-  return math.max(0, budget - used);
 }
 
 Color _agentResourcePressureColor(ColorScheme cs, double pressure) {

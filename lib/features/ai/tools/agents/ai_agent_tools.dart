@@ -4657,7 +4657,7 @@ Map<String, Object?> _resourceUsageSummaryJson(AgentResourceUsage usage) {
     handleRatio,
   );
   if (usage.tokenBudget > 0) {
-    payload['token_remaining'] = _resourceRemaining(
+    payload['token_remaining'] = nonNegativeRemaining(
       usage.tokenBudget,
       usage.tokenUsed,
     );
@@ -4666,7 +4666,7 @@ Map<String, Object?> _resourceUsageSummaryJson(AgentResourceUsage usage) {
   }
   payload['token_usage_ratio'] = tokenRatio;
   if (usage.diskBytes > 0) {
-    payload['persisted_remaining_bytes'] = _resourceRemaining(
+    payload['persisted_remaining_bytes'] = nonNegativeRemaining(
       usage.diskBytes,
       usage.persistedBytes,
     );
@@ -4680,12 +4680,6 @@ Map<String, Object?> _resourceUsageSummaryJson(AgentResourceUsage usage) {
   payload['pressure_level'] = _resourcePressureLevel(maxPressure);
   payload['has_pressure'] = maxPressure >= 0.85;
   return payload;
-}
-
-int _resourceRemaining(int budget, int used) {
-  if (budget <= 0) return 0;
-  final remaining = budget - used;
-  return remaining < 0 ? 0 : remaining;
 }
 
 double _maxResourcePressure(

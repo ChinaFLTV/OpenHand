@@ -51,4 +51,17 @@ void main() {
       expect(unitRatio(1, double.nan), 0);
     });
   });
+
+  group('nonNegativeRemaining', () {
+    test('returns remaining capacity without going below zero', () {
+      expect(nonNegativeRemaining(10, 3), 7);
+      expect(nonNegativeRemaining(10, 13), 0);
+      expect(nonNegativeRemaining(10, -2), 12);
+    });
+
+    test('returns zero when capacity is unavailable', () {
+      expect(nonNegativeRemaining(0, 3), 0);
+      expect(nonNegativeRemaining(-5, 3), 0);
+    });
+  });
 }
