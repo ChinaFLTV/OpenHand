@@ -9169,9 +9169,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                       machineTerminalSessionId != null &&
                       _machineTerminalPanelVisibleFor(currentSession) &&
                       _selectedSection == AppSection.workspace;
-                  final panelSettings = context
-                      .read<SettingsController>()
-                      .panelAnimationSettings;
+                  final panelSettings = openHandMotionSettingsOf(
+                    context,
+                    OpenHandMotionSettingsScope.panel,
+                  );
                   final leftPaneDuration = Duration(
                     milliseconds: math.max(
                       _effectiveSwitchDuration(panelSettings).inMilliseconds,
@@ -9185,6 +9186,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                       switchOutCurve: Curves.easeInCubic,
                       layoutBuilder: (currentChild, previousChildren) {
                         return Stack(
+                          fit: StackFit.expand,
                           alignment: Alignment.topCenter,
                           children: [
                             ...previousChildren,

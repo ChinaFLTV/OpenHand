@@ -64,6 +64,9 @@ const Duration _harnessSessionPersistenceDebounce = Duration(milliseconds: 320);
 const Duration _webReverseRuntimeMetadataDebounce = Duration(milliseconds: 500);
 const int _workspaceSwitchMaxDurationMs = 800;
 const int _disabledSwitchBookkeepingDurationMs = 200;
+const double _workspaceSidebarPaneSlideDistance = 38;
+const double _workspaceSidebarPaneScaleBegin = 0.974;
+const double _workspaceSidebarPaneExitScaleEnd = 0.988;
 const double _workspacePaneFadeScaleBegin = 0.985;
 const double _workspacePaneExpandScaleBegin = 0.96;
 const double _workspacePaneRotateScaleBegin = 0.96;
@@ -170,23 +173,61 @@ Widget _buildWorkspaceSidebarTransition({
   required Animation<double> animation,
   DialogAnimationSettings settings = const DialogAnimationSettings(),
 }) {
-  final isFileExplorerPane =
-      child.key == const ValueKey<String>('file-explorer-pane');
-  final isMachineTerminalPane =
-      child.key == const ValueKey<String>('machine-terminal-pane');
-  final isNavigationPane =
-      child.key == const ValueKey<String>('navigation-pane');
-  final horizontalOffset = isFileExplorerPane || isMachineTerminalPane
-      ? 32.0
-      : isNavigationPane
-      ? -32.0
-      : 0.0;
-  return _buildWorkspaceSettingsAwareTransition(
-    child: child,
-    animation: animation,
-    settings: settings,
-    slideX: horizontalOffset,
-    slideY: 10.0,
+  if (openHandMotionDisabled(settings)) {
+    return child;
+  }
+  final childKey = switch (child.key) {
+    ValueKey<String>(:final value) => value,
+    _ => null,
+  };
+  final isNavigationPane = childKey == 'navigation-pane';
+  final entering =
+      animation.status == AnimationStatus.forward ||
+      animation.status == AnimationStatus.completed;
+  final direction = isNavigationPane ? -1.0 : 1.0;
+  final slideBegin = Offset(
+    (entering ? direction : -direction) * _workspaceSidebarPaneSlideDistance,
+    entering ? 8 : -4,
+  );
+  final curved = openHandCurveAnimation(
+    parent: OpenHandBoundedDoubleAnimation(animation),
+    curve: settings.curve.curve,
+    reverseCurve: settings.curve.reverseCurve,
+  );
+  final fade = openHandBoundedCurveAnimation(
+    parent: animation,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+  final scale = Tween<double>(
+    begin: entering
+        ? _workspaceSidebarPaneScaleBegin
+        : _workspaceSidebarPaneExitScaleEnd,
+    end: 1,
+  ).animate(curved);
+  final offset = Tween<Offset>(
+    begin: slideBegin,
+    end: Offset.zero,
+  ).animate(curved);
+  return ClipRect(
+    child: FadeTransition(
+      opacity: fade,
+      child: AnimatedBuilder(
+        animation: curved,
+        child: ScaleTransition(
+          scale: scale,
+          alignment: Alignment.topCenter,
+          child: child,
+        ),
+        builder: (context, animatedChild) {
+          return Transform.translate(
+            offset: offset.value,
+            transformHitTests: false,
+            child: animatedChild,
+          );
+        },
+      ),
+    ),
   );
 }
 
