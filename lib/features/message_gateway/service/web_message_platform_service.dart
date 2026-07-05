@@ -19,6 +19,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
 import '../../../shared/util/text_clip.dart';
@@ -6336,8 +6337,7 @@ class WebMessagePlatformService {
       templateId: templateId,
       platformName: Platform.operatingSystem,
       workingDirectory: OpenHandPaths.applicationDirectoryPath(),
-      todayLocalDate:
-          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+      todayLocalDate: formatYearMonthDay(now),
       timeZoneName: now.timeZoneName,
       availableSkills: webGatewayIsDenyAllSelection(_config.allowedSkillNames)
           ? const []

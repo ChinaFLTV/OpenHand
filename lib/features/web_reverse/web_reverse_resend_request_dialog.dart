@@ -21,6 +21,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
@@ -1086,6 +1087,13 @@ print(resp.text[:2000])''';
     if (r == null) {
       return const SizedBox(key: ValueKey('empty'));
     }
+    final truncatedBodySuffix =
+        '\n${openHandLocalizedText(context, zh: '…（已截断）', zhHant: '…（已截斷）', en: '…(truncated)', fr: '…(tronqué)', de: '…(gekürzt)', ja: '…（切り詰め済み）')}';
+    final responseBodyPreview = clipText(
+      r.body,
+      8000,
+      suffix: truncatedBodySuffix,
+    );
     final color = r.status >= 500
         ? cs.error
         : (r.status >= 400 ? cs.tertiary : cs.primary);
@@ -1205,9 +1213,7 @@ print(resp.text[:2000])''';
             ),
             child: SingleChildScrollView(
               child: SelectableText(
-                r.body.length > 8000
-                    ? '${r.body.substring(0, 8000)}\n${openHandLocalizedText(context, zh: '…（已截断）', zhHant: '…（已截斷）', en: '…(truncated)', fr: '…(tronqué)', de: '…(gekürzt)', ja: '…（切り詰め済み）')}'
-                    : r.body,
+                responseBodyPreview,
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
               ),
             ),

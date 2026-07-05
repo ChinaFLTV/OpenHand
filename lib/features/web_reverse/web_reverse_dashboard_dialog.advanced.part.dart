@@ -1766,7 +1766,7 @@ Future<void> _copyRecentRequestsForAi(
       ..writeln('Status: ${e.statusCode ?? '-'}  Type: ${e.resourceType}');
     if (e.requestPostData != null && e.requestPostData!.isNotEmpty) {
       var body = e.requestPostData!;
-      if (body.length > 1024) body = '${body.substring(0, 1024)}…';
+      body = clipTextWithEllipsis(body, 1024);
       buf.writeln('Body: $body');
     }
     if (e.requestHeaders.isNotEmpty) {
@@ -3084,7 +3084,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
         //  ip port typ <type> ..."；提取 typ 后单字。
         final m = RegExp(r'\btyp (\w+)').firstMatch(cand);
         final typ = m?.group(1) ?? '?';
-        return 'icecandidate · typ=$typ · ${cand.length > 100 ? "${cand.substring(0, 100)}…" : cand}';
+        return 'icecandidate · typ=$typ · ${clipTextWithEllipsis(cand, 100)}';
       case 'connectionstatechange':
         return 'connection → ${p['state']}';
       case 'iceconnectionstatechange':

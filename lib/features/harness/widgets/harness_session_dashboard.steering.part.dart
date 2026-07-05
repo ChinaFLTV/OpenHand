@@ -401,10 +401,7 @@ class _HeSteeringEntryTile extends StatelessWidget {
   final String? description;
   final VoidCallback onTap;
 
-  String _formatDate(DateTime dt) {
-    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
-        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  }
+  String _formatDate(DateTime dt) => formatYearMonthDayHm(dt);
 
   IconData get _icon {
     if (entry.isDirectory) return Icons.folder_rounded;

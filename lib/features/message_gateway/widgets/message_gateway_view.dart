@@ -8150,7 +8150,7 @@ class _LogLine extends StatelessWidget {
       WebGatewayLogLevel.telemetry => const Color(0xFF7DD3FC),
       WebGatewayLogLevel.info => const Color(0xFFE5E7EB),
     };
-    final ts = entry.timestamp.toLocal().toIso8601String().substring(11, 23);
+    final ts = formatHourMinuteSecondMillis(entry.timestamp.toLocal());
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: SelectableText.rich(

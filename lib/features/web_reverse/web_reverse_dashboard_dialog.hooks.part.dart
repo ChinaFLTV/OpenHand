@@ -120,8 +120,7 @@ class _HooksBodyState extends State<_HooksBody> {
   Future<void> _doNew() async {
     final ts = DateTime.now();
     final loc = AppLocalizations.of(context);
-    final time =
-        '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}';
+    final time = formatHourMinuteSecond(ts);
     final name = loc?.webReverseHooksNewName(time) ?? 'hook $time';
     final h = await widget.controller.addHook(
       name: name,

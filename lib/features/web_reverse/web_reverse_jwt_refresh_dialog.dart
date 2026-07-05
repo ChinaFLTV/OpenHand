@@ -15,6 +15,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -528,10 +529,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
     );
   }
 
-  String _hms(DateTime t) {
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${two(t.hour)}:${two(t.minute)}:${two(t.second)}';
-  }
+  String _hms(DateTime t) => formatHourMinuteSecond(t);
 }
 
 class _SampleCard extends StatelessWidget {

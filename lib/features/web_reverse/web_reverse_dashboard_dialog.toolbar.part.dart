@@ -2371,7 +2371,7 @@ class _BodyPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final preview = body.length > 800 ? '${body.substring(0, 800)}…' : body;
+    final preview = clipTextWithEllipsis(body, 800);
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(

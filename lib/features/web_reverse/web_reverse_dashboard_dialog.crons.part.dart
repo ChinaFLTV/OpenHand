@@ -141,7 +141,7 @@ class _CronsBodyState extends State<_CronsBody> {
     final ts = DateTime.now();
     final name =
         '${_text(zh: "任务", zhHant: "任務", en: "cron", fr: "tâche", de: "Cron", ja: "タスク")} '
-        '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}';
+        '${formatHourMinuteSecond(ts)}';
     final c = await widget.controller.addCron(
       name: name,
       code: _defaultCronCode(),

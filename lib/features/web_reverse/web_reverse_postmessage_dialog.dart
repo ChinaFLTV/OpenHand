@@ -20,6 +20,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
@@ -545,9 +546,5 @@ class _PmDialogState extends State<_PmDialog> {
     );
   }
 
-  String _fmtTime(DateTime t) {
-    String two(int n) => n.toString().padLeft(2, '0');
-    String three(int n) => n.toString().padLeft(3, '0');
-    return '${two(t.hour)}:${two(t.minute)}:${two(t.second)}.${three(t.millisecond)}';
-  }
+  String _fmtTime(DateTime t) => formatHourMinuteSecondMillis(t);
 }

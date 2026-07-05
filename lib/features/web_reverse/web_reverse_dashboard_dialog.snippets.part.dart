@@ -122,8 +122,7 @@ class _SnippetsBodyState extends State<_SnippetsBody> {
   void _doNew() {
     final ts = DateTime.now();
     final loc = AppLocalizations.of(context);
-    final time =
-        '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}:${ts.second.toString().padLeft(2, '0')}';
+    final time = formatHourMinuteSecond(ts);
     final name = loc?.webReverseSnippetsNewName(time) ?? 'snippet $time';
     final s = widget.controller.addSnippet(
       name: name,
@@ -520,9 +519,7 @@ class _SnippetTileState extends State<_SnippetTile> {
         ? cs.primary.withValues(alpha: 0.55)
         : Colors.transparent;
     final ts = widget.snippet.updatedAt;
-    final tsText = ts == null
-        ? ''
-        : '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}';
+    final tsText = ts == null ? '' : formatHourMinute(ts);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) {

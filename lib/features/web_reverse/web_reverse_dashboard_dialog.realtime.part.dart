@@ -464,13 +464,7 @@ class _FrameTile extends StatelessWidget {
   final String label;
   final VoidCallback onCopy;
 
-  String _twoDigit(int v) => v.toString().padLeft(2, '0');
-  String _threeDigit(int v) => v.toString().padLeft(3, '0');
-
-  String _formatTime(DateTime t) {
-    return '${_twoDigit(t.hour)}:${_twoDigit(t.minute)}:${_twoDigit(t.second)}'
-        '.${_threeDigit(t.millisecond)}';
-  }
+  String _formatTime(DateTime t) => formatHourMinuteSecondMillis(t);
 
   @override
   Widget build(BuildContext context) {

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import 'web_reverse_cdp_client.dart';
 
 const int kWebReverseHeadlessBatchMaxUrls = 50;
@@ -244,10 +245,10 @@ class WebReverseHeadlessBatch {
                 : ev.params['entry'] is Map
                 ? '${(ev.params['entry'] as Map)['text']}'
                 : '';
-            final clippedText =
-                text.length > kWebReverseHeadlessBatchMaxConsoleTextChars
-                ? '${text.substring(0, kWebReverseHeadlessBatchMaxConsoleTextChars)}...'
-                : text;
+            final clippedText = clipText(
+              text,
+              kWebReverseHeadlessBatchMaxConsoleTextChars,
+            );
             consoleEntries.add(<String, Object?>{
               'level':
                   ev.params['type']?.toString() ??
@@ -403,7 +404,7 @@ class WebReverseHeadlessBatch {
     final cleaned = url
         .replaceAll(RegExp(r'^https?://'), '')
         .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
-    final clipped = cleaned.length > 80 ? cleaned.substring(0, 80) : cleaned;
+    final clipped = clipText(cleaned, 80, suffix: '');
     final idx = (index + 1).toString().padLeft(3, '0');
     return '${idx}_$clipped';
   }

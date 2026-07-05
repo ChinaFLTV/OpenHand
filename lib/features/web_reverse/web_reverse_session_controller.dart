@@ -5578,7 +5578,7 @@ class WebReverseSessionController extends ChangeNotifier {
             scriptId: id,
             url: entry.value.url,
             line: i,
-            preview: l.length > 120 ? '${l.substring(0, 120)}…' : l,
+            preview: clipTextWithEllipsis(l, 120),
           ));
         }
       }

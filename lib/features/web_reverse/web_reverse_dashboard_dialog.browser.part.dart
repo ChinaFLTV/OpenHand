@@ -343,7 +343,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
 
   String _restartFailureMessage(Object error) {
     final raw = '$error'.trim();
-    final clipped = raw.length > 220 ? '${raw.substring(0, 220)}...' : raw;
+    final clipped = clipText(raw, 220);
     return _browserText(
       context,
       zh: '浏览器重启失败：$clipped',

@@ -23,6 +23,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -414,7 +415,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
         buf
           ..writeln('- request body:')
           ..writeln('```')
-          ..writeln(body.length > 4000 ? '${body.substring(0, 4000)}…' : body)
+          ..writeln(clipTextWithEllipsis(body, 4000))
           ..writeln('```');
       }
     }
