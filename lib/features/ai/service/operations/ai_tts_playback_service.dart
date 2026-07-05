@@ -13,6 +13,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -612,7 +613,7 @@ class AiTtsPlaybackService {
             }),
           )
           .timeout(timeout);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         throw HttpException(
           'Mimo TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
           uri: uri,
@@ -732,7 +733,7 @@ class AiTtsPlaybackService {
     _activeClient = client;
     try {
       final streamed = await client.send(request).timeout(timeout);
-      if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
+      if (isHttpFailureStatus(streamed.statusCode)) {
         throw HttpException('Doubao TTS HTTP ${streamed.statusCode}', uri: uri);
       }
       final audioBytes = BytesBuilder(copy: false);
@@ -905,7 +906,7 @@ class AiTtsPlaybackService {
     _activeClient = client;
     try {
       final response = await client.get(uri).timeout(timeout);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         throw HttpException('Baidu TTS HTTP ${response.statusCode}', uri: uri);
       }
       final contentType = response.headers['content-type'] ?? '';
@@ -966,7 +967,7 @@ class AiTtsPlaybackService {
             }),
           )
           .timeout(timeout);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         throw HttpException(
           'Google TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
           uri: uri,
@@ -1024,7 +1025,7 @@ class AiTtsPlaybackService {
             body: _bingSsml(text, settings),
           )
           .timeout(timeout);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         throw HttpException(
           'Bing TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
           uri: uri,
@@ -1085,7 +1086,7 @@ class AiTtsPlaybackService {
             },
           )
           .timeout(timeout);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         throw HttpException(
           'Youdao TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
           uri: uri,
@@ -1269,7 +1270,7 @@ class AiTtsPlaybackService {
             },
           )
           .timeout(timeout);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         throw HttpException(
           'AI TTS audio download HTTP ${response.statusCode}',
           uri: uri,
@@ -1425,7 +1426,7 @@ class AiTtsPlaybackService {
     _activeClient = client;
     try {
       final response = await client.post(uri).timeout(timeout);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         throw HttpException(
           'Baidu token HTTP ${response.statusCode}: ${_shortBody(response)}',
           uri: uri,
