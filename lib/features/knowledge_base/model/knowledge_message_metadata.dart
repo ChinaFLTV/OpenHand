@@ -10,6 +10,7 @@ import 'knowledge_vector_distribution.dart';
 const String knowledgeBaseMessageMetadataKey = 'knowledge_base';
 const String knowledgeBasePromptAppendMetadataKey = 'prompt_append_content';
 const int _knowledgeUsagePreviewMaxChars = 420;
+const int _knowledgeUsageTermMaxChars = 90;
 const List<String> _knowledgeTitleKeys = <String>[
   'source_title',
   'title',
@@ -674,7 +675,7 @@ class KnowledgeMessageMetadata {
     for (final part in parts) {
       final trimmed = part.trim();
       if (trimmed.length < 12) continue;
-      yield trimmed.length > 90 ? trimmed.substring(0, 90) : trimmed;
+      yield clipText(trimmed, _knowledgeUsageTermMaxChars, suffix: '');
     }
   }
 
@@ -696,7 +697,7 @@ class KnowledgeMessageMetadata {
       for (final cell in trimmedLine.split('|')) {
         final trimmed = cell.trim();
         if (trimmed.isEmpty || trimmed.length < 4) continue;
-        yield trimmed.length > 90 ? trimmed.substring(0, 90) : trimmed;
+        yield clipText(trimmed, _knowledgeUsageTermMaxChars, suffix: '');
       }
     }
   }

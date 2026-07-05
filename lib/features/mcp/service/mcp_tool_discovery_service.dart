@@ -14,6 +14,7 @@ import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
@@ -617,7 +618,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       onStderrLine: (line) {
         // 把 npm/uvx 首启时的下载进度行实时透出给 UI 「正在 bootstrap」chip。
         // 行已经在 _StdioSession 里 trim 过，这里做长度截断防爆 Tooltip。
-        final clean = line.length > 200 ? '${line.substring(0, 200)}…' : line;
+        final clean = clipTextWithEllipsis(line, 200);
         mcpStdioBootstrapStatus.update(server.name, clean);
       },
     );

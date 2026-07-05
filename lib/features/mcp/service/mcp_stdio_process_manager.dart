@@ -10,6 +10,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/version_compare.dart';
 import '../model/mcp_server.dart';
 import 'mcp_stdio_io_utils.dart';
@@ -17,6 +18,9 @@ import 'mcp_tool_discovery_service.dart';
 
 final RegExp _stdioCommandTokenSeparatorPattern = RegExp(r'\s+');
 final RegExp _npxPackageVersionSuffixPattern = RegExp(r'@[^/]*$');
+const int _jsonRpcMalformedLinePreviewChars = 200;
+const int _jsonRpcCompactLinePreviewChars = 120;
+const int _jsonRpcToolDescriptionPreviewChars = 60;
 
 @visibleForTesting
 Map<String, Object?>? parseMcpStdioJsonRpcLine(String line) {
@@ -457,8 +461,14 @@ class McpStdioProcessManager extends ChangeNotifier {
     final parsed = parseMcpStdioJsonRpcLine(jsonLine);
     if (parsed == null) {
       // JSON 解析失败，原样输出（截断超长行）
-      if (jsonLine.length > 200) {
-        logs.add('${jsonLine.substring(0, 200)}… [截断，共 ${jsonLine.length} 字符]');
+      if (jsonLine.length > _jsonRpcMalformedLinePreviewChars) {
+        logs.add(
+          clipText(
+            jsonLine,
+            _jsonRpcMalformedLinePreviewChars,
+            suffix: '… [截断，共 ${jsonLine.length} 字符]',
+          ),
+        );
       } else {
         logs.add(jsonLine);
       }
@@ -500,9 +510,10 @@ class McpStdioProcessManager extends ChangeNotifier {
                 final name = tool['name'] ?? '?';
                 final desc = tool['description'] ?? '';
                 final descStr = desc.toString();
-                final shortDesc = descStr.length > 60
-                    ? '${descStr.substring(0, 60)}…'
-                    : descStr;
+                final shortDesc = clipTextWithEllipsis(
+                  descStr,
+                  _jsonRpcToolDescriptionPreviewChars,
+                );
                 logs.add('  · $name — $shortDesc');
               }
             }
@@ -538,10 +549,7 @@ class McpStdioProcessManager extends ChangeNotifier {
       }
 
       // 兜底：紧凑单行
-      final compact = jsonLine.length > 120
-          ? '${jsonLine.substring(0, 120)}…'
-          : jsonLine;
-      logs.add(compact);
+      logs.add(_compactJsonRpcLine(jsonLine));
     } catch (error, stack) {
       silentLog(
         'mcp_stdio_process_manager',
@@ -549,11 +557,12 @@ class McpStdioProcessManager extends ChangeNotifier {
         error,
         stack,
       );
-      final compact = jsonLine.length > 120
-          ? '${jsonLine.substring(0, 120)}…'
-          : jsonLine;
-      logs.add(compact);
+      logs.add(_compactJsonRpcLine(jsonLine));
     }
+  }
+
+  String _compactJsonRpcLine(String line) {
+    return clipTextWithEllipsis(line, _jsonRpcCompactLinePreviewChars);
   }
 
   /// 启动后自动通过 stdin 发送 MCP initialize 请求完成协议握手。
