@@ -3305,7 +3305,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get aiMicroCompressionEnabledBody =>
-      '有効にすると、消費済みの古いツール結果をコンパクトな復元ヒントに置き換え、履歴コンテキストの重複増加を抑えます。無効にしても、長い古い結果は上のしきい値に従って要約されます。';
+      '有効にすると、古い消費済みツール結果は圧縮チェックポイント用プロンプト内でのみコンパクト化されます。要約コストを下げつつ、通常の会話履歴はキャッシュに安定した形で保ちます。無効にしても、長い古い結果は上のしきい値に従って要約されます。';
 
   @override
   String get aiMessageContentSectionLabel => 'メッセージ内容';

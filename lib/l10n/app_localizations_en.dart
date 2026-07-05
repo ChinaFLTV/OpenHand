@@ -3372,7 +3372,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiMicroCompressionEnabledBody =>
-      'When enabled, older consumed tool results are replaced with compact recovery hints to reduce repeated history growth. When disabled, long old results are still summarized by the threshold above.';
+      'When enabled, older consumed tool results are compacted only inside compression checkpoint prompts, lowering summary cost while keeping live conversation history cache-stable. When disabled, long old results still follow the threshold summary above.';
 
   @override
   String get aiMessageContentSectionLabel => 'Message Content';

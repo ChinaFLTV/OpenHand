@@ -6003,7 +6003,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiMicroCompressionEnabledBody.
   ///
   /// In zh, this message translates to:
-  /// **'开启后，已消费的旧工具结果会替换为紧凑恢复线索，减少历史上下文重复增长。关闭后仍会按上方阈值对过长旧结果做结构化摘要。'**
+  /// **'开启后，仅在生成摘要检查点时将更早的已消费工具结果压成紧凑恢复线索，降低摘要成本；正常对话历史保持稳定，以保护输入缓存命中。关闭后仍会按上方阈值做结构化摘要。'**
   String get aiMicroCompressionEnabledBody;
 
   /// No description provided for @aiMessageContentSectionLabel.

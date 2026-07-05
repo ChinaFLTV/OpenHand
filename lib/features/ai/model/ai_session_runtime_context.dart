@@ -216,8 +216,8 @@ class AiSessionRuntimeContext {
   /// 工具调用输出压缩总开关。关闭后返回原始内容。
   final bool toolResultCompressionEnabled;
 
-  /// 正常对话中是否启用工具结果微压缩（清除更早的已消费工具结果）。这是
-  /// 比结构化摘要更激进的二级瘦身策略。
+  /// 生成摘要检查点 prompt 时是否启用工具结果微压缩。正常对话 history
+  /// 保持稳定摘要形态，避免跨轮改写旧工具结果破坏输入缓存前缀命中。
   final bool microCompressionEnabled;
 
   /// 2026-05-24 — 助手消息渲染格式（Markdown / 纯文本 / HTML）。

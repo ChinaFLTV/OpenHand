@@ -2099,6 +2099,7 @@ class AiPromptBuilder {
     );
     final microCompactContentMap = _computeMicroCompactContentMap(
       messagesToCompress,
+      compressionConfig,
     );
     String renderForCompression(AiSessionMessage m) {
       final compacted = microCompactContentMap[m.id];
@@ -2861,11 +2862,6 @@ $identity''';
       }
     }
     final stableConsumerBoundary = lastConsumerIndex;
-    final microCompactMessageIds = _microCompactToolMessageIds(
-      messages,
-      stableConsumerBoundary,
-      microCompressionEnabled: compressionConfig.microCompressionEnabled,
-    );
     while (index < messages.length) {
       final message = messages[index];
       if (message.kind == AiSessionMessageKind.reasoning) {
@@ -2898,7 +2894,6 @@ $identity''';
           model,
           compressionConfig,
           lastConsumerIndex: stableConsumerBoundary,
-          microCompactMessageIds: microCompactMessageIds,
           preferInlineSystemReminders: preferInlineSystemReminders,
         );
         if (mappedGroup.turns.isNotEmpty) {
@@ -2925,7 +2920,6 @@ $identity''';
         compressionConfig,
         messageIndex: index,
         lastConsumerIndex: stableConsumerBoundary,
-        microCompactMessageIds: microCompactMessageIds,
         isLatestUserInline:
             latestUserMessageIdForInlineAttachments != null &&
             message.id == latestUserMessageIdForInlineAttachments,
@@ -3021,7 +3015,6 @@ $identity''';
     AiModelConfig model,
     _ToolCompressionConfig compressionConfig, {
     required int lastConsumerIndex,
-    required Set<String> microCompactMessageIds,
     bool preferInlineSystemReminders = false,
   }) {
     final firstMessage = messages[startIndex];
@@ -3043,7 +3036,6 @@ $identity''';
               compressionConfig,
               messageIndex: cursor,
               lastConsumerIndex: lastConsumerIndex,
-              microCompactMessageIds: microCompactMessageIds,
               preferInlineSystemReminders: preferInlineSystemReminders,
             ),
             nextIndex: cursor + 1,
@@ -3074,7 +3066,6 @@ $identity''';
           compressionConfig,
           messageIndex: startIndex,
           lastConsumerIndex: lastConsumerIndex,
-          microCompactMessageIds: microCompactMessageIds,
           preferInlineSystemReminders: preferInlineSystemReminders,
         ),
         nextIndex: startIndex + 1,
@@ -3122,9 +3113,6 @@ $identity''';
             toolMessage,
             compressionConfig,
             isFreshUnconsumedResult: toolMessageIndex > lastConsumerIndex,
-            isMicroCompactCleared: microCompactMessageIds.contains(
-              toolMessage.id,
-            ),
             inlineSystemReminders: true,
           ),
           inlineSystemReminders: true,
@@ -3141,7 +3129,6 @@ $identity''';
     _ToolCompressionConfig compressionConfig, {
     required int messageIndex,
     required int lastConsumerIndex,
-    required Set<String> microCompactMessageIds,
     bool isLatestUserInline = false,
     bool preferInlineSystemReminders = false,
     bool preferInlineSystemArtifacts = false,
@@ -3179,7 +3166,6 @@ $identity''';
             message,
             compressionConfig,
             isFreshUnconsumedResult: messageIndex > lastConsumerIndex,
-            isMicroCompactCleared: microCompactMessageIds.contains(message.id),
             inlineSystemReminders: preferInlineSystemReminders,
           ),
           inlineSystemReminders: preferInlineSystemReminders,
@@ -5178,18 +5164,10 @@ $content
     AiSessionMessage message,
     _ToolCompressionConfig compressionConfig, {
     bool isFreshUnconsumedResult = false,
-    bool isMicroCompactCleared = false,
     bool inlineSystemReminders = false,
   }) {
-    if (isMicroCompactCleared) {
-      return _microCompactToolResultContent(
-        message,
-        inlineSystemReminders: inlineSystemReminders,
-      );
-    }
     if (!compressionConfig.enabled || !compressionConfig.summarizeResults) {
-      // 总开关关闭时直接返回原始内容，不作压缩。微压缩仍可在更上层通过
-      // isMicroCompactCleared 独立生效。
+      // 总开关关闭时直接返回原始内容，不作压缩。
       return _promptContentForMessage(
         message,
         inlineSystemReminders: inlineSystemReminders,
@@ -5275,32 +5253,6 @@ $content
       'note: Large write payloads and file contents were omitted from prompt history to save tokens. Inspect the local filesystem if exact contents are needed.',
     ];
     return lines.join('\n');
-  }
-
-  Set<String> _microCompactToolMessageIds(
-    List<AiSessionMessage> messages,
-    int lastConsumerIndex, {
-    required bool microCompressionEnabled,
-  }) {
-    if (!microCompressionEnabled || lastConsumerIndex <= 0) {
-      return const <String>{};
-    }
-    final consumedToolMessages = <AiSessionMessage>[];
-    for (var index = 0; index < lastConsumerIndex; index++) {
-      final message = messages[index];
-      if (message.kind == AiSessionMessageKind.tool && !message.isDeleted) {
-        consumedToolMessages.add(message);
-      }
-    }
-    final clearCount =
-        consumedToolMessages.length - _microCompactKeepRecentToolResults;
-    if (clearCount <= 0) {
-      return const <String>{};
-    }
-    return consumedToolMessages
-        .take(clearCount)
-        .map((message) => message.id)
-        .toSet();
   }
 
   String _microCompactToolResultContent(
@@ -5579,9 +5531,33 @@ $content
     return '${raw ?? ''}'.trim();
   }
 
-  /// 2026-05-23 — 压缩前补做微压缩：为 [messages] 中已被消费的旧工具结果
-  /// 计算 [old_tool_result_cleared] 摘要，返回 messageId → 摘要的映射。
+  /// 2026-05-23 — 仅在摘要检查点 prompt 内补做微压缩：为 [messages] 中
+  /// 已被消费的旧工具结果计算 [old_tool_result_cleared] 摘要，返回
+  /// messageId → 摘要的映射。
+  ///
+  /// 正常对话 history 不能使用这层清理：同一条工具结果一旦从
+  /// [tool_result_summary] 被跨轮改写成 [old_tool_result_cleared]，provider
+  /// prefix cache 会在该历史位置断裂，所有线程模板都会被影响。
   Map<String, String> _computeMicroCompactContentMap(
+    List<AiSessionMessage> messages,
+    _ToolCompressionConfig compressionConfig,
+  ) {
+    if (!compressionConfig.microCompressionEnabled) {
+      return const <String, String>{};
+    }
+    final compactedMessages = _microCompactEligibleConsumedToolMessages(
+      messages,
+    );
+    if (compactedMessages.isEmpty) {
+      return const <String, String>{};
+    }
+    return <String, String>{
+      for (final message in compactedMessages)
+        message.id: _microCompactToolResultContent(message),
+    };
+  }
+
+  List<AiSessionMessage> _microCompactEligibleConsumedToolMessages(
     List<AiSessionMessage> messages,
   ) {
     var lastConsumerIndex = -1;
@@ -5593,7 +5569,7 @@ $content
       }
     }
     if (lastConsumerIndex <= 0) {
-      return const <String, String>{};
+      return const <AiSessionMessage>[];
     }
     final consumedToolMessages = <AiSessionMessage>[];
     for (var index = 0; index < lastConsumerIndex; index++) {
@@ -5605,13 +5581,9 @@ $content
     final clearCount =
         consumedToolMessages.length - _microCompactKeepRecentToolResults;
     if (clearCount <= 0) {
-      return const <String, String>{};
+      return const <AiSessionMessage>[];
     }
-    final result = <String, String>{};
-    for (final message in consumedToolMessages.take(clearCount)) {
-      result[message.id] = _microCompactToolResultContent(message);
-    }
-    return result;
+    return consumedToolMessages.take(clearCount).toList(growable: false);
   }
 
   AiToolCall _sanitizeToolCallForPromptHistory(
@@ -6383,7 +6355,12 @@ class _ToolCompressionConfig {
         0,
         1 << 20,
       ),
-      microCompressionEnabled: runtimeContext.microCompressionEnabled,
+      // Normal conversation history must be append-stable across turns.
+      // Rewriting an older tool result into [old_tool_result_cleared] after it
+      // has already appeared as [tool_result_summary] breaks provider prefix
+      // cache for every template. Keep micro-compression scoped to compression
+      // checkpoint prompts.
+      microCompressionEnabled: false,
     );
   }
 
@@ -6407,7 +6384,7 @@ class _ToolCompressionConfig {
         base.writeSummaryMaxChars,
         AiPromptBuilder._compressionPromptToolResultHeadTailChars,
       ),
-      microCompressionEnabled: true,
+      microCompressionEnabled: runtimeContext.microCompressionEnabled,
     );
   }
 

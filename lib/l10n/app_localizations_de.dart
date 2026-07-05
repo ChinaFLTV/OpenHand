@@ -3407,7 +3407,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get aiMicroCompressionEnabledBody =>
-      'Wenn aktiviert, werden ältere konsumierte Werkzeugergebnisse durch kompakte Wiederherstellungshinweise ersetzt, damit der Verlauf weniger wiederholt wächst. Wenn deaktiviert, werden lange alte Ergebnisse weiterhin gemäß dem Schwellenwert oben zusammengefasst.';
+      'Wenn aktiviert, werden ältere konsumierte Werkzeugergebnisse nur in Kompressions-Checkpoint-Prompts kompaktiert. Das senkt Zusammenfassungskosten und hält den aktiven Verlauf cache-stabil. Wenn deaktiviert, folgen lange alte Ergebnisse weiter der Schwellenwert-Zusammenfassung oben.';
 
   @override
   String get aiMessageContentSectionLabel => 'Nachrichteninhalt';

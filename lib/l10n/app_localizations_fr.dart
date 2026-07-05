@@ -3415,7 +3415,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiMicroCompressionEnabledBody =>
-      'Lorsqu’elle est activée, les anciens résultats d’outils consommés sont remplacés par des indices de reprise compacts afin de limiter la croissance répétée de l’historique. Lorsqu’elle est désactivée, les anciens résultats longs restent résumés selon le seuil ci-dessus.';
+      'Lorsqu’elle est activée, les anciens résultats d’outils consommés sont compactés uniquement dans les invites de point de compression. Cela réduit le coût du résumé et garde l’historique actif stable pour le cache. Lorsqu’elle est désactivée, les anciens résultats longs suivent toujours le résumé par seuil ci-dessus.';
 
   @override
   String get aiMessageContentSectionLabel => 'Contenu du message';

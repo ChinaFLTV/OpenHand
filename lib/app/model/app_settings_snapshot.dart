@@ -668,9 +668,8 @@ class AppSettingsSnapshot {
   /// 2026-04-27 — 总开关：关闭后工具调用输出不再进行压缩。
   final bool aiToolResultCompressionEnabled;
 
-  /// 2026-05-23 — 正常对话中是否启用工具结果微压缩（清除旧工具结果）。
-  /// 开启后旧工具结果在被模型消费后会稳定替换成结构化摘要，减少历史
-  /// token 增长；关闭后仅在主动/被动压缩时才执行微压缩。
+  /// 2026-07-05 — 摘要检查点 prompt 是否启用工具结果微压缩。正常对话
+  /// history 始终保持稳定摘要形态，避免跨轮改写旧工具结果破坏输入缓存。
   final bool aiMicroCompressionEnabled;
 
   /// 2026-05-24 — 助手消息内容渲染格式（Markdown / 纯文本 / HTML）。

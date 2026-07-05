@@ -1822,7 +1822,7 @@
   "aiToolResultCompressionEnabledLabel": "Enable Tool Call Output Compression",
   "aiToolResultCompressionEnabledBody": "Controls whether long tool output is summarized in conversation history and compression checkpoints. Disabling it keeps raw output and can significantly increase context and cache cost.",
   "aiMicroCompressionEnabledLabel": "Micro-Compression",
-  "aiMicroCompressionEnabledBody": "When enabled, older consumed tool results are replaced with compact recovery hints to reduce repeated history growth. When disabled, long old results are still summarized by the threshold above.",
+  "aiMicroCompressionEnabledBody": "When enabled, older consumed tool results are compacted only inside compression checkpoint prompts, lowering summary cost while keeping live conversation history cache-stable. When disabled, long old results still follow the threshold summary above.",
   "aiMessageContentSectionLabel": "Message Content",
   "aiMessageContentFormatLabel": "Content Format",
   "aiMessageContentFormatBody": "Controls how AI assistant messages are rendered. Markdown is the default; PlainText is fastest; HTML uses a third-party renderer with higher token cost and falls back per the rule below on render failure.",

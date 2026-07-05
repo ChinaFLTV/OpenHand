@@ -1822,7 +1822,7 @@
   "aiToolResultCompressionEnabledLabel": "Activer la compression de la sortie d’appel d’outil",
   "aiToolResultCompressionEnabledBody": "Détermine si les longues sorties d’outils sont résumées dans l’historique de conversation et les points de compression. La désactivation conserve la sortie brute et peut augmenter fortement le contexte et le coût du cache.",
   "aiMicroCompressionEnabledLabel": "Micro-Compression",
-  "aiMicroCompressionEnabledBody": "Lorsqu’elle est activée, les anciens résultats d’outils consommés sont remplacés par des indices de reprise compacts afin de limiter la croissance répétée de l’historique. Lorsqu’elle est désactivée, les anciens résultats longs restent résumés selon le seuil ci-dessus.",
+  "aiMicroCompressionEnabledBody": "Lorsqu’elle est activée, les anciens résultats d’outils consommés sont compactés uniquement dans les invites de point de compression. Cela réduit le coût du résumé et garde l’historique actif stable pour le cache. Lorsqu’elle est désactivée, les anciens résultats longs suivent toujours le résumé par seuil ci-dessus.",
   "aiMessageContentSectionLabel": "Contenu du message",
   "aiMessageContentFormatLabel": "Format de contenu",
   "aiMessageContentFormatBody": "Contrôle le rendu des messages de l’assistant IA. Markdown est la valeur par défaut ; Texte brut est le plus rapide ; HTML utilise un moteur tiers (coût en tokens un peu plus élevé) et retombe selon la règle ci-dessous en cas d’échec.",

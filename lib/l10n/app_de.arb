@@ -1822,7 +1822,7 @@
   "aiToolResultCompressionEnabledLabel": "Werkzeugaufruf-Ausgabekompression aktivieren",
   "aiToolResultCompressionEnabledBody": "Steuert, ob lange Werkzeugausgaben im Gesprächsverlauf und in Kompressions-Checkpoints verdichtet werden. Deaktivieren behält Rohausgaben und kann Kontext- sowie Cache-Kosten deutlich erhöhen.",
   "aiMicroCompressionEnabledLabel": "Mikro-Kompression",
-  "aiMicroCompressionEnabledBody": "Wenn aktiviert, werden ältere konsumierte Werkzeugergebnisse durch kompakte Wiederherstellungshinweise ersetzt, damit der Verlauf weniger wiederholt wächst. Wenn deaktiviert, werden lange alte Ergebnisse weiterhin gemäß dem Schwellenwert oben zusammengefasst.",
+  "aiMicroCompressionEnabledBody": "Wenn aktiviert, werden ältere konsumierte Werkzeugergebnisse nur in Kompressions-Checkpoint-Prompts kompaktiert. Das senkt Zusammenfassungskosten und hält den aktiven Verlauf cache-stabil. Wenn deaktiviert, folgen lange alte Ergebnisse weiter der Schwellenwert-Zusammenfassung oben.",
   "aiMessageContentSectionLabel": "Nachrichteninhalt",
   "aiMessageContentFormatLabel": "Inhaltsformat",
   "aiMessageContentFormatBody": "Steuert, wie KI-Assistentennachrichten dargestellt werden. Markdown ist die Vorgabe; Klartext ist am schnellsten; HTML wird per Drittanbieter-Bibliothek gerendert (höhere Tokenkosten) und fällt bei Renderfehlern gemäß der Regel unten zurück.",
