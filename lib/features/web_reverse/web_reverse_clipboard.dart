@@ -1,11 +1,11 @@
-import 'dart:math' as math;
-
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 
 const int kWebReverseClipboardMaxChars = 1000000;
+const String _webReverseClipboardTinyClipMarker = '[clipped]';
 
 class WebReverseClipboardCopyResult {
   const WebReverseClipboardCopyResult({
@@ -23,7 +23,7 @@ Future<WebReverseClipboardCopyResult> setWebReverseClipboardText(
   String text, {
   int maxChars = kWebReverseClipboardMaxChars,
 }) async {
-  final prepared = _prepareClipboardText(text, maxChars: maxChars);
+  final prepared = prepareWebReverseClipboardText(text, maxChars: maxChars);
   await Clipboard.setData(ClipboardData(text: prepared.text));
   return WebReverseClipboardCopyResult(
     originalChars: text.length,
@@ -55,13 +55,21 @@ String webReverseClipboardSnackMessage({
       : '$base (copied ${result.copiedChars}/${result.originalChars} chars, capped)';
 }
 
-({String text, bool clipped}) _prepareClipboardText(
+({String text, bool clipped}) prepareWebReverseClipboardText(
   String text, {
   required int maxChars,
 }) {
-  if (text.length <= maxChars) return (text: text, clipped: false);
+  final limit = nonNegativeIntFromValue(maxChars, fallback: 0);
+  if (text.length <= limit) return (text: text, clipped: false);
+  if (limit <= 0) return (text: '', clipped: text.isNotEmpty);
   final suffix =
-      '\n\n[OpenHand clipped clipboard text: ${text.length - maxChars} chars omitted]';
-  final keep = math.max(0, maxChars - suffix.length);
+      '\n\n[OpenHand clipped clipboard text: ${text.length - limit} chars omitted]';
+  if (suffix.length >= limit) {
+    final marker = _webReverseClipboardTinyClipMarker.length >= limit
+        ? _webReverseClipboardTinyClipMarker.substring(0, limit)
+        : _webReverseClipboardTinyClipMarker;
+    return (text: marker, clipped: true);
+  }
+  final keep = nonNegativeRemaining(limit, suffix.length);
   return (text: '${text.substring(0, keep)}$suffix', clipped: true);
 }
