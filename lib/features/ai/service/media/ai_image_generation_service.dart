@@ -40,6 +40,25 @@ const Set<String> _jsonContentTypes = <String>{
   'application/x-json',
   'text/json',
 };
+const Duration _pollMinimumRequestBudget = Duration(seconds: 1);
+const Duration _pollRequestTimeoutCap = Duration(seconds: 15);
+const Duration _retryAfterDelayCap = Duration(seconds: 30);
+const Duration _soraContentMinDownloadTimeout = Duration(seconds: 30);
+const Duration _remoteMediaDownloadTimeout = Duration(seconds: 60);
+const int _pollWarmupAttemptLimit = 6;
+const int _pollSteadyAttemptLimit = 16;
+const int _pollWarmupDelayMs = 1500;
+const int _pollSteadyDelayMs = 3000;
+const int _pollMaxDelayMs = 5000;
+const int _pollMinDelayMs = 250;
+const int _pollJitterWindowMs = 400;
+const int _pollJitterHalfWindowMs = _pollJitterWindowMs ~/ 2;
+const int _transientPollMaxFailures = 4;
+const int _transientPollBackoffBaseMs = 1500;
+const int _transientPollBackoffCapMs = 8000;
+const int _transientPollBackoffMaxShift = 3;
+const int _miniMaxFileRetrieveAttempts = 2;
+const int _miniMaxFileRetrieveRetryBaseMs = 750;
 
 /// Outcome of a generative multimedia request (image/video/audio).
 ///
@@ -1794,16 +1813,7 @@ class AiImageGenerationService {
       // minutes, so cap the per-iteration backoff at 5s after a warm-up
       // window rather than imposing a hard attempt cap that would expire
       // well before the deadline.
-      final int baseMs;
-      if (attempt < 6) {
-        baseMs = 1500;
-      } else if (attempt < 16) {
-        baseMs = 3000;
-      } else {
-        baseMs = 5000;
-      }
-      final jitterMs = _pollJitter.nextInt(400) - 200;
-      final wait = Duration(milliseconds: math.max(250, baseMs + jitterMs));
+      final wait = _pollDelayForAttempt(attempt);
       if (wait < remaining) {
         await Future<void>.delayed(wait);
       }
@@ -1812,10 +1822,10 @@ class AiImageGenerationService {
       // TimeoutException after sub-millisecond delays. If we have less
       // than a second of budget left there is no point firing another
       // request — exit and let the caller surface the deadline.
-      if (requestRemaining < const Duration(seconds: 1)) break;
-      final effectiveTimeout = requestRemaining < const Duration(seconds: 15)
+      if (requestRemaining < _pollMinimumRequestBudget) break;
+      final effectiveTimeout = requestRemaining < _pollRequestTimeoutCap
           ? requestRemaining
-          : const Duration(seconds: 15);
+          : _pollRequestTimeoutCap;
       final pollingHeaders = Map<String, String>.from(requestHeaders)
         ..['accept'] = 'application/json';
       final response = await _client
@@ -1824,16 +1834,11 @@ class AiImageGenerationService {
       lastBody = response.body;
       if (response.statusCode < 200 || response.statusCode >= 300) {
         if (_isTransientPollStatus(response.statusCode) &&
-            transientFailures < 4) {
+            transientFailures < _transientPollMaxFailures) {
           transientFailures += 1;
           final retryAfter = _parseRetryAfter(response.headers['retry-after']);
-          final backoffMs = math.min(
-            8000,
-            1500 * (1 << math.min(transientFailures - 1, 3)),
-          );
           final backoff =
-              retryAfter ??
-              Duration(milliseconds: backoffMs + _pollJitter.nextInt(400));
+              retryAfter ?? _transientPollBackoffDelay(transientFailures);
           final budget = deadline.difference(DateTime.now().toUtc());
           if (backoff < budget) {
             await Future<void>.delayed(backoff);
@@ -1943,8 +1948,8 @@ class AiImageGenerationService {
       ..['accept'] = 'video/*, application/octet-stream;q=0.9';
     // Allow a slightly larger budget for the binary download since the
     // polling timeout is intentionally short.
-    final downloadTimeout = effectiveTimeout < const Duration(seconds: 30)
-        ? const Duration(seconds: 30)
+    final downloadTimeout = effectiveTimeout < _soraContentMinDownloadTimeout
+        ? _soraContentMinDownloadTimeout
         : effectiveTimeout;
     final response = await _client
         .get(contentUri, headers: downloadHeaders)
@@ -1998,19 +2003,20 @@ class AiImageGenerationService {
     final pollingHeaders = Map<String, String>.from(requestHeaders)
       ..['accept'] = 'application/json';
     http.Response? response;
-    for (var i = 0; i < 2; i++) {
+    for (var i = 0; i < _miniMaxFileRetrieveAttempts; i++) {
       response = await _client
           .get(retrieveUri, headers: pollingHeaders)
           .timeout(effectiveTimeout);
       if (response.statusCode >= 200 && response.statusCode < 300) break;
-      if (!_isTransientPollStatus(response.statusCode) || i == 1) {
+      if (!_isTransientPollStatus(response.statusCode) ||
+          i == _miniMaxFileRetrieveAttempts - 1) {
         return null;
       }
       // Single retry with jitter to absorb a brief 5xx/429 without
       // dropping a successful video task on the floor.
       final retryAfter = _parseRetryAfter(response.headers['retry-after']);
       await Future<void>.delayed(
-        retryAfter ?? Duration(milliseconds: 750 + _pollJitter.nextInt(400)),
+        retryAfter ?? _miniMaxFileRetrieveBackoffDelay(),
       );
     }
     if (response == null ||
@@ -2060,6 +2066,39 @@ class AiImageGenerationService {
 
   static final math.Random _pollJitter = math.Random();
 
+  Duration _pollDelayForAttempt(int attempt) {
+    final baseMs = switch (attempt) {
+      < _pollWarmupAttemptLimit => _pollWarmupDelayMs,
+      < _pollSteadyAttemptLimit => _pollSteadyDelayMs,
+      _ => _pollMaxDelayMs,
+    };
+    final jitterMs =
+        _pollJitter.nextInt(_pollJitterWindowMs) - _pollJitterHalfWindowMs;
+    return Duration(milliseconds: math.max(_pollMinDelayMs, baseMs + jitterMs));
+  }
+
+  Duration _transientPollBackoffDelay(int transientFailures) {
+    final shift = math.min(
+      transientFailures - 1,
+      _transientPollBackoffMaxShift,
+    );
+    final backoffMs = math.min(
+      _transientPollBackoffCapMs,
+      _transientPollBackoffBaseMs * (1 << shift),
+    );
+    return Duration(
+      milliseconds: backoffMs + _pollJitter.nextInt(_pollJitterWindowMs),
+    );
+  }
+
+  Duration _miniMaxFileRetrieveBackoffDelay() {
+    return Duration(
+      milliseconds:
+          _miniMaxFileRetrieveRetryBaseMs +
+          _pollJitter.nextInt(_pollJitterWindowMs),
+    );
+  }
+
   /// Parses an HTTP `Retry-After` header (seconds or HTTP-date) to a Duration.
   /// Returns null when the value is missing/invalid so callers can fall back
   /// to local exponential backoff.
@@ -2070,14 +2109,15 @@ class AiImageGenerationService {
     if (seconds != null) {
       // Cap at 30s so a hostile/misconfigured server cannot block the
       // media task for the full deadline window.
-      return Duration(seconds: math.min(seconds, 30));
+      final cappedSeconds = math.min(seconds, _retryAfterDelayCap.inSeconds);
+      return Duration(seconds: cappedSeconds);
     }
     try {
       final when = HttpDate.parse(trimmed);
       final delta = when.toUtc().difference(DateTime.now().toUtc());
       if (delta.isNegative) return Duration.zero;
-      if (delta > const Duration(seconds: 30)) {
-        return const Duration(seconds: 30);
+      if (delta > _retryAfterDelayCap) {
+        return _retryAfterDelayCap;
       }
       return delta;
     } catch (_) {
@@ -2296,7 +2336,7 @@ class AiImageGenerationService {
     try {
       final response = await _client
           .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 60));
+          .timeout(_remoteMediaDownloadTimeout);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return response.bodyBytes;
       }
