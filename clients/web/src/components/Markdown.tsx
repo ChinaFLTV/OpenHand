@@ -22,6 +22,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { fnv1aHashBase36 } from '../shared/util/hash';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
+import { truncateEndText } from '../shared/util/text';
 import {
   isTranscriptScrollActive,
   scheduleAfterTranscriptScrollSettles,
@@ -446,7 +447,10 @@ function extractHtmlPreviewText(source: string): string {
     .trim();
   const text = preview || source.replace(HTML_PREVIEW_TAG_RE, ' ').replace(/\s+/g, ' ').trim();
   if (text.length <= HTML_COMPLEX_PREVIEW_MAX_CHARS) return text;
-  return `${text.slice(0, HTML_COMPLEX_PREVIEW_MAX_CHARS).trimEnd()}...`;
+  return truncateEndText(text, HTML_COMPLEX_PREVIEW_MAX_CHARS, {
+    ellipsis: '...',
+    trimEnd: true,
+  });
 }
 
 function htmlRenderProfile(source: string): HtmlRenderProfile {

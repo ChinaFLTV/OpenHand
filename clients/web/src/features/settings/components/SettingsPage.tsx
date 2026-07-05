@@ -40,6 +40,7 @@ import {
 import { useTransientFlag } from '../../../hooks/useTransientFlag';
 import { showSnackbar } from '../../../components/Snackbar';
 import { clampNumber, finiteNumberFromText } from '../../../shared/util/number';
+import { truncateEndText } from '../../../shared/util/text';
 import { finiteNumberOrNullFromUnknown } from '../../../shared/util/value';
 import { describeApiError } from '../../../utils/api_error';
 
@@ -439,7 +440,7 @@ function friendlyTtsError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   const normalized = message.replace(/\s+/g, ' ').trim();
   if (!normalized) return 'unknown error';
-  return normalized.length > 140 ? `${normalized.slice(0, 140)}...` : normalized;
+  return truncateEndText(normalized, 140, { ellipsis: '...' });
 }
 
 export function SettingsPage() {

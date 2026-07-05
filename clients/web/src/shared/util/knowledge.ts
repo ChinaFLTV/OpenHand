@@ -1,4 +1,5 @@
 import { basenameFromPath } from './path';
+import { truncateEndText } from './text';
 import {
   roundedNonNegativeIntegerFromUnknown,
   stringFromUnknown,
@@ -114,7 +115,7 @@ function knowledgeStableTextFragments(text: string): string[] {
     .split(/[\r\n。！？!?；;]+/g)
     .map((part) => part.trim())
     .filter((part) => part.length >= 12)
-    .map((part) => (part.length > 90 ? part.slice(0, 90) : part));
+    .map((part) => truncateEndText(part, 90, { ellipsis: '' }));
 }
 
 function knowledgeUsageTermWorthMatching(raw: string, normalized: string): boolean {
