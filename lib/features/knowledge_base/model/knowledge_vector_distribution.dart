@@ -355,7 +355,7 @@ double _normalizedCoordinate(double value, double center, double maxDistance) {
 double _fallbackRadius(int index, int total) {
   if (total <= 1) return 0;
   return _fallbackRadiusBase +
-      _fallbackRadiusSpread * (index / math.max(1, total - 1));
+      _fallbackRadiusSpread * unitRatio(index, total - 1);
 }
 
 double _fallbackZ(int index) {
