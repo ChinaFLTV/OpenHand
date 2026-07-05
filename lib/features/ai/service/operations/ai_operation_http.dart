@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_clip.dart';
+import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
 import '../chat/ai_transport_diagnostic_messages.dart';
@@ -18,7 +20,6 @@ final class AiOperationHttp {
   static const String _emptyErrorResponseMessage = 'Empty error response.';
 
   static final RegExp _htmlTagPattern = RegExp(r'<[^>]*>');
-  static final RegExp _whitespacePattern = RegExp(r'\s+');
 
   static const String extrasGlobalKey = 'global';
   static const String extrasBodyKey = 'body';
@@ -220,20 +221,16 @@ final class AiOperationHttp {
       // Plain text or HTML error response.
     }
     if (trimmed.contains('<html') || trimmed.contains('<HTML')) {
-      final stripped = trimmed
-          .replaceAll(_htmlTagPattern, ' ')
-          .replaceAll(_whitespacePattern, ' ')
-          .trim();
+      final stripped = collapseInlineWhitespace(
+        trimmed.replaceAll(_htmlTagPattern, ' '),
+      );
       return _boundedErrorMessage(stripped.isEmpty ? trimmed : stripped);
     }
     return _boundedErrorMessage(trimmed);
   }
 
   static String _boundedErrorMessage(String message) {
-    final normalized = message.replaceAll(_whitespacePattern, ' ').trim();
-    if (normalized.length <= _maxExtractedErrorMessageLength) {
-      return normalized;
-    }
-    return '${normalized.substring(0, _maxExtractedErrorMessageLength)}...';
+    final normalized = collapseInlineWhitespace(message);
+    return clipText(normalized, _maxExtractedErrorMessageLength);
   }
 }

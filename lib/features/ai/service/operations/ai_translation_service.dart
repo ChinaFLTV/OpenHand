@@ -10,6 +10,8 @@ import 'package:uuid/uuid.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
+import '../../../../shared/util/text_clip.dart';
+import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_translation_settings.dart';
@@ -19,7 +21,6 @@ import '../chat/ai_protocol_adapter.dart';
 final RegExp _aiTranslationFencePattern = RegExp(
   r'^```(?:[a-zA-Z0-9_-]+)?\s*([\s\S]*?)\s*```$',
 );
-final RegExp _translationWhitespacePattern = RegExp(r'\s+');
 final RegExp _translationErrorPrefixPattern = RegExp(r'^[^:]+:\s*');
 
 class AiTranslationResult {
@@ -748,9 +749,8 @@ class AiTranslationService {
   }
 
   String _preview(String value) {
-    final compact = value.replaceAll(_translationWhitespacePattern, ' ').trim();
-    if (compact.length <= _networkPreviewLength) return compact;
-    return '${compact.substring(0, _networkPreviewLength)}...';
+    final compact = collapseInlineWhitespace(value);
+    return clipText(compact, _networkPreviewLength);
   }
 
   String _friendlyTranslationError(Object error) {
@@ -758,12 +758,9 @@ class AiTranslationService {
       _translationErrorPrefixPattern,
       '',
     );
-    final normalized = text
-        .replaceAll(_translationWhitespacePattern, ' ')
-        .trim();
+    final normalized = collapseInlineWhitespace(text);
     if (normalized.isEmpty) return 'translation failed';
-    if (normalized.length <= _networkPreviewLength) return normalized;
-    return '${normalized.substring(0, _networkPreviewLength)}...';
+    return clipText(normalized, _networkPreviewLength);
   }
 
   String _googleLanguage(String value) {

@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../web_engine/web_engine_base.dart';
@@ -47,7 +48,7 @@ class WebFetchEngineContent {
     return WebFetchEngineContent(
       url: url,
       title: title,
-      content: '${content.substring(0, maxChars)}…',
+      content: clipTextWithEllipsis(content, maxChars),
       contentType: contentType,
       statusCode: statusCode,
       responseHeaders: responseHeaders,

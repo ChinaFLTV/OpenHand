@@ -15,6 +15,8 @@ import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
+import '../../../../shared/util/text_clip.dart';
+import '../../../../shared/util/text_normalization.dart';
 import '../../../../shared/util/xml_escape.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../model/ai_model_config.dart';
@@ -79,7 +81,6 @@ class AiTtsPlaybackService {
   static final RegExp _macOsVoiceColumnSeparatorPattern = RegExp(r'\s{2,}');
   static final RegExp _markdownCodeBlockPattern = RegExp(r'```[\s\S]*?```');
   static final RegExp _htmlTagPattern = RegExp(r'<[^>]+>');
-  static final RegExp _whitespacePattern = RegExp(r'\s+');
   static final LifecycleLruCache<_AiTtsAudioPayload> _audioCache =
       LifecycleLruCache<_AiTtsAudioPayload>(
         maxEntries: _audioCacheMaxEntries,
@@ -1485,13 +1486,12 @@ class AiTtsPlaybackService {
   }
 
   static String _normalizeText(String text, int maxCharacters) {
-    final trimmed = text
-        .replaceAll(_markdownCodeBlockPattern, ' ')
-        .replaceAll(_htmlTagPattern, ' ')
-        .replaceAll(_whitespacePattern, ' ')
-        .trim();
-    if (trimmed.length <= maxCharacters) return trimmed;
-    return trimmed.substring(0, maxCharacters);
+    final trimmed = collapseInlineWhitespace(
+      text
+          .replaceAll(_markdownCodeBlockPattern, ' ')
+          .replaceAll(_htmlTagPattern, ' '),
+    );
+    return clipText(trimmed, maxCharacters, suffix: '');
   }
 
   static String _firstMediaReference(String markdown) {
@@ -2031,9 +2031,8 @@ class AiTtsPlaybackService {
   }
 
   static String _shortBody(http.Response response) {
-    final body = response.body.replaceAll(_whitespacePattern, ' ').trim();
-    if (body.length <= 180) return body;
-    return '${body.substring(0, 180)}...';
+    final body = collapseInlineWhitespace(response.body);
+    return clipText(body, 180);
   }
 
   static String _appleScriptString(String value) {

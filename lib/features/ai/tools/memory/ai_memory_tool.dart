@@ -1,6 +1,8 @@
 library;
 
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_clip.dart';
+import '../../../../shared/util/text_normalization.dart';
 import '../../../memory/index.dart';
 
 /// Hermes Talker 专用 Memory 工具。
@@ -260,8 +262,7 @@ class AiMemoryTool extends AiTool {
   static const int _previewChars = 200;
 
   String _preview(String content) {
-    final flat = content.replaceAll(RegExp(r'\s+'), ' ').trim();
-    if (flat.length <= _previewChars) return flat;
-    return '${flat.substring(0, _previewChars)}…';
+    final flat = collapseInlineWhitespace(content);
+    return clipTextWithEllipsis(flat, _previewChars);
   }
 }
