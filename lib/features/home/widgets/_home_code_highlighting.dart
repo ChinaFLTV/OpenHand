@@ -698,7 +698,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
     setState(() => _copied = true);
     final messenger = ScaffoldMessenger.of(context);
     OpenHandSnackBar.hideCurrentOn(messenger);
-    _showHomeSnackBarWithMessenger(
+    showOpenHandSnackBarOn(
       context,
       messenger,
       SnackBar(
@@ -724,7 +724,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
       setState(() => _copied = false);
       final messenger = ScaffoldMessenger.of(context);
       OpenHandSnackBar.hideCurrentOn(messenger);
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -762,7 +762,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
       setState(() => _downloaded = true);
       final messenger = ScaffoldMessenger.of(context);
       OpenHandSnackBar.hideCurrentOn(messenger);
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -784,7 +784,7 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
       OpenHandSnackBar.hideCurrentOn(messenger);
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -1441,7 +1441,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     });
     final messenger = ScaffoldMessenger.of(context);
     OpenHandSnackBar.hideCurrentOn(messenger);
-    _showHomeSnackBarWithMessenger(
+    showOpenHandSnackBarOn(
       context,
       messenger,
       SnackBar(
@@ -1475,7 +1475,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       });
       final messenger = ScaffoldMessenger.of(context);
       OpenHandSnackBar.hideCurrentOn(messenger);
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -1513,7 +1513,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       });
       final messenger = ScaffoldMessenger.of(context);
       OpenHandSnackBar.hideCurrentOn(messenger);
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -1541,7 +1541,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       }
       final messenger = ScaffoldMessenger.of(context);
       OpenHandSnackBar.hideCurrentOn(messenger);
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -2370,7 +2370,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       });
       final messenger = ScaffoldMessenger.of(context);
       OpenHandSnackBar.hideCurrentOn(messenger);
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -2416,19 +2416,10 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       final tempDir = await Directory.systemTemp.createTemp('openhand_html_');
       final htmlFile = File(p.join(tempDir.path, 'preview.html'));
       await htmlFile.writeAsString(widget.htmlContent);
-      final uri = Uri.file(htmlFile.path);
-      if (Platform.isMacOS) {
-        await runDetachedSystemOpen('open', [uri.toFilePath()]);
-      } else if (Platform.isWindows) {
-        await runDetachedSystemOpen('cmd', [
-          '/c',
-          'start',
-          '',
-          uri.toFilePath(),
-        ], runInShell: true);
-      } else if (Platform.isLinux) {
-        await runDetachedSystemOpen('xdg-open', [uri.toFilePath()]);
-      }
+      await openLocalPathWithSystemApp(
+        htmlFile.path,
+        tag: 'home_code_highlighting.open_html_preview',
+      );
     } catch (error, stack) {
       silentLog(
         'home_code_highlighting',
@@ -2441,7 +2432,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       }
       final messenger = ScaffoldMessenger.of(context);
       OpenHandSnackBar.hideCurrentOn(messenger);
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -3536,7 +3527,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
 
     if (mounted) {
       OpenHandSnackBar.hideCurrentOn(messenger);
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -3667,7 +3658,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         savedPath ??
         _localizedText(context, zh: '临时文件写入失败', en: 'temp file write failed');
     if (writeOk && verification.osLayerOk) {
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -3683,7 +3674,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         ),
       );
     } else {
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -3781,7 +3772,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   void _showSvgNotReadySnack(ScaffoldMessengerState messenger) {
     if (!mounted) return;
     OpenHandSnackBar.hideCurrentOn(messenger);
-    _showHomeSnackBarWithMessenger(
+    showOpenHandSnackBarOn(
       context,
       messenger,
       SnackBar(
@@ -3804,7 +3795,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       try {
         await Pasteboard.writeImage(pngBytes);
         if (!mounted) return;
-        _showHomeSnackBarWithMessenger(
+        showOpenHandSnackBarOn(
           context,
           ScaffoldMessenger.of(context),
           SnackBar(
@@ -3828,7 +3819,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     try {
       await Pasteboard.writeImage(_svgUtf8Bytes(svg));
       if (!mounted) return;
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         ScaffoldMessenger.of(context),
         SnackBar(
@@ -3870,7 +3861,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       if (!mounted || path == null || path.isEmpty) return;
       await File(path).writeAsString(svg, flush: true);
       if (!mounted) return;
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         ScaffoldMessenger.of(context),
         SnackBar(
@@ -3888,7 +3879,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     final pngBytes = _decodePngBytes(_pngDataUrl);
     if (pngBytes == null) {
       if (!mounted) return;
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         ScaffoldMessenger.of(context),
         SnackBar(
@@ -3918,7 +3909,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       if (!mounted || path == null || path.isEmpty) return;
       await File(path).writeAsBytes(pngBytes, flush: true);
       if (!mounted) return;
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         ScaffoldMessenger.of(context),
         SnackBar(

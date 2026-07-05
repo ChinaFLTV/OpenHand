@@ -1368,7 +1368,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       });
     } catch (error) {
       if (!mounted) return;
-      _showHomeSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(

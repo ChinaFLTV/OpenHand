@@ -22,10 +22,6 @@ import '../../thread_template_runtime/index.dart';
 import '../model/plugin_info.dart';
 import '../plugin_service_controller.dart';
 
-void _showPluginSnackBar(BuildContext context, SnackBar snackBar) {
-  OpenHandSnackBar.showInContext(context, snackBar);
-}
-
 enum _PluginServiceAction { install, update, uninstall }
 
 extension _PluginServiceActionL10n on _PluginServiceAction {
@@ -544,7 +540,7 @@ class _PluginCard extends StatelessWidget {
     for (final depId in plugin.dependencies) {
       final dep = controller.pluginById(depId);
       if (dep == null || !dep.isInstalled) {
-        _showPluginSnackBar(
+        showOpenHandSnackBar(
           context,
           SnackBar(
             content: Text(
@@ -576,7 +572,7 @@ class _PluginCard extends StatelessWidget {
     } catch (error, stack) {
       silentLog('plugin_service_view', 'dismiss install dialog', error, stack);
     }
-    _showPluginSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -614,7 +610,7 @@ class _PluginCard extends StatelessWidget {
     } catch (error, stack) {
       silentLog('plugin_service_view', 'dismiss update dialog', error, stack);
     }
-    _showPluginSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -631,7 +627,7 @@ class _PluginCard extends StatelessWidget {
     final refreshed = await controller.checkPluginUpdate(plugin.id);
     if (!context.mounted) return;
     if (refreshed == null) {
-      _showPluginSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(
@@ -642,7 +638,7 @@ class _PluginCard extends StatelessWidget {
       return;
     }
     final checkedPlugin = controller.pluginById(plugin.id) ?? refreshed;
-    _showPluginSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -661,7 +657,7 @@ class _PluginCard extends StatelessWidget {
     for (final dependentId in plugin.dependents) {
       final dependent = controller.pluginById(dependentId);
       if (dependent != null && dependent.isInstalled) {
-        _showPluginSnackBar(
+        showOpenHandSnackBar(
           context,
           SnackBar(
             content: Text(
@@ -698,7 +694,7 @@ class _PluginCard extends StatelessWidget {
         stack,
       );
     }
-    _showPluginSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(

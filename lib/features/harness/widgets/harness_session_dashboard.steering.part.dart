@@ -610,7 +610,7 @@ class _HeSteeringFileEditorDialogState
         _dirty = false;
         _saving = false;
       });
-      _showHarnessSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(

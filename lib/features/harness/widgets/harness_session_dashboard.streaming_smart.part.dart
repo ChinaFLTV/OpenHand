@@ -177,7 +177,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
       recognizer.onTap = () {
         Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
         if (mounted) {
-          _showHarnessSnackBar(
+          showOpenHandSnackBar(
             context,
             SnackBar(
               content: Text('Path copied: ${resolvedPath.resolvedPath}'),
@@ -204,7 +204,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
       ..onTap = () {
         Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
         if (mounted) {
-          _showHarnessSnackBar(
+          showOpenHandSnackBar(
             context,
             SnackBar(
               content: Text('Path copied: ${resolvedPath.resolvedPath}'),
@@ -609,7 +609,7 @@ class _HeFilePathChipInline extends StatelessWidget {
   }
 
   void _openPath(BuildContext context) {
-    _heOpenPathInFileBrowser(context, resolvedPath, isDirectory: isDirectory);
+    _heOpenPathInFileBrowser(context, resolvedPath);
   }
 }
 

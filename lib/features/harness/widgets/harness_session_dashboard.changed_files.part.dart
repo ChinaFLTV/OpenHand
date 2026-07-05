@@ -321,7 +321,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                           Clipboard.setData(
                             ClipboardData(text: diffLines.join('\n')),
                           );
-                          _showHarnessSnackBar(
+                          showOpenHandSnackBar(
                             context,
                             SnackBar(
                               content: Text(

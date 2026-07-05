@@ -1356,7 +1356,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (l10n == null) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
-    _showHomeSnackBarWithMessenger(
+    showOpenHandSnackBarOn(
       context,
       messenger,
       SnackBar(
@@ -1453,7 +1453,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       source: AiToolSearchLoadSource.harnessPhase,
     );
     _touchHarnessHistoryBucket(phaseSessionId).add(entry);
-    _showHomeSnackBarWithMessenger(
+    showOpenHandSnackBarOn(
       context,
       messenger,
       SnackBar(
@@ -1540,7 +1540,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       if (mounted && l10n != null && messenger != null) {
         OpenHandSnackBar.hideCurrentOn(messenger);
-        _showHomeSnackBarWithMessenger(
+        showOpenHandSnackBarOn(
           context,
           messenger,
           SnackBar(
@@ -1566,7 +1566,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final l10nNow = AppLocalizations.of(context);
       final messengerNow = ScaffoldMessenger.maybeOf(context);
       if (l10nNow != null && messengerNow != null) {
-        _showHomeSnackBarWithMessenger(
+        showOpenHandSnackBarOn(
           context,
           messengerNow,
           SnackBar(
@@ -1580,7 +1580,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
 
     if (l10n != null && messenger != null) {
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -3018,7 +3018,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (outcome.success) {
         final messenger = ScaffoldMessenger.maybeOf(context);
         if (messenger != null) {
-          _showHomeSnackBarWithMessenger(
+          showOpenHandSnackBarOn(
             context,
             messenger,
             SnackBar(
@@ -3038,7 +3038,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                       ? '${AppLocalizations.of(context)!.fileMutationRedo}: '
                             '${r.filePath}'
                       : AppLocalizations.of(context)!.fileMutationRedoFailed;
-                  _showHomeSnackBar(
+                  showOpenHandSnackBar(
                     context,
                     SnackBar(
                       content: Text(msg),
@@ -4748,7 +4748,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final config = WebReverseSessionConfig.fromJson(raw);
     if (config == null) {
       if (mounted) {
-        _showHomeSnackBar(
+        showOpenHandSnackBar(
           context,
           SnackBar(
             content: Text(
@@ -5719,7 +5719,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final currentSession = sessionController.currentSession;
     if (currentSession == null) {
       if (mode == AiSessionMode.goal) {
-        _showHomeSnackBar(
+        showOpenHandSnackBar(
           context,
           SnackBar(
             content: Text(
@@ -5747,7 +5747,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     AiSessionGoalStartOptions? pendingGoalStartOptions;
     if (mode == AiSessionMode.goal) {
       if (!aiSessionGoalModeAllowedForTemplate(currentSession.templateId)) {
-        _showHomeSnackBar(
+        showOpenHandSnackBar(
           context,
           SnackBar(
             content: Text(
@@ -5942,7 +5942,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     OpenHandSnackBar.hideCurrentOn(ScaffoldMessenger.of(context));
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -5980,7 +5980,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       selectedModel,
     );
     if (pendingAttachments.isNotEmpty && !attachmentCapabilities.supportsAny) {
-      _showHomeSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(
@@ -6029,7 +6029,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final slashCommand = parseOpenHandSlashCommand(prompt);
     if (slashCommand != null) {
       if (pendingAttachments.isNotEmpty) {
-        _showHomeSnackBar(
+        showOpenHandSnackBar(
           context,
           SnackBar(
             content: Text(
@@ -6183,7 +6183,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         zh: '当前目标仍在执行中，请暂停后继续目标或终止目标。',
         en: 'A goal is active. Resume or terminate it before sending manually.',
       );
-      _showHomeSnackBar(
+      showOpenHandSnackBar(
         activeContext,
         SnackBar(content: Text(activeGoalMessage)),
       );
@@ -6630,7 +6630,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       if (mounted) {
         final errorMessage = '$error'.trim();
-        _showHomeSnackBar(
+        showOpenHandSnackBar(
           context,
           SnackBar(
             content: Text(
@@ -7043,7 +7043,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
     }
     if (lines.isNotEmpty) {
-      _showHomeSnackBar(context, SnackBar(content: Text(lines.join('\n'))));
+      showOpenHandSnackBar(context, SnackBar(content: Text(lines.join('\n'))));
     }
   }
 
@@ -7847,7 +7847,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       case OpenHandSlashCommandKind.status:
         final session = context.read<AiSessionController>().currentSession;
         if (session == null) {
-          _showHomeSnackBar(
+          showOpenHandSnackBar(
             context,
             SnackBar(
               content: Text(
@@ -7886,7 +7886,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             currentSessionId != null &&
             _canStopCurrentSessionResponse(sessionController);
         if (!hasActiveResponse) {
-          _showHomeSnackBar(
+          showOpenHandSnackBar(
             context,
             SnackBar(
               content: Text(
@@ -7902,7 +7902,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
         await _stopResponding();
         if (mounted) {
-          _showHomeSnackBar(
+          showOpenHandSnackBar(
             context,
             SnackBar(
               content: Text(
@@ -7983,7 +7983,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         en: 'Harness Session',
       ),
     };
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -8079,7 +8079,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   return;
                 }
                 Navigator.of(dialogContext).pop();
-                _showHomeSnackBarWithMessenger(
+                showOpenHandSnackBarOn(
                   context,
                   scaffoldMessenger,
                   OpenHandSnackBar.success(context, copiedLabel),
@@ -8114,7 +8114,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || renamed) {
       return;
     }
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -8317,7 +8317,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || userCancelled) return;
       await closeProgressDialog();
       if (!mounted || userCancelled) return;
-      _showHomeSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(
@@ -8385,7 +8385,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       return;
     }
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -8490,7 +8490,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         stack,
       );
       if (!mounted) return;
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -8507,7 +8507,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (loaded == null || !mounted) {
       if (mounted) {
-        _showHomeSnackBarWithMessenger(
+        showOpenHandSnackBarOn(
           context,
           messenger,
           SnackBar(
@@ -8550,7 +8550,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         stack,
       );
       if (!mounted) return;
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -8648,7 +8648,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         stack,
       );
       if (!mounted) return;
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(
@@ -8812,7 +8812,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted) {
       return;
     }
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -8843,7 +8843,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || deleted) {
       return deleted;
     }
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -8876,7 +8876,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || deleted) {
       return deleted;
     }
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -8916,7 +8916,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     if (forked == null) {
-      _showHomeSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(
@@ -8935,7 +8935,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _selectedSection = AppSection.workspace;
       _armAutoFollowToBottom(notifyPausedState: false);
     });
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -8962,7 +8962,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || saved) {
       return;
     }
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -8993,7 +8993,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || selected) {
       return;
     }
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -9082,7 +9082,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || cancelled) {
       return;
     }
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -9463,7 +9463,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           if (settingsController.aiInputCacheEnabled &&
               session != null &&
               session.statistics.assistantMessageCount > 0) {
-            _showHomeSnackBar(
+            showOpenHandSnackBar(
               context,
               SnackBar(
                 content: Text(

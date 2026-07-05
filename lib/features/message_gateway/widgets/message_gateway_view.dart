@@ -33,10 +33,6 @@ import '../message_gateway_controller.dart';
 import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
 
-void _showGatewaySnackBar(BuildContext context, SnackBar snackBar) {
-  OpenHandSnackBar.showInContext(context, snackBar);
-}
-
 String _gatewayText(
   BuildContext context, {
   required String zh,
@@ -796,7 +792,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
   ) async {
     final result = await controller.runHealthCheck();
     if (!context.mounted) return;
-    _showGatewaySnackBar(
+    showOpenHandSnackBar(
       context,
       result.ok
           ? OpenHandSnackBar.success(
@@ -2111,7 +2107,12 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       listenHost: _hostController.text.trim().isEmpty
           ? '0.0.0.0'
           : _hostController.text.trim(),
-      listenPort: _int(_portController.text, 8848),
+      listenPort: _boundedInt(
+        _portController.text,
+        fallback: kWebGatewayDefaultListenPort,
+        min: kWebGatewayMinListenPort,
+        max: kWebGatewayMaxListenPort,
+      ),
       authEnabled: _authEnabled,
       username: _usernameController.text.trim().isEmpty
           ? 'openhand'
@@ -2120,7 +2121,12 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       telemetryEnabled: _telemetryEnabled,
       loggingEnabled: _loggingEnabled,
       opsEnabled: _opsEnabled,
-      maxConcurrentRequests: _int(_maxConcurrentController.text, 200),
+      maxConcurrentRequests: _boundedInt(
+        _maxConcurrentController.text,
+        fallback: kWebGatewayDefaultMaxConcurrentRequests,
+        min: kWebGatewayMinConcurrentRequests,
+        max: kWebGatewayMaxConcurrentRequests,
+      ),
       allowedTemplateIds: _templates.toList(growable: false),
       allowedSkillNames: _skills.toList(growable: false),
       allowedMcpServerNames: _mcpServers.toList(growable: false),
@@ -2140,26 +2146,42 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       translationEnabled: _translationEnabled,
       feedbackEnabled: _feedbackEnabled,
       regenerationEnabled: _regenerationEnabled,
-      singleMessageTokenLimit: _int(_singleMessageController.text, 2000),
-      maxMessagesPerSession: _int(_maxMessagesController.text, 100),
+      singleMessageTokenLimit: _boundedInt(
+        _singleMessageController.text,
+        fallback: kWebGatewayDefaultSingleMessageTokenLimit,
+        min: kWebGatewayMinSingleMessageTokenLimit,
+        max: kWebGatewayMaxSingleMessageTokenLimit,
+      ),
+      maxMessagesPerSession: _boundedInt(
+        _maxMessagesController.text,
+        fallback: kWebGatewayDefaultMaxMessagesPerSession,
+        min: kWebGatewayMinMessagesPerSession,
+        max: kWebGatewayMaxMessagesPerSession,
+      ),
       sessionManagementEnabled: _sessionManagementEnabled,
       workspaceFileWriteEnabled: _workspaceFileWriteEnabled,
-      workspaceFileMaxBytes:
-          math.max(1, _int(_workspaceFileMaxMbController.text, 1)) *
-          1024 *
-          1024,
+      workspaceFileMaxBytes: _boundedMegabytesAsBytes(
+        _workspaceFileMaxMbController.text,
+        fallbackBytes: kWebGatewayDefaultWorkspaceFileMaxBytes,
+        minBytes: kWebGatewayMinWorkspaceFileMaxBytes,
+        maxBytes: kWebGatewayMaxWorkspaceFileMaxBytes,
+      ),
       workspaceFileAllowedExtensions:
           webGatewayNormalizeWorkspaceFileExtensions(
             _workspaceFileExtensionsController.text,
           ),
-      uploadCacheRetentionDays: _int(
+      uploadCacheRetentionDays: _boundedInt(
         _uploadCacheRetentionDaysController.text,
-        7,
+        fallback: kWebGatewayDefaultUploadCacheRetentionDays,
+        min: kWebGatewayMinUploadCacheRetentionDays,
+        max: kWebGatewayMaxUploadCacheRetentionDays,
       ),
-      uploadCacheMaxBytes:
-          math.max(1, _int(_uploadCacheMaxMbController.text, 512)) *
-          1024 *
-          1024,
+      uploadCacheMaxBytes: _boundedMegabytesAsBytes(
+        _uploadCacheMaxMbController.text,
+        fallbackBytes: kWebGatewayDefaultUploadCacheMaxBytes,
+        minBytes: kWebGatewayMinUploadCacheMaxBytes,
+        maxBytes: kWebGatewayMaxUploadCacheMaxBytes,
+      ),
       healthCheck: WebGatewayHealthCheckConfig(
         enabled: _healthEnabled,
         path: _healthPathController.text.trim().isEmpty
@@ -2168,17 +2190,41 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
         method: _healthMethodController.text.trim().isEmpty
             ? 'GET'
             : _healthMethodController.text.trim().toUpperCase(),
-        timeoutMs: _int(_healthTimeoutController.text, 3000),
-        expectedStatusCode: _int(_healthStatusController.text, 200),
+        timeoutMs: _boundedInt(
+          _healthTimeoutController.text,
+          fallback: kWebGatewayDefaultHealthTimeoutMs,
+          min: kWebGatewayMinHealthTimeoutMs,
+          max: kWebGatewayMaxHealthTimeoutMs,
+        ),
+        expectedStatusCode: _boundedInt(
+          _healthStatusController.text,
+          fallback: kWebGatewayDefaultHealthStatusCode,
+          min: kWebGatewayMinHealthStatusCode,
+          max: kWebGatewayMaxHealthStatusCode,
+        ),
         responseContains: _healthContainsController.text.trim(),
         queryParameters: _parseQueryParameters(_healthQueryController.text),
         followRedirects: _healthFollowRedirects,
       ),
       logConfig: WebGatewayLogConfig(
-        fileMaxBytes:
-            math.max(1, _int(_logMaxMbController.text, 50)) * 1024 * 1024,
-        rotationDays: _int(_logRotationDaysController.text, 7),
-        maxFiles: _int(_logMaxFilesController.text, 10),
+        fileMaxBytes: _boundedMegabytesAsBytes(
+          _logMaxMbController.text,
+          fallbackBytes: kWebGatewayDefaultLogFileMaxBytes,
+          minBytes: kWebGatewayMinLogFileMaxBytes,
+          maxBytes: kWebGatewayMaxLogFileMaxBytes,
+        ),
+        rotationDays: _boundedInt(
+          _logRotationDaysController.text,
+          fallback: kWebGatewayDefaultLogRotationDays,
+          min: kWebGatewayMinLogRotationDays,
+          max: kWebGatewayMaxLogRotationDays,
+        ),
+        maxFiles: _boundedInt(
+          _logMaxFilesController.text,
+          fallback: kWebGatewayDefaultLogMaxFiles,
+          min: kWebGatewayMinLogMaxFiles,
+          max: kWebGatewayMaxLogMaxFiles,
+        ),
       ),
     );
     try {
@@ -2187,7 +2233,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       Navigator.of(context).pop();
     } catch (error) {
       if (!mounted) return;
-      _showGatewaySnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.error(
           context,
@@ -2758,7 +2804,7 @@ class _WebGatewayConnectivityDialogState
       ClipboardData(text: encoder.convert(result.toJson())),
     );
     if (!mounted) return;
-    _showGatewaySnackBar(
+    showOpenHandSnackBar(
       context,
       OpenHandSnackBar.success(
         context,
@@ -3580,7 +3626,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       _anchorLogId = logs.isEmpty ? 0 : logs.last.id;
       _historyLimit = 0;
     });
-    _showGatewaySnackBar(
+    showOpenHandSnackBar(
       context,
       OpenHandSnackBar.success(
         context,
@@ -3703,7 +3749,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       ClipboardData(text: logs.map((entry) => entry.toLogLine()).join('\n')),
     );
     if (!mounted) return;
-    _showGatewaySnackBar(
+    showOpenHandSnackBar(
       context,
       OpenHandSnackBar.success(
         context,
@@ -3739,7 +3785,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       final text = await widget.controller.exportCurrentLogText();
       await File(location.path).writeAsString(text);
       if (!mounted) return;
-      _showGatewaySnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.success(
           context,
@@ -3757,7 +3803,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog> {
       );
     } catch (error) {
       if (!mounted) return;
-      _showGatewaySnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.error(
           context,
@@ -4931,7 +4977,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       await action();
       await _tick();
       if (!mounted) return;
-      _showGatewaySnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.success(
           context,
@@ -4949,7 +4995,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       );
     } catch (error) {
       if (!mounted) return;
-      _showGatewaySnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.error(
           context,
@@ -4977,7 +5023,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       final result = await widget.controller.runHealthCheck();
       await _tick();
       if (!mounted) return;
-      _showGatewaySnackBar(
+      showOpenHandSnackBar(
         context,
         result.ok
             ? OpenHandSnackBar.success(
@@ -4993,7 +5039,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       );
     } catch (error) {
       if (!mounted) return;
-      _showGatewaySnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.error(
           context,
@@ -5023,7 +5069,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
     try {
       final result = await action();
       if (!mounted) return;
-      _showGatewaySnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.success(
           context,
@@ -5042,7 +5088,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
       await _tick();
     } catch (error) {
       if (!mounted) return;
-      _showGatewaySnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.error(
           context,
@@ -5150,7 +5196,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
   Future<void> _copy(BuildContext context, String url) async {
     await Clipboard.setData(ClipboardData(text: url));
     if (!context.mounted) return;
-    _showGatewaySnackBar(
+    showOpenHandSnackBar(
       context,
       OpenHandSnackBar.success(
         context,
@@ -5169,23 +5215,13 @@ class _AccessibleUrlsBar extends StatelessWidget {
 
   Future<void> _open(BuildContext context, String url) async {
     try {
-      final opened = Platform.isMacOS
-          ? await runDetachedSystemOpen('open', <String>[
-              url,
-            ], tag: 'message_gateway.open_url')
-          : Platform.isWindows
-          ? await runDetachedSystemOpen(
-              'cmd',
-              <String>['/c', 'start', '', url],
-              tag: 'message_gateway.open_url',
-              runInShell: true,
-            )
-          : await runDetachedSystemOpen('xdg-open', <String>[
-              url,
-            ], tag: 'message_gateway.open_url');
+      final opened = await openHttpUrlWithSystemBrowser(
+        url,
+        tag: 'message_gateway.open_url',
+      );
       if (!context.mounted) return;
       if (!opened) {
-        _showGatewaySnackBar(
+        showOpenHandSnackBar(
           context,
           OpenHandSnackBar.error(
             context,
@@ -5202,7 +5238,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
         );
         return;
       }
-      _showGatewaySnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.info(
           context,
@@ -5220,7 +5256,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
     } catch (error, stack) {
       silentLog('message_gateway_view', 'open url', error, stack);
       if (!context.mounted) return;
-      _showGatewaySnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.error(
           context,
@@ -8702,8 +8738,38 @@ Map<String, String> _parseQueryParameters(String raw) {
   return result;
 }
 
-int _int(String value, int fallback) {
-  return positiveIntFromText(value, fallback: fallback);
+int _boundedInt(
+  String value, {
+  required int fallback,
+  required int min,
+  required int max,
+}) {
+  return clampedIntFromText(value, fallback: fallback, min: min, max: max);
+}
+
+int _boundedMegabytesAsBytes(
+  String value, {
+  required int fallbackBytes,
+  required int minBytes,
+  required int maxBytes,
+}) {
+  const bytesPerMegabyte = 1024 * 1024;
+  final minMegabytes = math.max(1, (minBytes / bytesPerMegabyte).ceil());
+  final maxMegabytes = math.max(
+    minMegabytes,
+    (maxBytes / bytesPerMegabyte).floor(),
+  );
+  final fallbackMegabytes = (fallbackBytes / bytesPerMegabyte)
+      .round()
+      .clamp(minMegabytes, maxMegabytes)
+      .toInt();
+  return _boundedInt(
+        value,
+        fallback: fallbackMegabytes,
+        min: minMegabytes,
+        max: maxMegabytes,
+      ) *
+      bytesPerMegabyte;
 }
 
 String _rate(double value) {

@@ -2611,7 +2611,7 @@ class _ComposerCreationModeButtonState
         _ => '',
       };
       if (label.isNotEmpty) {
-        _showHomeSnackBar(
+        showOpenHandSnackBar(
           context,
           SnackBar(
             content: Text(label),

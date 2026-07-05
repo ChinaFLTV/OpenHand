@@ -197,7 +197,7 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
       recognizer.onTap = () {
         Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
         if (mounted) {
-          _showHarnessSnackBar(
+          showOpenHandSnackBar(
             context,
             SnackBar(
               content: Text('Path copied: ${resolvedPath.resolvedPath}'),
@@ -224,7 +224,7 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
       ..onTap = () {
         Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
         if (mounted) {
-          _showHarnessSnackBar(
+          showOpenHandSnackBar(
             context,
             SnackBar(
               content: Text('Path copied: ${resolvedPath.resolvedPath}'),
@@ -811,7 +811,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
     Clipboard.setData(ClipboardData(text: widget.content))
         .then((_) {
           if (!mounted) return;
-          _showHarnessSnackBar(
+          showOpenHandSnackBar(
             context,
             SnackBar(
               content: Text(
@@ -832,7 +832,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
         .catchError((Object _) {
           if (!mounted) return;
           setState(() => _copied = false);
-          _showHarnessSnackBar(
+          showOpenHandSnackBar(
             context,
             SnackBar(
               content: Text(

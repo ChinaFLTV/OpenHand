@@ -1,9 +1,5 @@
 part of 'settings_view.dart';
 
-void _showDataCleanupSnackBar(BuildContext context, SnackBar snackBar) {
-  OpenHandSnackBar.showInContext(context, snackBar);
-}
-
 /// 这是一个独立的 [StatefulWidget]，自己持有 [DataCleanupService] 实例，
 /// 在 [State.initState] 中触发首次异步测算，避免阻塞 settings 页面构建。
 ///
@@ -277,12 +273,9 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
     }
     if (!mounted) return;
     if (errorText != null) {
-      _showDataCleanupSnackBar(
-        context,
-        OpenHandSnackBar.error(context, errorText),
-      );
+      showOpenHandSnackBar(context, OpenHandSnackBar.error(context, errorText));
     } else {
-      _showDataCleanupSnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.success(context, successText),
       );
@@ -883,7 +876,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         setState(() => _lastGcStats = gc);
         _cleanupPulse.value += 1;
         // SnackBar 反馈与 undo/redo 节奏一致：2s。
-        _showDataCleanupSnackBar(
+        showOpenHandSnackBar(
           context,
           OpenHandSnackBar.success(
             context,
@@ -919,7 +912,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       zh: '正在导出全部 ledger…',
       en: 'Exporting all ledger…',
     );
-    _showDataCleanupSnackBar(
+    showOpenHandSnackBar(
       context,
       OpenHandSnackBar.info(
         context,
@@ -933,7 +926,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       _cleanupPulse.value += 1;
       if (!mounted) return;
       final bytes = utf8.encode(json).length;
-      _showDataCleanupSnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.success(
           context,
@@ -947,7 +940,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     } catch (error, stack) {
       silentLog('ledger_export', 'export', error, stack);
       if (!mounted) return;
-      _showDataCleanupSnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.error(
           context,
@@ -966,7 +959,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     final raw = clip?.text ?? '';
     if (!mounted) return;
     if (raw.trim().isEmpty) {
-      _showDataCleanupSnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.info(
           context,
@@ -1007,7 +1000,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
       _cleanupPulse.value += 1;
       await _refreshStats();
       if (!mounted) return;
-      _showDataCleanupSnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.success(
           context,
@@ -1021,7 +1014,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     } catch (error, stack) {
       silentLog('ledger_import', 'import', error, stack);
       if (!mounted) return;
-      _showDataCleanupSnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.error(
           context,
@@ -1401,7 +1394,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
     ).convert(_results.map((v) => v.record.toJson()).toList());
     await Clipboard.setData(ClipboardData(text: json));
     if (!mounted) return;
-    _showDataCleanupSnackBar(
+    showOpenHandSnackBar(
       context,
       OpenHandSnackBar.success(
         context,
@@ -1424,7 +1417,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
       );
       await Clipboard.setData(ClipboardData(text: bundle));
       if (!mounted) return;
-      _showDataCleanupSnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.success(
           context,
@@ -1438,7 +1431,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
     } catch (error, stack) {
       silentLog('_LedgerSearchDialog', 'exportFilteredAsBundle', error, stack);
       if (!mounted) return;
-      _showDataCleanupSnackBar(
+      showOpenHandSnackBar(
         context,
         OpenHandSnackBar.error(
           context,

@@ -9539,7 +9539,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     } catch (error, stack) {
       silentLog('file_explorer', 'save file $filePath', error, stack);
       if (!mounted) return;
-      _showHomeSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(

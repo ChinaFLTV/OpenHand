@@ -495,7 +495,7 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: rendered));
                         if (!context.mounted) return;
-                        _showHomeSnackBar(
+                        showOpenHandSnackBar(
                           context,
                           SnackBar(
                             content: Text(
@@ -1383,7 +1383,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                 ClipboardData(text: _auditFormatJson(payload)),
               );
               if (!context.mounted) return;
-              _showHomeSnackBar(
+              showOpenHandSnackBar(
                 context,
                 SnackBar(
                   content: Text(
@@ -1530,7 +1530,7 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
       }
       await widget.controller.updateSessionMetadata(_liveSession.id, payload);
       if (!mounted) return;
-      _showHomeSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(

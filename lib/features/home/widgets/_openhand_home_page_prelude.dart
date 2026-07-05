@@ -331,15 +331,3 @@ Future<void> _awaitEndOfFrame() async {
   // handleDrawFrame into the next microtask-free event-loop cycle.
   await Future<void>.delayed(Duration.zero);
 }
-
-void _showHomeSnackBar(BuildContext context, SnackBar snackBar) {
-  OpenHandSnackBar.showInContext(context, snackBar);
-}
-
-void _showHomeSnackBarWithMessenger(
-  BuildContext context,
-  ScaffoldMessengerState messenger,
-  SnackBar snackBar,
-) {
-  OpenHandSnackBar.show(context, messenger, snackBar);
-}

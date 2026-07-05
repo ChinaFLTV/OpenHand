@@ -209,7 +209,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       );
       if (!mounted) return;
       if (!r.success) {
-        _showHomeSnackBar(
+        showOpenHandSnackBar(
           context,
           SnackBar(
             content: Text(
@@ -241,7 +241,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       );
       if (!mounted) return;
       if (!r.success) {
-        _showHomeSnackBar(
+        showOpenHandSnackBar(
           context,
           SnackBar(
             content: Text(
@@ -335,7 +335,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     _refresh();
     if (failure > 0) {
       final l10n = AppLocalizations.of(context)!;
-      _showHomeSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(
@@ -382,7 +382,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     }
     await Clipboard.setData(ClipboardData(text: buf.toString()));
     if (!mounted) return;
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -2201,7 +2201,7 @@ String? _languageFromFilePath(String path) {
 Future<void> _copyPathToClipboard(BuildContext context, String filePath) async {
   await Clipboard.setData(ClipboardData(text: filePath));
   if (!context.mounted) return;
-  _showHomeSnackBar(
+  showOpenHandSnackBar(
     context,
     SnackBar(
       content: Text(AppLocalizations.of(context)!.fileMutationPathCopied),
@@ -2230,7 +2230,7 @@ Future<void> _revealFileMutationPath(
 ) async {
   final rawPath = filePath.trim();
   if (rawPath.isEmpty) {
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(_fileMutationRevealPathFailedLabel(context)),
@@ -2260,7 +2260,7 @@ Future<void> _revealFileMutationPath(
     );
     if (!context.mounted) return;
     if (!ok) {
-      _showHomeSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(_fileMutationRevealPathFailedLabel(context)),
@@ -2271,7 +2271,7 @@ Future<void> _revealFileMutationPath(
   } catch (error, stack) {
     silentLog('file_mutation_entry', 'reveal path', error, stack);
     if (!context.mounted) return;
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(_fileMutationRevealPathFailedLabel(context)),
@@ -2980,7 +2980,7 @@ class _InspectorEntryRow extends StatelessWidget {
       final json = jsonEncode(view.record.toJson());
       await Clipboard.setData(ClipboardData(text: json));
       if (context.mounted) {
-        _showHomeSnackBar(
+        showOpenHandSnackBar(
           context,
           SnackBar(
             duration: const Duration(seconds: 2),
@@ -3001,7 +3001,7 @@ class _InspectorEntryRow extends StatelessWidget {
     } else if (selected == 'copy_id') {
       await Clipboard.setData(ClipboardData(text: view.record.recordId));
       if (context.mounted) {
-        _showHomeSnackBar(
+        showOpenHandSnackBar(
           context,
           SnackBar(
             duration: const Duration(seconds: 2),
@@ -3526,7 +3526,7 @@ class _RoundFileMutationSummaryCardState
                 highlight: true,
               );
           if (fallbackOk && mounted) {
-            _showHomeSnackBar(
+            showOpenHandSnackBar(
               context,
               SnackBar(
                 duration: const Duration(milliseconds: 2800),
@@ -3546,7 +3546,7 @@ class _RoundFileMutationSummaryCardState
     }
 
     if (!mounted) return;
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         duration: const Duration(milliseconds: 2200),
@@ -3685,7 +3685,7 @@ class _RoundFileMutationSummaryCardState
         stack,
       );
       if (!mounted) return;
-      _showHomeSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           duration: const Duration(milliseconds: 2400),
@@ -3703,7 +3703,7 @@ class _RoundFileMutationSummaryCardState
     if (location == null) {
       // 用户主动取消：弹一条 toast 让 UI 状态闭合。
       if (!mounted) return;
-      _showHomeSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           duration: const Duration(milliseconds: 1600),
@@ -3728,7 +3728,7 @@ class _RoundFileMutationSummaryCardState
         stack,
       );
       if (!mounted) return;
-      _showHomeSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           duration: const Duration(milliseconds: 2800),
@@ -3745,7 +3745,7 @@ class _RoundFileMutationSummaryCardState
     }
     if (!mounted) return;
     _pulseSignal.value += 1;
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         duration: const Duration(milliseconds: 2400),

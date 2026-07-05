@@ -8,6 +8,45 @@ const String webGatewayLoginSourceKey = 'login_source';
 const String webGatewayDeviceIdKey = 'device_id';
 const String webGatewayDeviceMacKey = 'device_mac_address';
 const String webGatewayDenyAllSelectionMarker = '__openhand_deny_all__';
+const int kWebGatewayDefaultListenPort = 8848;
+const int kWebGatewayMinListenPort = 1;
+const int kWebGatewayMaxListenPort = 65535;
+const int kWebGatewayDefaultMaxConcurrentRequests = 200;
+const int kWebGatewayMinConcurrentRequests = 1;
+const int kWebGatewayMaxConcurrentRequests = 5000;
+const int kWebGatewayDefaultSingleMessageTokenLimit = 2000;
+const int kWebGatewayMinSingleMessageTokenLimit = 64;
+const int kWebGatewayMaxSingleMessageTokenLimit = 200000;
+const int kWebGatewayDefaultMaxMessagesPerSession = 100;
+const int kWebGatewayMinMessagesPerSession = 1;
+const int kWebGatewayMaxMessagesPerSession = 10000;
+const int kWebGatewayDefaultWorkspaceFileMaxBytes = 1024 * 1024;
+const int kWebGatewayMinWorkspaceFileMaxBytes = 1024;
+const int kWebGatewayMaxWorkspaceFileMaxBytes = 32 * 1024 * 1024;
+const int kWebGatewayDefaultUploadCacheRetentionDays = 7;
+const int kWebGatewayMinUploadCacheRetentionDays = 1;
+const int kWebGatewayMaxUploadCacheRetentionDays = 180;
+const int kWebGatewayDefaultUploadCacheMaxBytes = 512 * 1024 * 1024;
+const int kWebGatewayMinUploadCacheMaxBytes = 1024 * 1024;
+const int kWebGatewayMaxUploadCacheMaxBytes = 10 * 1024 * 1024 * 1024;
+const int kWebGatewayDefaultHealthTimeoutMs = 3000;
+const int kWebGatewayMinHealthTimeoutMs = 250;
+const int kWebGatewayMaxHealthTimeoutMs = 60000;
+const int kWebGatewayDefaultHealthStatusCode = 200;
+const int kWebGatewayMinHealthStatusCode = 100;
+const int kWebGatewayMaxHealthStatusCode = 599;
+const int kWebGatewayDefaultLogFileMaxBytes = 50 * 1024 * 1024;
+const int kWebGatewayMinLogFileMaxBytes = 1024 * 1024;
+const int kWebGatewayMaxLogFileMaxBytes = 512 * 1024 * 1024;
+const int kWebGatewayDefaultLogRotationDays = 7;
+const int kWebGatewayMinLogRotationDays = 1;
+const int kWebGatewayMaxLogRotationDays = 90;
+const int kWebGatewayDefaultLogMaxFiles = 10;
+const int kWebGatewayMinLogMaxFiles = 1;
+const int kWebGatewayMaxLogMaxFiles = 100;
+const int kWebGatewayDefaultLogLazyReadPageSize = 300;
+const int kWebGatewayMinLogLazyReadPageSize = 50;
+const int kWebGatewayMaxLogLazyReadPageSize = 5000;
 const Set<String> webGatewayKnowledgeBaseBuiltinToolNames = <String>{
   'KnowledgeSearch',
   'KnowledgeRead',
@@ -122,8 +161,8 @@ class WebGatewayHealthCheckConfig {
     this.path = '/api/health',
     this.method = 'GET',
     this.queryParameters = const <String, String>{},
-    this.timeoutMs = 3000,
-    this.expectedStatusCode = 200,
+    this.timeoutMs = kWebGatewayDefaultHealthTimeoutMs,
+    this.expectedStatusCode = kWebGatewayDefaultHealthStatusCode,
     this.responseContains = 'ok',
     this.followRedirects = false,
   });
@@ -136,15 +175,15 @@ class WebGatewayHealthCheckConfig {
       queryParameters: _stringMap(json['query_parameters']),
       timeoutMs: clampedIntFromValue(
         json['timeout_ms'],
-        fallback: 3000,
-        min: 250,
-        max: 60000,
+        fallback: kWebGatewayDefaultHealthTimeoutMs,
+        min: kWebGatewayMinHealthTimeoutMs,
+        max: kWebGatewayMaxHealthTimeoutMs,
       ),
       expectedStatusCode: clampedIntFromValue(
         json['expected_status_code'],
-        fallback: 200,
-        min: 100,
-        max: 599,
+        fallback: kWebGatewayDefaultHealthStatusCode,
+        min: kWebGatewayMinHealthStatusCode,
+        max: kWebGatewayMaxHealthStatusCode,
       ),
       responseContains: _stringValue(json['response_contains']).trim(),
       followRedirects: boolFromValue(json['follow_redirects']),
@@ -182,48 +221,70 @@ class WebGatewayHealthCheckConfig {
     );
   }
 
+  WebGatewayHealthCheckConfig normalized() {
+    return WebGatewayHealthCheckConfig(
+      enabled: enabled,
+      path: _nonEmptyString(path, '/api/health'),
+      method: _nonEmptyString(method, 'GET').toUpperCase(),
+      queryParameters: _stringMap(queryParameters),
+      timeoutMs: _clampInt(
+        timeoutMs,
+        min: kWebGatewayMinHealthTimeoutMs,
+        max: kWebGatewayMaxHealthTimeoutMs,
+      ),
+      expectedStatusCode: _clampInt(
+        expectedStatusCode,
+        min: kWebGatewayMinHealthStatusCode,
+        max: kWebGatewayMaxHealthStatusCode,
+      ),
+      responseContains: responseContains.trim(),
+      followRedirects: followRedirects,
+    );
+  }
+
   Map<String, Object?> toJson() {
+    final value = normalized();
     return <String, Object?>{
-      'enabled': enabled,
-      'path': path,
-      'method': method,
-      'query_parameters': queryParameters,
-      'timeout_ms': timeoutMs,
-      'expected_status_code': expectedStatusCode,
-      'response_contains': responseContains,
-      'follow_redirects': followRedirects,
+      'enabled': value.enabled,
+      'path': value.path,
+      'method': value.method,
+      'query_parameters': value.queryParameters,
+      'timeout_ms': value.timeoutMs,
+      'expected_status_code': value.expectedStatusCode,
+      'response_contains': value.responseContains,
+      'follow_redirects': value.followRedirects,
     };
   }
 }
 
 class WebGatewayLogConfig {
   const WebGatewayLogConfig({
-    this.fileMaxBytes = 50 * 1024 * 1024,
-    this.rotationDays = 7,
-    this.maxFiles = 10,
+    this.fileMaxBytes = kWebGatewayDefaultLogFileMaxBytes,
+    this.rotationDays = kWebGatewayDefaultLogRotationDays,
+    this.maxFiles = kWebGatewayDefaultLogMaxFiles,
     this.levels = const <String>['info', 'warn', 'error', 'debug'],
-    this.lazyReadPageSize = 300,
+    this.lazyReadPageSize = kWebGatewayDefaultLogLazyReadPageSize,
   });
 
   factory WebGatewayLogConfig.fromJson(Map<String, Object?> json) {
     return WebGatewayLogConfig(
       fileMaxBytes: clampedIntFromValue(
         json['file_max_bytes'],
-        fallback: 50 * 1024 * 1024,
-        min: 1024 * 1024,
-        max: 512 * 1024 * 1024,
+        fallback: kWebGatewayDefaultLogFileMaxBytes,
+        min: kWebGatewayMinLogFileMaxBytes,
+        max: kWebGatewayMaxLogFileMaxBytes,
       ),
       rotationDays: clampedIntFromValue(
         json['rotation_days'],
-        fallback: 7,
-        min: 1,
-        max: 90,
+        fallback: kWebGatewayDefaultLogRotationDays,
+        min: kWebGatewayMinLogRotationDays,
+        max: kWebGatewayMaxLogRotationDays,
       ),
       maxFiles: clampedIntFromValue(
         json['max_files'],
-        fallback: 10,
-        min: 1,
-        max: 100,
+        fallback: kWebGatewayDefaultLogMaxFiles,
+        min: kWebGatewayMinLogMaxFiles,
+        max: kWebGatewayMaxLogMaxFiles,
       ),
       levels: _stringList(
         json['levels'],
@@ -231,9 +292,9 @@ class WebGatewayLogConfig {
       ),
       lazyReadPageSize: clampedIntFromValue(
         json['lazy_read_page_size'],
-        fallback: 300,
-        min: 50,
-        max: 5000,
+        fallback: kWebGatewayDefaultLogLazyReadPageSize,
+        min: kWebGatewayMinLogLazyReadPageSize,
+        max: kWebGatewayMaxLogLazyReadPageSize,
       ),
     );
   }
@@ -260,13 +321,40 @@ class WebGatewayLogConfig {
     );
   }
 
+  WebGatewayLogConfig normalized() {
+    return WebGatewayLogConfig(
+      fileMaxBytes: _clampInt(
+        fileMaxBytes,
+        min: kWebGatewayMinLogFileMaxBytes,
+        max: kWebGatewayMaxLogFileMaxBytes,
+      ),
+      rotationDays: _clampInt(
+        rotationDays,
+        min: kWebGatewayMinLogRotationDays,
+        max: kWebGatewayMaxLogRotationDays,
+      ),
+      maxFiles: _clampInt(
+        maxFiles,
+        min: kWebGatewayMinLogMaxFiles,
+        max: kWebGatewayMaxLogMaxFiles,
+      ),
+      levels: _stringList(levels),
+      lazyReadPageSize: _clampInt(
+        lazyReadPageSize,
+        min: kWebGatewayMinLogLazyReadPageSize,
+        max: kWebGatewayMaxLogLazyReadPageSize,
+      ),
+    );
+  }
+
   Map<String, Object?> toJson() {
+    final value = normalized();
     return <String, Object?>{
-      'file_max_bytes': fileMaxBytes,
-      'rotation_days': rotationDays,
-      'max_files': maxFiles,
-      'levels': levels,
-      'lazy_read_page_size': lazyReadPageSize,
+      'file_max_bytes': value.fileMaxBytes,
+      'rotation_days': value.rotationDays,
+      'max_files': value.maxFiles,
+      'levels': value.levels,
+      'lazy_read_page_size': value.lazyReadPageSize,
     };
   }
 }
@@ -278,14 +366,14 @@ class WebMessagePlatformConfig {
     this.autoReloadOnChange = true,
     this.description = defaultDescription,
     this.listenHost = '0.0.0.0',
-    this.listenPort = 8848,
+    this.listenPort = kWebGatewayDefaultListenPort,
     this.authEnabled = false,
     this.username = 'openhand',
     this.password = '',
     this.telemetryEnabled = false,
     this.loggingEnabled = false,
     this.opsEnabled = false,
-    this.maxConcurrentRequests = 200,
+    this.maxConcurrentRequests = kWebGatewayDefaultMaxConcurrentRequests,
     this.allowedTemplateIds = const <String>[],
     this.allowedSkillNames = const <String>[],
     this.allowedMcpServerNames = const <String>[],
@@ -311,15 +399,15 @@ class WebMessagePlatformConfig {
     this.translationEnabled = true,
     this.feedbackEnabled = true,
     this.regenerationEnabled = true,
-    this.singleMessageTokenLimit = 2000,
-    this.maxMessagesPerSession = 100,
+    this.singleMessageTokenLimit = kWebGatewayDefaultSingleMessageTokenLimit,
+    this.maxMessagesPerSession = kWebGatewayDefaultMaxMessagesPerSession,
     this.sessionManagementEnabled = true,
     this.workspaceFilesEnabled = true,
     this.workspaceFileWriteEnabled = false,
-    this.workspaceFileMaxBytes = 1024 * 1024,
+    this.workspaceFileMaxBytes = kWebGatewayDefaultWorkspaceFileMaxBytes,
     this.workspaceFileAllowedExtensions = const <String>[],
-    this.uploadCacheRetentionDays = 7,
-    this.uploadCacheMaxBytes = 512 * 1024 * 1024,
+    this.uploadCacheRetentionDays = kWebGatewayDefaultUploadCacheRetentionDays,
+    this.uploadCacheMaxBytes = kWebGatewayDefaultUploadCacheMaxBytes,
     this.healthCheck = const WebGatewayHealthCheckConfig(),
     this.logConfig = const WebGatewayLogConfig(),
   });
@@ -341,9 +429,9 @@ class WebMessagePlatformConfig {
       listenHost: _nonEmptyString(json['listen_host'], '0.0.0.0'),
       listenPort: clampedIntFromValue(
         json['listen_port'],
-        fallback: 8848,
-        min: 1,
-        max: 65535,
+        fallback: kWebGatewayDefaultListenPort,
+        min: kWebGatewayMinListenPort,
+        max: kWebGatewayMaxListenPort,
       ),
       authEnabled: boolFromValue(json['auth_enabled']),
       username: _nonEmptyString(json['username'], 'openhand'),
@@ -353,9 +441,9 @@ class WebMessagePlatformConfig {
       opsEnabled: boolFromValue(json['ops_enabled']),
       maxConcurrentRequests: clampedIntFromValue(
         json['max_concurrent_requests'],
-        fallback: 200,
-        min: 1,
-        max: 5000,
+        fallback: kWebGatewayDefaultMaxConcurrentRequests,
+        min: kWebGatewayMinConcurrentRequests,
+        max: kWebGatewayMaxConcurrentRequests,
       ),
       allowedTemplateIds: _stringList(json['allowed_template_ids']),
       allowedSkillNames: _stringList(json['allowed_skill_names']),
@@ -407,15 +495,15 @@ class WebMessagePlatformConfig {
       ),
       singleMessageTokenLimit: clampedIntFromValue(
         json['single_message_token_limit'],
-        fallback: 2000,
-        min: 64,
-        max: 200000,
+        fallback: kWebGatewayDefaultSingleMessageTokenLimit,
+        min: kWebGatewayMinSingleMessageTokenLimit,
+        max: kWebGatewayMaxSingleMessageTokenLimit,
       ),
       maxMessagesPerSession: clampedIntFromValue(
         json['max_messages_per_session'],
-        fallback: 100,
-        min: 1,
-        max: 10000,
+        fallback: kWebGatewayDefaultMaxMessagesPerSession,
+        min: kWebGatewayMinMessagesPerSession,
+        max: kWebGatewayMaxMessagesPerSession,
       ),
       sessionManagementEnabled: boolFromValue(
         json['session_management_enabled'],
@@ -430,9 +518,9 @@ class WebMessagePlatformConfig {
       ),
       workspaceFileMaxBytes: clampedIntFromValue(
         json['workspace_file_max_bytes'],
-        fallback: 1024 * 1024,
-        min: 1024,
-        max: 32 * 1024 * 1024,
+        fallback: kWebGatewayDefaultWorkspaceFileMaxBytes,
+        min: kWebGatewayMinWorkspaceFileMaxBytes,
+        max: kWebGatewayMaxWorkspaceFileMaxBytes,
       ),
       workspaceFileAllowedExtensions:
           webGatewayNormalizeWorkspaceFileExtensions(
@@ -440,15 +528,15 @@ class WebMessagePlatformConfig {
           ),
       uploadCacheRetentionDays: clampedIntFromValue(
         json['upload_cache_retention_days'],
-        fallback: 7,
-        min: 1,
-        max: 180,
+        fallback: kWebGatewayDefaultUploadCacheRetentionDays,
+        min: kWebGatewayMinUploadCacheRetentionDays,
+        max: kWebGatewayMaxUploadCacheRetentionDays,
       ),
       uploadCacheMaxBytes: clampedIntFromValue(
         json['upload_cache_max_bytes'],
-        fallback: 512 * 1024 * 1024,
-        min: 1024 * 1024,
-        max: 10 * 1024 * 1024 * 1024,
+        fallback: kWebGatewayDefaultUploadCacheMaxBytes,
+        min: kWebGatewayMinUploadCacheMaxBytes,
+        max: kWebGatewayMaxUploadCacheMaxBytes,
       ),
       healthCheck: healthCheckJson.isEmpty
           ? const WebGatewayHealthCheckConfig()
@@ -607,55 +695,133 @@ class WebMessagePlatformConfig {
     );
   }
 
+  WebMessagePlatformConfig normalized() {
+    return WebMessagePlatformConfig(
+      enabled: enabled,
+      autoStartOnLaunch: autoStartOnLaunch,
+      autoReloadOnChange: autoReloadOnChange,
+      description: _nonEmptyString(description, defaultDescription),
+      listenHost: _nonEmptyString(listenHost, '0.0.0.0'),
+      listenPort: _clampInt(
+        listenPort,
+        min: kWebGatewayMinListenPort,
+        max: kWebGatewayMaxListenPort,
+      ),
+      authEnabled: authEnabled,
+      username: _nonEmptyString(username, 'openhand'),
+      password: password,
+      telemetryEnabled: telemetryEnabled,
+      loggingEnabled: loggingEnabled,
+      opsEnabled: opsEnabled,
+      maxConcurrentRequests: _clampInt(
+        maxConcurrentRequests,
+        min: kWebGatewayMinConcurrentRequests,
+        max: kWebGatewayMaxConcurrentRequests,
+      ),
+      allowedTemplateIds: _stringList(allowedTemplateIds),
+      allowedSkillNames: _stringList(allowedSkillNames),
+      allowedMcpServerNames: _stringList(allowedMcpServerNames),
+      allowedMemoryIds: _stringList(allowedMemoryIds),
+      allowedBuiltinToolNames: _stringList(allowedBuiltinToolNames),
+      allowedInstructionIds: _stringList(allowedInstructionIds),
+      allowedAgentIds: _stringList(allowedAgentIds),
+      allowedMessageTypes: allowedMessageTypes,
+      allowedConversationModes: allowedConversationModes,
+      allowedModelKeys: _stringList(allowedModelKeys),
+      planModeEnabled: planModeEnabled,
+      agentsEnabled: agentsEnabled,
+      knowledgeBaseEnabled: knowledgeBaseEnabled,
+      readAloudEnabled: readAloudEnabled,
+      translationEnabled: translationEnabled,
+      feedbackEnabled: feedbackEnabled,
+      regenerationEnabled: regenerationEnabled,
+      singleMessageTokenLimit: _clampInt(
+        singleMessageTokenLimit,
+        min: kWebGatewayMinSingleMessageTokenLimit,
+        max: kWebGatewayMaxSingleMessageTokenLimit,
+      ),
+      maxMessagesPerSession: _clampInt(
+        maxMessagesPerSession,
+        min: kWebGatewayMinMessagesPerSession,
+        max: kWebGatewayMaxMessagesPerSession,
+      ),
+      sessionManagementEnabled: sessionManagementEnabled,
+      workspaceFilesEnabled: workspaceFilesEnabled,
+      workspaceFileWriteEnabled: workspaceFileWriteEnabled,
+      workspaceFileMaxBytes: _clampInt(
+        workspaceFileMaxBytes,
+        min: kWebGatewayMinWorkspaceFileMaxBytes,
+        max: kWebGatewayMaxWorkspaceFileMaxBytes,
+      ),
+      workspaceFileAllowedExtensions:
+          webGatewayNormalizeWorkspaceFileExtensions(
+            workspaceFileAllowedExtensions,
+          ),
+      uploadCacheRetentionDays: _clampInt(
+        uploadCacheRetentionDays,
+        min: kWebGatewayMinUploadCacheRetentionDays,
+        max: kWebGatewayMaxUploadCacheRetentionDays,
+      ),
+      uploadCacheMaxBytes: _clampInt(
+        uploadCacheMaxBytes,
+        min: kWebGatewayMinUploadCacheMaxBytes,
+        max: kWebGatewayMaxUploadCacheMaxBytes,
+      ),
+      healthCheck: healthCheck.normalized(),
+      logConfig: logConfig.normalized(),
+    );
+  }
+
   Map<String, Object?> toJson() {
+    final value = normalized();
     return <String, Object?>{
       'id': webMessagePlatformBuiltinId,
       'name': webMessagePlatformBuiltinName,
-      'enabled': enabled,
-      'auto_start_on_launch': autoStartOnLaunch,
-      'auto_reload_on_change': autoReloadOnChange,
-      'description': description,
-      'listen_host': listenHost,
-      'listen_port': listenPort,
-      'auth_enabled': authEnabled,
-      'username': username,
-      'password': password,
-      'telemetry_enabled': telemetryEnabled,
-      'logging_enabled': loggingEnabled,
-      'ops_enabled': opsEnabled,
-      'max_concurrent_requests': maxConcurrentRequests,
-      'allowed_template_ids': allowedTemplateIds,
-      'allowed_skill_names': allowedSkillNames,
-      'allowed_mcp_server_names': allowedMcpServerNames,
-      'allowed_memory_ids': allowedMemoryIds,
-      'allowed_builtin_tool_names': allowedBuiltinToolNames,
-      'allowed_instruction_ids': allowedInstructionIds,
-      'allowed_agent_ids': allowedAgentIds,
-      'allowed_message_types': allowedMessageTypes
+      'enabled': value.enabled,
+      'auto_start_on_launch': value.autoStartOnLaunch,
+      'auto_reload_on_change': value.autoReloadOnChange,
+      'description': value.description,
+      'listen_host': value.listenHost,
+      'listen_port': value.listenPort,
+      'auth_enabled': value.authEnabled,
+      'username': value.username,
+      'password': value.password,
+      'telemetry_enabled': value.telemetryEnabled,
+      'logging_enabled': value.loggingEnabled,
+      'ops_enabled': value.opsEnabled,
+      'max_concurrent_requests': value.maxConcurrentRequests,
+      'allowed_template_ids': value.allowedTemplateIds,
+      'allowed_skill_names': value.allowedSkillNames,
+      'allowed_mcp_server_names': value.allowedMcpServerNames,
+      'allowed_memory_ids': value.allowedMemoryIds,
+      'allowed_builtin_tool_names': value.allowedBuiltinToolNames,
+      'allowed_instruction_ids': value.allowedInstructionIds,
+      'allowed_agent_ids': value.allowedAgentIds,
+      'allowed_message_types': value.allowedMessageTypes
           .map((item) => item.storageValue)
           .toList(growable: false),
-      'allowed_conversation_modes': allowedConversationModes
+      'allowed_conversation_modes': value.allowedConversationModes
           .map((item) => item.storageValue)
           .toList(growable: false),
-      'allowed_model_keys': allowedModelKeys,
-      'plan_mode_enabled': planModeEnabled,
-      'agents_enabled': agentsEnabled,
-      'knowledge_base_enabled': knowledgeBaseEnabled,
-      'read_aloud_enabled': readAloudEnabled,
-      'translation_enabled': translationEnabled,
-      'feedback_enabled': feedbackEnabled,
-      'regeneration_enabled': regenerationEnabled,
-      'single_message_token_limit': singleMessageTokenLimit,
-      'max_messages_per_session': maxMessagesPerSession,
-      'session_management_enabled': sessionManagementEnabled,
-      'workspace_files_enabled': workspaceFilesEnabled,
-      'workspace_file_write_enabled': workspaceFileWriteEnabled,
-      'workspace_file_max_bytes': workspaceFileMaxBytes,
-      'workspace_file_allowed_extensions': workspaceFileAllowedExtensions,
-      'upload_cache_retention_days': uploadCacheRetentionDays,
-      'upload_cache_max_bytes': uploadCacheMaxBytes,
-      'health_check': healthCheck.toJson(),
-      'log_config': logConfig.toJson(),
+      'allowed_model_keys': value.allowedModelKeys,
+      'plan_mode_enabled': value.planModeEnabled,
+      'agents_enabled': value.agentsEnabled,
+      'knowledge_base_enabled': value.knowledgeBaseEnabled,
+      'read_aloud_enabled': value.readAloudEnabled,
+      'translation_enabled': value.translationEnabled,
+      'feedback_enabled': value.feedbackEnabled,
+      'regeneration_enabled': value.regenerationEnabled,
+      'single_message_token_limit': value.singleMessageTokenLimit,
+      'max_messages_per_session': value.maxMessagesPerSession,
+      'session_management_enabled': value.sessionManagementEnabled,
+      'workspace_files_enabled': value.workspaceFilesEnabled,
+      'workspace_file_write_enabled': value.workspaceFileWriteEnabled,
+      'workspace_file_max_bytes': value.workspaceFileMaxBytes,
+      'workspace_file_allowed_extensions': value.workspaceFileAllowedExtensions,
+      'upload_cache_retention_days': value.uploadCacheRetentionDays,
+      'upload_cache_max_bytes': value.uploadCacheMaxBytes,
+      'health_check': value.healthCheck.toJson(),
+      'log_config': value.logConfig.toJson(),
     };
   }
 }
@@ -709,4 +875,10 @@ Set<T> _enumSet<T>(Object? raw, T? Function(String?) parser, Set<T> fallback) {
     if (parsed != null) result.add(parsed);
   }
   return result.isEmpty ? Set<T>.from(fallback) : result;
+}
+
+int _clampInt(int value, {required int min, required int max}) {
+  final lower = min <= max ? min : max;
+  final upper = min <= max ? max : min;
+  return value.clamp(lower, upper).toInt();
 }

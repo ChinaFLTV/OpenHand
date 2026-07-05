@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -579,19 +577,10 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
     }
 
     try {
-      bool launched = false;
-      if (Platform.isMacOS) {
-        launched = await runDetachedSystemOpen('open', [normalizedUrl]);
-      } else if (Platform.isLinux) {
-        launched = await runDetachedSystemOpen('xdg-open', [normalizedUrl]);
-      } else if (Platform.isWindows) {
-        launched = await runDetachedSystemOpen('cmd', [
-          '/c',
-          'start',
-          '',
-          normalizedUrl,
-        ], runInShell: true);
-      }
+      final launched = await openHttpUrlWithSystemBrowser(
+        normalizedUrl,
+        tag: 'harness_engineering.open_url',
+      );
       if (!launched) {
         await Clipboard.setData(ClipboardData(text: normalizedUrl));
       }

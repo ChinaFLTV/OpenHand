@@ -37,10 +37,6 @@ Future<void> showToolSearchLoadedDialog(
   );
 }
 
-void _showToolSearchSnackBar(BuildContext context, SnackBar snackBar) {
-  OpenHandSnackBar.showInContext(context, snackBar);
-}
-
 /// 列出本会话已通过 `ToolSearch` 加载的工具名。
 /// 工具名形如 `mcp__SERVER__tool` 时按 `SERVER` 分组、可折叠展示，便于在工具
 /// 数量很多时快速扫读。每行右侧提供「复制 select:NAME」按钮；当 [onClear]
@@ -161,7 +157,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     });
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    _showToolSearchSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(l10n.snackToolSearchLoadedClearedToast),
@@ -175,7 +171,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     if (!mounted) return;
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    _showToolSearchSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(l10n.snackToolSearchLoadedCopiedToast),
@@ -191,7 +187,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     if (!mounted) return;
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    _showToolSearchSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(l10n.snackToolSearchLoadedCopiedToast),
@@ -218,7 +214,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     if (!mounted) return;
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    _showToolSearchSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(l10n.snackToolSearchLoadedCopiedToast),
@@ -234,7 +230,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     });
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    _showToolSearchSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(l10n.snackToolSearchLoadedHistoryClearedToast),
@@ -253,7 +249,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     if (l10n == null) return;
     final entries = _filterHistory(_history);
     if (entries.isEmpty) {
-      _showToolSearchSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(l10n.snackToolSearchLoadedHistoryExportEmptyToast),
@@ -272,7 +268,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     if (action.destination == _HistoryExportDestination.clipboard) {
       await Clipboard.setData(ClipboardData(text: payload));
       if (!mounted) return;
-      _showToolSearchSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(
@@ -311,7 +307,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         stack,
       );
       if (!mounted) return;
-      _showToolSearchSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(
@@ -333,7 +329,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         stack,
       );
       if (!mounted) return;
-      _showToolSearchSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(
@@ -348,7 +344,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     final savedPath = location.path;
     // Remember the directory for next export.
     unawaited(ToolSearchHistoryExportPrefs.writeLastDir(p.dirname(savedPath)));
-    _showToolSearchSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -418,7 +414,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         stack,
       );
       if (!mounted) return;
-      _showToolSearchSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(
@@ -434,7 +430,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       entries = ToolSearchHistorySerializer.fromJson(raw);
     } catch (error) {
       if (!mounted) return;
-      _showToolSearchSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(

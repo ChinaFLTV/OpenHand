@@ -480,6 +480,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
   WebMessagePlatformConfig _normalizeAgainstRuntimeOptions(
     WebMessagePlatformConfig value,
   ) {
+    final normalizedValue = value.normalized();
     final templateIds = templates.map((item) => item.id).toSet();
     final skills = skillNames.toSet();
     final mcpServers = mcpServerNames.toSet();
@@ -488,9 +489,11 @@ class MessageGatewayController extends ManagedChangeNotifier {
     final models = modelOptions.map((item) => item.key).toSet();
     final instructions = instructionOptions.map((item) => item.id).toSet();
     final agents = agentOptions.map((item) => item.id).toSet();
-    final allowedToolNames = value.knowledgeBaseEnabled
-        ? value.allowedBuiltinToolNames
-        : _withoutKnowledgeBaseBuiltinToolNames(value.allowedBuiltinToolNames);
+    final allowedToolNames = normalizedValue.knowledgeBaseEnabled
+        ? normalizedValue.allowedBuiltinToolNames
+        : _withoutKnowledgeBaseBuiltinToolNames(
+            normalizedValue.allowedBuiltinToolNames,
+          );
     List<String> keep(List<String> source, Set<String> allowed) {
       if (source.contains(webGatewayDenyAllSelectionMarker)) {
         return const <String>[webGatewayDenyAllSelectionMarker];
@@ -499,17 +502,23 @@ class MessageGatewayController extends ManagedChangeNotifier {
       return source.where(allowed.contains).toList(growable: false);
     }
 
-    return value.copyWith(
-      allowedTemplateIds: keep(value.allowedTemplateIds, templateIds),
-      allowedSkillNames: keep(value.allowedSkillNames, skills),
-      allowedMcpServerNames: keep(value.allowedMcpServerNames, mcpServers),
-      allowedMemoryIds: keep(value.allowedMemoryIds, memories),
+    return normalizedValue.copyWith(
+      allowedTemplateIds: keep(normalizedValue.allowedTemplateIds, templateIds),
+      allowedSkillNames: keep(normalizedValue.allowedSkillNames, skills),
+      allowedMcpServerNames: keep(
+        normalizedValue.allowedMcpServerNames,
+        mcpServers,
+      ),
+      allowedMemoryIds: keep(normalizedValue.allowedMemoryIds, memories),
       allowedBuiltinToolNames: keep(allowedToolNames, tools),
-      allowedModelKeys: keep(value.allowedModelKeys, models),
-      allowedInstructionIds: keep(value.allowedInstructionIds, instructions),
+      allowedModelKeys: keep(normalizedValue.allowedModelKeys, models),
+      allowedInstructionIds: keep(
+        normalizedValue.allowedInstructionIds,
+        instructions,
+      ),
       allowedAgentIds: agents.isEmpty
-          ? value.allowedAgentIds
-          : keep(value.allowedAgentIds, agents),
+          ? normalizedValue.allowedAgentIds
+          : keep(normalizedValue.allowedAgentIds, agents),
     );
   }
 

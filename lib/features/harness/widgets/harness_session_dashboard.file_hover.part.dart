@@ -294,32 +294,12 @@ class _HeStatRow extends StatelessWidget {
 // / Nautilus), mirroring _openResolvedMessagePath from openhand_home_page.dart.
 // =============================================================================
 
-Future<void> _heOpenPathInFileBrowser(
-  BuildContext context,
-  String path, {
-  required bool isDirectory,
-}) async {
+Future<void> _heOpenPathInFileBrowser(BuildContext context, String path) async {
   try {
-    final bool launched;
-    if (Platform.isMacOS) {
-      // `-R` reveals the file in its parent Finder window; for directories
-      // just open the directory itself.
-      launched = await runDetachedSystemOpen(
-        'open',
-        isDirectory ? <String>[path] : <String>['-R', path],
-      );
-    } else if (Platform.isWindows) {
-      launched = await runDetachedSystemOpen(
-        'explorer',
-        isDirectory ? <String>[path] : <String>['/select,$path'],
-      );
-    } else if (Platform.isLinux) {
-      launched = await runDetachedSystemOpen('xdg-open', <String>[
-        isDirectory ? path : File(path).parent.path,
-      ]);
-    } else {
-      throw const FileSystemException('Unsupported platform.');
-    }
+    final launched = await revealLocalPathInSystemFileManager(
+      path,
+      tag: 'harness_session_dashboard.file_hover.reveal',
+    );
     if (launched) return;
     throw const FileSystemException('Unable to open file location.');
   } catch (error) {

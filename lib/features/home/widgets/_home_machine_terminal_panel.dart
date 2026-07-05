@@ -223,7 +223,7 @@ class _MachineExpertTerminalPanelState
   Future<void> _copyTerminalId(String terminalId) async {
     await Clipboard.setData(ClipboardData(text: terminalId));
     if (!mounted) return;
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -504,7 +504,6 @@ class _MachineTerminalHistoryDialogState
     extends State<_MachineTerminalHistoryDialog> {
   static const double _dialogMaxWidth = 1060;
   static const double _dialogMaxHeight = 720;
-  static const double _tableWidth = 980;
   static const double _terminalColumnWidth = 150;
   static const double _statusColumnWidth = 98;
   static const double _pidColumnWidth = 98;
@@ -513,6 +512,15 @@ class _MachineTerminalHistoryDialogState
   static const double _outputColumnWidth = 110;
   static const double _timeColumnWidth = 145;
   static const double _actionsColumnWidth = 138;
+  static const double _tableWidth =
+      _terminalColumnWidth +
+      _statusColumnWidth +
+      _pidColumnWidth +
+      _sizeColumnWidth +
+      _commandsColumnWidth +
+      _outputColumnWidth +
+      _timeColumnWidth * 2 +
+      _actionsColumnWidth;
 
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalScrollController = ScrollController();
@@ -573,43 +581,10 @@ class _MachineTerminalHistoryDialogState
               ),
               onClose: () => Navigator.of(context).pop(),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _MachineTerminalHistoryMetric(
-                      icon: Icons.layers_rounded,
-                      label: _localizedText(
-                        context,
-                        zh: '终端数量',
-                        en: 'Terminals',
-                      ),
-                      value: '${terminals.length}',
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _MachineTerminalHistoryMetric(
-                      icon: Icons.code_rounded,
-                      label: _localizedText(
-                        context,
-                        zh: '命令记录',
-                        en: 'Commands',
-                      ),
-                      value: '${_terminalCommandTotal(terminals)}',
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _MachineTerminalHistoryMetric(
-                      icon: Icons.storage_rounded,
-                      label: _localizedText(context, zh: '历史输出', en: 'Output'),
-                      value: formatByteSize(_terminalHistoryBytes(terminals)),
-                    ),
-                  ),
-                ],
-              ),
+            _MachineTerminalHistoryMetrics(
+              terminalCount: terminals.length,
+              commandCount: _terminalCommandTotal(terminals),
+              outputSize: formatByteSize(_terminalHistoryBytes(terminals)),
             ),
             Expanded(
               child: Padding(
@@ -922,7 +897,7 @@ class _MachineTerminalHistoryDialogState
         terminalId: terminal.terminalId,
       );
       if (!mounted) return;
-      _showHomeSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(
@@ -950,6 +925,65 @@ class _MachineTerminalHistoryDialogState
     } finally {
       if (mounted) setState(() => _deletingTerminalId = null);
     }
+  }
+}
+
+class _MachineTerminalHistoryMetrics extends StatelessWidget {
+  const _MachineTerminalHistoryMetrics({
+    required this.terminalCount,
+    required this.commandCount,
+    required this.outputSize,
+  });
+
+  final int terminalCount;
+  final int commandCount;
+  final String outputSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = <Widget>[
+      _MachineTerminalHistoryMetric(
+        icon: Icons.layers_rounded,
+        label: _localizedText(context, zh: '终端数量', en: 'Terminals'),
+        value: '$terminalCount',
+      ),
+      _MachineTerminalHistoryMetric(
+        icon: Icons.code_rounded,
+        label: _localizedText(context, zh: '命令记录', en: 'Commands'),
+        value: '$commandCount',
+      ),
+      _MachineTerminalHistoryMetric(
+        icon: Icons.storage_rounded,
+        label: _localizedText(context, zh: '历史输出', en: 'Output'),
+        value: outputSize,
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 560) {
+            return Column(
+              children: [
+                for (var index = 0; index < metrics.length; index++) ...[
+                  metrics[index],
+                  if (index != metrics.length - 1) const SizedBox(height: 8),
+                ],
+              ],
+            );
+          }
+          return Row(
+            children: [
+              for (var index = 0; index < metrics.length; index++) ...[
+                Expanded(child: metrics[index]),
+                if (index != metrics.length - 1) const SizedBox(width: 10),
+              ],
+            ],
+          );
+        },
+      ),
+    );
   }
 }
 

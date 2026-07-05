@@ -21,6 +21,18 @@ const EdgeInsets _kDefaultSnackBarContentPadding = EdgeInsets.symmetric(
 
 enum OpenHandSnackKind { info, success, error }
 
+void showOpenHandSnackBar(BuildContext context, SnackBar snackBar) {
+  OpenHandSnackBar.showInContext(context, snackBar);
+}
+
+void showOpenHandSnackBarOn(
+  BuildContext context,
+  ScaffoldMessengerState messenger,
+  SnackBar snackBar,
+) {
+  OpenHandSnackBar.show(context, messenger, snackBar);
+}
+
 class OpenHandGlobalSnackBarHost extends StatefulWidget {
   const OpenHandGlobalSnackBarHost({super.key});
 
@@ -241,11 +253,6 @@ class OpenHandSnackBar {
     return duration;
   }
 
-  static bool _preferGlobalRoute() {
-    return OpenHandGlobalSnackBarHost.isMounted ||
-        rootMessengerKey.currentState != null;
-  }
-
   static void hideGlobal({
     SnackBarClosedReason reason = SnackBarClosedReason.hide,
   }) {
@@ -294,9 +301,7 @@ class OpenHandSnackBar {
       show(context, messenger, snackBar);
       return;
     }
-    if (_preferGlobalRoute()) {
-      OpenHandGlobalSnackBarHost.showSnackBar(snackBar);
-    }
+    OpenHandGlobalSnackBarHost.showSnackBar(snackBar);
   }
 
   static void _showOn(
@@ -411,14 +416,10 @@ class OpenHandSnackBar {
     Duration duration = const Duration(seconds: 3),
     SnackBarAction? action,
   }) {
-    final snackBar = info(context, message, duration: duration, action: action);
-    if (_preferGlobalRoute()) {
-      OpenHandGlobalSnackBarHost.showSnackBar(snackBar);
-      return;
-    }
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) return;
-    _showOn(context, messenger, snackBar);
+    showInContext(
+      context,
+      info(context, message, duration: duration, action: action),
+    );
   }
 
   static void showInfoOn(
@@ -441,19 +442,10 @@ class OpenHandSnackBar {
     Duration duration = const Duration(seconds: 2),
     SnackBarAction? action,
   }) {
-    final snackBar = success(
+    showInContext(
       context,
-      message,
-      duration: duration,
-      action: action,
+      success(context, message, duration: duration, action: action),
     );
-    if (_preferGlobalRoute()) {
-      OpenHandGlobalSnackBarHost.showSnackBar(snackBar);
-      return;
-    }
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) return;
-    _showOn(context, messenger, snackBar);
   }
 
   static void showSuccessOn(
@@ -476,19 +468,10 @@ class OpenHandSnackBar {
     Duration duration = const Duration(seconds: 4),
     SnackBarAction? action,
   }) {
-    final snackBar = error(
+    showInContext(
       context,
-      message,
-      duration: duration,
-      action: action,
+      error(context, message, duration: duration, action: action),
     );
-    if (_preferGlobalRoute()) {
-      OpenHandGlobalSnackBarHost.showSnackBar(snackBar);
-      return;
-    }
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) return;
-    _showOn(context, messenger, snackBar);
   }
 
   static void showErrorOn(

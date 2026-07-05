@@ -2072,7 +2072,7 @@ Future<void> _openAttachment(
   final file = File(storagePath);
   if (!file.existsSync()) {
     if (!context.mounted) return;
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -2135,7 +2135,7 @@ Future<void> _openLocalPathWithSystemApp(
   final hasLeadingDash = normalizedPath.startsWith('-');
   if ((looksLikeUri && !isWindowsDrivePath) || hasLeadingDash) {
     if (context.mounted) {
-      _showHomeSnackBar(
+      showOpenHandSnackBar(
         context,
         SnackBar(
           content: Text(
@@ -2168,7 +2168,7 @@ Future<void> _openLocalPathWithSystemApp(
     if (!context.mounted) {
       return;
     }
-    _showHomeSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
@@ -5519,7 +5519,7 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     void showSnack(String zh, String en) {
       if (messenger == null) return;
       OpenHandSnackBar.hideCurrentOn(messenger);
-      _showHomeSnackBarWithMessenger(
+      showOpenHandSnackBarOn(
         context,
         messenger,
         SnackBar(

@@ -925,6 +925,35 @@ Future<bool> openHttpUrlWithSystemBrowser(
   return false;
 }
 
+/// Opens a constrained external URI with the system default application.
+///
+/// Accepted schemes are deliberately narrow: http(s), file and mailto. Local
+/// files are routed through [openLocalPathWithSystemApp] so path safety checks
+/// stay centralized; http(s) URLs reuse [openHttpUrlWithSystemBrowser].
+Future<bool> openExternalUriWithSystemApp(
+  Uri uri, {
+  String tag = 'safe_subprocess.open_external_uri',
+}) async {
+  final scheme = uri.scheme.toLowerCase();
+  if (scheme == 'http' || scheme == 'https') {
+    return openHttpUrlWithSystemBrowser(uri.toString(), tag: tag);
+  }
+  if (scheme == 'file') {
+    try {
+      return openLocalPathWithSystemApp(uri.toFilePath(), tag: tag);
+    } catch (error, stack) {
+      silentLog('safe_subprocess', 'open file uri', error, stack);
+      return false;
+    }
+  }
+  if (scheme == 'mailto') {
+    final target = _safeMailtoUriArgument(uri);
+    if (target == null) return false;
+    return _openSystemDefaultTarget(target, tag: tag);
+  }
+  return false;
+}
+
 /// Reveals a local file or directory in the system file manager.
 ///
 /// macOS and Windows highlight the target where supported. Linux file managers
@@ -956,6 +985,22 @@ Future<bool> revealLocalPathInSystemFileManager(
   return false;
 }
 
+Future<bool> _openSystemDefaultTarget(String target, {required String tag}) {
+  if (Platform.isMacOS) {
+    return runDetachedSystemOpen('open', <String>[target], tag: tag);
+  }
+  if (Platform.isWindows) {
+    return runDetachedSystemOpen('rundll32', <String>[
+      'url.dll,FileProtocolHandler',
+      target,
+    ], tag: tag);
+  }
+  if (Platform.isLinux) {
+    return runDetachedSystemOpen('xdg-open', <String>[target], tag: tag);
+  }
+  return Future<bool>.value(false);
+}
+
 Uri? _safeHttpUrlArgument(String value) {
   final target = nullIfBlank(value);
   if (target == null || target.startsWith('-')) return null;
@@ -969,6 +1014,13 @@ String? _safeLocalPathArgument(String value) {
   if (looksLikeUri && !(Platform.isWindows && _isWindowsDrivePath(target))) {
     return null;
   }
+  return target;
+}
+
+String? _safeMailtoUriArgument(Uri uri) {
+  if (uri.scheme.toLowerCase() != 'mailto') return null;
+  final target = uri.toString();
+  if (target.startsWith('-') || RegExp(r'\s').hasMatch(target)) return null;
   return target;
 }
 

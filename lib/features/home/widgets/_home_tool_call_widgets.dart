@@ -1248,7 +1248,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
   void _showToolContentSnackBar(String message) {
     final messenger = ScaffoldMessenger.of(context);
     OpenHandSnackBar.hideCurrentOn(messenger);
-    _showHomeSnackBarWithMessenger(
+    showOpenHandSnackBarOn(
       context,
       messenger,
       SnackBar(content: Text(message)),
@@ -3539,17 +3539,10 @@ Future<void> _openMessageLinkUri(BuildContext context, Uri uri) async {
     return;
   }
   try {
-    final target = uri.toString();
-    final bool launched;
-    if (Platform.isMacOS) {
-      launched = await runDetachedSystemOpen('open', <String>[target]);
-    } else if (Platform.isWindows) {
-      launched = await runDetachedSystemOpen('explorer', <String>[target]);
-    } else if (Platform.isLinux) {
-      launched = await runDetachedSystemOpen('xdg-open', <String>[target]);
-    } else {
-      throw const FileSystemException('Unsupported platform.');
-    }
+    final launched = await openExternalUriWithSystemApp(
+      uri,
+      tag: 'home_tool_call_widgets.open_link',
+    );
     if (launched) {
       return;
     }
@@ -3566,7 +3559,7 @@ void _showMessageLinkOpenError(BuildContext context, Object error) {
   if (!context.mounted) {
     return;
   }
-  _showHomeSnackBar(
+  showOpenHandSnackBar(
     context,
     SnackBar(
       content: Text(

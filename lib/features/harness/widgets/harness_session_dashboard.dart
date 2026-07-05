@@ -61,10 +61,6 @@ part 'harness_session_dashboard.streaming_smart.part.dart';
 part 'harness_session_dashboard.file_hover.part.dart';
 part 'harness_session_dashboard.steering.part.dart';
 
-void _showHarnessSnackBar(BuildContext context, SnackBar snackBar) {
-  OpenHandSnackBar.showInContext(context, snackBar);
-}
-
 Duration _harnessMotionDuration(BuildContext context, Duration duration) {
   return openHandTickerMotionEnabled(context) ? duration : Duration.zero;
 }
@@ -2486,7 +2482,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
 
   void _copyLog(BuildContext context, HarnessPhaseLog log) {
     Clipboard.setData(ClipboardData(text: log.lines.join('\n')));
-    _showHarnessSnackBar(
+    showOpenHandSnackBar(
       context,
       SnackBar(
         content: Text(
