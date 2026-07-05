@@ -387,7 +387,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         .clamp(0, 1 << 30);
     final pending = e.loadingFinishedAt == null && e.responseReceivedAt == null;
 
-    double pos(int ms) => (ms / windowMs).clamp(0.0, 1.0) * barWidth;
+    double pos(int ms) => unitRatio(ms, windowMs) * barWidth;
     final left = pos(startMs);
     final waitW = pos(startMs + waitMs) - left;
     final downW = pos(startMs + waitMs + downMs) - (left + waitW);

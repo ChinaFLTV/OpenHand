@@ -215,9 +215,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
     final rows = _visibleRows();
     final totalBytes = rows.fold<int>(0, (a, b) => a + b.total);
     final coveredBytes = rows.fold<int>(0, (a, b) => a + b.covered);
-    final globalRatio = totalBytes == 0
-        ? 0.0
-        : (coveredBytes / totalBytes).clamp(0.0, 1.0);
+    final globalRatio = unitRatio(coveredBytes, totalBytes);
     return buildOpenHandToolDialogShell(
       context: context,
       maxWidth: 960,

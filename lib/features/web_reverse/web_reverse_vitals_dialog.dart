@@ -21,6 +21,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -362,7 +363,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
     double pct = 0;
     if (v != null) {
       // 进度条直观对齐 good 阈值；超出就 1.0 满格 + 颜色变红。
-      pct = (v / (m.poorMin * 1.2)).clamp(0.0, 1.0).toDouble();
+      pct = unitRatio(v, m.poorMin * 1.2);
     }
     return Container(
       margin: const EdgeInsets.only(bottom: 10),

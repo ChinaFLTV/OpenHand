@@ -2534,7 +2534,7 @@ class _HeapSamplingBarsPainter extends CustomPainter {
     final paint = Paint()..style = PaintingStyle.fill;
     for (var i = 0; i < n; i++) {
       final v = deltas[i];
-      final hRatio = (v / norm).clamp(0.0, 1.0);
+      final hRatio = unitRatio(v, norm);
       // 视觉低位至少 1.5px，保证 0 增量也有薄基线提示采样仍在跑。
       final h = math.max(1.5, size.height * hRatio);
       final x = i * slot + (slot - barWidth) / 2;
@@ -2623,9 +2623,7 @@ class _SamplingTopList extends StatelessWidget {
               itemCount: result.top.length,
               itemBuilder: (_, i) {
                 final r = result.top[i];
-                final ratio = result.totalSize == 0
-                    ? 0.0
-                    : r.size / result.totalSize;
+                final ratio = unitRatio(r.size, result.totalSize);
                 return InkWell(
                   onTap: () => _showStack(context, r),
                   child: Padding(
