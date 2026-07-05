@@ -143,11 +143,6 @@ const EdgeInsets _agentActivityCardPadding = EdgeInsets.fromLTRB(
   14,
   12,
 );
-const int _agentScaleMinWorkersMin = 0;
-const int _agentScaleMaxWorkersMin = 1;
-const int _agentScaleWorkersMax = 999;
-const int _agentScaleRetriesMin = 0;
-const int _agentScaleRetriesMax = 20;
 const int _agentRoutePreviewKeywordLimit = 10;
 const List<String> _agentImageExtensions = <String>[
   'jpg',
@@ -184,20 +179,24 @@ const EdgeInsetsDirectional _agentNumberStepperLabelPadding =
     EdgeInsetsDirectional.fromSTEB(8, 0, 8, 0);
 
 int _normalizeAgentMaxWorkers(int value) {
-  return value.clamp(_agentScaleMaxWorkersMin, _agentScaleWorkersMax).toInt();
+  return value
+      .clamp(agentScaleMaxWorkersMinimum, agentScaleWorkersMaximum)
+      .toInt();
 }
 
 int _normalizeAgentMinWorkers(int value, int maxWorkers) {
   final normalizedMaxWorkers = _normalizeAgentMaxWorkers(maxWorkers);
-  return value.clamp(_agentScaleMinWorkersMin, normalizedMaxWorkers).toInt();
+  return value.clamp(agentScaleMinWorkersMinimum, normalizedMaxWorkers).toInt();
 }
 
 int _normalizeAgentMaxRetries(int value) {
-  return value.clamp(_agentScaleRetriesMin, _agentScaleRetriesMax).toInt();
+  return value
+      .clamp(agentScaleMaxRetriesMinimum, agentScaleMaxRetriesMaximum)
+      .toInt();
 }
 
 double _normalizeAgentScaleRatio(double value) {
-  return value.clamp(0, 1).toDouble();
+  return value.clamp(agentScaleRatioMinimum, agentScaleRatioMaximum).toDouble();
 }
 
 bool _isAgentCoordinationBuiltinToolId(String id) {
@@ -2952,7 +2951,7 @@ class _AgentClusterSettingsEditorState
             _clusterNumberStepper(
               l10n.agentsMinWorkersLabel,
               _minWorkers,
-              min: _agentScaleMinWorkersMin,
+              min: agentScaleMinWorkersMinimum,
               max: _maxWorkers,
               onChanged: (value) => setState(
                 () =>
@@ -2962,8 +2961,8 @@ class _AgentClusterSettingsEditorState
             _clusterNumberStepper(
               l10n.agentsMaxWorkersLabel,
               _maxWorkers,
-              min: _agentScaleMaxWorkersMin,
-              max: _agentScaleWorkersMax,
+              min: agentScaleMaxWorkersMinimum,
+              max: agentScaleWorkersMaximum,
               onChanged: (value) => setState(() {
                 _maxWorkers = _normalizeAgentMaxWorkers(value);
                 _minWorkers = _normalizeAgentMinWorkers(
@@ -2975,8 +2974,8 @@ class _AgentClusterSettingsEditorState
             _clusterNumberStepper(
               l10n.agentsMaxRetriesLabel,
               _maxRetries,
-              min: _agentScaleRetriesMin,
-              max: _agentScaleRetriesMax,
+              min: agentScaleMaxRetriesMinimum,
+              max: agentScaleMaxRetriesMaximum,
               onChanged: (value) => setState(
                 () => _maxRetries = _normalizeAgentMaxRetries(value),
               ),
@@ -8881,20 +8880,22 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     _hookIds = {...?agent?.hookIds};
     _instructionIds = {...?agent?.instructionIds};
     _maxWorkers = _normalizeAgentMaxWorkers(
-      agent?.scaleSettings.maxWorkers ?? 1,
+      agent?.scaleSettings.maxWorkers ?? agentScaleDefaultMaxWorkers,
     );
     _minWorkers = _normalizeAgentMinWorkers(
-      agent?.scaleSettings.minWorkers ?? 1,
+      agent?.scaleSettings.minWorkers ?? agentScaleDefaultMinWorkers,
       _maxWorkers,
     );
     _maxRetries = _normalizeAgentMaxRetries(
-      agent?.scaleSettings.maxRetries ?? 2,
+      agent?.scaleSettings.maxRetries ?? agentScaleDefaultMaxRetries,
     );
     _scaleOutThreshold = _normalizeAgentScaleRatio(
-      agent?.scaleSettings.scaleOutThreshold ?? 0.75,
+      agent?.scaleSettings.scaleOutThreshold ??
+          agentScaleDefaultScaleOutThreshold,
     );
     _scaleInThreshold = _normalizeAgentScaleRatio(
-      agent?.scaleSettings.scaleInThreshold ?? 0.25,
+      agent?.scaleSettings.scaleInThreshold ??
+          agentScaleDefaultScaleInThreshold,
     );
     _schedulerPolicy =
         agent?.scaleSettings.schedulerPolicy ?? agentSchedulerPolicyLeastBusy;
@@ -9470,7 +9471,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               child: _numberStepper(
                 l10n.agentsMinWorkersLabel,
                 _minWorkers,
-                min: _agentScaleMinWorkersMin,
+                min: agentScaleMinWorkersMinimum,
                 max: _maxWorkers,
                 onChanged: (v) => setState(
                   () => _minWorkers = _normalizeAgentMinWorkers(v, _maxWorkers),
@@ -9482,8 +9483,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               child: _numberStepper(
                 l10n.agentsMaxWorkersLabel,
                 _maxWorkers,
-                min: _agentScaleMaxWorkersMin,
-                max: _agentScaleWorkersMax,
+                min: agentScaleMaxWorkersMinimum,
+                max: agentScaleWorkersMaximum,
                 onChanged: (v) => setState(() {
                   _maxWorkers = _normalizeAgentMaxWorkers(v);
                   _minWorkers = _normalizeAgentMinWorkers(
@@ -9498,8 +9499,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               child: _numberStepper(
                 l10n.agentsMaxRetriesLabel,
                 _maxRetries,
-                min: _agentScaleRetriesMin,
-                max: _agentScaleRetriesMax,
+                min: agentScaleMaxRetriesMinimum,
+                max: agentScaleMaxRetriesMaximum,
                 onChanged: (v) =>
                     setState(() => _maxRetries = _normalizeAgentMaxRetries(v)),
               ),

@@ -4743,7 +4743,7 @@ double? _optionalRatio(Object? raw) {
     _ => null,
   };
   if (value == null || !value.isFinite) return null;
-  return value.clamp(0, 1).toDouble();
+  return value.clamp(agentScaleRatioMinimum, agentScaleRatioMaximum).toDouble();
 }
 
 String _normalizeAgentStatusToken(String raw) {

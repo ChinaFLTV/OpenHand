@@ -6,6 +6,11 @@ void main() {
     test('uses shared policy defaults', () {
       const settings = AgentScaleSettings();
 
+      expect(settings.minWorkers, agentScaleDefaultMinWorkers);
+      expect(settings.maxWorkers, agentScaleDefaultMaxWorkers);
+      expect(settings.maxRetries, agentScaleDefaultMaxRetries);
+      expect(settings.scaleOutThreshold, agentScaleDefaultScaleOutThreshold);
+      expect(settings.scaleInThreshold, agentScaleDefaultScaleInThreshold);
       expect(settings.schedulerPolicy, agentSchedulerPolicyLeastBusy);
       expect(settings.workerRemovalPolicy, agentWorkerRemovalPolicyLeastBusy);
       expect(settings.retryPolicy, agentRetryPolicyBoundedRetry);
@@ -25,6 +30,22 @@ void main() {
         agentRetryPolicyBoundedRetry,
         agentRetryPolicyNone,
       ]);
+    });
+
+    test('clamps worker and retry bounds from json', () {
+      final settings = AgentScaleSettings.fromJson(<String, Object?>{
+        'min_workers': -3,
+        'max_workers': 2000,
+        'max_retries': 100,
+        'scale_out_threshold': 9,
+        'scale_in_threshold': -1,
+      });
+
+      expect(settings.minWorkers, agentScaleMinWorkersMinimum);
+      expect(settings.maxWorkers, agentScaleWorkersMaximum);
+      expect(settings.maxRetries, agentScaleMaxRetriesMaximum);
+      expect(settings.scaleOutThreshold, agentScaleRatioMaximum);
+      expect(settings.scaleInThreshold, agentScaleRatioMinimum);
     });
   });
 

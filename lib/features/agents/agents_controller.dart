@@ -989,7 +989,9 @@ class AgentsController extends ManagedChangeNotifier {
       if (index < 0) return false;
       final agent = _agents[index];
       final now = DateTime.now().toUtc();
-      final requestedMaxWorkers = settings.maxWorkers.clamp(1, 999).toInt();
+      final requestedMaxWorkers = settings.maxWorkers
+          .clamp(agentScaleMaxWorkersMinimum, agentScaleWorkersMaximum)
+          .toInt();
       final protectedWorkerCount = _protectedWorkerCount(agent.workers);
       final normalized = _normalizeScaleSettings(
         settings,
@@ -1376,15 +1378,23 @@ class AgentsController extends ManagedChangeNotifier {
 
   AgentScaleSettings _normalizeScaleSettings(
     AgentScaleSettings settings, {
-    int minimumMaxWorkers = 1,
+    int minimumMaxWorkers = agentScaleMaxWorkersMinimum,
   }) {
-    final requestedMaxWorkers = settings.maxWorkers.clamp(1, 999).toInt();
+    final requestedMaxWorkers = settings.maxWorkers
+        .clamp(agentScaleMaxWorkersMinimum, agentScaleWorkersMaximum)
+        .toInt();
     final maxWorkers = math.max(requestedMaxWorkers, minimumMaxWorkers);
     return settings.copyWith(
-      minWorkers: settings.minWorkers.clamp(0, maxWorkers).toInt(),
+      minWorkers: settings.minWorkers
+          .clamp(agentScaleMinWorkersMinimum, maxWorkers)
+          .toInt(),
       maxWorkers: maxWorkers,
-      scaleOutThreshold: settings.scaleOutThreshold.clamp(0, 1).toDouble(),
-      scaleInThreshold: settings.scaleInThreshold.clamp(0, 1).toDouble(),
+      scaleOutThreshold: settings.scaleOutThreshold
+          .clamp(agentScaleRatioMinimum, agentScaleRatioMaximum)
+          .toDouble(),
+      scaleInThreshold: settings.scaleInThreshold
+          .clamp(agentScaleRatioMinimum, agentScaleRatioMaximum)
+          .toDouble(),
       workerRemovalPolicy: _policyOrFallback(
         settings.workerRemovalPolicy,
         agentWorkerRemovalPolicyOptions,
@@ -1395,7 +1405,9 @@ class AgentsController extends ManagedChangeNotifier {
         agentRetryPolicyOptions,
         agentRetryPolicyBoundedRetry,
       ),
-      maxRetries: settings.maxRetries.clamp(0, 20).toInt(),
+      maxRetries: settings.maxRetries
+          .clamp(agentScaleMaxRetriesMinimum, agentScaleMaxRetriesMaximum)
+          .toInt(),
       schedulerPolicy: _policyOrFallback(
         settings.schedulerPolicy,
         agentSchedulerPolicyOptions,
@@ -1568,7 +1580,9 @@ class AgentsController extends ManagedChangeNotifier {
     AgentProfile agent,
     List<AgentWorker> workers,
   ) {
-    final maxWorkers = agent.scaleSettings.maxWorkers.clamp(1, 999);
+    final maxWorkers = agent.scaleSettings.maxWorkers
+        .clamp(agentScaleMaxWorkersMinimum, agentScaleWorkersMaximum)
+        .toInt();
     if (workers.length <= maxWorkers) return workers;
     final removable = workers.where(_workerAcceptsTask).toList(growable: false);
     final removalBudget = math.min(
@@ -1690,7 +1704,7 @@ class AgentsController extends ManagedChangeNotifier {
     required String auditToolName,
   }) {
     final minWorkers = agent.scaleSettings.minWorkers.clamp(
-      0,
+      agentScaleMinWorkersMinimum,
       agent.scaleSettings.maxWorkers,
     );
     final workers = List<AgentWorker>.from(agent.workers);

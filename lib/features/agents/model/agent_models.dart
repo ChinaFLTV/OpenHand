@@ -25,6 +25,18 @@ const String agentKpiStatusTracking = 'tracking';
 const String agentKpiStatusAtRisk = 'at_risk';
 const String agentKpiStatusDone = 'done';
 const String agentKpiStatusPaused = 'paused';
+const int agentScaleMinWorkersMinimum = 0;
+const int agentScaleMaxWorkersMinimum = 1;
+const int agentScaleWorkersMaximum = 999;
+const int agentScaleMaxRetriesMinimum = 0;
+const int agentScaleMaxRetriesMaximum = 20;
+const int agentScaleDefaultMinWorkers = 1;
+const int agentScaleDefaultMaxWorkers = 1;
+const int agentScaleDefaultMaxRetries = 2;
+const double agentScaleRatioMinimum = 0;
+const double agentScaleRatioMaximum = 1;
+const double agentScaleDefaultScaleOutThreshold = 0.75;
+const double agentScaleDefaultScaleInThreshold = 0.25;
 const List<String> agentSchedulerPolicyOptions = <String>[
   agentSchedulerPolicyLeastBusy,
   agentSchedulerPolicyPriorityFirst,
@@ -291,13 +303,13 @@ enum AgentWorkerStatus {
 
 class AgentScaleSettings {
   const AgentScaleSettings({
-    this.minWorkers = 1,
-    this.maxWorkers = 1,
-    this.scaleOutThreshold = 0.75,
-    this.scaleInThreshold = 0.25,
+    this.minWorkers = agentScaleDefaultMinWorkers,
+    this.maxWorkers = agentScaleDefaultMaxWorkers,
+    this.scaleOutThreshold = agentScaleDefaultScaleOutThreshold,
+    this.scaleInThreshold = agentScaleDefaultScaleInThreshold,
     this.workerRemovalPolicy = agentWorkerRemovalPolicyLeastBusy,
     this.retryPolicy = agentRetryPolicyBoundedRetry,
-    this.maxRetries = 2,
+    this.maxRetries = agentScaleDefaultMaxRetries,
     this.schedulerPolicy = agentSchedulerPolicyLeastBusy,
     this.tags = const <String>[],
   });
@@ -306,26 +318,28 @@ class AgentScaleSettings {
     final json = stringKeyedMapFromValue(raw);
     final minWorkers = clampedIntFromValue(
       json['min_workers'],
-      fallback: 1,
-      min: 0,
-      max: 999,
+      fallback: agentScaleDefaultMinWorkers,
+      min: agentScaleMinWorkersMinimum,
+      max: agentScaleWorkersMaximum,
     );
     final maxWorkers = clampedIntFromValue(
       json['max_workers'],
-      fallback: minWorkers < 1 ? 1 : minWorkers,
-      min: 1,
-      max: 999,
+      fallback: minWorkers < agentScaleMaxWorkersMinimum
+          ? agentScaleMaxWorkersMinimum
+          : minWorkers,
+      min: agentScaleMaxWorkersMinimum,
+      max: agentScaleWorkersMaximum,
     );
     return AgentScaleSettings(
       minWorkers: minWorkers > maxWorkers ? maxWorkers : minWorkers,
       maxWorkers: maxWorkers,
       scaleOutThreshold: _ratioFromValue(
         json['scale_out_threshold'],
-        fallback: 0.75,
+        fallback: agentScaleDefaultScaleOutThreshold,
       ),
       scaleInThreshold: _ratioFromValue(
         json['scale_in_threshold'],
-        fallback: 0.25,
+        fallback: agentScaleDefaultScaleInThreshold,
       ),
       workerRemovalPolicy: _nonEmpty(
         json['worker_removal_policy'],
@@ -337,9 +351,9 @@ class AgentScaleSettings {
       ),
       maxRetries: clampedIntFromValue(
         json['max_retries'],
-        fallback: 2,
-        min: 0,
-        max: 20,
+        fallback: agentScaleDefaultMaxRetries,
+        min: agentScaleMaxRetriesMinimum,
+        max: agentScaleMaxRetriesMaximum,
       ),
       schedulerPolicy: _nonEmpty(
         json['scheduler_policy'],
@@ -374,7 +388,9 @@ class AgentScaleSettings {
     final nextMax = maxWorkers ?? this.maxWorkers;
     return AgentScaleSettings(
       minWorkers: nextMin > nextMax ? nextMax : nextMin,
-      maxWorkers: nextMax < 1 ? 1 : nextMax,
+      maxWorkers: nextMax < agentScaleMaxWorkersMinimum
+          ? agentScaleMaxWorkersMinimum
+          : nextMax,
       scaleOutThreshold: scaleOutThreshold ?? this.scaleOutThreshold,
       scaleInThreshold: scaleInThreshold ?? this.scaleInThreshold,
       workerRemovalPolicy: workerRemovalPolicy ?? this.workerRemovalPolicy,
@@ -1340,8 +1356,8 @@ String _nonEmpty(Object? raw, String fallback) {
 
 double _ratioFromValue(Object? raw, {required double fallback}) {
   final value = optionalDoubleFromValue(raw) ?? fallback;
-  if (value < 0) return 0;
-  if (value > 1) return 1;
+  if (value < agentScaleRatioMinimum) return agentScaleRatioMinimum;
+  if (value > agentScaleRatioMaximum) return agentScaleRatioMaximum;
   return value;
 }
 
