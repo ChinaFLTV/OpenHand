@@ -2,6 +2,12 @@ part of 'settings_view.dart';
 
 const int _aiModelChipPreviewLimit = 8;
 const String _settingsZeroDurationLabel = '0s';
+const double _aiProviderInfoChipMinHeight = 40;
+const double _aiProviderInfoChipIconSize = 18;
+const double _aiProviderInfoChipHorizontalPadding = 12;
+const double _aiProviderInfoChipLabelPadding = 8;
+const double _aiProviderInfoChipVerticalPadding = 10;
+const double _aiProviderInfoChipLineHeight = 1.2;
 const Duration _aiTtsDragHoverDuration = Duration(milliseconds: 220);
 const Duration _aiTtsDragOpacityDuration = Duration(milliseconds: 180);
 const double _aiTtsDragHandleSize = 34;
@@ -4738,6 +4744,67 @@ class _AiProviderWebsiteLink extends StatelessWidget {
   }
 }
 
+class _AiProviderInfoChip extends StatelessWidget {
+  const _AiProviderInfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final chipTheme = theme.chipTheme;
+    final labelStyle =
+        chipTheme.labelStyle ??
+        theme.textTheme.labelLarge ??
+        const TextStyle(fontSize: 14);
+    final fontSize = labelStyle.fontSize ?? 14;
+    final textScaler = MediaQuery.textScalerOf(context);
+    final scaledLineHeight =
+        textScaler.scale(fontSize) * _aiProviderInfoChipLineHeight;
+    final height = math.max(
+      _aiProviderInfoChipMinHeight,
+      scaledLineHeight + _aiProviderInfoChipVerticalPadding * 2,
+    );
+    final labelStrut = StrutStyle(
+      fontSize: fontSize,
+      height: _aiProviderInfoChipLineHeight,
+      forceStrutHeight: true,
+    );
+
+    return SizedBox(
+      height: height,
+      child: RawChip(
+        avatar: Icon(icon, size: _aiProviderInfoChipIconSize),
+        avatarBoxConstraints: const BoxConstraints.tightFor(
+          width: _aiProviderInfoChipIconSize,
+          height: _aiProviderInfoChipIconSize,
+        ),
+        label: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          strutStyle: labelStrut,
+        ),
+        labelStyle: labelStyle,
+        padding: const EdgeInsets.symmetric(
+          horizontal: _aiProviderInfoChipHorizontalPadding,
+        ),
+        labelPadding: const EdgeInsets.symmetric(
+          horizontal: _aiProviderInfoChipLabelPadding,
+        ),
+        visualDensity: VisualDensity.standard,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        backgroundColor: chipTheme.backgroundColor,
+        side: chipTheme.side,
+        shape: chipTheme.shape,
+        iconTheme: chipTheme.iconTheme,
+        clipBehavior: Clip.antiAlias,
+      ),
+    );
+  }
+}
+
 class _AiModelTile extends StatefulWidget {
   const _AiModelTile({
     super.key,
@@ -5060,46 +5127,36 @@ class _AiModelTileState extends State<_AiModelTile> {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    Chip(
-                      avatar: const Icon(Icons.link_rounded, size: 18),
-                      label: Text(widget.model.normalizedBaseUrl),
+                    _AiProviderInfoChip(
+                      icon: Icons.link_rounded,
+                      label: widget.model.normalizedBaseUrl,
                     ),
-                    Chip(
-                      avatar: Icon(
-                        widget.model.autoCompleteBaseUrl
-                            ? Icons.auto_fix_high_rounded
-                            : Icons.rule_rounded,
-                        size: 18,
-                      ),
-                      label: Text(
-                        widget.model.autoCompleteBaseUrl
-                            ? _localizedText(
-                                context,
-                                zh: '自动补全',
-                                en: 'Auto-complete',
-                              )
-                            : _localizedText(
-                                context,
-                                zh: '精确 Base URL',
-                                en: 'Exact Base URL',
-                              ),
-                      ),
+                    _AiProviderInfoChip(
+                      icon: widget.model.autoCompleteBaseUrl
+                          ? Icons.auto_fix_high_rounded
+                          : Icons.rule_rounded,
+                      label: widget.model.autoCompleteBaseUrl
+                          ? _localizedText(
+                              context,
+                              zh: '自动补全',
+                              en: 'Auto-complete',
+                            )
+                          : _localizedText(
+                              context,
+                              zh: '精确 Base URL',
+                              en: 'Exact Base URL',
+                            ),
                     ),
-                    Chip(
-                      avatar: const Icon(Icons.vpn_key_outlined, size: 18),
-                      label: Text(
-                        widget.model.maskedToken.isEmpty
-                            ? l10n.aiModelNoToken
-                            : widget.model.maskedToken,
-                      ),
+                    _AiProviderInfoChip(
+                      icon: Icons.vpn_key_outlined,
+                      label: widget.model.maskedToken.isEmpty
+                          ? l10n.aiModelNoToken
+                          : widget.model.maskedToken,
                     ),
                     if (widget.isSelected)
-                      Chip(
-                        avatar: const Icon(
-                          Icons.check_circle_outline_rounded,
-                          size: 18,
-                        ),
-                        label: Text(l10n.aiModelSelected),
+                      _AiProviderInfoChip(
+                        icon: Icons.check_circle_outline_rounded,
+                        label: l10n.aiModelSelected,
                       ),
                   ],
                 ),
