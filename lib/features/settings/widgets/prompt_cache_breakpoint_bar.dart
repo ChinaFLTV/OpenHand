@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 class PromptCacheBreakpointBar extends StatefulWidget {
   const PromptCacheBreakpointBar({
@@ -200,7 +201,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
                     for (var i = 0; i < _draft.length; i++)
                       Positioned(
                         left:
-                            (_draft[i].clamp(0.0, 1.0) * width) -
+                            (clampUnitInterval(_draft[i]) * width) -
                             _pegHeadWidth / 2,
                         top: 0,
                         child: _StaticPegHandle(
@@ -267,7 +268,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
 
   void _onPanStart(double dx, double width) {
     if (_draft.isEmpty) return;
-    final v = (dx / width).clamp(0.0, 1.0);
+    final v = unitRatio(dx, width);
     final idx = _nearestPegIndex(v);
     setState(() => _draggingIndex = idx);
     _movePeg(idx, v);
@@ -276,7 +277,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
   void _onPanUpdate(double dx, double width) {
     final idx = _draggingIndex;
     if (idx == null) return;
-    final v = (dx / width).clamp(0.0, 1.0);
+    final v = unitRatio(dx, width);
     _movePeg(idx, v);
   }
 
@@ -288,7 +289,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
 
   void _onTap(double dx, double width) {
     if (_draft.isEmpty) return;
-    final v = (dx / width).clamp(0.0, 1.0);
+    final v = unitRatio(dx, width);
     final idx = _nearestPegIndex(v);
     _movePeg(idx, v);
     widget.onCommit(_draft);
