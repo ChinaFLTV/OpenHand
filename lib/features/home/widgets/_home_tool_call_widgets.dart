@@ -1875,11 +1875,13 @@ int _countToolContentLines(String text) {
 String _toolContentDownloadFileName(String label, String? language) {
   final extension = _getFileExtensionForLanguage(language);
   final normalized = label.trim().toLowerCase();
-  final token = normalized
-      .replaceAll(RegExp(r'[^a-z0-9._-]+'), '_')
-      .replaceAll(RegExp(r'_+'), '_')
-      .replaceAll(RegExp(r'^_+|_+$'), '');
-  final baseName = token.isEmpty ? 'tool_output' : token;
+  final baseName = sanitizePortableFileNamePart(
+    normalized,
+    fallback: 'tool_output',
+    maxCharacters: null,
+    collapseReplacement: true,
+    trimBoundaryReplacement: true,
+  );
   if (baseName.endsWith(extension)) return baseName;
   return '$baseName$extension';
 }

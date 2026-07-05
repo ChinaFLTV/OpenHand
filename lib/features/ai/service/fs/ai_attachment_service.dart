@@ -11,6 +11,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/directory_cleanup.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/path_safety.dart';
 import '../../model/ai_attachment.dart';
 
 class AiAttachmentException implements Exception {
@@ -38,7 +39,6 @@ class AiAttachmentService {
   static const int _maxSpreadsheetRowsPerSheet = 32;
   static const int _maxSpreadsheetArchiveBytes = 8 * kBytesPerMiB;
   static const int _maxZipEntryBytes = 4 * kBytesPerMiB;
-  static final RegExp _unsafeTargetFileNameCharsPattern = RegExp(r'[^\w.\-]+');
   static final RegExp _pdfTextSpanPattern = RegExp(r'\(([^()]{2,})\)\s*Tj');
   static final RegExp _pdfFallbackUnsupportedCharsPattern = RegExp(
     r'[^\x20-\x7E\u4E00-\u9FFF\r\n\t]+',
@@ -783,11 +783,11 @@ class AiAttachmentService {
   }
 
   String _targetFileName(int sequence, String sourceName) {
-    final sanitized = sourceName.replaceAll(
-      _unsafeTargetFileNameCharsPattern,
-      '_',
+    final normalized = sanitizePortableFileNamePart(
+      sourceName,
+      fallback: 'attachment',
+      maxCharacters: null,
     );
-    final normalized = sanitized.isEmpty ? 'attachment' : sanitized;
     return '${sequence.toString().padLeft(2, '0')}-$normalized';
   }
 
