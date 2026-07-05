@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+const Radius kOpenHandPillRadius = Radius.circular(999);
+const BorderRadius kOpenHandPillBorderRadius = BorderRadius.all(
+  kOpenHandPillRadius,
+);
+
 /// 通用的 32px 高、圆角药丸状 chip：左侧小图标 + 右侧文本，可选 onTap。
 ///
 /// 设计来自 harness session header 的 `_HePill`，这里抽到 shared 让
@@ -22,8 +27,6 @@ class OhPill extends StatelessWidget {
   final VoidCallback? onTap;
   final Color? foregroundColor;
 
-  static const BorderRadius _br999 = BorderRadius.all(Radius.circular(999));
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -33,7 +36,7 @@ class OhPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: _br999,
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -56,10 +59,10 @@ class OhPill extends StatelessWidget {
     if (onTap == null) return child;
     return Material(
       color: Colors.transparent,
-      borderRadius: _br999,
+      borderRadius: kOpenHandPillBorderRadius,
       child: InkWell(
         onTap: onTap,
-        borderRadius: _br999,
+        borderRadius: kOpenHandPillBorderRadius,
         overlayColor: WidgetStatePropertyAll<Color>(
           theme.colorScheme.primary.withValues(alpha: 0.08),
         ),

@@ -21,6 +21,7 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -730,7 +731,7 @@ class _AgentPill extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Padding(
@@ -952,7 +953,7 @@ class _AgentDraftKpiTile extends StatelessWidget {
                   ],
                   const SizedBox(height: 8),
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: kOpenHandPillBorderRadius,
                     child: LinearProgressIndicator(
                       value: progress,
                       minHeight: 6,
@@ -1189,7 +1190,7 @@ class _AgentActivityTypeChip extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: color.withValues(alpha: 0.32)),
       ),
       child: Padding(
@@ -2857,7 +2858,7 @@ class _AgentWorkerStatusTile extends StatelessWidget {
                     LinearProgressIndicator(
                       value: worker.busyScore.clamp(0, 1).toDouble(),
                       minHeight: 5,
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: kOpenHandPillBorderRadius,
                       color: statusColor,
                       backgroundColor: colors.surfaceContainerHighest,
                     ),
@@ -3445,7 +3446,7 @@ class _AgentTaskCard extends StatelessWidget {
                         children: [
                           Expanded(
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(999),
+                              borderRadius: kOpenHandPillBorderRadius,
                               child: LinearProgressIndicator(
                                 value: progress,
                                 minHeight: 7,
@@ -4569,7 +4570,7 @@ class _AgentKpiCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
+                          borderRadius: kOpenHandPillBorderRadius,
                           child: LinearProgressIndicator(
                             value: progress,
                             minHeight: 7,
@@ -5983,7 +5984,7 @@ class _AgentResourcePressureCard extends StatelessWidget {
                           availableWidth <
                           _agentResourcePressureCardCompactBreakpoint;
                       final progressBar = ClipRRect(
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: kOpenHandPillBorderRadius,
                         child: TweenAnimationBuilder<double>(
                           tween: Tween<double>(begin: 0, end: normalized),
                           duration: settings.duration,
@@ -7069,7 +7070,7 @@ class _AgentAuditInsightRow extends StatelessWidget {
             height: 34,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.55),
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: kOpenHandPillBorderRadius,
             ),
           ),
           const SizedBox(width: 10),
@@ -7102,7 +7103,7 @@ class _AgentAuditInsightRow extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: kOpenHandPillBorderRadius,
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -7256,7 +7257,7 @@ class _AgentAuditTaskStatusRow extends StatelessWidget {
           LinearProgressIndicator(
             value: normalized,
             minHeight: 8,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             backgroundColor: cs.surfaceContainerHighest,
             color: cs.primary,
           ),
@@ -7297,7 +7298,7 @@ class _AgentAuditPressureRow extends StatelessWidget {
             child: LinearProgressIndicator(
               value: ratio,
               minHeight: 8,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: kOpenHandPillBorderRadius,
               color: color,
               backgroundColor: cs.surfaceContainerHighest,
             ),
@@ -7495,7 +7496,7 @@ class _AgentTaskDetailHero extends StatelessWidget {
                               return LinearProgressIndicator(
                                 value: value,
                                 minHeight: 6,
-                                borderRadius: BorderRadius.circular(999),
+                                borderRadius: kOpenHandPillBorderRadius,
                                 color: statusColor,
                                 backgroundColor: cs.surfaceContainerHighest,
                               );
@@ -7784,7 +7785,7 @@ class _AgentDialogMetricTile extends StatelessWidget {
               LinearProgressIndicator(
                 value: normalizedProgress,
                 minHeight: 7,
-                borderRadius: BorderRadius.circular(999),
+                borderRadius: kOpenHandPillBorderRadius,
                 color: tone,
                 backgroundColor: cs.surfaceContainerHighest,
               ),
@@ -11220,7 +11221,7 @@ class _AgentChipInsertionIndicator extends StatelessWidget {
       height: _agentChipDropSlotExtent,
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: kOpenHandPillBorderRadius,
       ),
       child: Icon(
         Icons.keyboard_double_arrow_right_rounded,
@@ -11369,7 +11370,7 @@ class _AgentDraggableChipFeedback extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           elevation: 6,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
           child: child,
         ),
       ),
@@ -11419,7 +11420,7 @@ class _AgentDraggableChipBody extends StatelessWidget {
                   color: dragging
                       ? colors.surfaceContainerHighest
                       : colors.surfaceContainerHighest.withValues(alpha: 0.46),
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: kOpenHandPillBorderRadius,
                   border: Border.all(
                     color: dragging ? colors.primary : colors.outlineVariant,
                   ),
@@ -11917,7 +11918,7 @@ class _AgentCapabilityChoiceChipState
           padding: _agentCapabilityChipPadding,
           decoration: BoxDecoration(
             color: background,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             border: Border.all(color: border, width: widget.selected ? 1.5 : 1),
             boxShadow: shadow,
           ),
@@ -11959,9 +11960,9 @@ class _AgentCapabilityChoiceChipState
             : SystemMouseCursors.basic,
         child: Material(
           type: MaterialType.transparency,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: kOpenHandPillBorderRadius,
           child: InkWell(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: kOpenHandPillBorderRadius,
             canRequestFocus: _interactive,
             onTap: _interactive
                 ? () => widget.onSelected?.call(!widget.selected)
@@ -12239,7 +12240,7 @@ class _AgentNumberStepperFieldState extends State<_AgentNumberStepperField> {
                       color: focused
                           ? cs.primaryContainer.withValues(alpha: 0.54)
                           : cs.surface.withValues(alpha: 0.92),
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: kOpenHandPillBorderRadius,
                     ),
                     child: Text(
                       widget.label,
