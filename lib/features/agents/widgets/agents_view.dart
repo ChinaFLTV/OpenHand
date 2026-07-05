@@ -146,6 +146,29 @@ const int _agentCapabilityChipStateDurationMs = 150;
 const EdgeInsetsDirectional _agentCapabilityChipPadding =
     EdgeInsetsDirectional.fromSTEB(12, 7, 14, 7);
 const double _agentNumberStepperButtonExtent = 48;
+const double _agentNumberStepperContentHeight = 44;
+const double _agentNumberStepperButtonRadius = 14;
+const double _agentNumberStepperIconSize = 22;
+const int _agentNumberStepperStateDurationMs = 150;
+const EdgeInsetsDirectional _agentNumberStepperPadding =
+    EdgeInsetsDirectional.fromSTEB(6, 4, 6, 4);
+
+int _normalizeAgentMaxWorkers(int value) {
+  return value.clamp(_agentScaleMaxWorkersMin, _agentScaleWorkersMax).toInt();
+}
+
+int _normalizeAgentMinWorkers(int value, int maxWorkers) {
+  final normalizedMaxWorkers = _normalizeAgentMaxWorkers(maxWorkers);
+  return value.clamp(_agentScaleMinWorkersMin, normalizedMaxWorkers).toInt();
+}
+
+int _normalizeAgentMaxRetries(int value) {
+  return value.clamp(_agentScaleRetriesMin, _agentScaleRetriesMax).toInt();
+}
+
+double _normalizeAgentScaleRatio(double value) {
+  return value.clamp(0, 1).toDouble();
+}
 
 bool _isAgentCoordinationBuiltinToolId(String id) {
   return AiBuiltinToolKind.values.any(
@@ -1760,6 +1783,7 @@ class _AgentClusterDialogContentState
     AgentsController controller,
     AgentProfile currentAgent,
   ) async {
+    FocusScope.of(context).unfocus();
     final updated = _clusterEditorKey.currentState?.buildSettings();
     if (updated == null) return;
     final failureMessage = openHandLocalizedText(
@@ -2054,11 +2078,13 @@ class _AgentClusterSettingsEditorState
   void initState() {
     super.initState();
     final initial = widget.initial;
-    _minWorkers = initial.minWorkers;
-    _maxWorkers = initial.maxWorkers;
-    _maxRetries = initial.maxRetries;
-    _scaleOutThreshold = initial.scaleOutThreshold.clamp(0, 1).toDouble();
-    _scaleInThreshold = initial.scaleInThreshold.clamp(0, 1).toDouble();
+    _maxWorkers = _normalizeAgentMaxWorkers(initial.maxWorkers);
+    _minWorkers = _normalizeAgentMinWorkers(initial.minWorkers, _maxWorkers);
+    _maxRetries = _normalizeAgentMaxRetries(initial.maxRetries);
+    _scaleOutThreshold = _normalizeAgentScaleRatio(
+      initial.scaleOutThreshold,
+    );
+    _scaleInThreshold = _normalizeAgentScaleRatio(initial.scaleInThreshold);
     _schedulerPolicy =
         _agentSchedulerPolicyOptions.contains(initial.schedulerPolicy)
         ? initial.schedulerPolicy
@@ -2095,9 +2121,10 @@ class _AgentClusterSettingsEditorState
               min: _agentScaleMinWorkersMin,
               max: _maxWorkers,
               onChanged: (value) => setState(
-                () => _minWorkers = value
-                    .clamp(_agentScaleMinWorkersMin, _maxWorkers)
-                    .toInt(),
+                () => _minWorkers = _normalizeAgentMinWorkers(
+                  value,
+                  _maxWorkers,
+                ),
               ),
             ),
             _clusterNumberStepper(
@@ -2106,10 +2133,11 @@ class _AgentClusterSettingsEditorState
               min: _agentScaleMaxWorkersMin,
               max: _agentScaleWorkersMax,
               onChanged: (value) => setState(() {
-                _maxWorkers = value
-                    .clamp(_agentScaleMaxWorkersMin, _agentScaleWorkersMax)
-                    .toInt();
-                if (_minWorkers > _maxWorkers) _minWorkers = _maxWorkers;
+                _maxWorkers = _normalizeAgentMaxWorkers(value);
+                _minWorkers = _normalizeAgentMinWorkers(
+                  _minWorkers,
+                  _maxWorkers,
+                );
               }),
             ),
             _clusterNumberStepper(
@@ -2118,9 +2146,7 @@ class _AgentClusterSettingsEditorState
               min: _agentScaleRetriesMin,
               max: _agentScaleRetriesMax,
               onChanged: (value) => setState(
-                () => _maxRetries = value
-                    .clamp(_agentScaleRetriesMin, _agentScaleRetriesMax)
-                    .toInt(),
+                () => _maxRetries = _normalizeAgentMaxRetries(value),
               ),
             ),
             _FormGridItem(
@@ -2207,7 +2233,7 @@ class _AgentClusterSettingsEditorState
     double value,
     ValueChanged<double> onChanged,
   ) {
-    final normalized = value.clamp(0, 1).toDouble();
+    final normalized = _normalizeAgentScaleRatio(value);
     return _FormGridItem(
       child: InputDecorator(
         decoration: InputDecoration(labelText: label),
@@ -2261,20 +2287,14 @@ class _AgentClusterSettingsEditorState
   }
 
   AgentScaleSettings buildSettings() {
-    final maxWorkers = _maxWorkers
-        .clamp(_agentScaleMaxWorkersMin, _agentScaleWorkersMax)
-        .toInt();
-    final minWorkers = _minWorkers
-        .clamp(_agentScaleMinWorkersMin, maxWorkers)
-        .toInt();
-    final maxRetries = _maxRetries
-        .clamp(_agentScaleRetriesMin, _agentScaleRetriesMax)
-        .toInt();
+    final maxWorkers = _normalizeAgentMaxWorkers(_maxWorkers);
+    final minWorkers = _normalizeAgentMinWorkers(_minWorkers, maxWorkers);
+    final maxRetries = _normalizeAgentMaxRetries(_maxRetries);
     return AgentScaleSettings(
       minWorkers: minWorkers,
       maxWorkers: maxWorkers,
-      scaleOutThreshold: _scaleOutThreshold,
-      scaleInThreshold: _scaleInThreshold,
+      scaleOutThreshold: _normalizeAgentScaleRatio(_scaleOutThreshold),
+      scaleInThreshold: _normalizeAgentScaleRatio(_scaleInThreshold),
       workerRemovalPolicy: _workerRemovalPolicy,
       retryPolicy: _retryPolicy,
       maxRetries: maxRetries,
@@ -6798,11 +6818,22 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     _cronIds = {...?agent?.cronIds};
     _hookIds = {...?agent?.hookIds};
     _instructionIds = {...?agent?.instructionIds};
-    _minWorkers = agent?.scaleSettings.minWorkers ?? 1;
-    _maxWorkers = agent?.scaleSettings.maxWorkers ?? 1;
-    _maxRetries = agent?.scaleSettings.maxRetries ?? 2;
-    _scaleOutThreshold = agent?.scaleSettings.scaleOutThreshold ?? 0.75;
-    _scaleInThreshold = agent?.scaleSettings.scaleInThreshold ?? 0.25;
+    _maxWorkers = _normalizeAgentMaxWorkers(
+      agent?.scaleSettings.maxWorkers ?? 1,
+    );
+    _minWorkers = _normalizeAgentMinWorkers(
+      agent?.scaleSettings.minWorkers ?? 1,
+      _maxWorkers,
+    );
+    _maxRetries = _normalizeAgentMaxRetries(
+      agent?.scaleSettings.maxRetries ?? 2,
+    );
+    _scaleOutThreshold = _normalizeAgentScaleRatio(
+      agent?.scaleSettings.scaleOutThreshold ?? 0.75,
+    );
+    _scaleInThreshold = _normalizeAgentScaleRatio(
+      agent?.scaleSettings.scaleInThreshold ?? 0.25,
+    );
     _schedulerPolicy = agent?.scaleSettings.schedulerPolicy ?? 'least_busy';
     _workerRemovalPolicy =
         agent?.scaleSettings.workerRemovalPolicy ?? 'least_busy';
@@ -7377,9 +7408,10 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                 min: _agentScaleMinWorkersMin,
                 max: _maxWorkers,
                 onChanged: (v) => setState(
-                  () => _minWorkers = v
-                      .clamp(_agentScaleMinWorkersMin, _maxWorkers)
-                      .toInt(),
+                  () => _minWorkers = _normalizeAgentMinWorkers(
+                    v,
+                    _maxWorkers,
+                  ),
                 ),
               ),
             ),
@@ -7391,10 +7423,11 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                 min: _agentScaleMaxWorkersMin,
                 max: _agentScaleWorkersMax,
                 onChanged: (v) => setState(() {
-                  _maxWorkers = v
-                      .clamp(_agentScaleMaxWorkersMin, _agentScaleWorkersMax)
-                      .toInt();
-                  if (_minWorkers > _maxWorkers) _minWorkers = _maxWorkers;
+                  _maxWorkers = _normalizeAgentMaxWorkers(v);
+                  _minWorkers = _normalizeAgentMinWorkers(
+                    _minWorkers,
+                    _maxWorkers,
+                  );
                 }),
               ),
             ),
@@ -7406,9 +7439,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                 min: _agentScaleRetriesMin,
                 max: _agentScaleRetriesMax,
                 onChanged: (v) => setState(
-                  () => _maxRetries = v
-                      .clamp(_agentScaleRetriesMin, _agentScaleRetriesMax)
-                      .toInt(),
+                  () => _maxRetries = _normalizeAgentMaxRetries(v),
                 ),
               ),
             ),
@@ -8026,7 +8057,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     double value,
     ValueChanged<double> onChanged,
   ) {
-    final normalized = value.clamp(0, 1).toDouble();
+    final normalized = _normalizeAgentScaleRatio(value);
     return InputDecorator(
       decoration: InputDecoration(labelText: label),
       child: Row(
@@ -8305,6 +8336,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     required BuildContext dialogContext,
     required List<AiBuiltinToolConfig> builtinToolConfigs,
   }) {
+    FocusScope.of(dialogContext).unfocus();
     final validationError = _validateDraft();
     if (validationError != null) {
       OpenHandSnackBar.showError(context, validationError);
@@ -8354,15 +8386,9 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   }) {
     final now = DateTime.now().toUtc();
     final previous = widget.initialAgent;
-    final maxWorkers = _maxWorkers
-        .clamp(_agentScaleMaxWorkersMin, _agentScaleWorkersMax)
-        .toInt();
-    final minWorkers = _minWorkers
-        .clamp(_agentScaleMinWorkersMin, maxWorkers)
-        .toInt();
-    final maxRetries = _maxRetries
-        .clamp(_agentScaleRetriesMin, _agentScaleRetriesMax)
-        .toInt();
+    final maxWorkers = _normalizeAgentMaxWorkers(_maxWorkers);
+    final minWorkers = _normalizeAgentMinWorkers(_minWorkers, maxWorkers);
+    final maxRetries = _normalizeAgentMaxRetries(_maxRetries);
     final taskLabels = _dedupeStrings(_taskLabelValues);
     final workerTags = _dedupeStrings(_workerTagValues);
     final workspacePath = _normalizedWorkspacePath();
@@ -8416,8 +8442,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       scaleSettings: AgentScaleSettings(
         minWorkers: minWorkers,
         maxWorkers: maxWorkers,
-        scaleOutThreshold: _scaleOutThreshold.clamp(0, 1).toDouble(),
-        scaleInThreshold: _scaleInThreshold.clamp(0, 1).toDouble(),
+        scaleOutThreshold: _normalizeAgentScaleRatio(_scaleOutThreshold),
+        scaleInThreshold: _normalizeAgentScaleRatio(_scaleInThreshold),
         workerRemovalPolicy: _workerRemovalPolicy,
         retryPolicy: _retryPolicy,
         maxRetries: maxRetries,
@@ -9987,10 +10013,15 @@ class _AgentNumberStepperFieldState extends State<_AgentNumberStepperField> {
   @override
   void didUpdateWidget(covariant _AgentNumberStepperField oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final boundsChanged =
+        oldWidget.min != widget.min || oldWidget.max != widget.max;
+    final valueChanged = oldWidget.value != widget.value;
     final normalized = _normalized(widget.value);
-    final parsedText = int.tryParse(_controller.text.trim());
+    final parsedText = _parsedText(_controller.text);
     final shouldSync =
-        !_focusNode.hasFocus || parsedText == null || parsedText != normalized;
+        !_focusNode.hasFocus ||
+        (boundsChanged && !_isTextValueWithinBounds(parsedText)) ||
+        (valueChanged && parsedText != normalized);
     if (shouldSync) {
       _setControllerText(normalized);
     }
@@ -10008,14 +10039,25 @@ class _AgentNumberStepperFieldState extends State<_AgentNumberStepperField> {
     if (!_focusNode.hasFocus) {
       _commitText();
     }
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   int _normalized(int value) {
     return value.clamp(_lowerBound, _upperBound).toInt();
   }
 
+  int? _parsedText(String raw) {
+    return int.tryParse(raw.trim());
+  }
+
+  bool _isTextValueWithinBounds(int? value) {
+    return value != null && value >= _lowerBound && value <= _upperBound;
+  }
+
   int _currentValue() {
-    final parsed = int.tryParse(_controller.text.trim());
+    final parsed = _parsedText(_controller.text);
     return _normalized(parsed ?? widget.value);
   }
 
@@ -10041,11 +10083,12 @@ class _AgentNumberStepperFieldState extends State<_AgentNumberStepperField> {
   }
 
   void _handleTextChanged(String raw) {
-    final parsed = int.tryParse(raw.trim());
-    if (parsed == null) return;
-    final normalized = _normalized(parsed);
-    if (normalized != widget.value) {
-      widget.onChanged(normalized);
+    final parsed = _parsedText(raw);
+    if (_isTextValueWithinBounds(parsed) && parsed != widget.value) {
+      widget.onChanged(parsed!);
+    }
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -10060,40 +10103,74 @@ class _AgentNumberStepperFieldState extends State<_AgentNumberStepperField> {
     final canIncrease = value < _upperBound;
     final theme = Theme.of(context);
     final maxDigits = math.max(1, _upperBound.toString().length);
-    return TextField(
-      controller: _controller,
-      focusNode: _focusNode,
-      textAlign: TextAlign.center,
-      keyboardType: TextInputType.number,
-      textInputAction: TextInputAction.done,
-      inputFormatters: <TextInputFormatter>[
-        FilteringTextInputFormatter.digitsOnly,
-        LengthLimitingTextInputFormatter(maxDigits),
-      ],
-      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+    return InputDecorator(
+      isFocused: _focusNode.hasFocus,
+      isEmpty: _controller.text.trim().isEmpty,
       decoration: InputDecoration(
         labelText: widget.label,
-        prefixIcon: _AgentNumberStepperButton(
-          icon: Icons.remove_rounded,
-          enabled: canDecrease,
-          tooltip: openHandLocalizedText(context, zh: '减少', en: 'Decrease'),
-          onPressed: () => _stepBy(-1),
-        ),
-        suffixIcon: _AgentNumberStepperButton(
-          icon: Icons.add_rounded,
-          enabled: canIncrease,
-          tooltip: openHandLocalizedText(context, zh: '增加', en: 'Increase'),
-          onPressed: () => _stepBy(1),
+        contentPadding: _agentNumberStepperPadding,
+      ),
+      child: SizedBox(
+        height: _agentNumberStepperContentHeight,
+        child: Row(
+          children: [
+            _AgentNumberStepperButton(
+              icon: Icons.remove_rounded,
+              enabled: canDecrease,
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '减少',
+                en: 'Decrease',
+              ),
+              onPressed: () => _stepBy(-1),
+            ),
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                textAlign: TextAlign.center,
+                textAlignVertical: TextAlignVertical.center,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(maxDigits),
+                ],
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  isCollapsed: true,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                ),
+                onChanged: _handleTextChanged,
+                onSubmitted: (_) => _commitText(),
+                onEditingComplete: _commitText,
+              ),
+            ),
+            _AgentNumberStepperButton(
+              icon: Icons.add_rounded,
+              enabled: canIncrease,
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '增加',
+                en: 'Increase',
+              ),
+              onPressed: () => _stepBy(1),
+            ),
+          ],
         ),
       ),
-      onChanged: _handleTextChanged,
-      onSubmitted: (_) => _commitText(),
-      onEditingComplete: _commitText,
     );
   }
 }
 
-class _AgentNumberStepperButton extends StatelessWidget {
+class _AgentNumberStepperButton extends StatefulWidget {
   const _AgentNumberStepperButton({
     required this.icon,
     required this.enabled,
@@ -10107,14 +10184,83 @@ class _AgentNumberStepperButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
+  State<_AgentNumberStepperButton> createState() =>
+      _AgentNumberStepperButtonState();
+}
+
+class _AgentNumberStepperButtonState extends State<_AgentNumberStepperButton> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  void _setHovered(bool value) {
+    if (_hovered == value) return;
+    setState(() => _hovered = value);
+  }
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AgentNumberStepperButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled && (_hovered || _pressed)) {
+      _hovered = false;
+      _pressed = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Center(
-      child: SizedBox.square(
-        dimension: _agentNumberStepperButtonExtent,
-        child: IconButton(
-          tooltip: tooltip,
-          onPressed: enabled ? onPressed : null,
-          icon: Icon(icon),
+    final duration = openHandMotionDurationMs(
+      context,
+      _agentNumberStepperStateDurationMs,
+    );
+    final scale = !widget.enabled
+        ? 1.0
+        : _pressed
+        ? 0.92
+        : _hovered
+        ? 1.04
+        : 1.0;
+    return MouseRegion(
+      cursor: widget.enabled
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      onEnter: widget.enabled ? (_) => _setHovered(true) : null,
+      onExit: (_) {
+        _setHovered(false);
+        _setPressed(false);
+      },
+      child: Listener(
+        onPointerDown: widget.enabled ? (_) => _setPressed(true) : null,
+        onPointerUp: (_) => _setPressed(false),
+        onPointerCancel: (_) => _setPressed(false),
+        child: AnimatedScale(
+          duration: duration,
+          curve: Curves.easeOutCubic,
+          scale: scale,
+          child: AnimatedOpacity(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            opacity: widget.enabled ? 1 : 0.46,
+            child: IconButton.filledTonal(
+              tooltip: widget.tooltip,
+              onPressed: widget.enabled ? widget.onPressed : null,
+              style: IconButton.styleFrom(
+                fixedSize: const Size.square(_agentNumberStepperButtonExtent),
+                minimumSize: const Size.square(_agentNumberStepperButtonExtent),
+                maximumSize: const Size.square(_agentNumberStepperButtonExtent),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(
+                    _agentNumberStepperButtonRadius,
+                  ),
+                ),
+              ),
+              icon: Icon(widget.icon, size: _agentNumberStepperIconSize),
+            ),
+          ),
         ),
       ),
     );
