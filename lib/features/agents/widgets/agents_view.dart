@@ -14388,7 +14388,7 @@ String _agentMetadataValueText(
   }
   final raw = '$value'.trim();
   if (raw.isEmpty) return '';
-  final parsedBool = _agentBoolFromText(raw);
+  final parsedBool = optionalBoolFromValue(raw);
   if (parsedBool != null && _agentMetadataBooleanKey(key)) {
     return _agentBooleanLabel(context, key, parsedBool);
   }
@@ -14897,14 +14897,6 @@ bool _agentMetadataBooleanKey(String key) {
       normalizedKey.endsWith('_enabled') ||
       normalizedKey.endsWith('_required') ||
       normalizedKey.startsWith('allow_');
-}
-
-bool? _agentBoolFromText(String raw) {
-  return switch (raw.trim().toLowerCase()) {
-    'true' || 'yes' || '1' => true,
-    'false' || 'no' || '0' => false,
-    _ => null,
-  };
 }
 
 String _agentMetadataKey(String key) {
