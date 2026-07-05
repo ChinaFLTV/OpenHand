@@ -111,7 +111,7 @@ class AiKnowledgeSearchTool extends AiTool {
         'rerank_input_count': rankedRows.length,
         'rerank_output_count': hits.length,
         'kept_count': hits.length,
-        'discarded_count': math.max(0, rankedRows.length - hits.length),
+        'discarded_count': nonNegativeRemaining(rankedRows.length, hits.length),
         'duration_ms': sw.elapsedMilliseconds,
       },
     );
@@ -411,7 +411,7 @@ _KnowledgeSearchScore _scoreSearchRow(
   }
   final coverage = terms.isEmpty
       ? 1.0
-      : strongMatchedTermCount / math.max(1, terms.length);
+      : unitRatio(strongMatchedTermCount, terms.length);
   score += coverage * 4;
   final tokenEstimate = _intValue(row['token_estimate']);
   if (tokenEstimate > 0) score += 0.2;

@@ -128,7 +128,7 @@ class KnowledgeRetrievalService {
     );
     final rerankTrace = ranked.trace.copyWith(
       keptCount: capped.length,
-      discardedCount: math.max(0, scored.length - capped.length),
+      discardedCount: nonNegativeRemaining(scored.length, capped.length),
     );
     stopwatch.stop();
     return KnowledgeRetrievalResult(
