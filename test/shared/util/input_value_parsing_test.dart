@@ -22,4 +22,19 @@ void main() {
       expect(optionalBoolFromValue(0.5), isNull);
     });
   });
+
+  group('clampUnitInterval', () {
+    test('clamps finite values into the unit interval', () {
+      expect(clampUnitInterval(-0.25), 0);
+      expect(clampUnitInterval(0.42), 0.42);
+      expect(clampUnitInterval(1.25), 1);
+    });
+
+    test('handles non-finite values gracefully', () {
+      expect(clampUnitInterval(double.infinity), 1);
+      expect(clampUnitInterval(double.negativeInfinity), 0);
+      expect(clampUnitInterval(double.nan, fallback: 0.5), 0.5);
+      expect(clampUnitInterval(double.nan, fallback: double.nan), 0);
+    });
+  });
 }

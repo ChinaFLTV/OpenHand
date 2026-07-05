@@ -66,6 +66,8 @@ T enumByNameOr<T extends Enum>(
 
 final RegExp _looseDelimitedValueSeparator = RegExp(r'[\s,，;；]+');
 const int _autoMillisecondsTimestampThreshold = 1000000000000;
+const double kUnitIntervalMinimum = 0;
+const double kUnitIntervalMaximum = 1;
 const Set<String> _truthyBoolTexts = <String>{
   '1',
   'true',
@@ -567,6 +569,19 @@ double clampedDoubleFromValue(
   final (:lower, :upper) = _orderedDoubleBounds(min, max);
   final safeFallback = fallback.isFinite ? fallback : lower;
   return (parsed ?? safeFallback).clamp(lower, upper).toDouble();
+}
+
+double clampUnitInterval(num value, {double fallback = kUnitIntervalMinimum}) {
+  final safeFallback = fallback.isFinite
+      ? fallback.clamp(kUnitIntervalMinimum, kUnitIntervalMaximum).toDouble()
+      : kUnitIntervalMinimum;
+  if (!value.isFinite) {
+    if (value.isInfinite) {
+      return value.isNegative ? kUnitIntervalMinimum : kUnitIntervalMaximum;
+    }
+    return safeFallback;
+  }
+  return value.clamp(kUnitIntervalMinimum, kUnitIntervalMaximum).toDouble();
 }
 
 int clampedIntFromText(

@@ -4000,7 +4000,7 @@ Map<String, Object?> _kpiSummaryJson(List<AgentKpiItem> items) {
         ? agentKpiStatusTracking
         : item.status.trim();
     byStatus[status] = (byStatus[status] ?? 0) + 1;
-    totalProgress += item.progress.clamp(0, 1).toDouble();
+    totalProgress += clampUnitInterval(item.progress);
   }
   return <String, Object?>{
     'total': items.length,
@@ -4684,7 +4684,7 @@ Map<String, Object?> _resourceUsageSummaryJson(AgentResourceUsage usage) {
 
 double _resourceRatio(int used, int budget) {
   if (budget <= 0) return 0;
-  return (used / budget).clamp(0, 1).toDouble();
+  return clampUnitInterval(used / budget);
 }
 
 int _resourceRemaining(int budget, int used) {
@@ -4699,7 +4699,7 @@ double _maxResourcePressure(
   double persisted,
   double handles,
 ) {
-  var maxPressure = cpu.clamp(0, 1).toDouble();
+  var maxPressure = clampUnitInterval(cpu);
   if (token > maxPressure) maxPressure = token;
   if (persisted > maxPressure) maxPressure = persisted;
   if (handles > maxPressure) maxPressure = handles;

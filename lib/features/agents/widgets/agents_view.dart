@@ -881,7 +881,7 @@ class _AgentDraftKpiTile extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final statusColor = _agentKpiStatusColor(cs, item.status);
-    final progress = item.progress.clamp(0, 1).toDouble();
+    final progress = clampUnitInterval(item.progress);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
@@ -1731,7 +1731,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             _AgentTaskDetailBlock(
               icon: Icons.trending_up_rounded,
               title: openHandLocalizedText(context, zh: '进度', en: 'Progress'),
-              body: '${(task.progress.clamp(0, 1) * 100).round()}%',
+              body: '${(clampUnitInterval(task.progress) * 100).round()}%',
               compact: true,
             ),
             _AgentTaskDetailBlock(
@@ -1848,7 +1848,7 @@ class _AgentCapabilityLogDetailBody extends StatelessWidget {
             _AgentTaskDetailBlock(
               icon: Icons.speed_rounded,
               title: openHandLocalizedText(context, zh: '忙碌度', en: 'Busy'),
-              body: '${(worker.busyScore.clamp(0, 1) * 100).round()}%',
+              body: '${(clampUnitInterval(worker.busyScore) * 100).round()}%',
               compact: true,
             ),
             _AgentTaskDetailBlock(
@@ -2856,7 +2856,7 @@ class _AgentWorkerStatusTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
-                      value: worker.busyScore.clamp(0, 1).toDouble(),
+                      value: clampUnitInterval(worker.busyScore),
                       minHeight: 5,
                       borderRadius: kOpenHandPillBorderRadius,
                       color: statusColor,
@@ -3366,7 +3366,7 @@ class _AgentTaskCard extends StatelessWidget {
         : formatMonthDayHm(task.createdAt!.toLocal());
     final tracking = _agentTaskTrackingChips(context, agent, task);
     final metadata = _agentTaskMetadataChips(context, task);
-    final progress = task.progress.clamp(0, 1).toDouble();
+    final progress = clampUnitInterval(task.progress);
 
     return Material(
       color: Colors.transparent,
@@ -4487,7 +4487,7 @@ class _AgentKpiCard extends StatelessWidget {
         ? ''
         : formatMonthDayHm(item.updatedAt!.toLocal());
     final metadata = _agentKpiMetadataChips(context, item);
-    final progress = item.progress.clamp(0, 1).toDouble();
+    final progress = clampUnitInterval(item.progress);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -4704,7 +4704,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
     _target = TextEditingController(text: initial?.target ?? '');
     _plan = TextEditingController(text: initial?.plan ?? '');
     _extraEntries = _keyValueEntriesFromMap(initial?.extra);
-    _progress = (initial?.progress ?? 0).clamp(0, 1).toDouble();
+    _progress = clampUnitInterval(initial?.progress ?? 0);
     _status = agentKpiStatusOptions.contains(initial?.status)
         ? initial!.status
         : agentKpiStatusOptions.first;
@@ -4873,7 +4873,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
       name: _name.text.trim(),
       target: _target.text.trim(),
       plan: _plan.text.trim(),
-      progress: _progress.clamp(0, 1).toDouble(),
+      progress: clampUnitInterval(_progress),
       status: _status,
       createdAt: initial?.createdAt,
       extra: _agentKeyValueDraftMapFromEntries(_extraEntries),
@@ -5088,7 +5088,7 @@ class _AgentResourceLiveData {
     final resource = agent.resourceUsage;
     final telemetry = _agentResourceTelemetry(resource);
     final samples = _agentResourceSamples(resource);
-    final cpu = resource.cpuPercent.clamp(0, 1).toDouble();
+    final cpu = clampUnitInterval(resource.cpuPercent);
     final token = _agentResourceRatio(resource.tokenUsed, resource.tokenBudget);
     final persisted = _agentResourceRatio(
       resource.persistedBytes,
@@ -5756,7 +5756,7 @@ class _AgentResourceBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final cpu = resource.cpuPercent.clamp(0, 1).toDouble();
+    final cpu = clampUnitInterval(resource.cpuPercent);
     final tokenPressure = _agentResourceRatio(
       resource.tokenUsed,
       resource.tokenBudget,
@@ -5925,7 +5925,7 @@ class _AgentResourcePressureCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final normalized = pressure.clamp(0, 1).toDouble();
+    final normalized = clampUnitInterval(pressure);
     final color = _agentResourcePressureColor(cs, normalized);
     final settings = _agentDialogAnimationSettings(context);
     return AnimatedContainer(
@@ -6097,7 +6097,7 @@ class _AgentResourcePressureTrendPainter extends CustomPainter {
           values.length == 1
               ? chart.center.dx
               : chart.left + chart.width * i / (values.length - 1),
-          chart.bottom - chart.height * values[i].clamp(0, 1).toDouble(),
+          chart.bottom - chart.height * clampUnitInterval(values[i]),
         ),
     ];
     final path = Path()..moveTo(points.first.dx, points.first.dy);
@@ -6174,15 +6174,15 @@ class _AgentResourcePressureDonutPainter extends CustomPainter {
 
     final total = segments.fold<double>(
       0,
-      (sum, segment) => sum + segment.value.clamp(0, 1).toDouble(),
+      (sum, segment) => sum + clampUnitInterval(segment.value),
     );
     if (total <= 0) return;
 
-    final animatedProgress = progress.clamp(0, 1).toDouble();
+    final animatedProgress = clampUnitInterval(progress);
     final gap = segments.length > 1 ? 0.028 : 0.0;
     var start = -math.pi / 2;
     for (final segment in segments) {
-      final value = segment.value.clamp(0, 1).toDouble();
+      final value = clampUnitInterval(segment.value);
       if (value <= 0) continue;
       final rawSweep = math.pi * 2 * value / total * animatedProgress;
       final sweep = math.max<double>(0, rawSweep - gap);
@@ -6225,9 +6225,9 @@ List<_AgentResourceSample> _agentResourceSamples(AgentResourceUsage resource) {
     for (final item in history)
       _AgentResourceSample(
         sampledAt: _agentResourceDateTime(item['sampled_at']) ?? now,
-        cpu: (optionalDoubleFromValue(item['cpu_percent']) ?? 0)
-            .clamp(0, 1)
-            .toDouble(),
+        cpu: clampUnitInterval(
+          optionalDoubleFromValue(item['cpu_percent']) ?? 0,
+        ),
         tokenPressure: _agentResourceRatio(
           nonNegativeIntFromValue(item['token_used'], fallback: 0),
           nonNegativeIntFromValue(item['token_budget'], fallback: 0),
@@ -6246,7 +6246,7 @@ List<_AgentResourceSample> _agentResourceSamples(AgentResourceUsage resource) {
       _agentResourceDateTime(telemetry['sampled_at']) ?? now;
   final current = _AgentResourceSample(
     sampledAt: currentSampledAt,
-    cpu: resource.cpuPercent.clamp(0, 1).toDouble(),
+    cpu: clampUnitInterval(resource.cpuPercent),
     tokenPressure: _agentResourceRatio(
       resource.tokenUsed,
       resource.tokenBudget,
@@ -6306,7 +6306,7 @@ String _agentResourceInlineSummary(
 }
 
 String _agentResourcePercentLabel(double value) {
-  return '${(value.clamp(0, 1).toDouble() * 100).round()}%';
+  return '${(clampUnitInterval(value) * 100).round()}%';
 }
 
 double _agentResourceAverage(List<double> values) {
@@ -6332,7 +6332,7 @@ double _agentResourcePressureValueWidth(
 
 double _agentResourceRatio(int used, int budget) {
   if (budget <= 0) return 0;
-  return (used / budget).clamp(0, 1).toDouble();
+  return clampUnitInterval(used / budget);
 }
 
 int _agentResourceRemaining(int budget, int used) {
@@ -6412,7 +6412,7 @@ class _AgentResourceEditorDialogState
   void initState() {
     super.initState();
     final initial = widget.initial;
-    _cpuPercent = initial.cpuPercent.clamp(0, 1).toDouble();
+    _cpuPercent = clampUnitInterval(initial.cpuPercent);
     _memoryBytes = TextEditingController(text: '${initial.memoryBytes}');
     _diskBytes = TextEditingController(text: '${initial.diskBytes}');
     _persistedBytes = TextEditingController(text: '${initial.persistedBytes}');
@@ -6663,7 +6663,7 @@ class _AgentAuditReportBody extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final workerTotal = agent.workers.length;
-    final utilization = agent.workerUtilization.clamp(0, 1).toDouble();
+    final utilization = clampUnitInterval(agent.workerUtilization);
     return _AgentTaskDetailSectionList(
       children: [
         _AgentDialogMetricGrid(
@@ -6896,7 +6896,7 @@ DateTime _agentAuditEventSortTime(AgentAuditEvent event) {
 }
 
 Color _agentPressureColor(ColorScheme cs, double value) {
-  final ratio = value.clamp(0, 1).toDouble();
+  final ratio = clampUnitInterval(value);
   if (ratio >= 0.85) return cs.error;
   if (ratio >= 0.62) return cs.tertiary;
   return cs.primary;
@@ -7227,7 +7227,7 @@ class _AgentAuditTaskStatusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final normalized = ratio.clamp(0, 1).toDouble();
+    final normalized = clampUnitInterval(ratio);
     final percent = (normalized * 100).round();
     return Padding(
       padding: const EdgeInsets.only(bottom: 11),
@@ -7277,7 +7277,7 @@ class _AgentAuditPressureRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final ratio = value.clamp(0, 1).toDouble();
+    final ratio = clampUnitInterval(value);
     final color = _agentPressureColor(cs, ratio);
     return Padding(
       padding: const EdgeInsets.only(bottom: 11),
@@ -7360,7 +7360,7 @@ class _AgentTaskDetailHero extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final settings = _agentDialogAnimationSettings(context);
-    final progress = task.progress.clamp(0, 1).toDouble();
+    final progress = clampUnitInterval(task.progress);
     final progressPercent = (progress * 100).round();
     final title = task.title.trim().isEmpty ? '-' : task.title.trim();
     final worker = assignedWorker.trim();
@@ -7726,7 +7726,10 @@ class _AgentDialogMetricTile extends StatelessWidget {
     final settings = _agentDialogAnimationSettings(context);
     final tone = color ?? cs.primary;
     final normalizedValue = value.trim().isEmpty ? '-' : value.trim();
-    final normalizedProgress = progress?.clamp(0, 1).toDouble();
+    final progressValue = progress;
+    final normalizedProgress = progressValue == null
+        ? null
+        : clampUnitInterval(progressValue);
     return SizedBox(
       width: double.infinity,
       child: AnimatedContainer(
@@ -13033,10 +13036,10 @@ class _AgentAuditReportSummary {
     final resource = agent.resourceUsage;
     final tokenPressure = resource.tokenBudget <= 0
         ? 0.0
-        : (resource.tokenUsed / resource.tokenBudget).clamp(0, 1).toDouble();
+        : clampUnitInterval(resource.tokenUsed / resource.tokenBudget);
     final persistedPressure = resource.diskBytes <= 0
         ? 0.0
-        : (resource.persistedBytes / resource.diskBytes).clamp(0, 1).toDouble();
+        : clampUnitInterval(resource.persistedBytes / resource.diskBytes);
     return _AgentAuditReportSummary(
       eventCount: agent.auditEvents.length,
       requests: requests,
@@ -13045,7 +13048,7 @@ class _AgentAuditReportSummary {
       tasks: _agentAuditTaskStats(agent.tasks),
       capabilities: capabilities,
       workers: workers,
-      cpuPressure: resource.cpuPercent.clamp(0, 1).toDouble(),
+      cpuPressure: clampUnitInterval(resource.cpuPercent),
       tokenPressure: tokenPressure,
       persistedPressure: persistedPressure,
     );
@@ -13233,7 +13236,7 @@ double? _agentWorkerCurrentTaskProgress(
   if (taskId.isEmpty) return null;
   final task = _agentTaskById(agent, taskId);
   if (task == null) return null;
-  return task.progress.clamp(0, 1).toDouble();
+  return clampUnitInterval(task.progress);
 }
 
 List<String> _agentWorkerDetailChips(

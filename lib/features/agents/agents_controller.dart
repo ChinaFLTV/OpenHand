@@ -370,7 +370,7 @@ class AgentsController extends ManagedChangeNotifier {
                 ? status == AgentTaskStatus.completed
                       ? 1.0
                       : task.progress
-                : progress.clamp(0, 1).toDouble();
+                : clampUnitInterval(progress);
             updatedTask = task.copyWith(
               status: status,
               progress: nextProgress,
@@ -689,7 +689,7 @@ class AgentsController extends ManagedChangeNotifier {
         target: draft.target.trim(),
         plan: draft.plan.trim(),
         status: normalizedStatus,
-        progress: draft.progress.clamp(0, 1).toDouble(),
+        progress: clampUnitInterval(draft.progress),
         createdAt: draft.createdAt ?? now,
         updatedAt: now,
       );
@@ -830,7 +830,7 @@ class AgentsController extends ManagedChangeNotifier {
       final agent = _agents[index];
       final now = DateTime.now().toUtc();
       final normalized = usage.copyWith(
-        cpuPercent: usage.cpuPercent.clamp(0, 1).toDouble(),
+        cpuPercent: clampUnitInterval(usage.cpuPercent),
         memoryBytes: math.max(0, usage.memoryBytes),
         diskBytes: math.max(0, usage.diskBytes),
         persistedBytes: math.max(0, usage.persistedBytes),
@@ -1189,12 +1189,12 @@ class AgentsController extends ManagedChangeNotifier {
       (sum, task) => sum + _taskPayloadTokenEstimate(task),
     );
     final derivedTokenUsed = auditTokens + taskPayloadTokens;
-    final workerPressure = agent.workerUtilization.clamp(0, 1).toDouble();
+    final workerPressure = clampUnitInterval(agent.workerUtilization);
     final queuePressure = activeTaskCount <= 0
         ? 0.0
-        : (activeTaskCount / math.max(1, agent.scaleSettings.maxWorkers))
-                  .clamp(0, 1)
-                  .toDouble() *
+        : clampUnitInterval(
+                activeTaskCount / math.max(1, agent.scaleSettings.maxWorkers),
+              ) *
               0.35;
     final derivedCpuPercent = math.max(workerPressure, queuePressure);
     final derivedMemoryBytes = derivedOpenHandles <= 0
@@ -1227,10 +1227,9 @@ class AgentsController extends ManagedChangeNotifier {
       telemetry,
       'open_handles',
     );
-    final normalizedCpuPercent = math
-        .max(manualCpuPercent, derivedCpuPercent)
-        .clamp(0, 1)
-        .toDouble();
+    final normalizedCpuPercent = clampUnitInterval(
+      math.max(manualCpuPercent, derivedCpuPercent),
+    );
     final normalizedMemoryBytes = math.max(
       manualMemoryBytes,
       derivedMemoryBytes,
@@ -1324,10 +1323,10 @@ class AgentsController extends ManagedChangeNotifier {
     Map<String, Object?> telemetry,
     String key,
   ) {
-    final normalized = value.clamp(0, 1).toDouble();
+    final normalized = clampUnitInterval(value);
     final previousAuto = optionalDoubleFromValue(telemetry[key]);
     if (previousAuto != null &&
-        (normalized - previousAuto.clamp(0, 1).toDouble()).abs() < 0.0001) {
+        (normalized - clampUnitInterval(previousAuto)).abs() < 0.0001) {
       return 0;
     }
     return normalized;
