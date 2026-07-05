@@ -865,6 +865,7 @@ class MachineTerminalSession {
        terminal = Terminal(
          maxLines: _scrollbackLines,
          platform: _terminalTargetPlatform(),
+         reflowEnabled: false,
        ) {
     terminal
       ..onOutput = writeInput
