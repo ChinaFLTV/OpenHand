@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_normalization.dart';
 
 const Set<String> _webQualityStopWords = <String>{
   'the',
@@ -300,11 +301,7 @@ List<String> _webQualityNormalizedLines(
   return input
       .trim()
       .split(_webQualityLineBreakPattern)
-      .map(_normalizeWebQualityWhitespace)
+      .map(collapseInlineWhitespace)
       .where((line) => line.length >= minLength)
       .toList(growable: false);
-}
-
-String _normalizeWebQualityWhitespace(String input) {
-  return input.replaceAll(_webQualityWhitespacePattern, ' ').trim();
 }

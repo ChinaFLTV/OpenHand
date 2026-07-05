@@ -8,9 +8,9 @@ import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
 
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_normalization.dart';
 import '../model/knowledge_base_settings.dart';
 
-final RegExp _knowledgeInlineWhitespacePattern = RegExp(r'\s+');
 final RegExp _knowledgeLineBreakPattern = RegExp(r'[\r\n]');
 final RegExp _knowledgeExcessiveBlankLinesPattern = RegExp(r'\n{3,}');
 final RegExp _xlsxWorksheetFilePattern = RegExp(
@@ -920,10 +920,6 @@ bool _rowHasContent(List<String> row) {
   return row.any((cell) => nullIfBlank(cell) != null);
 }
 
-String _collapseInlineWhitespace(String value) {
-  return value.replaceAll(_knowledgeInlineWhitespacePattern, ' ').trim();
-}
-
 String _ooxmlText(xml.XmlElement element) {
   final buffer = StringBuffer();
   for (final node in element.descendants) {
@@ -1223,7 +1219,7 @@ String _extractPdfContentText(String stream) {
   final buffer = StringBuffer();
   for (final block in _pdfTextBlockPattern.allMatches(stream)) {
     final strings = _extractPdfStrings(block.group(1) ?? '')
-        .map(_collapseInlineWhitespace)
+        .map(collapseInlineWhitespace)
         .where((value) => value.length > 1)
         .toList(growable: false);
     if (strings.isNotEmpty) buffer.writeln(strings.join(' '));
@@ -1330,7 +1326,7 @@ _PdfLiteral? _parsePdfLiteral(String input, int start) {
 }
 
 String _decodePdfHex(String hex) {
-  final clean = hex.replaceAll(_knowledgeInlineWhitespacePattern, '');
+  final clean = removeInlineWhitespace(hex);
   final bytes = <int>[];
   for (var index = 0; index < clean.length; index += 2) {
     final chunk = index + 1 < clean.length
