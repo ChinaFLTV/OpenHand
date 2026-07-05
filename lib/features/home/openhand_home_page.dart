@@ -401,7 +401,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   // Programming Expert: file explorer & inline editor state.
   bool _fileExplorerVisible = false;
-  final Set<String> _hiddenMachineTerminalPanelSessionIds = <String>{};
+  final Set<String> _visibleMachineTerminalPanelSessionIds = <String>{};
   final List<String> _openFilePaths = [];
   String? _activeFilePath;
   String? _editorTabsSessionId;
@@ -417,23 +417,32 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (session == null || session.templateId != kMachineExpertTemplateId) {
       return false;
     }
-    return !_hiddenMachineTerminalPanelSessionIds.contains(session.id);
+    return _visibleMachineTerminalPanelSessionIds.contains(session.id);
   }
 
   void _toggleMachineTerminalPanel(String sessionId) {
     setState(() {
-      if (!_hiddenMachineTerminalPanelSessionIds.add(sessionId)) {
-        _hiddenMachineTerminalPanelSessionIds.remove(sessionId);
+      if (!_visibleMachineTerminalPanelSessionIds.remove(sessionId)) {
+        _visibleMachineTerminalPanelSessionIds.add(sessionId);
       }
     });
   }
 
   void _hideMachineTerminalPanel(String sessionId) {
-    if (_hiddenMachineTerminalPanelSessionIds.contains(sessionId)) {
+    if (!_visibleMachineTerminalPanelSessionIds.contains(sessionId)) {
       return;
     }
     setState(() {
-      _hiddenMachineTerminalPanelSessionIds.add(sessionId);
+      _visibleMachineTerminalPanelSessionIds.remove(sessionId);
+    });
+  }
+
+  void _showMachineTerminalPanel(String sessionId) {
+    if (_visibleMachineTerminalPanelSessionIds.contains(sessionId)) {
+      return;
+    }
+    setState(() {
+      _visibleMachineTerminalPanelSessionIds.add(sessionId);
     });
   }
 
@@ -3292,6 +3301,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     await sessionController.updateSessionMetadata(session.id, <String, Object?>{
       kMachineTerminalMetadataKey: metadata,
     });
+    if (!mounted) {
+      return created;
+    }
+    _showMachineTerminalPanel(session.id);
     unawaited(terminalService.startTerminal(sessionId: session.id));
     return created;
   }
@@ -8363,7 +8376,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || deleted) {
       if (deleted) {
         _removeComposerDraftForSession(session.id);
-        _hiddenMachineTerminalPanelSessionIds.remove(session.id);
+        _visibleMachineTerminalPanelSessionIds.remove(session.id);
         // 释放该会话挂着的 Web 逆向 controller（停 dock / 关 CDP / 关浏览器进程）。
         final wr = _webReverseControllers.remove(session.id);
         _webReverseRuntimeMetadataSignatures.remove(session.id);
