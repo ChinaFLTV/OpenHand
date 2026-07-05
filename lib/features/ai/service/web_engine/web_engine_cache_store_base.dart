@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import 'web_engine_value_parsing.dart';
 
 /// WebSearch / WebFetch 共用的「prewarm/cleanup 报告」数据。
 ///
@@ -173,7 +174,9 @@ abstract class WebEngineCacheStoreBase<TSettings> {
               keysToRemove.add(entry.key);
               continue;
             }
-            final expiresAt = _readCacheInt(value['expires_at']);
+            final expiresAt = webEngineNonNegativeIntFromValue(
+              value['expires_at'],
+            );
             final payloadRel = '${value[payloadPathField] ?? ''}'.trim();
             if (expiresAt <= now) {
               keysToRemove.add(entry.key);
@@ -275,7 +278,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       );
       final entry = entries[key];
       if (entry is! Map) return null;
-      final expiresAt = _readCacheInt(entry['expires_at']);
+      final expiresAt = webEngineNonNegativeIntFromValue(entry['expires_at']);
       final now = DateTime.now().millisecondsSinceEpoch;
       if (expiresAt <= now) return null;
       final payloadRel = '${entry[payloadPathField] ?? ''}'.trim();
@@ -288,7 +291,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
         payload: payload,
         metadata: _jsonSafeCacheMap(Map.from(entry)),
         cachedAt: _dateTimeFromCacheMs(
-          _readOptionalCacheInt(entry['created_at']) ?? now,
+          webEngineOptionalNonNegativeIntFromValue(entry['created_at']) ?? now,
           fallbackMs: now,
         ),
         expiresAt: _dateTimeFromCacheMs(expiresAt, fallbackMs: now),
@@ -433,7 +436,9 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     var estimatedTotal = 0;
     for (final entry in entries.values) {
       if (entry is! Map) continue;
-      estimatedTotal += _readCacheInt(entry[payloadBytesField]);
+      estimatedTotal += webEngineNonNegativeIntFromValue(
+        entry[payloadBytesField],
+      );
     }
     if (estimatedTotal <= maxBytes) return;
 
@@ -445,10 +450,14 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     final ordered = entries.entries.toList()
       ..sort((a, b) {
         final av = a.value is Map
-            ? _readCacheInt((a.value as Map)['last_accessed_at'])
+            ? webEngineNonNegativeIntFromValue(
+                (a.value as Map)['last_accessed_at'],
+              )
             : 0;
         final bv = b.value is Map
-            ? _readCacheInt((b.value as Map)['last_accessed_at'])
+            ? webEngineNonNegativeIntFromValue(
+                (b.value as Map)['last_accessed_at'],
+              )
             : 0;
         return av.compareTo(bv);
       });
@@ -486,14 +495,6 @@ abstract class WebEngineCacheStoreBase<TSettings> {
       silentLog(logTag, 'enforceCap/writeIndex', error, stack);
     }
   }
-}
-
-int _readCacheInt(Object? value) {
-  return nonNegativeIntFromValue(value, fallback: 0);
-}
-
-int? _readOptionalCacheInt(Object? value) {
-  return optionalNonNegativeIntFromValue(value);
 }
 
 DateTime _dateTimeFromCacheMs(int value, {required int fallbackMs}) {

@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../web_engine/web_engine_telemetry_store_base.dart';
+import '../web_engine/web_engine_value_parsing.dart';
 
 /// WebSearch 调用日志 + 引擎健康度的本地持久化存储。
 ///
@@ -84,10 +85,10 @@ class WebSearchTelemetryStore
       out[kind] = entry.value
           .map(
             (m) => WebSearchEngineSample(
-              timestampMs: _readTelemetryInt(m['ts']),
-              durationMs: _readTelemetryInt(m['dur']),
+              timestampMs: webEngineNonNegativeIntFromValue(m['ts']),
+              durationMs: webEngineNonNegativeIntFromValue(m['dur']),
               success: m['ok'] == true,
-              hitCount: _readTelemetryInt(m['hits']),
+              hitCount: webEngineNonNegativeIntFromValue(m['hits']),
             ),
           )
           .toList(growable: false);
@@ -128,14 +129,14 @@ class WebSearchCallLog {
               .toList(growable: false)
         : const <WebSearchPerEngineLog>[];
     return WebSearchCallLog(
-      timestampMs: _readTelemetryInt(m['timestamp_ms']),
+      timestampMs: webEngineNonNegativeIntFromValue(m['timestamp_ms']),
       query: '${m['query'] ?? ''}',
       cacheStatus: '${m['cache_status'] ?? ''}',
       success: m['success'] == true,
-      totalDurationMs: _readTelemetryInt(m['total_duration_ms']),
-      mergedHitCount: _readTelemetryInt(m['merged_hit_count']),
+      totalDurationMs: webEngineNonNegativeIntFromValue(m['total_duration_ms']),
+      mergedHitCount: webEngineNonNegativeIntFromValue(m['merged_hit_count']),
       fallbackUsed: m['fallback_used'] == true,
-      summaryChars: _readTelemetryInt(m['summary_chars']),
+      summaryChars: webEngineNonNegativeIntFromValue(m['summary_chars']),
       errorMessage: m['error_message'] as String?,
       modelProtocol: m['model_protocol'] as String?,
       modelId: m['model_id'] as String?,
@@ -192,8 +193,8 @@ class WebSearchPerEngineLog {
     return WebSearchPerEngineLog(
       kind: kind,
       success: m['success'] == true,
-      hitCount: _readTelemetryInt(m['hit_count']),
-      elapsedMs: _readTelemetryInt(m['elapsed_ms']),
+      hitCount: webEngineNonNegativeIntFromValue(m['hit_count']),
+      elapsedMs: webEngineNonNegativeIntFromValue(m['elapsed_ms']),
       error: m['error'] as String?,
     );
   }
@@ -228,20 +229,29 @@ class WebSearchEngineStat {
     this.lastQuotaAt,
   });
 
-  factory WebSearchEngineStat.fromJson(Map<String, Object?> m) =>
-      WebSearchEngineStat(
-        totalCalls: _readTelemetryInt(m['total_calls']),
-        successCalls: _readTelemetryInt(m['success_calls']),
-        totalDurationMs: _readTelemetryInt(m['total_duration_ms']),
-        totalHits: _readTelemetryInt(m['total_hits']),
-        lastError: m['last_error'] as String?,
-        lastFailureAt: _readOptionalTelemetryInt(m['last_failure_at']),
-        lastInvokedAt: _readOptionalTelemetryInt(m['last_invoked_at']),
-        consecutiveFailures: _readTelemetryInt(m['consecutive_failures']),
-        cooldownUntilMs: _readOptionalTelemetryInt(m['cooldown_until_ms']),
-        lastQuotaError: m['last_quota_error'] as String?,
-        lastQuotaAt: _readOptionalTelemetryInt(m['last_quota_at']),
-      );
+  factory WebSearchEngineStat.fromJson(
+    Map<String, Object?> m,
+  ) => WebSearchEngineStat(
+    totalCalls: webEngineNonNegativeIntFromValue(m['total_calls']),
+    successCalls: webEngineNonNegativeIntFromValue(m['success_calls']),
+    totalDurationMs: webEngineNonNegativeIntFromValue(m['total_duration_ms']),
+    totalHits: webEngineNonNegativeIntFromValue(m['total_hits']),
+    lastError: m['last_error'] as String?,
+    lastFailureAt: webEngineOptionalNonNegativeIntFromValue(
+      m['last_failure_at'],
+    ),
+    lastInvokedAt: webEngineOptionalNonNegativeIntFromValue(
+      m['last_invoked_at'],
+    ),
+    consecutiveFailures: webEngineNonNegativeIntFromValue(
+      m['consecutive_failures'],
+    ),
+    cooldownUntilMs: webEngineOptionalNonNegativeIntFromValue(
+      m['cooldown_until_ms'],
+    ),
+    lastQuotaError: m['last_quota_error'] as String?,
+    lastQuotaAt: webEngineOptionalNonNegativeIntFromValue(m['last_quota_at']),
+  );
 
   final int totalCalls;
   final int successCalls;
@@ -278,12 +288,4 @@ class WebSearchEngineSample {
   final int durationMs;
   final bool success;
   final int hitCount;
-}
-
-int _readTelemetryInt(Object? value) {
-  return nonNegativeIntFromValue(value, fallback: 0);
-}
-
-int? _readOptionalTelemetryInt(Object? value) {
-  return optionalNonNegativeIntFromValue(value);
 }

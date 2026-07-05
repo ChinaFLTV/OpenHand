@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../web_engine/web_engine_telemetry_store_base.dart';
+import '../web_engine/web_engine_value_parsing.dart';
 
 /// WebFetch 调用日志 + 引擎健康度的本地持久化存储。
 ///
@@ -77,10 +78,10 @@ class WebFetchTelemetryStore
       out[kind] = entry.value
           .map(
             (m) => WebFetchEngineSample(
-              timestampMs: _readTelemetryInt(m['ts']),
-              durationMs: _readTelemetryInt(m['dur']),
+              timestampMs: webEngineNonNegativeIntFromValue(m['ts']),
+              durationMs: webEngineNonNegativeIntFromValue(m['dur']),
               success: m['ok'] == true,
-              contentBytes: _readTelemetryInt(m['bytes']),
+              contentBytes: webEngineNonNegativeIntFromValue(m['bytes']),
             ),
           )
           .toList(growable: false);
@@ -123,12 +124,12 @@ class WebFetchCallLog {
               .where((k) => k.name == winningRaw)
               .firstOrNull;
     return WebFetchCallLog(
-      timestampMs: _readTelemetryInt(m['timestamp_ms']),
+      timestampMs: webEngineNonNegativeIntFromValue(m['timestamp_ms']),
       url: '${m['url'] ?? ''}',
       cacheStatus: '${m['cache_status'] ?? ''}',
       success: m['success'] == true,
-      totalDurationMs: _readTelemetryInt(m['total_duration_ms']),
-      contentChars: _readTelemetryInt(m['content_chars']),
+      totalDurationMs: webEngineNonNegativeIntFromValue(m['total_duration_ms']),
+      contentChars: webEngineNonNegativeIntFromValue(m['content_chars']),
       fallbackUsed: m['fallback_used'] == true,
       errorMessage: m['error_message'] as String?,
       winningEngine: winning,
@@ -181,8 +182,8 @@ class WebFetchPerEngineLog {
     return WebFetchPerEngineLog(
       kind: kind,
       success: m['success'] == true,
-      contentBytes: _readTelemetryInt(m['content_bytes']),
-      elapsedMs: _readTelemetryInt(m['elapsed_ms']),
+      contentBytes: webEngineNonNegativeIntFromValue(m['content_bytes']),
+      elapsedMs: webEngineNonNegativeIntFromValue(m['elapsed_ms']),
       error: m['error'] as String?,
     );
   }
@@ -217,20 +218,29 @@ class WebFetchEngineStat {
     this.lastQuotaAt,
   });
 
-  factory WebFetchEngineStat.fromJson(Map<String, Object?> m) =>
-      WebFetchEngineStat(
-        totalCalls: _readTelemetryInt(m['total_calls']),
-        successCalls: _readTelemetryInt(m['success_calls']),
-        totalDurationMs: _readTelemetryInt(m['total_duration_ms']),
-        totalBytes: _readTelemetryInt(m['total_bytes']),
-        lastError: m['last_error'] as String?,
-        lastFailureAt: _readOptionalTelemetryInt(m['last_failure_at']),
-        lastInvokedAt: _readOptionalTelemetryInt(m['last_invoked_at']),
-        consecutiveFailures: _readTelemetryInt(m['consecutive_failures']),
-        cooldownUntilMs: _readOptionalTelemetryInt(m['cooldown_until_ms']),
-        lastQuotaError: m['last_quota_error'] as String?,
-        lastQuotaAt: _readOptionalTelemetryInt(m['last_quota_at']),
-      );
+  factory WebFetchEngineStat.fromJson(
+    Map<String, Object?> m,
+  ) => WebFetchEngineStat(
+    totalCalls: webEngineNonNegativeIntFromValue(m['total_calls']),
+    successCalls: webEngineNonNegativeIntFromValue(m['success_calls']),
+    totalDurationMs: webEngineNonNegativeIntFromValue(m['total_duration_ms']),
+    totalBytes: webEngineNonNegativeIntFromValue(m['total_bytes']),
+    lastError: m['last_error'] as String?,
+    lastFailureAt: webEngineOptionalNonNegativeIntFromValue(
+      m['last_failure_at'],
+    ),
+    lastInvokedAt: webEngineOptionalNonNegativeIntFromValue(
+      m['last_invoked_at'],
+    ),
+    consecutiveFailures: webEngineNonNegativeIntFromValue(
+      m['consecutive_failures'],
+    ),
+    cooldownUntilMs: webEngineOptionalNonNegativeIntFromValue(
+      m['cooldown_until_ms'],
+    ),
+    lastQuotaError: m['last_quota_error'] as String?,
+    lastQuotaAt: webEngineOptionalNonNegativeIntFromValue(m['last_quota_at']),
+  );
 
   final int totalCalls;
   final int successCalls;
@@ -266,12 +276,4 @@ class WebFetchEngineSample {
   final int durationMs;
   final bool success;
   final int contentBytes;
-}
-
-int _readTelemetryInt(Object? value) {
-  return nonNegativeIntFromValue(value, fallback: 0);
-}
-
-int? _readOptionalTelemetryInt(Object? value) {
-  return optionalNonNegativeIntFromValue(value);
 }

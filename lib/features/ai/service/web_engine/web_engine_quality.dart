@@ -207,10 +207,6 @@ double webTextRelevanceScore(String query, String text) {
   return matches / terms.length;
 }
 
-double? webEngineScoreFromValue(Object? value) {
-  return optionalNonNegativeDoubleFromValue(value);
-}
-
 bool webHasInformativeSearchText({
   required String title,
   required String url,

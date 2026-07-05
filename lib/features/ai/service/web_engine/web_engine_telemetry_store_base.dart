@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import 'web_engine_value_parsing.dart';
 
 /// WebSearch / WebFetch 调用日志的共用 cooldown 阈值配置。
 ///
@@ -183,7 +184,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     final stats = await rawEngineStats();
     final entry = stats[kind.name];
     if (entry == null) return 0;
-    final until = _readTelemetryInt(entry['cooldown_until_ms']);
+    final until = webEngineNonNegativeIntFromValue(entry['cooldown_until_ms']);
     final now = DateTime.now().millisecondsSinceEpoch;
     return until > now ? (until - now) : 0;
   }
@@ -224,7 +225,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     final cutoff = DateTime.now().millisecondsSinceEpoch - 60 * 1000;
     var count = 0;
     for (final s in samples) {
-      final ts = _readTelemetryInt(s['ts']);
+      final ts = webEngineNonNegativeIntFromValue(s['ts']);
       if (ts >= cutoff) count++;
     }
     return count;
@@ -314,19 +315,26 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     for (final per in perEngine) {
       final key = per.kindName;
       final cur = agg[key] ?? <String, Object?>{};
-      final totalCalls = _readTelemetryInt(cur['total_calls']) + 1;
+      final totalCalls =
+          webEngineNonNegativeIntFromValue(cur['total_calls']) + 1;
       final successCalls =
-          _readTelemetryInt(cur['success_calls']) + (per.success ? 1 : 0);
-      final safeElapsedMs = _nonNegativeEventInt(per.elapsedMs);
+          webEngineNonNegativeIntFromValue(cur['success_calls']) +
+          (per.success ? 1 : 0);
+      final safeElapsedMs = webEngineNonNegativeIntFromValue(per.elapsedMs);
       final totalDur =
-          _readTelemetryInt(cur['total_duration_ms']) + safeElapsedMs;
+          webEngineNonNegativeIntFromValue(cur['total_duration_ms']) +
+          safeElapsedMs;
 
-      var consecFail = _readTelemetryInt(cur['consecutive_failures']);
-      int? cooldownUntilMs = _readOptionalTelemetryInt(
+      var consecFail = webEngineNonNegativeIntFromValue(
+        cur['consecutive_failures'],
+      );
+      int? cooldownUntilMs = webEngineOptionalNonNegativeIntFromValue(
         cur['cooldown_until_ms'],
       );
       String? lastQuotaError = cur['last_quota_error'] as String?;
-      int? lastQuotaAt = _readOptionalTelemetryInt(cur['last_quota_at']);
+      int? lastQuotaAt = webEngineOptionalNonNegativeIntFromValue(
+        cur['last_quota_at'],
+      );
       if (per.success) {
         consecFail = 0;
         cooldownUntilMs = null;
@@ -357,15 +365,17 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       };
       // 累加领域专属计数（total_hits / total_bytes 等）
       for (final bump in per.aggregateBumps.entries) {
-        final base = _readTelemetryInt(cur[bump.key]);
-        updated[bump.key] = base + _nonNegativeEventInt(bump.value);
+        final base = webEngineNonNegativeIntFromValue(cur[bump.key]);
+        updated[bump.key] = base + webEngineNonNegativeIntFromValue(bump.value);
       }
       if (!per.success) {
         updated['last_error'] = per.error ?? cur['last_error'];
         updated['last_failure_at'] = timestampMs;
       } else {
         updated['last_error'] = cur['last_error'];
-        final lastFailureAt = _readOptionalTelemetryInt(cur['last_failure_at']);
+        final lastFailureAt = webEngineOptionalNonNegativeIntFromValue(
+          cur['last_failure_at'],
+        );
         if (lastFailureAt != null) updated['last_failure_at'] = lastFailureAt;
       }
       agg[key] = updated;
@@ -402,7 +412,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         list.add(
           _jsonSafeTelemetryMap(<String, Object?>{
             'ts': timestampMs,
-            'dur': _nonNegativeEventInt(per.elapsedMs),
+            'dur': webEngineNonNegativeIntFromValue(per.elapsedMs),
             'ok': per.success,
             ...per.historyExtras,
           }),
@@ -423,19 +433,6 @@ void _keepNewestEntries<T>(List<T> entries, int maxEntries) {
   if (entries.length > maxEntries) {
     entries.removeRange(0, entries.length - maxEntries);
   }
-}
-
-int _readTelemetryInt(Object? value) {
-  return nonNegativeIntFromValue(value, fallback: 0);
-}
-
-int? _readOptionalTelemetryInt(Object? value) {
-  return optionalNonNegativeIntFromValue(value);
-}
-
-int _nonNegativeEventInt(num value) {
-  final parsed = optionalNonNegativeIntFromValue(value);
-  return parsed ?? 0;
 }
 
 Map<String, Object?> _jsonSafeTelemetryMap(Map<Object?, Object?> value) {
