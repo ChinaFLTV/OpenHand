@@ -1260,7 +1260,7 @@ class AiSessionStatistics {
   }
 
   static double? _readNullableDouble(Object? value) {
-    return optionalDoubleFromValue(value);
+    return optionalUnitIntervalFromValue(value);
   }
 
   static List<AiSessionCacheHitTrendPoint> _readTrendPoints(Object? value) {

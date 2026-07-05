@@ -29,6 +29,33 @@ void main() {
 
     expect(session.messageTotalCount, 2);
   });
+
+  test('AiSessionStatistics clamps cache hit ratio metadata', () {
+    expect(
+      AiSessionStatistics.fromJson(const <String, Object?>{
+        'cache_hit_ratio': -0.25,
+      }).cacheHitRatio,
+      0,
+    );
+    expect(
+      AiSessionStatistics.fromJson(const <String, Object?>{
+        'cache_hit_ratio': '0.42',
+      }).cacheHitRatio,
+      0.42,
+    );
+    expect(
+      AiSessionStatistics.fromJson(const <String, Object?>{
+        'cache_hit_ratio': 1.25,
+      }).cacheHitRatio,
+      1,
+    );
+    expect(
+      AiSessionStatistics.fromJson(const <String, Object?>{
+        'cache_hit_ratio': 'bad',
+      }).cacheHitRatio,
+      isNull,
+    );
+  });
 }
 
 AiSession _session({
