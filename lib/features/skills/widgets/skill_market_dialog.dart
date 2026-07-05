@@ -18,6 +18,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../data/skill_market_client.dart';
 import '../model/skill_market.dart';
@@ -1882,7 +1883,7 @@ bool _isMarketSkillInstalled(
 }
 
 String _normalizeSkillKey(String value) {
-  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+  return normalizeAsciiSlugKey(value);
 }
 
 String _formatCount(int value) {

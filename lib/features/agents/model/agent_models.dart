@@ -1,6 +1,7 @@
 import 'package:characters/characters.dart';
 
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_normalization.dart';
 
 final RegExp _agentDelimitedTextSeparatorPattern = RegExp(r'[\r\n,，;；]+');
 
@@ -76,7 +77,7 @@ List<String> normalizeAgentBuiltinToolNames(Iterable<String> names) {
 }
 
 String _agentBuiltinToolLookupKey(String value) {
-  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+  return normalizeAsciiLookupKey(value);
 }
 
 enum AgentExecutionMode {

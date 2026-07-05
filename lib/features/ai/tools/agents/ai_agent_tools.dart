@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_normalization.dart';
 import '../../../agents/index.dart';
 import '../../../instructions/index.dart'
     show InstructionsControllerProvider, UserInstructionEntry;
@@ -3114,7 +3115,7 @@ class AiAgentTool extends AiTool {
 }
 
 String _normalizedAgentToolName(String value) {
-  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+  return normalizeAsciiLookupKey(value);
 }
 
 bool _agentAllowsToolNames(AgentProfile agent, Set<String> normalizedNames) {

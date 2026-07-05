@@ -29,6 +29,7 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart'
     show
@@ -4140,7 +4141,7 @@ bool _agentTaskToolAvailable(AgentProfile agent, String toolName) {
 }
 
 String _normalizeAgentTaskToolName(String value) {
-  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+  return normalizeAsciiLookupKey(value);
 }
 
 String? _agentTaskTerminalReason(AgentTask task) {
@@ -13565,7 +13566,7 @@ String _agentAuditSourceLabel(BuildContext context, String value) {
 }
 
 String _agentAuditSourceLookupKey(String value) {
-  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+  return normalizeAsciiLookupKey(value);
 }
 
 String _agentAuditSummaryText(BuildContext context, AgentAuditEvent event) {

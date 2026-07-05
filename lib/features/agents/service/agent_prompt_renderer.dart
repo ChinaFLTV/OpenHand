@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_normalization.dart';
 import '../../instructions/index.dart' show UserInstructionEntry;
 import '../model/agent_models.dart';
 import 'agent_ordering.dart';
@@ -734,7 +735,7 @@ ${lines.join('\n')}
 }
 
 String _normalizeAgentToolName(String value) {
-  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+  return normalizeAsciiLookupKey(value);
 }
 
 List<String> _availableAgentToolNames(
