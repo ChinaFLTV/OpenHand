@@ -80,15 +80,10 @@ class AiRealtimeConfig {
       transport: optionalStringFromValue(json['transport']),
       urlOverride: optionalStringFromValue(json['url_override']),
       voice: optionalStringFromValue(json['voice']),
-      sampleRate: _parseNullableInt(json['sample_rate']),
+      sampleRate: optionalPositiveIntFromValue(json['sample_rate']),
       inputFormat: optionalStringFromValue(json['input_format']),
       outputFormat: optionalStringFromValue(json['output_format']),
       sessionDefaults: stringKeyedMapFromValue(json['session_defaults']),
     );
-  }
-
-  static int? _parseNullableInt(Object? raw) {
-    final parsed = optionalIntFromValue(raw);
-    return parsed != null && parsed > 0 ? parsed : null;
   }
 }
