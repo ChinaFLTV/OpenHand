@@ -1838,7 +1838,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           text: watermarkText,
           style: TextStyle(
             color: watermarkColor.withValues(
-              alpha: watermarkOpacity.clamp(0.0, 1.0),
+              alpha: clampUnitInterval(watermarkOpacity),
             ),
             fontSize: watermarkSize.clamp(8.0, imageSize.height * 0.5),
             fontWeight: FontWeight.w600,
@@ -2817,7 +2817,7 @@ class _IsolateRenderParams {
   if (p.clarity > 0) {
     // Clarity targets mid-frequency local contrast. We use a wider 5x5
     // unsharp-like kernel for a softer, more natural result.
-    final amount = (p.clarity / 100).clamp(0.0, 1.0);
+    final amount = clampUnitInterval(p.clarity / 100);
     working = img.convolution(
       working,
       filter: const <num>[
@@ -2855,7 +2855,7 @@ class _IsolateRenderParams {
     // Standard 3×3 sharpen kernel. The `amount` parameter (0..1) blends
     // between the original image and the sharpened result; at 1.0 the
     // convolution is fully applied.
-    final amount = (p.sharpness / 100).clamp(0.0, 1.0);
+    final amount = clampUnitInterval(p.sharpness / 100);
     working = img.convolution(
       working,
       filter: const <num>[0, -1, 0, -1, 5, -1, 0, -1, 0],
@@ -2972,7 +2972,7 @@ img.Image _applyCircularMaskStatic(img.Image source) {
 
 img.Color _hueToColorStatic(double hueDeg, double strength) {
   final h = ((hueDeg % 360) + 360) % 360;
-  final s = strength.clamp(0.0, 1.0);
+  final s = clampUnitInterval(strength);
   const l = 0.5;
   final c = (1 - (2 * l - 1).abs()) * s;
   final hp = h / 60;
