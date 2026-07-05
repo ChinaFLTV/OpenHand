@@ -21,6 +21,8 @@ class _SessionToolbar extends StatelessWidget {
     this.onPlanTimelineCollapsedChanged,
     this.fileExplorerVisible = false,
     this.onFileExplorerToggled,
+    this.machineTerminalPanelVisible = false,
+    this.onMachineTerminalPanelToggled,
     this.activeProfile,
     this.claudeStyle = true,
   });
@@ -32,6 +34,8 @@ class _SessionToolbar extends StatelessWidget {
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
   final bool fileExplorerVisible;
   final VoidCallback? onFileExplorerToggled;
+  final bool machineTerminalPanelVisible;
+  final VoidCallback? onMachineTerminalPanelToggled;
   final AiModelProfile? activeProfile;
   final bool claudeStyle;
 
@@ -228,6 +232,28 @@ class _SessionToolbar extends StatelessWidget {
                       : Icons.folder_outlined,
                   label: _localizedFilesToggle(context, fileExplorerVisible),
                   onTap: onFileExplorerToggled,
+                ),
+                const SizedBox(width: 10),
+              ],
+              if (onMachineTerminalPanelToggled != null) ...[
+                AnimatedSwitcher(
+                  duration: openHandMotionDuration(
+                    context,
+                    _kSessionToolbarCompactSwitchDuration,
+                  ),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: _ToolbarPill(
+                    key: ValueKey<bool>(machineTerminalPanelVisible),
+                    icon: machineTerminalPanelVisible
+                        ? Icons.terminal_rounded
+                        : Icons.terminal_outlined,
+                    label: _localizedMachineTerminalToggle(
+                      context,
+                      machineTerminalPanelVisible,
+                    ),
+                    onTap: onMachineTerminalPanelToggled,
+                  ),
                 ),
                 const SizedBox(width: 10),
               ],
@@ -2397,6 +2423,18 @@ String? _contextBudgetToolbarLabel(
 String _localizedFilesToggle(BuildContext context, bool visible) {
   final l10n = AppLocalizations.of(context)!;
   return visible ? l10n.toolbarFilesHide : l10n.toolbarFilesShow;
+}
+
+String _localizedMachineTerminalToggle(BuildContext context, bool visible) {
+  return _localizedText(
+    context,
+    zh: visible ? '关闭终端' : '打开终端',
+    zhHant: visible ? '關閉終端' : '打開終端',
+    en: visible ? 'Hide Terminal' : 'Open Terminal',
+    fr: visible ? 'Masquer le terminal' : 'Ouvrir le terminal',
+    de: visible ? 'Terminal ausblenden' : 'Terminal öffnen',
+    ja: visible ? 'ターミナルを閉じる' : 'ターミナルを開く',
+  );
 }
 
 IconData _runtimeModeIcon(

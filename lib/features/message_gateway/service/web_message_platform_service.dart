@@ -2688,6 +2688,7 @@ class WebMessagePlatformService {
       final terminalMetadata = _machineTerminalService.initialMetadata(
         sessionId: session.id,
         workingDirectory: _workspaceDirectoryPath,
+        existingMetadata: session.metadata[kMachineTerminalMetadataKey],
       );
       await _sessionController.updateSessionMetadata(
         session.id,
@@ -2747,10 +2748,11 @@ class WebMessagePlatformService {
     if (session == null) {
       return _machineTerminalUnavailable(auth, sessionId);
     }
+    _rememberMachineTerminalSessionMetadata(session);
     final start = request.requestedUri.queryParameters['start'] != 'false';
     final snapshot = _machineTerminalService.ensureWorkspace(
       sessionId: session.id,
-      workingDirectory: _workspaceDirectoryPath,
+      workingDirectory: _machineTerminalWorkingDirectory(session),
       start: start,
     );
     return _json(HttpStatus.ok, <String, Object?>{
@@ -2767,6 +2769,7 @@ class WebMessagePlatformService {
     if (session == null) {
       return _machineTerminalUnavailable(auth, sessionId);
     }
+    _rememberMachineTerminalSessionMetadata(session);
     final body = await _readJsonBody(request);
     final data = _string(body['data'] ?? body['text'] ?? body['input'], '');
     if (data.isEmpty) {
@@ -2797,6 +2800,7 @@ class WebMessagePlatformService {
     if (session == null) {
       return _machineTerminalUnavailable(auth, sessionId);
     }
+    _rememberMachineTerminalSessionMetadata(session);
     final body = await _readJsonBody(request);
     final command = _string(body['command'] ?? body['cmd'], '').trimRight();
     if (command.trim().isEmpty) {
@@ -2827,6 +2831,7 @@ class WebMessagePlatformService {
     if (session == null) {
       return _machineTerminalUnavailable(auth, sessionId);
     }
+    _rememberMachineTerminalSessionMetadata(session);
     final body = await _readJsonBody(request);
     final action = _string(body['action'], '').trim();
     if (action.isEmpty) {
@@ -5380,6 +5385,20 @@ class WebMessagePlatformService {
     if (session == null) return null;
     if (session.templateId != kMachineExpertTemplateId) return null;
     return session;
+  }
+
+  void _rememberMachineTerminalSessionMetadata(AiSession session) {
+    _machineTerminalService.rememberSessionMetadata(
+      sessionId: session.id,
+      metadata: session.metadata[kMachineTerminalMetadataKey],
+    );
+  }
+
+  String _machineTerminalWorkingDirectory(AiSession session) {
+    return MachineTerminalSessionMetadata.defaultWorkingDirectoryFrom(
+          session.metadata[kMachineTerminalMetadataKey],
+        ) ??
+        _workspaceDirectoryPath;
   }
 
   shelf.Response _machineTerminalUnavailable(

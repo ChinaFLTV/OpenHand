@@ -155,7 +155,11 @@ class AiSessionController extends ChangeNotifier {
        _idGenerator = idGenerator,
        _clock = clock,
        _machineTerminalService = machineTerminalService,
-       _userHooksExecutor = userHooksExecutor;
+       _userHooksExecutor = userHooksExecutor {
+    _machineTerminalService?.configureMetadataPersister((sessionId, metadata) {
+      return _persistMachineTerminalMetadata(sessionId, metadata);
+    });
+  }
   static const String _editRollbackMarkerKey = 'deleted_by_edit_message_id';
   static const String _responseVariantHiddenMessageKey =
       'hidden_by_response_variant';
@@ -2257,6 +2261,20 @@ class AiSessionController extends ChangeNotifier {
     return true;
   }
 
+  Future<void> _persistMachineTerminalMetadata(
+    String sessionId,
+    Map<String, Object?> metadata,
+  ) async {
+    if (_isDisposed) return;
+    final session = _sessionById(sessionId);
+    if (session == null || session.templateId != kMachineExpertTemplateId) {
+      return;
+    }
+    await updateSessionMetadata(sessionId, <String, Object?>{
+      kMachineTerminalMetadataKey: metadata,
+    });
+  }
+
   /// Appends a [AiSessionMessageKind.selfLearning] message to the session and
   /// persists it.
   ///
@@ -3085,6 +3103,7 @@ class AiSessionController extends ChangeNotifier {
         notifyListeners();
         return true;
       }
+
       _sessionStopSignals[session.id] = existingStopSignal ?? Completer<void>();
       _resetLastSendOutcome(session.id);
       _lastErrorMessage = null;
@@ -6216,6 +6235,7 @@ class AiSessionController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _machineTerminalService?.configureMetadataPersister(null);
     for (final stopSignal in _sessionStopSignals.values) {
       if (!stopSignal.isCompleted) {
         stopSignal.complete();

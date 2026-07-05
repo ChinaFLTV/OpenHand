@@ -74,6 +74,8 @@ class _WorkspaceView extends StatelessWidget {
     this.jumpToBottomOnInit = false,
     this.fileExplorerVisible = false,
     this.onFileExplorerToggled,
+    this.machineTerminalPanelVisible = false,
+    this.onMachineTerminalPanelToggled,
     this.projectRoot,
     this.onComposerStateCreated,
     this.onComposerStateDisposed,
@@ -161,6 +163,8 @@ class _WorkspaceView extends StatelessWidget {
   final bool jumpToBottomOnInit;
   final bool fileExplorerVisible;
   final VoidCallback? onFileExplorerToggled;
+  final bool machineTerminalPanelVisible;
+  final VoidCallback? onMachineTerminalPanelToggled;
   final String? projectRoot;
   final ValueChanged<_ComposerPanelState>? onComposerStateCreated;
   final ValueChanged<_ComposerPanelState>? onComposerStateDisposed;
@@ -208,6 +212,10 @@ class _WorkspaceView extends StatelessWidget {
                                 onPlanTimelineCollapsedChanged,
                             fileExplorerVisible: fileExplorerVisible,
                             onFileExplorerToggled: onFileExplorerToggled,
+                            machineTerminalPanelVisible:
+                                machineTerminalPanelVisible,
+                            onMachineTerminalPanelToggled:
+                                onMachineTerminalPanelToggled,
                             activeProfile: selectedModel
                                 ?.modelProfiles[selectedModel!.modelId],
                             claudeStyle:
@@ -301,6 +309,10 @@ class _WorkspaceView extends StatelessWidget {
                                               fileExplorerVisible,
                                           onFileExplorerToggled:
                                               onFileExplorerToggled,
+                                          machineTerminalPanelVisible:
+                                              machineTerminalPanelVisible,
+                                          onMachineTerminalPanelToggled:
+                                              onMachineTerminalPanelToggled,
                                           activeProfile:
                                               selectedModel
                                                   ?.modelProfiles[selectedModel!
@@ -339,6 +351,10 @@ class _WorkspaceView extends StatelessWidget {
                                     fileExplorerVisible: fileExplorerVisible,
                                     onFileExplorerToggled:
                                         onFileExplorerToggled,
+                                    machineTerminalPanelVisible:
+                                        machineTerminalPanelVisible,
+                                    onMachineTerminalPanelToggled:
+                                        onMachineTerminalPanelToggled,
                                     activeProfile: selectedModel
                                         ?.modelProfiles[selectedModel!.modelId],
                                     claudeStyle:

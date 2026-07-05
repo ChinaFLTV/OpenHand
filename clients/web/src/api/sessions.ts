@@ -224,6 +224,49 @@ export interface MachineTerminalWorkspace {
   active_terminal?: MachineTerminalSnapshot | null;
 }
 
+export const MACHINE_TERMINAL_METADATA_KEY = 'machine_terminal';
+export const MACHINE_TERMINAL_METADATA_SCHEMA_VERSION = 2;
+
+export interface MachineTerminalMetadataSnapshot {
+  terminal_id: string;
+  identity: string;
+  status: MachineTerminalStatus;
+  shell: string;
+  working_directory: string;
+  rows: number;
+  columns: number;
+  output_characters: number;
+  started_at: string;
+  updated_at: string;
+  pid?: number | null;
+  exit_code?: number | null;
+  error_message?: string | null;
+}
+
+export interface MachineTerminalSessionMetadata {
+  schema_version: typeof MACHINE_TERMINAL_METADATA_SCHEMA_VERSION | number;
+  template_id: 'machine_expert' | (string & {});
+  surface: 'openhand_machine_terminal' | (string & {});
+  workflow: 'builtin_terminal_panel' | (string & {});
+  session_id: string;
+  terminal_workspace_id: string;
+  active_terminal_id: string;
+  default_working_directory: string;
+  created_at: string;
+  updated_at: string;
+  terminal_defaults: Record<string, unknown>;
+  capabilities: Record<string, boolean | string | number | null | undefined>;
+  ui: Record<string, unknown>;
+  tool_names: string[];
+  runtime: {
+    status: MachineTerminalStatus;
+    terminal_count: number;
+    active_terminal_id: string;
+    active_terminal?: MachineTerminalMetadataSnapshot | null;
+    terminals: MachineTerminalMetadataSnapshot[];
+  };
+}
+
 export interface MachineTerminalCommandResult {
   terminal_id: string;
   command: string;

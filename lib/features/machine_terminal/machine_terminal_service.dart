@@ -13,15 +13,24 @@ import '../../shared/util/input_value_parsing.dart';
 
 const String kMachineExpertTemplateId = 'machine_expert';
 const String kMachineTerminalMetadataKey = 'machine_terminal';
+const int kMachineTerminalMetadataSchemaVersion = 2;
 
 const int _defaultRows = 30;
 const int _defaultColumns = 100;
 const int _maxRows = 240;
 const int _maxColumns = 400;
+const int _scrollbackLines = 5000;
 const int _maxRetainedOutputCharacters = 240000;
 const int _maxToolOutputCharacters = 120000;
 const Duration _defaultCommandTimeout = Duration(seconds: 120);
 const Duration _commandPollInterval = Duration(milliseconds: 80);
+const Duration _metadataPersistDebounce = Duration(milliseconds: 700);
+const String _machineTerminalSurface = 'openhand_machine_terminal';
+const String _machineTerminalWorkflow = 'builtin_terminal_panel';
+const String _machineTerminalWorkspacePrefix = 'machine-terminal';
+
+typedef MachineTerminalMetadataPersister =
+    Future<void> Function(String sessionId, Map<String, Object?> metadata);
 
 enum MachineTerminalStatus { idle, starting, running, stopped, failed }
 
@@ -145,6 +154,24 @@ class MachineTerminalSnapshot {
       if (errorMessage != null) 'error_message': errorMessage,
     };
   }
+
+  Map<String, Object?> toMetadataJson() {
+    return <String, Object?>{
+      'terminal_id': terminalId,
+      'identity': identity,
+      'status': status.storageValue,
+      'shell': shell,
+      'working_directory': workingDirectory,
+      'rows': rows,
+      'columns': columns,
+      'output_characters': outputCharacters,
+      'started_at': startedAt.toUtc().toIso8601String(),
+      'updated_at': updatedAt.toUtc().toIso8601String(),
+      if (pid != null) 'pid': pid,
+      if (exitCode != null) 'exit_code': exitCode,
+      if (errorMessage != null) 'error_message': errorMessage,
+    };
+  }
 }
 
 class MachineTerminalWorkspaceSnapshot {
@@ -177,27 +204,190 @@ class MachineTerminalWorkspaceSnapshot {
   }
 }
 
+abstract final class MachineTerminalSessionMetadata {
+  static const List<String> toolNames = <String>[
+    'MachineTerminalRead',
+    'MachineTerminalWrite',
+    'MachineTerminalExec',
+    'MachineTerminalControl',
+  ];
+
+  static Map<String, Object?> normalize({
+    required String sessionId,
+    String? workingDirectory,
+    MachineTerminalWorkspaceSnapshot? snapshot,
+    Object? existingMetadata,
+    DateTime? now,
+  }) {
+    final raw = stringKeyedMapFromValue(existingMetadata);
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    final createdAt = createdAtFrom(raw) ?? timestamp.toUtc().toIso8601String();
+    final resolvedWorkingDirectory = _safeWorkingDirectory(
+      nullIfBlank(workingDirectory) ??
+          defaultWorkingDirectoryFrom(raw) ??
+          snapshot?.activeTerminal?.workingDirectory ??
+          OpenHandPaths.applicationDirectoryPath(),
+    );
+    final activeTerminal = snapshot?.activeTerminal;
+    final activeTerminalId =
+        nullIfBlank(snapshot?.activeTerminalId) ??
+        activeTerminalIdFrom(raw) ??
+        activeTerminal?.terminalId ??
+        '';
+    final shell = activeTerminal?.shell ?? _resolveShellExecutable();
+    final runtime = <String, Object?>{
+      'status':
+          activeTerminal?.status.storageValue ??
+          MachineTerminalStatus.idle.storageValue,
+      'terminal_count': snapshot?.terminals.length ?? 0,
+      'active_terminal_id': activeTerminalId,
+      'active_terminal': activeTerminal?.toMetadataJson(),
+      'terminals':
+          snapshot?.terminals
+              .map((terminal) => terminal.toMetadataJson())
+              .toList(growable: false) ??
+          const <Object?>[],
+    };
+    return <String, Object?>{
+      'schema_version': kMachineTerminalMetadataSchemaVersion,
+      'template_id': kMachineExpertTemplateId,
+      'surface': _machineTerminalSurface,
+      'workflow': _machineTerminalWorkflow,
+      'session_id': sessionId.trim(),
+      'terminal_workspace_id':
+          '$_machineTerminalWorkspacePrefix:${sessionId.trim()}',
+      'active_terminal_id': activeTerminalId,
+      'default_working_directory': resolvedWorkingDirectory,
+      'created_at': createdAt,
+      'updated_at': timestamp.toIso8601String(),
+      'terminal_defaults': <String, Object?>{
+        'shell': shell,
+        'rows': _defaultRows,
+        'columns': _defaultColumns,
+        'max_rows': _maxRows,
+        'max_columns': _maxColumns,
+        'scrollback_lines': _scrollbackLines,
+        'command_timeout_ms': _defaultCommandTimeout.inMilliseconds,
+        'command_poll_interval_ms': _commandPollInterval.inMilliseconds,
+        'max_retained_output_characters': _maxRetainedOutputCharacters,
+        'max_tool_output_characters': _maxToolOutputCharacters,
+      },
+      'capabilities': const <String, Object?>{
+        'read': true,
+        'write': true,
+        'execute': true,
+        'control': true,
+        'resize': true,
+        'multiple_terminals': true,
+        'duplicate_terminal': true,
+        'interactive_input': true,
+        'ansi_output': true,
+        'shell_completion': true,
+        'formatted_command_output': true,
+        'marker_isolated_exec': true,
+        'status_inspection': true,
+        'environment_metadata': true,
+        'native_keybindings': true,
+        'smooth_auto_scroll': true,
+      },
+      'ui': const <String, Object?>{
+        'panel': 'left_workspace_terminal',
+        'auto_scroll_to_bottom': true,
+        'terminal_tabs': true,
+        'status_bar': true,
+        'metadata_bar': true,
+      },
+      'tool_names': toolNames,
+      'runtime': runtime,
+    };
+  }
+
+  static int? schemaVersionFrom(Object? metadata) {
+    final raw = stringKeyedMapFromValue(metadata);
+    return optionalIntFromValue(raw['schema_version']);
+  }
+
+  static String? createdAtFrom(Object? metadata) {
+    final raw = stringKeyedMapFromValue(metadata);
+    return _isoTimeFromValue(raw['created_at']);
+  }
+
+  static String? activeTerminalIdFrom(Object? metadata) {
+    final raw = stringKeyedMapFromValue(metadata);
+    final runtime = stringKeyedMapFromValue(raw['runtime']);
+    final active = stringKeyedMapFromValue(runtime['active_terminal']);
+    return nullIfBlank('${raw['active_terminal_id'] ?? ''}') ??
+        nullIfBlank('${runtime['active_terminal_id'] ?? ''}') ??
+        nullIfBlank('${active['terminal_id'] ?? ''}');
+  }
+
+  static String? defaultWorkingDirectoryFrom(Object? metadata) {
+    final raw = stringKeyedMapFromValue(metadata);
+    final defaults = stringKeyedMapFromValue(raw['terminal_defaults']);
+    return nullIfBlank('${raw['default_working_directory'] ?? ''}') ??
+        nullIfBlank('${raw['working_directory'] ?? ''}') ??
+        nullIfBlank('${defaults['working_directory'] ?? ''}');
+  }
+}
+
 class MachineTerminalService extends ChangeNotifier {
   final Map<String, _MachineTerminalWorkspace> _workspaces =
       <String, _MachineTerminalWorkspace>{};
+  final Map<String, String> _metadataCreatedAtBySession = <String, String>{};
+  final Map<String, String> _metadataWorkingDirectoryBySession =
+      <String, String>{};
+  final Map<String, String> _lastPersistedMetadataDigestBySession =
+      <String, String>{};
+  final Map<String, Timer> _metadataPersistTimers = <String, Timer>{};
+  final Map<String, Future<void>> _metadataPersistChains =
+      <String, Future<void>>{};
 
   int _terminalCounter = 0;
   int _commandCounter = 0;
+  MachineTerminalMetadataPersister? _metadataPersister;
+
+  void configureMetadataPersister(MachineTerminalMetadataPersister? persister) {
+    _metadataPersister = persister;
+  }
+
+  void rememberSessionMetadata({required String sessionId, Object? metadata}) {
+    final normalizedSessionId = nullIfBlank(sessionId);
+    if (normalizedSessionId == null) return;
+    final createdAt = MachineTerminalSessionMetadata.createdAtFrom(metadata);
+    if (createdAt != null) {
+      _metadataCreatedAtBySession[normalizedSessionId] = createdAt;
+    }
+    final workingDirectory =
+        MachineTerminalSessionMetadata.defaultWorkingDirectoryFrom(metadata);
+    if (workingDirectory != null) {
+      _metadataWorkingDirectoryBySession[normalizedSessionId] =
+          _safeWorkingDirectory(workingDirectory);
+    }
+  }
 
   MachineTerminalWorkspaceSnapshot ensureWorkspace({
     required String sessionId,
     String? workingDirectory,
     bool start = true,
   }) {
+    final normalizedSessionId = _normalizeSessionId(sessionId);
+    final isNewWorkspace = !_workspaces.containsKey(normalizedSessionId);
     final workspace = _workspaceFor(
-      sessionId: sessionId,
+      sessionId: normalizedSessionId,
       workingDirectory: workingDirectory,
     );
     if (start) {
       final active = workspace.activeTerminal;
       if (active != null && !active.isRunningOrStarting) {
-        unawaited(active.start());
+        unawaited(
+          active.start().whenComplete(
+            () => _scheduleMetadataPersist(workspace.sessionId),
+          ),
+        );
       }
+    }
+    if (start && isNewWorkspace) {
+      _scheduleMetadataPersist(workspace.sessionId);
     }
     return workspace.snapshot();
   }
@@ -211,7 +401,14 @@ class MachineTerminalService extends ChangeNotifier {
   }
 
   Future<void> disposeWorkspace(String sessionId) async {
-    final workspace = _workspaces.remove(sessionId.trim());
+    final normalizedSessionId = nullIfBlank(sessionId);
+    if (normalizedSessionId == null) return;
+    _metadataPersistTimers.remove(normalizedSessionId)?.cancel();
+    _metadataPersistChains.remove(normalizedSessionId);
+    _lastPersistedMetadataDigestBySession.remove(normalizedSessionId);
+    _metadataCreatedAtBySession.remove(normalizedSessionId);
+    _metadataWorkingDirectoryBySession.remove(normalizedSessionId);
+    final workspace = _workspaces.remove(normalizedSessionId);
     if (workspace == null) return;
     await workspace.shutdown();
     notifyListeners();
@@ -236,6 +433,7 @@ class MachineTerminalService extends ChangeNotifier {
     if (start) {
       await terminal.start();
     }
+    _scheduleMetadataPersist(workspace.sessionId);
     return terminal;
   }
 
@@ -259,6 +457,7 @@ class MachineTerminalService extends ChangeNotifier {
   }) async {
     final workspace = _requireWorkspace(sessionId);
     workspace.select(terminalId);
+    _scheduleMetadataPersist(workspace.sessionId);
     notifyListeners();
   }
 
@@ -280,6 +479,7 @@ class MachineTerminalService extends ChangeNotifier {
         ),
       );
     }
+    _scheduleMetadataPersist(workspace.sessionId);
     notifyListeners();
   }
 
@@ -289,6 +489,7 @@ class MachineTerminalService extends ChangeNotifier {
   }) async {
     final terminal = _requireTerminal(sessionId, terminalId);
     await terminal.start();
+    _scheduleMetadataPersist(terminal.sessionId);
   }
 
   Future<void> stopTerminal({
@@ -298,6 +499,7 @@ class MachineTerminalService extends ChangeNotifier {
   }) async {
     final terminal = _requireTerminal(sessionId, terminalId);
     await terminal.stop(force: force);
+    _scheduleMetadataPersist(terminal.sessionId);
   }
 
   Future<void> restartTerminal({
@@ -306,11 +508,13 @@ class MachineTerminalService extends ChangeNotifier {
   }) async {
     final terminal = _requireTerminal(sessionId, terminalId);
     await terminal.restart();
+    _scheduleMetadataPersist(terminal.sessionId);
   }
 
   void clearTerminal({required String sessionId, String? terminalId}) {
     final terminal = _requireTerminal(sessionId, terminalId);
     terminal.clear();
+    _scheduleMetadataPersist(terminal.sessionId);
   }
 
   void resizeTerminal({
@@ -321,6 +525,7 @@ class MachineTerminalService extends ChangeNotifier {
   }) {
     final terminal = _requireTerminal(sessionId, terminalId);
     terminal.resize(columns: columns, rows: rows);
+    _scheduleMetadataPersist(terminal.sessionId);
   }
 
   Future<void> writeInput({
@@ -330,10 +535,15 @@ class MachineTerminalService extends ChangeNotifier {
     bool appendNewline = false,
   }) async {
     final terminal = _requireTerminal(sessionId, terminalId);
+    var started = false;
     if (!terminal.isRunningOrStarting) {
       await terminal.start();
+      started = true;
     }
     terminal.writeInput(appendNewline ? '$data\n' : data);
+    if (started) {
+      _scheduleMetadataPersist(terminal.sessionId);
+    }
   }
 
   Future<MachineTerminalCommandResult> executeCommand({
@@ -343,8 +553,10 @@ class MachineTerminalService extends ChangeNotifier {
     Duration timeout = _defaultCommandTimeout,
   }) async {
     final terminal = _requireTerminal(sessionId, terminalId);
+    var started = false;
     if (!terminal.isRunningOrStarting) {
       await terminal.start();
+      started = true;
     }
     final trimmed = command.trimRight();
     if (trimmed.isEmpty) {
@@ -359,12 +571,16 @@ class MachineTerminalService extends ChangeNotifier {
     }
     final counter = ++_commandCounter;
     final token = 'OPENHAND_${DateTime.now().microsecondsSinceEpoch}_$counter';
-    return terminal.executeCommand(
+    final result = await terminal.executeCommand(
       command: trimmed,
       beginMarker: '${token}_BEGIN',
       endMarker: '${token}_END',
       timeout: timeout,
     );
+    if (started || result.error != null || result.timedOut) {
+      _scheduleMetadataPersist(terminal.sessionId);
+    }
+    return result;
   }
 
   Future<MachineTerminalWorkspaceSnapshot> control({
@@ -428,24 +644,52 @@ class MachineTerminalService extends ChangeNotifier {
   Map<String, Object?> initialMetadata({
     required String sessionId,
     String? workingDirectory,
+    Object? existingMetadata,
   }) {
+    rememberSessionMetadata(sessionId: sessionId, metadata: existingMetadata);
     final snapshot = ensureWorkspace(
       sessionId: sessionId,
       workingDirectory: workingDirectory,
       start: false,
     );
-    return <String, Object?>{
-      'schema_version': 1,
-      'active_terminal_id': snapshot.activeTerminalId,
-      'created_at': DateTime.now().toUtc().toIso8601String(),
-      'working_directory':
+    return sessionMetadata(
+      sessionId: sessionId,
+      workingDirectory: workingDirectory,
+      existingMetadata: existingMetadata,
+      snapshot: snapshot,
+    );
+  }
+
+  Map<String, Object?> sessionMetadata({
+    required String sessionId,
+    String? workingDirectory,
+    Object? existingMetadata,
+    MachineTerminalWorkspaceSnapshot? snapshot,
+  }) {
+    rememberSessionMetadata(sessionId: sessionId, metadata: existingMetadata);
+    final normalizedSessionId = _normalizeSessionId(sessionId);
+    final metadata = MachineTerminalSessionMetadata.normalize(
+      sessionId: normalizedSessionId,
+      workingDirectory:
           nullIfBlank(workingDirectory) ??
-          OpenHandPaths.applicationDirectoryPath(),
-    };
+          _metadataWorkingDirectoryBySession[normalizedSessionId],
+      existingMetadata: _metadataSeedFor(normalizedSessionId, existingMetadata),
+      snapshot: snapshot ?? this.snapshot(normalizedSessionId),
+    );
+    rememberSessionMetadata(sessionId: normalizedSessionId, metadata: metadata);
+    return metadata;
   }
 
   @override
   void dispose() {
+    for (final timer in _metadataPersistTimers.values) {
+      timer.cancel();
+    }
+    _metadataPersistTimers.clear();
+    _metadataPersistChains.clear();
+    _lastPersistedMetadataDigestBySession.clear();
+    _metadataCreatedAtBySession.clear();
+    _metadataWorkingDirectoryBySession.clear();
     for (final workspace in _workspaces.values) {
       workspace.dispose();
     }
@@ -457,15 +701,13 @@ class MachineTerminalService extends ChangeNotifier {
     required String sessionId,
     String? workingDirectory,
   }) {
-    final normalizedSessionId = sessionId.trim();
-    if (normalizedSessionId.isEmpty) {
-      throw ArgumentError('sessionId must not be empty.');
-    }
+    final normalizedSessionId = _normalizeSessionId(sessionId);
     return _workspaces.putIfAbsent(normalizedSessionId, () {
       final workspace = _MachineTerminalWorkspace(
         sessionId: normalizedSessionId,
         defaultWorkingDirectory:
             nullIfBlank(workingDirectory) ??
+            _metadataWorkingDirectoryBySession[normalizedSessionId] ??
             OpenHandPaths.applicationDirectoryPath(),
       );
       workspace.add(
@@ -511,6 +753,67 @@ class MachineTerminalService extends ChangeNotifier {
     );
     return terminal;
   }
+
+  Object? _metadataSeedFor(String sessionId, Object? existingMetadata) {
+    final raw = stringKeyedMapFromValue(existingMetadata);
+    if (raw.isNotEmpty) return raw;
+    final seed = <String, Object?>{
+      if (_metadataCreatedAtBySession[sessionId] != null)
+        'created_at': _metadataCreatedAtBySession[sessionId],
+      if (_metadataWorkingDirectoryBySession[sessionId] != null)
+        'default_working_directory':
+            _metadataWorkingDirectoryBySession[sessionId],
+    };
+    return seed.isEmpty ? null : seed;
+  }
+
+  void _scheduleMetadataPersist(String sessionId) {
+    final normalizedSessionId = nullIfBlank(sessionId);
+    if (normalizedSessionId == null || _metadataPersister == null) return;
+    _metadataPersistTimers[normalizedSessionId]?.cancel();
+    _metadataPersistTimers[normalizedSessionId] = Timer(
+      _metadataPersistDebounce,
+      () {
+        _metadataPersistTimers.remove(normalizedSessionId);
+        final previous =
+            _metadataPersistChains[normalizedSessionId] ?? Future<void>.value();
+        late final Future<void> tracked;
+        tracked = previous
+            .catchError((Object error, StackTrace stack) {
+              silentLog(
+                'machine_terminal',
+                'metadata persist queue',
+                error,
+                stack,
+              );
+            })
+            .then((_) => _persistSessionMetadataNow(normalizedSessionId))
+            .whenComplete(() {
+              if (identical(
+                _metadataPersistChains[normalizedSessionId],
+                tracked,
+              )) {
+                _metadataPersistChains.remove(normalizedSessionId);
+              }
+            });
+        _metadataPersistChains[normalizedSessionId] = tracked;
+      },
+    );
+  }
+
+  Future<void> _persistSessionMetadataNow(String sessionId) async {
+    final persister = _metadataPersister;
+    if (persister == null) return;
+    final metadata = sessionMetadata(sessionId: sessionId);
+    final digest = jsonEncode(metadata);
+    if (_lastPersistedMetadataDigestBySession[sessionId] == digest) return;
+    try {
+      await persister(sessionId, metadata);
+      _lastPersistedMetadataDigestBySession[sessionId] = digest;
+    } catch (error, stack) {
+      silentLog('machine_terminal', 'persist metadata', error, stack);
+    }
+  }
 }
 
 class MachineTerminalSession {
@@ -523,7 +826,7 @@ class MachineTerminalSession {
     required VoidCallback onChanged,
   }) : _onChanged = onChanged,
        terminal = Terminal(
-         maxLines: 5000,
+         maxLines: _scrollbackLines,
          platform: _terminalTargetPlatform(),
        ) {
     terminal
@@ -914,6 +1217,14 @@ String _resolveShellExecutable() {
   return nullIfBlank(Platform.environment['SHELL']) ?? '/bin/zsh';
 }
 
+String _normalizeSessionId(String sessionId) {
+  final normalized = nullIfBlank(sessionId);
+  if (normalized == null) {
+    throw ArgumentError('sessionId must not be empty.');
+  }
+  return normalized;
+}
+
 List<String> _shellArguments(String shell) {
   if (Platform.isWindows) return const <String>[];
   final basename = shell.split(Platform.pathSeparator).last;
@@ -980,6 +1291,13 @@ String _removeMarkerNoise(String value) {
     lines.removeLast();
   }
   return lines.join('\n');
+}
+
+String? _isoTimeFromValue(Object? value) {
+  final text = optionalStringFromValue(value);
+  if (text == null) return null;
+  final parsed = DateTime.tryParse(text);
+  return parsed?.toUtc().toIso8601String();
 }
 
 String _clipToolOutput(String value) =>

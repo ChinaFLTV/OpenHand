@@ -172,9 +172,11 @@ Widget _buildWorkspaceSidebarTransition({
 }) {
   final isFileExplorerPane =
       child.key == const ValueKey<String>('file-explorer-pane');
+  final isMachineTerminalPane =
+      child.key == const ValueKey<String>('machine-terminal-pane');
   final isNavigationPane =
       child.key == const ValueKey<String>('navigation-pane');
-  final horizontalOffset = isFileExplorerPane
+  final horizontalOffset = isFileExplorerPane || isMachineTerminalPane
       ? 32.0
       : isNavigationPane
       ? -32.0

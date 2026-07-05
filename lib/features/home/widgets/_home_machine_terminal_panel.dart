@@ -1,9 +1,13 @@
 part of '../openhand_home_page.dart';
 
 class _MachineExpertTerminalPanel extends StatefulWidget {
-  const _MachineExpertTerminalPanel({required this.sessionId});
+  const _MachineExpertTerminalPanel({
+    required this.sessionId,
+    this.onPanelClose,
+  });
 
   final String sessionId;
+  final VoidCallback? onPanelClose;
 
   @override
   State<_MachineExpertTerminalPanel> createState() =>
@@ -43,8 +47,27 @@ class _MachineExpertTerminalPanelState
   void _ensureTerminal() {
     if (!mounted || _initializedSessionId == widget.sessionId) return;
     _initializedSessionId = widget.sessionId;
+    final sessionController = context.read<AiSessionController>();
+    AiSession? session;
+    for (final candidate in sessionController.sessions) {
+      if (candidate.id == widget.sessionId) {
+        session = candidate;
+        break;
+      }
+    }
+    final terminalMetadata = session?.metadata[kMachineTerminalMetadataKey];
     final terminalService = context.read<MachineTerminalService>();
-    terminalService.ensureWorkspace(sessionId: widget.sessionId);
+    terminalService.rememberSessionMetadata(
+      sessionId: widget.sessionId,
+      metadata: terminalMetadata,
+    );
+    terminalService.ensureWorkspace(
+      sessionId: widget.sessionId,
+      workingDirectory:
+          MachineTerminalSessionMetadata.defaultWorkingDirectoryFrom(
+            terminalMetadata,
+          ),
+    );
     unawaited(terminalService.startTerminal(sessionId: widget.sessionId));
   }
 
@@ -74,14 +97,32 @@ class _MachineExpertTerminalPanelState
     final cs = theme.colorScheme;
     if (workspace == null || activeSession == null || activeSnapshot == null) {
       return _MachineTerminalShell(
-        child: Center(
-          child: Text(
-            _localizedText(context, zh: '正在启动终端', en: 'Starting terminal'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: cs.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
+        child: Stack(
+          children: [
+            Center(
+              child: Text(
+                _localizedText(context, zh: '正在启动终端', en: 'Starting terminal'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-          ),
+            if (widget.onPanelClose != null)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: _MachineTerminalIconButton(
+                  icon: Icons.close_rounded,
+                  tooltip: _localizedText(
+                    context,
+                    zh: '关闭面板',
+                    en: 'Close Panel',
+                  ),
+                  onPressed: widget.onPanelClose,
+                ),
+              ),
+          ],
         ),
       );
     }
@@ -94,6 +135,7 @@ class _MachineExpertTerminalPanelState
             snapshot: activeSnapshot,
             workspace: workspace,
             onCopyId: () => _copyTerminalId(activeSnapshot.terminalId),
+            onPanelClose: widget.onPanelClose,
             onStart: () => _control('start', activeSnapshot.terminalId),
             onStop: () => _control('stop', activeSnapshot.terminalId),
             onRestart: () => _control('restart', activeSnapshot.terminalId),
@@ -209,6 +251,7 @@ class _MachineTerminalHeader extends StatelessWidget {
     required this.snapshot,
     required this.workspace,
     required this.onCopyId,
+    this.onPanelClose,
     required this.onStart,
     required this.onStop,
     required this.onRestart,
@@ -221,6 +264,7 @@ class _MachineTerminalHeader extends StatelessWidget {
   final MachineTerminalSnapshot snapshot;
   final MachineTerminalWorkspaceSnapshot workspace;
   final VoidCallback onCopyId;
+  final VoidCallback? onPanelClose;
   final VoidCallback onStart;
   final VoidCallback onStop;
   final VoidCallback onRestart;
@@ -291,6 +335,14 @@ class _MachineTerminalHeader extends StatelessWidget {
               tooltip: _localizedText(context, zh: '复制 ID', en: 'Copy ID'),
               onPressed: onCopyId,
             ),
+            if (onPanelClose != null) ...[
+              const SizedBox(width: 7),
+              _MachineTerminalIconButton(
+                icon: Icons.close_rounded,
+                tooltip: _localizedText(context, zh: '关闭面板', en: 'Close Panel'),
+                onPressed: onPanelClose,
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 10),
@@ -595,13 +647,17 @@ class _MachineTerminalIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final duration = openHandMotionDuration(
+      context,
+      const Duration(milliseconds: 140),
+    );
     return Tooltip(
       message: tooltip,
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: onPressed,
         child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 140),
+          duration: duration,
           opacity: onPressed == null ? 0.42 : 1,
           child: Container(
             width: 34,

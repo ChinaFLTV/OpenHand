@@ -225,6 +225,8 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
     required this.onPlanTimelineCollapsedChanged,
     this.fileExplorerVisible = false,
     this.onFileExplorerToggled,
+    this.machineTerminalPanelVisible = false,
+    this.onMachineTerminalPanelToggled,
     this.activeProfile,
     this.claudeStyle = true,
   });
@@ -236,6 +238,8 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
   final bool fileExplorerVisible;
   final VoidCallback? onFileExplorerToggled;
+  final bool machineTerminalPanelVisible;
+  final VoidCallback? onMachineTerminalPanelToggled;
   final AiModelProfile? activeProfile;
   final bool claudeStyle;
 
@@ -252,6 +256,8 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
           onPlanTimelineCollapsedChanged: onPlanTimelineCollapsedChanged,
           fileExplorerVisible: fileExplorerVisible,
           onFileExplorerToggled: onFileExplorerToggled,
+          machineTerminalPanelVisible: machineTerminalPanelVisible,
+          onMachineTerminalPanelToggled: onMachineTerminalPanelToggled,
           activeProfile: activeProfile,
           claudeStyle: claudeStyle,
         ),
@@ -303,6 +309,8 @@ class _SessionTranscript extends StatefulWidget {
     this.jumpToBottomOnInit = false,
     this.fileExplorerVisible = false,
     this.onFileExplorerToggled,
+    this.machineTerminalPanelVisible = false,
+    this.onMachineTerminalPanelToggled,
     this.activeProfile,
     this.claudeStyle = true,
   });
@@ -339,6 +347,8 @@ class _SessionTranscript extends StatefulWidget {
   final bool jumpToBottomOnInit;
   final bool fileExplorerVisible;
   final VoidCallback? onFileExplorerToggled;
+  final bool machineTerminalPanelVisible;
+  final VoidCallback? onMachineTerminalPanelToggled;
   final AiModelProfile? activeProfile;
   final bool claudeStyle;
 
@@ -2701,6 +2711,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           onPlanTimelineCollapsedChanged: widget.onPlanTimelineCollapsedChanged,
           fileExplorerVisible: widget.fileExplorerVisible,
           onFileExplorerToggled: widget.onFileExplorerToggled,
+          machineTerminalPanelVisible: widget.machineTerminalPanelVisible,
+          onMachineTerminalPanelToggled: widget.onMachineTerminalPanelToggled,
           activeProfile: widget.activeProfile,
           claudeStyle: widget.claudeStyle,
         ),

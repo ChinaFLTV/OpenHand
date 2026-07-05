@@ -8,7 +8,12 @@ import '../ai_tool_utils.dart';
 abstract class AiMachineTerminalToolBase extends AiTool {
   MachineTerminalService? terminalService(AiToolExecutionContext context) {
     final raw = context.metadata['machine_terminal_service'];
-    return raw is MachineTerminalService ? raw : null;
+    if (raw is! MachineTerminalService) return null;
+    raw.rememberSessionMetadata(
+      sessionId: context.sessionId,
+      metadata: context.metadata[kMachineTerminalMetadataKey],
+    );
+    return raw;
   }
 
   AiToolExecutionResult missingServiceResult(String toolName) {
@@ -65,7 +70,12 @@ class AiMachineTerminalReadTool extends AiMachineTerminalToolBase {
         'Terminal not found: ${terminalId ?? snapshot.activeTerminalId}',
       );
     }
-    final output = _terminalSnapshotText(snapshot, active);
+    final terminalMetadata = service.sessionMetadata(
+      sessionId: context.sessionId,
+      existingMetadata: context.metadata[kMachineTerminalMetadataKey],
+      snapshot: snapshot,
+    );
+    final output = _terminalSnapshotText(snapshot, active, terminalMetadata);
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.success,
       command: 'MachineTerminalRead',
@@ -76,6 +86,7 @@ class AiMachineTerminalReadTool extends AiMachineTerminalToolBase {
       resultText: output,
       metadata: <String, Object?>{
         'machine_terminal_snapshot': snapshot.toJson(),
+        'machine_terminal_metadata': terminalMetadata,
         'terminal_id': active.terminalId,
       },
     );
@@ -293,6 +304,11 @@ class AiMachineTerminalControlTool extends AiMachineTerminalToolBase {
       resultText: output,
       metadata: <String, Object?>{
         'machine_terminal_snapshot': snapshot.toJson(),
+        'machine_terminal_metadata': service.sessionMetadata(
+          sessionId: context.sessionId,
+          existingMetadata: context.metadata[kMachineTerminalMetadataKey],
+          snapshot: snapshot,
+        ),
       },
     );
   }
@@ -313,8 +329,12 @@ MachineTerminalSnapshot? _terminalById(
 String _terminalSnapshotText(
   MachineTerminalWorkspaceSnapshot workspace,
   MachineTerminalSnapshot terminal,
+  Map<String, Object?> metadata,
 ) {
   return 'session_id: ${workspace.sessionId}\n'
+      'metadata_schema_version: ${metadata['schema_version'] ?? ''}\n'
+      'workflow: ${metadata['workflow'] ?? ''}\n'
+      'default_working_directory: ${metadata['default_working_directory'] ?? ''}\n'
       'active_terminal_id: ${workspace.activeTerminalId}\n'
       'terminal_id: ${terminal.terminalId}\n'
       'identity: ${terminal.identity}\n'

@@ -400,6 +400,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   // Programming Expert: file explorer & inline editor state.
   bool _fileExplorerVisible = false;
+  final Set<String> _hiddenMachineTerminalPanelSessionIds = <String>{};
   final List<String> _openFilePaths = [];
   String? _activeFilePath;
   String? _editorTabsSessionId;
@@ -409,6 +410,30 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   void _toggleFileExplorer() {
     setState(() => _fileExplorerVisible = !_fileExplorerVisible);
+  }
+
+  bool _machineTerminalPanelVisibleFor(AiSession? session) {
+    if (session == null || session.templateId != kMachineExpertTemplateId) {
+      return false;
+    }
+    return !_hiddenMachineTerminalPanelSessionIds.contains(session.id);
+  }
+
+  void _toggleMachineTerminalPanel(String sessionId) {
+    setState(() {
+      if (!_hiddenMachineTerminalPanelSessionIds.add(sessionId)) {
+        _hiddenMachineTerminalPanelSessionIds.remove(sessionId);
+      }
+    });
+  }
+
+  void _hideMachineTerminalPanel(String sessionId) {
+    if (_hiddenMachineTerminalPanelSessionIds.contains(sessionId)) {
+      return;
+    }
+    setState(() {
+      _hiddenMachineTerminalPanelSessionIds.add(sessionId);
+    });
   }
 
   void _openFileInEditor(String filePath) {
@@ -3242,6 +3267,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final metadata = terminalService.initialMetadata(
       sessionId: session.id,
       workingDirectory: resolvedRuntimeContext.workingDirectory,
+      existingMetadata: session.metadata[kMachineTerminalMetadataKey],
     );
     await sessionController.updateSessionMetadata(session.id, <String, Object?>{
       kMachineTerminalMetadataKey: metadata,
@@ -8319,6 +8345,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || deleted) {
       if (deleted) {
         _removeComposerDraftForSession(session.id);
+        _hiddenMachineTerminalPanelSessionIds.remove(session.id);
         // 释放该会话挂着的 Web 逆向 controller（停 dock / 关 CDP / 关浏览器进程）。
         final wr = _webReverseControllers.remove(session.id);
         _webReverseRuntimeMetadataSignatures.remove(session.id);
@@ -9130,12 +9157,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   final projectRoot = _programmingExpertProjectRoot(
                     currentSession,
                   );
+                  final machineTerminalSessionId =
+                      currentSession?.templateId == kMachineExpertTemplateId
+                      ? currentSession!.id
+                      : null;
                   final showFileExplorer =
                       _fileExplorerVisible &&
                       projectRoot != null &&
                       _selectedSection == AppSection.workspace;
                   final showMachineTerminal =
-                      currentSession?.templateId == kMachineExpertTemplateId &&
+                      machineTerminalSessionId != null &&
+                      _machineTerminalPanelVisibleFor(currentSession) &&
                       _selectedSection == AppSection.workspace;
                   final panelSettings = context
                       .read<SettingsController>()
@@ -9173,7 +9205,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                                 'machine-terminal-pane',
                               ),
                               child: _MachineExpertTerminalPanel(
-                                sessionId: currentSession!.id,
+                                sessionId: machineTerminalSessionId,
+                                onPanelClose: () => _hideMachineTerminalPanel(
+                                  machineTerminalSessionId,
+                                ),
                               ),
                             )
                           : showFileExplorer
@@ -9350,6 +9385,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         : context.read<AiSessionController>();
     final appInfo = context.read<AppInfo>();
     final currentSession = sessionController.currentSession;
+    final machineTerminalSessionId =
+        currentSession?.templateId == kMachineExpertTemplateId
+        ? currentSession!.id
+        : null;
     final selectedModel = _effectiveModelForSession(
       settingsController,
       currentSession,
@@ -9623,6 +9662,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             _programmingExpertProjectRoot(currentSession) != null
             ? _toggleFileExplorer
             : null,
+        machineTerminalPanelVisible: _machineTerminalPanelVisibleFor(
+          currentSession,
+        ),
+        onMachineTerminalPanelToggled: machineTerminalSessionId == null
+            ? null
+            : () => _toggleMachineTerminalPanel(machineTerminalSessionId),
         projectRoot: _programmingExpertProjectRoot(currentSession),
         onComposerStateCreated: (state) {
           _composerPanelState = state;
