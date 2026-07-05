@@ -12,6 +12,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
+import '../net/http_status_utils.dart';
 import '../util/byte_size_format.dart';
 import 'animated_dialog.dart';
 import 'dialog_motion_css.dart';
@@ -488,7 +489,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     try {
       final request = await client.getUrl(uri).timeout(_kNetworkTimeout);
       final response = await request.close().timeout(_kNetworkTimeout);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         throw HttpException('HTTP ${response.statusCode}', uri: uri);
       }
       final contentType = response.headers.contentType;

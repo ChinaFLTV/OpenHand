@@ -1888,7 +1888,7 @@ Future<Uint8List> _downloadClipboardBytes(
     final response = await request.close().timeout(
       _mediaClipboardNetworkTimeout,
     );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       throw HttpException('HTTP ${response.statusCode}', uri: uri);
     }
     final contentType = response.headers.contentType;
@@ -1969,7 +1969,7 @@ Future<void> _downloadRemoteUriToFile({
       throw const _MediaDownloadCancelled();
     }
     final response = await request.close().timeout(_remoteMediaHeaderTimeout);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       throw HttpException(
         'HTTP ${response.statusCode} while downloading $resourceLabel.',
         uri: uri,

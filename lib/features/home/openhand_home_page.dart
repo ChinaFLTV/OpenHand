@@ -47,6 +47,7 @@ import '../../app/theme/openhand_palette.dart';
 import '../../app/theme/openhand_status_colors.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/db/database_service.dart';
+import '../../shared/net/http_status_utils.dart';
 import '../../shared/ui/animated_appearance.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';

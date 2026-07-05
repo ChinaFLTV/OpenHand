@@ -16,6 +16,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 
@@ -211,7 +212,7 @@ class MediaCacheService {
     try {
       final request = await client.getUrl(uri).timeout(_requestOpenTimeout);
       final response = await request.close().timeout(_responseHeaderTimeout);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         await response.drain<void>();
         return null;
       }
