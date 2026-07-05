@@ -32,7 +32,7 @@ class _TokenDial extends StatefulWidget {
   double get cacheHitRatio {
     final precomputed = session.statistics.cacheHitRatio;
     if (precomputed != null && _cacheHitTrendUsesRoundStarterSchema) {
-      return precomputed.clamp(0.0, 1.0);
+      return finiteUnitInterval(precomputed);
     }
     final trend = SessionCacheHitTrend.fromSession(
       session,
@@ -700,7 +700,7 @@ class _CacheSavingsBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     // 0 命中时弱化显示；命中越高饱和度越强。
-    final clamped = percent.isFinite ? percent.clamp(0.0, 1.0) : 0.0;
+    final clamped = finiteUnitInterval(percent);
     final intensity = (0.5 + clamped * 0.5).clamp(0.5, 1.0);
     final fg = Color.lerp(
       Colors.green.shade400,
@@ -769,11 +769,9 @@ class _CacheHitBarState extends State<_CacheHitBar> {
     // 分母：cache_read + cache_write + 未缓存 prompt（promptTokens 已扣除
     // cache_read，与 read/write 不重叠）。
     final total = widget.cacheRead + widget.cacheWrite + widget.prompt;
-    final readWeight = total == 0 ? 0.0 : widget.cacheRead / total;
-    final writeWeight = total == 0 ? 0.0 : widget.cacheWrite / total;
-    final promptWeight = total == 0
-        ? 0.0
-        : (widget.prompt / total).clamp(0.0, 1.0);
+    final readWeight = unitRatio(widget.cacheRead, total);
+    final writeWeight = unitRatio(widget.cacheWrite, total);
+    final promptWeight = unitRatio(widget.prompt, total);
     final intensify = _hovered ? 1.10 : 1.0;
     final readColor = Colors.green.shade500;
     final writeColor = Colors.amber.shade600;
@@ -817,7 +815,7 @@ class _CacheHitBarState extends State<_CacheHitBar> {
                 flex: (readWeight * 1000).round(),
                 child: Container(
                   color: readColor.withValues(
-                    alpha: (0.85 * intensify).clamp(0.0, 1.0),
+                    alpha: clampUnitInterval(0.85 * intensify),
                   ),
                 ),
               ),
@@ -826,7 +824,7 @@ class _CacheHitBarState extends State<_CacheHitBar> {
                 flex: (writeWeight * 1000).round(),
                 child: Container(
                   color: writeColor.withValues(
-                    alpha: (0.78 * intensify).clamp(0.0, 1.0),
+                    alpha: clampUnitInterval(0.78 * intensify),
                   ),
                 ),
               ),

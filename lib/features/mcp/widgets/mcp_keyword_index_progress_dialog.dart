@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../mcp_controller.dart';
 import '../service/mcp_keyword_index.dart';
 
@@ -70,7 +71,7 @@ class _McpKeywordIndexProgressDialogState
     final error = _error;
     final isDone = result != null || error != null;
     final ratio = (progress != null && progress.serverCount > 0)
-        ? (progress.serverIndex / progress.serverCount).clamp(0.0, 1.0)
+        ? unitRatio(progress.serverIndex, progress.serverCount)
         : null;
 
     final body = <Widget>[];

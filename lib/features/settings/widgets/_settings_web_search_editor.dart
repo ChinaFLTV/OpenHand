@@ -1232,7 +1232,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor> {
                       ),
                     ),
                     FractionallySizedBox(
-                      widthFactor: stat.successRate.clamp(0.0, 1.0),
+                      widthFactor: finiteUnitInterval(stat.successRate),
                       child: Container(
                         height: 8,
                         decoration: BoxDecoration(

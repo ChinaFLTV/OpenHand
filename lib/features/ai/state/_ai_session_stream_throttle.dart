@@ -143,7 +143,7 @@ class _StreamCharThrottleBudget {
 
   double get partialCharProgress {
     if (_maxCharsPerSecond <= 0) return 1;
-    return _budget.clamp(0.0, 1.0).toDouble();
+    return clampUnitInterval(_budget);
   }
 
   void _refill() {
@@ -464,7 +464,7 @@ class _StreamCardThrottle {
       _flushPending();
       return;
     }
-    final tokensNeeded = (1 - _budget).clamp(0, 1).toDouble();
+    final tokensNeeded = clampUnitInterval(1 - _budget);
     final waitSeconds = tokensNeeded <= 0
         ? 0.0
         : tokensNeeded / maxCardsPerSecond;

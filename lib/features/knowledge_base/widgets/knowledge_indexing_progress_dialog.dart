@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../service/knowledge_indexing_control.dart';
 
@@ -314,10 +315,7 @@ class _KnowledgeIndexingProgressBarState
   }
 
   double _normalizedValue(double? value) {
-    if (value == null || value.isNaN || !value.isFinite) {
-      return 0;
-    }
-    return value.clamp(0.0, 1.0).toDouble();
+    return finiteUnitInterval(value ?? 0);
   }
 }
 

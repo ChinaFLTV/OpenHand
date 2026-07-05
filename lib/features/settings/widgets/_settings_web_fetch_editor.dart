@@ -1147,7 +1147,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor> {
                       ),
                     ),
                     FractionallySizedBox(
-                      widthFactor: stat.successRate.clamp(0.0, 1.0),
+                      widthFactor: finiteUnitInterval(stat.successRate),
                       child: Container(
                         height: 8,
                         decoration: BoxDecoration(
