@@ -40,11 +40,59 @@ class _RunningToolCallState {
     required this.toolCall,
     required this.messageId,
     required this.executionSessionId,
+    required this.startedAt,
   });
 
   final AiToolCall toolCall;
   final String messageId;
   final String executionSessionId;
+  final DateTime startedAt;
+}
+
+class _ToolCallExecutionHeartbeat {
+  _ToolCallExecutionHeartbeat({
+    required this.interval,
+    required this.elapsedMs,
+    required this.onTick,
+  });
+
+  final Duration interval;
+  final int Function() elapsedMs;
+  final void Function(int elapsedMs) onTick;
+
+  Timer? _timer;
+  int? _lastEmittedBucket;
+
+  void start() {
+    if (_timer != null) {
+      return;
+    }
+    _timer = startSafePeriodicTimer(interval, (_) => _emit());
+  }
+
+  void markExternalUpdate(int elapsedMs) {
+    _lastEmittedBucket = _bucketFor(elapsedMs);
+  }
+
+  void dispose() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  void _emit() {
+    final safeElapsedMs = math.max(0, elapsedMs());
+    final bucket = _bucketFor(safeElapsedMs);
+    if (_lastEmittedBucket == bucket) {
+      return;
+    }
+    _lastEmittedBucket = bucket;
+    onTick(safeElapsedMs);
+  }
+
+  int _bucketFor(int elapsedMs) {
+    final intervalMs = math.max(1, interval.inMilliseconds);
+    return elapsedMs ~/ intervalMs;
+  }
 }
 
 class _PreparedUserTurn {

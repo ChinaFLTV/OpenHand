@@ -377,6 +377,7 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _reasoningStreamPreviewThrottle = Duration(
     milliseconds: 160,
   );
+  static const Duration _toolExecutionHeartbeatInterval = Duration(seconds: 1);
   static const AiResolvedToolCatalog _emptyToolCatalog = AiResolvedToolCatalog(
     definitions: <AiToolDefinition>[],
     toolsByName: <String, AiResolvedTool>{},
@@ -8044,6 +8045,7 @@ class AiSessionController extends ChangeNotifier {
         workingSession,
         toolCall,
       );
+      final executionStartedAt = _clock().toUtc();
       workingSession = _syncToolCallExecutionMessage(
         session: workingSession,
         messageId: toolCallMessageId,
@@ -8054,6 +8056,7 @@ class AiSessionController extends ChangeNotifier {
         stdout: '',
         stderr: '',
         elapsedMs: 0,
+        startedAt: executionStartedAt,
       );
       final runningCommitted = await _commitSessionLocked(workingSession);
       if (!runningCommitted) {
@@ -8063,45 +8066,65 @@ class AiSessionController extends ChangeNotifier {
         );
         return null;
       }
-      workingSession = await _runUserPreToolUseHook(
-        session: workingSession,
-        toolCall: toolCall,
-      );
-      final result = await _executeSingleToolCall(
-        sessionId: workingSession.id,
-        toolCall: toolCall,
-        model: model,
-        runtimeContext: runtimeContext,
-        toolCatalog: workingToolCatalog,
-        readFilePaths: _readFileHistory(workingSession),
-        promptMetadata: promptMetadata,
-        denyCommandRules: denyCommandRules,
-        requireWriteCommandConfirmation: requireWriteCommandConfirmation,
-        confirmWriteCommand: confirmWriteCommand,
-        planModeExecutionApprovedForSend: planModeExecutionApprovedForSend,
-        onUpdate: (update) {
-          if (update.phase != BashToolExecutionPhase.running) {
-            return;
-          }
-          workingSession = _syncToolCallExecutionMessage(
+      final heartbeat = _ToolCallExecutionHeartbeat(
+        interval: _toolExecutionHeartbeatInterval,
+        elapsedMs: () =>
+            _clock().toUtc().difference(executionStartedAt).inMilliseconds,
+        onTick: (elapsedMs) {
+          workingSession = _previewRunningToolCallExecution(
             session: workingSession,
             messageId: toolCallMessageId,
             toolCall: toolCall,
-            command: update.command,
-            workingDirectory: update.workingDirectory,
-            status: 'running',
-            stdout: update.stdout,
-            stderr: update.stderr,
-            elapsedMs: update.durationMs,
-            additionalMetadata: update.stallWarning == null
-                ? const <String, Object?>{}
-                : <String, Object?>{
-                    'tool_execution_stall_warning': update.stallWarning,
-                  },
+            command: command,
+            workingDirectory: workingDirectory,
+            elapsedMs: elapsedMs,
           );
-          _previewSession(workingSession);
         },
       );
+      heartbeat.start();
+      late AiToolExecutionResult result;
+      try {
+        workingSession = await _runUserPreToolUseHook(
+          session: workingSession,
+          toolCall: toolCall,
+        );
+        result = await _executeSingleToolCall(
+          sessionId: workingSession.id,
+          toolCall: toolCall,
+          model: model,
+          runtimeContext: runtimeContext,
+          toolCatalog: workingToolCatalog,
+          readFilePaths: _readFileHistory(workingSession),
+          promptMetadata: promptMetadata,
+          denyCommandRules: denyCommandRules,
+          requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+          confirmWriteCommand: confirmWriteCommand,
+          planModeExecutionApprovedForSend: planModeExecutionApprovedForSend,
+          onUpdate: (update) {
+            if (update.phase != BashToolExecutionPhase.running) {
+              return;
+            }
+            heartbeat.markExternalUpdate(update.durationMs);
+            workingSession = _previewRunningToolCallExecution(
+              session: workingSession,
+              messageId: toolCallMessageId,
+              toolCall: toolCall,
+              command: update.command,
+              workingDirectory: update.workingDirectory,
+              stdout: update.stdout,
+              stderr: update.stderr,
+              elapsedMs: update.durationMs,
+              additionalMetadata: update.stallWarning == null
+                  ? const <String, Object?>{}
+                  : <String, Object?>{
+                      'tool_execution_stall_warning': update.stallWarning,
+                    },
+            );
+          },
+        );
+      } finally {
+        heartbeat.dispose();
+      }
       workingSession = _syncToolCallExecutionMessage(
         session: workingSession,
         messageId: toolCallMessageId,
@@ -8216,6 +8239,7 @@ class AiSessionController extends ChangeNotifier {
         workingSession,
         toolCall,
       );
+      final executionStartedAt = _clock().toUtc();
       workingSession = _syncToolCallExecutionMessage(
         session: workingSession,
         messageId: toolCallMessageId,
@@ -8226,6 +8250,7 @@ class AiSessionController extends ChangeNotifier {
         stdout: '',
         stderr: '',
         elapsedMs: 0,
+        startedAt: executionStartedAt,
       );
       runningStates.add(
         _RunningToolCallState(
@@ -8236,6 +8261,7 @@ class AiSessionController extends ChangeNotifier {
             toolCatalog: toolCatalog,
             toolCall: toolCall,
           ),
+          startedAt: executionStartedAt,
         ),
       );
     }
@@ -8261,6 +8287,26 @@ class AiSessionController extends ChangeNotifier {
       maxConcurrency: concurrencyLimit,
       task: (index) {
         final state = runningStates[index];
+        final fallbackCommand = _toolCallCommand(state.toolCall);
+        final fallbackWorkingDirectory = _toolCallWorkingDirectory(
+          state.toolCall,
+        );
+        final heartbeat = _ToolCallExecutionHeartbeat(
+          interval: _toolExecutionHeartbeatInterval,
+          elapsedMs: () =>
+              _clock().toUtc().difference(state.startedAt).inMilliseconds,
+          onTick: (elapsedMs) {
+            workingSession = _previewRunningToolCallExecution(
+              session: workingSession,
+              messageId: state.messageId,
+              toolCall: state.toolCall,
+              command: fallbackCommand,
+              workingDirectory: fallbackWorkingDirectory,
+              elapsedMs: elapsedMs,
+            );
+          },
+        );
+        heartbeat.start();
         return _executeSingleToolCall(
           sessionId: workingSession.id,
           executionSessionId: state.executionSessionId,
@@ -8278,13 +8324,13 @@ class AiSessionController extends ChangeNotifier {
             if (update.phase != BashToolExecutionPhase.running) {
               return;
             }
-            workingSession = _syncToolCallExecutionMessage(
+            heartbeat.markExternalUpdate(update.durationMs);
+            workingSession = _previewRunningToolCallExecution(
               session: workingSession,
               messageId: state.messageId,
               toolCall: state.toolCall,
               command: update.command,
               workingDirectory: update.workingDirectory,
-              status: 'running',
               stdout: update.stdout,
               stderr: update.stderr,
               elapsedMs: update.durationMs,
@@ -8294,9 +8340,8 @@ class AiSessionController extends ChangeNotifier {
                       'tool_execution_stall_warning': update.stallWarning,
                     },
             );
-            _previewSession(workingSession);
           },
-        );
+        ).whenComplete(heartbeat.dispose);
       },
     );
     for (var index = 0; index < runningStates.length; index++) {
@@ -11935,6 +11980,7 @@ $tail''';
     required String stdout,
     required String stderr,
     required int elapsedMs,
+    DateTime? startedAt,
     int? exitCode,
     String? resultText,
     DateTime? finishedAt,
@@ -11944,6 +11990,7 @@ $tail''';
     String? writeAnalysisReason,
     Map<String, Object?> additionalMetadata = const <String, Object?>{},
   }) {
+    final startedAtValue = startedAt?.toUtc().toIso8601String();
     final finishedAtValue = finishedAt?.toUtc().toIso8601String();
     return _upsertMessage(
       session,
@@ -11966,7 +12013,8 @@ $tail''';
               'arguments': toolCall.arguments,
             },
           ],
-          'tool_execution_started_at': _clock().toUtc().toIso8601String(),
+          'tool_execution_started_at':
+              startedAtValue ?? _clock().toUtc().toIso8601String(),
           'tool_execution_status': status,
           'tool_execution_command': command,
           'tool_execution_working_directory': workingDirectory,
@@ -12000,6 +12048,7 @@ $tail''';
           ],
           'tool_execution_started_at':
               message.metadata['tool_execution_started_at'] ??
+              startedAtValue ??
               _clock().toUtc().toIso8601String(),
           'tool_execution_status': status,
           'tool_execution_command': command,
@@ -12022,6 +12071,58 @@ $tail''';
         },
       ),
     );
+  }
+
+  AiSession _previewRunningToolCallExecution({
+    required AiSession session,
+    required String messageId,
+    required AiToolCall toolCall,
+    required String command,
+    required String workingDirectory,
+    required int elapsedMs,
+    String? stdout,
+    String? stderr,
+    Map<String, Object?> additionalMetadata = const <String, Object?>{},
+  }) {
+    final currentMessage = _messageById(session, messageId);
+    final currentStatus =
+        '${currentMessage?.metadata['tool_execution_status'] ?? ''}'.trim();
+    if (_isTerminalToolExecutionStatus(currentStatus)) {
+      return session;
+    }
+    final currentMetadata =
+        currentMessage?.metadata ?? const <String, Object?>{};
+    final storedElapsedMs = _toolExecutionMetadataInt(
+      currentMetadata['tool_execution_elapsed_ms'] ??
+          currentMetadata['tool_execution_duration_ms'],
+    );
+    final updatedSession = _syncToolCallExecutionMessage(
+      session: session,
+      messageId: messageId,
+      toolCall: toolCall,
+      command: command.trim().isNotEmpty
+          ? command
+          : '${currentMetadata['tool_execution_command'] ?? toolCall.name}',
+      workingDirectory: workingDirectory.trim().isNotEmpty
+          ? workingDirectory
+          : '${currentMetadata['tool_execution_working_directory'] ?? ''}',
+      status: 'running',
+      stdout: stdout ?? '${currentMetadata['tool_execution_stdout'] ?? ''}',
+      stderr: stderr ?? '${currentMetadata['tool_execution_stderr'] ?? ''}',
+      elapsedMs: math.max(storedElapsedMs, math.max(0, elapsedMs)),
+      additionalMetadata: additionalMetadata,
+    );
+    _previewSession(updatedSession);
+    return updatedSession;
+  }
+
+  AiSessionMessage? _messageById(AiSession session, String messageId) {
+    for (final message in session.messages) {
+      if (message.id == messageId) {
+        return message;
+      }
+    }
+    return null;
   }
 
   Future<AiSession?> _commitCancelledPendingToolCalls(AiSession session) async {
@@ -12167,9 +12268,13 @@ $tail''';
               .trim();
       final stdout = '${message.metadata['tool_execution_stdout'] ?? ''}';
       final stderr = '${message.metadata['tool_execution_stderr'] ?? ''}';
-      final elapsedMs = _toolExecutionMetadataInt(
+      final storedElapsedMs = _toolExecutionMetadataInt(
         message.metadata['tool_execution_elapsed_ms'] ??
             message.metadata['tool_execution_duration_ms'],
+      );
+      final elapsedMs = math.max(
+        storedElapsedMs,
+        _toolExecutionElapsedMsAt(message, finishedAt),
       );
       final resultText = '${message.metadata['tool_execution_result'] ?? ''}'
           .trim();
@@ -12206,6 +12311,19 @@ $tail''';
 
   int _toolExecutionMetadataInt(Object? rawValue) {
     return intFromValue(rawValue, fallback: 0);
+  }
+
+  int _toolExecutionElapsedMsAt(AiSessionMessage message, DateTime finishedAt) {
+    final startedAt = utcDateTimeFromValue(
+      message.metadata['tool_execution_started_at'],
+    );
+    if (startedAt == null) {
+      return 0;
+    }
+    return math.max(
+      0,
+      finishedAt.toUtc().difference(startedAt.toUtc()).inMilliseconds,
+    );
   }
 
   Future<T> _enqueueOperation<T>(Future<T> Function() operation) {

@@ -79,6 +79,86 @@ function formatTimestamp(iso: string): string {
   }
 }
 
+const TOOL_LIVE_ELAPSED_TICK_MS = 1000;
+
+function isLiveToolExecutionStatus(status: string): boolean {
+  const s = status.toLowerCase();
+  return s === 'running' || s === 'pending' || s === 'in_progress';
+}
+
+function isTerminalToolExecutionStatus(status: string): boolean {
+  const s = status.toLowerCase();
+  return (
+    s === 'success' ||
+    s === 'ok' ||
+    s === 'completed' ||
+    s === 'failed' ||
+    s === 'failure' ||
+    s === 'error' ||
+    s === 'denied' ||
+    s === 'rejected' ||
+    s === 'timed_out' ||
+    s === 'invalid_arguments' ||
+    s === 'cancelled' ||
+    s === 'canceled' ||
+    s === 'aborted' ||
+    s === 'blocked'
+  );
+}
+
+function timestampMsFromUnknown(value: unknown): number | null {
+  const raw = stringFromUnknown(value).trim();
+  if (!raw) return null;
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatCompactDurationMs(milliseconds: number): string {
+  const safeMs = Math.max(0, Math.round(milliseconds));
+  const totalSeconds = Math.floor(safeMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
+function useToolLiveElapsedMs(
+  metadata: Record<string, unknown>,
+  status: string,
+  messageCreatedAt: string,
+): number | null {
+  const storedElapsedMs = finiteNumberOrNullFromUnknown(
+    metadata['tool_execution_elapsed_ms'] ?? metadata['tool_execution_duration_ms'],
+  );
+  const startedAtMs =
+    timestampMsFromUnknown(metadata['tool_execution_started_at']) ??
+    timestampMsFromUnknown(messageCreatedAt);
+  const finishedAtMs = timestampMsFromUnknown(metadata['tool_execution_finished_at']);
+  const live = isLiveToolExecutionStatus(status) && startedAtMs != null;
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!live) return undefined;
+    setNowMs(Date.now());
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, TOOL_LIVE_ELAPSED_TICK_MS);
+    return () => window.clearInterval(timer);
+  }, [live, startedAtMs]);
+
+  const safeStored = storedElapsedMs == null ? null : Math.max(0, storedElapsedMs);
+  if (live && startedAtMs != null) {
+    return Math.max(safeStored ?? 0, Math.max(0, nowMs - startedAtMs));
+  }
+  if (safeStored != null) return safeStored;
+  if (startedAtMs != null && finishedAtMs != null) {
+    return Math.max(0, finishedAtMs - startedAtMs);
+  }
+  return null;
+}
+
 async function copyPathWithFeedback(path: string): Promise<void> {
   const ok = await copyTextToClipboard(path);
   showSnackbar(ok
@@ -4729,7 +4809,7 @@ function ToolExecutionCard({
       metadata['tool_status'] ??
       metadata['status'],
   );
-  const elapsedMs = finiteNumberOrNullFromUnknown(metadata['tool_execution_elapsed_ms'] ?? metadata['tool_execution_duration_ms']);
+  const elapsedMs = useToolLiveElapsedMs(metadata, status, message.created_at);
   const exitCode = finiteNumberOrNullFromUnknown(metadata['tool_execution_exit_code'] ?? metadata['exit_code']);
   const sandboxApplied = booleanFromUnknown(metadata['sandbox_applied']);
   const sandboxBlocked = booleanFromUnknown(metadata['sandbox_blocked']);
@@ -4739,22 +4819,7 @@ function ToolExecutionCard({
   const sandboxProxyHttpPort = finiteNumberOrNullFromUnknown(metadata['sandbox_proxy_http_port']);
   const sandboxProxySocksPort = finiteNumberOrNullFromUnknown(metadata['sandbox_proxy_socks_port']);
   const argumentsStreaming = booleanFromUnknown(metadata['tool_arguments_streaming']);
-  const statusLower = status.toLowerCase();
-  const terminalStatus =
-    statusLower === 'success' ||
-    statusLower === 'ok' ||
-    statusLower === 'completed' ||
-    statusLower === 'failed' ||
-    statusLower === 'failure' ||
-    statusLower === 'error' ||
-    statusLower === 'denied' ||
-    statusLower === 'rejected' ||
-    statusLower === 'timed_out' ||
-    statusLower === 'invalid_arguments' ||
-    statusLower === 'cancelled' ||
-    statusLower === 'canceled' ||
-    statusLower === 'aborted' ||
-    statusLower === 'blocked';
+  const terminalStatus = isTerminalToolExecutionStatus(status);
   const fallback = message.content ?? '';
   const hasStructuredOutput = stdout || stderr || result || command || workingDirectory;
   const constructing =
@@ -4765,7 +4830,7 @@ function ToolExecutionCard({
   return (
     <div class="oh-tool-execution-card flex flex-col gap-2">
       <div class="oh-tool-execution-chip-row flex flex-wrap gap-1.5 text-[11px]">
-        {elapsedMs != null ? <MetaChip label={`${elapsedMs} ms`} /> : null}
+        {elapsedMs != null ? <MetaChip label={`${t('detail.tool.elapsed', '耗时')}: ${formatCompactDurationMs(elapsedMs)}`} /> : null}
         {exitCode != null ? <MetaChip label={`exit ${exitCode}`} tone={exitCode === 0 ? 'ok' : 'danger'} /> : null}
         {(sandboxApplied || sandboxBlocked || sandboxReason) ? (
           <MetaChip

@@ -377,19 +377,61 @@ mixin _ForegroundElapsedTicker<T extends StatefulWidget>
   }
 }
 
-class _ToolCallMetaRow extends StatelessWidget {
-  const _ToolCallMetaRow({super.key, required this.data, required this.color});
+class _ToolCallMetaRow extends StatefulWidget {
+  const _ToolCallMetaRow({
+    super.key,
+    required this.message,
+    required this.color,
+  });
 
-  final _ToolCallStatusViewData data;
+  final AiSessionMessage message;
   final Color color;
 
   @override
+  State<_ToolCallMetaRow> createState() => _ToolCallMetaRowState();
+}
+
+class _ToolCallMetaRowState extends State<_ToolCallMetaRow>
+    with WidgetsBindingObserver, _ForegroundElapsedTicker<_ToolCallMetaRow> {
+  @override
+  bool get shouldTickElapsed => _shouldTickToolExecutionElapsed(widget.message);
+
+  @override
+  void initState() {
+    super.initState();
+    initElapsedTicker();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ToolCallMetaRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.message.id != widget.message.id ||
+        _toolExecutionStatus(oldWidget.message) !=
+            _toolExecutionStatus(widget.message) ||
+        oldWidget.message.metadata['tool_execution_started_at'] !=
+            widget.message.metadata['tool_execution_started_at'] ||
+        oldWidget.message.metadata['tool_execution_elapsed_ms'] !=
+            widget.message.metadata['tool_execution_elapsed_ms'] ||
+        oldWidget.message.metadata['tool_execution_duration_ms'] !=
+            widget.message.metadata['tool_execution_duration_ms']) {
+      syncElapsedTicker();
+    }
+  }
+
+  @override
+  void dispose() {
+    disposeElapsedTicker();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final data = _ToolCallStatusViewData.from(context, widget.message);
     final theme = Theme.of(context);
     final showSweep = data.shouldSweepBadge;
     final effectiveColor = showSweep
         ? theme.colorScheme.onSurfaceVariant
-        : color;
+        : widget.color;
     final row = Row(
       mainAxisSize: MainAxisSize.min,
       children: [

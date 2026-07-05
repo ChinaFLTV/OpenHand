@@ -21,7 +21,10 @@ class _ToolCallBody extends StatefulWidget {
 }
 
 class _ToolCallBodyState extends State<_ToolCallBody>
-    with TickerProviderStateMixin {
+    with
+        TickerProviderStateMixin,
+        WidgetsBindingObserver,
+        _ForegroundElapsedTicker<_ToolCallBody> {
   bool? _argumentsExpandedOverride;
   bool? _resultExpandedOverride;
   _ToolCallViewData? _cachedViewData;
@@ -31,6 +34,9 @@ class _ToolCallBodyState extends State<_ToolCallBody>
   late final AnimationController _settleBounceCtrl;
   String? _lastTerminalStatus; // success / error / failure once it lands
   bool? _wasPreExecution;
+
+  @override
+  bool get shouldTickElapsed => _shouldTickToolExecutionElapsed(widget.message);
 
   @override
   void initState() {
@@ -54,10 +60,12 @@ class _ToolCallBodyState extends State<_ToolCallBody>
       _lastTerminalStatus = initialStatus;
       _completionGlowCtrl.value = 1.0;
     }
+    initElapsedTicker();
   }
 
   @override
   void dispose() {
+    disposeElapsedTicker();
     _completionGlowCtrl.dispose();
     _settleBounceCtrl.dispose();
     super.dispose();
@@ -96,6 +104,17 @@ class _ToolCallBodyState extends State<_ToolCallBody>
         _lastTerminalStatus = initialStatus;
         _completionGlowCtrl.value = 1.0;
       }
+    }
+    if (oldWidget.message.id != widget.message.id ||
+        _toolExecutionStatus(oldWidget.message) !=
+            _toolExecutionStatus(widget.message) ||
+        oldWidget.message.metadata['tool_execution_started_at'] !=
+            widget.message.metadata['tool_execution_started_at'] ||
+        oldWidget.message.metadata['tool_execution_elapsed_ms'] !=
+            widget.message.metadata['tool_execution_elapsed_ms'] ||
+        oldWidget.message.metadata['tool_execution_duration_ms'] !=
+            widget.message.metadata['tool_execution_duration_ms']) {
+      syncElapsedTicker();
     }
   }
 
@@ -616,6 +635,9 @@ class _ToolCallBodyState extends State<_ToolCallBody>
       '${message.metadata['tool_arguments'] ?? ''}',
       '${message.metadata['tool_execution_exit_code'] ?? ''}',
       '${message.metadata['tool_execution_elapsed_ms'] ?? message.metadata['tool_execution_duration_ms'] ?? ''}',
+      _shouldTickToolExecutionElapsed(message)
+          ? DateTime.now().millisecondsSinceEpoch ~/ 1000
+          : '',
       argumentsExpanded,
       resultExpanded,
     ]);
@@ -2553,24 +2575,56 @@ String _toolExecutionStatus(AiSessionMessage message) =>
     '${message.metadata['tool_execution_status'] ?? ''}'.trim();
 
 bool _shouldSweepToolStatus(String status) {
-  return status.isEmpty || status == 'running';
+  return status.isEmpty || _isLiveToolExecutionStatus(status);
 }
 
 bool _isTerminalStatus(String status) {
-  return status == 'success' ||
-      status == 'error' ||
-      status == 'failure' ||
-      status == 'failed' ||
-      status == 'denied' ||
-      status == 'rejected';
+  final normalized = status.toLowerCase();
+  return normalized == 'success' ||
+      normalized == 'ok' ||
+      normalized == 'completed' ||
+      normalized == 'error' ||
+      normalized == 'failure' ||
+      normalized == 'failed' ||
+      normalized == 'denied' ||
+      normalized == 'rejected' ||
+      normalized == 'timed_out' ||
+      normalized == 'invalid_arguments' ||
+      normalized == 'cancelled' ||
+      normalized == 'canceled' ||
+      normalized == 'aborted' ||
+      normalized == 'blocked';
 }
 
 bool _isFailureStatus(String status) {
-  return status == 'error' ||
-      status == 'failure' ||
-      status == 'failed' ||
-      status == 'denied' ||
-      status == 'rejected';
+  final normalized = status.toLowerCase();
+  return normalized == 'error' ||
+      normalized == 'failure' ||
+      normalized == 'failed' ||
+      normalized == 'denied' ||
+      normalized == 'rejected' ||
+      normalized == 'timed_out' ||
+      normalized == 'invalid_arguments' ||
+      normalized == 'blocked';
+}
+
+bool _isLiveToolExecutionStatus(String status) {
+  final normalized = status.toLowerCase();
+  return normalized == 'running' ||
+      normalized == 'pending' ||
+      normalized == 'in_progress';
+}
+
+bool _shouldTickToolExecutionElapsed(AiSessionMessage message) {
+  return _isLiveToolExecutionStatus(_toolExecutionStatus(message));
+}
+
+DateTime? _toolExecutionStartedAt(AiSessionMessage message) {
+  return _dateTimeFromMetadata(message.metadata['tool_execution_started_at']);
+}
+
+DateTime? _toolExecutionFinishedAt(AiSessionMessage message) {
+  return _dateTimeFromMetadata(message.metadata['tool_execution_finished_at']);
 }
 
 String _toolExecutionCommand(AiSessionMessage message) {
@@ -2719,14 +2773,16 @@ int? _toolExecutionExitCode(AiSessionMessage message) {
 }
 
 IconData _toolExecutionStatusIcon(String status) {
-  return switch (status) {
-    'running' => Icons.play_circle_outline_rounded,
-    'cancelled' => Icons.stop_circle_outlined,
-    'success' => Icons.check_circle_outline_rounded,
-    'denied' => Icons.block_rounded,
+  return switch (status.toLowerCase()) {
+    'running' ||
+    'pending' ||
+    'in_progress' => Icons.play_circle_outline_rounded,
+    'cancelled' || 'canceled' || 'aborted' => Icons.stop_circle_outlined,
+    'success' || 'ok' || 'completed' => Icons.check_circle_outline_rounded,
+    'denied' || 'blocked' => Icons.block_rounded,
     'rejected' => Icons.cancel_outlined,
     'timed_out' => Icons.timer_off_outlined,
-    'failed' => Icons.error_outline_rounded,
+    'failed' || 'failure' || 'error' => Icons.error_outline_rounded,
     'invalid_arguments' => Icons.warning_amber_rounded,
     _ => Icons.terminal_rounded,
   };
@@ -3300,27 +3356,29 @@ String _toolCallStatusActionLabel(
   String status, {
   required bool isCommandLike,
 }) {
-  return switch (status) {
+  return switch (status.toLowerCase()) {
     '' =>
       (isCommandLike
           ? AppLocalizations.of(context)!.tlCallPreparing
           : AppLocalizations.of(context)!.tlCallPreparingAlt),
-    'running' =>
+    'running' || 'pending' || 'in_progress' =>
       (isCommandLike
           ? AppLocalizations.of(context)!.tlCallRunning
           : AppLocalizations.of(context)!.tlCallRunningAlt),
-    'cancelled' => AppLocalizations.of(context)!.tlCallStopped,
-    'success' =>
+    'cancelled' ||
+    'canceled' ||
+    'aborted' => AppLocalizations.of(context)!.tlCallStopped,
+    'success' || 'ok' || 'completed' =>
       (isCommandLike
           ? AppLocalizations.of(context)!.tlCallCompleted
           : AppLocalizations.of(context)!.tlCallCompletedAlt),
-    'denied' => AppLocalizations.of(context)!.tlCallBlocked,
+    'denied' || 'blocked' => AppLocalizations.of(context)!.tlCallBlocked,
     'rejected' => AppLocalizations.of(context)!.tlCallRejected,
     'timed_out' =>
       (isCommandLike
           ? AppLocalizations.of(context)!.tlCallTimedOut
           : AppLocalizations.of(context)!.tlCallTimedOutAlt),
-    'failed' =>
+    'failed' || 'failure' || 'error' =>
       (isCommandLike
           ? AppLocalizations.of(context)!.tlCallFailed
           : AppLocalizations.of(context)!.tlCallFailedAlt),
@@ -3330,14 +3388,22 @@ String _toolCallStatusActionLabel(
 }
 
 String _toolExecutionOutcomeLabel(BuildContext context, String status) {
-  return switch (status) {
-    'running' => AppLocalizations.of(context)!.tlCallRunning,
-    'cancelled' => AppLocalizations.of(context)!.tlCallStopped,
-    'success' => AppLocalizations.of(context)!.tlCallSucceeded,
-    'denied' => AppLocalizations.of(context)!.tlCallDenied,
+  return switch (status.toLowerCase()) {
+    'running' ||
+    'pending' ||
+    'in_progress' => AppLocalizations.of(context)!.tlCallRunning,
+    'cancelled' ||
+    'canceled' ||
+    'aborted' => AppLocalizations.of(context)!.tlCallStopped,
+    'success' ||
+    'ok' ||
+    'completed' => AppLocalizations.of(context)!.tlCallSucceeded,
+    'denied' || 'blocked' => AppLocalizations.of(context)!.tlCallDenied,
     'rejected' => AppLocalizations.of(context)!.tlCallRejected,
     'timed_out' => AppLocalizations.of(context)!.tlCallTimedOut,
-    'failed' => AppLocalizations.of(context)!.tlCallFailed,
+    'failed' ||
+    'failure' ||
+    'error' => AppLocalizations.of(context)!.tlCallFailed,
     'invalid_arguments' => AppLocalizations.of(context)!.tlCallInvalid,
     _ => status,
   };
@@ -3400,7 +3466,29 @@ int _toolExecutionDurationMs(AiSessionMessage message) {
       message.metadata['tool_execution_elapsed_ms'] ??
       message.metadata['tool_execution_duration_ms'] ??
       0;
-  return math.max(0, optionalRoundedIntFromValue(rawValue) ?? 0);
+  final storedElapsedMs = math.max(
+    0,
+    optionalRoundedIntFromValue(rawValue) ?? 0,
+  );
+  final status = _toolExecutionStatus(message);
+  final startedAt =
+      _toolExecutionStartedAt(message) ??
+      (_isLiveToolExecutionStatus(status) ? message.createdAt.toUtc() : null);
+  if (_isLiveToolExecutionStatus(status) && startedAt != null) {
+    final liveElapsedMs = DateTime.now()
+        .toUtc()
+        .difference(startedAt)
+        .inMilliseconds;
+    return math.max(storedElapsedMs, math.max(0, liveElapsedMs));
+  }
+  if (storedElapsedMs > 0) {
+    return storedElapsedMs;
+  }
+  final finishedAt = _toolExecutionFinishedAt(message);
+  if (startedAt != null && finishedAt != null) {
+    return math.max(0, finishedAt.difference(startedAt).inMilliseconds);
+  }
+  return storedElapsedMs;
 }
 
 Future<void> _openResolvedMessagePath(

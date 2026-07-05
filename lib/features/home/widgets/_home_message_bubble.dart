@@ -872,7 +872,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 else if (isToolCall)
                   _ToolCallMetaRow(
                     key: _metaCapsuleKey,
-                    data: _ToolCallStatusViewData.from(context, message),
+                    message: message,
                     color: textColor,
                   )
                 else if (isToolResult)
