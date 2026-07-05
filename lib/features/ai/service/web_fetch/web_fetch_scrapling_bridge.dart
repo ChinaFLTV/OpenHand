@@ -9,6 +9,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../web_engine/web_engine_http_exception.dart';
@@ -428,22 +429,22 @@ class WebFetchScraplingBridge {
     _pending[id] = completer;
     try {
       process.stdin.writeln(jsonEncode(payload));
-      final futures = <Future<Object?>>[
+      final commandOutcome = Future.any<Object?>([
         completer.future,
         Future<void>.delayed(
           timeout,
         ).then<Object?>((_) => const _TimeoutToken()),
-      ];
-      if (cancelSignal != null) {
-        futures.add(cancelSignal.then<Object?>((_) => const _CancelledToken()));
-      }
-      final result = await Future.any(futures);
+      ]);
+      final result = await awaitWithCancelSignal(
+        commandOutcome,
+        cancelSignal: cancelSignal,
+      );
       if (result is _TimeoutToken) {
         _pending.remove(id);
         await _killProcess();
         throw WebEngineHttpException('scrapling_bridge_timeout');
       }
-      if (result is _CancelledToken) {
+      if (result == null) {
         _pending.remove(id);
         await _killProcess();
         throw WebEngineHttpException('cancelled');
@@ -824,8 +825,4 @@ class _RuntimeAttemptResult {
 
 class _TimeoutToken {
   const _TimeoutToken();
-}
-
-class _CancelledToken {
-  const _CancelledToken();
 }
