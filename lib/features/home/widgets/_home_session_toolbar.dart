@@ -3100,8 +3100,8 @@ class _ContextBreakdownBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final ratio = totalChars <= 0 ? 0.0 : chars / totalChars;
-    final percent = (ratio * 100).clamp(0, 100).toStringAsFixed(1);
+    final ratio = unitRatio(chars, totalChars);
+    final percent = (ratio * 100).toStringAsFixed(1);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
@@ -3129,7 +3129,7 @@ class _ContextBreakdownBar extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(3),
             child: LinearProgressIndicator(
-              value: ratio.clamp(0.0, 1.0),
+              value: ratio,
               minHeight: 6,
               backgroundColor: color.withValues(alpha: 0.15),
               valueColor: AlwaysStoppedAnimation<Color>(color),

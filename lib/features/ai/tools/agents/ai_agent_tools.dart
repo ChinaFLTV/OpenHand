@@ -3988,7 +3988,7 @@ Map<String, Object?> _taskMetricsForTasksJson(List<AgentTask> tasks) {
     'active': total - terminal,
     'terminal': terminal,
     'completed': completed,
-    'completion_rate': total <= 0 ? 0 : completed / total,
+    'completion_rate': unitRatio(completed, total),
   };
 }
 

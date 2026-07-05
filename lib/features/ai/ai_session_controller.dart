@@ -13097,7 +13097,7 @@ $tail''';
     final previousJson = jsonEncode(previousPayload);
     final lcp = _longestCommonPrefixLength(previousJson, currentJson);
     final previousLength = previousJson.length;
-    final ratio = previousLength <= 0 ? 0.0 : lcp / previousLength;
+    final ratio = unitRatio(lcp, previousLength);
     // When a chat request is prefix-extending, the previous JSON usually only
     // differs at its final closing `]}` because new assistant/user turns are
     // inserted before those delimiters. Allow a small delimiter margin.
@@ -13108,7 +13108,7 @@ $tail''';
       'previous_request_payload_hash': stableFnv1a32Hex(previousJson),
       'previous_request_payload_json_length': previousLength,
       'request_payload_lcp_chars': lcp,
-      'request_payload_lcp_previous_ratio': ratio.clamp(0.0, 1.0),
+      'request_payload_lcp_previous_ratio': ratio,
       'request_payload_prefix_continuity': lcp >= continuityThreshold,
       'request_payload_prefix_probe_complete': true,
     };

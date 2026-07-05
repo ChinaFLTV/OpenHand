@@ -6324,7 +6324,7 @@ class _OpsDistributionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final ratio = total <= 0 ? 0.0 : value / total;
+    final ratio = unitRatio(value, total);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Column(
@@ -6347,10 +6347,7 @@ class _OpsDistributionRow extends StatelessWidget {
           const SizedBox(height: 4),
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: ratio.clamp(0.0, 1.0).toDouble(),
-              minHeight: 5,
-            ),
+            child: LinearProgressIndicator(value: ratio, minHeight: 5),
           ),
         ],
       ),
