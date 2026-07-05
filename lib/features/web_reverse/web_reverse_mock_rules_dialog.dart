@@ -15,6 +15,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -425,8 +426,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
     );
   }
 
-  String _fmt(DateTime t) =>
-      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}';
+  String _fmt(DateTime t) => formatHourMinuteSecond(t);
 }
 
 class _RuleEditor extends StatefulWidget {

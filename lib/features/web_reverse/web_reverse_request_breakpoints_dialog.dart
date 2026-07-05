@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/util/date_time_format.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -331,8 +332,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                     itemCount: hits.length,
                     itemBuilder: (_, idx) {
                       final h = hits[hits.length - 1 - idx];
-                      final ts =
-                          '${h.at.hour.toString().padLeft(2, '0')}:${h.at.minute.toString().padLeft(2, '0')}:${h.at.second.toString().padLeft(2, '0')}';
+                      final ts = formatHourMinuteSecond(h.at);
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 3),
                         child: DefaultTextStyle.merge(

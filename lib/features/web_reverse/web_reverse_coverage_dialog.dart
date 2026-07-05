@@ -14,6 +14,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -495,6 +496,5 @@ class _CoverageDialogState extends State<_CoverageDialog> {
     return '${(b / 1024 / 1024).toStringAsFixed(2)}M';
   }
 
-  String _stamp(DateTime t) =>
-      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}';
+  String _stamp(DateTime t) => formatHourMinuteSecond(t);
 }

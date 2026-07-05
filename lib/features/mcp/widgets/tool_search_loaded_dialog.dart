@@ -14,6 +14,7 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../ai/index.dart';
 import '../service/tool_search_history_export_prefs.dart';
 import '../service/tool_search_history_serializer.dart';
@@ -787,12 +788,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
   ) {
     final theme = Theme.of(context);
     final localTime = entry.timestamp.toLocal();
-    final hh = localTime.hour.toString().padLeft(2, '0');
-    final mm = localTime.minute.toString().padLeft(2, '0');
-    final ss = localTime.second.toString().padLeft(2, '0');
-    final mo = localTime.month.toString().padLeft(2, '0');
-    final dd = localTime.day.toString().padLeft(2, '0');
-    final timestampLabel = '${localTime.year}-$mo-$dd $hh:$mm:$ss';
+    final timestampLabel = formatYearMonthDayHms(localTime);
     final queryLabel = entry.query.isEmpty ? '—' : entry.query;
     return InkWell(
       onTap: entry.addedNames.isEmpty
