@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/util/text_clip.dart';
 import '../../service/fs/ai_file_history_service.dart';
 import '../../service/fs/ai_file_mutation_ledger.dart';
 import '../../service/fs/ai_file_tracker_service.dart';
@@ -60,7 +61,7 @@ class AiEditTool extends AiTool {
     final confirmationResult = await AiToolUtils.requestWriteConfirmation(
       toolName: 'Edit',
       operationDescription:
-          'Replace "${oldString.length > 50 ? '${oldString.substring(0, 50)}...' : oldString}" with new content',
+          'Replace "${clipText(oldString, 50)}" with new content',
       targetPath: filePath,
       requireWriteConfirmation: context.requireWriteCommandConfirmation,
       confirmWriteCommand: context.confirmWriteCommand,

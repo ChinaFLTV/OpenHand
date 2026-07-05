@@ -13837,7 +13837,7 @@ Object? _agentJsonDisplayValue(Object? value, {int depth = 0}) {
 Object _agentJsonDisplayString(String value) {
   if (value.length <= _agentLogDetailMaxStringChars) return value;
   return <String, Object?>{
-    'preview': '${value.substring(0, _agentLogDetailMaxStringChars)}...',
+    'preview': clipText(value, _agentLogDetailMaxStringChars),
     'chars': value.length,
   };
 }
