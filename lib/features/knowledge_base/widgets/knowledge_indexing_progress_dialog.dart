@@ -474,7 +474,7 @@ String _progressLabel(
   KnowledgeIndexingProgress progress,
 ) {
   if (progress.hasChunkProgress) {
-    final processed = progress.processedChunks.clamp(0, progress.totalChunks);
+    final processed = progress.clampedProcessedChunks;
     return openHandLocalizedText(
       context,
       zh: '$processed / ${progress.totalChunks} 个分块',

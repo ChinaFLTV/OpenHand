@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../../../shared/util/input_value_parsing.dart';
+
 enum KnowledgeIndexingPhase {
   preparing,
   parsing,
@@ -31,9 +33,14 @@ class KnowledgeIndexingProgress {
 
   bool get hasChunkProgress => totalChunks > 0;
 
+  int get clampedProcessedChunks {
+    if (totalChunks <= 0) return 0;
+    return processedChunks.clamp(0, totalChunks).toInt();
+  }
+
   double? get fraction {
-    if (totalChunks <= 0) return null;
-    return processedChunks.clamp(0, totalChunks) / totalChunks;
+    if (!hasChunkProgress) return null;
+    return unitRatio(clampedProcessedChunks, totalChunks);
   }
 
   KnowledgeIndexingProgress copyWith({
