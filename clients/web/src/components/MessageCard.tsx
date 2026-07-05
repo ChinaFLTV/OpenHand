@@ -2453,11 +2453,10 @@ export interface MessageCardProps {
   active?: boolean;
   /// 默认 false；调用方可设为 true 强制展开。
   forceExpanded?: boolean;
-  /// 当前消息是否仍在流式增长；长正文在流式期间保持展开，结束后自动折叠。
+  /// 当前消息是否仍在流式增长；正式响应超过阈值后进入折叠预览。
   streaming?: boolean;
-  /// 当前会话回合是否仍在运行；运行期间长正文/reasoning 卡片保持展开，避免
-  /// 在同一回合中后续 reasoning/text 卡接管流式状态后，先前卡片瞬间自动折叠
-  /// 造成「消息盒子剧烈滚动 + 卡片瞬隐」的观感。
+  /// 当前会话回合是否仍在运行；用于稳住已完成的非 reasoning 长卡片，避免
+  /// 回合状态抖动带来反复折叠/展开。
   turnActive?: boolean;
   /// 媒体资产 URL 构造需要 sessionId; 缺省则不渲染媒体卡。
   sessionId?: string;
@@ -2562,8 +2561,9 @@ function MessageCardImpl({
     !isUserBubble && activelyStreaming && content.trim().length < 10
       ? mediaGenerationModeFromMetadata(metadata)
       : null;
-  // 在同一回合内，即便此卡不再是「最新流式卡」，只要回合仍在运行，就保持展开。
-  // 避免新 reasoning/text 卡接管流式后，先前的长 response/reasoning 卡瞬间折叠造成跳动。
+  // 在同一回合内，即便此卡不再是「最新流式卡」，已完成的非 reasoning 卡
+  // 只要回合仍在运行就保持展开；正在增长的正式响应达到阈值后由
+  // responseCollapsedWhileStreaming 单独进入折叠预览。
   //
   // 关键去抖：服务器 send_phase 在 SSE / 2.5s phase guard / polling 三路之间
   // 存在竞态，turnActive 会瞬态 true → false → true 跳变 (~ 每隔几秒一次)，
@@ -2583,11 +2583,25 @@ function MessageCardImpl({
   const isToolCallKind = message.kind === 'tool_call' || message.kind === 'hook';
   const isToolResultKind = message.kind === 'tool' || message.kind === 'mcp' || message.kind === 'skill';
   const isCollapsibleByBadge = isToolCallKind || isToolResultKind || message.kind === 'reasoning';
+  // 关键：卡片类型判定（是否为 HTML 卡）基于 metadata.content_format，
+  // 优先级：metadata.content_format > global contentFormat。
+  const effectiveFormat = resolveMessageContentFormat(
+    message.metadata?.['content_format'],
+    contentFormat,
+  );
+  const isAssistantResponseBadgeMessage =
+    isAssistantResponseMessage(message) && !isCollapsibleByBadge;
   const contentExceedsCollapseThreshold = hasCollapsibleContent && (
     isReasoningMessage
       ? isReasoningLong(content)
       : isGeneralMessageLong(content)
   );
+  const responseCollapsedWhileStreaming =
+    !forceExpanded &&
+    isAssistantResponseBadgeMessage &&
+    activelyStreaming &&
+    effectiveFormat !== 'html' &&
+    contentExceedsCollapseThreshold;
   const canCollapse =
     !forceExpanded &&
     !activelyStreaming &&
@@ -2605,8 +2619,22 @@ function MessageCardImpl({
         : null,
     );
   }, [message.id]);
-  const expanded = forceExpanded || streamingContent || keepExpandedDuringTurn || expandedOverride === true || !canCollapse;
-  const collapsed = canCollapse && !expanded;
+  const responseCollapsedByDefault =
+    isAssistantResponseBadgeMessage &&
+    contentExceedsCollapseThreshold &&
+    expandedOverride !== true;
+  const streamingExpansionAllowed =
+    streamingContent && !responseCollapsedWhileStreaming && !responseCollapsedByDefault;
+  const turnExpansionAllowed =
+    keepExpandedDuringTurn && !responseCollapsedByDefault;
+  const expanded = responseCollapsedWhileStreaming
+    ? false
+    : forceExpanded ||
+      streamingExpansionAllowed ||
+      turnExpansionAllowed ||
+      expandedOverride === true ||
+      !canCollapse;
+  const collapsed = responseCollapsedWhileStreaming || (canCollapse && !expanded);
   // 移除已被 MessageMedia 收集为卡片的网络媒体 markdown 引用, 避免重复展示。
   const strippedContent = useMemo(() => stripCollectedNetworkMedia(content), [content]);
   const translatedText = strictStringFromUnknown(translatedContent);
@@ -2615,17 +2643,17 @@ function MessageCardImpl({
   // 避免「全多」↔「袪断+…」间的文字跳变在手动折叠/展开时生硬。
   const visibleContent = showingTranslation ? translatedText : strippedContent;
 
-  // ── 工具调用/思考类型消息的胶囊折叠/展开（与 APP 端 _ReasoningBody 对齐） ──
+  // ── 工具调用/思考/正式响应胶囊折叠（与 APP 端消息卡对齐） ──
   // - 工具调用 / 工具结果 / hook / mcp / skill / reasoning：支持点击胶囊折叠
-  // - 流式期间始终展开，便于实时观察
+  // - 正式响应流式超过阈值时才显示响应胶囊并折叠预览
   // - 流式结束后，超过 5-6 行的 reasoning 默认折叠（用 max-height 预览态）
   // - 用户一旦手动切换，记住其选择，不被流式结束事件回撤
-  const isAssistantResponseBadgeMessage =
-    isAssistantResponseMessage(message) && !isCollapsibleByBadge;
-  const responseBadgeStreaming = isAssistantResponseBadgeMessage && activelyStreaming;
+  const responseBadgeStreamingCollapsed =
+    isAssistantResponseBadgeMessage && responseCollapsedWhileStreaming;
   const responseBadgeCanToggle =
     canCollapse && isAssistantResponseBadgeMessage && !activelyStreaming;
-  const shouldRenderResponseBadge = responseBadgeStreaming || responseBadgeCanToggle;
+  const shouldRenderResponseBadge =
+    responseBadgeStreamingCollapsed || responseBadgeCanToggle;
   const reasoningBadgeSweeping = isActivelyStreamingReasoning;
   const badgeToggleClass =
     'oh-message-badge-toggle oh-tap-press inline-flex items-center gap-1 px-1.5 py-0.5 rounded-m3-sm';
@@ -2669,18 +2697,15 @@ function MessageCardImpl({
     ? ` oh-appear-up${appearanceStaggerIndex > 0 ? ` oh-appear-stagger-${appearanceStaggerIndex}` : ''}`
     : '';
 
-  // 关键：卡片类型判定（是否为 HTML 卡）基于 metadata.content_format，
-  // 优先级：metadata.content_format > global contentFormat。
-  const effectiveFormat = resolveMessageContentFormat(
-    message.metadata?.['content_format'],
-    contentFormat,
-  );
   const responseVariantIndex =
     finiteNumberOrNullFromUnknown(metadata['response_variant_index']) ??
     finiteNumberOrNullFromUnknown(metadata['responseVariantIndex']) ??
     0;
   const scrollableCollapsedBody =
-    canCollapse || badgeCanCollapse || responseBadgeCanToggle;
+    canCollapse ||
+    badgeCanCollapse ||
+    responseBadgeCanToggle ||
+    responseCollapsedWhileStreaming;
   const collapsedBodyKindKey = isAssistantResponseBadgeMessage
     ? 'response'
     : isCollapsibleByBadge
@@ -3153,6 +3178,7 @@ function MessageCardImpl({
           // 成型时反复重排，把下方 pending tool-call 卡片顶上顶下。流式结束
           // 后再切回 Markdown 渲染；若内容超出 5-6 行，外层保持 142px 预览态。
           isActivelyStreamingReasoning ||
+          responseCollapsedWhileStreaming ||
           (activelyStreaming && effectiveFormat === 'plain_text') ? (
             <StreamingPlainTextReveal
               content={visibleContent}

@@ -630,9 +630,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final isAiSideMessage =
         message.isAiSideConversationMessage && !isGoalEvaluationMessage;
     final selectedFeedback = message.feedback;
-    final canCollapseAssistantResponse =
+    final assistantResponseExceedsCollapseThreshold =
         isAssistantResponse &&
-        !isStreamingAssistant &&
         !_showRawContent &&
         resolvedMessageContentFormat != AiMessageContentFormat.html &&
         _messageShouldCollapse(
@@ -640,6 +639,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
           charThreshold: _messageMarkdownCollapseCharThreshold,
           lineThreshold: _messageMarkdownCollapseLineThreshold,
         );
+    final streamingAssistantShouldCollapse =
+        isStreamingAssistant && assistantResponseExceedsCollapseThreshold;
+    final canCollapseAssistantResponse =
+        !isStreamingAssistant && assistantResponseExceedsCollapseThreshold;
     final assistantResponseExpanded =
         canCollapseAssistantResponse &&
         (_assistantResponseExpandedOverride ?? false);
@@ -647,7 +650,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         canCollapseAssistantResponse && !assistantResponseExpanded;
     final showAssistantResponseMetaRow =
         isAssistantResponse &&
-        (isStreamingAssistant || canCollapseAssistantResponse);
+        (streamingAssistantShouldCollapse || canCollapseAssistantResponse);
     final bodyContentSignature =
         '${effectiveContent.length}:${effectiveContent.hashCode}';
     final assistantBodyContentScrollKey = isStreamingAssistant
@@ -785,14 +788,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
             effectiveContent.hashCode,
           )
         : null;
-    final streamingPlainAssistantShouldCollapse =
-        isStreamingAssistant &&
-        resolvedMessageContentFormat == AiMessageContentFormat.plainText &&
-        _messageShouldCollapse(
-          effectiveContent,
-          charThreshold: _messageMarkdownCollapseCharThreshold,
-          lineThreshold: _messageMarkdownCollapseLineThreshold,
-        );
     final isScrollHighlighted = widget.isScrollHighlighted;
     final highlightBorderColor = colorScheme.primary.withValues(alpha: 0.78);
     final bubbleCard = Container(
@@ -1016,14 +1011,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           scrollStateKey: assistantBodyScrollStateKey,
                         )
                       else if (isStreamingAssistant)
-                        streamingPlainAssistantShouldCollapse
-                            ? _StreamingAssistantTextBody(
-                                data: effectiveContent.isEmpty
-                                    ? ' '
-                                    : effectiveContent,
-                                textColor: textColor,
-                                backgroundColor: backgroundColor,
-                                style: markdownStyleSheet.styleSheet.p,
+                        streamingAssistantShouldCollapse
+                            ? buildAssistantBodyDispatcher(
+                                data: effectiveContent,
+                                format: resolvedMessageContentFormat,
+                                isStreaming: true,
+                                collapsedOverride: true,
+                                showCollapseToggle: false,
                                 scrollStateKey: assistantBodyScrollStateKey,
                               )
                             : TweenAnimationBuilder<double>(
@@ -1132,6 +1126,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
             final allowBubbleSizeMotion =
                 (!transcriptScrollActive || _responseVariantSizeMotionActive) &&
                 ((isReasoning && !isStreamingReasoning) ||
+                    streamingAssistantShouldCollapse ||
                     _reasoningExpandedOverride != null ||
                     _assistantResponseExpandedOverride != null ||
                     _responseVariantSizeMotionActive ||

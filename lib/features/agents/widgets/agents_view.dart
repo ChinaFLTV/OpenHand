@@ -106,6 +106,15 @@ const int _agentLogDetailMaxJsonDepth = 8;
 const int _agentLogDetailMaxStringChars = 6000;
 const int _agentLogDetailMaxJsonChars = 60000;
 const int _agentLogDetailMaxCollectionItems = 500;
+const double _agentResourceDialogMaxWidth = 1040;
+const double _agentResourceDialogMaxHeight = 780;
+const int _agentResourceSampleIntervalMs = 1400;
+const String _agentResourceTelemetryExtraKey = '_openhand_resource_telemetry';
+const String _agentResourceTelemetryHistoryKey = 'history';
+const double _agentResourceOverviewBreakpoint = 720;
+const double _agentResourceChartHeight = 178;
+const double _agentResourceDonutSize = 172;
+const double _agentResourcePanelRadius = 18;
 const double _agentDialogMetricGap = 12;
 const double _agentDialogMetricWideBreakpoint = 760;
 const double _agentDialogMetricMediumBreakpoint = 520;
@@ -4933,40 +4942,787 @@ Future<void> _showAgentResourcesDialog(
       builder: (context, controller, _) {
         final currentAgent = controller.agentById(agent.id) ?? agent;
         final resource = currentAgent.resourceUsage;
-        return buildOpenHandDialog(
-          maxWidth: 780,
-          maxHeight: 620,
+        return buildOpenHandResponsiveDialogShell(
+          context: context,
+          maxWidth: _agentResourceDialogMaxWidth,
+          maxHeight: _agentResourceDialogMaxHeight,
+          maxWidthFraction: _agentTaskDetailMaxWidthFraction,
+          maxHeightFraction: _agentTaskDetailMaxHeightFraction,
+          horizontalMargin: _agentTaskDetailHorizontalMargin,
+          verticalMargin: 56,
+          minAvailableWidth: _agentTaskDetailMinAvailableWidth,
           child: _AgentDialogScaffold(
             icon: Icons.storage_rounded,
             title: l10n.agentsDialogTitleWithName(
               l10n.agentsResources,
               currentAgent.name,
             ),
-            footer: _agentDialogPrimaryActionFooter(
-              icon: Icons.edit_rounded,
-              onPressed: () async {
-                final updated = await _showAgentResourceEditorDialog(
-                  context,
-                  resource,
-                );
-                if (updated == null || !context.mounted) return;
-                await context.read<AgentsController>().saveResourceUsage(
-                  currentAgent.id,
-                  updated,
-                );
-              },
-              label: openHandLocalizedText(
-                context,
-                zh: '校准资源',
-                en: 'Edit resources',
-              ),
+            footer: _agentDialogActionsFooter(
+              actions: [
+                OpenHandDialogActionButton.secondary(
+                  icon: Icons.sync_rounded,
+                  onPressed: () {
+                    unawaited(
+                      context.read<AgentsController>().sampleResourceUsage(
+                        currentAgent.id,
+                      ),
+                    );
+                  },
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '立即采样',
+                    en: 'Sample now',
+                  ),
+                ),
+                OpenHandDialogActionButton.primary(
+                  icon: Icons.edit_rounded,
+                  onPressed: () async {
+                    final updated = await _showAgentResourceEditorDialog(
+                      context,
+                      resource,
+                    );
+                    if (updated == null || !context.mounted) return;
+                    await context.read<AgentsController>().saveResourceUsage(
+                      currentAgent.id,
+                      updated,
+                    );
+                  },
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '校准资源',
+                    en: 'Edit resources',
+                  ),
+                ),
+              ],
             ),
-            child: _AgentResourceBody(resource: resource),
+            child: _AgentResourceLiveBody(agent: currentAgent),
           ),
         );
       },
     ),
   );
+}
+
+class _AgentResourceLiveBody extends StatefulWidget {
+  const _AgentResourceLiveBody({required this.agent});
+
+  final AgentProfile agent;
+
+  @override
+  State<_AgentResourceLiveBody> createState() => _AgentResourceLiveBodyState();
+}
+
+class _AgentResourceLiveBodyState extends State<_AgentResourceLiveBody> {
+  Timer? _sampleTimer;
+  bool _sampleInFlight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _sampleNow());
+    _sampleTimer = Timer.periodic(
+      const Duration(milliseconds: _agentResourceSampleIntervalMs),
+      (_) => _sampleNow(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _sampleTimer?.cancel();
+    super.dispose();
+  }
+
+  void _sampleNow() {
+    if (!mounted || _sampleInFlight) return;
+    _sampleInFlight = true;
+    unawaited(
+      context
+          .read<AgentsController>()
+          .sampleResourceUsage(widget.agent.id)
+          .catchError((_) => false)
+          .whenComplete(() => _sampleInFlight = false),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _AgentResourceLiveData.fromAgent(widget.agent);
+    return _AgentTaskDetailSectionList(
+      children: [
+        _AgentResourceLiveSummary(data: data),
+        _AgentResourceCharts(data: data),
+        _AgentResourceBody(resource: data.resource),
+      ],
+    );
+  }
+}
+
+class _AgentResourceLiveData {
+  _AgentResourceLiveData({
+    required this.resource,
+    required this.samples,
+    required this.sampledAt,
+    required this.cpu,
+    required this.tokenPressure,
+    required this.persistedPressure,
+    required this.handlePressure,
+    required this.maxPressure,
+    required this.taskCount,
+    required this.activeTasks,
+    required this.busyWorkers,
+    required this.pendingApprovals,
+    required this.workerCount,
+  });
+
+  factory _AgentResourceLiveData.fromAgent(AgentProfile agent) {
+    final resource = agent.resourceUsage;
+    final telemetry = _agentResourceTelemetry(resource);
+    final samples = _agentResourceSamples(resource);
+    final cpu = resource.cpuPercent.clamp(0, 1).toDouble();
+    final token = _agentResourceRatio(resource.tokenUsed, resource.tokenBudget);
+    final persisted = _agentResourceRatio(
+      resource.persistedBytes,
+      resource.diskBytes,
+    );
+    final handles = _agentResourceRatio(
+      resource.openHandles,
+      agentResourceOpenHandlePressureLimit,
+    );
+    return _AgentResourceLiveData(
+      resource: resource,
+      samples: samples,
+      sampledAt:
+          _agentResourceDateTime(telemetry['sampled_at']) ??
+          (samples.isEmpty ? null : samples.last.sampledAt),
+      cpu: cpu,
+      tokenPressure: token,
+      persistedPressure: persisted,
+      handlePressure: handles,
+      maxPressure: [cpu, token, persisted, handles].reduce(math.max),
+      taskCount: nonNegativeIntFromValue(
+        resource.extra['task_count'],
+        fallback: agent.tasks.length,
+      ),
+      activeTasks: nonNegativeIntFromValue(
+        resource.extra['active_task_count'],
+        fallback: agent.tasks
+            .where(
+              (task) =>
+                  task.status != AgentTaskStatus.completed &&
+                  task.status != AgentTaskStatus.failed &&
+                  task.status != AgentTaskStatus.canceled,
+            )
+            .length,
+      ),
+      busyWorkers: nonNegativeIntFromValue(
+        resource.extra['busy_workers'],
+        fallback: agent.workers
+            .where((worker) => worker.status == AgentWorkerStatus.busy)
+            .length,
+      ),
+      pendingApprovals: nonNegativeIntFromValue(
+        resource.extra['pending_approvals'],
+        fallback: agent.approvals
+            .where((item) => item.status == AgentApprovalStatus.pending)
+            .length,
+      ),
+      workerCount: agent.workers.length,
+    );
+  }
+
+  final AgentResourceUsage resource;
+  final List<_AgentResourceSample> samples;
+  final DateTime? sampledAt;
+  final double cpu;
+  final double tokenPressure;
+  final double persistedPressure;
+  final double handlePressure;
+  final double maxPressure;
+  final int taskCount;
+  final int activeTasks;
+  final int busyWorkers;
+  final int pendingApprovals;
+  final int workerCount;
+}
+
+class _AgentResourceSample {
+  const _AgentResourceSample({
+    required this.sampledAt,
+    required this.cpu,
+    required this.tokenPressure,
+    required this.persistedPressure,
+    required this.handlePressure,
+  });
+
+  final DateTime sampledAt;
+  final double cpu;
+  final double tokenPressure;
+  final double persistedPressure;
+  final double handlePressure;
+}
+
+class _AgentResourceLiveSummary extends StatelessWidget {
+  const _AgentResourceLiveSummary({required this.data});
+
+  final _AgentResourceLiveData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final settings = _agentDialogAnimationSettings(context);
+    final color = _agentResourcePressureColor(cs, data.maxPressure);
+    final sampled = data.sampledAt == null
+        ? openHandLocalizedText(context, zh: '等待采样', en: 'Waiting')
+        : formatMonthDayHms(data.sampledAt!.toLocal());
+    final pressureText = _agentResourcePercentLabel(data.maxPressure);
+    final inlineSummary = _agentResourceInlineSummary(context, data);
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _AgentActivityTypeChip(
+              label: _agentResourcePressureLabel(context, data.maxPressure),
+              color: color,
+            ),
+            _AgentActivityMetadataChip(text: sampled),
+            _AgentActivityMetadataChip(
+              text: openHandLocalizedText(
+                context,
+                zh: '${data.samples.length} 个趋势点',
+                en: '${data.samples.length} trend points',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          openHandLocalizedText(context, zh: '资源运行态势', en: 'Resource posture'),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 7),
+        AnimatedSwitcher(
+          duration: settings.duration,
+          reverseDuration: settings.duration,
+          switchInCurve: settings.curve.curve,
+          switchOutCurve: settings.curve.reverseCurve,
+          transitionBuilder: (child, animation) => _agentDialogSwitchTransition(
+            settings: settings,
+            animation: animation,
+            child: child,
+          ),
+          child: Text(
+            inlineSummary,
+            key: ValueKey<String>(inlineSummary),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+              height: 1.35,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      ],
+    );
+    final dial = SizedBox.square(
+      dimension: 116,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(end: data.maxPressure),
+            duration: settings.duration,
+            curve: settings.curve.curve,
+            builder: (context, value, _) {
+              return CircularProgressIndicator(
+                value: value,
+                strokeWidth: 10,
+                color: color,
+                backgroundColor: cs.surfaceContainerHighest,
+                strokeCap: StrokeCap.round,
+              );
+            },
+          ),
+          Center(
+            child: AnimatedSwitcher(
+              duration: settings.duration,
+              reverseDuration: settings.duration,
+              switchInCurve: settings.curve.curve,
+              switchOutCurve: settings.curve.reverseCurve,
+              transitionBuilder: (child, animation) =>
+                  _agentDialogSwitchTransition(
+                    settings: settings,
+                    animation: animation,
+                    child: child,
+                  ),
+              child: Text(
+                pressureText,
+                key: ValueKey<String>(pressureText),
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return AnimatedContainer(
+      duration: settings.duration,
+      curve: settings.curve.curve,
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.08),
+          cs.surfaceContainerHighest.withValues(alpha: 0.46),
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact =
+                constraints.maxWidth < _agentResourceOverviewBreakpoint;
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(child: dial),
+                  const SizedBox(height: 14),
+                  details,
+                ],
+              );
+            }
+            return Row(
+              children: [
+                dial,
+                const SizedBox(width: 16),
+                Expanded(child: details),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentResourceCharts extends StatelessWidget {
+  const _AgentResourceCharts({required this.data});
+
+  final _AgentResourceLiveData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final settings = _agentDialogAnimationSettings(context);
+    final values = _agentResourceRenderablePressures(
+      data.samples,
+      data.maxPressure,
+    );
+    final peak = values.reduce(math.max);
+    final average = _agentResourceAverage(values);
+    final cpuColor = _agentResourcePressureColor(cs, data.cpu);
+    final tokenColor = cs.secondary;
+    final storageColor = _agentResourcePressureColor(
+      cs,
+      data.persistedPressure,
+    );
+    final handleColor = cs.tertiary;
+    final segments = <_AgentResourceBreakdownSegment>[
+      _AgentResourceBreakdownSegment(
+        label: 'CPU',
+        value: data.cpu,
+        color: cpuColor,
+        icon: Icons.memory_rounded,
+      ),
+      _AgentResourceBreakdownSegment(
+        label: 'Token',
+        value: data.tokenPressure,
+        color: tokenColor,
+        icon: Icons.auto_awesome_rounded,
+      ),
+      _AgentResourceBreakdownSegment(
+        label: openHandLocalizedText(context, zh: '持久化', en: 'Storage'),
+        value: data.persistedPressure,
+        color: storageColor,
+        icon: Icons.inventory_2_rounded,
+      ),
+      _AgentResourceBreakdownSegment(
+        label: openHandLocalizedText(context, zh: '句柄', en: 'Handles'),
+        value: data.handlePressure,
+        color: handleColor,
+        icon: Icons.hub_outlined,
+      ),
+    ];
+    final trendPanel = _AgentResourceChartPanel(
+      title: openHandLocalizedText(context, zh: '压力趋势', en: 'Pressure trend'),
+      icon: Icons.show_chart_rounded,
+      trailing: _AgentActivityMetadataChip(
+        text: openHandLocalizedText(
+          context,
+          zh: '${values.length} 点',
+          en: '${values.length} points',
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: _agentResourceChartHeight,
+            child: CustomPaint(
+              painter: _AgentResourcePressureTrendPainter(
+                values: values,
+                color: cs.primary,
+                gridColor: cs.outlineVariant.withValues(alpha: 0.62),
+                fillColor: cs.primary.withValues(alpha: 0.10),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          DefaultTextStyle.merge(
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '峰值 ${_agentResourcePercentLabel(peak)}',
+                      en: 'Peak ${_agentResourcePercentLabel(peak)}',
+                    ),
+                  ),
+                ),
+                Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '均值 ${_agentResourcePercentLabel(average)}',
+                    en: 'Avg ${_agentResourcePercentLabel(average)}',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    final donutPanel = _AgentResourceChartPanel(
+      title: openHandLocalizedText(context, zh: '压力占比', en: 'Pressure mix'),
+      icon: Icons.donut_large_rounded,
+      trailing: _AgentActivityTypeChip(
+        label: _agentResourcePressureLabel(context, data.maxPressure),
+        color: _agentResourcePressureColor(cs, data.maxPressure),
+      ),
+      child: Column(
+        children: [
+          SizedBox.square(
+            dimension: _agentResourceDonutSize,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(end: 1),
+                  duration: settings.duration,
+                  curve: settings.curve.curve,
+                  builder: (context, value, _) {
+                    return CustomPaint(
+                      painter: _AgentResourcePressureDonutPainter(
+                        segments: segments,
+                        trackColor: cs.surfaceContainerHighest,
+                        progress: value,
+                      ),
+                    );
+                  },
+                ),
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _agentResourcePercentLabel(data.maxPressure),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      Text(
+                        openHandLocalizedText(context, zh: '峰值', en: 'Peak'),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              for (final segment in segments)
+                _AgentResourceLegendItem(segment: segment),
+            ],
+          ),
+        ],
+      ),
+    );
+    return AnimatedContainer(
+      duration: settings.duration,
+      curve: settings.curve.curve,
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.36),
+        borderRadius: BorderRadius.circular(_agentResourcePanelRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.86)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final wide =
+                    constraints.maxWidth >= _agentResourceOverviewBreakpoint;
+                if (!wide) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      trendPanel,
+                      const SizedBox(height: _agentDialogMetricGap),
+                      donutPanel,
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: trendPanel),
+                    const SizedBox(width: _agentDialogMetricGap),
+                    SizedBox(width: 272, child: donutPanel),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 14),
+            _AgentDialogMetricGrid(
+              children: [
+                _AgentDialogMetricTile(
+                  icon: Icons.memory_rounded,
+                  label: 'CPU',
+                  value: _agentResourcePercentLabel(data.cpu),
+                  color: cpuColor,
+                  progress: data.cpu,
+                ),
+                _AgentDialogMetricTile(
+                  icon: Icons.auto_awesome_rounded,
+                  label: openHandLocalizedText(
+                    context,
+                    zh: 'Token 压力',
+                    en: 'Token pressure',
+                  ),
+                  value: data.resource.tokenBudget <= 0
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '${data.resource.tokenUsed} / 未设',
+                          en: '${data.resource.tokenUsed} / unset',
+                        )
+                      : '${data.resource.tokenUsed}/${data.resource.tokenBudget}',
+                  color: tokenColor,
+                  progress: data.tokenPressure,
+                ),
+                _AgentDialogMetricTile(
+                  icon: Icons.inventory_2_rounded,
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '持久化压力',
+                    en: 'Storage pressure',
+                  ),
+                  value: data.resource.diskBytes <= 0
+                      ? openHandLocalizedText(context, zh: '未设置', en: 'unset')
+                      : '${formatByteSize(data.resource.persistedBytes)} / ${formatByteSize(data.resource.diskBytes)}',
+                  color: storageColor,
+                  progress: data.persistedPressure,
+                ),
+                _AgentDialogMetricTile(
+                  icon: Icons.hub_outlined,
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '句柄压力',
+                    en: 'Handle pressure',
+                  ),
+                  value:
+                      '${data.resource.openHandles}/$agentResourceOpenHandlePressureLimit',
+                  color: handleColor,
+                  progress: data.handlePressure,
+                ),
+                _AgentDialogMetricTile(
+                  icon: Icons.task_alt_rounded,
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '活动任务',
+                    en: 'Active tasks',
+                  ),
+                  value: '${data.activeTasks}/${data.taskCount}',
+                ),
+                _AgentDialogMetricTile(
+                  icon: Icons.precision_manufacturing_rounded,
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '忙碌 Worker',
+                    en: 'Busy workers',
+                  ),
+                  value: '${data.busyWorkers}/${data.workerCount}',
+                ),
+                _AgentDialogMetricTile(
+                  icon: Icons.verified_user_outlined,
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '待审批',
+                    en: 'Pending approvals',
+                  ),
+                  value: '${data.pendingApprovals}',
+                ),
+                _AgentDialogMetricTile(
+                  icon: Icons.history_rounded,
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '采样点',
+                    en: 'Samples',
+                  ),
+                  value: '${data.samples.length}',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentResourceChartPanel extends StatelessWidget {
+  const _AgentResourceChartPanel({
+    required this.title,
+    required this.icon,
+    required this.child,
+    this.trailing,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final settings = _agentDialogAnimationSettings(context);
+    return AnimatedContainer(
+      duration: settings.duration,
+      curve: settings.curve.curve,
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.48),
+        borderRadius: BorderRadius.circular(_agentResourcePanelRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.72)),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: cs.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentResourceLegendItem extends StatelessWidget {
+  const _AgentResourceLegendItem({required this.segment});
+
+  final _AgentResourceBreakdownSegment segment;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 112, maxWidth: 132),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(segment.icon, size: 16, color: segment.color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              segment.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            _agentResourcePercentLabel(segment.value),
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentResourceBreakdownSegment {
+  const _AgentResourceBreakdownSegment({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
+
+  final String label;
+  final double value;
+  final Color color;
+  final IconData icon;
 }
 
 class _AgentResourceBody extends StatelessWidget {
@@ -5246,6 +6002,254 @@ class _AgentResourcePressureCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AgentResourcePressureTrendPainter extends CustomPainter {
+  const _AgentResourcePressureTrendPainter({
+    required this.values,
+    required this.color,
+    required this.gridColor,
+    required this.fillColor,
+  });
+
+  final List<double> values;
+  final Color color;
+  final Color gridColor;
+  final Color fillColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty || values.isEmpty) return;
+    final chart = Rect.fromLTWH(2, 2, size.width - 4, size.height - 4);
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    for (var i = 0; i <= 4; i++) {
+      final y = chart.top + chart.height * i / 4;
+      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), gridPaint);
+    }
+
+    final points = <Offset>[
+      for (var i = 0; i < values.length; i++)
+        Offset(
+          values.length == 1
+              ? chart.center.dx
+              : chart.left + chart.width * i / (values.length - 1),
+          chart.bottom - chart.height * values[i].clamp(0, 1).toDouble(),
+        ),
+    ];
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 1; i < points.length; i++) {
+      final previous = points[i - 1];
+      final current = points[i];
+      final controlX = (previous.dx + current.dx) / 2;
+      path.cubicTo(
+        controlX,
+        previous.dy,
+        controlX,
+        current.dy,
+        current.dx,
+        current.dy,
+      );
+    }
+
+    final fillPath = Path.from(path)
+      ..lineTo(points.last.dx, chart.bottom)
+      ..lineTo(points.first.dx, chart.bottom)
+      ..close();
+    canvas.drawPath(
+      fillPath,
+      Paint()
+        ..color = fillColor
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 3,
+    );
+    canvas.drawCircle(points.last, 4, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _AgentResourcePressureTrendPainter oldDelegate) {
+    return oldDelegate.values != values ||
+        oldDelegate.color != color ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.fillColor != fillColor;
+  }
+}
+
+class _AgentResourcePressureDonutPainter extends CustomPainter {
+  const _AgentResourcePressureDonutPainter({
+    required this.segments,
+    required this.trackColor,
+    required this.progress,
+  });
+
+  final List<_AgentResourceBreakdownSegment> segments;
+  final Color trackColor;
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    final strokeWidth = math.max<double>(
+      10,
+      math.min<double>(size.shortestSide * 0.09, 16),
+    );
+    final arcRect = (Offset.zero & size).deflate(strokeWidth / 2);
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(arcRect, -math.pi / 2, math.pi * 2, false, trackPaint);
+
+    final total = segments.fold<double>(
+      0,
+      (sum, segment) => sum + segment.value.clamp(0, 1).toDouble(),
+    );
+    if (total <= 0) return;
+
+    final animatedProgress = progress.clamp(0, 1).toDouble();
+    final gap = segments.length > 1 ? 0.028 : 0.0;
+    var start = -math.pi / 2;
+    for (final segment in segments) {
+      final value = segment.value.clamp(0, 1).toDouble();
+      if (value <= 0) continue;
+      final rawSweep = math.pi * 2 * value / total * animatedProgress;
+      final sweep = math.max<double>(0, rawSweep - gap);
+      canvas.drawArc(
+        arcRect,
+        start,
+        sweep,
+        false,
+        Paint()
+          ..color = segment.color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..strokeCap = StrokeCap.round,
+      );
+      start += rawSweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _AgentResourcePressureDonutPainter oldDelegate) {
+    return oldDelegate.segments != segments ||
+        oldDelegate.trackColor != trackColor ||
+        oldDelegate.progress != progress;
+  }
+}
+
+Map<String, Object?> _agentResourceTelemetry(AgentResourceUsage resource) {
+  return stringKeyedMapFromValue(
+    resource.extra[_agentResourceTelemetryExtraKey],
+  );
+}
+
+List<_AgentResourceSample> _agentResourceSamples(AgentResourceUsage resource) {
+  final now = DateTime.now();
+  final telemetry = _agentResourceTelemetry(resource);
+  final history = stringKeyedMapListFromValue(
+    telemetry[_agentResourceTelemetryHistoryKey],
+  );
+  final samples = <_AgentResourceSample>[
+    for (final item in history)
+      _AgentResourceSample(
+        sampledAt: _agentResourceDateTime(item['sampled_at']) ?? now,
+        cpu: (optionalDoubleFromValue(item['cpu_percent']) ?? 0)
+            .clamp(0, 1)
+            .toDouble(),
+        tokenPressure: _agentResourceRatio(
+          nonNegativeIntFromValue(item['token_used'], fallback: 0),
+          nonNegativeIntFromValue(item['token_budget'], fallback: 0),
+        ),
+        persistedPressure: _agentResourceRatio(
+          nonNegativeIntFromValue(item['persisted_bytes'], fallback: 0),
+          nonNegativeIntFromValue(item['disk_bytes'], fallback: 0),
+        ),
+        handlePressure: _agentResourceRatio(
+          nonNegativeIntFromValue(item['open_handles'], fallback: 0),
+          agentResourceOpenHandlePressureLimit,
+        ),
+      ),
+  ];
+  final currentSampledAt =
+      _agentResourceDateTime(telemetry['sampled_at']) ?? now;
+  final current = _AgentResourceSample(
+    sampledAt: currentSampledAt,
+    cpu: resource.cpuPercent.clamp(0, 1).toDouble(),
+    tokenPressure: _agentResourceRatio(
+      resource.tokenUsed,
+      resource.tokenBudget,
+    ),
+    persistedPressure: _agentResourceRatio(
+      resource.persistedBytes,
+      resource.diskBytes,
+    ),
+    handlePressure: _agentResourceRatio(
+      resource.openHandles,
+      agentResourceOpenHandlePressureLimit,
+    ),
+  );
+  if (samples.isEmpty || samples.last.sampledAt != current.sampledAt) {
+    samples.add(current);
+  }
+  return samples;
+}
+
+DateTime? _agentResourceDateTime(Object? value) {
+  final text = optionalStringFromValue(value);
+  return text == null ? null : DateTime.tryParse(text);
+}
+
+List<double> _agentResourceRenderablePressures(
+  List<_AgentResourceSample> samples,
+  double fallback,
+) {
+  final values = samples
+      .map(
+        (sample) => [
+          sample.cpu,
+          sample.tokenPressure,
+          sample.persistedPressure,
+          sample.handlePressure,
+        ].reduce(math.max),
+      )
+      .toList(growable: false);
+  if (values.length >= 2) return values;
+  final value = values.isEmpty ? fallback : values.first;
+  return [value, value];
+}
+
+String _agentResourceInlineSummary(
+  BuildContext context,
+  _AgentResourceLiveData data,
+) {
+  final cpu = _agentResourcePercentLabel(data.cpu);
+  final token = _agentResourcePercentLabel(data.tokenPressure);
+  final storage = _agentResourcePercentLabel(data.persistedPressure);
+  final handles = _agentResourcePercentLabel(data.handlePressure);
+  return openHandLocalizedText(
+    context,
+    zh: 'CPU $cpu · Token $token · 持久化 $storage · 句柄 $handles · 活动任务 ${data.activeTasks}/${data.taskCount}',
+    en: 'CPU $cpu · Token $token · Storage $storage · Handles $handles · Active tasks ${data.activeTasks}/${data.taskCount}',
+  );
+}
+
+String _agentResourcePercentLabel(double value) {
+  return '${(value.clamp(0, 1).toDouble() * 100).round()}%';
+}
+
+double _agentResourceAverage(List<double> values) {
+  if (values.isEmpty) return 0;
+  return values.fold<double>(0, (sum, value) => sum + value) / values.length;
 }
 
 double _agentResourceRatio(int used, int budget) {

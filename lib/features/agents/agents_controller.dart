@@ -44,6 +44,9 @@ class AgentsController extends ManagedChangeNotifier {
   static const String _retryCountExtraKey = 'retry_count';
   static const String _resourceTelemetryExtraKey =
       '_openhand_resource_telemetry';
+  static const String _resourceTelemetryHistoryKey = 'history';
+  static const int _maxResourceTelemetrySamples = 36;
+  static const int _resourceTelemetrySampleMinGapMs = 1000;
   static const int _resourceCharsPerToken = 4;
   static const int _resourceHandleMemoryBytes = 8 * 1024;
   static const int _resourceWorkerMemoryBytes = 16 * 1024;
@@ -905,6 +908,28 @@ class AgentsController extends ManagedChangeNotifier {
     });
   }
 
+  Future<bool> sampleResourceUsage(String agentId) {
+    final normalizedAgentId = agentId.trim();
+    if (normalizedAgentId.isEmpty) return Future<bool>.value(false);
+    return enqueueOperation(() async {
+      final index = _agents.indexWhere(
+        (agent) => agent.id == normalizedAgentId,
+      );
+      if (index < 0) return false;
+      final agent = _agents[index];
+      final sampled = agent.copyWith(
+        resourceUsage: _normalizeResourceUsageForAgent(agent),
+      );
+      _setAgents(<AgentProfile>[
+        ..._agents.sublist(0, index),
+        sampled,
+        ..._agents.sublist(index + 1),
+      ]);
+      notifyListeners();
+      return true;
+    });
+  }
+
   Future<AgentAuditEvent?> recordAuditEvent(
     String agentId, {
     required String kind,
@@ -1221,6 +1246,41 @@ class AgentsController extends ManagedChangeNotifier {
       telemetry,
       'open_handles',
     );
+    final normalizedCpuPercent = math
+        .max(manualCpuPercent, derivedCpuPercent)
+        .clamp(0, 1)
+        .toDouble();
+    final normalizedMemoryBytes = math.max(
+      manualMemoryBytes,
+      derivedMemoryBytes,
+    );
+    final normalizedDiskBytes = math.max(0, usage.diskBytes);
+    final normalizedPersistedBytes = math.max(
+      manualPersistedBytes,
+      derivedPersistedBytes,
+    );
+    final normalizedTokenBudget = math.max(0, usage.tokenBudget);
+    final normalizedTokenUsed = math.max(manualTokenUsed, derivedTokenUsed);
+    final normalizedOpenHandles = math.max(
+      manualOpenHandles,
+      derivedOpenHandles,
+    );
+    final sampledAt = DateTime.now().toUtc();
+    final resourceSample = <String, Object?>{
+      'sampled_at': sampledAt.toIso8601String(),
+      'cpu_percent': normalizedCpuPercent,
+      'memory_bytes': normalizedMemoryBytes,
+      'disk_bytes': normalizedDiskBytes,
+      'persisted_bytes': normalizedPersistedBytes,
+      'token_budget': normalizedTokenBudget,
+      'token_used': normalizedTokenUsed,
+      'open_handles': normalizedOpenHandles,
+      'active_task_count': activeTaskCount,
+      'busy_workers': busyWorkerCount,
+      'pending_approvals': pendingApprovalCount,
+      'audit_token_usage': auditTokens,
+      'task_payload_tokens': taskPayloadTokens,
+    };
     final nextExtra = <String, Object?>{
       ...usage.publicExtra,
       if (agent.workspacePath.trim().isNotEmpty)
@@ -1232,23 +1292,50 @@ class AgentsController extends ManagedChangeNotifier {
       'audit_token_usage': auditTokens,
       'task_payload_tokens': taskPayloadTokens,
       _resourceTelemetryExtraKey: <String, Object?>{
+        'sampled_at': sampledAt.toIso8601String(),
         'cpu_percent': derivedCpuPercent,
         'memory_bytes': derivedMemoryBytes,
         'persisted_bytes': derivedPersistedBytes,
         'token_used': derivedTokenUsed,
         'open_handles': derivedOpenHandles,
+        _resourceTelemetryHistoryKey: _appendResourceTelemetrySample(
+          telemetry[_resourceTelemetryHistoryKey],
+          resourceSample,
+          sampledAt,
+        ),
       },
     };
     return usage.copyWith(
-      cpuPercent: math.max(manualCpuPercent, derivedCpuPercent),
-      memoryBytes: math.max(manualMemoryBytes, derivedMemoryBytes),
-      diskBytes: math.max(0, usage.diskBytes),
-      persistedBytes: math.max(manualPersistedBytes, derivedPersistedBytes),
-      tokenBudget: math.max(0, usage.tokenBudget),
-      tokenUsed: math.max(manualTokenUsed, derivedTokenUsed),
-      openHandles: math.max(manualOpenHandles, derivedOpenHandles),
+      cpuPercent: normalizedCpuPercent,
+      memoryBytes: normalizedMemoryBytes,
+      diskBytes: normalizedDiskBytes,
+      persistedBytes: normalizedPersistedBytes,
+      tokenBudget: normalizedTokenBudget,
+      tokenUsed: normalizedTokenUsed,
+      openHandles: normalizedOpenHandles,
       extra: nextExtra,
     );
+  }
+
+  List<Map<String, Object?>> _appendResourceTelemetrySample(
+    Object? rawHistory,
+    Map<String, Object?> sample,
+    DateTime sampledAt,
+  ) {
+    final history = stringKeyedMapListFromValue(rawHistory).toList();
+    final previous = history.isEmpty ? null : history.last;
+    final previousSampledAt = DateTime.tryParse(
+      optionalStringFromValue(previous?['sampled_at']) ?? '',
+    );
+    if (previousSampledAt != null &&
+        sampledAt.difference(previousSampledAt).inMilliseconds <
+            _resourceTelemetrySampleMinGapMs) {
+      final start = math.max(0, history.length - _maxResourceTelemetrySamples);
+      return history.sublist(start).toList(growable: false);
+    }
+    history.add(sample);
+    final start = math.max(0, history.length - _maxResourceTelemetrySamples);
+    return history.sublist(start).toList(growable: false);
   }
 
   double _manualResourceRatioMetric(
