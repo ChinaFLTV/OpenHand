@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { normalizeDialogExitDurationMs } from './useDialogMotionSettings';
 import { useReducedMotion } from './useReducedMotion';
 import { useTimeoutController } from './useTimeoutController';
+import {
+  MAX_BROWSER_TIMEOUT_MS,
+  normalizeDurationMs,
+} from '../shared/util/number';
 
 export interface DelayedVisibilityOptions {
   exitMs?: number;
@@ -28,6 +32,14 @@ export interface ControlledDelayedVisibilityState {
 }
 
 type VisibilityPhase = 'hidden' | 'visible' | 'closing';
+
+function normalizeEnterDelayMs(value: number | undefined): number {
+  return normalizeDurationMs(value, {
+    fallback: 0,
+    min: 0,
+    max: MAX_BROWSER_TIMEOUT_MS,
+  });
+}
 
 export function useDelayedVisibility({
   exitMs,
@@ -120,12 +132,13 @@ export function useControlledDelayedVisibility(
         setPhase('visible');
       };
 
-      if (reduceMotion || typeof window === 'undefined') {
+      const safeEnterDelayMs = reduceMotion ? 0 : normalizeEnterDelayMs(enterDelayMs);
+      if (safeEnterDelayMs <= 0 || typeof window === 'undefined') {
         reveal();
         return;
       }
 
-      scheduleTimer(reveal, enterDelayMs);
+      scheduleTimer(reveal, safeEnterDelayMs);
       return;
     }
 

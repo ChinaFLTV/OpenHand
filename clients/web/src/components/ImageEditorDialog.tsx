@@ -167,9 +167,23 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
   const [settings, setSettings] = useState<EditorSettings>(DEFAULT_SETTINGS);
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [busy, setBusy] = useState(false);
-  const { closing, requestClose } = useDialogExitMotion(onCancel, {
-    closeOnEscape: !busy,
-  });
+  const pendingSaveResultRef = useRef<ImageEditorResult | null>(null);
+  const { closing, requestClose, requestCloseWithReason } = useDialogExitMotion<
+    'cancel' | 'save'
+  >(
+    (reason) => {
+      const result = pendingSaveResultRef.current;
+      pendingSaveResultRef.current = null;
+      if (reason === 'save' && result) {
+        onSave(result);
+        return;
+      }
+      onCancel();
+    },
+    {
+      closeOnEscape: !busy,
+    },
+  );
   const [showOriginal, setShowOriginal] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -244,12 +258,14 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
   }
 
   async function save(): Promise<void> {
-    if (busy) return;
+    if (busy || closing) return;
     setBusy(true);
     setError(null);
     try {
-      onSave(await makeResult(false));
+      pendingSaveResultRef.current = await makeResult(false);
+      requestCloseWithReason('save');
     } catch (err: unknown) {
+      pendingSaveResultRef.current = null;
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);

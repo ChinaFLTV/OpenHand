@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../hooks/useAnimatedLocation';
+import { useControlledDelayedVisibility } from '../hooks/useDelayedVisibility';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { runWithTimeout } from '../utils/timed_abort';
@@ -28,10 +29,12 @@ async function runBeforeNavigate(
 export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogProps) {
   const location = useAnimatedLocation();
   const [navigating, setNavigating] = useState(false);
+  const { visible, closing: hiding } = useControlledDelayedVisibility(open);
   const { closing, requestClose, resetClosing } = useDialogExitMotion(
     () => location.route('/threads'),
     { active: open, closeOnEscape: false },
   );
+  const frameClosing = closing || hiding;
 
   useEffect(() => {
     if (!open) {
@@ -39,6 +42,7 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
       resetClosing();
       return undefined;
     }
+    if (typeof window === 'undefined') return undefined;
     const id = window.requestAnimationFrame(() => {
       const btn = document.getElementById('oh-session-gone-back-btn');
       btn?.focus();
@@ -46,10 +50,10 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
     return () => window.cancelAnimationFrame(id);
   }, [open, resetClosing]);
 
-  if (!open) return null;
+  if (!visible) return null;
 
   const handleBack = async () => {
-    if (navigating || closing) return;
+    if (navigating || frameClosing) return;
     setNavigating(true);
     await runBeforeNavigate(onBeforeNavigate);
     requestClose();
@@ -57,7 +61,7 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
 
   return (
     <DialogFrame
-      closing={closing}
+      closing={frameClosing}
       closeOnBackdrop={false}
       {...createStandardDialogFrameAppearance({
         overlayClassName: DIALOG_OVERLAY_CENTER_COMPACT_CLASS,
@@ -101,12 +105,12 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
           id="oh-session-gone-back-btn"
           type="button"
           onClick={() => void handleBack()}
-          disabled={navigating || closing}
+          disabled={navigating || frameClosing}
           class="oh-tap-press text-sm px-4 py-2 rounded-m3-md"
           style={{
             color: 'var(--m3-on-primary)',
             backgroundColor: 'var(--m3-primary)',
-            opacity: navigating || closing ? 0.6 : 1,
+            opacity: navigating || frameClosing ? 0.6 : 1,
             minWidth: '96px',
           }}
         >

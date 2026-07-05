@@ -1,12 +1,13 @@
 import type { ComponentChildren } from 'preact';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { classNames } from '../shared/util/class_names';
 import {
   DialogActionButton,
   DialogFrame,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
 
-type ConfirmCloseReason = 'cancel' | 'dismiss' | 'escape';
+type ConfirmCloseReason = 'cancel' | 'confirm' | 'dismiss' | 'escape';
 
 function ConfirmIcon({ danger }: { danger: boolean }) {
   const common = {
@@ -43,28 +44,36 @@ export interface ConfirmDialogProps {
    * 用于明确区分"用户按 Esc"vs"用户点击取消按钮"两种意图。
    */
   onDismiss?: () => void;
+  /** 无外部 busy 状态时默认先播放退场动画，再执行确认回调。 */
+  closeOnConfirm?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }
 
-export function ConfirmDialog({
-  title,
-  body,
-  confirmLabel,
-  cancelLabel = '取消',
-  danger = false,
-  busy = false,
-  wide = false,
-  scrollBody = false,
-  bodyClassName = '',
-  disableBackdropClose = false,
-  onDismiss,
-  onCancel,
-  onConfirm,
-}: ConfirmDialogProps) {
-  const { closing, requestCloseWithReason } =
-    useDialogExitMotion<ConfirmCloseReason>(
+export function ConfirmDialog(props: ConfirmDialogProps) {
+  const hasExternalBusy = Object.prototype.hasOwnProperty.call(props, 'busy');
+  const {
+    title,
+    body,
+    confirmLabel,
+    cancelLabel = '取消',
+    danger = false,
+    busy = false,
+    wide = false,
+    scrollBody = false,
+    bodyClassName = '',
+    disableBackdropClose = false,
+    onDismiss,
+    closeOnConfirm = !hasExternalBusy,
+    onCancel,
+    onConfirm,
+  } = props;
+  const { closing, requestCloseWithReason } = useDialogExitMotion<ConfirmCloseReason>(
     (reason) => {
+      if (reason === 'confirm') {
+        onConfirm();
+        return;
+      }
       if (reason === 'escape') {
         (onDismiss ?? onCancel)();
         return;
@@ -76,6 +85,13 @@ export function ConfirmDialog({
     },
   );
   const requestCancel = () => requestCloseWithReason('cancel');
+  const requestConfirm = () => {
+    if (closeOnConfirm) {
+      requestCloseWithReason('confirm');
+      return;
+    }
+    onConfirm();
+  };
   const requestDismiss = () => requestCloseWithReason('dismiss');
 
   return (
@@ -86,9 +102,11 @@ export function ConfirmDialog({
       {...createStandardDialogFrameAppearance({
         overlayClassName:
           'oh-confirm-dialog-overlay fixed inset-0 flex items-center justify-center p-4',
-        panelClassName: `oh-confirm-dialog ${wide ? 'is-wide' : ''} ${
-          scrollBody ? 'is-scroll-body' : ''
-        } w-full rounded-m3-xl p-5`,
+        panelClassName: classNames(
+          'oh-confirm-dialog w-full rounded-m3-xl p-5',
+          wide && 'is-wide',
+          scrollBody && 'is-scroll-body',
+        ),
         panelBorder: 'outline',
         panelSurface: {
           maxWidth: wide
@@ -100,46 +118,55 @@ export function ConfirmDialog({
       ariaLabel={title}
     >
       <div class="oh-confirm-dialog-head flex items-start gap-3">
-          <span
-            aria-hidden
-            class="oh-confirm-dialog-icon inline-flex h-10 w-10 flex-none items-center justify-center rounded-full text-lg"
-            style={{
-              background: danger
-                ? 'color-mix(in srgb, var(--m3-error) 13%, transparent)'
-                : 'color-mix(in srgb, var(--m3-primary) 14%, transparent)',
-              color: danger ? 'var(--m3-error)' : 'var(--m3-primary)',
-            }}
+        <span
+          aria-hidden
+          class="oh-confirm-dialog-icon inline-flex h-10 w-10 flex-none items-center justify-center rounded-full text-lg"
+          style={{
+            background: danger
+              ? 'color-mix(in srgb, var(--m3-error) 13%, transparent)'
+              : 'color-mix(in srgb, var(--m3-primary) 14%, transparent)',
+            color: danger ? 'var(--m3-error)' : 'var(--m3-primary)',
+          }}
+        >
+          <ConfirmIcon danger={danger} />
+        </span>
+        <div class="oh-confirm-dialog-main min-w-0 flex-1">
+          <h2
+            class="oh-confirm-dialog-title text-base font-semibold"
+            style={{ color: 'var(--m3-on-surface)' }}
           >
-            <ConfirmIcon danger={danger} />
-          </span>
-          <div class="oh-confirm-dialog-main min-w-0 flex-1">
-            <h2 class="oh-confirm-dialog-title text-base font-semibold" style={{ color: 'var(--m3-on-surface)' }}>
-              {title}
-            </h2>
-            {body ? (
-              <div class={`oh-confirm-dialog-body mt-2 text-sm leading-relaxed ${bodyClassName}`} style={{ color: 'var(--m3-on-surface-variant)' }}>
-                {body}
-              </div>
-            ) : null}
-          </div>
+            {title}
+          </h2>
+          {body ? (
+            <div
+              class={classNames(
+                'oh-confirm-dialog-body mt-2 text-sm leading-relaxed',
+                bodyClassName,
+              )}
+              style={{ color: 'var(--m3-on-surface-variant)' }}
+            >
+              {body}
+            </div>
+          ) : null}
+        </div>
       </div>
       <div class="oh-confirm-dialog-actions mt-5 flex items-center justify-end gap-2">
-          <DialogActionButton
-            className="oh-confirm-dialog-button px-4 py-2"
-            tone="secondary"
-            disabled={busy || closing}
-            onClick={requestCancel}
-          >
-            {cancelLabel}
-          </DialogActionButton>
-          <DialogActionButton
-            className="oh-confirm-dialog-button px-4 py-2"
-            tone={danger ? 'danger' : 'primary'}
-            disabled={busy || closing}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </DialogActionButton>
+        <DialogActionButton
+          className="oh-confirm-dialog-button px-4 py-2"
+          tone="secondary"
+          disabled={busy || closing}
+          onClick={requestCancel}
+        >
+          {cancelLabel}
+        </DialogActionButton>
+        <DialogActionButton
+          className="oh-confirm-dialog-button px-4 py-2"
+          tone={danger ? 'danger' : 'primary'}
+          disabled={busy || closing}
+          onClick={requestConfirm}
+        >
+          {confirmLabel}
+        </DialogActionButton>
       </div>
     </DialogFrame>
   );
