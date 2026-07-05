@@ -953,8 +953,7 @@ class AiChatService implements AiChatClient {
         ),
       );
     }
-    if (streamedResponse.statusCode < 200 ||
-        streamedResponse.statusCode >= 300) {
+    if (isHttpFailureStatus(streamedResponse.statusCode)) {
       final initialErrorBody = await streamedResponse.stream.bytesToString();
       var finalErrorBody = initialErrorBody;
       if (_shouldRetryWithoutCacheAffinity(
@@ -979,13 +978,11 @@ class AiChatService implements AiChatClient {
             ),
           );
         }
-        if (streamedResponse.statusCode < 200 ||
-            streamedResponse.statusCode >= 300) {
+        if (isHttpFailureStatus(streamedResponse.statusCode)) {
           finalErrorBody = await streamedResponse.stream.bytesToString();
         }
       }
-      if ((streamedResponse.statusCode < 200 ||
-              streamedResponse.statusCode >= 300) &&
+      if (isHttpFailureStatus(streamedResponse.statusCode) &&
           AiThinkingRequestPolicy.shouldRetryWithoutMarkers(
             statusCode: streamedResponse.statusCode,
             errorBody: finalErrorBody,
@@ -1005,13 +1002,11 @@ class AiChatService implements AiChatClient {
             ),
           );
         }
-        if (streamedResponse.statusCode < 200 ||
-            streamedResponse.statusCode >= 300) {
+        if (isHttpFailureStatus(streamedResponse.statusCode)) {
           finalErrorBody = await streamedResponse.stream.bytesToString();
         }
       }
-      if (streamedResponse.statusCode >= 200 &&
-          streamedResponse.statusCode < 300) {
+      if (isHttpSuccessStatus(streamedResponse.statusCode)) {
         // Retry succeeded; continue into the normal SSE reader below.
       } else {
         final errorMessage = adapter.extractErrorMessage(finalErrorBody);
@@ -1380,8 +1375,7 @@ class AiChatService implements AiChatClient {
       );
     }
     String? responsesErrorBody;
-    if (streamedResponse.statusCode < 200 ||
-        streamedResponse.statusCode >= 300) {
+    if (isHttpFailureStatus(streamedResponse.statusCode)) {
       responsesErrorBody = await streamedResponse.stream.bytesToString();
       if (AiThinkingRequestPolicy.shouldRetryWithoutMarkers(
         statusCode: streamedResponse.statusCode,
@@ -1408,16 +1402,14 @@ class AiChatService implements AiChatClient {
             ),
           );
         }
-        if (streamedResponse.statusCode >= 200 &&
-            streamedResponse.statusCode < 300) {
+        if (isHttpSuccessStatus(streamedResponse.statusCode)) {
           // Retry succeeded; continue into the normal SSE reader below.
         } else {
           responsesErrorBody = await streamedResponse.stream.bytesToString();
         }
       }
     }
-    if (streamedResponse.statusCode < 200 ||
-        streamedResponse.statusCode >= 300) {
+    if (isHttpFailureStatus(streamedResponse.statusCode)) {
       final errorBody =
           responsesErrorBody ?? await streamedResponse.stream.bytesToString();
       throw AiChatException(
