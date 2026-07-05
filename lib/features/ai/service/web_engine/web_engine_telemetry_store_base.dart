@@ -230,10 +230,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     return count;
   }
 
-  // ---------------------------------------------------------------------------
   // 写入入口（子类的 typed `recordCall(...)` 包装它）
-  // ---------------------------------------------------------------------------
-
   /// 把一条调用日志（[callJson]）+ per-engine 事件批量写盘：
   /// 1) 追加到 calls.json（FIFO 上限 [maxRecentCalls]）。
   /// 2) 把每个 [perEngine] 折叠到 engines.json：累加 `total_calls/success_calls/

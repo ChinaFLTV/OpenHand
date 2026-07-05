@@ -85,10 +85,7 @@ class AiMemoryTool extends AiTool {
     }
   }
 
-  // ---------------------------------------------------------------------------
   // Actions
-  // ---------------------------------------------------------------------------
-
   AiToolExecutionResult _list(
     MemoryController controller,
     Map<String, Object?> args,
@@ -258,10 +255,7 @@ class AiMemoryTool extends AiTool {
     );
   }
 
-  // ---------------------------------------------------------------------------
   // Helpers
-  // ---------------------------------------------------------------------------
-
   static const String _toolName = 'Memory';
   static const int _previewChars = 200;
 

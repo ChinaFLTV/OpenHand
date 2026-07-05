@@ -2,13 +2,11 @@
 // typescript-language-server --stdio）拉起为子进程，按 JSON-RPC 2.0 over
 // LSP framing（Content-Length 头）做 initialize / textDocument/didOpen /
 // hover / definition / rename 请求。
-//
 // 设计目标：
 // - 默认安装的项目可以零配置直接用；未装 typescript-language-server 时
 //   能优雅退化（status='not_installed'），不阻塞 Sources 面板基础功能。
 // - 单实例同时只起一份 server 子进程；面板 dispose 时关掉进程。
 // - 所有 send 都返回 Future + 唯一 id；超时（默认 8s）resolve null。
-//
 // 不实现：completion / signature help / 增量同步（didChange 用 full
 // content）等高级特性 —— 等用户真有需求再补。
 

@@ -1,10 +1,8 @@
 // 「脚本注入库 (Snippet Pad)」面板。
-//
 // 左侧列表 = 已保存的 snippet（按更新时间倒排）；右侧 = 名称 + 多行代码
 // 编辑器 + Run/Save/Delete 工具栏。Run 走 [WebReverseSessionController
 // .runSnippet]，结果写到 Console 面板（已有的 _appendConsole）。Save 触发
 // dashboard 持久化到 session metadata，刷新/重连后自动恢复。
-//
 // 风格保持与其它面板一致：圆角胶囊按钮、220ms easeOutCubic 切换、Q弹
 // AnimatedSwitcher / AnimatedSize；遵守 MediaQuery.disableAnimationsOf。
 

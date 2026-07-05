@@ -230,7 +230,6 @@ class AiPromptBuilder {
     // 会得到两份截然不同的 messages 序列（前一份把 latestUser 放在工具结果
     // 之后，后一份把它放在工具结果之前），prefix cache 永远在第二条消息处
     // 就断裂，导致命中率塌方。
-    //
     // 实现：先把 latestUser 暂存到 historyMessages，扫完之后若发现它身后
     // 没有任何非 reasoning 的消息，则把它从 history 中剥离、走原来的“追加
     // 到末尾”路径；若身后有内容，则就地留在自然位置，并通过
@@ -521,7 +520,6 @@ class AiPromptBuilder {
       // - [3d] Dynamic（todos、plan、mode）— 仅包含会话内真正可变字段，留在
       //   latest user 之后的 volatile tail。
       //   date/git 已移至 [3s] 或移除：跨天/每次写文件后改变 hash 破坏 prefix-cache。
-      //
       // 修复：静态块固定在 history 之前，动态块固定在 latest user 之后。
       // 相邻轮次尽量满足 "Turn N+1 = Turn N tokens ++ [asst_N][user_N+1]"
       // 的前缀扩展性质；真正会变的提醒只污染当前轮尾部。Hook system-reminder
@@ -629,7 +627,6 @@ class AiPromptBuilder {
     // Cache-friendly unified assembly:
     //   stable core prefix → runtime catalog prefix → persisted history
     //   → latest user → volatile tail.
-    //
     // All templates share this same skeleton. The cache affinity key is derived
     // only from the stable core; mutable tool catalogs stay in a separate
     // leading prefix so lazy-loading cannot rotate the provider cache key.

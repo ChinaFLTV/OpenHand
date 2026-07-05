@@ -337,14 +337,10 @@ String? _hePreferredAiModelConfigId({
   return settingsModels.isEmpty ? null : settingsModels.first.id;
 }
 
-// =============================================================================
 // Sub-conversation segment model & parser
-//
 // Splits raw CLI output lines into typed segments so each segment can be
 // rendered as an independent mini-card within the phase card, providing a
 // structured sub-conversation experience.
-// =============================================================================
-
 /// The kind of content a segment represents.
 enum _HeSegmentKind {
   /// The CLI command that was executed.
@@ -914,15 +910,11 @@ const Color _heFailedTone = Color(0xFFC84B4B);
   );
 }
 
-// =============================================================================
 // HarnessSessionPane — public entry-point (API surface unchanged)
-//
 // Adopts the same visual language as an AI thread session:
 //   • _SessionToolbar-style header with scrollable info pills
 //   • scrollable card feed where every HE phase renders as a tool-call card
 //     (secondaryContainer bg when running, status-tinted for other states)
-// =============================================================================
-
 class HarnessSessionPaneController {
   _HarnessSessionPaneState? _state;
 
@@ -1643,7 +1635,6 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     KeyEvent event,
   ) {
     // 2026-04-28: Composer shortcut consumption (no action).
-    //
     // _handleGlobalShortcutKeyEvent (HardwareKeyboard) in the home page
     // is the sole executor of send-message / toggle-composer.  Previously
     // this FocusNode handler ALSO performed the action, so the composer
@@ -2597,8 +2588,6 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
   }
 }
 
-// =============================================================================
 // Session header — matches _SessionToolbar visual language exactly:
 //   Container(surfaceContainerHigh, br:16, pad h:14 v:6)
 //   Row( title + scrollable info pills | token dial )
-// =============================================================================

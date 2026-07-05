@@ -409,10 +409,7 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
   }
 }
 
-// =============================================================================
 // _HeSmallPill — compact action chip used in the log section header
-// =============================================================================
-
 class _HeSmallPill extends StatelessWidget {
   const _HeSmallPill({
     required this.icon,
@@ -456,11 +453,8 @@ class _HeSmallPill extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // Log line — renders one CLI output line with level-based colouring
 // Used only in the raw view.
-// =============================================================================
-
 class _LogLine extends StatelessWidget {
   const _LogLine({required this.line, required this.colorScheme});
 
@@ -519,12 +513,9 @@ class _LogLine extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HeDiffBuilder — MarkdownElementBuilder that intercepts fenced code blocks
 // whose language tag is "diff" or "patch" and renders them with a dedicated
 // side-by-side / unified diff widget instead of a plain code block.
-// =============================================================================
-
 class _HeDiffBuilder extends MarkdownElementBuilder {
   _HeDiffBuilder({required this.colorScheme, this.darkSurface = false});
 
@@ -1029,10 +1020,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
   }
 }
 
-// =============================================================================
 // _HeDiffBlock — renders a unified diff with coloured line backgrounds.
-// =============================================================================
-
 class _HeDiffBlock extends StatelessWidget {
   const _HeDiffBlock({
     required this.rawDiff,
@@ -1206,11 +1194,8 @@ void _heSanitizeMarkdownAst(List<md.Node> nodes) {
   }
 }
 
-// =============================================================================
 // _HeOutputLinesDial — mirrors _TokenDial but for CLI output lines
 // Displays total output lines from all phase logs as a proxy for activity.
-// =============================================================================
-
 class _HeOutputLinesDial extends StatelessWidget {
   const _HeOutputLinesDial({required this.totalLines});
 
@@ -1271,10 +1256,7 @@ class _HeOutputLinesDial extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HeChip — matches _ToolExecutionChip (surface overlay bg, rounded)
-// =============================================================================
-
 class _HeChip extends StatelessWidget {
   const _HeChip({required this.icon, required this.label});
 
@@ -1302,10 +1284,7 @@ class _HeChip extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HeReadyPlaceholder — idle orchestrator (restored from disk); tap Start
-// =============================================================================
-
 class _HeReadyPlaceholder extends StatelessWidget {
   const _HeReadyPlaceholder({required this.isZh, required this.onStart});
 
@@ -1359,10 +1338,7 @@ class _HeReadyPlaceholder extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _InitializingPlaceholder — spinner while phases are being set up
-// =============================================================================
-
 class _InitializingPlaceholder extends StatelessWidget {
   const _InitializingPlaceholder({required this.isZh});
 
@@ -1526,7 +1502,5 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HeComposer — HE composer with active permission toggle, collapse state,
 // auto-follow control, and a conditional manual-review input.
-// =============================================================================

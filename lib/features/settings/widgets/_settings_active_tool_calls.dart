@@ -1,7 +1,6 @@
 // 运行中工具调用观测面板：订阅 [AiToolExecutionRegistry]，按行展示
 // 每个正在执行的工具调用——名称、类别图标、所属会话、PID、已运行时长，
 // 并提供单点 Stop 按钮（仅终止该 toolCallId，不影响兄弟工具或全局响应）。
-//
 // 重要约束：
 //  - 列表本身依赖 ChangeNotifier 通知；运行时长是衍生数据，需要再叠加
 //    一个 1s 周期 timer 让 UI 平滑前进，但 timer 仅在 records 非空时开启，

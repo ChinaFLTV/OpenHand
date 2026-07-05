@@ -99,10 +99,7 @@ class _HeModelDropdown extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HeUrlModelField — tap-to-search URL/API model selector for pending phases
-// =============================================================================
-
 class _HeUrlModelField extends StatelessWidget {
   const _HeUrlModelField({
     required this.settingsModels,
@@ -236,6 +233,4 @@ class _HeUrlModelField extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HeChangedFilesList — shows files changed during a phase execution
-// =============================================================================

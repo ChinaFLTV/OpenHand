@@ -43,7 +43,6 @@ Future<void> main() async {
   // Use a guarded zone so uncaught async errors (including stray
   // FormatExceptions from third-party markdown/highlight rendering) cannot
   // crash the engine or flood the console during message rendering.
-  //
   // The `print` override is critical: the `highlight` package swallows
   // FormatExceptions inside its keyword compiler and emits them via bare
   // `print(err)` (see package:highlight/src/highlight.dart). Those lines

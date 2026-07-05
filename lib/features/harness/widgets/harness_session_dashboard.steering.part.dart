@@ -503,10 +503,7 @@ class _HeSteeringEntryTile extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HeSteeringFileEditorDialog — Markdown editor with live preview
-// =============================================================================
-
 class _HeSteeringFileEditorDialog extends StatefulWidget {
   const _HeSteeringFileEditorDialog({required this.filePath});
 
@@ -1409,10 +1406,7 @@ class _HeSteeringFileEditorDialogState
   }
 }
 
-// =============================================================================
 // _MdToolbarBtn — compact toolbar button (icon or text label)
-// =============================================================================
-
 class _MdToolbarBtn extends StatelessWidget {
   const _MdToolbarBtn({
     this.icon,

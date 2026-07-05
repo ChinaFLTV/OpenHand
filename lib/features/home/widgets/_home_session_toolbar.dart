@@ -2604,10 +2604,7 @@ List<Widget> _buildMcpLazyLoadingPills(
   return const <Widget>[];
 }
 
-// ---------------------------------------------------------------------------
 // 上下文统计弹窗 + 主动压缩
-// ---------------------------------------------------------------------------
-
 Future<void> _showContextStatsDialog(BuildContext context, AiSession session) {
   return showAnimatedDialog<void>(
     context: context,

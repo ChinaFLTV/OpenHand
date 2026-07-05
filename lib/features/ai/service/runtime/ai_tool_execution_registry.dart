@@ -58,7 +58,7 @@ class AiToolExecutionRegistry with ChangeNotifier {
       return;
     }
     _entries[toolCallId] = _RegisteredEntry(
-      killer: killer ?? _noopKiller,
+      killer: killer ?? () => Future<void>.value(),
       record: AiToolExecutionRecord(
         toolCallId: toolCallId,
         sessionId: sessionId,
@@ -175,5 +175,3 @@ class _RegisteredEntry {
   Future<void> Function() killer;
   AiToolExecutionRecord record;
 }
-
-Future<void> _noopKiller() async {}

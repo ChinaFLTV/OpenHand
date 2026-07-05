@@ -1,13 +1,10 @@
 // 「实时」面板 —— WebSocket / EventSource 全局聚合视图。
-//
 // 左侧：当前会话所有 WebSocket / EventSource 连接列表（按最近一次帧时间倒序）。
 // 右侧：选中连接的帧流，支持方向过滤（sent / received / error）、
 // 子串过滤、自动滚到最新帧、复制载荷。
-//
 // 数据源：controller.networkRequests 中 isWebSocket=true 的条目。controller 已
 // 自动把 CDP `Network.webSocketCreated/FrameSent/FrameReceived/FrameError` 写
 // 进对应 entry.wsFrames（上限 2000 条 LRU）。
-//
 // 风格：圆角胶囊 + 220ms easeOutCubic + 遵守 MediaQuery.disableAnimationsOf。
 
 part of 'web_reverse_dashboard_dialog.dart';

@@ -451,7 +451,6 @@ String _stripCdataWrappers(String value) {
 // some weak models emit instead of native protocol tool calls or our DSML
 // tags. Convert each well-formed envelope into a DSML invoke block so the
 // downstream extractor + sanitizer treat it like any other tool call.
-//
 // Body shape we accept:
 //   { "name": "<tool_name>", "input": { <key>: <value>, ... } }
 // or  { "tool_name": "...", "parameters": {...} }

@@ -112,10 +112,7 @@ class DatabaseService {
     _instance = null;
   }
 
-  // ---------------------------------------------------------------------------
   // Schema
-  // ---------------------------------------------------------------------------
-
   static Future<void> _onConfigure(Database db) async {
     // Enable foreign key enforcement.
     await db.execute('PRAGMA foreign_keys = ON');

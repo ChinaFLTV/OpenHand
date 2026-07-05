@@ -1,17 +1,13 @@
 // 文件变动 ledger（内容寻址 + 撤销/重做 + 级联追踪）。
-//
 // 存储布局（位于 ~/.openhand/file_history/ 之下）：
-//
 //   blobs/<sha[0..2]>/<sha>.txt       内容寻址的 UTF-8 文本 blob（去重）
 //   sessions/<sessionId>/ledger.jsonl  追加式变动日志，每行一条 MutationRecord
 //   sessions/<sessionId>/state.json    {"undone":["<recordId>", ...]}
-//
 // 核心语义：每次文件级写操作（Write/Edit/MultiEdit/NotebookEdit/DeleteFile/
 // Bash 写入/MCP 文件写入等）在工具执行钩子里调用 [recordMutation] 同时落
 // before/after 两份内容；撤销 X 时把磁盘文件恢复为 X.before 并把"X 之后所
 // 有发生在同一文件上的记录"标记为 undone（级联）；重做 X 时把磁盘文件恢
 // 复为 X.after 并仅清除 X 自己的 undone 标志。
-//
 // 该服务对底层备份缺失/损坏/IO 失败等做兜底：所有读写都走 silentLog，对
 // 调用方暴露 success 标志而非抛出，UI 据此显示降级提示。
 

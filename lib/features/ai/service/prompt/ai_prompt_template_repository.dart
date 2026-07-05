@@ -262,10 +262,8 @@ String _appendMemoryTonePolicyIfAbsent(String instructions) {
 }
 
 // ── Emergency fallback prompts ────────────────────────────────────────────────
-//
 // 这些常量仅在 [rootBundle.loadString] 加载 `assets/prompts/{template_id}/*.md`
 // 失败时（譬如打包损坏 / 资源未注册）才会被使用。生产构建中几乎不会触发。
-//
 // 模板的真正提示词内容以 `assets/prompts/` 下的 Markdown 文件为唯一可信来源。
 // 此处保留极简的英文/中文双语桩，向用户与日志说明加载失败并请求修复，
 // 避免与资源版本漂移。修改资源时请只改 `assets/prompts/`，无需同步本桩。

@@ -177,7 +177,6 @@ class WebReverseBrowserLauncher {
     }
     // 收集 stderr 前 32KB，握手失败时把这段打到错误信息里，方便定位
     // "Profile 锁占用 / SUID sandbox / GPU init crash" 等真实根因。
-    //
     // 注意：detachedWithStdio 模式下访问 [Process.exitCode] 会抛
     // `Bad state: Process is detached`。我们改为用 stdout / stderr 流的
     // 关闭事件推断进程退出（管道关闭即意味着子进程已退出）；任一管道

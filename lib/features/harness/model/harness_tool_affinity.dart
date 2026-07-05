@@ -1,5 +1,4 @@
 // Harness Engineering phase-tool affinity configuration.
-//
 // This module defines which tool categories are relevant for each phase,
 // enabling intelligent tool filtering to reduce token overhead while
 // maintaining functional completeness.

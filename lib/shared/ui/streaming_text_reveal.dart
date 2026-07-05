@@ -1,6 +1,5 @@
 // Streaming text reveal: time-driven fade bands for independently arriving
 // deltas.
-//
 // Each delta gets its own fade window, so newer text can appear without
 // restarting older fades. Reduced motion and very long text fall back to a
 // plain child to avoid unnecessary GPU work.

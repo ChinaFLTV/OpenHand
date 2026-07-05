@@ -295,7 +295,6 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     // 启动的短命进程会在 tools/list 阶段异常退出（原因未明，可能与 GUI 应用
     // 的进程调度或 pipe buffer 行为有关）。通过复用 process manager 的长驻
     // 进程，既避免了此问题，又省去了冷启动开销。
-    //
     // 如果 process manager 中没有该服务的进程，先启动一个并等待握手完成。
     final processInfo = McpStdioProcessManager.instance.infoFor(server.name);
     if (processInfo.isStopped) {

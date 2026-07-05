@@ -1564,6 +1564,4 @@ class _HeStructuredLogLines extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HeReviewVerdictInfo — parsed review verdict from a userInput segment
-// =============================================================================

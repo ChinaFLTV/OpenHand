@@ -1,9 +1,7 @@
 // 2026-05-24 — 输出格式控制 Prompt 片段的运行时缓存。
-//
 // 真正的可维护内容存放在 [assets/prompts/_shared/output_format_html_*.md] 与
 // [assets/prompts/_shared/output_format_plaintext.md]。本类负责在 app boot
 // 阶段把它们一次性加载进进程内常量，供 [AiPromptBuilder] 同步读取。
-//
 // 加载失败时会回退到内置的最小兜底文本，保证非 Markdown 模式仍能向模型
 // 传递基本格式约束（与 [programming_expert_prompts.dart] 同一模式）。
 

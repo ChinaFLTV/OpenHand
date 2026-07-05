@@ -307,12 +307,9 @@ class _HeStreamingSubConversationState
   }
 }
 
-// =============================================================================
 // _HeSegmentMiniCard — Renders a single output segment as a styled mini-card
 // matching the AI thread template's visual language for thinking, tool call,
 // and assistant response messages.
-// =============================================================================
-
 class _HeSegmentMiniCard extends StatefulWidget {
   const _HeSegmentMiniCard({
     super.key,
@@ -718,7 +715,6 @@ class _HeAnimatedSegmentEntry extends StatelessWidget {
 }
 
 // ── Structured API tool call metadata ────────────────────────────────────
-//
 // HarnessApiPhaseRunner emits two markers inside a toolCall segment:
 //   📥 {args JSON}
 //   📤 status: succeeded | 150ms | exit: 0 | cmd: ... | cwd: ...

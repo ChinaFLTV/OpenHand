@@ -171,10 +171,7 @@ class _ThreadSessionManagementDialogState
     }
   }
 
-  // ------------------------------------------------------------------
   // Helpers
-  // ------------------------------------------------------------------
-
   String _formatDateTime(BuildContext context, DateTime dt) {
     return formatYearMonthDayHm(dt.toLocal());
   }
@@ -210,10 +207,7 @@ class _ThreadSessionManagementDialogState
     });
   }
 
-  // ------------------------------------------------------------------
   // Actions
-  // ------------------------------------------------------------------
-
   Future<void> _renameSession(AiSession session) async {
     final controller = context.read<AiSessionController>();
     final l10n = AppLocalizations.of(context)!;
@@ -842,10 +836,7 @@ class _ThreadSessionManagementDialogState
     );
   }
 
-  // ------------------------------------------------------------------
   // Build
-  // ------------------------------------------------------------------
-
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<AiSessionController>();

@@ -1,5 +1,4 @@
 // Harness Engineering prompt builder service.
-//
 // This module provides specialized prompt construction for Harness
 // Engineering phases, implementing:
 // - Compressed tool catalog rendering (~75% token reduction)

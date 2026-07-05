@@ -16,15 +16,12 @@ class _HePhaseCardEntrance extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // Phase card — mirrors an AI tool-call execution card (_MessageBubble w/
 // isToolCall = true):
 //   • secondaryContainer bg + secondary border  → running
 //   • errorContainer bg + error border          → failed
 //   • surfaceContainerHighest + light border    → completed
 //   • surfaceContainerLow + light border        → pending / skipped
-// =============================================================================
-
 class _HePhaseCard extends StatefulWidget {
   const _HePhaseCard({
     super.key,
@@ -527,11 +524,8 @@ class _HePhaseExpandedBody extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HePhaseActionBar — action buttons shown below a selected phase card,
 // matching the _MessageActionButton pattern from AI thread messages.
-// =============================================================================
-
 class _HePhaseActionBar extends StatelessWidget {
   const _HePhaseActionBar({
     required this.onCopyLog,
@@ -635,10 +629,7 @@ class _HeSweepPill extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // Phase card header pill — mirrors _ToolCallMetaRow
-// =============================================================================
-
 class _HePhaseMetaRow extends StatelessWidget {
   const _HePhaseMetaRow({
     required this.log,
@@ -768,11 +759,8 @@ class _HePhaseMetaRow extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HeLogSection — smart log panel
-//
 // • Running phase  → live monospace tail (last 50 lines, auto-scroll)
 // • Done phase     → "Smart" view (default): extracted command chip +
 //                    full Markdown-rendered content
 //                    "Raw" toggle: classic coloured monospace
-// =============================================================================

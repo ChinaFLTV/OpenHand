@@ -157,10 +157,7 @@ class CronsStore {
     );
   }
 
-  // ---------------------------------------------------------------------------
   // Cron jobs CRUD
-  // ---------------------------------------------------------------------------
-
   Future<List<CronEntry>> loadAll() async {
     final rows = await _db.query(
       _tableName,
@@ -373,10 +370,7 @@ class CronsStore {
     await _db.delete(_tableName, where: 'id = ?', whereArgs: <Object?>[id]);
   }
 
-  // ---------------------------------------------------------------------------
   // Execution history
-  // ---------------------------------------------------------------------------
-
   Future<void> insertHistory(CronExecutionRecord record) async {
     await _db.insert(_historyTable, <String, Object?>{
       'id': record.id,
@@ -566,10 +560,7 @@ class CronsStore {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
-
 List<String> _parseTags(String raw) {
   return splitTrimmedNonEmpty(raw);
 }

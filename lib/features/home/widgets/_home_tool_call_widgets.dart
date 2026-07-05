@@ -4223,7 +4223,6 @@ class _StatRow extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Self-learning card: rendered for AiSessionMessageKind.selfLearning.
-//
 // Shows a compact summary of what the self-learning worker updated during an
 // autonomous review pass: which memories changed, which skills changed, and
 // an optional profile diff paragraph. Mirrors the visual idiom of the tool

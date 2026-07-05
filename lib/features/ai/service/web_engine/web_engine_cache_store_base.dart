@@ -254,10 +254,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     return completer.future;
   }
 
-  // ---------------------------------------------------------------------------
   // protected helpers (子类的 typed lookup/store 调用)
-  // ---------------------------------------------------------------------------
-
   /// 命中查询：未启用 / 不存在 / 过期 / payload 文件丢失 → 全部返回 null。
   /// 命中后异步触发 `_touchAccess` 更新 last_accessed_at。
   Future<WebEngineCacheRawLookup?> baseLookup({

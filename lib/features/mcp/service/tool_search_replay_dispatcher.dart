@@ -1,7 +1,6 @@
 // 2026-05-09 — 把 ToolSearch 重放的「3 秒反悔窗口」从 openhand_home_page
 // 抽出来，便于直接用 FakeAsync 单元测。任何调用方都可以构造一个实例
 // （或多次复用），它内部只维护 Timer 与取消标志。
-//
 // 设计契约：
 // - schedule(onFire, onCancel) 启动一个 [window] 后触发 onFire 的 Timer。
 //   若在窗口内调用 cancel()，Timer 取消、onCancel 被调用。否则 Timer 触发

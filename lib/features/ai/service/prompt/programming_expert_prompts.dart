@@ -1,6 +1,5 @@
 // 仅作为 [rootBundle.loadString] 加载 `assets/prompts/programming_expert/*.md`
 // 失败时的应急兜底（譬如打包损坏 / 资源未注册）。生产构建中几乎不会触发。
-//
 // 模板的真正提示词内容以 `assets/prompts/programming_expert/` 下的 Markdown 文件
 // 为唯一可信来源；此处保留极简双语桩，向用户与日志说明加载失败并请求修复，
 // 避免与资源版本漂移。

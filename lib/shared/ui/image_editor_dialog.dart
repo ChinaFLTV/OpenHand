@@ -1204,7 +1204,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       // becomes non-sendable the whole spawn silently fails). Only the
       // truly heavy pipeline (convolutions, gaussian blur, etc.) still runs
       // in a background isolate — see `_renderInIsolate`.
-      //
       // We yield to the event loop once via `Future.microtask` so the
       // progress indicator has a chance to paint before we block.
       await Future<void>.delayed(Duration.zero);

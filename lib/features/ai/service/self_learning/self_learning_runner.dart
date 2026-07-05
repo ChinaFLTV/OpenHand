@@ -445,10 +445,7 @@ class SelfLearningRunner {
     return finalReport;
   }
 
-  // ---------------------------------------------------------------------------
   // Helpers
-  // ---------------------------------------------------------------------------
-
   Future<void> _writeCard(
     String sessionId, {
     required String summary,

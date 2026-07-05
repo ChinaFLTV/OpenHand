@@ -3310,11 +3310,9 @@ class _BulkUndoOverlay extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 本轮文件变动汇总卡（_RoundFileMutationSummaryCard）
-//
 // 当 AssistantTurn 末尾 (`result.toolCalls.isEmpty`) 触发时，controller 已
 // 写入一条 metadata 含 `round_file_mutation_summary == true` 的 status
 // 消息。这里把该消息渲染为一张「Codex 风总览卡」：
-//
 // - 仅展示本轮真正产生 ledger 记录的 toolCallId（controller 已预筛）。
 // - 行级 dedup 单元 = (filePath × toolCallId)；同一文件被多次 Edit/Write
 //   会出现多行，每行带独立「跳转到来源消息」按钮，跳转通过

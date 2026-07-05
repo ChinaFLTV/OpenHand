@@ -1928,7 +1928,11 @@ class AiToolRuntimeService {
   }
 
   String _hookToolName(AiResolvedTool tool) {
-    return switch (tool.builtinKind) {
+    final builtinKind = tool.builtinKind;
+    if (builtinKind != null && builtinKind.isAgentCoordinationTool) {
+      return agentBuiltinToolCanonicalName(builtinKind);
+    }
+    return switch (builtinKind) {
       AiBuiltinToolKind.task => 'Task',
       AiBuiltinToolKind.bash => 'Bash',
       AiBuiltinToolKind.bashBackground => 'BashBackground',
@@ -1962,27 +1966,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.memory => 'Memory',
       AiBuiltinToolKind.knowledgeSearch => 'KnowledgeSearch',
       AiBuiltinToolKind.knowledgeRead => 'KnowledgeRead',
-      AiBuiltinToolKind.agentList => 'AgentList',
-      AiBuiltinToolKind.agentDetail => 'AgentDetail',
-      AiBuiltinToolKind.agentActivityLog => 'AgentActivityLog',
-      AiBuiltinToolKind.agentAuditReport => 'AgentAuditReport',
-      AiBuiltinToolKind.agentAuditRecord => 'AgentAuditRecord',
-      AiBuiltinToolKind.agentApprovalRequest => 'AgentApprovalRequest',
-      AiBuiltinToolKind.agentKpiUpsert => 'AgentKpiUpsert',
-      AiBuiltinToolKind.agentResourceUpdate => 'AgentResourceUpdate',
-      AiBuiltinToolKind.agentClusterConfigure => 'AgentClusterConfigure',
-      AiBuiltinToolKind.agentClusterStatus => 'AgentClusterStatus',
-      AiBuiltinToolKind.agentTaskList => 'AgentTaskList',
-      AiBuiltinToolKind.agentTaskPublish => 'AgentTaskPublish',
-      AiBuiltinToolKind.agentTaskTrack => 'AgentTaskTrack',
-      AiBuiltinToolKind.agentTaskProgress => 'AgentTaskProgress',
-      AiBuiltinToolKind.agentTaskCancel => 'AgentTaskCancel',
-      AiBuiltinToolKind.agentTaskPause => 'AgentTaskPause',
-      AiBuiltinToolKind.agentTaskTerminate => 'AgentTaskTerminate',
-      AiBuiltinToolKind.agentTaskResume => 'AgentTaskResume',
-      AiBuiltinToolKind.agentTaskComplete => 'AgentTaskComplete',
-      AiBuiltinToolKind.agentTaskResult => 'AgentTaskResult',
-      null => tool.name,
+      _ => tool.name,
     };
   }
 

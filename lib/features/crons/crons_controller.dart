@@ -336,10 +336,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // ---------------------------------------------------------------------------
   // CRUD
-  // ---------------------------------------------------------------------------
-
   Future<bool> addCron(CronEntry entry) async {
     return _commitMutation(() async {
       final now = DateTime.now();
@@ -712,10 +709,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     _runningJobs.clear();
   }
 
-  // ---------------------------------------------------------------------------
   // Scheduling
-  // ---------------------------------------------------------------------------
-
   void _startScheduler() {
     if (!_canExecuteInCurrentState) return;
     scanSystemUsers();
@@ -1097,10 +1091,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
-  // ---------------------------------------------------------------------------
   // Mutation queue
-  // ---------------------------------------------------------------------------
-
   Future<bool> _commitMutation(Future<bool> Function() mutation) {
     final completer = Completer<bool>();
     _mutationQueue = _mutationQueue.then((_) async {

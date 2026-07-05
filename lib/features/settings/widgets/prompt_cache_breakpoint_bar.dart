@@ -71,7 +71,6 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
   // 真实 token 占比，仅作示意，便于一眼看清是哪一段）。配色采用低饱和
   // 调色板，深浅模式下都可读。每段附带 cacheHint，提示该段对缓存命中
   // 的稳定性影响。
-  //
   // 2026-05-23 — Session State 重排到尾部，与 prompt builder 一致；
   // 这样 [0..5] + history 形成稳定可缓存的长前缀。
   static const List<_PromptStructureSpec> _specs = <_PromptStructureSpec>[

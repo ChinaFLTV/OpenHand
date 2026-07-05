@@ -9964,10 +9964,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     );
   }
 
-  // ---------------------------------------------------------------------------
   // Editor code area context menu (right-click)
-  // ---------------------------------------------------------------------------
-
   /// Top-level context menu action identifiers.
   static const _ctxGoToDefinition = 'go_to_definition';
   static const _ctxFindReferences = 'find_references';
@@ -11780,10 +11777,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 }
 
-// ---------------------------------------------------------------------------
 // Completion overlay — IDEA-style autocomplete popup
-// ---------------------------------------------------------------------------
-
 class _CompletionOverlay extends StatelessWidget {
   const _CompletionOverlay({
     required this.items,
@@ -12181,10 +12175,7 @@ class _SignatureParameterChip extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Breadcrumb path bar — clickable segments showing directory contents
-// ---------------------------------------------------------------------------
-
 class _EditorBreadcrumb extends StatelessWidget {
   const _EditorBreadcrumb({required this.filePath, this.onNavigateToFile});
 
@@ -12445,10 +12436,7 @@ class _BreadcrumbSegment extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Editor action button (save / close)
-// ---------------------------------------------------------------------------
-
 class _EditorActionButton extends StatelessWidget {
   const _EditorActionButton({
     required this.tooltip,
@@ -12482,10 +12470,7 @@ class _EditorActionButton extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Find bar icon button
-// ---------------------------------------------------------------------------
-
 class _FindBarButton extends StatelessWidget {
   const _FindBarButton({
     required this.icon,
@@ -13363,10 +13348,7 @@ _EditorSymbolExtractionResult _extractEditorSymbols({
   );
 }
 
-// ---------------------------------------------------------------------------
 // Syntax-highlighted editable editor widget
-// ---------------------------------------------------------------------------
-
 const double _editorFontSizeDefault = 13.0;
 const double _editorFontSizeMin = 8.0;
 const double _editorFontSizeMax = 32.0;
@@ -15655,10 +15637,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Editor tab — Material You Expressive pill tab
-// ---------------------------------------------------------------------------
-
 class _EditorTab extends StatelessWidget {
   const _EditorTab({
     super.key,

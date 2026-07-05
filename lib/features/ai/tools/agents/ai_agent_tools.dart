@@ -9,6 +9,8 @@ import '../../model/ai_builtin_tool_config.dart'
     show
         AiAgentBuiltinToolGroup,
         AiBuiltinToolKindAgentMetadata,
+        agentBuiltinToolCanonicalName,
+        aiAgentBuiltinToolKinds,
         aiAgentToolAccessEnabledMetadataKey,
         aiAgentToolAccessSourceMetadataKey,
         aiAgentToolAllowedAgentIdsMetadataKey;
@@ -65,54 +67,15 @@ const Set<String> _agentWorkerRemovalPolicyValues = <String>{
   'newest_first',
 };
 const Set<String> _agentRetryPolicyValues = <String>{'bounded_retry', 'none'};
-const List<AiBuiltinToolKind> _agentCoordinationToolKinds = <AiBuiltinToolKind>[
-  AiBuiltinToolKind.agentList,
-  AiBuiltinToolKind.agentDetail,
-  AiBuiltinToolKind.agentActivityLog,
-  AiBuiltinToolKind.agentAuditReport,
-  AiBuiltinToolKind.agentAuditRecord,
-  AiBuiltinToolKind.agentApprovalRequest,
-  AiBuiltinToolKind.agentKpiUpsert,
-  AiBuiltinToolKind.agentResourceUpdate,
-  AiBuiltinToolKind.agentClusterConfigure,
-  AiBuiltinToolKind.agentClusterStatus,
-  AiBuiltinToolKind.agentTaskList,
-  AiBuiltinToolKind.agentTaskPublish,
-  AiBuiltinToolKind.agentTaskTrack,
-  AiBuiltinToolKind.agentTaskProgress,
-  AiBuiltinToolKind.agentTaskCancel,
-  AiBuiltinToolKind.agentTaskPause,
-  AiBuiltinToolKind.agentTaskTerminate,
-  AiBuiltinToolKind.agentTaskResume,
-  AiBuiltinToolKind.agentTaskComplete,
-  AiBuiltinToolKind.agentTaskResult,
-];
+const List<AiBuiltinToolKind> _agentCoordinationToolKinds =
+    aiAgentBuiltinToolKinds;
 const Set<AiBuiltinToolKind> _agentWorkerBlockedBuiltinKinds =
     <AiBuiltinToolKind>{
       AiBuiltinToolKind.task,
       AiBuiltinToolKind.todoWrite,
       AiBuiltinToolKind.exitPlanMode,
       AiBuiltinToolKind.askUserChoice,
-      AiBuiltinToolKind.agentList,
-      AiBuiltinToolKind.agentDetail,
-      AiBuiltinToolKind.agentActivityLog,
-      AiBuiltinToolKind.agentAuditReport,
-      AiBuiltinToolKind.agentAuditRecord,
-      AiBuiltinToolKind.agentApprovalRequest,
-      AiBuiltinToolKind.agentKpiUpsert,
-      AiBuiltinToolKind.agentResourceUpdate,
-      AiBuiltinToolKind.agentClusterConfigure,
-      AiBuiltinToolKind.agentClusterStatus,
-      AiBuiltinToolKind.agentTaskList,
-      AiBuiltinToolKind.agentTaskPublish,
-      AiBuiltinToolKind.agentTaskTrack,
-      AiBuiltinToolKind.agentTaskProgress,
-      AiBuiltinToolKind.agentTaskCancel,
-      AiBuiltinToolKind.agentTaskPause,
-      AiBuiltinToolKind.agentTaskTerminate,
-      AiBuiltinToolKind.agentTaskResume,
-      AiBuiltinToolKind.agentTaskComplete,
-      AiBuiltinToolKind.agentTaskResult,
+      ...aiAgentBuiltinToolKinds,
     };
 const Set<AiBuiltinToolKind> _agentWorkerDefaultBuiltinKinds =
     <AiBuiltinToolKind>{
@@ -3359,7 +3322,7 @@ Set<String> _callableAgentToolNames(AiResolvedToolCatalog catalog) {
   // Resolve against the active catalog so payloads do not advertise globally disabled tools.
   final result = <String>{};
   for (final kind in _agentCoordinationToolKinds) {
-    final name = _agentToolNameForKind(kind);
+    final name = agentBuiltinToolCanonicalName(kind);
     if (catalog.find(name) != null) {
       result.add(_normalizedAgentToolName(name));
     }
@@ -3423,17 +3386,19 @@ Map<String, Object?> _agentToolBindingSummaryJson(
       : configuredKinds
             .where(
               (kind) => callableAgentToolNames.contains(
-                _normalizedAgentToolName(_agentToolNameForKind(kind)),
+                _normalizedAgentToolName(agentBuiltinToolCanonicalName(kind)),
               ),
             )
             .toList(growable: false);
   final hasNoAgentToolBindings =
       hasExplicitNone || (configured.isNotEmpty && configuredKinds.isEmpty);
-  final tools = kinds.map(_agentToolNameForKind).toList(growable: false);
+  final tools = kinds
+      .map(agentBuiltinToolCanonicalName)
+      .toList(growable: false);
   final groups = <String, List<String>>{};
   final mutationTools = <String>[];
   for (final kind in kinds) {
-    final tool = _agentToolNameForKind(kind);
+    final tool = agentBuiltinToolCanonicalName(kind);
     final group = _agentToolGroupStorageName(kind.agentToolGroup);
     if (group != null) {
       groups.putIfAbsent(group, () => <String>[]).add(tool);
@@ -3461,9 +3426,9 @@ List<AiBuiltinToolKind> _agentToolKindsFromNames(Iterable<String> names) {
   final byName = <String, AiBuiltinToolKind>{
     for (final kind in _agentCoordinationToolKinds) ...{
       _normalizedAgentToolName(kind.name): kind,
-      _normalizedAgentToolName(_agentToolNameForKind(kind)): kind,
+      _normalizedAgentToolName(agentBuiltinToolCanonicalName(kind)): kind,
       _normalizedAgentToolName(
-        _snakeAgentToolName(_agentToolNameForKind(kind)),
+        _snakeAgentToolName(agentBuiltinToolCanonicalName(kind)),
       ): kind,
     },
   };
@@ -3475,32 +3440,6 @@ List<AiBuiltinToolKind> _agentToolKindsFromNames(Iterable<String> names) {
     result.add(kind);
   }
   return result;
-}
-
-String _agentToolNameForKind(AiBuiltinToolKind kind) {
-  return switch (kind) {
-    AiBuiltinToolKind.agentList => 'AgentList',
-    AiBuiltinToolKind.agentDetail => 'AgentDetail',
-    AiBuiltinToolKind.agentActivityLog => 'AgentActivityLog',
-    AiBuiltinToolKind.agentAuditReport => 'AgentAuditReport',
-    AiBuiltinToolKind.agentAuditRecord => 'AgentAuditRecord',
-    AiBuiltinToolKind.agentApprovalRequest => 'AgentApprovalRequest',
-    AiBuiltinToolKind.agentKpiUpsert => 'AgentKpiUpsert',
-    AiBuiltinToolKind.agentResourceUpdate => 'AgentResourceUpdate',
-    AiBuiltinToolKind.agentClusterConfigure => 'AgentClusterConfigure',
-    AiBuiltinToolKind.agentClusterStatus => 'AgentClusterStatus',
-    AiBuiltinToolKind.agentTaskList => 'AgentTaskList',
-    AiBuiltinToolKind.agentTaskPublish => 'AgentTaskPublish',
-    AiBuiltinToolKind.agentTaskTrack => 'AgentTaskTrack',
-    AiBuiltinToolKind.agentTaskProgress => 'AgentTaskProgress',
-    AiBuiltinToolKind.agentTaskCancel => 'AgentTaskCancel',
-    AiBuiltinToolKind.agentTaskPause => 'AgentTaskPause',
-    AiBuiltinToolKind.agentTaskTerminate => 'AgentTaskTerminate',
-    AiBuiltinToolKind.agentTaskResume => 'AgentTaskResume',
-    AiBuiltinToolKind.agentTaskComplete => 'AgentTaskComplete',
-    AiBuiltinToolKind.agentTaskResult => 'AgentTaskResult',
-    _ => kind.name,
-  };
 }
 
 String? _agentToolGroupStorageName(AiAgentBuiltinToolGroup? group) {

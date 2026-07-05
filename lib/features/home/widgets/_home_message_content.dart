@@ -401,7 +401,6 @@ class _ReasoningBody extends StatelessWidget {
     }
     // 折叠态：展示前 5-6 行预览（maxHeight ≈ 142）并在底部叠渐隐遮罩，
     // 给用户「开始阅读」的锚点，与 WEB 端 ReasoningCollapsibleBody 对齐。
-    //
     // 注意：这里继续不再额外套内部 AnimatedSize。当前外层 `_MessageBubble`
     // 已恢复为单一尺寸动画壳，内部只保留 keyed 内容切换，把高度插值统一交给
     // 外层，避免再次出现多层尺寸动画竞争。
@@ -1552,7 +1551,6 @@ class _MessageMarkdownThemeData {
         // markdown-level wrapper inert here so only the highlighted panel
         // owns the visible border/radius; otherwise the two shells drift
         // apart (14 vs 18 radius) and create a double-outline ghost.
-        //
         // 注意: flutter_markdown_plus 的 builder.dart 对 `pre` 元素强制
         // 设置了 `clipBehavior: Clip.hardEdge`。如果 codeblockDecoration
         // 的 borderRadius 为 null (默认 BorderRadius.zero), 则子组件
@@ -1606,7 +1604,6 @@ class _SafeMarkdownBody extends StatefulWidget {
 // first frame we paint a cheap placeholder so the transcript reveal / scroll
 // lands instantly, then upgrade to the rich Markdown widget tree on the next
 // frame.
-//
 // 从 1.5 KiB 下调到 800 字节：含多代码块的消息（如截图所示
 // 3个bash代码块）总字符数通常在 1000–3000 范围，但 markdown 解析 +
 // MarkdownBuilder.build() + 每个代码块的 widget 构造叠加起来就是
@@ -2742,7 +2739,6 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
           );
     if (!widget.selectable) return body;
     // 修复：跨多行 select 选中 BUG。
-    //
     // 旧实现直接用 `SelectionArea(child: body)`，但 `SelectionArea` 内部
     // 是 `SelectableRegion`，其 `add(Selectable)` 强制 `assert(_selectable == null)`，
     // 一棵子树里只能注册一个 `Selectable`。而 `flutter_markdown_plus` 的
@@ -2750,7 +2746,6 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     // 一个独立带 `UniqueKey()` 的 `SelectableText.rich`，多个 `Selectable`
     // 同时竞争 `SelectableRegion` 的注册 — 只有最后一个能成功，其余全部
     // 沦为「选择孤岛」，用户在孤岛之间拖拽就会被卡死，体感是「只能选一行」。
-    //
     // 修复策略：在 `SelectionArea` 与 body 之间再嵌一层 `SelectionContainer`，
     // 它本身是一个 `Selectable` 节点，对外层 `SelectionArea` 暴露为唯一
     // 注册项；其 delegate 维护内部 N 个 `Selectable`（各 `SelectableText.rich`
@@ -3121,7 +3116,6 @@ class _MarkdownSelectionContainerState
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cached file existence probe for markdown image rendering.
-//
 // During AI streaming the message bubble rebuilds many times per second. Each
 // rebuild previously ran `File(path).existsSync()` for every inline image URL,
 // which is a blocking syscall per image per frame. This TTL cache collapses
@@ -6311,7 +6305,6 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     //    也尝试 HTML 渲染——这能捕获 AI 输出中 `<del>` / `<kbd>` 等白名单外
     //    的有效标签，避免它们被误判为纯文本而显示原生标签字符。
     // 3. HTML 渲染失败时再走 `htmlFallback` 降级链：markdown → plainText。
-    //
     // WebView 内置 HTML 解析器对未闭合标签有原生容错，且 `_HtmlBubbleWebView
     // ._buildDocument` 会先走 `_healUnbalancedHtml` 轻量自愈，进一步降低
     // layout 阶段崩溃的概率；旧版本走 markdown fallback 时，未闭合的

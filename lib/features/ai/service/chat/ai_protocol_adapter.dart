@@ -1946,7 +1946,6 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       return;
     }
     // 候选索引从尾部回溯，按 mode 过滤；保证最少打到最后一条消息。
-    //
     // 2026-06-09 — 不再把剩余断点全部花在滑动尾部。长线程里尾部常常包含
     // 刚读到的大工具结果、连续“继续”、或失败工具调用；只缓存尾部会让服务端
     // 在一次尾部形态变化后失去可复用的稳定会话前缀。默认布点改为：
@@ -2834,7 +2833,6 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
 abstract final class AiProtocolRegistry {
   // ─────────────────────────────────────────────────────────────────────────
   // Vision model detection patterns — per-provider.
-  //
   // Each list contains case-insensitive substrings that, when found in a
   // model ID, indicate the model accepts inline image content parts.
   // Patterns are derived from each provider's official API documentation.

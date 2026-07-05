@@ -1,9 +1,7 @@
 // 元素 (Elements / DOM Inspector) 面板
-//
 // 左：DOM 树（懒加载子节点，单击选中，双击展开/折叠）
 // 右：3 子 tab — Attributes / Computed / Listeners
 // 顶部工具栏：刷新根、复制 selector / xpath、在页面里高亮 / 滚动到。
-//
 // CDP 调用全部走 [WebReverseSessionController] 上新增的 `dom*` 方法；
 // 本面板自己不缓存 DOM 树到 metadata（每次刷新都重读，避免会话不一致）。
 

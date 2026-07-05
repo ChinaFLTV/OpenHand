@@ -240,10 +240,7 @@ class _HookEntryCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Hook editor dialog
-// ---------------------------------------------------------------------------
-
 enum _HookScriptSource { file, inline }
 
 class _HookEditorDialog extends StatefulWidget {

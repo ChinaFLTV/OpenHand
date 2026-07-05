@@ -65,11 +65,7 @@ class SettingsStore {
   String get settingsFilePath => 'db://app_settings';
 
   Database get _db => DatabaseService.instance.database;
-
-  // ---------------------------------------------------------------------------
   // Primary load / save (DB-backed)
-  // ---------------------------------------------------------------------------
-
   Future<SettingsLoadResult> load() async {
     try {
       final rows = await _db.query(
@@ -132,10 +128,7 @@ class SettingsStore {
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  // ---------------------------------------------------------------------------
   // JSON serialization for AppSettingsSnapshot
-  // ---------------------------------------------------------------------------
-
   static Map<String, Object?> _snapshotToJson(AppSettingsSnapshot snapshot) {
     return <String, Object?>{
       'version': 4,

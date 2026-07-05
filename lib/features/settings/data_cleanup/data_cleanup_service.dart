@@ -57,11 +57,7 @@ class DataCleanupService {
   final McpController _mcpController;
   final SkillsController _skillsController;
   final SettingsController _settingsController;
-
-  // ---------------------------------------------------------------------------
   // 体积探测
-  // ---------------------------------------------------------------------------
-
   /// 多媒体附件总大小：扫描每个会话目录下的 `attachments/` 子目录、
   /// 旧版 `~/.openhand/sessions/attachments/`、旧临时 `openhand_media`
   /// 以及持久网络多媒体缓存 `~/.openhand/cache/media/`。
@@ -284,10 +280,7 @@ class DataCleanupService {
     );
   }
 
-  // ---------------------------------------------------------------------------
   // 清理动作
-  // ---------------------------------------------------------------------------
-
   /// 删除所有附件目录里的文件 + 网络多媒体缓存。会话行本身保留——
   /// 附件引用变成"找不到文件"，UI 层会自动降级展示。
   Future<void> cleanMultimedia() async {
@@ -464,10 +457,7 @@ class DataCleanupService {
     return errors;
   }
 
-  // ---------------------------------------------------------------------------
   // DB 体积估算（主 isolate）
-  // ---------------------------------------------------------------------------
-
   Future<DataCleanupSizeReport> _measureSessionsDb() async {
     try {
       final db = DatabaseService.instance.database;
@@ -520,10 +510,7 @@ class DataCleanupService {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Isolate worker functions（必须是顶层或静态以便序列化）
-// ---------------------------------------------------------------------------
-
 /// 在 isolate 内统计 sessions 目录下所有 `attachments/` 子目录的体积与
 /// 文件数。
 DataCleanupSizeReport _isolateMeasureAttachments(String sessionsRoot) {

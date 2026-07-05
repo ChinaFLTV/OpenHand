@@ -162,10 +162,7 @@ class CronsView extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Empty state
-// ---------------------------------------------------------------------------
-
 class _CronEmptyState extends StatelessWidget {
   const _CronEmptyState();
 
@@ -205,10 +202,7 @@ class _CronEmptyState extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Cron entry card
-// ---------------------------------------------------------------------------
-
 class _CronEntryCard extends StatelessWidget {
   const _CronEntryCard({
     required this.entry,
@@ -491,10 +485,7 @@ class _CronEntryCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Status dot (like MCP health dot)
-// ---------------------------------------------------------------------------
-
 class _CronStatusDot extends StatelessWidget {
   const _CronStatusDot({required this.status, required this.enabled});
 
@@ -522,10 +513,7 @@ class _CronStatusDot extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Status chip
-// ---------------------------------------------------------------------------
-
 class _CronStatusChip extends StatelessWidget {
   const _CronStatusChip({required this.entry});
 
@@ -570,10 +558,7 @@ class _CronStatusChip extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Cron editor dialog
-// ---------------------------------------------------------------------------
-
 class _CronEditorDialog extends StatefulWidget {
   const _CronEditorDialog({this.existing});
 
@@ -1920,10 +1905,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Execution history dialog
-// ---------------------------------------------------------------------------
-
 class _CronHistoryDialog extends StatelessWidget {
   const _CronHistoryDialog({required this.entry});
 
@@ -2603,10 +2585,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
   }
 }
 
-// ---------------------------------------------------------------------------
 // Hermes Talker 历史富展示面板
-// ---------------------------------------------------------------------------
-
 /// 解析后的单个会话报告（与 SelfLearningSessionReport.toJson() 对齐）。
 class _HermesTalkerSessionReport {
   const _HermesTalkerSessionReport({

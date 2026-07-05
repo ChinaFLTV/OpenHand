@@ -413,14 +413,10 @@ class _HeSmartViewState extends State<_HeSmartView> {
   }
 }
 
-// =============================================================================
 // _HeSubConversationView — Structured sub-conversation rendering (completed phase)
-//
 // Parses CLI output into typed segments and renders each as an independent
 // mini-card within the phase card, providing a structured conversation feel
 // that matches the AI thread template's visual language.
-// =============================================================================
-
 class _HeSubConversationView extends StatefulWidget {
   const _HeSubConversationView({
     required this.lines,
@@ -643,10 +639,6 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
 /// Top-level function for isolate use in compute().
 List<_HeOutputSegment> _heParseOutputSegmentsIsolate(List<String> lines) =>
     _heParseOutputSegments(lines);
-
-// =============================================================================
 // _HeStreamingSubConversation — Streaming sub-conversation (running phase)
-//
 // Similar to _HeSubConversationView but operates on a tail of lines and
 // includes streaming indicators.
-// =============================================================================

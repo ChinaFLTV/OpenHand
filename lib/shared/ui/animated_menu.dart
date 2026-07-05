@@ -394,7 +394,6 @@ class _PopupMenuRouteLayout extends SingleChildLayoutDelegate {
     // Limit the menu to at most the screen size minus system safe-area padding.
     // getPositionForChild() handles clamping the *position* so the menu stays
     // on-screen; this method only constrains the menu's *size*.
-    //
     // BoxConstraints.deflate() subtracts safe-area padding and clamps each
     // dimension to a valid non-negative value.
     return BoxConstraints.loose(constraints.biggest).deflate(padding);

@@ -1540,7 +1540,6 @@ class AiBashToolService {
     // a temp script file.  The single-quoted heredoc tag ensures the shell
     // performs zero expansion on the script body, preserving all special
     // characters, quotes, variables, and glob patterns literally.
-    //
     // To prevent heredoc injection (where the command body itself contains
     // the heredoc delimiter), we generate a unique tag that is guaranteed
     // not to appear in the command.  If by some chance the base tag exists
@@ -1825,7 +1824,6 @@ class _ShellWriteCommandAnalyzer {
     // macOS terminal automation commands – these talk to terminal apps but
     // don't mutate the local filesystem.  Machine-expert workflows rely on
     // osascript heavily for sending keystrokes and reading screen buffers.
-    //
     // 2026-04-21 SECURITY FIX: `osascript` is NOT listed here because it can
     // execute arbitrary shell commands via `do shell script`, inject commands
     // into other terminal applications via `write text` / `do script` /

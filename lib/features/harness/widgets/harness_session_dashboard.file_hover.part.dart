@@ -289,11 +289,8 @@ class _HeStatRow extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // Top-level helper — opens a path in the system file browser (Finder / Explorer
 // / Nautilus), mirroring _openResolvedMessagePath from openhand_home_page.dart.
-// =============================================================================
-
 Future<void> _heOpenPathInFileBrowser(BuildContext context, String path) async {
   try {
     final launched = await revealLocalPathInSystemFileManager(
@@ -320,6 +317,4 @@ Future<void> _heOpenPathInFileBrowser(BuildContext context, String path) async {
   }
 }
 
-// =============================================================================
 // _HeSteeringAssetsDialog — breadcrumb directory browser for steering files
-// =============================================================================

@@ -229,7 +229,6 @@ enum HarnessOrchestratorStatus { idle, running, completed, failed, cancelled }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HarnessOrchestrator
-//
 // Program-driven state machine that executes Harness Engineering phases
 // directly via CLI processes — no AI orchestration layer involved.
 // ─────────────────────────────────────────────────────────────────────────────

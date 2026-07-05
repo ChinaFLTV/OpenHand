@@ -1,5 +1,4 @@
 // Harness Engineering phase context configuration.
-//
 // This module defines which context elements (architecture, conventions,
 // plan, feedback, lessons, handoff) should be included in each phase's
 // prompt, enabling context-aware loading to reduce token overhead.

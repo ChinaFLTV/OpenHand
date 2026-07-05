@@ -269,11 +269,7 @@ class AiSessionStore {
   }
 
   Database get _db => DatabaseService.instance.database;
-
-  // ---------------------------------------------------------------------------
   // Core CRUD
-  // ---------------------------------------------------------------------------
-
   Future<bool> exists(String sessionId) async {
     final normalizedSessionId = sessionId.trim();
     if (!_isSafeStorageIdentifier(normalizedSessionId)) {
@@ -1013,10 +1009,7 @@ class AiSessionStore {
     }
   }
 
-  // ---------------------------------------------------------------------------
   // Row ↔ Model conversion
-  // ---------------------------------------------------------------------------
-
   AiSession _sessionFromRow(
     Map<String, Object?> row,
     List<Map<String, Object?>> messageRows, {
@@ -1374,10 +1367,7 @@ class AiSessionStore {
     };
   }
 
-  // ---------------------------------------------------------------------------
   // Helpers
-  // ---------------------------------------------------------------------------
-
   static Map<String, Object?> _decodeJsonMap(Object? raw) {
     if (raw is String && raw.isNotEmpty) {
       try {
@@ -1416,10 +1406,7 @@ class AiSessionStore {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Validation helpers (preserved from original)
-// ---------------------------------------------------------------------------
-
 final RegExp _unsafeStorageIdentifierPattern = RegExp(
   r'[\u0000-\u001F\u007F/\\]',
 );

@@ -1,10 +1,8 @@
 // Centralized「现象 / 原因 / 建议」三段式中英双语网络诊断文案。
-//
 // 此前 ai_chat_service.dart / ai_image_generation_service.dart 各有一份
 // 几乎完全一样的 _ChatErrorMessages / _MediaErrorMessages 私有实现 (~280
 // 行 × 2)。本文件抽出公共版本，由这些调用方共用，避免文案漂移与维护
 // 双倍的负担。
-//
 // 设计取舍：
 //   · 通过 `contextLabel` 可选参数允许调用方在每条文案标题尾缀 `[xxx]`
 //     提示流水线归属 (e.g. `[image (image)]`)。Chat 路径传空串即可。
@@ -13,10 +11,8 @@
 //   · `AiModelScanner._ScanErrorMessages` 暂时保留独立实现，因为它包含
 //     扫描场景独有的建议（例如「在「手动添加模型 ID」处直接录入」），
 //     与 Chat / Media 用户面对的操作不同。
-//
 // 输出统一为纯文本（不含 Markdown 标记），下游 SnackBar / banner /
 // SelectableText 都能直接渲染。
-//
 // 注意：文案中刻意保留中英双语标题与建议，方便用户在多语种环境下都能
 // 抓到关键词（例如英文社区的 Cloudflare JA3 知识、HTTP 数字含义等）。
 

@@ -1280,7 +1280,6 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     // frame-spread scheduler. When a message with N code blocks expands,
     // each block registers its highlight task with the scheduler, which
     // executes at most 1 per frame instead of jamming them all into one.
-    //
     // The LRU cache ensures that on second expand (user's observation: "再次
     // 打开折叠消息卡片，卡顿情况会减少很多"), the highlight is instant.
     if (widget.content.length > _highlightDeferThresholdChars) {
@@ -1729,10 +1728,7 @@ String _closeUnterminatedFencedCodeBlock(String source) {
   return '$source$separator$openFence';
 }
 
-// ---------------------------------------------------------------------------
 // Code editor colour themes
-// ---------------------------------------------------------------------------
-
 /// Returns a set of token colours for the given [theme] and [darkSurface] flag.
 ({
   Color comment,

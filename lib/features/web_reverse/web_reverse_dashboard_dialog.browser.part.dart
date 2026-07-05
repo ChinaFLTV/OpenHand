@@ -22,7 +22,6 @@ String _browserText(
 
 // ─────────────────────────────────────────────────────────────────────────
 // 内嵌浏览器面板：CDP screencast 帧渲染 + 输入桥（鼠标 / 滚轮 / 键盘）
-//
 // 设计要点：
 //   1. 资源控制 —— 进入面板时调一次 `acquireScreencast`，离开 / dispose 时
 //      `releaseScreencast`；controller 内部用引用计数避免重复 start/stop。

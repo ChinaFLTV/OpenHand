@@ -1985,10 +1985,7 @@ class _AuditMessageRow extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
-
 int? _auditFirstInt(Iterable<Object?> candidates) {
   for (final value in candidates) {
     final parsed = optionalIntFromValue(value);

@@ -330,12 +330,9 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
   }
 }
 
-// =============================================================================
 // _HeFilePathBuilder — renders file path elements detected in markdown content.
 // Supports both resolved (cached) and pending (async-resolved) paths following
 // the same _AsyncFilePathChip pattern from the main chat.
-// =============================================================================
-
 class _HeFilePathBuilder extends MarkdownElementBuilder {
   _HeFilePathBuilder({required this.textColor});
 
@@ -613,7 +610,5 @@ class _HeFilePathChipInline extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HeFileHoverPopup — Ctrl/Cmd+hover overlay showing file/directory metadata.
 // Mirrors the _FileHoverPopup pattern from openhand_home_page.dart.
-// =============================================================================

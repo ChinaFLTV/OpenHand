@@ -1,10 +1,8 @@
 // 「断点」独立面板：
-//
 // 三段式：
 //   1) Source breakpoints —— controller.userBreakpoints 列出，每条带「跳到 Sources」+ 删除。
 //   2) Pause on exceptions —— 三态 SegmentedButton: 关 / 仅未捕获 / 全部抛出。
 //   3) XHR / fetch breakpoints —— 子串匹配的 URL 列表 + 新增输入框 + 删除按钮。
-//
 // 风格：圆角胶囊 + 220ms easeOutCubic 切换 + Q弹 AnimatedSize/Switcher，
 // 遵守 MediaQuery.disableAnimationsOf。
 

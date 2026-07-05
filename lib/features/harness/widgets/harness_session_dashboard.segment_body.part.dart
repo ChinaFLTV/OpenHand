@@ -42,10 +42,7 @@ _HeReviewVerdictInfo? _parseReviewVerdict(_HeOutputSegment seg) {
   return _HeReviewVerdictInfo(isPass: isPass, comment: comment);
 }
 
-// =============================================================================
 // _HeReviewVerdictCard — styled card for manual review verdict
-// =============================================================================
-
 class _HeReviewVerdictCard extends StatelessWidget {
   const _HeReviewVerdictCard({
     required this.isPass,
@@ -174,10 +171,7 @@ class _HeReviewVerdictCard extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HeSegmentBody — renders markdown content within a segment card
-// =============================================================================
-
 class _HeSegmentBody extends StatelessWidget {
   const _HeSegmentBody({
     required this.content,

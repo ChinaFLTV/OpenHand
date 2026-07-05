@@ -35,6 +35,7 @@ import '../mcp/index.dart';
 import 'data/ai_session_store.dart';
 import 'model/ai_attachment.dart';
 import 'model/ai_auto_title_fetch_mode.dart';
+import 'model/ai_builtin_tool_config.dart' show AiBuiltinToolKindAgentMetadata;
 import 'model/ai_creation_mode.dart';
 import 'model/ai_deny_command_rule.dart';
 import 'model/ai_input_cache_policy.dart';
@@ -7514,7 +7515,6 @@ class AiSessionController extends ChangeNotifier {
       // message when tool calls were present, which caused the AI's chain-of-
       // thought reasoning and narration to be lost from the conversation
       // transcript.  Users reported this as "messages being unexpectedly lost".
-      //
       // The sanitizer already strips raw <tool_call>/<tool_result> XML markup,
       // so what remains is the actual narration text that should be preserved.
       final effectiveReply = didCancelStream
@@ -8681,7 +8681,11 @@ class AiSessionController extends ChangeNotifier {
         resolvedTool.source != AiRuntimeToolSource.builtin) {
       return false;
     }
-    switch (resolvedTool.builtinKind) {
+    final builtinKind = resolvedTool.builtinKind;
+    if (builtinKind != null && builtinKind.isAgentCoordinationTool) {
+      return !builtinKind.isAgentMutationTool;
+    }
+    switch (builtinKind) {
       case AiBuiltinToolKind.read:
       case AiBuiltinToolKind.ls:
       case AiBuiltinToolKind.glob:
@@ -8694,15 +8698,6 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.readLints:
       case AiBuiltinToolKind.knowledgeSearch:
       case AiBuiltinToolKind.knowledgeRead:
-      case AiBuiltinToolKind.agentList:
-      case AiBuiltinToolKind.agentDetail:
-      case AiBuiltinToolKind.agentActivityLog:
-      case AiBuiltinToolKind.agentAuditReport:
-      case AiBuiltinToolKind.agentClusterStatus:
-      case AiBuiltinToolKind.agentTaskList:
-      case AiBuiltinToolKind.agentTaskTrack:
-      case AiBuiltinToolKind.agentTaskProgress:
-      case AiBuiltinToolKind.agentTaskResult:
         return true;
       case AiBuiltinToolKind.task:
         return _isParallelizableTaskToolCall(toolCall);
@@ -8735,21 +8730,11 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.skillManager:
       // Memory tool mutates shared MemoryController state — must run serially.
       case AiBuiltinToolKind.memory:
-      case AiBuiltinToolKind.agentAuditRecord:
-      case AiBuiltinToolKind.agentApprovalRequest:
-      case AiBuiltinToolKind.agentKpiUpsert:
-      case AiBuiltinToolKind.agentResourceUpdate:
-      case AiBuiltinToolKind.agentClusterConfigure:
-      case AiBuiltinToolKind.agentTaskPublish:
-      case AiBuiltinToolKind.agentTaskCancel:
-      case AiBuiltinToolKind.agentTaskPause:
-      case AiBuiltinToolKind.agentTaskTerminate:
-      case AiBuiltinToolKind.agentTaskResume:
-      case AiBuiltinToolKind.agentTaskComplete:
       case AiBuiltinToolKind.machineTerminalRead:
       case AiBuiltinToolKind.machineTerminalWrite:
       case AiBuiltinToolKind.machineTerminalExec:
       case AiBuiltinToolKind.machineTerminalControl:
+      default:
         return false;
     }
   }

@@ -231,7 +231,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   ValueNotifier<bool>? _atMentionVisible;
 
   // ── Skill picker (leading `/` slash trigger) ──
-  //
   // When the text in the composer begins with '/', a picker overlay is
   // presented that lists locally installed skills. Selecting a skill strips
   // the leading '/…' token from the composer and attaches the skill as a
@@ -1799,7 +1798,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 // that send-message and toggle-composer hotkeys (Ctrl+Enter
                 // and Ctrl+P by default) are consumed *inside* the focused
                 // TextField before default editing shortcuts see them.
-                //
                 // Background: macOS' DefaultTextEditingShortcuts maps Ctrl+P
                 // to MoveSelectionUpTextIntent at the WidgetsApp level. The
                 // actual send/toggle action is still dispatched once by
@@ -4427,7 +4425,6 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
 }
 
 // ─── Composer shortcut interception ────────────────────────────────────────
-//
 // Hosts a Shortcuts/Actions pair just above the composer's TextField.  The
 // activators are derived from the user's global SettingsController bindings
 // (sendMessage / toggleComposer).  Because Shortcuts widgets are walked from

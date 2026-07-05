@@ -118,11 +118,8 @@ class _HeChangedFilesList extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HeFileDiffDialog — full-width dialog showing file content diff.
 // Computes diff asynchronously in an isolate to keep the UI responsive.
-// =============================================================================
-
 /// Isolate-friendly top-level function for diff computation.
 List<String> _computeDiffIsolate(List<Object> args) {
   return unifiedDiffLinesFromText(args[0] as String, args[1] as String);
@@ -429,9 +426,7 @@ class _DiffStatChip extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HeStreamingSmartView — StatefulWidget that caches the parsed markdown AST
 // between rebuilds during streaming, only re-parsing when the content actually
 // changes. Uses _SafeMarkdownBody-style manual AST parsing + MarkdownBuilder
 // for reliability and performance during rapid streaming updates.
-// =============================================================================

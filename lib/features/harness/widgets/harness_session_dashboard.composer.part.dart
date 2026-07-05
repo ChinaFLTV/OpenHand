@@ -603,10 +603,7 @@ class _HeComposer extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HePhaseApprovalBanner — shown between phases when user approval is needed
-// =============================================================================
-
 class _HePhaseApprovalBanner extends StatelessWidget {
   const _HePhaseApprovalBanner({
     required this.nextPhase,
@@ -900,10 +897,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HePendingPhaseEditor — allows changing CLI/model for a pending phase
-// =============================================================================
-
 class _HePendingPhaseEditor extends StatelessWidget {
   const _HePendingPhaseEditor({
     required this.roleConfig,

@@ -1,9 +1,7 @@
 // 2026-05-24 — 消息内容渲染格式。
-//
 // 用户可在「全局设置 → AI 设置 → 会话设置」中切换 AI 侧消息卡片的渲染
 // 形式。默认 markdown 与现状一致；plainText 性能最优，直接以纯文本展示；
 // html 通过第三方渲染库展示，渲染失败时按 [AiHtmlRenderFallback] 降级。
-//
 // 该枚举随 Prompt 注入与运行时上下文一起传递，下游 prompt builder
 // 会在非 markdown 模式下追加对应的 output_format reminder。
 

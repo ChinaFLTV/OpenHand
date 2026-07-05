@@ -408,10 +408,7 @@ class _HePaneHeader extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // _HeSessionMetadataDialog — full metadata dialog matching _SessionMetadataDialog
-// =============================================================================
-
 class _HeSessionMetadataDialog extends StatelessWidget {
   const _HeSessionMetadataDialog({
     required this.config,
@@ -1005,10 +1002,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
   }
 }
 
-// =============================================================================
 // HE Metadata dialog sub-widgets (matching _SessionMetadataDialog style)
-// =============================================================================
-
 class _HeSummaryTile extends StatelessWidget {
   const _HeSummaryTile({required this.label, required this.value});
 

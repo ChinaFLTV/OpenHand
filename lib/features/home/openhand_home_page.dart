@@ -2363,9 +2363,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // 缺少 ScrollNotification 携带的 dragDetails / UserScrollNotification.direction
     // 等精确元数据。此后 listener 不再越俎代庖做暂停/恢复决策，该职责完全交给
     // _handleMessageScrollNotification，它拥有完整的用户意图分类信息。
-    //
     // listener 仅保留同步 _syncAutoFollowPausedState（UI 状态一致性）职责。
-    //
     // 物理模拟期间（isScrollingNotifier && !_userDragActive）完全跳过，避免
     // 弹簧回弹/fling 减速产生的像素变化触发不必要的 UI 刷新。
     if (position.isScrollingNotifier.value && !_userDragActive) {
@@ -2660,7 +2658,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return false;
       }
       // 2026-04-28: Single-source-of-truth dispatch.
-      //
       // Returning true from a HardwareKeyboard handler does NOT skip the
       // focus-tree dispatch in the current Flutter pipeline – BOTH this
       // HW handler AND the focused FocusNode.onKeyEvent fire for the
@@ -2668,7 +2665,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       // action, so the composer toggle ran twice and visually cancelled
       // out (the recurring "press Ctrl+P, border flashes, nothing
       // happens" bug).  The fix:
-      //
       //   * This HW handler always performs the action exactly once and
       //     returns true (which is enough to suppress macOS'
       //     DefaultTextEditingShortcuts at the platform layer).
@@ -2764,7 +2760,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
     }
     // 2026-04-28: Composer shortcut consumption (no action).
-    //
     // _handleGlobalShortcutKeyEvent (HardwareKeyboard) is the sole
     // executor of send-message / toggle-composer.  Here we only need to
     // CONSUME the matching keystroke in the focus tree so that

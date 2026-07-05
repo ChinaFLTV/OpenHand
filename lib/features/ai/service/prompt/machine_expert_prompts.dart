@@ -1,5 +1,4 @@
 // Emergency fallback prompts for the `machine_expert` template.
-//
 // The authoritative prompts now live in `assets/prompts/machine_expert/*.md`
 // and are loaded at runtime by `AiPromptTemplateRepository`. These constants
 // are only used if `rootBundle.loadString` fails to load those assets (e.g.
