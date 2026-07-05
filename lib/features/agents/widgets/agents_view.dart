@@ -98,6 +98,13 @@ const List<String> _agentImageExtensions = <String>[
 ];
 const double _agentChipSpacing = 8;
 const double _agentChipDropSlotExtent = 28;
+const double _agentCapabilityChipSpacing = 8;
+const double _agentCapabilityChipMinHeight = 38;
+const double _agentCapabilityChipMaxWidth = 320;
+const double _agentCapabilityChipIconSlotWidth = 22;
+const int _agentCapabilityChipStateDurationMs = 150;
+const EdgeInsetsDirectional _agentCapabilityChipPadding =
+    EdgeInsetsDirectional.fromSTEB(12, 7, 14, 7);
 
 bool _isAgentCoordinationBuiltinToolId(String id) {
   return AiBuiltinToolKind.values.any(
@@ -8808,38 +8815,11 @@ class _CapabilityPanel extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final option in options)
-                          Tooltip(
-                            message: option.subtitle.trim().isEmpty
-                                ? option.label
-                                : option.subtitle.trim(),
-                            child: FilterChip(
-                              label: Text(
-                                option.label,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              selected:
-                                  option.enabled &&
-                                  selected.contains(option.id),
-                              onSelected: option.enabled
-                                  ? (value) {
-                                      final next = {...selected};
-                                      value
-                                          ? next.add(option.id)
-                                          : next.remove(option.id);
-                                      onChanged(next);
-                                    }
-                                  : null,
-                              visualDensity: VisualDensity.compact,
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          ),
-                      ],
+                    _AgentCapabilityChipGrid(
+                      options: options,
+                      selected: selected,
+                      onChanged: onChanged,
+                      semanticHintBuilder: _agentCapabilityChipSemanticHint,
                     ),
                   ],
                 ),
@@ -9003,22 +8983,19 @@ class _AgentToolGroupSection extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final option in options)
-                  _AgentToolFilterChip(
-                    option: option,
-                    selected: option.enabled && selected.contains(option.id),
-                    onSelected: (value) {
-                      final next = {...selected};
-                      if (!option.enabled) return;
-                      value ? next.add(option.id) : next.remove(option.id);
-                      onChanged(next);
-                    },
-                  ),
-              ],
+            _AgentCapabilityChipGrid(
+              options: options,
+              selected: selected,
+              onChanged: onChanged,
+              leadingIconBuilder: (option, _) {
+                final kind = _agentToolKindForOption(option);
+                final isMutation = kind?.isAgentMutationTool ?? false;
+                return isMutation
+                    ? Icons.edit_note_rounded
+                    : Icons.visibility_outlined;
+              },
+              semanticHintBuilder: (option) =>
+                  _agentToolChipSemanticHint(context, option),
             ),
           ],
         ),
@@ -9027,50 +9004,269 @@ class _AgentToolGroupSection extends StatelessWidget {
   }
 }
 
-class _AgentToolFilterChip extends StatelessWidget {
-  const _AgentToolFilterChip({
-    required this.option,
+class _AgentCapabilityChipGrid extends StatelessWidget {
+  const _AgentCapabilityChipGrid({
+    required this.options,
     required this.selected,
-    required this.onSelected,
+    required this.onChanged,
+    this.leadingIconBuilder,
+    this.semanticHintBuilder,
   });
 
-  final _Option option;
-  final bool selected;
-  final ValueChanged<bool> onSelected;
+  final List<_Option> options;
+  final Set<String> selected;
+  final ValueChanged<Set<String>> onChanged;
+  final IconData? Function(_Option option, bool selected)? leadingIconBuilder;
+  final String? Function(_Option option)? semanticHintBuilder;
 
   @override
   Widget build(BuildContext context) {
-    final kind = _agentToolKindForOption(option);
-    final isMutation = kind?.isAgentMutationTool ?? false;
-    final tooltip = !option.enabled
-        ? openHandLocalizedText(
-            context,
-            zh: '${option.label} 已在全局内建工具设置中关闭，需先全局启用后才能绑定。',
-            en: '${option.label} is disabled in global built-in tool settings. Enable it globally before binding.',
-          )
-        : isMutation
-        ? openHandLocalizedText(
-            context,
-            zh: '${option.label} 会变更智能体任务、审批、KPI、资源或集群状态。',
-            en: '${option.label} can mutate agent tasks, approvals, KPI, resources, or cluster state.',
-          )
-        : openHandLocalizedText(
-            context,
-            zh: '${option.label} 仅查询智能体上下文或进度。',
-            en: '${option.label} only reads agent context or progress.',
-          );
-    return Tooltip(
-      message: tooltip,
-      child: FilterChip(
-        avatar: Icon(
-          isMutation ? Icons.edit_note_rounded : Icons.visibility_outlined,
-          size: 16,
+    return Wrap(
+      spacing: _agentCapabilityChipSpacing,
+      runSpacing: _agentCapabilityChipSpacing,
+      children: [
+        for (final option in options)
+          Builder(
+            builder: (context) {
+              final isSelected = option.enabled && selected.contains(option.id);
+              return _AgentCapabilityChoiceChip(
+                key: ValueKey<String>('agent-capability-chip-${option.id}'),
+                label: option.label,
+                selected: isSelected,
+                enabled: option.enabled,
+                leadingIcon: leadingIconBuilder?.call(option, isSelected),
+                semanticHint: semanticHintBuilder?.call(option),
+                onSelected: option.enabled
+                    ? (value) {
+                        final next = {...selected};
+                        value ? next.add(option.id) : next.remove(option.id);
+                        onChanged(next);
+                      }
+                    : null,
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _AgentCapabilityChoiceChip extends StatefulWidget {
+  const _AgentCapabilityChoiceChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.enabled,
+    required this.onSelected,
+    this.leadingIcon,
+    this.semanticHint,
+  });
+
+  final String label;
+  final bool selected;
+  final bool enabled;
+  final ValueChanged<bool>? onSelected;
+  final IconData? leadingIcon;
+  final String? semanticHint;
+
+  @override
+  State<_AgentCapabilityChoiceChip> createState() =>
+      _AgentCapabilityChoiceChipState();
+}
+
+class _AgentCapabilityChoiceChipState
+    extends State<_AgentCapabilityChoiceChip> {
+  bool _hovered = false;
+  bool _focused = false;
+  bool _pressed = false;
+
+  bool get _interactive => widget.enabled && widget.onSelected != null;
+
+  void _setHovered(bool value) {
+    if (_hovered == value) return;
+    setState(() => _hovered = value);
+  }
+
+  void _setFocused(bool value) {
+    if (_focused == value) return;
+    setState(() => _focused = value);
+  }
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AgentCapabilityChoiceChip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_interactive) return;
+    if (_hovered || _focused || _pressed) {
+      _hovered = false;
+      _focused = false;
+      _pressed = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final duration = openHandMotionDurationMs(
+      context,
+      _agentCapabilityChipStateDurationMs,
+    );
+    final activeVisual = _interactive && (_hovered || _focused);
+    final scale = !_interactive
+        ? 1.0
+        : _pressed
+        ? 0.985
+        : activeVisual
+        ? 1.012
+        : 1.0;
+    final foreground = _agentCapabilityChipForeground(colors);
+    final background = _agentCapabilityChipBackground(colors, activeVisual);
+    final border = _agentCapabilityChipBorder(colors, activeVisual);
+    final shadow = _interactive && activeVisual
+        ? [
+            BoxShadow(
+              color: colors.primary.withValues(alpha: 0.10),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ]
+        : const <BoxShadow>[];
+
+    final chip = AnimatedScale(
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      scale: scale,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: _agentCapabilityChipMinHeight,
+          maxWidth: _agentCapabilityChipMaxWidth,
         ),
-        label: Text(option.label, overflow: TextOverflow.ellipsis),
-        selected: selected,
-        onSelected: option.enabled ? onSelected : null,
-        visualDensity: VisualDensity.compact,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        child: AnimatedContainer(
+          duration: duration,
+          curve: Curves.easeOutCubic,
+          padding: _agentCapabilityChipPadding,
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: border, width: widget.selected ? 1.5 : 1),
+            boxShadow: shadow,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.leadingIcon != null)
+                _AgentCapabilityChipIconSlot(
+                  icon: widget.leadingIcon,
+                  color: foreground,
+                  duration: duration,
+                ),
+              Flexible(
+                child: Text(
+                  widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: foreground,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return Semantics(
+      button: true,
+      selected: widget.selected,
+      enabled: _interactive,
+      label: widget.label,
+      hint: widget.semanticHint,
+      child: MouseRegion(
+        cursor: _interactive
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        child: Material(
+          type: MaterialType.transparency,
+          borderRadius: BorderRadius.circular(999),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(999),
+            canRequestFocus: _interactive,
+            onTap: _interactive
+                ? () => widget.onSelected?.call(!widget.selected)
+                : null,
+            onHover: _interactive ? _setHovered : null,
+            onFocusChange: _interactive ? _setFocused : null,
+            onHighlightChanged: _interactive ? _setPressed : null,
+            child: chip,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _agentCapabilityChipForeground(ColorScheme colors) {
+    if (!widget.enabled) {
+      return colors.onSurfaceVariant.withValues(alpha: 0.46);
+    }
+    if (widget.selected) return colors.onPrimaryContainer;
+    return colors.onSurface;
+  }
+
+  Color _agentCapabilityChipBackground(ColorScheme colors, bool activeVisual) {
+    if (!widget.enabled) {
+      return colors.surfaceContainerHighest.withValues(alpha: 0.30);
+    }
+    if (widget.selected) {
+      return activeVisual
+          ? colors.primaryContainer.withValues(alpha: 0.98)
+          : colors.primaryContainer.withValues(alpha: 0.88);
+    }
+    return activeVisual
+        ? colors.surfaceContainerHighest.withValues(alpha: 0.76)
+        : colors.surfaceContainerHighest.withValues(alpha: 0.48);
+  }
+
+  Color _agentCapabilityChipBorder(ColorScheme colors, bool activeVisual) {
+    if (!widget.enabled) {
+      return colors.outlineVariant.withValues(alpha: 0.54);
+    }
+    if (widget.selected) {
+      return colors.primary.withValues(alpha: activeVisual ? 0.74 : 0.56);
+    }
+    return colors.outlineVariant.withValues(alpha: activeVisual ? 0.92 : 0.72);
+  }
+}
+
+class _AgentCapabilityChipIconSlot extends StatelessWidget {
+  const _AgentCapabilityChipIconSlot({
+    required this.icon,
+    required this.color,
+    required this.duration,
+  });
+
+  final IconData? icon;
+  final Color color;
+  final Duration duration;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _agentCapabilityChipIconSlotWidth,
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: AnimatedOpacity(
+          duration: duration,
+          curve: Curves.easeOutCubic,
+          opacity: icon == null ? 0 : 1,
+          child: Icon(icon ?? Icons.check_rounded, size: 17, color: color),
+        ),
       ),
     );
   }
@@ -9172,6 +9368,35 @@ _Option _agentToolOption(
     agentBuiltinToolLabel(context, kind),
     '$toolName · $summary',
     enabled: enabled,
+  );
+}
+
+String? _agentCapabilityChipSemanticHint(_Option option) {
+  final subtitle = option.subtitle.trim();
+  return subtitle.isEmpty ? null : subtitle;
+}
+
+String _agentToolChipSemanticHint(BuildContext context, _Option option) {
+  final kind = _agentToolKindForOption(option);
+  final isMutation = kind?.isAgentMutationTool ?? false;
+  if (!option.enabled) {
+    return openHandLocalizedText(
+      context,
+      zh: '${option.label} 已在全局内建工具设置中关闭，需先全局启用后才能绑定。',
+      en: '${option.label} is disabled in global built-in tool settings. Enable it globally before binding.',
+    );
+  }
+  if (isMutation) {
+    return openHandLocalizedText(
+      context,
+      zh: '${option.label} 会变更智能体任务、审批、KPI、资源或集群状态。',
+      en: '${option.label} can mutate agent tasks, approvals, KPI, resources, or cluster state.',
+    );
+  }
+  return openHandLocalizedText(
+    context,
+    zh: '${option.label} 仅查询智能体上下文或进度。',
+    en: '${option.label} only reads agent context or progress.',
   );
 }
 
@@ -9508,24 +9733,11 @@ class _OptionChips extends StatelessWidget {
               constraints: const BoxConstraints(maxHeight: 180),
               child: SingleChildScrollView(
                 physics: openHandDialogAwareScrollPhysics(context),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final option in options)
-                      FilterChip(
-                        label: Text(
-                          option.label,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        selected: selected.contains(option.id),
-                        onSelected: (value) {
-                          final next = {...selected};
-                          value ? next.add(option.id) : next.remove(option.id);
-                          onChanged(next);
-                        },
-                      ),
-                  ],
+                child: _AgentCapabilityChipGrid(
+                  options: options,
+                  selected: selected,
+                  onChanged: onChanged,
+                  semanticHintBuilder: _agentCapabilityChipSemanticHint,
                 ),
               ),
             ),
