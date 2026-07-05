@@ -158,9 +158,7 @@ class SessionCacheHitViewport {
     final minSpan = (minVisiblePoints - 1).clamp(1, totalPoints - 1).toDouble();
     final safeScale = scale <= 0 ? 1.0 : scale;
     final nextSpan = (span / safeScale).clamp(minSpan, maxSpan);
-    final normalizedAnchor = span <= 0
-        ? 0.0
-        : ((anchor - start) / span).clamp(0.0, 1.0);
+    final normalizedAnchor = unitRatio(anchor - start, span);
     var nextStart = anchor - normalizedAnchor * nextSpan;
     var nextEnd = nextStart + nextSpan;
     if (nextStart < 0) {
