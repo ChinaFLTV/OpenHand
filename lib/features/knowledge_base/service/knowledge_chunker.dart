@@ -1,3 +1,4 @@
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/stable_hash.dart';
 import '../model/knowledge_base_settings.dart';
 import '../model/knowledge_chunk.dart';
@@ -314,9 +315,7 @@ class KnowledgeChunker {
   int _estimateTokens(String text) => (text.length / 4).ceil();
 
   int _clampInt(int value, int lowerLimit, int upperLimit) {
-    if (value < lowerLimit) return lowerLimit;
-    if (value > upperLimit) return upperLimit;
-    return value;
+    return clampIntToRange(value, min: lowerLimit, max: upperLimit);
   }
 }
 
