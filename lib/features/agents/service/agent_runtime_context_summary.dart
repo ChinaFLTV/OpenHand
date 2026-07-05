@@ -14,14 +14,14 @@ agentCoordinationToolDisplayNames = <(String, String)>[
   ('agentclusterstatus', 'AgentClusterStatus'),
   ('agenttasklist', 'AgentTaskList'),
   ('agenttaskpublish', 'AgentTaskPublish'),
-  ('agenttasktrack', 'AgentTaskTrack'),
-  ('agenttaskprogress', 'AgentTaskProgress'),
+  (agentTaskTrackToolLookupKey, agentTaskTrackToolName),
+  (agentTaskProgressToolLookupKey, agentTaskProgressToolName),
   ('agenttaskcancel', 'AgentTaskCancel'),
   ('agenttaskpause', 'AgentTaskPause'),
   ('agenttaskterminate', 'AgentTaskTerminate'),
   ('agenttaskresume', 'AgentTaskResume'),
   ('agenttaskcomplete', 'AgentTaskComplete'),
-  ('agenttaskresult', 'AgentTaskResult'),
+  (agentTaskResultToolLookupKey, agentTaskResultToolName),
 ];
 
 Map<String, Object?> agentCapabilityBindingsJson(

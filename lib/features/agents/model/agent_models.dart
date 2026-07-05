@@ -7,6 +7,13 @@ final RegExp _agentDelimitedTextSeparatorPattern = RegExp(r'[\r\n,，;；]+');
 
 const String agentNoCoordinationToolsBinding = '__openhand_agent_tools_none__';
 const int agentResourceOpenHandlePressureLimit = 128;
+const int agentTaskRecommendedPollMs = 1500;
+const String agentTaskTrackToolName = 'AgentTaskTrack';
+const String agentTaskProgressToolName = 'AgentTaskProgress';
+const String agentTaskResultToolName = 'AgentTaskResult';
+const String agentTaskTrackToolLookupKey = 'agenttasktrack';
+const String agentTaskProgressToolLookupKey = 'agenttaskprogress';
+const String agentTaskResultToolLookupKey = 'agenttaskresult';
 const Set<String> _agentCoordinationBuiltinToolLookupKeys = <String>{
   'agentlist',
   'agentdetail',
@@ -20,14 +27,14 @@ const Set<String> _agentCoordinationBuiltinToolLookupKeys = <String>{
   'agentclusterstatus',
   'agenttasklist',
   'agenttaskpublish',
-  'agenttasktrack',
-  'agenttaskprogress',
+  agentTaskTrackToolLookupKey,
+  agentTaskProgressToolLookupKey,
   'agenttaskcancel',
   'agenttaskpause',
   'agenttaskterminate',
   'agenttaskresume',
   'agenttaskcomplete',
-  'agenttaskresult',
+  agentTaskResultToolLookupKey,
 };
 
 bool isAgentNoCoordinationToolsBinding(String value) {

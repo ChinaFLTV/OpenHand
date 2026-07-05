@@ -26,15 +26,12 @@ import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 import '../planning/ai_task_tool.dart' show AiSubToolExecutor;
 
-const int _agentTaskRecommendedPollMs = 1500;
 const int _agentTaskDefaultResultWaitMs = 30000;
 const int _agentTaskMaxResultWaitMs = 90000;
 const int _agentTaskMinPollMs = 300;
 const int _agentWorkerMaxToolRounds = 8;
 const int _agentWorkerResultMaxChars = 24000;
 const Duration _agentWorkerTurnTimeout = Duration(seconds: 75);
-const String _agentTaskProgressToolName = 'AgentTaskProgress';
-const String _agentTaskResultToolName = 'AgentTaskResult';
 const String _agentTaskAutoWorkerToolName = 'AgentWorker';
 const String _agentTaskAutoExecuteExtraKey = 'agent_auto_execute';
 const List<String> _agentTaskActiveTools = <String>[
@@ -267,7 +264,7 @@ class AiAgentTool extends AiTool {
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentTaskTrack,
-        name: 'AgentTaskTrack',
+        name: agentTaskTrackToolName,
         operation: _AgentToolOperation.trackTask,
         agentsControllerProvider: agentsControllerProvider,
         promptRenderer: renderer,
@@ -277,7 +274,7 @@ class AiAgentTool extends AiTool {
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentTaskProgress,
-        name: 'AgentTaskProgress',
+        name: agentTaskProgressToolName,
         operation: _AgentToolOperation.progressTask,
         agentsControllerProvider: agentsControllerProvider,
         promptRenderer: renderer,
@@ -337,7 +334,7 @@ class AiAgentTool extends AiTool {
       ),
       AiAgentTool._(
         kind: AiBuiltinToolKind.agentTaskResult,
-        name: 'AgentTaskResult',
+        name: agentTaskResultToolName,
         operation: _AgentToolOperation.resultTask,
         agentsControllerProvider: agentsControllerProvider,
         promptRenderer: renderer,
@@ -2388,9 +2385,9 @@ class AiAgentTool extends AiTool {
     );
     final pollMs = clampedIntFromValue(
       args['poll_ms'],
-      fallback: _agentTaskRecommendedPollMs,
+      fallback: agentTaskRecommendedPollMs,
       min: _agentTaskMinPollMs,
-      max: _agentTaskRecommendedPollMs * 4,
+      max: agentTaskRecommendedPollMs * 4,
     );
     return (maxMs: maxMs, pollMs: pollMs);
   }
@@ -3651,7 +3648,7 @@ Map<String, Object?> _taskStateJson(
     ),
     if (_taskRetryJson(task) case final retry?) 'retry': retry,
     if (terminalReason != null) 'terminal_reason': terminalReason,
-    if (canPoll) 'recommended_poll_ms': _agentTaskRecommendedPollMs,
+    if (canPoll) 'recommended_poll_ms': agentTaskRecommendedPollMs,
   };
 }
 
@@ -3764,27 +3761,27 @@ Map<String, Object?>? _taskNextPollJson(
   }
   final progressAvailable = _agentToolAvailable(
     agent,
-    _agentTaskProgressToolName,
+    agentTaskProgressToolName,
     callableAgentToolNames: callableAgentToolNames,
   );
   final resultAvailable = _agentToolAvailable(
     agent,
-    _agentTaskResultToolName,
+    agentTaskResultToolName,
     callableAgentToolNames: callableAgentToolNames,
   );
   return <String, Object?>{
     'available': progressAvailable || resultAvailable,
-    if (progressAvailable) 'tool': _agentTaskProgressToolName,
-    if (resultAvailable) 'result_tool': _agentTaskResultToolName,
+    if (progressAvailable) 'tool': agentTaskProgressToolName,
+    if (resultAvailable) 'result_tool': agentTaskResultToolName,
     if (!progressAvailable || !resultAvailable)
       'missing_tools': <String>[
-        if (!progressAvailable) _agentTaskProgressToolName,
-        if (!resultAvailable) _agentTaskResultToolName,
+        if (!progressAvailable) agentTaskProgressToolName,
+        if (!resultAvailable) agentTaskResultToolName,
       ],
     if (!progressAvailable && !resultAvailable)
       'blocked_reason':
           'No task polling tools are bound for this agent. Enable AgentTaskProgress or AgentTaskResult in the agent configuration.',
-    'recommended_poll_ms': _agentTaskRecommendedPollMs,
+    'recommended_poll_ms': agentTaskRecommendedPollMs,
   };
 }
 
@@ -3822,12 +3819,12 @@ bool _taskPollingAvailable(
 }) {
   return _agentToolAvailable(
         agent,
-        _agentTaskProgressToolName,
+        agentTaskProgressToolName,
         callableAgentToolNames: callableAgentToolNames,
       ) ||
       _agentToolAvailable(
         agent,
-        _agentTaskResultToolName,
+        agentTaskResultToolName,
         callableAgentToolNames: callableAgentToolNames,
       );
 }

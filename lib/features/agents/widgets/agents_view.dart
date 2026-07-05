@@ -159,10 +159,6 @@ const List<String> _agentKpiStatusOptions = <String>[
   'done',
   'paused',
 ];
-const int _agentTaskRecommendedPollMs = 1500;
-const String _agentTaskProgressToolName = 'AgentTaskProgress';
-const String _agentTaskResultToolName = 'AgentTaskResult';
-const String _agentTaskTrackToolName = 'AgentTaskTrack';
 const int _agentScaleMinWorkersMin = 0;
 const int _agentScaleMaxWorkersMin = 1;
 const int _agentScaleWorkersMax = 999;
@@ -4071,11 +4067,11 @@ String _agentTaskRecommendedTool(
   AgentTask task,
 ) {
   if (_agentTaskNeedsPolling(task.status)) {
-    if (_agentTaskToolAvailable(agent, _agentTaskProgressToolName)) {
-      return '$_agentTaskProgressToolName · ${_agentTaskRecommendedPollMs}ms';
+    if (_agentTaskToolAvailable(agent, agentTaskProgressToolName)) {
+      return '$agentTaskProgressToolName · ${agentTaskRecommendedPollMs}ms';
     }
-    if (_agentTaskToolAvailable(agent, _agentTaskResultToolName)) {
-      return '$_agentTaskResultToolName · ${_agentTaskRecommendedPollMs}ms';
+    if (_agentTaskToolAvailable(agent, agentTaskResultToolName)) {
+      return '$agentTaskResultToolName · ${agentTaskRecommendedPollMs}ms';
     }
     return openHandLocalizedText(
       context,
@@ -4084,8 +4080,8 @@ String _agentTaskRecommendedTool(
     );
   }
   if (_agentTaskResultAvailable(task) &&
-      _agentTaskToolAvailable(agent, _agentTaskResultToolName)) {
-    return _agentTaskResultToolName;
+      _agentTaskToolAvailable(agent, agentTaskResultToolName)) {
+    return agentTaskResultToolName;
   } else if (_agentTaskResultAvailable(task)) {
     return openHandLocalizedText(
       context,
@@ -4097,16 +4093,16 @@ String _agentTaskRecommendedTool(
     AgentTaskStatus.waitingApproval => 'AgentApprovalRequest',
     AgentTaskStatus.paused => 'AgentTaskResume',
     AgentTaskStatus.completed =>
-      _agentTaskToolAvailable(agent, _agentTaskTrackToolName)
-          ? _agentTaskTrackToolName
+      _agentTaskToolAvailable(agent, agentTaskTrackToolName)
+          ? agentTaskTrackToolName
           : openHandLocalizedText(
               context,
               zh: '需开启 AgentTaskTrack',
               en: 'Enable AgentTaskTrack',
             ),
     AgentTaskStatus.failed || AgentTaskStatus.canceled =>
-      _agentTaskToolAvailable(agent, _agentTaskTrackToolName)
-          ? _agentTaskTrackToolName
+      _agentTaskToolAvailable(agent, agentTaskTrackToolName)
+          ? agentTaskTrackToolName
           : openHandLocalizedText(
               context,
               zh: '需开启 AgentTaskTrack',
@@ -4115,8 +4111,8 @@ String _agentTaskRecommendedTool(
     AgentTaskStatus.backlog ||
     AgentTaskStatus.ready ||
     AgentTaskStatus.running =>
-      _agentTaskToolAvailable(agent, _agentTaskProgressToolName)
-          ? _agentTaskProgressToolName
+      _agentTaskToolAvailable(agent, agentTaskProgressToolName)
+          ? agentTaskProgressToolName
           : openHandLocalizedText(
               context,
               zh: '需开启 AgentTaskProgress',
@@ -4126,8 +4122,8 @@ String _agentTaskRecommendedTool(
 }
 
 bool _agentTaskCanPoll(AgentProfile agent) {
-  return _agentTaskToolAvailable(agent, _agentTaskProgressToolName) ||
-      _agentTaskToolAvailable(agent, _agentTaskResultToolName);
+  return _agentTaskToolAvailable(agent, agentTaskProgressToolName) ||
+      _agentTaskToolAvailable(agent, agentTaskResultToolName);
 }
 
 bool _agentTaskToolAvailable(AgentProfile agent, String toolName) {

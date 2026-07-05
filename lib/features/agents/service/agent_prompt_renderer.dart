@@ -686,9 +686,9 @@ String _agentCoordinationGuidance(
     agentTools,
     defaultAll: false,
     tools: const <(String, String)>[
-      ('agenttasktrack', 'AgentTaskTrack'),
-      ('agenttaskprogress', 'AgentTaskProgress'),
-      ('agenttaskresult', 'AgentTaskResult'),
+      (agentTaskTrackToolLookupKey, agentTaskTrackToolName),
+      (agentTaskProgressToolLookupKey, agentTaskProgressToolName),
+      (agentTaskResultToolLookupKey, agentTaskResultToolName),
     ],
   );
   if (followTools.isNotEmpty) {
