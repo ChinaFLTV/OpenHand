@@ -1307,10 +1307,15 @@ class AgentsController extends ManagedChangeNotifier {
     if (previousSampledAt != null &&
         sampledAt.difference(previousSampledAt).inMilliseconds <
             _resourceTelemetrySampleMinGapMs) {
-      final start = math.max(0, history.length - _maxResourceTelemetrySamples);
-      return history.sublist(start).toList(growable: false);
+      return _trimResourceTelemetryHistory(history);
     }
     history.add(sample);
+    return _trimResourceTelemetryHistory(history);
+  }
+
+  List<Map<String, Object?>> _trimResourceTelemetryHistory(
+    List<Map<String, Object?>> history,
+  ) {
     final start = math.max(0, history.length - _maxResourceTelemetrySamples);
     return history.sublist(start).toList(growable: false);
   }
