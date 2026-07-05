@@ -58,7 +58,11 @@ HarnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.bash ||
     AiBuiltinToolKind.bashBackground ||
     AiBuiltinToolKind.taskOutput ||
-    AiBuiltinToolKind.taskStop => HarnessToolCategory.shell,
+    AiBuiltinToolKind.taskStop ||
+    AiBuiltinToolKind.machineTerminalRead ||
+    AiBuiltinToolKind.machineTerminalWrite ||
+    AiBuiltinToolKind.machineTerminalExec ||
+    AiBuiltinToolKind.machineTerminalControl => HarnessToolCategory.shell,
     AiBuiltinToolKind.git => HarnessToolCategory.vcs,
     AiBuiltinToolKind.webFetch ||
     AiBuiltinToolKind.webSearch => HarnessToolCategory.web,

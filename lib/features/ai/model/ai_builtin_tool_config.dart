@@ -22,6 +22,27 @@ const String aiAgentToolAccessEnabledMetadataKey = 'agent_tools_enabled';
 const String aiAgentToolAllowedAgentIdsMetadataKey = 'allowed_agent_ids';
 const String aiAgentToolAccessSourceMetadataKey = 'agent_tool_access_source';
 
+extension AiBuiltinToolKindMachineTerminalMetadata on AiBuiltinToolKind {
+  bool get isMachineTerminalTool {
+    return switch (this) {
+      AiBuiltinToolKind.machineTerminalRead ||
+      AiBuiltinToolKind.machineTerminalWrite ||
+      AiBuiltinToolKind.machineTerminalExec ||
+      AiBuiltinToolKind.machineTerminalControl => true,
+      _ => false,
+    };
+  }
+
+  bool get isMachineTerminalMutationTool {
+    return switch (this) {
+      AiBuiltinToolKind.machineTerminalWrite ||
+      AiBuiltinToolKind.machineTerminalExec ||
+      AiBuiltinToolKind.machineTerminalControl => true,
+      _ => false,
+    };
+  }
+}
+
 extension AiBuiltinToolKindAgentMetadata on AiBuiltinToolKind {
   bool get isAgentCoordinationTool {
     return switch (this) {
@@ -557,6 +578,8 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.toolSearch:
       case AiBuiltinToolKind.knowledgeSearch:
       case AiBuiltinToolKind.knowledgeRead:
+      case AiBuiltinToolKind.machineTerminalRead:
+      case AiBuiltinToolKind.machineTerminalExec:
         return AiBuiltinToolLoadStrategy.eager;
       case AiBuiltinToolKind.bashBackground:
       case AiBuiltinToolKind.taskOutput:
@@ -595,6 +618,8 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.agentTaskResume:
       case AiBuiltinToolKind.agentTaskComplete:
       case AiBuiltinToolKind.agentTaskResult:
+      case AiBuiltinToolKind.machineTerminalWrite:
+      case AiBuiltinToolKind.machineTerminalControl:
         return AiBuiltinToolLoadStrategy.lazy;
     }
   }

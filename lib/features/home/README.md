@@ -32,7 +32,6 @@ lib/features/home/
     _home_file_mutation_widgets.dart  # 同上（4.1k 行）
     _home_programming_expert_file_explorer.dart  # 同上（14.4k 行，文件浏览器）
     ... 13 其他 _home_*.dart
-    machine_expert_dialog.dart   # 独立 dialog
   util/                          # 4 个工具：
     editor_indentation.dart      # 编辑器缩进推断
     slash_command_parser.dart    # /command 解析
@@ -44,7 +43,7 @@ lib/features/home/
 ## 不变量
 - `widgets/_home_*.dart` 通过 `part of '../openhand_home_page.dart';` 与主页面共享 library 作用域；必须保持同 library 引用关系
 - `openhand_home_page.dart` 至关重要：是 home 唯一 library 入口，所有 part 文件不能独立编译
-- machine_expert_dialog 不是 part 文件；是独立 widget
+- 机器专家模板直接创建会话，左侧工作区显示内建终端面板；不再使用独立配置弹窗。
 
 ## 跨 feature 依赖
 - 入向：openhand_app.dart 通过 `import '../features/home/openhand_home_page.dart'` 注入到 MaterialApp.home

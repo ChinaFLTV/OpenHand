@@ -1,5 +1,153 @@
 part of 'settings_view.dart';
 
+class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
+  const _MachineTerminalBuiltinToolSummaryCard({
+    required this.configs,
+    required this.onEnableAll,
+    required this.onDisableAll,
+  });
+
+  final List<AiBuiltinToolConfig> configs;
+  final VoidCallback? onEnableAll;
+  final VoidCallback? onDisableAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final enabledCount = configs.where((config) => config.enabled).length;
+    final mutationCount = configs
+        .where((config) => config.kind.isMachineTerminalMutationTool)
+        .length;
+    final enabledMutationCount = configs
+        .where(
+          (config) =>
+              config.enabled && config.kind.isMachineTerminalMutationTool,
+        )
+        .length;
+    final readCount = configs.length - mutationCount;
+    final enabledReadCount = enabledCount - enabledMutationCount;
+    final allEnabled = configs.isNotEmpty && enabledCount == configs.length;
+    final allDisabled = configs.isNotEmpty && enabledCount == 0;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.tertiaryContainer.withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.tertiary.withValues(alpha: 0.22)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: cs.tertiary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.terminal_rounded, color: cs.tertiary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '机器终端工具',
+                      en: 'Machine terminal tools',
+                    ),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '全局启用表示允许参与目录解析；运行时仅机器专家线程模板会看到这些终端读写与控制工具。',
+                      en: 'Global enablement allows catalog resolution. At runtime, only Machine Expert sessions can see these terminal read/write/control tools.',
+                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilledButton.tonalIcon(
+                        onPressed: allEnabled ? null : onEnableAll,
+                        icon: const Icon(Icons.check_circle_outline_rounded),
+                        label: Text(
+                          _localizedText(
+                            context,
+                            zh: '启用终端工具',
+                            en: 'Enable terminal tools',
+                          ),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: allDisabled ? null : onDisableAll,
+                        icon: const Icon(Icons.remove_circle_outline_rounded),
+                        label: Text(
+                          _localizedText(
+                            context,
+                            zh: '禁用终端工具',
+                            en: 'Disable terminal tools',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _AgentToolMetricChip(
+                        icon: Icons.toggle_on_rounded,
+                        label: _localizedText(
+                          context,
+                          zh: '已启用 $enabledCount/${configs.length}',
+                          en: 'Enabled $enabledCount/${configs.length}',
+                        ),
+                      ),
+                      _AgentToolMetricChip(
+                        icon: Icons.visibility_outlined,
+                        label: _localizedText(
+                          context,
+                          zh: '读取 $enabledReadCount/$readCount',
+                          en: 'Read $enabledReadCount/$readCount',
+                        ),
+                      ),
+                      _AgentToolMetricChip(
+                        icon: Icons.edit_note_rounded,
+                        label: _localizedText(
+                          context,
+                          zh: '变更 $enabledMutationCount/$mutationCount',
+                          en: 'Mutating $enabledMutationCount/$mutationCount',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _AgentBuiltinToolSummaryCard extends StatelessWidget {
   const _AgentBuiltinToolSummaryCard({
     required this.configs,
@@ -403,6 +551,12 @@ class _BuiltinToolTile extends StatelessWidget {
       AiBuiltinToolKind.agentTaskResume => Icons.play_circle_outline_rounded,
       AiBuiltinToolKind.agentTaskComplete => Icons.task_alt_outlined,
       AiBuiltinToolKind.agentTaskResult => Icons.fact_check_outlined,
+      AiBuiltinToolKind.machineTerminalRead => Icons.terminal_rounded,
+      AiBuiltinToolKind.machineTerminalWrite =>
+        Icons.keyboard_command_key_rounded,
+      AiBuiltinToolKind.machineTerminalExec =>
+        Icons.play_circle_outline_rounded,
+      AiBuiltinToolKind.machineTerminalControl => Icons.tune_rounded,
     };
   }
 

@@ -44,6 +44,8 @@ dependencies:
   intl: any
   media_kit: ^1.2.6
   media_kit_libs_audio: ^1.0.7
+  xterm: ^4.0.0
+  flutter_pty: ^0.4.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

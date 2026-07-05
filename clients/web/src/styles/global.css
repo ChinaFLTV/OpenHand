@@ -3382,6 +3382,281 @@ button.oh-message-context-capsule {
   width: clamp(150px, 24vw, 260px);
 }
 
+.oh-session-chat-column,
+.oh-machine-chat-column {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.oh-machine-workbench {
+  max-width: min(1760px, 100%);
+  display: grid;
+  grid-template-columns: minmax(420px, 0.96fr) minmax(500px, 1.04fr);
+  align-items: stretch;
+  gap: 14px;
+}
+
+.oh-machine-terminal-panel {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant, rgba(127,127,127,0.35)) 76%, transparent);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, #111827 92%, var(--m3-surface, #fff)) 0%, #0b0d10 44%, #10151d 100%);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  padding: 12px;
+  color: #e7ecf3;
+}
+
+.oh-machine-terminal-header,
+.oh-machine-terminal-actions,
+.oh-machine-terminal-chips,
+.oh-machine-terminal-tabs,
+.oh-machine-terminal-meta {
+  flex: 0 0 auto;
+}
+
+.oh-machine-terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.oh-machine-terminal-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.oh-machine-terminal-glyph {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  color: #0f1720;
+  background: linear-gradient(135deg, #86efac 0%, #67e8f9 100%);
+  box-shadow: 0 10px 24px rgba(103, 232, 249, 0.18);
+}
+
+.oh-machine-terminal-title-text,
+.oh-machine-terminal-subtitle {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oh-machine-terminal-title-text {
+  color: #f7fafc;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.oh-machine-terminal-subtitle {
+  margin-top: 2px;
+  color: rgba(231, 236, 243, 0.66);
+  font-size: 0.74rem;
+  font-weight: 650;
+}
+
+.oh-machine-terminal-chips,
+.oh-machine-terminal-actions,
+.oh-machine-terminal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.oh-machine-terminal-chips::-webkit-scrollbar,
+.oh-machine-terminal-actions::-webkit-scrollbar,
+.oh-machine-terminal-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.oh-machine-terminal-chip,
+.oh-machine-terminal-tab {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(231, 236, 243, 0.78);
+  font-size: 0.72rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.oh-machine-terminal-chip {
+  max-width: 220px;
+  padding: 5px 9px;
+}
+
+.oh-machine-terminal-chip.is-running {
+  border-color: rgba(94, 234, 162, 0.3);
+  background: rgba(34, 197, 94, 0.14);
+  color: #b8f7ce;
+}
+
+.oh-machine-terminal-chip.is-starting {
+  border-color: rgba(103, 232, 249, 0.3);
+  background: rgba(14, 165, 233, 0.15);
+  color: #bae6fd;
+}
+
+.oh-machine-terminal-chip.is-stopped,
+.oh-machine-terminal-chip.is-idle {
+  color: rgba(231, 236, 243, 0.62);
+}
+
+.oh-machine-terminal-chip.is-failed {
+  border-color: rgba(248, 113, 113, 0.4);
+  background: rgba(239, 68, 68, 0.15);
+  color: #fecaca;
+}
+
+.oh-machine-terminal-actions {
+  padding: 2px 0;
+}
+
+.oh-machine-terminal-icon {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 11px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.065);
+  color: rgba(231, 236, 243, 0.86);
+  cursor: pointer;
+  transition:
+    transform var(--oh-motion-duration-fast) var(--oh-motion-spring),
+    border-color var(--oh-motion-duration-fast) var(--oh-motion-emphasized),
+    background-color var(--oh-motion-duration-fast) var(--oh-motion-emphasized),
+    color var(--oh-motion-duration-fast) var(--oh-motion-emphasized);
+}
+
+.oh-machine-terminal-icon:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(103, 232, 249, 0.42);
+  background: rgba(103, 232, 249, 0.13);
+  color: #ffffff;
+}
+
+.oh-machine-terminal-icon:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.oh-machine-terminal-tab {
+  max-width: 190px;
+  gap: 7px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition:
+    transform var(--oh-motion-duration-fast) var(--oh-motion-spring),
+    background-color var(--oh-motion-duration-fast) var(--oh-motion-emphasized),
+    border-color var(--oh-motion-duration-fast) var(--oh-motion-emphasized);
+}
+
+.oh-machine-terminal-tab:hover,
+.oh-machine-terminal-tab.is-active {
+  transform: translateY(-1px);
+  border-color: rgba(134, 239, 172, 0.36);
+  background: rgba(134, 239, 172, 0.13);
+}
+
+.oh-machine-terminal-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #94a3b8;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.12);
+}
+
+.oh-machine-terminal-dot.is-running {
+  background: #5eea9f;
+  box-shadow: 0 0 0 3px rgba(94, 234, 159, 0.16);
+}
+
+.oh-machine-terminal-dot.is-starting {
+  background: #67e8f9;
+  box-shadow: 0 0 0 3px rgba(103, 232, 249, 0.16);
+}
+
+.oh-machine-terminal-dot.is-failed {
+  background: #f87171;
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.18);
+}
+
+.oh-machine-terminal-viewport {
+  min-height: 320px;
+  flex: 1 1 auto;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: #090b0f;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    inset 0 -24px 56px rgba(15, 23, 42, 0.4);
+}
+
+.oh-machine-terminal-viewport .xterm {
+  height: 100%;
+  padding: 10px;
+}
+
+.oh-machine-terminal-viewport .xterm-viewport {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.38) transparent;
+}
+
+.oh-machine-terminal-viewport .xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+
+.oh-machine-terminal-viewport .xterm-viewport::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.38);
+}
+
+.oh-machine-terminal-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: rgba(231, 236, 243, 0.58);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+}
+
 .oh-session-detail-page:fullscreen,
 .oh-session-detail-page:-webkit-full-screen,
 .oh-sessions-page:fullscreen,
@@ -3409,6 +3684,11 @@ button.oh-message-context-capsule {
 .oh-session-detail-page:fullscreen .oh-session-detail-shell,
 .oh-session-detail-page:-webkit-full-screen .oh-session-detail-shell {
   max-width: min(980px, calc(100vw - 48px));
+}
+
+.oh-session-detail-page:fullscreen .oh-session-detail-shell.is-machine-expert,
+.oh-session-detail-page:-webkit-full-screen .oh-session-detail-shell.is-machine-expert {
+  max-width: min(1760px, calc(100vw - 48px));
 }
 
 .oh-session-capsule-rail {
@@ -3447,6 +3727,59 @@ button.oh-message-context-capsule {
 
 .oh-session-capsule:hover {
   box-shadow: 0 1px 4px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+@media (max-width: 1120px) {
+  .oh-machine-workbench {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(340px, min(46dvh, 520px)) minmax(0, 1fr);
+  }
+
+  .oh-machine-terminal-panel {
+    min-height: 340px;
+  }
+
+  .oh-machine-terminal-viewport {
+    min-height: 210px;
+  }
+}
+
+@media (max-width: 760px) {
+  .oh-machine-workbench {
+    gap: 10px;
+    grid-template-rows: minmax(300px, min(43dvh, 440px)) minmax(0, 1fr);
+  }
+
+  .oh-machine-terminal-panel {
+    min-height: 300px;
+    border-radius: 20px;
+    padding: 10px;
+  }
+
+  .oh-machine-terminal-title-text {
+    font-size: 0.88rem;
+  }
+
+  .oh-machine-terminal-glyph {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+  }
+
+  .oh-machine-terminal-icon {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+  }
+
+  .oh-machine-terminal-viewport {
+    min-height: 185px;
+    border-radius: 15px;
+  }
+
+  .oh-machine-terminal-viewport .xterm {
+    padding: 8px;
+  }
 }
 
 .oh-session-messages {

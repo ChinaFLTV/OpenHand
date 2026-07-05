@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../agents/agents_controller.dart';
 import '../../instructions/instructions_controller.dart';
 import '../../knowledge_base/knowledge_base_controller.dart';
+import '../../machine_terminal/index.dart';
 import '../model/ai_model_config.dart';
 import '../service/bash/ai_bash_tool_service.dart';
 import '../service/chat/ai_chat_service.dart';
@@ -38,6 +39,7 @@ import 'search/ai_codebase_search_tool.dart';
 import 'search/ai_grep_tool.dart';
 import 'search/ai_tool_search_tool.dart';
 import 'skill/ai_skill_manager_tool.dart';
+import 'terminal/ai_machine_terminal_tools.dart';
 import 'web/ai_web_fetch_tool.dart';
 import 'web/ai_web_search_tool.dart';
 
@@ -97,6 +99,7 @@ class AiToolRegistry {
     InstructionsControllerProvider? instructionsControllerProvider,
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
+    MachineTerminalService? machineTerminalService,
   }) {
     final registry = AiToolRegistry.lightweightOnly(
       knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
@@ -198,6 +201,14 @@ class AiToolRegistry {
         httpClient: httpClient,
       ),
     );
+
+    if (machineTerminalService != null) {
+      registry
+        ..register(AiMachineTerminalReadTool())
+        ..register(AiMachineTerminalWriteTool())
+        ..register(AiMachineTerminalExecTool())
+        ..register(AiMachineTerminalControlTool());
+    }
 
     // Task — 需要 AiChatClient + AiClaudeHookService + Sub-tool executor
     final taskTool = AiTaskTool(

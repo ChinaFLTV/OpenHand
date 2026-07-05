@@ -3635,6 +3635,9 @@ class _SettingsViewState extends State<SettingsView> {
     final agentToolConfigs = sorted
         .where((config) => config.kind.isAgentCoordinationTool)
         .toList(growable: false);
+    final machineTerminalToolConfigs = sorted
+        .where((config) => config.kind.isMachineTerminalTool)
+        .toList(growable: false);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3714,6 +3717,24 @@ class _SettingsViewState extends State<SettingsView> {
           onDisableAll: agentToolConfigs.isEmpty
               ? null
               : () => _toggleAgentBuiltinTools(
+                  context,
+                  settingsController,
+                  enabled: false,
+                ),
+        ),
+        const SizedBox(height: 14),
+        _MachineTerminalBuiltinToolSummaryCard(
+          configs: machineTerminalToolConfigs,
+          onEnableAll: machineTerminalToolConfigs.isEmpty
+              ? null
+              : () => _toggleMachineTerminalBuiltinTools(
+                  context,
+                  settingsController,
+                  enabled: true,
+                ),
+          onDisableAll: machineTerminalToolConfigs.isEmpty
+              ? null
+              : () => _toggleMachineTerminalBuiltinTools(
                   context,
                   settingsController,
                   enabled: false,
@@ -3874,6 +3895,28 @@ class _SettingsViewState extends State<SettingsView> {
         .map((config) {
           if (!config.kind.isAgentCoordinationTool ||
               config.enabled == enabled) {
+            return config;
+          }
+          changed = true;
+          return config.copyWith(enabled: enabled);
+        })
+        .toList(growable: false);
+    if (!changed) return;
+    final saved = await settingsController.updateBuiltinToolConfigs(updated);
+    if (!context.mounted || saved) return;
+    _showPersistenceFailureSnackBar(context);
+  }
+
+  Future<void> _toggleMachineTerminalBuiltinTools(
+    BuildContext context,
+    SettingsController settingsController, {
+    required bool enabled,
+  }) async {
+    final configs = settingsController.builtinToolConfigs;
+    var changed = false;
+    final updated = configs
+        .map((config) {
+          if (!config.kind.isMachineTerminalTool || config.enabled == enabled) {
             return config;
           }
           changed = true;

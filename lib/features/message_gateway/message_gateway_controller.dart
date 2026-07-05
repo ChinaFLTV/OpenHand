@@ -13,6 +13,7 @@ import '../ai/index.dart';
 import '../crons/index.dart';
 import '../instructions/index.dart';
 import '../knowledge_base/index.dart' show KnowledgeBaseController;
+import '../machine_terminal/index.dart';
 import '../mcp/index.dart';
 import '../memory/index.dart';
 import '../plugin_service/index.dart';
@@ -76,6 +77,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
     required CronsController cronsController,
     required InstructionsController instructionsController,
     KnowledgeBaseController? knowledgeBaseController,
+    required MachineTerminalService machineTerminalService,
     required AppInfo appInfo,
     MessageGatewayStore? store,
     WebMessagePlatformService? service,
@@ -99,6 +101,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
              cronsController: cronsController,
              instructionsController: instructionsController,
              knowledgeBaseController: knowledgeBaseController,
+             machineTerminalService: machineTerminalService,
              appInfo: appInfo,
            ) {
     _logSub = _service.logStream.listen((_) => _scheduleLogNotify());

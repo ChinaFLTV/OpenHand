@@ -18,10 +18,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { useRoute } from 'preact-iso';
+import { FitAddon } from '@xterm/addon-fit';
+import { Terminal } from '@xterm/xterm';
+import '@xterm/xterm/css/xterm.css';
 import {
   GOAL_DEFAULT_MAX_AUTO_TURNS,
   GOAL_HARD_MAX_AUTO_TURNS,
   KNOWLEDGE_BASE_MESSAGE_METADATA_KEY,
+  controlMachineTerminal,
   clearSessionThrottle,
   compactSession,
   deleteMessage,
@@ -32,6 +36,7 @@ import {
   fetchMessageTtsPlayback,
   forkSessionFromMessage,
   generateSessionTitle,
+  getMachineTerminal,
   getSession,
   isGoalModeAllowedForTemplate,
   listMessages,
@@ -52,6 +57,8 @@ import {
   translateMessage,
   updateSessionFullAccessPermission,
   updateSessionMode,
+  writeMachineTerminal,
+  type MachineTerminalWorkspace,
   type CompactSessionResponse,
   type CompactSessionStatus,
   type GoalStartOptions,
@@ -1494,6 +1501,270 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
         </svg>
       );
   }
+}
+
+function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const terminalRef = useRef<Terminal | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
+  const lastAnsiOutputRef = useRef('');
+  const writeErrorShownRef = useRef(false);
+  const activeTerminalIdRef = useRef<string | undefined>(undefined);
+  const lastResizeRef = useRef('');
+  const [workspace, setWorkspace] = useState<MachineTerminalWorkspace | null>(null);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const active = workspace?.active_terminal ?? null;
+
+  useEffect(() => {
+    activeTerminalIdRef.current = active?.terminal_id || undefined;
+  }, [active?.terminal_id]);
+
+  const syncTerminal = useCallback(async (start = true) => {
+    const res = await getMachineTerminal(sessionId, { start });
+    setWorkspace(res.terminal);
+    return res.terminal;
+  }, [sessionId]);
+
+  useEffect(() => {
+    const root = shellRef.current;
+    if (!root) return;
+    const terminal = new Terminal({
+      allowProposedApi: false,
+      convertEol: true,
+      cursorBlink: true,
+      cursorStyle: 'block',
+      fontFamily: 'Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+      fontSize: 13,
+      lineHeight: 1.18,
+      scrollback: 5000,
+      theme: {
+        background: '#0B0D10',
+        foreground: '#E7ECF3',
+        cursor: '#E6F6C3',
+        selectionBackground: '#4D7CFF66',
+        black: '#101217',
+        red: '#FF6B6B',
+        green: '#5FE3A1',
+        yellow: '#E8D66B',
+        blue: '#75A7FF',
+        magenta: '#D98CFF',
+        cyan: '#62DCE8',
+        white: '#F4F7FB',
+        brightBlack: '#6E7681',
+        brightRed: '#FF8F86',
+        brightGreen: '#7CF3B6',
+        brightYellow: '#F4E58D',
+        brightBlue: '#9DBDFF',
+        brightMagenta: '#E7A8FF',
+        brightCyan: '#8FEAF2',
+        brightWhite: '#FFFFFF',
+      },
+    });
+    const fit = new FitAddon();
+    terminal.loadAddon(fit);
+    terminal.open(root);
+    fit.fit();
+    terminal.focus();
+    terminalRef.current = terminal;
+    fitRef.current = fit;
+    const dataDisposable = terminal.onData((data) => {
+      void writeMachineTerminal(sessionId, { data })
+        .then((res) => {
+          if (res.terminal) setWorkspace(res.terminal);
+        })
+        .catch((error) => {
+          if (writeErrorShownRef.current) return;
+          writeErrorShownRef.current = true;
+          const message = error instanceof Error ? error.message : String(error);
+          showSnackbar(`${t('terminal.write.failed', '终端写入失败')}：${message}`, { tone: 'error' });
+        });
+    });
+    const publishResize = () => {
+      fit.fit();
+      const columns = terminal.cols;
+      const rows = terminal.rows;
+      if (!Number.isFinite(columns) || !Number.isFinite(rows) || columns <= 0 || rows <= 0) return;
+      const key = `${activeTerminalIdRef.current || ''}:${columns}x${rows}`;
+      if (lastResizeRef.current === key) return;
+      lastResizeRef.current = key;
+      void controlMachineTerminal(sessionId, {
+        action: 'resize',
+        terminalId: activeTerminalIdRef.current,
+        columns,
+        rows,
+      }).catch(() => {
+        lastResizeRef.current = '';
+      });
+    };
+    const resizeObserver = new ResizeObserver(publishResize);
+    resizeObserver.observe(root);
+    publishResize();
+    void syncTerminal(true);
+    return () => {
+      dataDisposable.dispose();
+      resizeObserver.disconnect();
+      terminal.dispose();
+      terminalRef.current = null;
+      fitRef.current = null;
+      lastAnsiOutputRef.current = '';
+    };
+  }, [sessionId, syncTerminal]);
+
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => {
+      try {
+        const next = await syncTerminal(true);
+        if (!alive) return;
+        const activeTerminal = next.active_terminal ?? null;
+        const ansiOutput = activeTerminal?.ansi_output ?? activeTerminal?.output ?? '';
+        const terminal = terminalRef.current;
+        if (!terminal) return;
+        const previous = lastAnsiOutputRef.current;
+        if (ansiOutput.startsWith(previous)) {
+          const delta = ansiOutput.slice(previous.length);
+          if (delta) terminal.write(delta);
+        } else {
+          terminal.reset();
+          if (ansiOutput) terminal.write(ansiOutput);
+        }
+        lastAnsiOutputRef.current = ansiOutput;
+      } catch {
+        // The surrounding detail page already surfaces API failures.
+      }
+    };
+    void tick();
+    const timer = window.setInterval(() => void tick(), 1200);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [syncTerminal]);
+
+  async function runControl(action: string, terminalId?: string): Promise<void> {
+    if (busyAction) return;
+    setBusyAction(action);
+    try {
+      const res = await controlMachineTerminal(sessionId, {
+        action,
+        terminalId,
+      });
+      setWorkspace(res.terminal);
+      if (action === 'clear' || action === 'select' || action === 'new' || action === 'duplicate') {
+        lastAnsiOutputRef.current = '';
+        terminalRef.current?.reset();
+        const nextActive = res.terminal.active_terminal ?? null;
+        const output = nextActive?.ansi_output ?? nextActive?.output ?? '';
+        if (output) terminalRef.current?.write(output);
+        lastAnsiOutputRef.current = output;
+      }
+      terminalRef.current?.focus();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showSnackbar(`${t('terminal.control.failed', '终端操作失败')}：${message}`, { tone: 'error' });
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  const tabs = workspace?.terminals ?? [];
+  const status = active?.status ?? 'starting';
+  return (
+    <aside class="oh-machine-terminal-panel">
+      <div class="oh-machine-terminal-header">
+        <div class="oh-machine-terminal-title">
+          <span class="oh-machine-terminal-glyph" aria-hidden>
+            <ComposerIcon name="mode" size={18} />
+          </span>
+          <span class="min-w-0">
+            <span class="oh-machine-terminal-title-text">{t('terminal.title', '机器终端')}</span>
+            <span class="oh-machine-terminal-subtitle">{active?.identity || t('terminal.starting', '正在启动')}</span>
+          </span>
+        </div>
+        <button
+          type="button"
+          class="oh-machine-terminal-icon oh-tap-press"
+          title={t('terminal.copyId', '复制终端 ID')}
+          disabled={!active?.terminal_id}
+          onClick={() => active?.terminal_id ? void copyTextToClipboard(active.terminal_id).then(() => showSnackbar(t('terminal.copyId.ok', '终端 ID 已复制'), { tone: 'success' })) : undefined}
+        >
+          <ComposerIcon name="copy" size={16} />
+        </button>
+      </div>
+
+      <div class="oh-machine-terminal-chips">
+        <span class={`oh-machine-terminal-chip is-${status}`}>{terminalStatusLabel(status)}</span>
+        <span class="oh-machine-terminal-chip">{active?.terminal_id || '-'}</span>
+        <span class="oh-machine-terminal-chip">PID {active?.pid ?? '-'}</span>
+        <span class="oh-machine-terminal-chip">{active ? `${active.columns}x${active.rows}` : '-'}</span>
+      </div>
+
+      <div class="oh-machine-terminal-actions">
+        <button type="button" title={t('terminal.new', '新建终端')} onClick={() => void runControl('new')} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction)}>
+          <ComposerIcon name="plus" size={16} />
+        </button>
+        <button type="button" title={t('terminal.duplicate', '复制终端')} onClick={() => void runControl('duplicate', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || !active)}>
+          <ComposerIcon name="copy" size={16} />
+        </button>
+        <button type="button" title={t('terminal.start', '启动')} onClick={() => void runControl('start', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || status === 'running')}>
+          <ComposerIcon name="play" size={16} />
+        </button>
+        <button type="button" title={t('terminal.stop', '停止')} onClick={() => void runControl('stop', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || status !== 'running')}>
+          <ComposerIcon name="stop" size={16} />
+        </button>
+        <button type="button" title={t('terminal.restart', '重启')} onClick={() => void runControl('restart', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || !active)}>
+          <ComposerIcon name="refresh" size={16} />
+        </button>
+        <button type="button" title={t('terminal.clear', '清屏')} onClick={() => void runControl('clear', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || !active)}>
+          <ComposerIcon name="spark" size={16} />
+        </button>
+        <button type="button" title={t('terminal.close', '关闭终端')} onClick={() => void runControl('close', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || tabs.length <= 1)}>
+          <ComposerIcon name="close" size={16} />
+        </button>
+      </div>
+
+      <div class="oh-machine-terminal-tabs" role="tablist">
+        {tabs.map((terminal) => {
+          const selected = terminal.terminal_id === workspace?.active_terminal_id;
+          return (
+            <button
+              key={terminal.terminal_id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              class={`oh-machine-terminal-tab ${selected ? 'is-active' : ''}`}
+              onClick={() => selected ? undefined : void runControl('select', terminal.terminal_id)}
+            >
+              <span class={`oh-machine-terminal-dot is-${terminal.status}`} />
+              <span class="truncate">{terminal.terminal_id}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div class="oh-machine-terminal-viewport" ref={shellRef} />
+
+      <div class="oh-machine-terminal-meta">
+        <span class="truncate">{active?.working_directory || '-'}</span>
+        <span>{active ? formatTerminalTime(active.updated_at) : '-'}</span>
+      </div>
+    </aside>
+  );
+}
+
+function terminalStatusLabel(status: string): string {
+  if (status === 'running') return t('terminal.status.running', '运行中');
+  if (status === 'starting') return t('terminal.status.starting', '启动中');
+  if (status === 'stopped') return t('terminal.status.stopped', '已停止');
+  if (status === 'failed') return t('terminal.status.failed', '异常');
+  return t('terminal.status.idle', '待机');
+}
+
+function formatTerminalTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 /// Web composer 用户指令胶囊条（与 App 端 _ComposerInstructionsStrip 1:1 对齐）。
@@ -5955,11 +6226,14 @@ export function SessionDetailPage() {
 
   const subtitle = session ? [session.template_name || session.template_id, `${totalKnown} ${t('sessions.messageUnit', '条消息')}`, session.total_tokens != null ? `${session.total_tokens.toLocaleString()} tokens` : '', session.tool_message_count ? `${session.tool_message_count} tool` : '', session.compression_point_count ? `${session.compression_point_count} compress` : ''].filter(Boolean).join(' · ') : t('detail.loading', '加载会话中…');
   const composerSendDisabled = composerSending || allowedModels.length === 0 || stopping || hasModeLockedGoal;
+  const isMachineExpertSession = session?.template_id === 'machine_expert';
 
   return (
     <main ref={pageRootRef} class="oh-session-detail-page h-screen overflow-hidden px-3 sm:px-6 py-4 sm:py-6 flex flex-col" style={{ background: 'var(--m3-surface)' }}>
       <PullIndicator pulled={pull.pulled} refreshing={pull.refreshing} willRelease={pull.willRelease} activationDistance={84} />
-      <div class="oh-session-detail-shell mx-auto max-w-3xl w-full flex-1 min-h-0 flex flex-col gap-3">
+      <div class={`oh-session-detail-shell mx-auto w-full flex-1 min-h-0 ${isMachineExpertSession ? 'oh-machine-workbench is-machine-expert' : 'max-w-3xl flex flex-col'}`}>
+        {isMachineExpertSession ? <MachineTerminalPanel sessionId={sessionId} /> : null}
+        <div class={isMachineExpertSession ? 'oh-machine-chat-column' : 'oh-session-chat-column'}>
         <SessionTopBar
           title={session?.title || t('sessions.untitled', '未命名会话')}
           subtitle={subtitle}
@@ -6701,6 +6975,7 @@ export function SessionDetailPage() {
             ) : null}
           </div>
         </section>
+        </div>
       </div>
 
       {auditMessage ? <MessageAuditDialog message={auditMessage} onClose={() => setAuditMessage(null)} /> : null}

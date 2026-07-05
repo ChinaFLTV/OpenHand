@@ -27,6 +27,7 @@ import 'features/crons/index.dart';
 import 'features/hooks/index.dart';
 import 'features/instructions/index.dart';
 import 'features/knowledge_base/index.dart';
+import 'features/machine_terminal/index.dart';
 import 'features/mcp/index.dart';
 import 'features/memory/index.dart';
 import 'features/message_gateway/index.dart';
@@ -235,6 +236,7 @@ Future<void> _bootstrap() async {
   AgentsController? agentsControllerHandle;
   InstructionsController? instructionsControllerHandle;
   KnowledgeBaseController? knowledgeBaseControllerHandle;
+  final machineTerminalService = MachineTerminalService();
   final aiModuleFuture = AiModule.bootstrap(
     userHooksExecutor: hooks.executor,
     skillsDirProvider: () => settingsController.skillsStoragePath,
@@ -243,6 +245,7 @@ Future<void> _bootstrap() async {
     instructionsControllerProvider: () => instructionsControllerHandle,
     aiModelsProvider: () => settingsController.aiModels,
     knowledgeBaseControllerProvider: () => knowledgeBaseControllerHandle,
+    machineTerminalService: machineTerminalService,
   );
   AiLspClientService.instance.updateLanguageSettings(
     settingsController.editorLspSettings,
@@ -402,6 +405,7 @@ Future<void> _bootstrap() async {
     cronsController: cronsController,
     instructionsController: instructions.controller,
     knowledgeBaseController: knowledgeBase.controller,
+    machineTerminalService: machineTerminalService,
     appInfo: appInfo,
   );
   unawaited(messageGateway.controller.initialize());
@@ -452,6 +456,9 @@ Future<void> _bootstrap() async {
         ...PluginServiceModule.providers(pluginService),
         ...KnowledgeBaseModule.providers(knowledgeBase),
         ...AiModule.providers(ai),
+        ChangeNotifierProvider<MachineTerminalService>.value(
+          value: machineTerminalService,
+        ),
         ChangeNotifierProvider<TemplateRuntimeLinkageController>.value(
           value: templateRuntimeLinkageController,
         ),

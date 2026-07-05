@@ -33,6 +33,7 @@ import '../../home/index.dart'
     show SessionCacheHitTrend, SessionCacheHitDisplayMode;
 import '../../instructions/index.dart';
 import '../../knowledge_base/index.dart';
+import '../../machine_terminal/index.dart';
 import '../../mcp/index.dart';
 import '../../memory/index.dart';
 import '../../plugin_service/index.dart';
@@ -166,6 +167,7 @@ class WebMessagePlatformService {
     required CronsController cronsController,
     required InstructionsController instructionsController,
     KnowledgeBaseController? knowledgeBaseController,
+    required MachineTerminalService machineTerminalService,
     required AppInfo appInfo,
     String? cacheDirectoryPath,
     String? logsDirectoryPath,
@@ -179,6 +181,7 @@ class WebMessagePlatformService {
        _cronsController = cronsController,
        _instructionsController = instructionsController,
        _knowledgeBaseController = knowledgeBaseController,
+       _machineTerminalService = machineTerminalService,
        _appInfo = appInfo,
        _cacheDirectoryPath =
            cacheDirectoryPath ?? OpenHandPaths.defaultCacheDirectoryPath(),
@@ -201,6 +204,7 @@ class WebMessagePlatformService {
   final CronsController _cronsController;
   final InstructionsController _instructionsController;
   final KnowledgeBaseController? _knowledgeBaseController;
+  final MachineTerminalService _machineTerminalService;
   final AppInfo _appInfo;
   PluginServiceController? _pluginServiceController;
 
@@ -1325,6 +1329,26 @@ class WebMessagePlatformService {
       '/api/sessions/<sessionId>/messages',
       (shelf.Request r, String sessionId) =>
           _withAuth(r, (req, auth) => _sendMessage(req, auth, sessionId)),
+    );
+    router.get(
+      '/api/sessions/<sessionId>/terminal',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _getTerminal(req, auth, sessionId)),
+    );
+    router.post(
+      '/api/sessions/<sessionId>/terminal/write',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _writeTerminal(req, auth, sessionId)),
+    );
+    router.post(
+      '/api/sessions/<sessionId>/terminal/execute',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _executeTerminal(req, auth, sessionId)),
+    );
+    router.post(
+      '/api/sessions/<sessionId>/terminal/control',
+      (shelf.Request r, String sessionId) =>
+          _withAuth(r, (req, auth) => _controlTerminal(req, auth, sessionId)),
     );
     router.put(
       '/api/sessions/<sessionId>/messages/<messageId>/feedback',
@@ -2660,6 +2684,20 @@ class WebMessagePlatformService {
         orElse: () => session,
       );
     }
+    if (templateId == kMachineExpertTemplateId) {
+      final terminalMetadata = _machineTerminalService.initialMetadata(
+        sessionId: session.id,
+        workingDirectory: _workspaceDirectoryPath,
+      );
+      await _sessionController.updateSessionMetadata(
+        session.id,
+        <String, Object?>{kMachineTerminalMetadataKey: terminalMetadata},
+      );
+      session = _sessionController.sessions.firstWhere(
+        (item) => item.id == session.id,
+        orElse: () => session,
+      );
+    }
     _log(
       WebGatewayLogLevel.success,
       'SESSION',
@@ -2698,6 +2736,126 @@ class WebMessagePlatformService {
         'last_error': _sessionController.lastErrorMessageForSession(session.id),
       },
     });
+  }
+
+  Future<shelf.Response> _getTerminal(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedMachineTerminalSession(auth, sessionId);
+    if (session == null) {
+      return _machineTerminalUnavailable(auth, sessionId);
+    }
+    final start = request.requestedUri.queryParameters['start'] != 'false';
+    final snapshot = _machineTerminalService.ensureWorkspace(
+      sessionId: session.id,
+      workingDirectory: _workspaceDirectoryPath,
+      start: start,
+    );
+    return _json(HttpStatus.ok, <String, Object?>{
+      'terminal': snapshot.toJson(),
+    });
+  }
+
+  Future<shelf.Response> _writeTerminal(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedMachineTerminalSession(auth, sessionId);
+    if (session == null) {
+      return _machineTerminalUnavailable(auth, sessionId);
+    }
+    final body = await _readJsonBody(request);
+    final data = _string(body['data'] ?? body['text'] ?? body['input'], '');
+    if (data.isEmpty) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'terminal_input_required',
+      });
+    }
+    await _machineTerminalService.writeInput(
+      sessionId: session.id,
+      terminalId: _string(body['terminal_id'], '').trim(),
+      data: data,
+      appendNewline:
+          boolFromValue(body['append_newline']) || boolFromValue(body['enter']),
+    );
+    final snapshot = _machineTerminalService.snapshot(session.id);
+    return _json(HttpStatus.ok, <String, Object?>{
+      'ok': true,
+      'terminal': snapshot?.toJson(),
+    });
+  }
+
+  Future<shelf.Response> _executeTerminal(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedMachineTerminalSession(auth, sessionId);
+    if (session == null) {
+      return _machineTerminalUnavailable(auth, sessionId);
+    }
+    final body = await _readJsonBody(request);
+    final command = _string(body['command'] ?? body['cmd'], '').trimRight();
+    if (command.trim().isEmpty) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'terminal_command_required',
+      });
+    }
+    final timeoutMs = _terminalTimeoutMs(body);
+    final result = await _machineTerminalService.executeCommand(
+      sessionId: session.id,
+      terminalId: _string(body['terminal_id'], '').trim(),
+      command: command,
+      timeout: Duration(milliseconds: timeoutMs),
+    );
+    return _json(HttpStatus.ok, <String, Object?>{
+      'ok': result.error == null && !result.timedOut,
+      'result': result.toJson(),
+      'terminal': _machineTerminalService.snapshot(session.id)?.toJson(),
+    });
+  }
+
+  Future<shelf.Response> _controlTerminal(
+    shelf.Request request,
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) async {
+    final session = _findAuthorizedMachineTerminalSession(auth, sessionId);
+    if (session == null) {
+      return _machineTerminalUnavailable(auth, sessionId);
+    }
+    final body = await _readJsonBody(request);
+    final action = _string(body['action'], '').trim();
+    if (action.isEmpty) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'terminal_action_required',
+      });
+    }
+    try {
+      final snapshot = await _machineTerminalService.control(
+        sessionId: session.id,
+        action: action,
+        terminalId: _string(body['terminal_id'], '').trim(),
+        workingDirectory: _string(
+          body['working_directory'] ?? body['cwd'],
+          '',
+        ).trim(),
+        columns: optionalIntFromValue(body['columns']),
+        rows: optionalIntFromValue(body['rows']),
+      );
+      return _json(HttpStatus.ok, <String, Object?>{
+        'ok': true,
+        'terminal': snapshot.toJson(),
+      });
+    } catch (error) {
+      return _json(HttpStatus.badRequest, <String, Object?>{
+        'error': 'terminal_control_failed',
+        'message': '$error',
+      });
+    }
   }
 
   Future<shelf.Response> _renameSession(
@@ -5212,6 +5370,41 @@ class WebMessagePlatformService {
       return session;
     }
     return null;
+  }
+
+  AiSession? _findAuthorizedMachineTerminalSession(
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) {
+    final session = _findAuthorizedSession(auth, sessionId);
+    if (session == null) return null;
+    if (session.templateId != kMachineExpertTemplateId) return null;
+    return session;
+  }
+
+  shelf.Response _machineTerminalUnavailable(
+    _WebGatewayAuthSession auth,
+    String sessionId,
+  ) {
+    final exists = _findAuthorizedSession(auth, sessionId) != null;
+    return _json(
+      exists ? HttpStatus.forbidden : HttpStatus.notFound,
+      <String, Object?>{
+        'error': exists
+            ? 'machine_terminal_not_available'
+            : 'session_deleted_or_not_found',
+      },
+    );
+  }
+
+  int _terminalTimeoutMs(Map<String, Object?> body) {
+    final raw =
+        optionalIntFromValue(body['timeout_ms']) ??
+        optionalIntFromValue(body['timeout']) ??
+        120000;
+    if (raw < 1000) return 1000;
+    if (raw > 600000) return 600000;
+    return raw;
   }
 
   Future<AiSessionMessage?> _loadMessageForWebOperation(

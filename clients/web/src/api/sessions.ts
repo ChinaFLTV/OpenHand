@@ -190,6 +190,61 @@ export interface SessionDetailResponse {
   };
 }
 
+export type MachineTerminalStatus =
+  | 'idle'
+  | 'starting'
+  | 'running'
+  | 'stopped'
+  | 'failed'
+  | (string & {});
+
+export interface MachineTerminalSnapshot {
+  session_id: string;
+  terminal_id: string;
+  identity: string;
+  status: MachineTerminalStatus;
+  shell: string;
+  working_directory: string;
+  rows: number;
+  columns: number;
+  output: string;
+  ansi_output?: string;
+  output_characters: number;
+  started_at: string;
+  updated_at: string;
+  pid?: number | null;
+  exit_code?: number | null;
+  error_message?: string | null;
+}
+
+export interface MachineTerminalWorkspace {
+  session_id: string;
+  active_terminal_id: string;
+  terminals: MachineTerminalSnapshot[];
+  active_terminal?: MachineTerminalSnapshot | null;
+}
+
+export interface MachineTerminalCommandResult {
+  terminal_id: string;
+  command: string;
+  output: string;
+  exit_code?: number | null;
+  status: MachineTerminalStatus;
+  duration_ms: number;
+  timed_out: boolean;
+  error?: string | null;
+}
+
+export interface MachineTerminalResponse {
+  terminal: MachineTerminalWorkspace;
+}
+
+export interface MachineTerminalExecuteResponse {
+  ok: boolean;
+  result: MachineTerminalCommandResult;
+  terminal?: MachineTerminalWorkspace | null;
+}
+
 export type SessionMessageSenderOrigin =
   | 'explicit_user'
   | 'openhand_background'
@@ -346,6 +401,86 @@ export function getSession(
   return apiRequest<SessionDetailResponse>(
     `/api/sessions/${encodeURIComponent(id)}`,
     { signal: options.signal },
+  );
+}
+
+export function getMachineTerminal(
+  id: string,
+  options: SessionRequestOptions & { start?: boolean } = {},
+): Promise<MachineTerminalResponse> {
+  const qs = options.start === false ? '?start=false' : '';
+  return apiRequest<MachineTerminalResponse>(
+    `/api/sessions/${encodeURIComponent(id)}/terminal${qs}`,
+    { signal: options.signal },
+  );
+}
+
+export function writeMachineTerminal(
+  id: string,
+  input: {
+    data: string;
+    terminalId?: string;
+    appendNewline?: boolean;
+  },
+): Promise<{ ok: boolean; terminal?: MachineTerminalWorkspace | null }> {
+  return apiRequest<{ ok: boolean; terminal?: MachineTerminalWorkspace | null }>(
+    `/api/sessions/${encodeURIComponent(id)}/terminal/write`,
+    {
+      method: 'POST',
+      body: {
+        data: input.data,
+        ...(input.terminalId ? { terminal_id: input.terminalId } : {}),
+        ...(input.appendNewline ? { append_newline: true } : {}),
+      },
+    },
+  );
+}
+
+export function executeMachineTerminal(
+  id: string,
+  input: {
+    command: string;
+    terminalId?: string;
+    timeoutMs?: number;
+  },
+): Promise<MachineTerminalExecuteResponse> {
+  return apiRequest<MachineTerminalExecuteResponse>(
+    `/api/sessions/${encodeURIComponent(id)}/terminal/execute`,
+    {
+      method: 'POST',
+      body: {
+        command: input.command,
+        ...(input.terminalId ? { terminal_id: input.terminalId } : {}),
+        ...(input.timeoutMs ? { timeout_ms: input.timeoutMs } : {}),
+      },
+    },
+  );
+}
+
+export function controlMachineTerminal(
+  id: string,
+  input: {
+    action: string;
+    terminalId?: string;
+    workingDirectory?: string;
+    columns?: number;
+    rows?: number;
+  },
+): Promise<MachineTerminalResponse & { ok: boolean }> {
+  return apiRequest<MachineTerminalResponse & { ok: boolean }>(
+    `/api/sessions/${encodeURIComponent(id)}/terminal/control`,
+    {
+      method: 'POST',
+      body: {
+        action: input.action,
+        ...(input.terminalId ? { terminal_id: input.terminalId } : {}),
+        ...(input.workingDirectory
+          ? { working_directory: input.workingDirectory }
+          : {}),
+        ...(Number.isFinite(input.columns) ? { columns: input.columns } : {}),
+        ...(Number.isFinite(input.rows) ? { rows: input.rows } : {}),
+      },
+    },
   );
 }
 

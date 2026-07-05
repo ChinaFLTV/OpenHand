@@ -8,6 +8,7 @@ import '../ai/index.dart';
 import '../crons/index.dart';
 import '../instructions/index.dart';
 import '../knowledge_base/index.dart' show KnowledgeBaseController;
+import '../machine_terminal/index.dart';
 import '../mcp/index.dart';
 import '../memory/index.dart';
 import '../skills/index.dart';
@@ -28,6 +29,7 @@ class MessageGatewayModule {
     required CronsController cronsController,
     required InstructionsController instructionsController,
     KnowledgeBaseController? knowledgeBaseController,
+    required MachineTerminalService machineTerminalService,
     required AppInfo appInfo,
   }) async {
     final controller = MessageGatewayController.uninitialized(
@@ -40,6 +42,7 @@ class MessageGatewayModule {
       cronsController: cronsController,
       instructionsController: instructionsController,
       knowledgeBaseController: knowledgeBaseController,
+      machineTerminalService: machineTerminalService,
       appInfo: appInfo,
     );
     return MessageGatewayModule._(controller: controller);

@@ -16,6 +16,7 @@ import '../../../../shared/util/tool_name_normalization.dart';
 import '../../../agents/index.dart';
 import '../../../instructions/instructions_controller.dart';
 import '../../../knowledge_base/knowledge_base_controller.dart';
+import '../../../machine_terminal/index.dart';
 import '../../../mcp/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_builtin_tool_config.dart';
@@ -235,6 +236,10 @@ enum AiBuiltinToolKind {
   agentTaskResume,
   agentTaskComplete,
   agentTaskResult,
+  machineTerminalRead,
+  machineTerminalWrite,
+  machineTerminalExec,
+  machineTerminalControl,
 }
 
 class AiToolExecutionResult {
@@ -319,6 +324,7 @@ class AiToolRuntimeService {
     InstructionsControllerProvider? instructionsControllerProvider,
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
+    MachineTerminalService? machineTerminalService,
     String Function(String sessionId)? toolOutputDirectoryProvider,
   }) : _bashToolService = bashToolService,
        _hookService = hookService,
@@ -332,6 +338,7 @@ class AiToolRuntimeService {
        _fileHistory = fileHistoryService ?? AiFileHistoryService(),
        _mutationLedger = mutationLedger ?? AiFileMutationLedger(),
        _agentsControllerProvider = agentsControllerProvider,
+       _machineTerminalService = machineTerminalService,
        _toolOutputDirectoryProvider = toolOutputDirectoryProvider {
     // 2026-04-01 02:02:39 初始化完整服务依赖注入的多态工具注册中心
     _toolRegistry = AiToolRegistry.withServiceDependencies(
@@ -347,6 +354,7 @@ class AiToolRuntimeService {
       instructionsControllerProvider: instructionsControllerProvider,
       knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
       aiModelsProvider: aiModelsProvider,
+      machineTerminalService: machineTerminalService,
     );
   }
 
@@ -357,6 +365,9 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.bashBackground,
         AiBuiltinToolKind.taskOutput,
         AiBuiltinToolKind.taskStop,
+        AiBuiltinToolKind.machineTerminalWrite,
+        AiBuiltinToolKind.machineTerminalExec,
+        AiBuiltinToolKind.machineTerminalControl,
         AiBuiltinToolKind.edit,
         AiBuiltinToolKind.multiEdit,
         AiBuiltinToolKind.applyFileDiffs,
@@ -405,6 +416,7 @@ class AiToolRuntimeService {
   final AiFileHistoryService _fileHistory;
   final AiFileMutationLedger _mutationLedger;
   final AgentsControllerProvider? _agentsControllerProvider;
+  final MachineTerminalService? _machineTerminalService;
   final String Function(String sessionId)? _toolOutputDirectoryProvider;
 
   /// 获取文件追踪服务（供外部访问，如会话重置时清理）
@@ -468,7 +480,17 @@ class AiToolRuntimeService {
       final kind = tool.builtinKind;
       return kind != null && _enabledAgentsExposeBuiltinTool(kind, tool.name);
     }
+    if (_isMachineTerminalBuiltinKind(tool.builtinKind)) {
+      return templateId == kMachineExpertTemplateId;
+    }
     return true;
+  }
+
+  bool _isMachineTerminalBuiltinKind(AiBuiltinToolKind? kind) {
+    return kind == AiBuiltinToolKind.machineTerminalRead ||
+        kind == AiBuiltinToolKind.machineTerminalWrite ||
+        kind == AiBuiltinToolKind.machineTerminalExec ||
+        kind == AiBuiltinToolKind.machineTerminalControl;
   }
 
   bool _enabledAgentsExposeBuiltinTool(
@@ -1601,6 +1623,8 @@ class AiToolRuntimeService {
         'file_tracker': _fileTracker,
         'file_history': _fileHistory,
         'mutation_ledger': _mutationLedger,
+        if (_machineTerminalService != null)
+          'machine_terminal_service': _machineTerminalService,
         'write_confirmation_timeout_ms':
             _bashToolService.writeConfirmationTimeoutMs,
       },
@@ -1910,6 +1934,10 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.bashBackground => 'BashBackground',
       AiBuiltinToolKind.taskOutput => 'TaskOutput',
       AiBuiltinToolKind.taskStop => 'TaskStop',
+      AiBuiltinToolKind.machineTerminalRead => 'MachineTerminalRead',
+      AiBuiltinToolKind.machineTerminalWrite => 'MachineTerminalWrite',
+      AiBuiltinToolKind.machineTerminalExec => 'MachineTerminalExec',
+      AiBuiltinToolKind.machineTerminalControl => 'MachineTerminalControl',
       AiBuiltinToolKind.glob => 'Glob',
       AiBuiltinToolKind.grep => 'Grep',
       AiBuiltinToolKind.ls => 'LS',
@@ -2548,6 +2576,151 @@ class AiToolRuntimeService {
             'required': <String>['handle'],
           },
         ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.machineTerminalRead,
+      name: 'MachineTerminalRead',
+      description:
+          'Machine Expert only. Read the live OpenHand terminal panel state and recent output. Omit terminal_id to read the active terminal.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'terminal_id': <String, Object?>{
+            'type': 'string',
+            'description': 'Optional terminal id. Defaults to active terminal.',
+          },
+          'start_if_needed': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'Start the active terminal if it is stopped. Defaults to true.',
+          },
+        },
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.machineTerminalWrite,
+      name: 'MachineTerminalWrite',
+      description:
+          'Machine Expert only. Write raw input to the live OpenHand terminal panel. Use for interactive programs, control sequences, pasted text, and Enter key input.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'terminal_id': <String, Object?>{
+            'type': 'string',
+            'description': 'Optional terminal id. Defaults to active terminal.',
+          },
+          'data': <String, Object?>{
+            'type': 'string',
+            'description': 'Raw text to write to the terminal.',
+          },
+          'append_newline': <String, Object?>{
+            'type': 'boolean',
+            'description': 'Append Enter/newline after data.',
+          },
+          'enter': <String, Object?>{
+            'type': 'boolean',
+            'description': 'Alias for append_newline.',
+          },
+        },
+        'required': <String>['data'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.machineTerminalExec,
+      name: 'MachineTerminalExec',
+      description:
+          'Machine Expert only. Execute a shell command inside the live OpenHand terminal panel and return only the output between OpenHand markers. Use this for precise command/result capture.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'terminal_id': <String, Object?>{
+            'type': 'string',
+            'description': 'Optional terminal id. Defaults to active terminal.',
+          },
+          'command': <String, Object?>{
+            'type': 'string',
+            'description': 'Shell command to run in the terminal.',
+          },
+          'cmd': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for command.',
+          },
+          'timeout_ms': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1000,
+            'maximum': 600000,
+          },
+          'timeout': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1000,
+            'maximum': 600000,
+            'description': 'Alias for timeout_ms.',
+          },
+        },
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['command'],
+          },
+          <String, Object?>{
+            'required': <String>['cmd'],
+          },
+        ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.machineTerminalControl,
+      name: 'MachineTerminalControl',
+      description:
+          'Machine Expert only. Control the OpenHand terminal panel lifecycle: start, stop, restart, clear, new, duplicate, close, or select.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'action': <String, Object?>{
+            'type': 'string',
+            'enum': <String>[
+              'start',
+              'stop',
+              'restart',
+              'clear',
+              'resize',
+              'new',
+              'duplicate',
+              'close',
+              'select',
+            ],
+          },
+          'terminal_id': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Target terminal id. Required for select; optional otherwise.',
+          },
+          'working_directory': <String, Object?>{
+            'type': 'string',
+            'description': 'Initial cwd for action=new.',
+          },
+          'cwd': <String, Object?>{
+            'type': 'string',
+            'description': 'Alias for working_directory.',
+          },
+          'columns': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1,
+            'maximum': 400,
+            'description': 'Terminal columns for action=resize.',
+          },
+          'rows': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1,
+            'maximum': 240,
+            'description': 'Terminal rows for action=resize.',
+          },
+        },
+        'required': <String>['action'],
         'additionalProperties': false,
       },
     ),

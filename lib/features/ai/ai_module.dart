@@ -5,6 +5,7 @@ import '../agents/agents_controller.dart';
 import '../hooks/index.dart';
 import '../instructions/instructions_controller.dart';
 import '../knowledge_base/knowledge_base_controller.dart';
+import '../machine_terminal/index.dart';
 import '../memory/index.dart';
 import 'ai_session_controller.dart';
 import 'model/ai_model_config.dart';
@@ -36,6 +37,7 @@ class AiModule {
     required List<AiModelConfig> Function() aiModelsProvider,
     required KnowledgeBaseController? Function()
     knowledgeBaseControllerProvider,
+    required MachineTerminalService machineTerminalService,
   }) async {
     final controller = await AiSessionController.create(
       hookService: AiClaudeHookService(),
@@ -46,6 +48,7 @@ class AiModule {
       instructionsControllerProvider: instructionsControllerProvider,
       aiModelsProvider: aiModelsProvider,
       knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
+      machineTerminalService: machineTerminalService,
     );
     return AiModule._(controller: controller);
   }

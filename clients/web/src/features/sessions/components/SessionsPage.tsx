@@ -221,7 +221,49 @@ export function SessionsPage() {
 
   function onPickTemplate(tpl: ApiMetaTemplate): void {
     setPickerOpen(false);
+    if (tpl.id === 'machine_expert') {
+      void createDirectTemplateSession(tpl);
+      return;
+    }
     setConfigTemplate(tpl);
+  }
+
+  async function createDirectTemplateSession(tpl: ApiMetaTemplate): Promise<void> {
+    if (creating) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await createSession({
+        templateId: tpl.id,
+        mode: 'chat',
+      });
+      setData((prev) => prev
+        ? {
+            ...prev,
+            items: [
+              res.session,
+              ...prev.items.filter((item) => item.id !== res.session.id),
+            ].slice(0, prev.page_size),
+            total: prev.total + (prev.items.some((item) => item.id === res.session.id) ? 0 : 1),
+          }
+        : prev);
+      showSnackbar(t('sessions.create.ok', '已创建会话'), { tone: 'success' });
+      location.route(`/threads/${res.session.id}`);
+    } catch (e: unknown) {
+      if (e instanceof UnauthorizedError) {
+        location.route('/login', true);
+        return;
+      }
+      const message = e instanceof ApiError
+        ? t('sessions.create.error.api', 'HTTP ') + String(e.status)
+        : e instanceof Error
+        ? e.message
+        : String(e);
+      setCreateError(message);
+      showSnackbar(t('sessions.create.failed', '创建会话失败'), { tone: 'error' });
+    } finally {
+      setCreating(false);
+    }
   }
 
   async function onConfigSubmit(params: { mode: SessionMode; title: string; modelKey: string }): Promise<void> {

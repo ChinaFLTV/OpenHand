@@ -30,6 +30,7 @@ import '../home/index.dart';
 import '../hooks/index.dart';
 import '../instructions/instructions_controller.dart';
 import '../knowledge_base/index.dart';
+import '../machine_terminal/index.dart';
 import '../mcp/index.dart';
 import 'data/ai_session_store.dart';
 import 'model/ai_attachment.dart';
@@ -140,6 +141,7 @@ class AiSessionController extends ChangeNotifier {
     required AiAttachmentService attachmentService,
     required String Function() idGenerator,
     required DateTime Function() clock,
+    MachineTerminalService? machineTerminalService,
     HooksExecutor? userHooksExecutor,
   }) : _store = store,
        _chatClient = chatClient,
@@ -152,6 +154,7 @@ class AiSessionController extends ChangeNotifier {
        _attachmentService = attachmentService,
        _idGenerator = idGenerator,
        _clock = clock,
+       _machineTerminalService = machineTerminalService,
        _userHooksExecutor = userHooksExecutor;
   static const String _editRollbackMarkerKey = 'deleted_by_edit_message_id';
   static const String _responseVariantHiddenMessageKey =
@@ -272,6 +275,7 @@ class AiSessionController extends ChangeNotifier {
     InstructionsControllerProvider? instructionsControllerProvider,
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
+    MachineTerminalService? machineTerminalService,
   }) async {
     final resolvedStore = store ?? AiSessionStore();
     final resolvedChatClient = chatClient ?? AiChatService();
@@ -305,6 +309,7 @@ class AiSessionController extends ChangeNotifier {
             instructionsControllerProvider: instructionsControllerProvider,
             knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
             aiModelsProvider: aiModelsProvider,
+            machineTerminalService: machineTerminalService,
             toolOutputDirectoryProvider:
                 resolvedStore.sessionToolResultsDirectoryPath,
           ),
@@ -317,6 +322,7 @@ class AiSessionController extends ChangeNotifier {
           ),
       idGenerator: idGenerator ?? const Uuid().v4,
       clock: clock ?? () => DateTime.now().toUtc(),
+      machineTerminalService: machineTerminalService,
     );
     await controller.refresh();
     return controller;
@@ -739,6 +745,7 @@ class AiSessionController extends ChangeNotifier {
   final AiAttachmentService _attachmentService;
   final String Function() _idGenerator;
   final DateTime Function() _clock;
+  final MachineTerminalService? _machineTerminalService;
 
   /// Exposes the chat client for subsystems (e.g. Harness API phase runner)
   /// that need to perform API calls independently of the session loop.
@@ -4276,6 +4283,9 @@ class AiSessionController extends ChangeNotifier {
     }
     if (deletedSession != null) {
       await _emitSessionEndHook(session: deletedSession, reason: 'other');
+    }
+    if (deletedSession?.templateId == kMachineExpertTemplateId) {
+      await _machineTerminalService?.disposeWorkspace(sessionId);
     }
     _clearSessionScopedSendState(sessionId);
   }
@@ -8716,6 +8726,10 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.agentTaskTerminate:
       case AiBuiltinToolKind.agentTaskResume:
       case AiBuiltinToolKind.agentTaskComplete:
+      case AiBuiltinToolKind.machineTerminalRead:
+      case AiBuiltinToolKind.machineTerminalWrite:
+      case AiBuiltinToolKind.machineTerminalExec:
+      case AiBuiltinToolKind.machineTerminalControl:
         return false;
     }
   }

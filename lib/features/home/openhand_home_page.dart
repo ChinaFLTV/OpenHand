@@ -26,6 +26,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 import 'package:uuid/uuid.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:xml/xml.dart' as xml;
+import 'package:xterm/xterm.dart';
 import 'package:yaml/yaml.dart';
 
 import '../../app/model/app_info.dart';
@@ -98,6 +99,7 @@ import '../harness/index.dart';
 import '../hooks/index.dart';
 import '../instructions/index.dart';
 import '../knowledge_base/index.dart';
+import '../machine_terminal/index.dart';
 import '../mcp/index.dart';
 import '../memory/index.dart';
 import '../message_gateway/index.dart';
@@ -113,7 +115,6 @@ import 'util/message_path_linking.dart';
 import 'util/slash_command_parser.dart';
 import 'util/tool_call_argument_parser.dart';
 import 'widgets/html_selection_bridge_clipboard.dart';
-import 'widgets/machine_expert_dialog.dart';
 import 'widgets/token_popup_cache_hit_trend_chart.dart';
 part 'widgets/_home_navigation.dart';
 part 'widgets/_home_write_command_dialog.dart';
@@ -134,6 +135,7 @@ part 'widgets/_home_token_dial.dart';
 part 'widgets/_home_thread_template_dialog.dart';
 part 'widgets/_home_programming_expert_project_dialog.dart';
 part 'widgets/_home_programming_expert_file_explorer.dart';
+part 'widgets/_home_machine_terminal_panel.dart';
 part 'widgets/_home_harness_annotations.dart';
 part 'widgets/_home_motion_tokens.dart';
 part 'widgets/_openhand_home_page_helpers.dart';
@@ -3123,38 +3125,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  Future<MachineExpertDialogResult?> _showMachineExpertDialog({
-    String? initialTask,
-    bool useGlobalDefault = false,
-  }) async {
-    final settingsController = context.read<SettingsController>();
-    final selectedModel = useGlobalDefault
-        ? settingsController.selectedAiModel
-        : _effectiveModelForSession(
-            settingsController,
-            context.read<AiSessionController>().currentSession,
-          );
-    return showAnimatedDialog<MachineExpertDialogResult>(
-      context: context,
-      builder: (context) => MachineExpertDialog(
-        initialTask: initialTask,
-        availableModels: settingsController.aiModels,
-        recentModelSelections: settingsController.recentModelSelections,
-        initialSelectedModelConfigId: selectedModel?.id,
-        initialSelectedModelId: selectedModel?.modelId,
-      ),
-    );
-  }
-
-  Future<void> _applyMachineExpertModelSelection(
-    MachineExpertDialogResult result,
-  ) async {
-    await _applyNewSessionModelSelection(
-      providerConfigId: result.selectedModelConfigId,
-      modelId: result.selectedModelId,
-    );
-  }
-
   AiModelConfig? _initialModelForAutoStartTemplate() {
     final settingsController = context.read<SettingsController>();
     final sessionController = context.read<AiSessionController>();
@@ -3244,6 +3214,42 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return true;
   }
 
+  Future<bool> _createMachineExpertSession({
+    AiSessionRuntimeContext? runtimeContext,
+    AiSessionMode initialMode = AiSessionMode.chat,
+    bool initialFullAccessPermission = false,
+  }) async {
+    final resolvedRuntimeContext =
+        runtimeContext ?? await _buildRuntimeContext();
+    if (!mounted) {
+      return false;
+    }
+    final created = await _createSession(
+      templateId: kMachineExpertTemplateId,
+      runtimeContext: resolvedRuntimeContext,
+      initialMode: initialMode,
+      initialFullAccessPermission: initialFullAccessPermission,
+    );
+    if (!created || !mounted) {
+      return created;
+    }
+    final sessionController = context.read<AiSessionController>();
+    final session = sessionController.currentSession;
+    if (session == null) {
+      return created;
+    }
+    final terminalService = context.read<MachineTerminalService>();
+    final metadata = terminalService.initialMetadata(
+      sessionId: session.id,
+      workingDirectory: resolvedRuntimeContext.workingDirectory,
+    );
+    await sessionController.updateSessionMetadata(session.id, <String, Object?>{
+      kMachineTerminalMetadataKey: metadata,
+    });
+    unawaited(terminalService.startTerminal(sessionId: session.id));
+    return created;
+  }
+
   Future<bool> _createSessionFromDialog({
     AiSessionRuntimeContext? runtimeContext,
   }) async {
@@ -3251,21 +3257,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted || templateId == null) {
       return false;
     }
-    if (templateId == 'machine_expert') {
-      final result = await _showMachineExpertDialog(useGlobalDefault: true);
-      if (!mounted || result == null) {
-        return false;
-      }
-      final created = await _createSession(
-        templateId: templateId,
-        runtimeContext: runtimeContext,
-      );
-      if (created && mounted) {
-        await _applyMachineExpertModelSelection(result);
-        _replaceComposerText(result.toPrompt());
-        await _sendMessage();
-      }
-      return created;
+    if (templateId == kMachineExpertTemplateId) {
+      return _createMachineExpertSession(runtimeContext: runtimeContext);
     }
     if (templateId == 'programming_expert') {
       final sessionController = context.read<AiSessionController>();
@@ -6003,7 +5996,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       await _handleSlashCommand(slashCommand);
       return;
     }
-    MachineExpertDialogResult? machineExpertConfig;
     AiSessionRuntimeContext? runtimeContext;
     final submitPreflightTimingsMs = <String, int>{};
     if (sessionController.currentSession == null) {
@@ -6027,16 +6019,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           initialFullAccessPermission: _detachedFullAccessPermission,
         );
         return;
-      }
-      if (templateId == 'machine_expert') {
-        machineExpertConfig = await _showMachineExpertDialog(
-          initialTask: prompt,
-        );
-        if (!mounted || machineExpertConfig == null) {
-          return;
-        }
-        prompt = machineExpertConfig.toPrompt();
-        _replaceComposerText(prompt);
       }
       // Programming Expert: show project config dialog so the AI knows
       // the correct working directory and project context.
@@ -6073,17 +6055,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted) {
         return;
       }
-      final created = await _createSession(
-        templateId: templateId,
-        runtimeContext: runtimeContext,
-        initialMode: _detachedComposerMode,
-        initialFullAccessPermission: _detachedFullAccessPermission,
-      );
+      final created = templateId == kMachineExpertTemplateId
+          ? await _createMachineExpertSession(
+              runtimeContext: runtimeContext,
+              initialMode: _detachedComposerMode,
+              initialFullAccessPermission: _detachedFullAccessPermission,
+            )
+          : await _createSession(
+              templateId: templateId,
+              runtimeContext: runtimeContext,
+              initialMode: _detachedComposerMode,
+              initialFullAccessPermission: _detachedFullAccessPermission,
+            );
       if (!mounted || !created || sessionController.currentSession == null) {
         return;
-      }
-      if (machineExpertConfig != null) {
-        await _applyMachineExpertModelSelection(machineExpertConfig);
       }
       // After creating a PE session, persist the project config into metadata.
       if (peConfig != null) {
@@ -9149,6 +9134,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                       _fileExplorerVisible &&
                       projectRoot != null &&
                       _selectedSection == AppSection.workspace;
+                  final showMachineTerminal =
+                      currentSession?.templateId == kMachineExpertTemplateId &&
+                      _selectedSection == AppSection.workspace;
                   final panelSettings = context
                       .read<SettingsController>()
                       .panelAnimationSettings;
@@ -9179,7 +9167,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                           settings: panelSettings,
                         );
                       },
-                      child: showFileExplorer
+                      child: showMachineTerminal
+                          ? _ContentPane(
+                              key: const ValueKey<String>(
+                                'machine-terminal-pane',
+                              ),
+                              child: _MachineExpertTerminalPanel(
+                                sessionId: currentSession!.id,
+                              ),
+                            )
+                          : showFileExplorer
                           ? _ContentPane(
                               key: const ValueKey<String>('file-explorer-pane'),
                               child: _FileExplorerPanel(
