@@ -92,7 +92,8 @@ import {
   knowledgeBaseHitTokenEstimateTotal,
   knowledgeBaseResultsUsedByAnswer,
 } from '../../../shared/util/knowledge';
-import { clampNumber, normalizeInteger, strictPositiveIntegerFromText } from '../../../shared/util/number';
+import { messageFeedbackValue } from '../../../shared/util/message_feedback';
+import { clampNumber, strictPositiveIntegerFromText } from '../../../shared/util/number';
 import { basenameFromPath } from '../../../shared/util/path';
 import {
   clearTranscriptScrollActivity,
@@ -102,7 +103,6 @@ import { STREAMING_TURN_IDLE_DEBOUNCE_MS } from '../../../shared/ui/streaming_tu
 import {
   arrayFromUnknown,
   finiteNumberFromUnknown,
-  finiteNumberOrNullFromUnknown,
   integerFromUnknown,
   nonNegativeIntegerFromUnknown,
   booleanFromUnknown,
@@ -478,27 +478,6 @@ function isAssistantTextLikeMessage(message: SessionMessage): boolean {
 
 function messageMetadataStreaming(message: SessionMessage): boolean {
   return booleanFromUnknown(message.metadata?.streaming);
-}
-
-function normalizedMessageFeedback(value: unknown): SessionMessageFeedback | null {
-  return value === 'liked' || value === 'needs_improvement' ? value : null;
-}
-
-function messageFeedbackValue(message: SessionMessage): SessionMessageFeedback | null {
-  const direct = normalizedMessageFeedback(message.feedback);
-  if (direct) return direct;
-  const meta = recordOrNullFromUnknown(message.metadata);
-  if (!meta) return null;
-  const legacy = normalizedMessageFeedback(meta['message_feedback']);
-  if (legacy) return legacy;
-  const variants = meta['response_variants'];
-  if (!Array.isArray(variants) || variants.length === 0) return null;
-  const index = normalizeInteger(finiteNumberOrNullFromUnknown(meta['response_variant_index']), {
-    fallback: 0,
-    min: 0,
-    max: variants.length - 1,
-  });
-  return normalizedMessageFeedback(recordOrNullFromUnknown(variants[index])?.['message_feedback']);
 }
 
 function messageWithFeedback(

@@ -48,6 +48,7 @@ import {
   knowledgeBaseHitTokenEstimateTotal,
   knowledgeBaseResultsUsedByAnswer,
 } from '../shared/util/knowledge';
+import { messageFeedbackValue } from '../shared/util/message_feedback';
 import {
   clampNumber,
   strictPositiveIntegerFromUnknown,
@@ -1916,29 +1917,6 @@ function isPlainConversationMessage(message: SessionMessage): boolean {
   return !message.kind ||
     message.kind === 'text' ||
     message.kind === message.role;
-}
-
-function normalizedMessageFeedback(value: unknown): SessionMessageFeedback | null {
-  return value === 'liked' || value === 'needs_improvement' ? value : null;
-}
-
-function messageFeedbackValue(message: SessionMessage): SessionMessageFeedback | null {
-  const direct = normalizedMessageFeedback(message.feedback);
-  if (direct) return direct;
-  const meta = recordOrNullFromUnknown(message.metadata);
-  if (!meta) return null;
-  const legacy = normalizedMessageFeedback(meta['message_feedback']);
-  if (legacy) return legacy;
-  const variants = meta['response_variants'];
-  if (!Array.isArray(variants) || variants.length === 0) return null;
-  const index = Math.max(
-    0,
-    Math.min(
-      variants.length - 1,
-      finiteNumberOrNullFromUnknown(meta['response_variant_index']) ?? 0,
-    ),
-  );
-  return normalizedMessageFeedback(recordOrNullFromUnknown(variants[index])?.['message_feedback']);
 }
 
 function selectedMessageInfoChips(
