@@ -1553,7 +1553,27 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             nextExtra['format'],
           );
     }
-    return normalized.copyWith(voice: nextVoice, extra: nextExtra).normalized();
+    return normalized
+        .copyWith(
+          voice: nextVoice,
+          speed: _aiTtsNumberRangeForModel(
+            protocol: protocol,
+            modelId: modelId,
+            kind: _TtsNumberKind.speed,
+          ).snap(normalized.speed),
+          volume: _aiTtsNumberRangeForModel(
+            protocol: protocol,
+            modelId: modelId,
+            kind: _TtsNumberKind.volume,
+          ).snap(normalized.volume),
+          pitch: _aiTtsNumberRangeForModel(
+            protocol: protocol,
+            modelId: modelId,
+            kind: _TtsNumberKind.pitch,
+          ).snap(normalized.pitch),
+          extra: nextExtra,
+        )
+        .normalized();
   }
 
   @override

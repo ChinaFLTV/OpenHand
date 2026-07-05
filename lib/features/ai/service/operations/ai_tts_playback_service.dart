@@ -257,6 +257,13 @@ class AiTtsPlaybackService {
       );
       return;
     }
+    final resolvedAiModel = provider.provider == AiTtsProvider.ai
+        ? _resolveAiModel(
+            settings: provider,
+            availableModels: availableModels,
+            fallbackModel: fallbackModel,
+          )
+        : null;
     final cacheKey = await _ttsAudioCacheKey(
       provider: provider,
       text: text,
@@ -279,7 +286,7 @@ class AiTtsPlaybackService {
     await _playAudioBytes(
       audio.bytes,
       extension: audio.extension,
-      volume: _playbackVolume(provider),
+      volume: _playbackVolume(provider, aiModel: resolvedAiModel),
       provider: provider,
       requestTimeout: timeout,
       isCurrent: isCurrent,
@@ -510,8 +517,49 @@ class AiTtsPlaybackService {
     return provider != AiTtsProvider.system && provider != AiTtsProvider.apple;
   }
 
-  static double _playbackVolume(AiTtsProviderSettings settings) {
-    return settings.provider == AiTtsProvider.google ? 1 : settings.volume;
+  static double _playbackVolume(
+    AiTtsProviderSettings settings, {
+    AiModelConfig? aiModel,
+  }) {
+    switch (settings.provider) {
+      case AiTtsProvider.ai:
+        return _aiPlaybackVolume(settings, aiModel: aiModel);
+      case AiTtsProvider.mimo:
+      case AiTtsProvider.youdao:
+      case AiTtsProvider.system:
+      case AiTtsProvider.apple:
+        return _unitPlaybackVolume(settings.volume);
+      case AiTtsProvider.xfyun:
+      case AiTtsProvider.baidu:
+      case AiTtsProvider.bing:
+      case AiTtsProvider.google:
+      case AiTtsProvider.doubao:
+        return 1.0;
+    }
+  }
+
+  static double _aiPlaybackVolume(
+    AiTtsProviderSettings settings, {
+    AiModelConfig? aiModel,
+  }) {
+    final modelId = (aiModel?.modelId ?? settings.modelId).trim();
+    final protocol = aiModel?.protocolType;
+    final fallbackProtocol = protocol ?? AiProtocolType.openai;
+    final synthesisAppliesVolume =
+        AiTtsProviderCatalogs.usesStepFunSpeech(
+          protocol: fallbackProtocol,
+          modelId: modelId,
+        ) ||
+        AiTtsProviderCatalogs.usesMiniMaxSpeech(
+          protocol: fallbackProtocol,
+          modelId: modelId,
+        );
+    return synthesisAppliesVolume ? 1.0 : _unitPlaybackVolume(settings.volume);
+  }
+
+  static double _unitPlaybackVolume(double volume) {
+    if (!volume.isFinite) return 1.0;
+    return volume.clamp(0.0, 1.0).toDouble();
   }
 
   Future<_AiTtsAudioPayload> _synthesizeWithMimo(
@@ -1522,8 +1570,7 @@ class AiTtsPlaybackService {
   }
 
   static double _afplayVolume(double volume) {
-    if (volume <= 1) return volume.clamp(0.0, 1.0).toDouble();
-    return (volume / 100).clamp(0.0, 2.0).toDouble();
+    return _unitPlaybackVolume(volume);
   }
 
   static Duration _speechProcessTimeoutForText(
