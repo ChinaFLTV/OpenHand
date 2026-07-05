@@ -2908,10 +2908,7 @@ class _HistoryInspectorGroup extends StatelessWidget {
   }
 
   static String _formatTimestamp(DateTime dt) {
-    final l = dt.toLocal();
-    String two(int n) => n.toString().padLeft(2, '0');
-    return '${l.year}-${two(l.month)}-${two(l.day)} '
-        '${two(l.hour)}:${two(l.minute)}:${two(l.second)}';
+    return formatYearMonthDayHms(dt.toLocal());
   }
 }
 

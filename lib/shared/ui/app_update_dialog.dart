@@ -7,6 +7,7 @@ import '../../app/model/app_info.dart';
 import '../../app/support/app_update_checker.dart';
 import '../../l10n/app_localizations.dart';
 import '../util/byte_size_format.dart';
+import '../util/date_time_format.dart';
 import 'animated_dialog.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
@@ -492,6 +493,6 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
   }
 
   String _formatDate(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    return formatYearMonthDay(date);
   }
 }
