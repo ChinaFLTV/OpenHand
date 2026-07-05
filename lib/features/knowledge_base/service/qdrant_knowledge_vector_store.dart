@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:uuid/uuid.dart';
 
 import '../../../shared/net/http_status_utils.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
 import 'knowledge_indexing_control.dart';
@@ -243,20 +244,15 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
     }
 
     final requestFuture = send().whenComplete(() => client.close(force: true));
-    if (cancelSignal == null) return requestFuture;
-    final cancelled = Object();
-    final result = await Future.any<Object?>([
-      requestFuture.then<Object?>((value) => value),
-      cancelSignal.then<Object?>((_) => cancelled),
-    ]);
-    if (identical(result, cancelled)) {
+    final result = await awaitWithCancelSignal(
+      requestFuture,
+      cancelSignal: cancelSignal,
+    );
+    if (result == null) {
       client.close(force: true);
-      unawaited(
-        requestFuture.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
-      );
       throw const KnowledgeIndexingCancelledException();
     }
-    return result! as _QdrantResponse;
+    return result;
   }
 
   Map<String, Object?> _decode(String body) {

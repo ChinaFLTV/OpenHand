@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import '../../../shared/util/async_concurrency.dart';
 import '../../ai/index.dart';
 import '../model/knowledge_base_settings.dart';
 import 'knowledge_indexing_control.dart';
@@ -237,36 +238,26 @@ class KnowledgeEmbeddingService {
     Future<T> future,
     KnowledgeIndexingCancelToken? cancelToken,
   ) async {
-    if (cancelToken == null) return future;
-    final cancelled = Object();
-    final result = await Future.any<Object?>([
-      future.then<Object?>((value) => value),
-      cancelToken.whenCancelled.then<Object?>((_) => cancelled),
-    ]);
-    if (identical(result, cancelled)) {
+    final result = await awaitWithCancelSignal(
+      future,
+      cancelSignal: cancelToken?.whenCancelled,
+    );
+    if (result == null) {
       _abortOwnedEmbeddings();
-      unawaited(
-        future.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
-      );
       throw const KnowledgeIndexingCancelledException();
     }
-    return result as T;
+    return result;
   }
 
   Future<void> _delayOrCancel(
     Duration duration,
     KnowledgeIndexingCancelToken? cancelToken,
   ) async {
-    if (cancelToken == null) {
-      await Future<void>.delayed(duration);
-      return;
-    }
-    final cancelled = Object();
-    final result = await Future.any<Object?>([
-      Future<void>.delayed(duration).then<Object?>((_) => null),
-      cancelToken.whenCancelled.then<Object?>((_) => cancelled),
-    ]);
-    if (identical(result, cancelled)) {
+    final cancelled = await delayUntilCancelled(
+      duration,
+      cancelSignal: cancelToken?.whenCancelled,
+    );
+    if (cancelled) {
       throw const KnowledgeIndexingCancelledException();
     }
   }
