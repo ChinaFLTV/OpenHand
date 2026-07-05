@@ -143,22 +143,6 @@ const EdgeInsets _agentActivityCardPadding = EdgeInsets.fromLTRB(
   14,
   12,
 );
-const List<String> _agentSchedulerPolicyOptions = <String>[
-  'least_busy',
-  'priority_first',
-  'round_robin',
-];
-const List<String> _agentWorkerRemovalPolicyOptions = <String>[
-  'least_busy',
-  'newest_first',
-];
-const List<String> _agentRetryPolicyOptions = <String>['bounded_retry', 'none'];
-const List<String> _agentKpiStatusOptions = <String>[
-  'tracking',
-  'at_risk',
-  'done',
-  'paused',
-];
 const int _agentScaleMinWorkersMin = 0;
 const int _agentScaleMaxWorkersMin = 1;
 const int _agentScaleWorkersMax = 999;
@@ -2936,16 +2920,16 @@ class _AgentClusterSettingsEditorState
     _scaleOutThreshold = _normalizeAgentScaleRatio(initial.scaleOutThreshold);
     _scaleInThreshold = _normalizeAgentScaleRatio(initial.scaleInThreshold);
     _schedulerPolicy =
-        _agentSchedulerPolicyOptions.contains(initial.schedulerPolicy)
+        agentSchedulerPolicyOptions.contains(initial.schedulerPolicy)
         ? initial.schedulerPolicy
-        : _agentSchedulerPolicyOptions.first;
+        : agentSchedulerPolicyOptions.first;
     _workerRemovalPolicy =
-        _agentWorkerRemovalPolicyOptions.contains(initial.workerRemovalPolicy)
+        agentWorkerRemovalPolicyOptions.contains(initial.workerRemovalPolicy)
         ? initial.workerRemovalPolicy
-        : _agentWorkerRemovalPolicyOptions.first;
-    _retryPolicy = _agentRetryPolicyOptions.contains(initial.retryPolicy)
+        : agentWorkerRemovalPolicyOptions.first;
+    _retryPolicy = agentRetryPolicyOptions.contains(initial.retryPolicy)
         ? initial.retryPolicy
-        : _agentRetryPolicyOptions.first;
+        : agentRetryPolicyOptions.first;
     _tagInput = TextEditingController();
     _tags = List<String>.from(initial.tags);
   }
@@ -3028,7 +3012,7 @@ class _AgentClusterSettingsEditorState
             _clusterPolicyDropdown(
               label: l10n.agentsSchedulerPolicyLabel,
               value: _schedulerPolicy,
-              values: _agentSchedulerPolicyOptions,
+              values: agentSchedulerPolicyOptions,
               onChanged: (value) => setState(() => _schedulerPolicy = value),
             ),
             _clusterPolicyDropdown(
@@ -3038,7 +3022,7 @@ class _AgentClusterSettingsEditorState
                 en: 'Worker removal policy',
               ),
               value: _workerRemovalPolicy,
-              values: _agentWorkerRemovalPolicyOptions,
+              values: agentWorkerRemovalPolicyOptions,
               onChanged: (value) =>
                   setState(() => _workerRemovalPolicy = value),
             ),
@@ -3049,7 +3033,7 @@ class _AgentClusterSettingsEditorState
                 en: 'Retry policy',
               ),
               value: _retryPolicy,
-              values: _agentRetryPolicyOptions,
+              values: agentRetryPolicyOptions,
               onChanged: (value) => setState(() => _retryPolicy = value),
             ),
           ],
@@ -4403,13 +4387,17 @@ class _AgentKpiBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tracking = kpis
-        .where((item) => item.status.trim().toLowerCase() == 'tracking')
+        .where(
+          (item) => item.status.trim().toLowerCase() == agentKpiStatusTracking,
+        )
         .length;
     final atRisk = kpis
-        .where((item) => item.status.trim().toLowerCase() == 'at_risk')
+        .where(
+          (item) => item.status.trim().toLowerCase() == agentKpiStatusAtRisk,
+        )
         .length;
     final done = kpis
-        .where((item) => item.status.trim().toLowerCase() == 'done')
+        .where((item) => item.status.trim().toLowerCase() == agentKpiStatusDone)
         .length;
     final averageProgress = kpis.isEmpty
         ? 0
@@ -4468,24 +4456,14 @@ class _AgentKpiBody extends StatelessWidget {
 
 List<AgentKpiItem> _sortedAgentKpis(List<AgentKpiItem> kpis) {
   return List<AgentKpiItem>.from(kpis)..sort((left, right) {
-    final statusCompare = _agentKpiStatusRank(
+    final statusCompare = agentKpiStatusRank(
       left.status,
-    ).compareTo(_agentKpiStatusRank(right.status));
+    ).compareTo(agentKpiStatusRank(right.status));
     if (statusCompare != 0) return statusCompare;
     final progressCompare = left.progress.compareTo(right.progress);
     if (progressCompare != 0) return progressCompare;
     return _agentKpiSortTime(right).compareTo(_agentKpiSortTime(left));
   });
-}
-
-int _agentKpiStatusRank(String status) {
-  return switch (status.trim().toLowerCase()) {
-    'at_risk' => 0,
-    'tracking' => 1,
-    'paused' => 2,
-    'done' => 3,
-    _ => 4,
-  };
 }
 
 DateTime _agentKpiSortTime(AgentKpiItem item) {
@@ -4727,9 +4705,9 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
     _plan = TextEditingController(text: initial?.plan ?? '');
     _extraEntries = _keyValueEntriesFromMap(initial?.extra);
     _progress = (initial?.progress ?? 0).clamp(0, 1).toDouble();
-    _status = _agentKpiStatusOptions.contains(initial?.status)
+    _status = agentKpiStatusOptions.contains(initial?.status)
         ? initial!.status
-        : _agentKpiStatusOptions.first;
+        : agentKpiStatusOptions.first;
   }
 
   @override
@@ -4801,7 +4779,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
                 ),
               ),
               items: [
-                for (final value in _agentKpiStatusOptions)
+                for (final value in agentKpiStatusOptions)
                   DropdownMenuItem(
                     value: value,
                     child: Text(_agentKpiStatusLabel(context, value)),
@@ -4905,27 +4883,35 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
 
 String _agentKpiStatusLabel(BuildContext context, String status) {
   return switch (status.trim().toLowerCase()) {
-    'done' => openHandLocalizedText(context, zh: '已完成', en: 'Done'),
-    'at_risk' => openHandLocalizedText(context, zh: '有风险', en: 'At risk'),
-    'paused' => openHandLocalizedText(context, zh: '已暂停', en: 'Paused'),
+    agentKpiStatusDone => openHandLocalizedText(context, zh: '已完成', en: 'Done'),
+    agentKpiStatusAtRisk => openHandLocalizedText(
+      context,
+      zh: '有风险',
+      en: 'At risk',
+    ),
+    agentKpiStatusPaused => openHandLocalizedText(
+      context,
+      zh: '已暂停',
+      en: 'Paused',
+    ),
     _ => openHandLocalizedText(context, zh: '跟进中', en: 'Tracking'),
   };
 }
 
 IconData _agentKpiStatusIcon(String status) {
   return switch (status.trim().toLowerCase()) {
-    'done' => Icons.check_circle_rounded,
-    'at_risk' => Icons.warning_amber_rounded,
-    'paused' => Icons.pause_circle_outline_rounded,
+    agentKpiStatusDone => Icons.check_circle_rounded,
+    agentKpiStatusAtRisk => Icons.warning_amber_rounded,
+    agentKpiStatusPaused => Icons.pause_circle_outline_rounded,
     _ => Icons.flag_rounded,
   };
 }
 
 Color _agentKpiStatusColor(ColorScheme cs, String status) {
   return switch (status.trim().toLowerCase()) {
-    'done' => cs.tertiary,
-    'at_risk' => cs.error,
-    'paused' => cs.onSurfaceVariant,
+    agentKpiStatusDone => cs.tertiary,
+    agentKpiStatusAtRisk => cs.error,
+    agentKpiStatusPaused => cs.onSurfaceVariant,
     _ => cs.primary,
   };
 }
@@ -8910,10 +8896,13 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     _scaleInThreshold = _normalizeAgentScaleRatio(
       agent?.scaleSettings.scaleInThreshold ?? 0.25,
     );
-    _schedulerPolicy = agent?.scaleSettings.schedulerPolicy ?? 'least_busy';
+    _schedulerPolicy =
+        agent?.scaleSettings.schedulerPolicy ?? agentSchedulerPolicyLeastBusy;
     _workerRemovalPolicy =
-        agent?.scaleSettings.workerRemovalPolicy ?? 'least_busy';
-    _retryPolicy = agent?.scaleSettings.retryPolicy ?? 'bounded_retry';
+        agent?.scaleSettings.workerRemovalPolicy ??
+        agentWorkerRemovalPolicyLeastBusy;
+    _retryPolicy =
+        agent?.scaleSettings.retryPolicy ?? agentRetryPolicyBoundedRetry;
     _kpis = List<AgentKpiItem>.from(agent?.kpis ?? const <AgentKpiItem>[]);
   }
 
@@ -9552,7 +9541,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               child: _policyDropdown(
                 label: l10n.agentsSchedulerPolicyLabel,
                 value: _schedulerPolicy,
-                values: _agentSchedulerPolicyOptions,
+                values: agentSchedulerPolicyOptions,
                 onChanged: (value) => setState(() => _schedulerPolicy = value),
               ),
             ),
@@ -9565,7 +9554,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                   en: 'Worker removal policy',
                 ),
                 value: _workerRemovalPolicy,
-                values: _agentWorkerRemovalPolicyOptions,
+                values: agentWorkerRemovalPolicyOptions,
                 onChanged: (value) =>
                     setState(() => _workerRemovalPolicy = value),
               ),
@@ -9579,7 +9568,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                   en: 'Retry policy',
                 ),
                 value: _retryPolicy,
-                values: _agentRetryPolicyOptions,
+                values: agentRetryPolicyOptions,
                 onChanged: (value) => setState(() => _retryPolicy = value),
               ),
             ),
@@ -12671,7 +12660,7 @@ String _agentToolGroupLabel(
 
 String _agentPolicyOptionLabel(BuildContext context, String value) {
   return switch (value) {
-    'least_busy' => openHandLocalizedText(
+    agentSchedulerPolicyLeastBusy => openHandLocalizedText(
       context,
       zh: '空闲优先',
       en: 'Least busy',
@@ -12680,7 +12669,7 @@ String _agentPolicyOptionLabel(BuildContext context, String value) {
       de: 'Am wenigsten beschäftigt',
       ja: '空き優先',
     ),
-    'priority_first' => openHandLocalizedText(
+    agentSchedulerPolicyPriorityFirst => openHandLocalizedText(
       context,
       zh: '优先级优先',
       en: 'Priority first',
@@ -12689,7 +12678,7 @@ String _agentPolicyOptionLabel(BuildContext context, String value) {
       de: 'Priorität zuerst',
       ja: '優先度優先',
     ),
-    'round_robin' => openHandLocalizedText(
+    agentSchedulerPolicyRoundRobin => openHandLocalizedText(
       context,
       zh: '轮询分配',
       en: 'Round robin',
@@ -12698,7 +12687,7 @@ String _agentPolicyOptionLabel(BuildContext context, String value) {
       de: 'Round Robin',
       ja: 'ラウンドロビン',
     ),
-    'newest_first' => openHandLocalizedText(
+    agentWorkerRemovalPolicyNewestFirst => openHandLocalizedText(
       context,
       zh: '最新优先',
       en: 'Newest first',
@@ -12707,7 +12696,7 @@ String _agentPolicyOptionLabel(BuildContext context, String value) {
       de: 'Neueste zuerst',
       ja: '新しい順',
     ),
-    'bounded_retry' => openHandLocalizedText(
+    agentRetryPolicyBoundedRetry => openHandLocalizedText(
       context,
       zh: '有限重试',
       en: 'Bounded retry',
@@ -12716,7 +12705,7 @@ String _agentPolicyOptionLabel(BuildContext context, String value) {
       de: 'Begrenzte Wiederholung',
       ja: '制限付き再試行',
     ),
-    'none' => openHandLocalizedText(
+    agentRetryPolicyNone => openHandLocalizedText(
       context,
       zh: '不重试',
       en: 'No retry',

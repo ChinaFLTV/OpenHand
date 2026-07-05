@@ -49,22 +49,6 @@ const List<String> _agentTaskBlockedTools = <String>[
   'AgentTaskCancel',
   'AgentTaskTerminate',
 ];
-const Set<String> _agentKpiStatusValues = <String>{
-  'tracking',
-  'at_risk',
-  'done',
-  'paused',
-};
-const Set<String> _agentSchedulerPolicyValues = <String>{
-  'least_busy',
-  'priority_first',
-  'round_robin',
-};
-const Set<String> _agentWorkerRemovalPolicyValues = <String>{
-  'least_busy',
-  'newest_first',
-};
-const Set<String> _agentRetryPolicyValues = <String>{'bounded_retry', 'none'};
 const List<AiBuiltinToolKind> _agentCoordinationToolKinds =
     aiAgentBuiltinToolKinds;
 const Set<AiBuiltinToolKind> _agentWorkerBlockedBuiltinKinds =
@@ -902,34 +886,34 @@ class AiAgentTool extends AiTool {
     final schedulerPolicy = _optionalAllowedText(
       args,
       'scheduler_policy',
-      _agentSchedulerPolicyValues,
+      agentSchedulerPolicyOptions,
     );
     if (schedulerPolicy == '') {
       return AiToolUtils.invalidResult(
         _name,
-        'scheduler_policy must be one of: ${_agentSchedulerPolicyValues.join(', ')}.',
+        'scheduler_policy must be one of: ${agentSchedulerPolicyOptions.join(', ')}.',
       );
     }
     final workerRemovalPolicy = _optionalAllowedText(
       args,
       'worker_removal_policy',
-      _agentWorkerRemovalPolicyValues,
+      agentWorkerRemovalPolicyOptions,
     );
     if (workerRemovalPolicy == '') {
       return AiToolUtils.invalidResult(
         _name,
-        'worker_removal_policy must be one of: ${_agentWorkerRemovalPolicyValues.join(', ')}.',
+        'worker_removal_policy must be one of: ${agentWorkerRemovalPolicyOptions.join(', ')}.',
       );
     }
     final retryPolicy = _optionalAllowedText(
       args,
       'retry_policy',
-      _agentRetryPolicyValues,
+      agentRetryPolicyOptions,
     );
     if (retryPolicy == '') {
       return AiToolUtils.invalidResult(
         _name,
-        'retry_policy must be one of: ${_agentRetryPolicyValues.join(', ')}.',
+        'retry_policy must be one of: ${agentRetryPolicyOptions.join(', ')}.',
       );
     }
 
@@ -1299,12 +1283,12 @@ class AiAgentTool extends AiTool {
     final status = rawStatus == null
         ? (existing?.status.trim().isNotEmpty == true
               ? existing!.status.trim()
-              : 'tracking')
+              : agentKpiStatusTracking)
         : _normalizedKpiStatus(rawStatus);
     if (status == null) {
       return AiToolUtils.invalidResult(
         _name,
-        'status must be one of: ${_agentKpiStatusValues.join(', ')}.',
+        'status must be one of: ${agentKpiStatusOptions.join(', ')}.',
       );
     }
 
@@ -4012,15 +3996,17 @@ Map<String, Object?> _kpiSummaryJson(List<AgentKpiItem> items) {
   final byStatus = <String, int>{};
   var totalProgress = 0.0;
   for (final item in items) {
-    final status = item.status.trim().isEmpty ? 'tracking' : item.status.trim();
+    final status = item.status.trim().isEmpty
+        ? agentKpiStatusTracking
+        : item.status.trim();
     byStatus[status] = (byStatus[status] ?? 0) + 1;
     totalProgress += item.progress.clamp(0, 1).toDouble();
   }
   return <String, Object?>{
     'total': items.length,
     'by_status': byStatus,
-    'at_risk': byStatus['at_risk'] ?? 0,
-    'done': byStatus['done'] ?? 0,
+    agentKpiStatusAtRisk: byStatus[agentKpiStatusAtRisk] ?? 0,
+    agentKpiStatusDone: byStatus[agentKpiStatusDone] ?? 0,
     'average_progress': items.isEmpty ? 0 : totalProgress / items.length,
   };
 }
@@ -4766,7 +4752,7 @@ String _normalizeAgentStatusToken(String raw) {
 
 String? _normalizedKpiStatus(String raw) {
   final normalized = _normalizeAgentStatusToken(raw);
-  if (_agentKpiStatusValues.contains(normalized)) return normalized;
+  if (agentKpiStatusOptions.contains(normalized)) return normalized;
   return null;
 }
 
@@ -4787,7 +4773,7 @@ String? _normalizedKpiStatus(String raw) {
 String? _optionalAllowedText(
   Map<String, Object?> args,
   String key,
-  Set<String> allowed,
+  Iterable<String> allowed,
 ) {
   if (!args.containsKey(key) || args[key] == null) return null;
   final normalized = normalizeSnakeStorageKey('${args[key]}');

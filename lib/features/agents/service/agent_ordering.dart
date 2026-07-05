@@ -63,9 +63,9 @@ List<AgentApprovalRequest> sortedAgentApprovalsForAttention(
 List<AgentKpiItem> sortedAgentKpisForAttention(Iterable<AgentKpiItem> kpis) {
   final indexed = kpis.indexed.toList(growable: false);
   indexed.sort((left, right) {
-    final statusCompare = _kpiStatusRank(
+    final statusCompare = agentKpiStatusRank(
       left.$2.status,
-    ).compareTo(_kpiStatusRank(right.$2.status));
+    ).compareTo(agentKpiStatusRank(right.$2.status));
     if (statusCompare != 0) return statusCompare;
     final progressCompare = left.$2.progress.compareTo(right.$2.progress);
     if (progressCompare != 0) return progressCompare;
@@ -131,16 +131,6 @@ DateTime _approvalSortTime(AgentApprovalRequest approval) {
   return approval.resolvedAt ??
       approval.createdAt ??
       DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-}
-
-int _kpiStatusRank(String status) {
-  return switch (status.trim().toLowerCase()) {
-    'at_risk' => 0,
-    'tracking' => 1,
-    'paused' => 2,
-    'done' => 3,
-    _ => 4,
-  };
 }
 
 DateTime _kpiSortTime(AgentKpiItem item) {

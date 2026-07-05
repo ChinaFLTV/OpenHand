@@ -33,13 +33,6 @@ class AgentsController extends ManagedChangeNotifier {
   static const Uuid _uuid = Uuid();
   static const int _maxActivityEvents = 200;
   static const int _maxAuditEvents = 500;
-  static const String _schedulerLeastBusy = 'least_busy';
-  static const String _schedulerPriorityFirst = 'priority_first';
-  static const String _schedulerRoundRobin = 'round_robin';
-  static const String _workerRemovalLeastBusy = 'least_busy';
-  static const String _workerRemovalNewestFirst = 'newest_first';
-  static const String _retryPolicyBoundedRetry = 'bounded_retry';
-  static const String _retryPolicyNone = 'none';
   static const String _retryableExtraKey = 'retryable';
   static const String _retryCountExtraKey = 'retry_count';
   static const String _resourceTelemetryExtraKey =
@@ -50,20 +43,6 @@ class AgentsController extends ManagedChangeNotifier {
   static const int _resourceCharsPerToken = 4;
   static const int _resourceHandleMemoryBytes = 8 * 1024;
   static const int _resourceWorkerMemoryBytes = 16 * 1024;
-  static const Set<String> _schedulerPolicyValues = <String>{
-    _schedulerLeastBusy,
-    _schedulerPriorityFirst,
-    _schedulerRoundRobin,
-  };
-  static const Set<String> _workerRemovalPolicyValues = <String>{
-    _workerRemovalLeastBusy,
-    _workerRemovalNewestFirst,
-  };
-  static const Set<String> _retryPolicyValues = <String>{
-    _retryPolicyBoundedRetry,
-    _retryPolicyNone,
-  };
-
   final AgentsStore _store;
   List<AgentProfile> _agents;
   List<AgentProfile> _agentsView;
@@ -702,7 +681,7 @@ class AgentsController extends ManagedChangeNotifier {
           : draft.id.trim();
       final existed = agent.kpis.any((item) => item.id == normalizedId);
       final normalizedStatus = draft.status.trim().isEmpty
-          ? 'tracking'
+          ? agentKpiStatusTracking
           : draft.status.trim();
       savedKpi = draft.copyWith(
         id: normalizedId,
@@ -1408,19 +1387,19 @@ class AgentsController extends ManagedChangeNotifier {
       scaleInThreshold: settings.scaleInThreshold.clamp(0, 1).toDouble(),
       workerRemovalPolicy: _policyOrFallback(
         settings.workerRemovalPolicy,
-        _workerRemovalPolicyValues,
-        _workerRemovalLeastBusy,
+        agentWorkerRemovalPolicyOptions,
+        agentWorkerRemovalPolicyLeastBusy,
       ),
       retryPolicy: _policyOrFallback(
         settings.retryPolicy,
-        _retryPolicyValues,
-        _retryPolicyBoundedRetry,
+        agentRetryPolicyOptions,
+        agentRetryPolicyBoundedRetry,
       ),
       maxRetries: settings.maxRetries.clamp(0, 20).toInt(),
       schedulerPolicy: _policyOrFallback(
         settings.schedulerPolicy,
-        _schedulerPolicyValues,
-        _schedulerLeastBusy,
+        agentSchedulerPolicyOptions,
+        agentSchedulerPolicyLeastBusy,
       ),
       tags: _dedupe(settings.tags),
     );
@@ -1428,7 +1407,7 @@ class AgentsController extends ManagedChangeNotifier {
 
   String _policyOrFallback(
     String value,
-    Set<String> allowedValues,
+    Iterable<String> allowedValues,
     String fallback,
   ) {
     final normalized = value.trim().toLowerCase();
@@ -1614,7 +1593,7 @@ class AgentsController extends ManagedChangeNotifier {
     String schedulerPolicy,
   ) {
     final normalizedPolicy = schedulerPolicy.trim().toLowerCase();
-    if (normalizedPolicy == _schedulerPriorityFirst ||
+    if (normalizedPolicy == agentSchedulerPolicyPriorityFirst ||
         normalizedPolicy.contains('priority')) {
       if (candidate.priority != current.priority) {
         return candidate.priority > current.priority;
@@ -1627,7 +1606,7 @@ class AgentsController extends ManagedChangeNotifier {
       }
       return candidate.id.compareTo(current.id) < 0;
     }
-    if (normalizedPolicy == _schedulerRoundRobin ||
+    if (normalizedPolicy == agentSchedulerPolicyRoundRobin ||
         normalizedPolicy.contains('round')) {
       final candidateLastAssigned = _workerLastAssignedAt(candidate);
       final currentLastAssigned = _workerLastAssignedAt(current);
@@ -1963,8 +1942,8 @@ class AgentsController extends ManagedChangeNotifier {
     if (agent.scaleSettings.maxRetries <= 0) return false;
     final retryPolicy = agent.scaleSettings.retryPolicy.trim().toLowerCase();
     if (retryPolicy.isEmpty ||
-        retryPolicy == 'none' ||
-        (retryPolicy != _retryPolicyBoundedRetry &&
+        retryPolicy == agentRetryPolicyNone ||
+        (retryPolicy != agentRetryPolicyBoundedRetry &&
             !retryPolicy.contains('retry'))) {
       return false;
     }

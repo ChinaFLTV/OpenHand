@@ -14,6 +14,36 @@ const String agentTaskResultToolName = 'AgentTaskResult';
 const String agentTaskTrackToolLookupKey = 'agenttasktrack';
 const String agentTaskProgressToolLookupKey = 'agenttaskprogress';
 const String agentTaskResultToolLookupKey = 'agenttaskresult';
+const String agentSchedulerPolicyLeastBusy = 'least_busy';
+const String agentSchedulerPolicyPriorityFirst = 'priority_first';
+const String agentSchedulerPolicyRoundRobin = 'round_robin';
+const String agentWorkerRemovalPolicyLeastBusy = 'least_busy';
+const String agentWorkerRemovalPolicyNewestFirst = 'newest_first';
+const String agentRetryPolicyBoundedRetry = 'bounded_retry';
+const String agentRetryPolicyNone = 'none';
+const String agentKpiStatusTracking = 'tracking';
+const String agentKpiStatusAtRisk = 'at_risk';
+const String agentKpiStatusDone = 'done';
+const String agentKpiStatusPaused = 'paused';
+const List<String> agentSchedulerPolicyOptions = <String>[
+  agentSchedulerPolicyLeastBusy,
+  agentSchedulerPolicyPriorityFirst,
+  agentSchedulerPolicyRoundRobin,
+];
+const List<String> agentWorkerRemovalPolicyOptions = <String>[
+  agentWorkerRemovalPolicyLeastBusy,
+  agentWorkerRemovalPolicyNewestFirst,
+];
+const List<String> agentRetryPolicyOptions = <String>[
+  agentRetryPolicyBoundedRetry,
+  agentRetryPolicyNone,
+];
+const List<String> agentKpiStatusOptions = <String>[
+  agentKpiStatusTracking,
+  agentKpiStatusAtRisk,
+  agentKpiStatusDone,
+  agentKpiStatusPaused,
+];
 const Set<String> _agentCoordinationBuiltinToolLookupKeys = <String>{
   'agentlist',
   'agentdetail',
@@ -85,6 +115,16 @@ List<String> normalizeAgentBuiltinToolNames(Iterable<String> names) {
 
 String _agentBuiltinToolLookupKey(String value) {
   return normalizeAsciiLookupKey(value);
+}
+
+int agentKpiStatusRank(String status) {
+  return switch (status.trim().toLowerCase()) {
+    agentKpiStatusAtRisk => 0,
+    agentKpiStatusTracking => 1,
+    agentKpiStatusPaused => 2,
+    agentKpiStatusDone => 3,
+    _ => 4,
+  };
 }
 
 enum AgentExecutionMode {
@@ -255,10 +295,10 @@ class AgentScaleSettings {
     this.maxWorkers = 1,
     this.scaleOutThreshold = 0.75,
     this.scaleInThreshold = 0.25,
-    this.workerRemovalPolicy = 'least_busy',
-    this.retryPolicy = 'bounded_retry',
+    this.workerRemovalPolicy = agentWorkerRemovalPolicyLeastBusy,
+    this.retryPolicy = agentRetryPolicyBoundedRetry,
     this.maxRetries = 2,
-    this.schedulerPolicy = 'least_busy',
+    this.schedulerPolicy = agentSchedulerPolicyLeastBusy,
     this.tags = const <String>[],
   });
 
@@ -289,16 +329,22 @@ class AgentScaleSettings {
       ),
       workerRemovalPolicy: _nonEmpty(
         json['worker_removal_policy'],
-        'least_busy',
+        agentWorkerRemovalPolicyLeastBusy,
       ),
-      retryPolicy: _nonEmpty(json['retry_policy'], 'bounded_retry'),
+      retryPolicy: _nonEmpty(
+        json['retry_policy'],
+        agentRetryPolicyBoundedRetry,
+      ),
       maxRetries: clampedIntFromValue(
         json['max_retries'],
         fallback: 2,
         min: 0,
         max: 20,
       ),
-      schedulerPolicy: _nonEmpty(json['scheduler_policy'], 'least_busy'),
+      schedulerPolicy: _nonEmpty(
+        json['scheduler_policy'],
+        agentSchedulerPolicyLeastBusy,
+      ),
       tags: stringListFromValue(json['tags']),
     );
   }
@@ -761,7 +807,7 @@ class AgentKpiItem {
     required this.name,
     this.target = '',
     this.progress = 0,
-    this.status = 'tracking',
+    this.status = agentKpiStatusTracking,
     this.plan = '',
     this.createdAt,
     this.updatedAt,
@@ -775,7 +821,7 @@ class AgentKpiItem {
       name: _nonEmpty(json['name'], 'KPI'),
       target: stringFromValue(json['target']),
       progress: _ratioFromValue(json['progress'], fallback: 0),
-      status: _nonEmpty(json['status'], 'tracking'),
+      status: _nonEmpty(json['status'], agentKpiStatusTracking),
       plan: stringFromValue(json['plan']),
       createdAt: _dateFromValue(json['created_at']),
       updatedAt: _dateFromValue(json['updated_at']),
