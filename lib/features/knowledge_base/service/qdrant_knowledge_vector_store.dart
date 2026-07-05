@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:uuid/uuid.dart';
 
+import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
 import 'knowledge_indexing_control.dart';
@@ -235,7 +236,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
       if (response.statusCode == 404 && tolerateNotFound) {
         return _QdrantResponse(response.statusCode, text);
       }
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         throw HttpException('Qdrant ${response.statusCode}: $text', uri: uri);
       }
       return _QdrantResponse(response.statusCode, text);

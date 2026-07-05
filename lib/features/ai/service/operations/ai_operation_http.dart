@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
@@ -62,7 +63,7 @@ final class AiOperationHttp {
     required String body,
     required String contextHint,
   }) {
-    if (statusCode >= 200 && statusCode < 300) return;
+    if (isHttpSuccessStatus(statusCode)) return;
     throw Exception(
       AiTransportDiagnosticMessages.httpStatus(
         statusCode,

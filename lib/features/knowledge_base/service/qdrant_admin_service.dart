@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
 
@@ -188,7 +189,7 @@ class QdrantAdminService {
       if (body != null) request.write(jsonEncode(body));
       final response = await request.close();
       final text = await utf8.decoder.bind(response).join();
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         throw HttpException('Qdrant ${response.statusCode}: $text');
       }
       if (action != null) {

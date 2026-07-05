@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_creation_mode.dart';
@@ -381,7 +382,7 @@ class AiImageGenerationService {
       );
     }
     final endedAt = DateTime.now().toUtc();
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       throw AiMediaGenerationException(
         _MediaErrorMessages.httpStatus(
           _GeneratedMediaKind.image,
@@ -576,7 +577,7 @@ class AiImageGenerationService {
       );
     }
     final endedAt = DateTime.now().toUtc();
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       throw AiMediaGenerationException(
         _MediaErrorMessages.httpStatus(
           kind,
@@ -1832,7 +1833,7 @@ class AiImageGenerationService {
           .get(Uri.parse(operationUrl), headers: pollingHeaders)
           .timeout(effectiveTimeout);
       lastBody = response.body;
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         if (_isTransientPollStatus(response.statusCode) &&
             transientFailures < _transientPollMaxFailures) {
           transientFailures += 1;
@@ -1954,7 +1955,7 @@ class AiImageGenerationService {
     final response = await _client
         .get(contentUri, headers: downloadHeaders)
         .timeout(downloadTimeout);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       throw AiMediaGenerationException(
         _MediaErrorMessages.httpStatus(
           _GeneratedMediaKind.video,
@@ -2007,7 +2008,7 @@ class AiImageGenerationService {
       response = await _client
           .get(retrieveUri, headers: pollingHeaders)
           .timeout(effectiveTimeout);
-      if (response.statusCode >= 200 && response.statusCode < 300) break;
+      if (isHttpSuccessStatus(response.statusCode)) break;
       if (!_isTransientPollStatus(response.statusCode) ||
           i == _miniMaxFileRetrieveAttempts - 1) {
         return null;
@@ -2019,9 +2020,7 @@ class AiImageGenerationService {
         retryAfter ?? _miniMaxFileRetrieveBackoffDelay(),
       );
     }
-    if (response == null ||
-        response.statusCode < 200 ||
-        response.statusCode >= 300) {
+    if (response == null || isHttpFailureStatus(response.statusCode)) {
       return null;
     }
     try {
@@ -2337,7 +2336,7 @@ class AiImageGenerationService {
       final response = await _client
           .get(Uri.parse(url))
           .timeout(_remoteMediaDownloadTimeout);
-      if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (isHttpSuccessStatus(response.statusCode)) {
         return response.bodyBytes;
       }
     } catch (error, stack) {

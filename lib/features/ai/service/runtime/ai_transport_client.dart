@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 
 const String _contentTypeHeaderName = 'content-type';
@@ -93,7 +94,7 @@ class AiTransportClient {
     required Duration timeout,
   }) async {
     final response = await _get(uri: uri, headers: headers, timeout: timeout);
-    if (!_isSuccessStatus(response.statusCode)) {
+    if (isHttpFailureStatus(response.statusCode)) {
       throw HttpException('HTTP ${response.statusCode}');
     }
     return response.bodyBytes;
@@ -119,10 +120,6 @@ class AiTransportClient {
     if (value is String) return value;
     if (value is num || value is bool) return value.toString();
     return jsonEncode(value);
-  }
-
-  bool _isSuccessStatus(int statusCode) {
-    return statusCode >= 200 && statusCode < 300;
   }
 
   void dispose() {
