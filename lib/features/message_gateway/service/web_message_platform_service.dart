@@ -7168,7 +7168,7 @@ class WebMessagePlatformService {
 
   Set<String> _workspaceAllowedExtensions() {
     return _config.workspaceFileAllowedExtensions
-        .map(_normalizeWorkspaceExtension)
+        .map(webGatewayNormalizeWorkspaceFileExtension)
         .where((extension) => extension.isNotEmpty)
         .toSet();
   }
@@ -7177,7 +7177,7 @@ class WebMessagePlatformService {
     final configured = _workspaceAllowedExtensions();
     final requested = (raw ?? '')
         .split(',')
-        .map(_normalizeWorkspaceExtension)
+        .map(webGatewayNormalizeWorkspaceFileExtension)
         .where((extension) => extension.isNotEmpty)
         .toSet();
     if (requested.isEmpty) return configured;
@@ -7187,7 +7187,9 @@ class WebMessagePlatformService {
 
   bool _workspaceExtensionAllowed(String path, Set<String> allowedExtensions) {
     if (allowedExtensions.isEmpty) return true;
-    final extension = _normalizeWorkspaceExtension(p.extension(path));
+    final extension = webGatewayNormalizeWorkspaceFileExtension(
+      p.extension(path),
+    );
     return allowedExtensions.contains(extension);
   }
 
@@ -7459,14 +7461,4 @@ String _string(Object? value, String fallback) {
 
 String _safeFileName(String value) {
   return sanitizePortableFileNamePart(value, fallback: 'attachment.bin');
-}
-
-String _normalizeWorkspaceExtension(String value) {
-  final trimmed = value.trim().toLowerCase();
-  if (trimmed.isEmpty) return '';
-  final withoutLeadingDot = trimmed.startsWith('.')
-      ? trimmed.substring(1)
-      : trimmed;
-  final safe = withoutLeadingDot.replaceAll(RegExp(r'[^a-z0-9_+-]'), '');
-  return safe.isEmpty ? '' : '.$safe';
 }
