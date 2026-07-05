@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_pty/flutter_pty.dart';
 import 'package:xterm/xterm.dart';
 
@@ -344,6 +345,8 @@ class MachineTerminalService extends ChangeNotifier {
 
   int _terminalCounter = 0;
   int _commandCounter = 0;
+  bool _isDisposed = false;
+  bool _notificationScheduled = false;
   MachineTerminalMetadataPersister? _metadataPersister;
 
   void configureMetadataPersister(MachineTerminalMetadataPersister? persister) {
@@ -411,7 +414,7 @@ class MachineTerminalService extends ChangeNotifier {
     final workspace = _workspaces.remove(normalizedSessionId);
     if (workspace == null) return;
     await workspace.shutdown();
-    notifyListeners();
+    _notifyListenersSafely();
   }
 
   Future<MachineTerminalSession> newTerminal({
@@ -429,7 +432,7 @@ class MachineTerminalService extends ChangeNotifier {
           nullIfBlank(workingDirectory) ?? workspace.defaultWorkingDirectory,
     );
     workspace.add(terminal);
-    notifyListeners();
+    _notifyListenersSafely();
     if (start) {
       await terminal.start();
     }
@@ -458,7 +461,7 @@ class MachineTerminalService extends ChangeNotifier {
     final workspace = _requireWorkspace(sessionId);
     workspace.select(terminalId);
     _scheduleMetadataPersist(workspace.sessionId);
-    notifyListeners();
+    _notifyListenersSafely();
   }
 
   Future<void> closeTerminal({
@@ -480,7 +483,7 @@ class MachineTerminalService extends ChangeNotifier {
       );
     }
     _scheduleMetadataPersist(workspace.sessionId);
-    notifyListeners();
+    _notifyListenersSafely();
   }
 
   Future<void> startTerminal({
@@ -682,6 +685,7 @@ class MachineTerminalService extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     for (final timer in _metadataPersistTimers.values) {
       timer.cancel();
     }
@@ -695,6 +699,27 @@ class MachineTerminalService extends ChangeNotifier {
     }
     _workspaces.clear();
     super.dispose();
+  }
+
+  void _notifyListenersSafely() {
+    if (_isDisposed) return;
+    final scheduler = SchedulerBinding.instance;
+    switch (scheduler.schedulerPhase) {
+      case SchedulerPhase.idle:
+      case SchedulerPhase.postFrameCallbacks:
+        notifyListeners();
+      case SchedulerPhase.transientCallbacks:
+      case SchedulerPhase.midFrameMicrotasks:
+      case SchedulerPhase.persistentCallbacks:
+        if (_notificationScheduled) return;
+        _notificationScheduled = true;
+        scheduler.addPostFrameCallback((_) {
+          _notificationScheduled = false;
+          if (!_isDisposed) {
+            notifyListeners();
+          }
+        }, debugLabel: 'MachineTerminalService.notifyListeners');
+    }
   }
 
   _MachineTerminalWorkspace _workspaceFor({
@@ -749,7 +774,7 @@ class MachineTerminalService extends ChangeNotifier {
       identity: 'machine-$id',
       shell: shell,
       workingDirectory: workingDirectory,
-      onChanged: notifyListeners,
+      onChanged: _notifyListenersSafely,
     );
     return terminal;
   }
