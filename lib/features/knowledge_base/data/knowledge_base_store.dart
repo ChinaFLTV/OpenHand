@@ -5,6 +5,12 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
 
+const String _knowledgeSourcesTable = 'knowledge_sources';
+const String _knowledgeChunksTable = 'knowledge_chunks';
+const String _knowledgeIdColumn = 'id';
+// Stay below SQLite's common 999 variable default while leaving room to grow.
+const int _maxSqlWhereInParameters = 900;
+
 class KnowledgeBaseStore {
   KnowledgeBaseStore({Database? database})
     : _db = database ?? DatabaseService.instance.database;
@@ -94,15 +100,7 @@ class KnowledgeBaseStore {
   Future<Map<String, KnowledgeChunk>> loadChunksByIds(
     Iterable<String> ids,
   ) async {
-    final normalized = stringListFromValue(
-      ids.toList(growable: false),
-    ).toSet().toList(growable: false);
-    if (normalized.isEmpty) return const <String, KnowledgeChunk>{};
-    final placeholders = List<String>.filled(normalized.length, '?').join(',');
-    final rows = await _db.rawQuery(
-      'SELECT * FROM knowledge_chunks WHERE id IN ($placeholders)',
-      normalized,
-    );
+    final rows = await _loadRowsByIds(table: _knowledgeChunksTable, ids: ids);
     return <String, KnowledgeChunk>{
       for (final row in rows)
         if (row['id'] is String)
@@ -113,15 +111,7 @@ class KnowledgeBaseStore {
   Future<Map<String, KnowledgeSource>> loadSourcesByIds(
     Iterable<String> ids,
   ) async {
-    final normalized = stringListFromValue(
-      ids.toList(growable: false),
-    ).toSet().toList(growable: false);
-    if (normalized.isEmpty) return const <String, KnowledgeSource>{};
-    final placeholders = List<String>.filled(normalized.length, '?').join(',');
-    final rows = await _db.rawQuery(
-      'SELECT * FROM knowledge_sources WHERE id IN ($placeholders)',
-      normalized,
-    );
+    final rows = await _loadRowsByIds(table: _knowledgeSourcesTable, ids: ids);
     return <String, KnowledgeSource>{
       for (final row in rows)
         if (row['id'] is String)
@@ -147,5 +137,36 @@ class KnowledgeBaseStore {
         "SELECT COUNT(*) FROM knowledge_embedding_jobs WHERE status = 'failed'",
       ),
     );
+  }
+
+  Future<List<Map<String, Object?>>> _loadRowsByIds({
+    required String table,
+    required Iterable<String> ids,
+  }) async {
+    final normalized = stringListFromValue(
+      ids.toList(growable: false),
+    ).toSet().toList(growable: false);
+    if (normalized.isEmpty) return const <Map<String, Object?>>[];
+
+    final rows = <Map<String, Object?>>[];
+    for (
+      var start = 0;
+      start < normalized.length;
+      start += _maxSqlWhereInParameters
+    ) {
+      final end = (start + _maxSqlWhereInParameters).clamp(
+        0,
+        normalized.length,
+      );
+      final batch = normalized.sublist(start, end);
+      final placeholders = List<String>.filled(batch.length, '?').join(',');
+      rows.addAll(
+        await _db.rawQuery(
+          'SELECT * FROM $table WHERE $_knowledgeIdColumn IN ($placeholders)',
+          batch,
+        ),
+      );
+    }
+    return rows;
   }
 }
