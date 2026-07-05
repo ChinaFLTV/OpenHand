@@ -90,6 +90,18 @@ const double _agentDialogMetricGap = 12;
 const double _agentDialogMetricWideBreakpoint = 760;
 const double _agentDialogMetricMediumBreakpoint = 520;
 const double _agentDialogMetricRadius = 14;
+const double _agentActivityItemGap = 12;
+const double _agentActivityIconExtent = 36;
+const double _agentActivityIconRadius = 12;
+const double _agentActivityCardRadius = 18;
+const double _agentActivityListCacheExtent = 560;
+const EdgeInsets _agentActivityListPadding = EdgeInsets.only(right: 4);
+const EdgeInsets _agentActivityCardPadding = EdgeInsets.fromLTRB(
+  14,
+  12,
+  14,
+  12,
+);
 const List<String> _agentSchedulerPolicyOptions = <String>[
   'least_busy',
   'priority_first',
@@ -967,6 +979,7 @@ Future<void> _showAgentActivitiesDialog(
                 l10n.agentsActivities,
                 currentAgent.name,
               ),
+              scrollable: activities.isEmpty,
               child: activities.isEmpty
                   ? FeatureStateCard.inline(
                       icon: Icons.history_rounded,
@@ -990,12 +1003,17 @@ class _AgentActivityStream extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      shrinkWrap: true,
-      padding: const EdgeInsets.only(right: 4),
+      padding: _agentActivityListPadding,
+      physics: openHandDialogAwareScrollPhysics(context),
+      cacheExtent: _agentActivityListCacheExtent,
       itemCount: activities.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: _agentActivityItemGap),
       itemBuilder: (context, index) {
-        return _AgentActivityBubble(event: activities[index]);
+        final event = activities[index];
+        return SettingsAwareAppearOnce(
+          key: ValueKey<String>('agent-activity-${event.id}'),
+          child: RepaintBoundary(child: _AgentActivityBubble(event: event)),
+        );
       },
     );
   }
@@ -1019,82 +1037,85 @@ class _AgentActivityBubble extends StatelessWidget {
     final timeText = event.createdAt == null
         ? ''
         : formatMonthDayHm(event.createdAt!.toLocal());
+    final cardRadius = BorderRadius.circular(_agentActivityCardRadius);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 36,
-          height: 36,
+          width: _agentActivityIconExtent,
+          height: _agentActivityIconExtent,
           decoration: BoxDecoration(
             color: tone.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(_agentActivityIconRadius),
             border: Border.all(color: tone.withValues(alpha: 0.34)),
           ),
           alignment: Alignment.center,
           child: Icon(_agentActivityIcon(type), color: tone, size: 19),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: _agentActivityItemGap),
         Expanded(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(6),
-                topRight: Radius.circular(18),
-                bottomLeft: Radius.circular(18),
-                bottomRight: Radius.circular(18),
+          child: ClipRRect(
+            borderRadius: cardRadius,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+                borderRadius: cardRadius,
+                border: Border.all(color: cs.outlineVariant),
               ),
-              border: Border.all(color: cs.outlineVariant),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      _AgentActivityTypeChip(
-                        label: _agentActivityMessageTypeLabel(l10n, type),
-                        color: tone,
-                      ),
-                      if (timeText.isNotEmpty)
-                        Text(
-                          timeText,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (body.trim().isNotEmpty) ...[
-                    const SizedBox(height: 7),
-                    SelectableText(
-                      body,
-                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.42),
-                    ),
-                  ],
-                  if (metadata.isNotEmpty) ...[
-                    const SizedBox(height: 10),
+              child: Padding(
+                padding: _agentActivityCardPadding,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: metadata
-                          .map((item) => _AgentActivityMetadataChip(text: item))
-                          .toList(growable: false),
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _AgentActivityTypeChip(
+                          label: _agentActivityMessageTypeLabel(l10n, type),
+                          color: tone,
+                        ),
+                        if (timeText.isNotEmpty)
+                          Text(
+                            timeText,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                      ],
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (body.trim().isNotEmpty) ...[
+                      const SizedBox(height: 7),
+                      SelectableText(
+                        body,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          height: 1.42,
+                        ),
+                      ),
+                    ],
+                    if (metadata.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: metadata
+                            .map(
+                              (item) => _AgentActivityMetadataChip(text: item),
+                            )
+                            .toList(growable: false),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -6468,12 +6489,14 @@ class _AgentDialogScaffold extends StatelessWidget {
     required this.title,
     required this.child,
     this.footer,
+    this.scrollable = true,
   });
 
   final IconData icon;
   final String title;
   final Widget child;
   final Widget? footer;
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
@@ -6499,10 +6522,12 @@ class _AgentDialogScaffold extends StatelessWidget {
           ),
           const SizedBox(height: _agentDialogSectionGap),
           Flexible(
-            child: SingleChildScrollView(
-              physics: openHandDialogAwareScrollPhysics(context),
-              child: child,
-            ),
+            child: scrollable
+                ? SingleChildScrollView(
+                    physics: openHandDialogAwareScrollPhysics(context),
+                    child: child,
+                  )
+                : child,
           ),
           _AgentDialogFooterSlot(footer: footer, settings: motionSettings),
         ],
