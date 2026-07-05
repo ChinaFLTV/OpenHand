@@ -98,6 +98,28 @@ void main() {
     });
   });
 
+  group('clampedIntegralIntFromValue', () {
+    test('parses integral values and clamps them within ordered bounds', () {
+      expect(
+        clampedIntegralIntFromValue('7.0', fallback: 3, min: 0, max: 10),
+        7,
+      );
+      expect(clampedIntegralIntFromValue(12, fallback: 3, min: 0, max: 10), 10);
+      expect(clampedIntegralIntFromValue(-2, fallback: 3, min: 10, max: 0), 0);
+    });
+
+    test('uses a clamped fallback for non-integral values', () {
+      expect(
+        clampedIntegralIntFromValue('7.5', fallback: 12, min: 0, max: 10),
+        10,
+      );
+      expect(
+        clampedIntegralIntFromValue(7.5, fallback: -2, min: 0, max: 10),
+        0,
+      );
+    });
+  });
+
   group('nonNegativeRemaining', () {
     test('returns remaining capacity without going below zero', () {
       expect(nonNegativeRemaining(10, 3), 7);

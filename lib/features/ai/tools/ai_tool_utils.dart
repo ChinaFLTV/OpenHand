@@ -461,10 +461,12 @@ class AiToolUtils {
     required int min,
     required int max,
   }) {
-    final lower = min <= max ? min : max;
-    final upper = min <= max ? max : min;
-    final safeFallback = fallback.clamp(lower, upper).toInt();
-    return (readInt(value) ?? safeFallback).clamp(lower, upper).toInt();
+    return clampedIntegralIntFromValue(
+      value,
+      fallback: fallback,
+      min: min,
+      max: max,
+    );
   }
 
   static bool? readBool(Object? value) {

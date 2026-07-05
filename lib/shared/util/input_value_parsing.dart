@@ -574,6 +574,18 @@ int clampedIntFromValue(
   return parsed.clamp(lower, upper).toInt();
 }
 
+int clampedIntegralIntFromValue(
+  Object? value, {
+  required int fallback,
+  required int min,
+  required int max,
+}) {
+  final parsed = optionalIntegralIntFromValue(value);
+  final (:lower, :upper) = _orderedIntBounds(min, max);
+  final safeFallback = fallback.clamp(lower, upper).toInt();
+  return (parsed ?? safeFallback).clamp(lower, upper).toInt();
+}
+
 double clampedDoubleFromValue(
   Object? value, {
   required double fallback,
