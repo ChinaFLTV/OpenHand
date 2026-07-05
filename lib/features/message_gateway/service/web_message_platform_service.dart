@@ -265,6 +265,11 @@ class WebMessagePlatformService {
   static const int _storedMessageWindowExpandedScanMultiplier = 2;
   static const int _storedMessageWindowExpandedScanContext = 16;
   static const int _storedMessageWindowExpandedScanLimit = 96;
+  static const int _connectivityProbeMinTimeoutMs = 500;
+  static const int _connectivityProbeMaxTimeoutMs = 10000;
+  static const int _terminalDefaultTimeoutMs = 120000;
+  static const int _terminalMinTimeoutMs = 1000;
+  static const int _terminalMaxTimeoutMs = 600000;
   static const Duration _queuedGoalYieldLeaseDuration = Duration(minutes: 15);
   static const Set<AiBuiltinToolKind> _knowledgeBaseBuiltinToolKinds =
       <AiBuiltinToolKind>{
@@ -920,19 +925,13 @@ class WebMessagePlatformService {
       queryParameters: query.isEmpty ? null : query,
     );
     final stopwatch = Stopwatch()..start();
-    final client = HttpClient()
-      ..connectionTimeout = Duration(milliseconds: health.timeoutMs);
+    final timeout = Duration(milliseconds: health.timeoutMs);
+    final client = HttpClient()..connectionTimeout = timeout;
     try {
-      final request = await client
-          .openUrl(health.method, uri)
-          .timeout(Duration(milliseconds: health.timeoutMs));
+      final request = await client.openUrl(health.method, uri).timeout(timeout);
       request.followRedirects = health.followRedirects;
-      final response = await request.close().timeout(
-        Duration(milliseconds: health.timeoutMs),
-      );
-      final body = await utf8
-          .decodeStream(response)
-          .timeout(Duration(milliseconds: health.timeoutMs));
+      final response = await request.close().timeout(timeout);
+      final body = await utf8.decodeStream(response).timeout(timeout);
       stopwatch.stop();
       final containsOk =
           health.responseContains.trim().isEmpty ||
@@ -990,12 +989,14 @@ class WebMessagePlatformService {
     await _refreshLocalAddressesIfStale(ttl: Duration.zero);
     final targets = <String>{...accessibleUrls}.toList(growable: false);
     addLog('发现 ${targets.length} 个当前可访问入口。');
-    final timeoutMs = math.min(
-      10000,
-      math.max(500, _config.healthCheck.timeoutMs),
+    final timeout = Duration(
+      milliseconds: _clampMilliseconds(
+        _config.healthCheck.timeoutMs,
+        min: _connectivityProbeMinTimeoutMs,
+        max: _connectivityProbeMaxTimeoutMs,
+      ),
     );
-    final client = HttpClient()
-      ..connectionTimeout = Duration(milliseconds: timeoutMs);
+    final client = HttpClient()..connectionTimeout = timeout;
     final results = <WebGatewayConnectivityProbeResult>[];
 
     try {
@@ -1025,16 +1026,10 @@ class WebMessagePlatformService {
 
         addLog('开始探测 ${endpoint.host}:${endpoint.port} -> $endpoint');
         try {
-          final request = await client
-              .getUrl(endpoint)
-              .timeout(Duration(milliseconds: timeoutMs));
+          final request = await client.getUrl(endpoint).timeout(timeout);
           request.followRedirects = false;
-          final response = await request.close().timeout(
-            Duration(milliseconds: timeoutMs),
-          );
-          final body = await utf8
-              .decodeStream(response)
-              .timeout(Duration(milliseconds: timeoutMs));
+          final response = await request.close().timeout(timeout);
+          final body = await utf8.decodeStream(response).timeout(timeout);
           probeStarted.stop();
           final ok =
               response.statusCode == HttpStatus.ok && body.contains('ok');
@@ -2813,12 +2808,12 @@ class WebMessagePlatformService {
         'error': 'terminal_command_required',
       });
     }
-    final timeoutMs = _terminalTimeoutMs(body);
+    final timeout = Duration(milliseconds: _terminalTimeoutMs(body));
     final result = await _machineTerminalService.executeCommand(
       sessionId: session.id,
       terminalId: _string(body['terminal_id'], '').trim(),
       command: command,
-      timeout: Duration(milliseconds: timeoutMs),
+      timeout: timeout,
     );
     return _json(HttpStatus.ok, <String, Object?>{
       'ok': result.error == null && !result.timedOut,
@@ -5439,10 +5434,18 @@ class WebMessagePlatformService {
     final raw =
         optionalIntFromValue(body['timeout_ms']) ??
         optionalIntFromValue(body['timeout']) ??
-        120000;
-    if (raw < 1000) return 1000;
-    if (raw > 600000) return 600000;
-    return raw;
+        _terminalDefaultTimeoutMs;
+    return _clampMilliseconds(
+      raw,
+      min: _terminalMinTimeoutMs,
+      max: _terminalMaxTimeoutMs,
+    );
+  }
+
+  int _clampMilliseconds(int value, {required int min, required int max}) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
   }
 
   Future<AiSessionMessage?> _loadMessageForWebOperation(
@@ -5671,6 +5674,7 @@ class WebMessagePlatformService {
   }) async {
     final createdAt = DateTime.now().toUtc();
     final timeoutMs = _settingsController.aiWriteConfirmationTimeoutMs;
+    final timeout = Duration(milliseconds: timeoutMs);
     final completer = Completer<BashCommandApprovalDecision>();
     final approval = _WebWriteApprovalRequest(
       id: '${createdAt.microsecondsSinceEpoch}-${_nextWriteApprovalId++}',
@@ -5679,7 +5683,7 @@ class WebMessagePlatformService {
       workingDirectory: request.workingDirectory,
       isWriteCommand: request.isWriteCommand,
       createdAt: createdAt,
-      expiresAt: createdAt.add(Duration(milliseconds: timeoutMs)),
+      expiresAt: createdAt.add(timeout),
       completer: completer,
     );
     _pendingWriteApprovals[approval.id] = approval;
@@ -5691,7 +5695,7 @@ class WebMessagePlatformService {
       'source': source,
       'working_directory': request.workingDirectory,
     });
-    final timer = startSafeTimer(Duration(milliseconds: timeoutMs), () {
+    final timer = startSafeTimer(timeout, () {
       _completePendingWriteApproval(
         approval,
         decision: BashCommandApprovalDecision.timedOut,
