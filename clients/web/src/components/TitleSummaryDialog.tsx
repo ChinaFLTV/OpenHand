@@ -4,7 +4,8 @@ import type { ApiMetaModel } from '../api/meta';
 import type { SessionMessage } from '../api/sessions';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { describeApiError, isAbortError } from '../utils/api_error';
+import { isAbortError } from '../shared/util/errors';
+import { describeApiError } from '../utils/api_error';
 import { clampNumber, finiteNumberFromText, normalizeInteger } from '../shared/util/number';
 import {
   DIALOG_OVERLAY_FOCUSED_Z_INDEX,

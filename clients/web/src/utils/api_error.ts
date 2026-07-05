@@ -1,4 +1,5 @@
 import { ApiError } from '../api/client';
+export { isAbortError } from '../shared/util/errors';
 
 interface ApiErrorBody {
   error?: unknown;
@@ -36,10 +37,4 @@ export function describeApiError(error: unknown): string {
     return nonBlankText(error.message) ?? error.name;
   }
   return String(error);
-}
-
-export function isAbortError(error: unknown): boolean {
-  if (error instanceof Error && error.name === 'AbortError') return true;
-  if (!isRecord(error)) return false;
-  return error.name === 'AbortError';
 }

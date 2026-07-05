@@ -16,7 +16,7 @@ import type { PendingWriteApproval } from './session_events';
 import { clientEnvironmentHeaders } from '../utils/client_env';
 import { jsonlExportPickerSuggestedName, normalizeJsonlExportFilename } from '../shared/util/export_filename';
 import { filenameFromContentDisposition, saveBlobWithPicker } from '../utils/save_blob';
-import { isAbortError } from '../utils/api_error';
+import { isAbortError } from '../shared/util/errors';
 import { createTimedAbortController } from '../utils/timed_abort';
 
 export interface SessionTodoItem {

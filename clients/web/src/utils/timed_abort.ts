@@ -1,4 +1,8 @@
-import { normalizeDurationMs } from '../shared/util/number';
+import {
+  MAX_BROWSER_TIMEOUT_MS,
+  normalizeDurationMs,
+} from '../shared/util/number';
+import { isAbortError } from '../shared/util/errors';
 
 export interface TimedAbortController {
   controller: AbortController;
@@ -11,6 +15,10 @@ export interface TimedAbortController {
 
 const DEFAULT_ABORT_TIMEOUT_MS = 30_000;
 const MAX_ABORT_TIMEOUT_MS = 60 * 60 * 1000;
+const MAX_ABORTABLE_DELAY_MS = Math.min(
+  MAX_ABORT_TIMEOUT_MS,
+  MAX_BROWSER_TIMEOUT_MS,
+);
 
 export class OperationTimeoutError extends Error {
   constructor(public readonly timeoutMs: number) {
@@ -39,6 +47,14 @@ function normalizeAbortTimeoutMs(value: number | undefined): number {
   return normalizeDurationMs(value, {
     fallback: DEFAULT_ABORT_TIMEOUT_MS,
     max: MAX_ABORT_TIMEOUT_MS,
+  });
+}
+
+function normalizeAbortableDelayMs(value: number): number {
+  return normalizeDurationMs(value, {
+    fallback: 0,
+    min: 0,
+    max: MAX_ABORTABLE_DELAY_MS,
   });
 }
 
@@ -111,7 +127,7 @@ export function isOperationTimeoutError(
 export function isOperationAbortedError(
   error: unknown,
 ): error is OperationAbortedError {
-  return error instanceof OperationAbortedError;
+  return error instanceof OperationAbortedError || isAbortError(error);
 }
 
 function abortReasonFromSignal(signal?: AbortSignal): unknown {
@@ -198,4 +214,27 @@ export async function runWithAbortableTimeout<T>(
     abortReject = null;
     abort();
   }
+}
+
+export function waitForDelayOrAbort(
+  delayMs: number,
+  signal: AbortSignal,
+): Promise<void> {
+  const safeDelayMs = normalizeAbortableDelayMs(delayMs);
+  if (safeDelayMs <= 0 || signal.aborted || typeof window === 'undefined') {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    let timer: number | null = null;
+    const finish = () => {
+      if (timer != null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+      signal.removeEventListener('abort', finish);
+      resolve();
+    };
+    timer = window.setTimeout(finish, safeDelayMs);
+    signal.addEventListener('abort', finish, { once: true });
+  });
 }

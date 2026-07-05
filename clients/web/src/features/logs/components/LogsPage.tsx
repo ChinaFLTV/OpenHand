@@ -14,7 +14,8 @@ import { MenuSelect } from '../../../components/MenuSelect';
 import { showSnackbar } from '../../../components/Snackbar';
 import { TopBar } from '../../../components/TopBar';
 import { useAsyncPolling } from '../../../hooks/useAsyncPolling';
-import { describeApiError, isAbortError } from '../../../utils/api_error';
+import { isAbortError } from '../../../shared/util/errors';
+import { describeApiError } from '../../../utils/api_error';
 
 const PAGE_SIZE = 200;
 const TAIL_INTERVAL_MS = 3_000;

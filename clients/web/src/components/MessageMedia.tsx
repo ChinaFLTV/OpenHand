@@ -15,7 +15,7 @@ import { clampNumber, finiteNumberFromText } from '../shared/util/number';
 import { basenameFromPath } from '../shared/util/path';
 import { strictStringFromUnknown } from '../shared/util/value';
 import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
-import { isAbortError } from '../utils/api_error';
+import { isAbortError } from '../shared/util/errors';
 import {
   revokeObjectUrlQuietly,
   saveBlobWithPicker,

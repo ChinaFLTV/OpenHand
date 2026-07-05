@@ -75,7 +75,7 @@ import {
   type SessionSummary,
 } from '../../../api/sessions';
 import { ApiError, UnauthorizedError } from '../../../api/client';
-import { isAbortError } from '../../../utils/api_error';
+import { isAbortError } from '../../../shared/util/errors';
 import { subscribeSessionEvents, type PendingWriteApproval, type SessionEventSnapshot } from '../../../api/session_events';
 import { listSessions } from '../../../api/sessions';
 import { SessionGoneDialog } from '../../../components/SessionGoneDialog';

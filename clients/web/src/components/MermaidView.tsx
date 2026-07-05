@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { saveBlobWithPicker } from '../utils/save_blob';
 import { copyTextToClipboard, copyBlobToClipboard } from '../utils/clipboard';
-import { isAbortError } from '../utils/api_error';
+import { isAbortError } from '../shared/util/errors';
 import { showSnackbar } from './Snackbar';
 import { clampNumber, finiteNumberFromText } from '../shared/util/number';
 import { strictStringFromUnknown } from '../shared/util/value';

@@ -23,7 +23,8 @@ import {
   type SessionSummary,
 } from '../../../api/sessions';
 import { ApiError, UnauthorizedError } from '../../../api/client';
-import { isAbortError } from '../../../utils/api_error';
+import { isAbortError } from '../../../shared/util/errors';
+import { waitForDelayOrAbort } from '../../../utils/timed_abort';
 import { t } from '../../../i18n';
 import { useAuth } from '../../../state/auth';
 import type { ApiMetaTemplate } from '../../../api/meta';
@@ -41,25 +42,6 @@ import { AnimatedTitleText } from '../../../components/AnimatedTitleText';
 
 const DEFAULT_PAGE_SIZE = 10;
 const PULL_REFRESH_MIN_VISIBLE_MS = 180;
-
-function waitForDelayOrAbort(delayMs: number, signal: AbortSignal): Promise<void> {
-  if (delayMs <= 0 || signal.aborted || typeof window === 'undefined') {
-    return Promise.resolve();
-  }
-  return new Promise((resolve) => {
-    let timer: number | null = null;
-    const finish = () => {
-      if (timer != null) {
-        window.clearTimeout(timer);
-        timer = null;
-      }
-      signal.removeEventListener('abort', finish);
-      resolve();
-    };
-    timer = window.setTimeout(finish, delayMs);
-    signal.addEventListener('abort', finish, { once: true });
-  });
-}
 
 function formatTimestamp(iso: string): string {
   try {

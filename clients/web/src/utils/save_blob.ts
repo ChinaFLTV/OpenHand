@@ -2,7 +2,7 @@ import {
   MAX_BROWSER_TIMEOUT_MS,
   normalizeDurationMs,
 } from '../shared/util/number';
-import { isAbortError } from './api_error';
+import { isAbortError } from '../shared/util/errors';
 
 export interface SaveBlobPickerType {
   description: string;
