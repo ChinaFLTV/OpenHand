@@ -1402,6 +1402,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final colorScheme = Theme.of(context).colorScheme;
     final selectedModelLabel =
         widget.selectedModel?.displayName ?? l10n.chatModelButton;
+    final selectedModelReasoningEffortLabel = widget.selectedModel
+        ?.reasoningEffortLabelForLocaleName(
+          Localizations.localeOf(context).toLanguageTag(),
+        );
     final selectedModelThinkingEnabled =
         widget.selectedModel?.resolvedThinkingEnabled ?? false;
     final isCompressing = widget.sendPhase == AiSendPhase.compressing;
@@ -1866,9 +1870,27 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                               ),
                             ),
                           ),
-                          label: Text(
-                            selectedModelLabel,
-                            overflow: TextOverflow.ellipsis,
+                          label: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                selectedModelLabel,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (selectedModelReasoningEffortLabel !=
+                                  null) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  selectedModelReasoningEffortLabel,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                         // Quick-edit gear: opens the same editor dialog used

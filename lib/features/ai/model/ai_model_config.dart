@@ -75,6 +75,97 @@ class AiModelLinksMetadata {
   }
 }
 
+class AiReasoningEffortOption {
+  const AiReasoningEffortOption({
+    required this.value,
+    required this.label,
+    this.labelZhHans,
+    this.labelZhHant,
+    this.labelEn,
+    this.labelFr,
+    this.labelDe,
+    this.labelJa,
+  });
+
+  factory AiReasoningEffortOption.fromJson(Map<String, Object?> json) {
+    final value = stringFromValue(json['value']).trim();
+    return AiReasoningEffortOption(
+      value: value,
+      label: _readLabel(json),
+      labelZhHans: optionalStringFromValue(json['label_zh_hans']),
+      labelZhHant: optionalStringFromValue(json['label_zh_hant']),
+      labelEn: optionalStringFromValue(json['label_en']),
+      labelFr: optionalStringFromValue(json['label_fr']),
+      labelDe: optionalStringFromValue(json['label_de']),
+      labelJa: optionalStringFromValue(json['label_ja']),
+    );
+  }
+
+  final String value;
+  final String label;
+  final String? labelZhHans;
+  final String? labelZhHant;
+  final String? labelEn;
+  final String? labelFr;
+  final String? labelDe;
+  final String? labelJa;
+
+  bool get isValid => nullIfBlank(value) != null;
+
+  String labelForLocaleName(String localeName) {
+    final localeParts = localeName
+        .replaceAll('_', '-')
+        .split('-')
+        .where((part) => part.isNotEmpty)
+        .toList(growable: false);
+    final languageCode = localeParts.isEmpty
+        ? null
+        : localeParts.first.toLowerCase();
+    if (languageCode == 'zh') {
+      final lower = localeName.toLowerCase();
+      if (lower.contains('hant') ||
+          lower.contains('tw') ||
+          lower.contains('hk')) {
+        return nullIfBlank(labelZhHant) ?? nullIfBlank(labelZhHans) ?? label;
+      }
+      return nullIfBlank(labelZhHans) ?? nullIfBlank(labelZhHant) ?? label;
+    }
+    return switch (languageCode) {
+      'fr' => nullIfBlank(labelFr) ?? label,
+      'de' => nullIfBlank(labelDe) ?? label,
+      'ja' => nullIfBlank(labelJa) ?? label,
+      _ => nullIfBlank(labelEn) ?? label,
+    };
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'value': value,
+      'label': label,
+      if (labelZhHans != null) 'label_zh_hans': labelZhHans,
+      if (labelZhHant != null) 'label_zh_hant': labelZhHant,
+      if (labelEn != null) 'label_en': labelEn,
+      if (labelFr != null) 'label_fr': labelFr,
+      if (labelDe != null) 'label_de': labelDe,
+      if (labelJa != null) 'label_ja': labelJa,
+    };
+  }
+
+  static String _readLabel(Map<String, Object?> json) {
+    for (final key in const <String>[
+      'label',
+      'label_zh_hans',
+      'label_en',
+      'name',
+      'display_name',
+    ]) {
+      final value = optionalStringFromValue(json[key]);
+      if (value != null) return value;
+    }
+    return stringFromValue(json['value']).trim();
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Enums
 // ─────────────────────────────────────────────────────────────────────────────
@@ -250,6 +341,9 @@ class AiModelProfile {
     this.maxOutputLength,
     this.maxThinkingLength,
     this.thinkingEnabled,
+    this.reasoningEffortControlEnabled,
+    this.reasoningEffort,
+    this.reasoningEffortOptions = const <AiReasoningEffortOption>[],
     this.requiresReasoningEcho,
     this.capabilities = const <AiModelCapability>{},
     this.supportsAttachments,
@@ -323,6 +417,13 @@ class AiModelProfile {
       maxOutputLength: _readNullablePositiveInt(json['max_output_length']),
       maxThinkingLength: _readNullablePositiveInt(json['max_thinking_length']),
       thinkingEnabled: _readBool(json[_thinkingEnabledJsonKey]),
+      reasoningEffortControlEnabled: _readBool(
+        json[_reasoningEffortControlEnabledJsonKey],
+      ),
+      reasoningEffort: optionalStringFromValue(json[_reasoningEffortJsonKey]),
+      reasoningEffortOptions: _parseReasoningEffortOptions(
+        json[_reasoningEffortOptionsJsonKey],
+      ),
       requiresReasoningEcho: json['requires_reasoning_echo'] as bool?,
       capabilities: _parseCapabilities(json['capabilities']),
       supportsAttachments: json['supports_attachments'] as bool?,
@@ -446,6 +547,11 @@ class AiModelProfile {
   static const String _globalDefaultTitleModelJsonKey =
       'is_global_default_title_model';
   static const String _thinkingEnabledJsonKey = 'thinking_enabled';
+  static const String _reasoningEffortControlEnabledJsonKey =
+      'reasoning_effort_control_enabled';
+  static const String _reasoningEffortJsonKey = 'reasoning_effort';
+  static const String _reasoningEffortOptionsJsonKey =
+      'reasoning_effort_options';
 
   /// User-friendly display name (e.g. "GPT-4o" instead of "gpt-4o-2024-11-20").
   final String? displayName;
@@ -469,6 +575,14 @@ class AiModelProfile {
   ///
   /// `null` means "derive from catalog metadata and model/provider heuristics".
   final bool? thinkingEnabled;
+
+  /// Whether request-time reasoning strength should be sent when possible.
+  ///
+  /// Defaults to false unless the catalog or user profile explicitly enables
+  /// it. The raw [reasoningEffort] value is provider-native.
+  final bool? reasoningEffortControlEnabled;
+  final String? reasoningEffort;
+  final List<AiReasoningEffortOption> reasoningEffortOptions;
 
   /// Whether follow-up requests must echo prior reasoning_content. When null,
   /// the runtime falls back to provider/model-name heuristics.
@@ -593,6 +707,9 @@ class AiModelProfile {
       maxOutputLength != null ||
       maxThinkingLength != null ||
       thinkingEnabled != null ||
+      reasoningEffortControlEnabled != null ||
+      reasoningEffort != null ||
+      reasoningEffortOptions.isNotEmpty ||
       requiresReasoningEcho != null ||
       capabilities.isNotEmpty ||
       supportsAttachments != null ||
@@ -672,6 +789,11 @@ class AiModelProfile {
     bool clearMaxThinkingLength = false,
     bool? thinkingEnabled,
     bool clearThinkingEnabled = false,
+    bool? reasoningEffortControlEnabled,
+    bool clearReasoningEffortControlEnabled = false,
+    String? reasoningEffort,
+    bool clearReasoningEffort = false,
+    List<AiReasoningEffortOption>? reasoningEffortOptions,
     bool? requiresReasoningEcho,
     bool clearRequiresReasoningEcho = false,
     Set<AiModelCapability>? capabilities,
@@ -797,6 +919,14 @@ class AiModelProfile {
       thinkingEnabled: clearThinkingEnabled
           ? null
           : thinkingEnabled ?? this.thinkingEnabled,
+      reasoningEffortControlEnabled: clearReasoningEffortControlEnabled
+          ? null
+          : reasoningEffortControlEnabled ?? this.reasoningEffortControlEnabled,
+      reasoningEffort: clearReasoningEffort
+          ? null
+          : reasoningEffort ?? this.reasoningEffort,
+      reasoningEffortOptions:
+          reasoningEffortOptions ?? this.reasoningEffortOptions,
       requiresReasoningEcho: clearRequiresReasoningEcho
           ? null
           : requiresReasoningEcho ?? this.requiresReasoningEcho,
@@ -968,6 +1098,14 @@ class AiModelProfile {
       if (maxOutputLength != null) 'max_output_length': maxOutputLength,
       if (maxThinkingLength != null) 'max_thinking_length': maxThinkingLength,
       if (thinkingEnabled != null) _thinkingEnabledJsonKey: thinkingEnabled,
+      if (reasoningEffortControlEnabled != null)
+        _reasoningEffortControlEnabledJsonKey: reasoningEffortControlEnabled,
+      if (reasoningEffort != null) _reasoningEffortJsonKey: reasoningEffort,
+      if (reasoningEffortOptions.isNotEmpty)
+        _reasoningEffortOptionsJsonKey: reasoningEffortOptions
+            .where((item) => item.isValid)
+            .map((item) => item.toJson())
+            .toList(growable: false),
       if (requiresReasoningEcho != null)
         'requires_reasoning_echo': requiresReasoningEcho,
       if (capabilities.isNotEmpty)
@@ -1118,6 +1256,37 @@ class AiModelProfile {
     return optionalNonNegativeDoubleFromValue(value);
   }
 
+  static List<AiReasoningEffortOption> _parseReasoningEffortOptions(
+    Object? value,
+  ) {
+    if (value == null) return const <AiReasoningEffortOption>[];
+    Object? raw = value;
+    if (value is String) {
+      final trimmed = nullIfBlank(value);
+      if (trimmed == null) return const <AiReasoningEffortOption>[];
+      try {
+        raw = jsonDecode(trimmed);
+      } catch (_) {
+        return const <AiReasoningEffortOption>[];
+      }
+    }
+    if (raw is! List) return const <AiReasoningEffortOption>[];
+    final result = <AiReasoningEffortOption>[];
+    final seen = <String>{};
+    for (final item in raw) {
+      final option = item is Map
+          ? AiReasoningEffortOption.fromJson(stringKeyedMapFromValue(item))
+          : AiReasoningEffortOption(
+              value: stringFromValue(item).trim(),
+              label: stringFromValue(item).trim(),
+            );
+      final normalizedValue = nullIfBlank(option.value);
+      if (normalizedValue == null || !seen.add(normalizedValue)) continue;
+      result.add(option);
+    }
+    return List<AiReasoningEffortOption>.unmodifiable(result);
+  }
+
   static bool? _readBool(Object? value) {
     return optionalBoolFromValue(value);
   }
@@ -1230,10 +1399,184 @@ class AiModelConfig {
     'thinking_budget',
     'thinking_config',
     'thinkingconfig',
+    'thinking_level',
+    'thinkinglevel',
+    'output_config',
   };
   static const Set<String> _deepSeekPlainChatModelIds = <String>{
     'deepseek-chat',
   };
+  static const List<AiReasoningEffortOption>
+  _defaultLowMediumHighEffortOptions = <AiReasoningEffortOption>[
+    AiReasoningEffortOption(
+      value: 'low',
+      label: '低',
+      labelZhHans: '低',
+      labelZhHant: '低',
+      labelEn: 'Low',
+      labelFr: 'Faible',
+      labelDe: 'Niedrig',
+      labelJa: '低',
+    ),
+    AiReasoningEffortOption(
+      value: 'medium',
+      label: '中',
+      labelZhHans: '中',
+      labelZhHant: '中',
+      labelEn: 'Medium',
+      labelFr: 'Moyen',
+      labelDe: 'Mittel',
+      labelJa: '中',
+    ),
+    AiReasoningEffortOption(
+      value: 'high',
+      label: '高',
+      labelZhHans: '高',
+      labelZhHant: '高',
+      labelEn: 'High',
+      labelFr: 'Élevé',
+      labelDe: 'Hoch',
+      labelJa: '高',
+    ),
+  ];
+  static const List<AiReasoningEffortOption>
+  _defaultMinimalLowMediumHighEffortOptions = <AiReasoningEffortOption>[
+    AiReasoningEffortOption(
+      value: 'minimal',
+      label: '极低',
+      labelZhHans: '极低',
+      labelZhHant: '極低',
+      labelEn: 'Minimal',
+      labelFr: 'Minimal',
+      labelDe: 'Minimal',
+      labelJa: '最小',
+    ),
+    ..._defaultLowMediumHighEffortOptions,
+  ];
+  static const List<AiReasoningEffortOption>
+  _defaultLowMediumHighMaxEffortOptions = <AiReasoningEffortOption>[
+    ..._defaultLowMediumHighEffortOptions,
+    AiReasoningEffortOption(
+      value: 'xhigh',
+      label: '极高',
+      labelZhHans: '极高',
+      labelZhHant: '極高',
+      labelEn: 'X-High',
+      labelFr: 'Très élevé',
+      labelDe: 'Sehr hoch',
+      labelJa: '最高',
+    ),
+    AiReasoningEffortOption(
+      value: 'max',
+      label: '最高',
+      labelZhHans: '最高',
+      labelZhHant: '最高',
+      labelEn: 'Max',
+      labelFr: 'Maximum',
+      labelDe: 'Maximal',
+      labelJa: '最大',
+    ),
+  ];
+  static const List<AiReasoningEffortOption> _defaultOpenAiGpt5EffortOptions =
+      <AiReasoningEffortOption>[
+        AiReasoningEffortOption(
+          value: 'none',
+          label: '无',
+          labelZhHans: '无',
+          labelZhHant: '無',
+          labelEn: 'None',
+          labelFr: 'Aucun',
+          labelDe: 'Keine',
+          labelJa: 'なし',
+        ),
+        ..._defaultMinimalLowMediumHighEffortOptions,
+        AiReasoningEffortOption(
+          value: 'xhigh',
+          label: '极高',
+          labelZhHans: '极高',
+          labelZhHant: '極高',
+          labelEn: 'X-High',
+          labelFr: 'Très élevé',
+          labelDe: 'Sehr hoch',
+          labelJa: '最高',
+        ),
+      ];
+  static const List<AiReasoningEffortOption>
+  _defaultGrokReasoningEffortOptions = <AiReasoningEffortOption>[
+    AiReasoningEffortOption(
+      value: 'none',
+      label: '无',
+      labelZhHans: '无',
+      labelZhHant: '無',
+      labelEn: 'None',
+      labelFr: 'Aucun',
+      labelDe: 'Keine',
+      labelJa: 'なし',
+    ),
+    AiReasoningEffortOption(
+      value: 'low',
+      label: '低',
+      labelZhHans: '低',
+      labelZhHant: '低',
+      labelEn: 'Low',
+      labelFr: 'Faible',
+      labelDe: 'Niedrig',
+      labelJa: '低',
+    ),
+    AiReasoningEffortOption(
+      value: 'medium',
+      label: '中',
+      labelZhHans: '中',
+      labelZhHant: '中',
+      labelEn: 'Medium',
+      labelFr: 'Moyen',
+      labelDe: 'Mittel',
+      labelJa: '中',
+    ),
+    AiReasoningEffortOption(
+      value: 'high',
+      label: '高',
+      labelZhHans: '高',
+      labelZhHant: '高',
+      labelEn: 'High',
+      labelFr: 'Élevé',
+      labelDe: 'Hoch',
+      labelJa: '高',
+    ),
+  ];
+  static const List<AiReasoningEffortOption> _defaultThinkingBudgetOptions =
+      <AiReasoningEffortOption>[
+        AiReasoningEffortOption(
+          value: '1024',
+          label: '轻量',
+          labelZhHans: '轻量',
+          labelZhHant: '輕量',
+          labelEn: 'Light',
+          labelFr: 'Léger',
+          labelDe: 'Leicht',
+          labelJa: '軽量',
+        ),
+        AiReasoningEffortOption(
+          value: '8192',
+          label: '均衡',
+          labelZhHans: '均衡',
+          labelZhHant: '均衡',
+          labelEn: 'Balanced',
+          labelFr: 'Équilibré',
+          labelDe: 'Ausgewogen',
+          labelJa: 'バランス',
+        ),
+        AiReasoningEffortOption(
+          value: '32768',
+          label: '深度',
+          labelZhHans: '深度',
+          labelZhHant: '深度',
+          labelEn: 'Deep',
+          labelFr: 'Approfondi',
+          labelDe: 'Tief',
+          labelJa: '深い',
+        ),
+      ];
 
   static const String _explicitPromptCacheEnabledJsonKey =
       'explicit_prompt_cache_enabled';
@@ -1329,159 +1672,301 @@ class AiModelConfig {
     final override = modelProfiles[trimmedId];
     final catalog = AiModelCatalog.lookup(trimmedId, protocolType);
     if (override == null) {
-      return catalog ?? const AiModelProfile();
+      return _withReasoningEffortDefaults(
+        catalog ?? const AiModelProfile(),
+        modelId: trimmedId,
+        protocolType: protocolType,
+      );
     }
     if (catalog == null) {
-      return override;
+      return _withReasoningEffortDefaults(
+        override,
+        modelId: trimmedId,
+        protocolType: protocolType,
+      );
     }
-    return catalog.copyWith(
-      displayName: override.displayName,
-      description: override.description,
-      isMultimodal: override.isMultimodal,
-      supportedModalities: override.supportedModalities.isNotEmpty
-          ? override.supportedModalities
-          : catalog.supportedModalities,
-      maxContextLength: override.maxContextLength,
-      maxSummaryLength: override.maxSummaryLength,
-      maxOutputLength: override.maxOutputLength,
-      maxThinkingLength: override.maxThinkingLength,
-      thinkingEnabled: override.thinkingEnabled,
-      requiresReasoningEcho: override.requiresReasoningEcho,
-      capabilities: override.capabilities.isNotEmpty
-          ? override.capabilities
-          : catalog.capabilities,
-      supportsAttachments: override.supportsAttachments,
-      inputUsdPer1M: override.inputUsdPer1M,
-      outputUsdPer1M: override.outputUsdPer1M,
-      cacheReadUsdPer1M: override.cacheReadUsdPer1M,
-      cacheWriteUsdPer1M: override.cacheWriteUsdPer1M,
-      canonicalSlug: override.canonicalSlug,
-      huggingFaceId: override.huggingFaceId,
-      created: override.created,
-      architecture: override.architecture,
-      supportedParameters: override.supportedParameters.isNotEmpty
-          ? override.supportedParameters
-          : catalog.supportedParameters,
-      defaultParameters: override.defaultParameters.isNotEmpty
-          ? override.defaultParameters
-          : catalog.defaultParameters,
-      supportedVoices: override.supportedVoices.isNotEmpty
-          ? override.supportedVoices
-          : catalog.supportedVoices,
-      knowledgeCutoff: override.knowledgeCutoff,
-      expirationDate: override.expirationDate,
-      links: override.links,
-      isGlobalDefaultTitleModel: override.isGlobalDefaultTitleModel,
-      embeddingDimensions:
-          override.embeddingDimensions ?? catalog.embeddingDimensions,
-      embeddingMaxInputTokens:
-          override.embeddingMaxInputTokens ?? catalog.embeddingMaxInputTokens,
-      embeddingSupportsCustomDimensions:
-          override.embeddingSupportsCustomDimensions ||
-          catalog.embeddingSupportsCustomDimensions,
-      embeddingEndpointPath:
-          override.embeddingEndpointPath ?? catalog.embeddingEndpointPath,
-      embeddingBatchSize:
-          override.embeddingBatchSize ?? catalog.embeddingBatchSize,
-      embeddingRequiresSpecialBody:
-          override.embeddingRequiresSpecialBody ||
-          catalog.embeddingRequiresSpecialBody,
-      embeddingQueryModelId:
-          override.embeddingQueryModelId ?? catalog.embeddingQueryModelId,
-      embeddingDocumentModelId:
-          override.embeddingDocumentModelId ?? catalog.embeddingDocumentModelId,
-      embeddingInputTypes: override.embeddingInputTypes.isNotEmpty
-          ? override.embeddingInputTypes
-          : catalog.embeddingInputTypes,
-      embeddingDefaultInputType:
-          override.embeddingDefaultInputType ??
-          catalog.embeddingDefaultInputType,
-      embeddingQueryInputType:
-          override.embeddingQueryInputType ?? catalog.embeddingQueryInputType,
-      embeddingDocumentInputType:
-          override.embeddingDocumentInputType ??
-          catalog.embeddingDocumentInputType,
-      embeddingSupportedTaskTypes:
-          override.embeddingSupportedTaskTypes.isNotEmpty
-          ? override.embeddingSupportedTaskTypes
-          : catalog.embeddingSupportedTaskTypes,
-      embeddingDefaultTaskType:
-          override.embeddingDefaultTaskType ?? catalog.embeddingDefaultTaskType,
-      embeddingDefaultQueryTaskType:
-          override.embeddingDefaultQueryTaskType ??
-          catalog.embeddingDefaultQueryTaskType,
-      embeddingDefaultDocumentTaskType:
-          override.embeddingDefaultDocumentTaskType ??
-          catalog.embeddingDefaultDocumentTaskType,
-      embeddingQueryTextPrefix:
-          override.embeddingQueryTextPrefix ?? catalog.embeddingQueryTextPrefix,
-      embeddingDocumentTextPrefix:
-          override.embeddingDocumentTextPrefix ??
-          catalog.embeddingDocumentTextPrefix,
-      embeddingEncodingFormats: override.embeddingEncodingFormats.isNotEmpty
-          ? override.embeddingEncodingFormats
-          : catalog.embeddingEncodingFormats,
-      embeddingDefaultEncodingFormat:
-          override.embeddingDefaultEncodingFormat ??
-          catalog.embeddingDefaultEncodingFormat,
-      embeddingOutputDTypes: override.embeddingOutputDTypes.isNotEmpty
-          ? override.embeddingOutputDTypes
-          : catalog.embeddingOutputDTypes,
-      embeddingDefaultOutputDType:
-          override.embeddingDefaultOutputDType ??
-          catalog.embeddingDefaultOutputDType,
-      embeddingDefaultTruncation:
-          override.embeddingDefaultTruncation ??
-          catalog.embeddingDefaultTruncation,
-      embeddingSimilarityMetric:
-          override.embeddingSimilarityMetric ??
-          catalog.embeddingSimilarityMetric,
-      embeddingOutputsNormalized:
-          override.embeddingOutputsNormalized ??
-          catalog.embeddingOutputsNormalized,
-      embeddingMinDimensions:
-          override.embeddingMinDimensions ?? catalog.embeddingMinDimensions,
-      embeddingMaxDimensions:
-          override.embeddingMaxDimensions ?? catalog.embeddingMaxDimensions,
-      embeddingMaxInputsPerBatch:
-          override.embeddingMaxInputsPerBatch ??
-          catalog.embeddingMaxInputsPerBatch,
-      embeddingMaxTokensPerBatch:
-          override.embeddingMaxTokensPerBatch ??
-          catalog.embeddingMaxTokensPerBatch,
-      embeddingSupportsTruncation:
-          override.embeddingSupportsTruncation ||
-          catalog.embeddingSupportsTruncation,
-      rerankEndpointPath:
-          override.rerankEndpointPath ?? catalog.rerankEndpointPath,
-      rerankMaxInputTokens:
-          override.rerankMaxInputTokens ?? catalog.rerankMaxInputTokens,
-      rerankMaxDocuments:
-          override.rerankMaxDocuments ?? catalog.rerankMaxDocuments,
-      rerankDefaultTopN:
-          override.rerankDefaultTopN ?? catalog.rerankDefaultTopN,
-      rerankSupportedParameters: override.rerankSupportedParameters.isNotEmpty
-          ? override.rerankSupportedParameters
-          : catalog.rerankSupportedParameters,
-      rerankSupportsReturnDocuments:
-          override.rerankSupportsReturnDocuments ||
-          catalog.rerankSupportsReturnDocuments,
-      rerankSupportsInstruction:
-          override.rerankSupportsInstruction ||
-          catalog.rerankSupportsInstruction,
-      rerankDefaultInstruction:
-          override.rerankDefaultInstruction ?? catalog.rerankDefaultInstruction,
-      rerankSupportsTruncation:
-          override.rerankSupportsTruncation || catalog.rerankSupportsTruncation,
-      rerankDefaultTruncation:
-          override.rerankDefaultTruncation ?? catalog.rerankDefaultTruncation,
-      readerSourceTypes: override.readerSourceTypes.isNotEmpty
-          ? override.readerSourceTypes
-          : catalog.readerSourceTypes,
-      readerTargetTypes: override.readerTargetTypes.isNotEmpty
-          ? override.readerTargetTypes
-          : catalog.readerTargetTypes,
+    return _withReasoningEffortDefaults(
+      catalog.copyWith(
+        displayName: override.displayName,
+        description: override.description,
+        isMultimodal: override.isMultimodal,
+        supportedModalities: override.supportedModalities.isNotEmpty
+            ? override.supportedModalities
+            : catalog.supportedModalities,
+        maxContextLength: override.maxContextLength,
+        maxSummaryLength: override.maxSummaryLength,
+        maxOutputLength: override.maxOutputLength,
+        maxThinkingLength: override.maxThinkingLength,
+        thinkingEnabled: override.thinkingEnabled,
+        reasoningEffortControlEnabled: override.reasoningEffortControlEnabled,
+        reasoningEffort: override.reasoningEffort,
+        reasoningEffortOptions: override.reasoningEffortOptions.isNotEmpty
+            ? override.reasoningEffortOptions
+            : catalog.reasoningEffortOptions,
+        requiresReasoningEcho: override.requiresReasoningEcho,
+        capabilities: override.capabilities.isNotEmpty
+            ? override.capabilities
+            : catalog.capabilities,
+        supportsAttachments: override.supportsAttachments,
+        inputUsdPer1M: override.inputUsdPer1M,
+        outputUsdPer1M: override.outputUsdPer1M,
+        cacheReadUsdPer1M: override.cacheReadUsdPer1M,
+        cacheWriteUsdPer1M: override.cacheWriteUsdPer1M,
+        canonicalSlug: override.canonicalSlug,
+        huggingFaceId: override.huggingFaceId,
+        created: override.created,
+        architecture: override.architecture,
+        supportedParameters: override.supportedParameters.isNotEmpty
+            ? override.supportedParameters
+            : catalog.supportedParameters,
+        defaultParameters: override.defaultParameters.isNotEmpty
+            ? override.defaultParameters
+            : catalog.defaultParameters,
+        supportedVoices: override.supportedVoices.isNotEmpty
+            ? override.supportedVoices
+            : catalog.supportedVoices,
+        knowledgeCutoff: override.knowledgeCutoff,
+        expirationDate: override.expirationDate,
+        links: override.links,
+        isGlobalDefaultTitleModel: override.isGlobalDefaultTitleModel,
+        embeddingDimensions:
+            override.embeddingDimensions ?? catalog.embeddingDimensions,
+        embeddingMaxInputTokens:
+            override.embeddingMaxInputTokens ?? catalog.embeddingMaxInputTokens,
+        embeddingSupportsCustomDimensions:
+            override.embeddingSupportsCustomDimensions ||
+            catalog.embeddingSupportsCustomDimensions,
+        embeddingEndpointPath:
+            override.embeddingEndpointPath ?? catalog.embeddingEndpointPath,
+        embeddingBatchSize:
+            override.embeddingBatchSize ?? catalog.embeddingBatchSize,
+        embeddingRequiresSpecialBody:
+            override.embeddingRequiresSpecialBody ||
+            catalog.embeddingRequiresSpecialBody,
+        embeddingQueryModelId:
+            override.embeddingQueryModelId ?? catalog.embeddingQueryModelId,
+        embeddingDocumentModelId:
+            override.embeddingDocumentModelId ??
+            catalog.embeddingDocumentModelId,
+        embeddingInputTypes: override.embeddingInputTypes.isNotEmpty
+            ? override.embeddingInputTypes
+            : catalog.embeddingInputTypes,
+        embeddingDefaultInputType:
+            override.embeddingDefaultInputType ??
+            catalog.embeddingDefaultInputType,
+        embeddingQueryInputType:
+            override.embeddingQueryInputType ?? catalog.embeddingQueryInputType,
+        embeddingDocumentInputType:
+            override.embeddingDocumentInputType ??
+            catalog.embeddingDocumentInputType,
+        embeddingSupportedTaskTypes:
+            override.embeddingSupportedTaskTypes.isNotEmpty
+            ? override.embeddingSupportedTaskTypes
+            : catalog.embeddingSupportedTaskTypes,
+        embeddingDefaultTaskType:
+            override.embeddingDefaultTaskType ??
+            catalog.embeddingDefaultTaskType,
+        embeddingDefaultQueryTaskType:
+            override.embeddingDefaultQueryTaskType ??
+            catalog.embeddingDefaultQueryTaskType,
+        embeddingDefaultDocumentTaskType:
+            override.embeddingDefaultDocumentTaskType ??
+            catalog.embeddingDefaultDocumentTaskType,
+        embeddingQueryTextPrefix:
+            override.embeddingQueryTextPrefix ??
+            catalog.embeddingQueryTextPrefix,
+        embeddingDocumentTextPrefix:
+            override.embeddingDocumentTextPrefix ??
+            catalog.embeddingDocumentTextPrefix,
+        embeddingEncodingFormats: override.embeddingEncodingFormats.isNotEmpty
+            ? override.embeddingEncodingFormats
+            : catalog.embeddingEncodingFormats,
+        embeddingDefaultEncodingFormat:
+            override.embeddingDefaultEncodingFormat ??
+            catalog.embeddingDefaultEncodingFormat,
+        embeddingOutputDTypes: override.embeddingOutputDTypes.isNotEmpty
+            ? override.embeddingOutputDTypes
+            : catalog.embeddingOutputDTypes,
+        embeddingDefaultOutputDType:
+            override.embeddingDefaultOutputDType ??
+            catalog.embeddingDefaultOutputDType,
+        embeddingDefaultTruncation:
+            override.embeddingDefaultTruncation ??
+            catalog.embeddingDefaultTruncation,
+        embeddingSimilarityMetric:
+            override.embeddingSimilarityMetric ??
+            catalog.embeddingSimilarityMetric,
+        embeddingOutputsNormalized:
+            override.embeddingOutputsNormalized ??
+            catalog.embeddingOutputsNormalized,
+        embeddingMinDimensions:
+            override.embeddingMinDimensions ?? catalog.embeddingMinDimensions,
+        embeddingMaxDimensions:
+            override.embeddingMaxDimensions ?? catalog.embeddingMaxDimensions,
+        embeddingMaxInputsPerBatch:
+            override.embeddingMaxInputsPerBatch ??
+            catalog.embeddingMaxInputsPerBatch,
+        embeddingMaxTokensPerBatch:
+            override.embeddingMaxTokensPerBatch ??
+            catalog.embeddingMaxTokensPerBatch,
+        embeddingSupportsTruncation:
+            override.embeddingSupportsTruncation ||
+            catalog.embeddingSupportsTruncation,
+        rerankEndpointPath:
+            override.rerankEndpointPath ?? catalog.rerankEndpointPath,
+        rerankMaxInputTokens:
+            override.rerankMaxInputTokens ?? catalog.rerankMaxInputTokens,
+        rerankMaxDocuments:
+            override.rerankMaxDocuments ?? catalog.rerankMaxDocuments,
+        rerankDefaultTopN:
+            override.rerankDefaultTopN ?? catalog.rerankDefaultTopN,
+        rerankSupportedParameters: override.rerankSupportedParameters.isNotEmpty
+            ? override.rerankSupportedParameters
+            : catalog.rerankSupportedParameters,
+        rerankSupportsReturnDocuments:
+            override.rerankSupportsReturnDocuments ||
+            catalog.rerankSupportsReturnDocuments,
+        rerankSupportsInstruction:
+            override.rerankSupportsInstruction ||
+            catalog.rerankSupportsInstruction,
+        rerankDefaultInstruction:
+            override.rerankDefaultInstruction ??
+            catalog.rerankDefaultInstruction,
+        rerankSupportsTruncation:
+            override.rerankSupportsTruncation ||
+            catalog.rerankSupportsTruncation,
+        rerankDefaultTruncation:
+            override.rerankDefaultTruncation ?? catalog.rerankDefaultTruncation,
+        readerSourceTypes: override.readerSourceTypes.isNotEmpty
+            ? override.readerSourceTypes
+            : catalog.readerSourceTypes,
+        readerTargetTypes: override.readerTargetTypes.isNotEmpty
+            ? override.readerTargetTypes
+            : catalog.readerTargetTypes,
+      ),
+      modelId: trimmedId,
+      protocolType: protocolType,
     );
+  }
+
+  static AiModelProfile _withReasoningEffortDefaults(
+    AiModelProfile profile, {
+    required String modelId,
+    required AiProtocolType protocolType,
+  }) {
+    if (profile.reasoningEffortControlEnabled != null ||
+        profile.reasoningEffort != null ||
+        profile.reasoningEffortOptions.isNotEmpty) {
+      return profile;
+    }
+    if (!supportsThinkingByDefault(
+      modelId: modelId,
+      protocolType: protocolType,
+      profile: profile,
+    )) {
+      return profile;
+    }
+    final options = _defaultReasoningEffortOptions(
+      modelId: modelId,
+      protocolType: protocolType,
+    );
+    if (options.isEmpty) return profile;
+    return profile.copyWith(
+      reasoningEffortControlEnabled: true,
+      reasoningEffort: _defaultReasoningEffort(
+        modelId: modelId,
+        protocolType: protocolType,
+      ),
+      reasoningEffortOptions: options,
+    );
+  }
+
+  static List<AiReasoningEffortOption> _defaultReasoningEffortOptions({
+    required String modelId,
+    required AiProtocolType protocolType,
+  }) {
+    final normalizedModelId = _normalizeReasoningModelId(modelId);
+    if (normalizedModelId.startsWith('gpt-5') ||
+        normalizedModelId.contains('gpt-5')) {
+      return _defaultOpenAiGpt5EffortOptions;
+    }
+    if (protocolType == AiProtocolType.grok ||
+        normalizedModelId.startsWith('grok')) {
+      return _defaultGrokReasoningEffortOptions;
+    }
+    if (protocolType == AiProtocolType.qwen ||
+        normalizedModelId.startsWith('qwen') ||
+        normalizedModelId.startsWith('qwq') ||
+        normalizedModelId.startsWith('qvq')) {
+      return _defaultThinkingBudgetOptions;
+    }
+    if (protocolType == AiProtocolType.gemini ||
+        normalizedModelId.startsWith('gemini')) {
+      return _defaultLowMediumHighEffortOptions;
+    }
+    if (protocolType == AiProtocolType.claude ||
+        normalizedModelId.contains('claude')) {
+      return _looksLikeClaudeOutputEffortModel(normalizedModelId)
+          ? _defaultLowMediumHighMaxEffortOptions
+          : _defaultLowMediumHighEffortOptions;
+    }
+    if (protocolType == AiProtocolType.deepseek ||
+        normalizedModelId.startsWith('deepseek') ||
+        protocolType == AiProtocolType.glm ||
+        protocolType == AiProtocolType.minimax ||
+        protocolType == AiProtocolType.stepfun ||
+        protocolType == AiProtocolType.mimo ||
+        normalizedModelId.startsWith('o1') ||
+        normalizedModelId.startsWith('o3') ||
+        normalizedModelId.startsWith('o4') ||
+        normalizedModelId.contains('-o1') ||
+        normalizedModelId.contains('-o3') ||
+        normalizedModelId.contains('-o4') ||
+        normalizedModelId.contains('magistral') ||
+        normalizedModelId.contains('mistral-reasoning') ||
+        normalizedModelId.contains('spark-x') ||
+        ((normalizedModelId.contains('spark') ||
+                normalizedModelId.contains('xinghuo') ||
+                normalizedModelId.contains('xunfei') ||
+                normalizedModelId.contains('xfyun')) &&
+            (normalizedModelId.contains('x1') ||
+                normalizedModelId.contains('x2')))) {
+      return _defaultLowMediumHighEffortOptions;
+    }
+    return const <AiReasoningEffortOption>[];
+  }
+
+  static String _defaultReasoningEffort({
+    required String modelId,
+    required AiProtocolType protocolType,
+  }) {
+    if (protocolType == AiProtocolType.qwen ||
+        _normalizeReasoningModelId(modelId).startsWith('qwen') ||
+        _normalizeReasoningModelId(modelId).startsWith('qwq') ||
+        _normalizeReasoningModelId(modelId).startsWith('qvq')) {
+      return '8192';
+    }
+    if (protocolType == AiProtocolType.grok ||
+        _normalizeReasoningModelId(modelId).startsWith('grok')) {
+      return 'low';
+    }
+    return 'medium';
+  }
+
+  static bool _looksLikeClaudeOutputEffortModel(String normalizedModelId) {
+    return normalizedModelId.contains('sonnet-5') ||
+        normalizedModelId.contains('fable-5') ||
+        normalizedModelId.contains('mythos-5') ||
+        normalizedModelId.contains('opus-4-8') ||
+        normalizedModelId.contains('4-8-opus') ||
+        normalizedModelId.contains('opus-4-7') ||
+        normalizedModelId.contains('4-7-opus') ||
+        normalizedModelId.contains('opus-4-6') ||
+        normalizedModelId.contains('4-6-opus') ||
+        normalizedModelId.contains('opus-4-5') ||
+        normalizedModelId.contains('4-5-opus') ||
+        normalizedModelId.contains('sonnet-4-6') ||
+        normalizedModelId.contains('4-6-sonnet');
   }
 
   /// Resolves whether the *current* model accepts user-uploaded attachments.
@@ -1542,6 +2027,41 @@ class AiModelConfig {
       protocolType: protocolType,
       profile: profile,
     );
+  }
+
+  List<AiReasoningEffortOption> get resolvedReasoningEffortOptions {
+    return profileFor(modelId).reasoningEffortOptions;
+  }
+
+  bool get resolvedReasoningEffortControlEnabled {
+    if (!resolvedThinkingEnabled) return false;
+    final trimmedModelId = nullIfBlank(modelId) ?? '';
+    final userOverride =
+        modelProfiles[trimmedModelId]?.reasoningEffortControlEnabled;
+    if (userOverride != null) return userOverride;
+    return profileFor(trimmedModelId).reasoningEffortControlEnabled ?? false;
+  }
+
+  String? get resolvedReasoningEffort {
+    if (!resolvedReasoningEffortControlEnabled) return null;
+    final profile = profileFor(modelId);
+    final configured = nullIfBlank(profile.reasoningEffort);
+    if (configured != null) return configured;
+    for (final option in profile.reasoningEffortOptions) {
+      if (option.isValid) return option.value;
+    }
+    return null;
+  }
+
+  String? reasoningEffortLabelForLocaleName(String localeName) {
+    final effort = resolvedReasoningEffort;
+    if (effort == null) return null;
+    for (final option in resolvedReasoningEffortOptions) {
+      if (option.value == effort) {
+        return option.labelForLocaleName(localeName);
+      }
+    }
+    return effort;
   }
 
   static bool thinkingEnabledByDefault({

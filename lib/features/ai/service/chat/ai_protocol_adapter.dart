@@ -23,6 +23,9 @@ final RegExp _markdownSeparatorTailPattern = RegExp(r'-+$');
 abstract final class AiThinkingRequestPolicy {
   static const int _defaultThinkingBudget = 8192;
   static const int _claudeMinimumBudget = 1024;
+  static final RegExp _modelIdSeparatorPattern = RegExp(r'[^a-z0-9]+');
+  static final RegExp _modelIdRepeatedDashPattern = RegExp(r'-+');
+  static final RegExp _modelIdEdgeDashPattern = RegExp(r'^-|-$');
   static const String _reasoningField = 'reasoning';
   static const String _reasoningEffortField = 'reasoning_effort';
   static const String _includeReasoningField = 'include_reasoning';
@@ -30,6 +33,8 @@ abstract final class AiThinkingRequestPolicy {
   static const String _thinkingField = 'thinking';
   static const String _thinkingConfigField = 'thinkingConfig';
   static const String _thinkingBudgetField = 'thinkingBudget';
+  static const String _thinkingLevelField = 'thinkingLevel';
+  static const String _outputConfigField = 'output_config';
   static const String _chatTemplateKwargsField = 'chat_template_kwargs';
 
   static const Set<String> _topLevelMarkerFields = <String>{
@@ -38,6 +43,7 @@ abstract final class AiThinkingRequestPolicy {
     _includeReasoningField,
     _enableThinkingField,
     _thinkingField,
+    _outputConfigField,
   };
 
   static bool shouldApply(AiModelConfig model) {
@@ -50,6 +56,8 @@ abstract final class AiThinkingRequestPolicy {
   ) {
     if (!shouldApply(model)) return;
     final enabled = model.resolvedThinkingEnabled;
+    final effortControlEnabled = model.resolvedReasoningEffortControlEnabled;
+    final effort = model.resolvedReasoningEffort;
     final parameters = _supportedParameterSet(model);
     final protocol = model.protocolType;
     final normalizedModelId = lowercaseStringFromValue(model.modelId);
@@ -57,6 +65,9 @@ abstract final class AiThinkingRequestPolicy {
     if (_prefersEnableThinking(protocol) ||
         parameters.contains(_enableThinkingField)) {
       _setEnableThinking(body, enabled);
+      if (enabled && effortControlEnabled) {
+        _setThinkingBudget(body, effort);
+      }
       return;
     }
 
@@ -64,7 +75,7 @@ abstract final class AiThinkingRequestPolicy {
             parameters.contains(_includeReasoningField) ||
             _looksLikeOpenRouterRoute(model)) &&
         !parameters.contains(_reasoningEffortField)) {
-      _setReasoningObject(body, enabled);
+      _setReasoningObject(body, enabled, effortControlEnabled ? effort : null);
       if (parameters.contains(_includeReasoningField) ||
           _looksLikeOpenRouterRoute(model)) {
         body[_includeReasoningField] = enabled;
@@ -72,29 +83,43 @@ abstract final class AiThinkingRequestPolicy {
       return;
     }
 
-    if (parameters.contains(_reasoningEffortField) ||
-        _prefersReasoningEffort(protocol, normalizedModelId)) {
-      body[_reasoningEffortField] = enabled ? 'medium' : 'minimal';
+    final needsThinkingObject =
+        parameters.contains(_thinkingField) ||
+        _prefersThinkingObject(protocol, normalizedModelId);
+    final sendsTopLevelReasoningEffort =
+        effortControlEnabled &&
+        (parameters.contains(_reasoningEffortField) ||
+            _prefersReasoningEffort(protocol, normalizedModelId));
+    if (needsThinkingObject) {
+      body[_thinkingField] = _thinkingObject(
+        enabled: enabled,
+        effort: enabled && effortControlEnabled && !sendsTopLevelReasoningEffort
+            ? effort
+            : null,
+      );
+      if (sendsTopLevelReasoningEffort) {
+        body[_reasoningEffortField] = effort ?? 'medium';
+      }
       return;
     }
 
-    if (parameters.contains(_thinkingField) ||
-        _prefersThinkingObject(protocol, normalizedModelId)) {
-      body[_thinkingField] = <String, Object?>{
-        'type': enabled ? 'enabled' : 'disabled',
-      };
+    if (sendsTopLevelReasoningEffort) {
+      body[_reasoningEffortField] = effort ?? 'medium';
       return;
     }
 
-    if (enabled || model.resolvedSupportsThinking) {
-      body[_reasoningEffortField] = enabled ? 'medium' : 'minimal';
+    if (enabled && effortControlEnabled) {
+      body[_reasoningEffortField] = effort ?? 'medium';
     }
   }
 
   static Object? responsesReasoningFor(AiModelConfig model) {
     if (!shouldApply(model)) return null;
-    final enabled = model.resolvedThinkingEnabled;
-    return <String, Object?>{'effort': enabled ? 'medium' : 'minimal'};
+    if (!model.resolvedThinkingEnabled) return null;
+    if (!model.resolvedReasoningEffortControlEnabled) return null;
+    return <String, Object?>{
+      'effort': model.resolvedReasoningEffort ?? 'medium',
+    };
   }
 
   static int effectiveClaudeMaxTokens(AiModelConfig model, int requested) {
@@ -118,11 +143,30 @@ abstract final class AiThinkingRequestPolicy {
       model,
       fallback: _claudeMinimumBudget,
     );
+    final effort = _normalizeReasoningEffort(model.resolvedReasoningEffort);
+    if (model.resolvedReasoningEffortControlEnabled &&
+        _usesClaudeOutputEffort(model) &&
+        effort != null &&
+        !_looksLikeNumericBudget(effort)) {
+      return const <String, Object?>{'type': 'adaptive'};
+    }
     final budget = requestedBudget.clamp(_claudeMinimumBudget, ceiling).toInt();
     if (budget >= maxTokens) {
       return null;
     }
     return <String, Object?>{'type': 'enabled', 'budget_tokens': budget};
+  }
+
+  static Map<String, Object?>? claudeOutputConfigFor(AiModelConfig model) {
+    if (!shouldApply(model) ||
+        !model.resolvedThinkingEnabled ||
+        !model.resolvedReasoningEffortControlEnabled) {
+      return null;
+    }
+    if (!_usesClaudeOutputEffort(model)) return null;
+    final effort = _normalizeReasoningEffort(model.resolvedReasoningEffort);
+    if (effort == null || _looksLikeNumericBudget(effort)) return null;
+    return <String, Object?>{'effort': effort};
   }
 
   static void applyGeminiGenerationConfig(
@@ -131,12 +175,18 @@ abstract final class AiThinkingRequestPolicy {
   ) {
     if (!shouldApply(model)) return;
     final enabled = model.resolvedThinkingEnabled;
-    generationConfig[_thinkingConfigField] = <String, Object?>{
+    final effort = model.resolvedReasoningEffortControlEnabled
+        ? _normalizeReasoningEffort(model.resolvedReasoningEffort)
+        : null;
+    final thinkingConfig = <String, Object?>{
       _thinkingBudgetField: enabled
           ? _thinkingBudget(model, fallback: _defaultThinkingBudget)
           : 0,
+      if (enabled && _usesGeminiThinkingLevel(model) && effort != null)
+        _thinkingLevelField: _geminiThinkingLevel(effort),
       if (enabled) 'includeThoughts': true,
     };
+    generationConfig[_thinkingConfigField] = thinkingConfig;
   }
 
   static bool requestHasMarker({required Map<String, Object?> body}) {
@@ -160,7 +210,10 @@ abstract final class AiThinkingRequestPolicy {
         normalized.contains('thinkingconfig') ||
         normalized.contains('thinking_config') ||
         normalized.contains('thinkingbudget') ||
-        normalized.contains('thinking_budget');
+        normalized.contains('thinking_budget') ||
+        normalized.contains('thinkinglevel') ||
+        normalized.contains('thinking_level') ||
+        normalized.contains(_outputConfigField);
     if (mentionsThinkingField) {
       return _looksLikeUnsupportedParameterError(normalized);
     }
@@ -185,6 +238,11 @@ abstract final class AiThinkingRequestPolicy {
   }
 
   static int _thinkingBudget(AiModelConfig model, {required int fallback}) {
+    final effort = model.resolvedReasoningEffortControlEnabled
+        ? _normalizeReasoningEffort(model.resolvedReasoningEffort)
+        : null;
+    final effortBudget = _budgetFromReasoningEffort(model, effort, fallback);
+    if (effortBudget != null) return effortBudget;
     final profile = model.profileFor(model.modelId);
     final value = profile.maxThinkingLength;
     if (value == null || value <= 0) return fallback;
@@ -210,8 +268,40 @@ abstract final class AiThinkingRequestPolicy {
     }
   }
 
-  static void _setReasoningObject(Map<String, Object?> body, bool enabled) {
-    body[_reasoningField] = <String, Object?>{'enabled': enabled};
+  static void _setThinkingBudget(Map<String, Object?> body, String? effort) {
+    final budget = _positiveIntFromText(effort);
+    if (budget == null) return;
+    body['thinking_budget'] = budget;
+    final rawTemplateKwargs = body[_chatTemplateKwargsField];
+    if (rawTemplateKwargs is Map) {
+      body[_chatTemplateKwargsField] = <String, Object?>{
+        ...stringKeyedMapFromValue(rawTemplateKwargs),
+        'thinking_budget': budget,
+      };
+    }
+  }
+
+  static void _setReasoningObject(
+    Map<String, Object?> body,
+    bool enabled,
+    String? effort,
+  ) {
+    body[_reasoningField] = <String, Object?>{
+      'enabled': enabled,
+      if (effort != null) 'effort': effort,
+    };
+  }
+
+  static Map<String, Object?> _thinkingObject({
+    required bool enabled,
+    String? effort,
+  }) {
+    return <String, Object?>{
+      'type': enabled ? 'enabled' : 'disabled',
+      if (effort != null && !_looksLikeNumericBudget(effort)) 'effort': effort,
+      if (effort != null && _looksLikeNumericBudget(effort))
+        'budget_tokens': _positiveIntFromText(effort),
+    };
   }
 
   static bool _prefersEnableThinking(AiProtocolType protocolType) {
@@ -231,7 +321,11 @@ abstract final class AiThinkingRequestPolicy {
     return switch (protocolType) {
       AiProtocolType.openai ||
       AiProtocolType.grok ||
-      AiProtocolType.minimax => true,
+      AiProtocolType.deepseek ||
+      AiProtocolType.minimax ||
+      AiProtocolType.glm ||
+      AiProtocolType.stepfun ||
+      AiProtocolType.mimo => true,
       AiProtocolType.kimi when normalizedModelId.contains('kimi-k2') => true,
       _ => false,
     };
@@ -282,7 +376,9 @@ abstract final class AiThinkingRequestPolicy {
             key == 'thinking_config' ||
             key == 'thinkingconfig' ||
             key == 'thinking_budget' ||
-            key == 'thinkingbudget') {
+            key == 'thinkingbudget' ||
+            key == 'thinking_level' ||
+            key == 'thinkinglevel') {
           return true;
         }
         if (_containsThinkingMarker(entry.value)) return true;
@@ -302,7 +398,9 @@ abstract final class AiThinkingRequestPolicy {
           key == 'thinking_config' ||
           key == 'thinkingconfig' ||
           key == 'thinking_budget' ||
-          key == 'thinkingbudget') {
+          key == 'thinkingbudget' ||
+          key == 'thinking_level' ||
+          key == 'thinkinglevel') {
         continue;
       }
       result[entry.key] = _stripThinkingValue(entry.value);
@@ -321,6 +419,84 @@ abstract final class AiThinkingRequestPolicy {
       return value.map(_stripThinkingValue).toList(growable: false);
     }
     return value;
+  }
+
+  static String? _normalizeReasoningEffort(String? value) {
+    final trimmed = nullIfBlank(value);
+    return trimmed?.toLowerCase();
+  }
+
+  static bool _looksLikeNumericBudget(String value) {
+    return _positiveIntFromText(value) != null;
+  }
+
+  static int? _positiveIntFromText(String? value) {
+    final trimmed = nullIfBlank(value);
+    if (trimmed == null) return null;
+    final parsed = int.tryParse(trimmed);
+    if (parsed == null || parsed <= 0) return null;
+    return parsed;
+  }
+
+  static int? _budgetFromReasoningEffort(
+    AiModelConfig model,
+    String? effort,
+    int fallback,
+  ) {
+    if (effort == null) return null;
+    final numeric = _positiveIntFromText(effort);
+    if (numeric != null) return numeric;
+    final profile = model.profileFor(model.modelId);
+    final maximum = profile.maxThinkingLength;
+    final high = maximum != null && maximum > 0
+        ? maximum
+        : math.max(fallback, _defaultThinkingBudget);
+    return switch (effort) {
+      'minimal' => _claudeMinimumBudget,
+      'low' => math.max(_claudeMinimumBudget, fallback ~/ 2),
+      'medium' => fallback,
+      'high' => high,
+      _ => null,
+    };
+  }
+
+  static bool _usesGeminiThinkingLevel(AiModelConfig model) {
+    final id = lowercaseStringFromValue(model.modelId);
+    return id.startsWith('gemini-3') || id.contains('gemini-3');
+  }
+
+  static String _geminiThinkingLevel(String effort) {
+    return switch (effort) {
+      'minimal' => 'MINIMAL',
+      'low' => 'LOW',
+      'medium' => 'MEDIUM',
+      'high' => 'HIGH',
+      _ => effort,
+    };
+  }
+
+  static bool _usesClaudeOutputEffort(AiModelConfig model) {
+    if (model.protocolType != AiProtocolType.claude &&
+        !lowercaseStringFromValue(model.modelId).contains('claude')) {
+      return false;
+    }
+    final id = lowercaseStringFromValue(model.modelId)
+        .replaceAll(_modelIdSeparatorPattern, '-')
+        .replaceAll(_modelIdRepeatedDashPattern, '-')
+        .replaceAll(_modelIdEdgeDashPattern, '');
+    return id.contains('sonnet-5') ||
+        id.contains('fable-5') ||
+        id.contains('mythos-5') ||
+        id.contains('opus-4-8') ||
+        id.contains('4-8-opus') ||
+        id.contains('opus-4-7') ||
+        id.contains('4-7-opus') ||
+        id.contains('opus-4-6') ||
+        id.contains('4-6-opus') ||
+        id.contains('opus-4-5') ||
+        id.contains('4-5-opus') ||
+        id.contains('sonnet-4-6') ||
+        id.contains('4-6-sonnet');
   }
 }
 
@@ -1836,6 +2012,9 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       model: model,
       maxTokens: effectiveMaxTokens,
     );
+    final outputConfigPayload = AiThinkingRequestPolicy.claudeOutputConfigFor(
+      model,
+    );
     final claudeTemperature = model.temperature;
     final sendTemperature =
         claudeTemperature != null &&
@@ -1908,6 +2087,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       if (systemPayload != null) 'system': systemPayload,
       'max_tokens': effectiveMaxTokens,
       if (thinkingPayload != null) 'thinking': thinkingPayload,
+      if (outputConfigPayload != null) 'output_config': outputConfigPayload,
       if (sendTemperature) 'temperature': claudeTemperature,
       if (stream) 'stream': true,
       if (toolsPayload != null) 'tools': toolsPayload,

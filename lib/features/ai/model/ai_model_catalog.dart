@@ -192,6 +192,101 @@ class AiModelCatalog {
     AiModelCapability.readerConversion,
   };
 
+  static const _effortLowMediumHigh = <AiReasoningEffortOption>[
+    AiReasoningEffortOption(
+      value: 'low',
+      label: '低',
+      labelZhHans: '低',
+      labelZhHant: '低',
+      labelEn: 'Low',
+      labelFr: 'Faible',
+      labelDe: 'Niedrig',
+      labelJa: '低',
+    ),
+    AiReasoningEffortOption(
+      value: 'medium',
+      label: '中',
+      labelZhHans: '中',
+      labelZhHant: '中',
+      labelEn: 'Medium',
+      labelFr: 'Moyen',
+      labelDe: 'Mittel',
+      labelJa: '中',
+    ),
+    AiReasoningEffortOption(
+      value: 'high',
+      label: '高',
+      labelZhHans: '高',
+      labelZhHant: '高',
+      labelEn: 'High',
+      labelFr: 'Élevé',
+      labelDe: 'Hoch',
+      labelJa: '高',
+    ),
+  ];
+
+  static const _effortMinimalLowMediumHigh = <AiReasoningEffortOption>[
+    AiReasoningEffortOption(
+      value: 'minimal',
+      label: '极低',
+      labelZhHans: '极低',
+      labelZhHant: '極低',
+      labelEn: 'Minimal',
+      labelFr: 'Minimal',
+      labelDe: 'Minimal',
+      labelJa: '最小',
+    ),
+    ..._effortLowMediumHigh,
+  ];
+
+  static const _effortLowMediumHighMax = <AiReasoningEffortOption>[
+    ..._effortLowMediumHigh,
+    AiReasoningEffortOption(
+      value: 'xhigh',
+      label: '极高',
+      labelZhHans: '极高',
+      labelZhHant: '極高',
+      labelEn: 'X-High',
+      labelFr: 'Très élevé',
+      labelDe: 'Sehr hoch',
+      labelJa: '最高',
+    ),
+    AiReasoningEffortOption(
+      value: 'max',
+      label: '最高',
+      labelZhHans: '最高',
+      labelZhHant: '最高',
+      labelEn: 'Max',
+      labelFr: 'Maximum',
+      labelDe: 'Maximal',
+      labelJa: '最大',
+    ),
+  ];
+
+  static const _effortOpenAiGpt5 = <AiReasoningEffortOption>[
+    AiReasoningEffortOption(
+      value: 'none',
+      label: '无',
+      labelZhHans: '无',
+      labelZhHant: '無',
+      labelEn: 'None',
+      labelFr: 'Aucun',
+      labelDe: 'Keine',
+      labelJa: 'なし',
+    ),
+    ..._effortMinimalLowMediumHigh,
+    AiReasoningEffortOption(
+      value: 'xhigh',
+      label: '极高',
+      labelZhHans: '极高',
+      labelZhHant: '極高',
+      labelEn: 'X-High',
+      labelFr: 'Très élevé',
+      labelDe: 'Sehr hoch',
+      labelJa: '最高',
+    ),
+  ];
+
   static const _openAiEmbeddingParameters = <String>[
     'input',
     'model',
@@ -407,6 +502,10 @@ class AiModelCatalog {
     int? output,
     int? thinking,
     bool? thinkingEnabled,
+    bool? reasoningEffortControlEnabled,
+    String? reasoningEffort,
+    List<AiReasoningEffortOption> reasoningEffortOptions =
+        const <AiReasoningEffortOption>[],
     double? inputUsdPer1M,
     double? outputUsdPer1M,
     double? cacheReadUsdPer1M,
@@ -470,6 +569,9 @@ class AiModelCatalog {
       maxThinkingLength: thinking,
       thinkingEnabled:
           thinkingEnabled ?? (thinking != null && thinking > 0 ? true : null),
+      reasoningEffortControlEnabled: reasoningEffortControlEnabled,
+      reasoningEffort: reasoningEffort,
+      reasoningEffortOptions: reasoningEffortOptions,
       inputUsdPer1M: inputUsdPer1M,
       outputUsdPer1M: outputUsdPer1M,
       cacheReadUsdPer1M: cacheReadUsdPer1M,
@@ -849,6 +951,9 @@ class AiModelCatalog {
         context: 200000,
         output: 100000,
         thinking: 100000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHigh,
         inputUsdPer1M: 1.10,
         outputUsdPer1M: 4.40,
         cacheReadUsdPer1M: 0.275,
@@ -861,6 +966,9 @@ class AiModelCatalog {
         context: 200000,
         output: 100000,
         thinking: 100000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHigh,
       );
     }
     if (id.startsWith('o3')) {
@@ -873,6 +981,9 @@ class AiModelCatalog {
         context: 200000,
         output: 100000,
         thinking: 100000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHigh,
         inputUsdPer1M: 2.00,
         outputUsdPer1M: 8.00,
         cacheReadUsdPer1M: 0.50,
@@ -887,6 +998,9 @@ class AiModelCatalog {
         context: 200000,
         output: 100000,
         thinking: 100000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHigh,
       );
     }
     if (id.startsWith('o1-mini')) {
@@ -896,6 +1010,9 @@ class AiModelCatalog {
         context: 128000,
         output: 65536,
         thinking: 65536,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHigh,
       );
     }
     if (id.startsWith('o1')) {
@@ -907,6 +1024,9 @@ class AiModelCatalog {
         context: 200000,
         output: 100000,
         thinking: 100000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHigh,
       );
     }
 
@@ -920,6 +1040,9 @@ class AiModelCatalog {
         context: 1000000,
         output: 128000,
         thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortOpenAiGpt5,
       );
     }
     if (id.startsWith('gpt-5.4-nano')) {
@@ -929,6 +1052,9 @@ class AiModelCatalog {
         context: 400000,
         output: 128000,
         thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortOpenAiGpt5,
       );
     }
     if (id.startsWith('gpt-5.4-mini')) {
@@ -940,6 +1066,9 @@ class AiModelCatalog {
         context: 400000,
         output: 128000,
         thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortOpenAiGpt5,
       );
     }
     if (id.startsWith('gpt-5.4')) {
@@ -951,6 +1080,9 @@ class AiModelCatalog {
         context: 1000000,
         output: 128000,
         thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortOpenAiGpt5,
       );
     }
     if (id.startsWith('gpt-5')) {
@@ -962,6 +1094,9 @@ class AiModelCatalog {
         context: 400000,
         output: 128000,
         thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortOpenAiGpt5,
       );
     }
 
@@ -1071,6 +1206,9 @@ class AiModelCatalog {
         context: 1000000,
         output: 128000,
         thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHighMax,
       );
     }
     if (id.contains('sonnet-4-6') || id.contains('4.6-sonnet')) {
@@ -1083,6 +1221,9 @@ class AiModelCatalog {
         context: 1000000,
         output: 64000,
         thinking: 64000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHighMax,
         inputUsdPer1M: 3.00,
         outputUsdPer1M: 15.00,
       );
@@ -1096,6 +1237,9 @@ class AiModelCatalog {
         context: 200000,
         output: 64000,
         thinking: 64000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHigh,
       );
     }
 
@@ -1109,6 +1253,9 @@ class AiModelCatalog {
         context: 200000,
         output: 32000,
         thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHigh,
       );
     }
     if (id.startsWith('claude-4-sonnet') || id.startsWith('claude-sonnet-4')) {
@@ -1121,6 +1268,9 @@ class AiModelCatalog {
         context: 200000,
         output: 64000,
         thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHigh,
         inputUsdPer1M: 3.00,
         outputUsdPer1M: 15.00,
       );
@@ -1136,6 +1286,9 @@ class AiModelCatalog {
         context: 200000,
         output: 64000,
         thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHigh,
       );
     }
 
@@ -1370,6 +1523,9 @@ class AiModelCatalog {
         context: 1048576,
         output: 65536,
         thinking: 65536,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHigh,
         inputUsdPer1M: 1.25,
         outputUsdPer1M: 10.00,
       );
@@ -1394,6 +1550,9 @@ class AiModelCatalog {
         context: 1048576,
         output: 65536,
         thinking: 65536,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHigh,
         inputUsdPer1M: 0.30,
         outputUsdPer1M: 2.50,
       );
@@ -1445,6 +1604,9 @@ class AiModelCatalog {
         context: 1048576,
         output: 65536,
         thinking: 65536,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHigh,
       );
     }
 
@@ -2708,6 +2870,18 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _mistral(String id) {
+    if (id.contains('magistral') || id.contains('mistral-reasoning')) {
+      return _p(
+        name: id.contains('magistral-small') ? 'Magistral Small' : 'Magistral',
+        desc: 'Mistral reasoning model',
+        context: 128000,
+        output: 40000,
+        thinking: 40000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: _effortLowMediumHigh,
+      );
+    }
     if (id.startsWith('codestral-embed')) {
       return _embeddingP(
         name: 'Codestral Embed',

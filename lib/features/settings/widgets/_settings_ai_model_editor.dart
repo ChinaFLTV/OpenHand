@@ -2559,6 +2559,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   bool? _supportsAttachments;
   bool? _requiresReasoningEcho;
   late bool _thinkingEnabled;
+  late bool _reasoningEffortControlEnabled;
+  String? _reasoningEffort;
+  late final TextEditingController _reasoningEffortOptionsController;
   bool _oneMillionContextEnabled = false;
   String? _modelIdBeforeOneMillionContext;
   String? _maxContextBeforeOneMillionContext;
@@ -2623,6 +2626,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           protocolType: widget.protocolType,
           profile: effective,
         );
+    _reasoningEffortControlEnabled =
+        _thinkingEnabled &&
+        (p.reasoningEffortControlEnabled ??
+            effective.reasoningEffortControlEnabled ??
+            false);
+    _reasoningEffort = p.reasoningEffort ?? effective.reasoningEffort;
+    final reasoningOptions = p.reasoningEffortOptions.isNotEmpty
+        ? p.reasoningEffortOptions
+        : effective.reasoningEffortOptions;
+    _reasoningEffortOptionsController = TextEditingController(
+      text: _formatReasoningEffortOptions(reasoningOptions),
+    );
     final initialModelIdText = _modelIdController.text;
     final initialMaxContextText = _maxContextLengthController.text;
     _oneMillionContextEnabled = _OneMillionContextPolicy.isEnabledBy(
@@ -2981,6 +2996,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _maxSummaryLengthController.dispose();
     _maxOutputLengthController.dispose();
     _maxThinkingLengthController.dispose();
+    _reasoningEffortOptionsController.dispose();
     _inputUsdPer1MController.dispose();
     _outputUsdPer1MController.dispose();
     _cacheReadUsdPer1MController.dispose();
@@ -3028,6 +3044,59 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     for (final item in splitTrimmedNonEmpty(value)) {
       if (!seen.add(item)) continue;
       result.add(item);
+    }
+    return result;
+  }
+
+  String _formatReasoningEffortOptions(List<AiReasoningEffortOption> options) {
+    return options
+        .where((item) => item.isValid)
+        .map((item) {
+          final labelZh = item.labelZhHans ?? item.label;
+          final labelEn = item.labelEn ?? item.label;
+          return <String>[
+            item.value,
+            labelZh,
+            labelEn,
+            item.labelZhHant ?? labelZh,
+            item.labelJa ?? labelEn,
+            item.labelDe ?? labelEn,
+            item.labelFr ?? labelEn,
+          ].join(' | ');
+        })
+        .join('\n');
+  }
+
+  List<AiReasoningEffortOption> _parseReasoningEffortOptionsText(String value) {
+    final result = <AiReasoningEffortOption>[];
+    final seen = <String>{};
+    for (final rawLine in value.split('\n')) {
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+      final parts = line
+          .split('|')
+          .map((part) => part.trim())
+          .toList(growable: false);
+      final nativeValue = nullIfBlank(parts.first);
+      if (nativeValue == null || !seen.add(nativeValue)) continue;
+      final zh = parts.length > 1 ? nullIfBlank(parts[1]) : null;
+      final en = parts.length > 2 ? nullIfBlank(parts[2]) : null;
+      final zhHant = parts.length > 3 ? nullIfBlank(parts[3]) : null;
+      final ja = parts.length > 4 ? nullIfBlank(parts[4]) : null;
+      final de = parts.length > 5 ? nullIfBlank(parts[5]) : null;
+      final fr = parts.length > 6 ? nullIfBlank(parts[6]) : null;
+      result.add(
+        AiReasoningEffortOption(
+          value: nativeValue,
+          label: zh ?? en ?? nativeValue,
+          labelZhHans: zh,
+          labelZhHant: zhHant,
+          labelEn: en,
+          labelJa: ja,
+          labelDe: de,
+          labelFr: fr,
+        ),
+      );
     }
     return result;
   }
@@ -3114,6 +3183,34 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     if (_profileErrorMessage != null) {
       setState(() => _profileErrorMessage = null);
     }
+    final reasoningEffortOptions = _parseReasoningEffortOptionsText(
+      _reasoningEffortOptionsController.text,
+    );
+    final reasoningEffortControlEnabled =
+        _thinkingEnabled && _reasoningEffortControlEnabled;
+    String? normalizedReasoningEffort = nullIfBlank(_reasoningEffort);
+    if (normalizedReasoningEffort == null) {
+      for (final option in reasoningEffortOptions) {
+        if (option.isValid) {
+          normalizedReasoningEffort = option.value;
+          break;
+        }
+      }
+    }
+    if (reasoningEffortControlEnabled && normalizedReasoningEffort == null) {
+      setState(() {
+        _profileErrorMessage = _localizedText(
+          context,
+          zh: '启用推理强度控制时至少需要一个有效档位。',
+          zhHant: '啟用推理強度控制時至少需要一個有效檔位。',
+          en: 'Reasoning effort control needs at least one valid option.',
+          fr: 'Le contrôle d’effort nécessite au moins une option valide.',
+          de: 'Die Reasoning-Effort-Steuerung benötigt mindestens eine gültige Option.',
+          ja: '推論強度制御には少なくとも 1 つの有効な選択肢が必要です。',
+        );
+      });
+      return null;
+    }
     if (_capabilities.contains(AiModelCapability.readerConversion) &&
         (_readerSourceTypes.isEmpty || _readerTargetTypes.isEmpty)) {
       setState(() {
@@ -3152,6 +3249,11 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         _maxThinkingLengthController.text,
       ),
       thinkingEnabled: _thinkingEnabled,
+      reasoningEffortControlEnabled: reasoningEffortControlEnabled,
+      reasoningEffort: reasoningEffortControlEnabled
+          ? normalizedReasoningEffort
+          : null,
+      reasoningEffortOptions: reasoningEffortOptions,
       requiresReasoningEcho: _requiresReasoningEcho,
       capabilities: _capabilities,
       supportsAttachments: _supportsAttachments,
@@ -3565,9 +3667,263 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         Switch(
           value: _thinkingEnabled,
           onChanged: (value) {
-            setState(() => _thinkingEnabled = value);
+            setState(() {
+              _thinkingEnabled = value;
+              if (!value) {
+                _reasoningEffortControlEnabled = false;
+              }
+            });
           },
         ),
+      ],
+    );
+  }
+
+  Widget _buildReasoningEffortControl() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final duration = _settingsMotionDuration(
+      context,
+      const Duration(milliseconds: 180),
+    );
+    final helperText = !_thinkingEnabled
+        ? _localizedText(
+            context,
+            zh: '开启思考后才会发送推理强度；关闭思考时该项不会参与请求。',
+            zhHant: '開啟思考後才會送出推理強度；關閉思考時此項不參與請求。',
+            en: 'Reasoning effort is sent only when thinking is enabled.',
+            fr: 'L’effort de raisonnement n’est envoyé que si la réflexion est active.',
+            de: 'Reasoning Effort wird nur bei aktiviertem Thinking gesendet.',
+            ja: '推論強度は思考が有効な場合のみ送信されます。',
+          )
+        : _reasoningEffortControlEnabled
+        ? _localizedText(
+            context,
+            zh: '请求时会把所选原生档位转换为当前厂商的推理强度字段。',
+            zhHant: '請求時會將所選原生檔位轉為目前廠商的推理強度欄位。',
+            en: 'Requests map the selected native value to this provider’s reasoning-effort field.',
+            fr: 'Les requêtes convertissent la valeur native sélectionnée vers le champ d’effort du fournisseur.',
+            de: 'Anfragen ordnen den nativen Wert dem Reasoning-Effort-Feld des Anbieters zu.',
+            ja: '選択したネイティブ値をプロバイダーの推論強度フィールドにマッピングします。',
+          )
+        : _localizedText(
+            context,
+            zh: '未确认支持推理强度的模型默认关闭；打开后可选择或自定义档位。',
+            zhHant: '未確認支援推理強度的模型預設關閉；開啟後可選擇或自訂檔位。',
+            en: 'Models without confirmed effort control keep this off by default; enable it to choose or define values.',
+            fr: 'Les modèles sans contrôle confirmé le gardent désactivé par défaut.',
+            de: 'Modelle ohne bestätigte Effort-Steuerung lassen dies standardmäßig aus.',
+            ja: '推論強度制御が未確認のモデルでは既定でオフです。',
+          );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '启用推理强度控制',
+                      zhHant: '啟用推理強度控制',
+                      en: 'Enable Reasoning Effort Control',
+                      fr: 'Activer le contrôle d’effort',
+                      de: 'Reasoning-Effort-Steuerung aktivieren',
+                      ja: '推論強度制御を有効化',
+                    ),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  AnimatedSwitcher(
+                    duration: duration,
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    child: Text(
+                      helperText,
+                      key: ValueKey<String>(
+                        'reasoning-effort-$_thinkingEnabled-$_reasoningEffortControlEnabled',
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Switch(
+              value: _thinkingEnabled && _reasoningEffortControlEnabled,
+              onChanged: !_thinkingEnabled
+                  ? null
+                  : (value) {
+                      setState(() {
+                        _reasoningEffortControlEnabled = value;
+                        if (value) {
+                          final options = _currentReasoningEffortOptions();
+                          if (_reasoningEffort == null && options.isNotEmpty) {
+                            _reasoningEffort = options.first.value;
+                          }
+                        }
+                      });
+                    },
+            ),
+          ],
+        ),
+        AnimatedSwitcher(
+          duration: duration,
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            return SizeTransition(
+              sizeFactor: animation,
+              axisAlignment: -1,
+              child: FadeTransition(opacity: animation, child: child),
+            );
+          },
+          child: _reasoningEffortControlEnabled && _thinkingEnabled
+              ? Padding(
+                  key: const ValueKey<String>('reasoning-effort-fields'),
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _buildReasoningEffortFields(),
+                )
+              : const SizedBox.shrink(
+                  key: ValueKey<String>('reasoning-effort-fields-hidden'),
+                ),
+        ),
+      ],
+    );
+  }
+
+  List<AiReasoningEffortOption> _currentReasoningEffortOptions() {
+    return _parseReasoningEffortOptionsText(
+      _reasoningEffortOptionsController.text,
+    );
+  }
+
+  Widget _buildReasoningEffortFields() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final options = _currentReasoningEffortOptions();
+    final optionValues = options.map((item) => item.value).toSet();
+    final optionsByValue = <String, AiReasoningEffortOption>{
+      for (final option in options) option.value: option,
+    };
+    final selectedValue =
+        nullIfBlank(_reasoningEffort) ??
+        (options.isNotEmpty ? options.first.value : null);
+    final dropdownValues = <String>[
+      if (selectedValue != null && !optionValues.contains(selectedValue))
+        selectedValue,
+      ...options.map((item) => item.value),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DropdownButtonFormField<String>(
+          initialValue:
+              selectedValue != null && dropdownValues.contains(selectedValue)
+              ? selectedValue
+              : null,
+          items: dropdownValues
+              .map((value) {
+                final option = optionsByValue[value];
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(
+                    option == null
+                        ? value
+                        : '${option.labelForLocaleName(Localizations.localeOf(context).toLanguageTag())} · $value',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              })
+              .toList(growable: false),
+          decoration: InputDecoration(
+            labelText: _localizedText(
+              context,
+              zh: '推理强度',
+              zhHant: '推理強度',
+              en: 'Reasoning Effort',
+              fr: 'Effort de raisonnement',
+              de: 'Reasoning Effort',
+              ja: '推論強度',
+            ),
+            helperText: _localizedText(
+              context,
+              zh: '这里保存并发送服务商 API 的原生取值。',
+              zhHant: '這裡保存並送出服務商 API 的原生取值。',
+              en: 'Stores and sends the provider API’s native value.',
+              fr: 'Stocke et envoie la valeur native de l’API fournisseur.',
+              de: 'Speichert und sendet den nativen API-Wert des Anbieters.',
+              ja: 'プロバイダー API のネイティブ値を保存して送信します。',
+            ),
+            isDense: true,
+          ),
+          onChanged: (value) => setState(() => _reasoningEffort = value),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _reasoningEffortOptionsController,
+          minLines: 3,
+          maxLines: 6,
+          onChanged: (_) => setState(() {
+            final values = _currentReasoningEffortOptions()
+                .map((item) => item.value)
+                .toSet();
+            if (_reasoningEffort != null &&
+                !values.contains(_reasoningEffort)) {
+              _reasoningEffort = values.isEmpty ? null : values.first;
+            }
+          }),
+          decoration: InputDecoration(
+            labelText: _localizedText(
+              context,
+              zh: '推理强度档位配置',
+              zhHant: '推理強度檔位設定',
+              en: 'Reasoning Effort Options',
+              fr: 'Options d’effort',
+              de: 'Reasoning-Effort-Optionen',
+              ja: '推論強度オプション',
+            ),
+            hintText: 'medium | 中 | Medium | 中 | 中 | Mittel | Moyen',
+            helperText: _localizedText(
+              context,
+              zh: '每行：原生值 | 简中 | English | 繁中 | 日本語 | Deutsch | Français',
+              zhHant: '每行：原生值 | 簡中 | English | 繁中 | 日本語 | Deutsch | Français',
+              en: 'One per line: native value | zh-Hans | English | zh-Hant | Japanese | German | French',
+              fr: 'Une ligne : valeur native | zh-Hans | English | zh-Hant | japonais | allemand | français',
+              de: 'Eine Zeile: nativer Wert | zh-Hans | English | zh-Hant | Japanisch | Deutsch | Französisch',
+              ja: '1 行ごと: ネイティブ値 | 簡体字 | English | 繁体字 | 日本語 | Deutsch | Français',
+            ),
+            alignLabelWithHint: true,
+            isDense: true,
+          ),
+        ),
+        if (options.isEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            _localizedText(
+              context,
+              zh: '至少保留一个档位，或关闭推理强度控制。',
+              zhHant: '至少保留一個檔位，或關閉推理強度控制。',
+              en: 'Keep at least one option, or disable effort control.',
+              fr: 'Gardez au moins une option ou désactivez le contrôle.',
+              de: 'Mindestens eine Option behalten oder Steuerung deaktivieren.',
+              ja: '少なくとも 1 つの選択肢を残すか、強度制御を無効にしてください。',
+            ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.error,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -3880,6 +4236,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               const SizedBox(height: 16),
 
               _buildThinkingEnabledControl(),
+              const SizedBox(height: 16),
+
+              _buildReasoningEffortControl(),
               const SizedBox(height: 16),
 
               _buildSectionHeader(
@@ -4912,6 +5271,11 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       'architecture': profile.architecture?.toJson(),
       'supported_parameters': profile.supportedParameters,
       'default_parameters': profile.defaultParameters,
+      'reasoning_effort_control_enabled': profile.reasoningEffortControlEnabled,
+      'reasoning_effort': profile.reasoningEffort,
+      'reasoning_effort_options': profile.reasoningEffortOptions
+          .map((item) => item.toJson())
+          .toList(growable: false),
       'supported_voices': profile.supportedVoices,
       'knowledge_cutoff': profile.knowledgeCutoff,
       'expiration_date': profile.expirationDate,
