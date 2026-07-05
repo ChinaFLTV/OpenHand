@@ -4764,7 +4764,7 @@ double? _optionalRatio(Object? raw) {
 }
 
 String _normalizeAgentStatusToken(String raw) {
-  return raw.trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+  return normalizeSnakeStorageKey(raw);
 }
 
 String? _normalizedKpiStatus(String raw) {
@@ -4793,10 +4793,7 @@ String? _optionalAllowedText(
   Set<String> allowed,
 ) {
   if (!args.containsKey(key) || args[key] == null) return null;
-  final normalized = '${args[key]}'.trim().toLowerCase().replaceAll(
-    RegExp(r'[\s-]+'),
-    '_',
-  );
+  final normalized = normalizeSnakeStorageKey('${args[key]}');
   if (allowed.contains(normalized)) return normalized;
   return '';
 }

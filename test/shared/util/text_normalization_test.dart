@@ -18,4 +18,14 @@ void main() {
       expect(normalizeAsciiSlugKey('__foo__'), '-foo-');
     });
   });
+
+  group('normalizeSnakeStorageKey', () {
+    test('replaces whitespace and hyphen runs with underscores', () {
+      expect(
+        normalizeSnakeStorageKey(' Worker Removal-Policy '),
+        'worker_removal_policy',
+      );
+      expect(normalizeSnakeStorageKey('already_ok.value'), 'already_ok.value');
+    });
+  });
 }

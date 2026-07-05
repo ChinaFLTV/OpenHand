@@ -14908,7 +14908,7 @@ bool? _agentBoolFromText(String raw) {
 }
 
 String _agentMetadataKey(String key) {
-  return key.trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+  return normalizeSnakeStorageKey(key);
 }
 
 String _agentLifecycleStateValueLabel(AppLocalizations l10n, String value) {
