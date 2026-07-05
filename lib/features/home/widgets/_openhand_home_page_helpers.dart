@@ -371,48 +371,6 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
   }
 }
 
-extension on AppSection {
-  /// Returns the drawer index for this section, or -1 if this section
-  /// does not correspond to a NavigationDrawerDestination (e.g. workspace
-  /// or harnessSession which are displayed as thread tiles instead).
-  /// Using -1 instead of null ensures NavigationDrawer deselects all
-  /// destinations when switching to a thread.
-  int get drawerIndex {
-    return switch (this) {
-      AppSection.workspace => -1,
-      AppSection.harnessSession => -1,
-      AppSection.skills => 0,
-      AppSection.memory => 1,
-      AppSection.mcp => 2,
-      AppSection.hooks => 3,
-      AppSection.crons => 4,
-      AppSection.instructions => 5,
-      AppSection.messageGateway => 6,
-      AppSection.pluginService => 7,
-      AppSection.knowledgeBase => 8,
-      AppSection.agents => 9,
-      AppSection.settings => 10,
-    };
-  }
-}
-
-AppSection _sectionFromDrawerIndex(int index) {
-  return switch (index) {
-    0 => AppSection.skills,
-    1 => AppSection.memory,
-    2 => AppSection.mcp,
-    3 => AppSection.hooks,
-    4 => AppSection.crons,
-    5 => AppSection.instructions,
-    6 => AppSection.messageGateway,
-    7 => AppSection.pluginService,
-    8 => AppSection.knowledgeBase,
-    9 => AppSection.agents,
-    10 => AppSection.settings,
-    _ => AppSection.workspace,
-  };
-}
-
 class _TitleSummaryDialogResult {
   const _TitleSummaryDialogResult({
     required this.startIndex,

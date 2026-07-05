@@ -44,9 +44,6 @@ class _NavigationPane extends StatefulWidget {
 }
 
 class _NavigationPaneState extends State<_NavigationPane> {
-  ThemeData? _cachedDrawerTheme;
-  int? _cachedThemeSignature;
-
   // Per-tile widget cache keyed by session id.  When none of the fields
   // contributing to the tile's visual state (title / updatedAt / sendPhase /
   // isSelected) change, we reuse the exact Widget instance so Flutter's
@@ -62,54 +59,6 @@ class _NavigationPaneState extends State<_NavigationPane> {
   // get an AppearOnce entrance the first time they show up; the existing
   // list does NOT animate on initial mount.
   final AppearTracker _threadAppear = AppearTracker();
-
-  ThemeData _ensureDrawerTheme(ThemeData theme) {
-    final signature = Object.hashAll(<Object?>[
-      theme.colorScheme.primary.toARGB32(),
-      theme.colorScheme.primaryContainer.toARGB32(),
-      theme.brightness.index,
-      theme.textTheme.titleMedium?.fontSize,
-    ]);
-    if (_cachedDrawerTheme != null && _cachedThemeSignature == signature) {
-      return _cachedDrawerTheme!;
-    }
-    final colorScheme = theme.colorScheme;
-    _cachedDrawerTheme = theme.copyWith(
-      // Material's `Drawer` (the parent of `NavigationDrawer`) defaults to
-      // a fixed width of 304/360 px regardless of the surrounding
-      // constraints. Inside our resizable side-pane `Card` (which stretches
-      // to `_navigationWidthNotifier.value`, default 352 px), that fixed
-      // width leaves a band of empty Card to the right of the navigation
-      // tiles — visually inflating the gutter between the nav pane and
-      // the workspace pane to roughly twice the SafeArea outer inset.
-      // Force the drawer to fill its parent so the visible right edge of
-      // the navigation card lines up with the Card's clipped boundary.
-      drawerTheme: theme.drawerTheme.copyWith(width: double.infinity),
-      navigationDrawerTheme: theme.navigationDrawerTheme.copyWith(
-        indicatorColor: colorScheme.primaryContainer,
-        labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((states) {
-          final selected = states.contains(WidgetState.selected);
-          return theme.textTheme.titleMedium?.copyWith(
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-            color: selected
-                ? colorScheme.onPrimaryContainer
-                : colorScheme.onSurface,
-          );
-        }),
-        iconTheme: WidgetStateProperty.resolveWith<IconThemeData?>((states) {
-          final selected = states.contains(WidgetState.selected);
-          return IconThemeData(
-            color: selected
-                ? colorScheme.onPrimaryContainer
-                : colorScheme.onSurfaceVariant,
-            size: 22,
-          );
-        }),
-      ),
-    );
-    _cachedThemeSignature = signature;
-    return _cachedDrawerTheme!;
-  }
 
   /// Builds an interleaved list of AI thread tiles and the optional HE session
   /// tile, sorted by [updatedAt] descending.  The incoming [widget.sessions]
@@ -284,7 +233,6 @@ class _NavigationPaneState extends State<_NavigationPane> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final drawerTheme = _ensureDrawerTheme(theme);
 
     // HE tile status: prefer the live orchestrator status when it is actually
     // running/completed/failed/cancelled; fall back to the persisted record
@@ -302,22 +250,15 @@ class _NavigationPaneState extends State<_NavigationPane> {
 
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: Theme(
-        data: drawerTheme,
-        // Use a ValueKey to ensure full rebuild when selectedIndex changes,
-        // forcing the internal _SelectableAnimatedBuilder widgets to recreate
-        // their animation controllers and avoid stale selection state.
-        child: NavigationDrawer(
-          key: ValueKey<int>(widget.selectedSection.drawerIndex),
-          selectedIndex: widget.selectedSection.drawerIndex,
-          onDestinationSelected: (index) {
-            widget.onSectionSelected(_sectionFromDrawerIndex(index));
-          },
-          children: [
-            const SizedBox(height: 18),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: MicroPressFeedback(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          const SizedBox(height: 18),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: MicroPressFeedback(
+              child: SizedBox(
+                width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: widget.onCreateThreadRequested,
                   icon: const Icon(Icons.add_comment_rounded),
@@ -325,99 +266,290 @@ class _NavigationPaneState extends State<_NavigationPane> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            NavigationDrawerDestination(
-              icon: const Icon(Icons.extension_outlined),
-              selectedIcon: const Icon(Icons.extension_rounded),
-              label: Text(l10n.skills),
+          ),
+          const SizedBox(height: 12),
+          for (final destination in _kSystemNavigationDestinations)
+            _AdaptiveNavigationDestination(
+              destination: destination,
+              isSelected: widget.selectedSection == destination.section,
+              onSelected: widget.onSectionSelected,
             ),
-            NavigationDrawerDestination(
-              icon: const Icon(Icons.psychology_alt_outlined),
-              selectedIcon: const Icon(Icons.psychology_alt_rounded),
-              label: Text(l10n.memory),
-            ),
-            NavigationDrawerDestination(
-              icon: const Icon(Icons.hub_outlined),
-              selectedIcon: const Icon(Icons.hub_rounded),
-              label: Text(l10n.mcp),
-            ),
-            NavigationDrawerDestination(
-              icon: const Icon(Icons.webhook_outlined),
-              selectedIcon: const Icon(Icons.webhook_rounded),
-              label: Text(_localizedText(context, zh: 'Hooks', en: 'Hooks')),
-            ),
-            const NavigationDrawerDestination(
-              icon: Icon(Icons.schedule_outlined),
-              selectedIcon: Icon(Icons.schedule_rounded),
-              label: Text('Crons'),
-            ),
-            NavigationDrawerDestination(
-              icon: const Icon(Icons.rule_folder_outlined),
-              selectedIcon: const Icon(Icons.rule_folder_rounded),
-              label: Text(
-                _localizedText(context, zh: '指令', en: 'Instructions'),
-              ),
-            ),
-            NavigationDrawerDestination(
-              icon: const Icon(Icons.alt_route_outlined),
-              selectedIcon: const Icon(Icons.alt_route_rounded),
-              label: Text(l10n.settingsMessageGatewayTitle),
-            ),
-            NavigationDrawerDestination(
-              icon: const Icon(Icons.power_outlined),
-              selectedIcon: const Icon(Icons.power_rounded),
-              label: Text(_localizedText(context, zh: '插件', en: 'Plugins')),
-            ),
-            NavigationDrawerDestination(
-              icon: const Icon(Icons.library_books_outlined),
-              selectedIcon: const Icon(Icons.library_books_rounded),
-              label: Text(
-                _localizedText(context, zh: '知识库', en: 'Knowledge Base'),
-              ),
-            ),
-            NavigationDrawerDestination(
-              icon: const Icon(Icons.smart_toy_outlined),
-              selectedIcon: const Icon(Icons.smart_toy_rounded),
-              label: Text(_localizedText(context, zh: '智能体', en: 'Agents')),
-            ),
-            NavigationDrawerDestination(
-              icon: const Icon(Icons.settings_outlined),
-              selectedIcon: const Icon(Icons.settings_rounded),
-              label: Text(l10n.settings),
-            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+            child: Text(l10n.threads, style: theme.textTheme.titleMedium),
+          ),
+          // Unified thread list: merge AI sessions and HE session,
+          // sorted by updatedAt descending (most recently updated first).
+          if (widget.sessions.isEmpty && widget.harnessSessionRecord == null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-              child: Text(l10n.threads, style: theme.textTheme.titleMedium),
-            ),
-            // Unified thread list: merge AI sessions and HE session,
-            // sorted by updatedAt descending (most recently updated first).
-            if (widget.sessions.isEmpty && widget.harnessSessionRecord == null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: Text(
-                  l10n.threadsEmptyBody,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Text(
+                l10n.threadsEmptyBody,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: _buildMergedThreadTiles(
-                    heRecord: widget.harnessSessionRecord,
-                    heStatus: heStatusForTile,
-                    heAwaitingApproval: heAwaitingApprovalForTile,
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: _buildMergedThreadTiles(
+                  heRecord: widget.harnessSessionRecord,
+                  heStatus: heStatusForTile,
+                  heAwaitingApproval: heAwaitingApprovalForTile,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+const List<_NavigationDestinationSpec> _kSystemNavigationDestinations =
+    <_NavigationDestinationSpec>[
+      _NavigationDestinationSpec(
+        section: AppSection.skills,
+        icon: Icons.extension_outlined,
+        selectedIcon: Icons.extension_rounded,
+      ),
+      _NavigationDestinationSpec(
+        section: AppSection.memory,
+        icon: Icons.psychology_alt_outlined,
+        selectedIcon: Icons.psychology_alt_rounded,
+      ),
+      _NavigationDestinationSpec(
+        section: AppSection.mcp,
+        icon: Icons.hub_outlined,
+        selectedIcon: Icons.hub_rounded,
+      ),
+      _NavigationDestinationSpec(
+        section: AppSection.hooks,
+        icon: Icons.webhook_outlined,
+        selectedIcon: Icons.webhook_rounded,
+      ),
+      _NavigationDestinationSpec(
+        section: AppSection.crons,
+        icon: Icons.schedule_outlined,
+        selectedIcon: Icons.schedule_rounded,
+      ),
+      _NavigationDestinationSpec(
+        section: AppSection.instructions,
+        icon: Icons.rule_folder_outlined,
+        selectedIcon: Icons.rule_folder_rounded,
+      ),
+      _NavigationDestinationSpec(
+        section: AppSection.messageGateway,
+        icon: Icons.alt_route_outlined,
+        selectedIcon: Icons.alt_route_rounded,
+      ),
+      _NavigationDestinationSpec(
+        section: AppSection.pluginService,
+        icon: Icons.power_outlined,
+        selectedIcon: Icons.power_rounded,
+      ),
+      _NavigationDestinationSpec(
+        section: AppSection.knowledgeBase,
+        icon: Icons.library_books_outlined,
+        selectedIcon: Icons.library_books_rounded,
+      ),
+      _NavigationDestinationSpec(
+        section: AppSection.agents,
+        icon: Icons.smart_toy_outlined,
+        selectedIcon: Icons.smart_toy_rounded,
+      ),
+      _NavigationDestinationSpec(
+        section: AppSection.settings,
+        icon: Icons.settings_outlined,
+        selectedIcon: Icons.settings_rounded,
+      ),
+    ];
+
+const EdgeInsets _kNavigationDestinationOuterPadding = EdgeInsets.symmetric(
+  horizontal: 12,
+);
+const EdgeInsets _kNavigationDestinationContentPadding = EdgeInsets.symmetric(
+  horizontal: 16,
+);
+const double _kNavigationDestinationFallbackHeight = 58;
+const double _kNavigationDestinationIconSize = 22;
+const double _kNavigationDestinationIconGap = 12;
+
+class _NavigationDestinationSpec {
+  const _NavigationDestinationSpec({
+    required this.section,
+    required this.icon,
+    required this.selectedIcon,
+  });
+
+  final AppSection section;
+  final IconData icon;
+  final IconData selectedIcon;
+}
+
+class _AdaptiveNavigationDestination extends StatelessWidget {
+  const _AdaptiveNavigationDestination({
+    required this.destination,
+    required this.isSelected,
+    required this.onSelected,
+  });
+
+  final _NavigationDestinationSpec destination;
+  final bool isSelected;
+  final ValueChanged<AppSection> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final label = _navigationDestinationLabel(context, destination.section);
+    final configuredMotionSettings = context
+        .select<SettingsController, DialogAnimationSettings>(
+          (controller) => controller.listItemAnimationSettings,
+        );
+    final motionSettings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.listItem,
+      override: configuredMotionSettings,
+    );
+    final duration = openHandMotionDuration(context, motionSettings.duration);
+    final curve = motionSettings.curve.curve;
+    final tileHeight =
+        theme.navigationDrawerTheme.tileHeight ??
+        _kNavigationDestinationFallbackHeight;
+    final backgroundColor = isSelected
+        ? colorScheme.primaryContainer
+        : Colors.transparent;
+    final foregroundColor = isSelected
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurface;
+    final iconColor = isSelected
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
+    final textStyle = theme.textTheme.titleMedium?.copyWith(
+      color: foregroundColor,
+      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+    );
+
+    return Padding(
+      padding: _kNavigationDestinationOuterPadding,
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        child: MicroPressFeedback(
+          scale: 0.985,
+          child: AnimatedContainer(
+            width: double.infinity,
+            height: tileHeight,
+            duration: duration,
+            curve: curve,
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: _borderRadius999,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: _borderRadius999,
+                onTap: () {
+                  if (!isSelected) {
+                    onSelected(destination.section);
+                  }
+                },
+                child: Padding(
+                  padding: _kNavigationDestinationContentPadding,
+                  child: Row(
+                    children: [
+                      TweenAnimationBuilder<Color?>(
+                        tween: ColorTween(end: iconColor),
+                        duration: duration,
+                        curve: curve,
+                        builder: (context, animatedColor, _) {
+                          return AnimatedSwitcher(
+                            duration: duration,
+                            switchInCurve: curve,
+                            switchOutCurve: curve.flipped,
+                            transitionBuilder: (child, animation) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: ScaleTransition(
+                                  scale: Tween<double>(
+                                    begin: 0.92,
+                                    end: 1,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: Icon(
+                              isSelected
+                                  ? destination.selectedIcon
+                                  : destination.icon,
+                              key: ValueKey<IconData>(
+                                isSelected
+                                    ? destination.selectedIcon
+                                    : destination.icon,
+                              ),
+                              size: _kNavigationDestinationIconSize,
+                              color: animatedColor ?? iconColor,
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: _kNavigationDestinationIconGap),
+                      Expanded(
+                        child: AnimatedDefaultTextStyle(
+                          duration: duration,
+                          curve: curve,
+                          style: textStyle ?? const TextStyle(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          child: Text(label),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-          ],
+            ),
+          ),
         ),
       ),
     );
   }
+}
+
+String _navigationDestinationLabel(BuildContext context, AppSection section) {
+  final l10n = AppLocalizations.of(context)!;
+  return switch (section) {
+    AppSection.skills => l10n.skills,
+    AppSection.memory => l10n.memory,
+    AppSection.mcp => l10n.mcp,
+    AppSection.hooks => _localizedText(context, zh: 'Hooks', en: 'Hooks'),
+    AppSection.crons => 'Crons',
+    AppSection.instructions => _localizedText(
+      context,
+      zh: '指令',
+      en: 'Instructions',
+    ),
+    AppSection.messageGateway => l10n.settingsMessageGatewayTitle,
+    AppSection.pluginService => _localizedText(
+      context,
+      zh: '插件',
+      en: 'Plugins',
+    ),
+    AppSection.knowledgeBase => _localizedText(
+      context,
+      zh: '知识库',
+      en: 'Knowledge Base',
+    ),
+    AppSection.agents => _localizedText(context, zh: '智能体', en: 'Agents'),
+    AppSection.settings => l10n.settings,
+    AppSection.workspace || AppSection.harnessSession => '',
+  };
 }
 
 class _ContentPane extends StatelessWidget {
