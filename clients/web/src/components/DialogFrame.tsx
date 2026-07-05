@@ -348,6 +348,86 @@ export interface DialogHeaderProps {
   borderColor?: string;
 }
 
+export type DialogActionButtonTone =
+  | 'primary'
+  | 'secondary'
+  | 'ghost'
+  | 'danger';
+
+export interface DialogActionButtonProps {
+  children: ComponentChildren;
+  type?: 'button' | 'submit' | 'reset';
+  tone?: DialogActionButtonTone;
+  onClick?: JSX.MouseEventHandler<HTMLButtonElement>;
+  disabled?: boolean;
+  className?: string;
+  style?: JSX.CSSProperties;
+  title?: string;
+  ariaLabel?: string;
+}
+
+const DIALOG_ACTION_BUTTON_TONE_STYLES: Record<
+  DialogActionButtonTone,
+  JSX.CSSProperties
+> = {
+  primary: {
+    color: 'var(--m3-on-primary)',
+    background: 'var(--m3-primary)',
+    border:
+      '1px solid color-mix(in srgb, var(--m3-primary) 70%, transparent)',
+  },
+  secondary: {
+    color: 'var(--m3-on-surface)',
+    background: 'var(--m3-surface-container-high)',
+    border: '1px solid var(--m3-outline)',
+  },
+  ghost: {
+    color: 'var(--m3-on-surface-variant)',
+    background: 'transparent',
+    border: '1px solid transparent',
+  },
+  danger: {
+    color: 'var(--m3-on-error-container)',
+    background:
+      'color-mix(in srgb, var(--m3-error-container) 72%, transparent)',
+    border: '1px solid color-mix(in srgb, var(--m3-error) 64%, transparent)',
+  },
+};
+
+export function DialogActionButton({
+  children,
+  type = 'button',
+  tone = 'secondary',
+  onClick,
+  disabled = false,
+  className,
+  style,
+  title,
+  ariaLabel,
+}: DialogActionButtonProps) {
+  return (
+    <button
+      type={type}
+      class={dialogClassNames(
+        'oh-tap-press oh-dialog-action-button',
+        disabled && 'opacity-60',
+        className,
+      )}
+      style={{
+        ...DIALOG_ACTION_BUTTON_TONE_STYLES[tone],
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        ...style,
+      }}
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={ariaLabel}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function DialogHeader({
   title,
   subtitle,

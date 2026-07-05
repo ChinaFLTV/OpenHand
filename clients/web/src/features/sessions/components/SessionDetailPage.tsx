@@ -123,6 +123,7 @@ import { showSnackbar } from '../../../components/Snackbar';
 import { OverlayPortal } from '../../../components/OverlayPortal';
 import {
   DIALOG_OVERLAY_LOW_Z_INDEX,
+  DialogActionButton,
   DialogFrame,
   createStandardDialogFrameAppearance,
 } from '../../../components/DialogFrame';
@@ -7127,10 +7128,10 @@ function GoalStartOptionsDialog({
                 {t('goal.start.subtitle', '当前输入内容会成为本线程目标，由 Agent Runtime 自动推进并评估完成证据。')}
               </p>
             </div>
-            <button type="button" onClick={requestClose} class="oh-tap-press oh-dialog-action-button" style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}>
+            <DialogActionButton onClick={requestClose} tone="ghost">
               <ComposerIcon name="close" size={14} />
               <span>{t('common.close', '关闭')}</span>
-            </button>
+            </DialogActionButton>
           </header>
 
           <label class="oh-goal-field text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
@@ -7193,13 +7194,13 @@ function GoalStartOptionsDialog({
           {error ? <p class="text-xs" style={{ color: 'var(--m3-error)' }}>{error}</p> : null}
 
           <div class="oh-goal-dialog-actions">
-            <button type="button" onClick={requestClose} class="oh-tap-press oh-dialog-action-button" style={{ color: 'var(--m3-on-surface)', border: '1px solid var(--m3-outline)' }}>
+            <DialogActionButton onClick={requestClose}>
               {t('common.cancel', '取消')}
-            </button>
-            <button type="submit" class="oh-tap-press oh-dialog-action-button" style={{ background: 'var(--m3-primary)', color: 'var(--m3-on-primary)' }}>
+            </DialogActionButton>
+            <DialogActionButton type="submit" tone="primary">
               <ComposerIcon name="goal" size={14} />
               <span>{t('goal.start.confirm', '启动目标')}</span>
-            </button>
+            </DialogActionButton>
           </div>
         </form>
       </DialogFrame>
@@ -7248,10 +7249,10 @@ function GoalDetailsDialog({ session, onClose }: { session: SessionSummary; onCl
             {session.template_name || session.template_id} · {sessionModeLabel(session.mode)}
           </p>
         </div>
-        <button type="button" onClick={requestClose} class="oh-tap-press oh-dialog-action-button" style={{ color: 'var(--m3-on-surface-variant)', background: 'transparent' }}>
+        <DialogActionButton onClick={requestClose} tone="ghost">
           <ComposerIcon name="close" size={14} />
           <span>{t('common.close', '关闭')}</span>
-        </button>
+        </DialogActionButton>
       </header>
 
       <div class="oh-goal-details-scroll">
@@ -7377,30 +7378,18 @@ function MessageAuditDialog({ message, onClose }: { message: SessionMessage; onC
           {t('common.audit', '审计')} · {message.id}
         </h2>
         <div class="flex flex-wrap items-center justify-end gap-2">
-          <button
-            type="button"
-            class="oh-tap-press oh-dialog-action-button"
-            style={{
-              color: 'var(--m3-primary)',
-              border: '1px solid var(--m3-outline)',
-            }}
+          <DialogActionButton
+            tone="secondary"
+            style={{ color: 'var(--m3-primary)' }}
             onClick={() => void copyJsonWithFeedback(json)}
           >
             <ComposerIcon name="copy" size={14} />
             <span>{t('common.copy', '复制')}</span>
-          </button>
-          <button
-            type="button"
-            class="oh-tap-press oh-dialog-action-button"
-            style={{
-              color: 'var(--m3-on-surface-variant)',
-              background: 'transparent',
-            }}
-            onClick={requestClose}
-          >
+          </DialogActionButton>
+          <DialogActionButton onClick={requestClose} tone="ghost">
             <ComposerIcon name="close" size={14} />
             <span>{t('common.close', '关闭')}</span>
-          </button>
+          </DialogActionButton>
         </div>
       </header>
       <pre
@@ -7554,17 +7543,9 @@ function SessionTokenStatsDialog({ detail, onClose }: { detail: SessionDetailRes
             {session.title || t('sessions.untitled', '未命名会话')}
           </p>
         </div>
-        <button
-          type="button"
-          class="oh-tap-press rounded-m3-sm px-2 py-1 text-sm"
-          style={{
-            color: 'var(--m3-on-surface-variant)',
-            background: 'transparent',
-          }}
-          onClick={requestClose}
-        >
+        <DialogActionButton onClick={requestClose} tone="ghost">
           {t('common.close', '关闭')}
-        </button>
+        </DialogActionButton>
       </header>
       <div class="space-y-4 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
         <SessionTokenStatsContent stats={tokenStats} trendDisplayMode={trendDisplayMode} onTrendDisplayModeChange={setTrendDisplayMode} />
@@ -7757,21 +7738,15 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
             {session.title || t('sessions.untitled', '未命名会话')}
           </p>
         </div>
-        <button
-          type="button"
-          class={`oh-tap-press oh-dialog-action-button${busy ? ' opacity-60' : ''}`}
-          style={{
-            color: 'var(--m3-on-surface-variant)',
-            background: 'var(--m3-surface-container-high)',
-            border: '1px solid var(--m3-outline-variant)',
-            cursor: busy ? 'not-allowed' : 'pointer',
-          }}
+        <DialogActionButton
+          tone="secondary"
+          style={{ border: '1px solid var(--m3-outline-variant)' }}
           onClick={requestClose}
           disabled={busy}
         >
           <ComposerIcon name="close" size={14} />
           <span>{t('common.close', '关闭')}</span>
-        </button>
+        </DialogActionButton>
       </header>
       <div
         class="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4"
@@ -7830,21 +7805,14 @@ function SessionContextStatsDialog({ detail, messages, modelKey, onClose, onComp
         class="flex shrink-0 justify-end px-5 py-4"
         style={{ borderTop: '1px solid var(--m3-outline-variant)' }}
       >
-        <button
-          type="button"
-          class="oh-tap-press oh-dialog-action-button"
-          style={{
-            background: disableCompact ? 'var(--m3-surface-variant)' : 'var(--m3-primary)',
-            color: disableCompact ? 'var(--m3-on-surface-variant)' : 'var(--m3-on-primary)',
-            border: '1px solid ' + (disableCompact ? 'var(--m3-outline-variant)' : 'color-mix(in srgb, var(--m3-primary) 70%, transparent)'),
-            cursor: disableCompact ? 'not-allowed' : 'pointer',
-            opacity: disableCompact ? 0.7 : 1,
-          }}
+        <DialogActionButton
+          tone={disableCompact ? 'secondary' : 'primary'}
+          style={{ opacity: disableCompact ? 0.7 : 1 }}
           disabled={disableCompact}
           onClick={() => void handleCompactPressed()}
         >
           {busy ? t('contextStats.busy', '正在压缩…') : t('contextStats.action', '立即压缩')}
-        </button>
+        </DialogActionButton>
       </footer>
     </DialogFrame>
   );
@@ -8488,9 +8456,8 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           </p>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2 flex-none">
-          <button
-            type="button"
-            class="oh-tap-press oh-dialog-action-button"
+          <DialogActionButton
+            tone="secondary"
             style={{
               ...metadataActionButtonSurface,
               color: 'var(--m3-primary)',
@@ -8499,10 +8466,9 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           >
             <ComposerIcon name="copy" size={14} />
             <span>{t('common.copy', '复制')}</span>
-          </button>
-          <button
-            type="button"
-            class="oh-tap-press oh-dialog-action-button"
+          </DialogActionButton>
+          <DialogActionButton
+            tone="secondary"
             style={{
               ...metadataActionButtonSurface,
               color: 'var(--m3-on-surface-variant)',
@@ -8511,7 +8477,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           >
             <ComposerIcon name="close" size={14} />
             <span>{t('common.close', '关闭')}</span>
-          </button>
+          </DialogActionButton>
         </div>
       </header>
       <div
@@ -8830,30 +8796,18 @@ function SessionAuditDialog({ detail, messages, onClose }: { detail: SessionDeta
           </p>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2 flex-none">
-          <button
-            type="button"
-            class="oh-tap-press oh-dialog-action-button"
-            style={{
-              color: 'var(--m3-primary)',
-              border: '1px solid var(--m3-outline)',
-            }}
+          <DialogActionButton
+            tone="secondary"
+            style={{ color: 'var(--m3-primary)' }}
             onClick={() => void copyJsonWithFeedback(json)}
           >
             <ComposerIcon name="copy" size={14} />
             <span>{t('common.copy', '复制')}</span>
-          </button>
-          <button
-            type="button"
-            class="oh-tap-press oh-dialog-action-button"
-            style={{
-              color: 'var(--m3-on-surface-variant)',
-              background: 'transparent',
-            }}
-            onClick={requestClose}
-          >
+          </DialogActionButton>
+          <DialogActionButton onClick={requestClose} tone="ghost">
             <ComposerIcon name="close" size={14} />
             <span>{t('common.close', '关闭')}</span>
-          </button>
+          </DialogActionButton>
         </div>
       </header>
       <div class="flex flex-wrap gap-2 mb-3">

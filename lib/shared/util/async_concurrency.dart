@@ -23,26 +23,13 @@ Future<List<T>> runOrderedWithConcurrencyLimit<T>({
   required int maxConcurrency,
   required Future<T> Function(int index) task,
 }) async {
-  final workerCount = _boundedConcurrency(
+  final results = List<T?>.filled(itemCount, null);
+  await _runIndexedWithConcurrencyLimit(
     itemCount: itemCount,
     maxConcurrency: maxConcurrency,
-  );
-  if (workerCount == 0) return <T>[];
-
-  final results = List<T?>.filled(itemCount, null);
-  var nextIndex = 0;
-
-  Future<void> worker() async {
-    while (true) {
-      final index = nextIndex;
-      nextIndex += 1;
-      if (index >= itemCount) return;
+    task: (index) async {
       results[index] = await task(index);
-    }
-  }
-
-  await Future.wait<void>(
-    List<Future<void>>.generate(workerCount, (_) => worker()),
+    },
   );
   return results.cast<T>();
 }
@@ -53,6 +40,22 @@ Future<List<T>> runOrderedWithConcurrencyLimit<T>({
 /// task, so disposed widgets/controllers can stop scheduling new work promptly.
 /// [maxConcurrency] is clamped to [kOpenHandMaxAsyncConcurrency].
 Future<void> forEachIndexWithConcurrencyLimit({
+  required int itemCount,
+  required int maxConcurrency,
+  required Future<void> Function(int index) task,
+  OpenHandAsyncContinuePredicate? shouldContinue,
+  Duration delayBetweenItems = Duration.zero,
+}) async {
+  await _runIndexedWithConcurrencyLimit(
+    itemCount: itemCount,
+    maxConcurrency: maxConcurrency,
+    task: task,
+    shouldContinue: shouldContinue,
+    delayBetweenItems: delayBetweenItems,
+  );
+}
+
+Future<void> _runIndexedWithConcurrencyLimit({
   required int itemCount,
   required int maxConcurrency,
   required Future<void> Function(int index) task,
