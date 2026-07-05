@@ -174,13 +174,16 @@ const double _agentCapabilityChipIconSlotWidth = 22;
 const int _agentCapabilityChipStateDurationMs = 150;
 const EdgeInsetsDirectional _agentCapabilityChipPadding =
     EdgeInsetsDirectional.fromSTEB(12, 7, 14, 7);
-const double _agentNumberStepperButtonExtent = 48;
-const double _agentNumberStepperContentHeight = 44;
-const double _agentNumberStepperButtonRadius = 14;
-const double _agentNumberStepperIconSize = 22;
+const double _agentNumberStepperFieldExtent = 64;
+const double _agentNumberStepperControlTopInset = 8;
+const double _agentNumberStepperControlRadius = 24;
+const double _agentNumberStepperButtonExtent = 36;
+const double _agentNumberStepperIconSize = 20;
 const int _agentNumberStepperStateDurationMs = 150;
-const EdgeInsetsDirectional _agentNumberStepperPadding =
-    EdgeInsetsDirectional.fromSTEB(6, 4, 6, 4);
+const EdgeInsetsDirectional _agentNumberStepperContentPadding =
+    EdgeInsetsDirectional.fromSTEB(12, 10, 12, 10);
+const EdgeInsetsDirectional _agentNumberStepperLabelPadding =
+    EdgeInsetsDirectional.fromSTEB(8, 0, 8, 0);
 
 int _normalizeAgentMaxWorkers(int value) {
   return value.clamp(_agentScaleMaxWorkersMin, _agentScaleWorkersMax).toInt();
@@ -12074,62 +12077,143 @@ class _AgentNumberStepperFieldState extends State<_AgentNumberStepperField> {
     final canDecrease = value > _lowerBound;
     final canIncrease = value < _upperBound;
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final settings = _agentDialogAnimationSettings(context);
+    final focused = _focusNode.hasFocus;
     final maxDigits = math.max(1, _upperBound.toString().length);
-    return InputDecorator(
-      isFocused: _focusNode.hasFocus,
-      isEmpty: _controller.text.trim().isEmpty,
-      decoration: InputDecoration(
-        labelText: widget.label,
-        contentPadding: _agentNumberStepperPadding,
-      ),
-      child: SizedBox(
-        height: _agentNumberStepperContentHeight,
-        child: Row(
-          children: [
-            _AgentNumberStepperButton(
-              icon: Icons.remove_rounded,
-              enabled: canDecrease,
-              tooltip: openHandLocalizedText(context, zh: '减少', en: 'Decrease'),
-              onPressed: () => _stepBy(-1),
-            ),
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                textAlign: TextAlign.center,
-                textAlignVertical: TextAlignVertical.center,
-                keyboardType: TextInputType.number,
-                textInputAction: TextInputAction.done,
-                inputFormatters: <TextInputFormatter>[
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(maxDigits),
-                ],
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final labelMaxWidth = math.max(0.0, constraints.maxWidth - 32);
+        return SizedBox(
+          height: _agentNumberStepperFieldExtent,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                top: _agentNumberStepperControlTopInset,
+                child: AnimatedContainer(
+                  duration: settings.duration,
+                  curve: settings.curve.curve,
+                  decoration: BoxDecoration(
+                    color: focused
+                        ? cs.primaryContainer.withValues(alpha: 0.08)
+                        : cs.surfaceContainerHighest.withValues(alpha: 0.34),
+                    borderRadius: BorderRadius.circular(
+                      _agentNumberStepperControlRadius,
+                    ),
+                    border: Border.all(
+                      color: focused
+                          ? cs.primary.withValues(alpha: 0.76)
+                          : cs.outlineVariant.withValues(alpha: 0.88),
+                      width: focused ? 1.35 : 1,
+                    ),
+                    boxShadow: focused
+                        ? [
+                            BoxShadow(
+                              color: cs.primary.withValues(alpha: 0.10),
+                              blurRadius: 16,
+                              offset: const Offset(0, 5),
+                            ),
+                          ]
+                        : const <BoxShadow>[],
+                  ),
                 ),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  disabledBorder: InputBorder.none,
-                  isCollapsed: true,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 8),
-                ),
-                onChanged: _handleTextChanged,
-                onSubmitted: (_) => _commitText(),
-                onEditingComplete: _commitText,
               ),
-            ),
-            _AgentNumberStepperButton(
-              icon: Icons.add_rounded,
-              enabled: canIncrease,
-              tooltip: openHandLocalizedText(context, zh: '增加', en: 'Increase'),
-              onPressed: () => _stepBy(1),
-            ),
-          ],
-        ),
-      ),
+              PositionedDirectional(
+                top: 0,
+                start: 16,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: labelMaxWidth),
+                  child: AnimatedContainer(
+                    duration: settings.duration,
+                    curve: settings.curve.curve,
+                    padding: _agentNumberStepperLabelPadding,
+                    decoration: BoxDecoration(
+                      color: focused
+                          ? cs.primaryContainer.withValues(alpha: 0.54)
+                          : cs.surface.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      widget.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: focused ? cs.primary : cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                top: _agentNumberStepperControlTopInset,
+                child: Padding(
+                  padding: _agentNumberStepperContentPadding,
+                  child: Row(
+                    children: [
+                      _AgentNumberStepperButton(
+                        icon: Icons.remove_rounded,
+                        enabled: canDecrease,
+                        tooltip: openHandLocalizedText(
+                          context,
+                          zh: '减少',
+                          en: 'Decrease',
+                        ),
+                        onPressed: () => _stepBy(-1),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _controller,
+                          focusNode: _focusNode,
+                          textAlign: TextAlign.center,
+                          textAlignVertical: TextAlignVertical.center,
+                          keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.done,
+                          inputFormatters: <TextInputFormatter>[
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(maxDigits),
+                          ],
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: cs.onSurface,
+                            fontWeight: FontWeight.w900,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                            height: 1,
+                          ),
+                          cursorColor: cs.primary,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            isCollapsed: true,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 10,
+                            ),
+                          ),
+                          onChanged: _handleTextChanged,
+                          onSubmitted: (_) => _commitText(),
+                          onEditingComplete: _commitText,
+                        ),
+                      ),
+                      _AgentNumberStepperButton(
+                        icon: Icons.add_rounded,
+                        enabled: canIncrease,
+                        tooltip: openHandLocalizedText(
+                          context,
+                          zh: '增加',
+                          en: 'Increase',
+                        ),
+                        onPressed: () => _stepBy(1),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -12177,17 +12261,32 @@ class _AgentNumberStepperButtonState extends State<_AgentNumberStepperButton> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final duration = openHandMotionDurationMs(
       context,
       _agentNumberStepperStateDurationMs,
     );
+    final active = widget.enabled && (_hovered || _pressed);
     final scale = !widget.enabled
         ? 1.0
         : _pressed
-        ? 0.92
+        ? 0.90
         : _hovered
-        ? 1.04
+        ? 1.05
         : 1.0;
+    final foreground = widget.enabled
+        ? cs.onSurface
+        : cs.onSurfaceVariant.withValues(alpha: 0.46);
+    final background = !widget.enabled
+        ? cs.surfaceContainerHighest.withValues(alpha: 0.18)
+        : active
+        ? cs.primaryContainer.withValues(alpha: 0.68)
+        : cs.surface.withValues(alpha: 0.72);
+    final border = !widget.enabled
+        ? cs.outlineVariant.withValues(alpha: 0.28)
+        : active
+        ? cs.primary.withValues(alpha: 0.42)
+        : cs.outlineVariant.withValues(alpha: 0.60);
     return MouseRegion(
       cursor: widget.enabled
           ? SystemMouseCursors.click
@@ -12201,28 +12300,41 @@ class _AgentNumberStepperButtonState extends State<_AgentNumberStepperButton> {
         onPointerDown: widget.enabled ? (_) => _setPressed(true) : null,
         onPointerUp: (_) => _setPressed(false),
         onPointerCancel: (_) => _setPressed(false),
-        child: AnimatedScale(
-          duration: duration,
-          curve: Curves.easeOutCubic,
-          scale: scale,
-          child: AnimatedOpacity(
-            duration: duration,
-            curve: Curves.easeOutCubic,
-            opacity: widget.enabled ? 1 : 0.46,
-            child: IconButton.filledTonal(
-              tooltip: widget.tooltip,
-              onPressed: widget.enabled ? widget.onPressed : null,
-              style: IconButton.styleFrom(
-                fixedSize: const Size.square(_agentNumberStepperButtonExtent),
-                minimumSize: const Size.square(_agentNumberStepperButtonExtent),
-                maximumSize: const Size.square(_agentNumberStepperButtonExtent),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(
-                    _agentNumberStepperButtonRadius,
+        child: Tooltip(
+          message: widget.tooltip,
+          child: Semantics(
+            button: true,
+            enabled: widget.enabled,
+            child: AnimatedScale(
+              duration: duration,
+              curve: Curves.easeOutCubic,
+              scale: scale,
+              child: Material(
+                color: Colors.transparent,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: widget.enabled ? widget.onPressed : null,
+                  child: AnimatedContainer(
+                    duration: duration,
+                    curve: Curves.easeOutCubic,
+                    width: _agentNumberStepperButtonExtent,
+                    height: _agentNumberStepperButtonExtent,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: background,
+                      border: Border.all(color: border),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      widget.icon,
+                      size: _agentNumberStepperIconSize,
+                      color: foreground,
+                    ),
                   ),
                 ),
               ),
-              icon: Icon(widget.icon, size: _agentNumberStepperIconSize),
             ),
           ),
         ),
