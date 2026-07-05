@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
@@ -165,7 +166,7 @@ class AiResponsesService {
       body: request.body,
       timeout: timeout,
     );
-    if ((response.statusCode < 200 || response.statusCode >= 300) &&
+    if (isHttpFailureStatus(response.statusCode) &&
         AiThinkingRequestPolicy.shouldRetryWithoutMarkers(
           statusCode: response.statusCode,
           errorBody: response.body,

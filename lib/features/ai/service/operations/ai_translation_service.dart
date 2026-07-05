@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -673,7 +674,7 @@ class AiTranslationService {
   }
 
   Object? _decodeJson(http.Response response, AiTranslationProvider provider) {
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       throw AiTranslationException(
         '${provider.storageKey} translation HTTP ${response.statusCode}: ${_preview(response.body)}',
         provider: provider,

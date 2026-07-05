@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
+import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/ui/structured_error_text.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -647,7 +648,7 @@ class AiChatService implements AiChatClient {
 
       var response = await sendBlueprint(blueprint);
       var endedAt = DateTime.now().toUtc();
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         if (_shouldRetryWithoutCacheAffinity(
           statusCode: response.statusCode,
           errorBody: response.body,
@@ -660,7 +661,7 @@ class AiChatService implements AiChatClient {
           endedAt = DateTime.now().toUtc();
         }
       }
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         if (AiThinkingRequestPolicy.shouldRetryWithoutMarkers(
           statusCode: response.statusCode,
           errorBody: response.body,
@@ -670,7 +671,7 @@ class AiChatService implements AiChatClient {
           endedAt = DateTime.now().toUtc();
         }
       }
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (isHttpFailureStatus(response.statusCode)) {
         final errorMessage = adapter.extractErrorMessage(response.body);
         final message = AiTransportDiagnosticMessages.httpStatus(
           response.statusCode,
