@@ -71,10 +71,12 @@ double? _auditMessageHitRatio({
     cacheReadTokens: read,
     claudeStyle: claudeStyle,
   );
-  final denom = claudeStyle ? (prompt + read) : prompt;
-  if (denom <= 0) return null;
-  if (ratio.isNaN || ratio.isInfinite) return null;
-  return ratio.clamp(0.0, 1.0).toDouble();
+  final denominator = computeCacheHitDenominatorTokens(
+    promptTokens: prompt,
+    cacheReadTokens: read,
+    claudeStyle: claudeStyle,
+  );
+  return denominator <= 0 ? null : ratio;
 }
 
 String _auditFormatHitRatio(double? ratio) {

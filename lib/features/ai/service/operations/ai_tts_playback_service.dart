@@ -560,7 +560,7 @@ class AiTtsPlaybackService {
 
   static double _unitPlaybackVolume(double volume) {
     if (!volume.isFinite) return 1.0;
-    return volume.clamp(0.0, 1.0).toDouble();
+    return clampUnitInterval(volume);
   }
 
   Future<_AiTtsAudioPayload> _synthesizeWithMimo(
@@ -1564,9 +1564,10 @@ class AiTtsPlaybackService {
   }
 
   static double _systemVolume(double volume) {
+    if (!volume.isFinite) return 1.0;
     return volume <= 1
-        ? volume.clamp(0, 1).toDouble()
-        : (volume / 100).clamp(0, 1).toDouble();
+        ? clampUnitInterval(volume)
+        : clampUnitInterval(volume / 100);
   }
 
   static double _afplayVolume(double volume) {
