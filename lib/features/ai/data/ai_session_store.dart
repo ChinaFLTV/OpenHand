@@ -351,21 +351,16 @@ class AiSessionStore {
     List<String> ids,
   ) async {
     final grouped = <String, List<Map<String, Object?>>>{};
-    if (ids.isEmpty) return grouped;
-    for (var start = 0; start < ids.length; start += _kMessageBatchSize) {
-      final end = math.min(start + _kMessageBatchSize, ids.length);
-      final batch = ids.sublist(start, end);
-      final placeholders = List<String>.filled(batch.length, '?').join(',');
-      final rows = await _db.rawQuery(
-        'SELECT * FROM messages WHERE session_id IN ($placeholders) '
-        'ORDER BY session_id, sort_order ASC',
-        batch,
-      );
-      for (final row in rows) {
-        final sessionId = row['session_id'];
-        if (sessionId is! String) continue;
-        (grouped[sessionId] ??= <Map<String, Object?>>[]).add(row);
-      }
+    final rows = await _rawQueryBySessionIdBatches(
+      ids,
+      (placeholders) =>
+          'SELECT * FROM messages WHERE session_id IN ($placeholders) '
+          'ORDER BY session_id, sort_order ASC',
+    );
+    for (final row in rows) {
+      final sessionId = row['session_id'];
+      if (sessionId is! String) continue;
+      (grouped[sessionId] ??= <Map<String, Object?>>[]).add(row);
     }
     return grouped;
   }
@@ -374,26 +369,36 @@ class AiSessionStore {
     List<String> ids,
   ) async {
     final counts = <String, int>{};
-    if (ids.isEmpty) return counts;
+    final rows = await _rawQueryBySessionIdBatches(
+      ids,
+      (placeholders) =>
+          'SELECT session_id, COUNT(*) AS message_count '
+          'FROM messages WHERE session_id IN ($placeholders) '
+          'GROUP BY session_id',
+    );
+    for (final row in rows) {
+      final sessionId = row['session_id'];
+      final count = row['message_count'];
+      if (sessionId is String && count is num) {
+        counts[sessionId] = count.toInt();
+      }
+    }
+    return counts;
+  }
+
+  Future<List<Map<String, Object?>>> _rawQueryBySessionIdBatches(
+    List<String> ids,
+    String Function(String placeholders) sqlForPlaceholders,
+  ) async {
+    if (ids.isEmpty) return const <Map<String, Object?>>[];
+    final rows = <Map<String, Object?>>[];
     for (var start = 0; start < ids.length; start += _kMessageBatchSize) {
       final end = math.min(start + _kMessageBatchSize, ids.length);
       final batch = ids.sublist(start, end);
       final placeholders = List<String>.filled(batch.length, '?').join(',');
-      final rows = await _db.rawQuery(
-        'SELECT session_id, COUNT(*) AS message_count '
-        'FROM messages WHERE session_id IN ($placeholders) '
-        'GROUP BY session_id',
-        batch,
-      );
-      for (final row in rows) {
-        final sessionId = row['session_id'];
-        final count = row['message_count'];
-        if (sessionId is String && count is num) {
-          counts[sessionId] = count.toInt();
-        }
-      }
+      rows.addAll(await _db.rawQuery(sqlForPlaceholders(placeholders), batch));
     }
-    return counts;
+    return rows;
   }
 
   /// Loads **only session metadata** (no messages).  Much faster for building
