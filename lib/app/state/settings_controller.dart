@@ -21,6 +21,7 @@ import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../../shared/fps/openhand_fps_monitor.dart';
+import '../../shared/net/tcp_port_utils.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
 import '../model/app_settings_snapshot.dart';
@@ -2546,7 +2547,7 @@ class SettingsController extends ChangeNotifier {
   }) async {
     return _commitMutation(() {
       final normalizedHost = host?.trim();
-      final normalizedPort = port?.clamp(1, 65535);
+      final normalizedPort = port == null ? null : clampTcpPort(port);
       final normalizedProtocols = (protocols == null || protocols.isEmpty)
           ? null
           : protocols;

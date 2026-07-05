@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/net/tcp_port_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../../model/ai_sandbox_settings.dart';
@@ -595,8 +596,7 @@ class _HostPort {
   }
 
   static int _normalizePort(int? port, int defaultPort) {
-    if (port == null || port <= 0 || port > 65535) return defaultPort;
-    return port;
+    return tcpPortOr(port, fallback: defaultPort);
   }
 }
 

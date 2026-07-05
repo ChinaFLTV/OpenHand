@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'android_reverse_adb_client.dart';
@@ -1178,7 +1179,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   }
 
   Future<AdbCommandResult> startNetworkCapture({int port = 8080}) async {
-    if (port < 1 || port > 65535) {
+    if (!isValidTcpPort(port)) {
       return AdbCommandResult(
         args: <String>['network-capture', 'start'],
         exitCode: -1,

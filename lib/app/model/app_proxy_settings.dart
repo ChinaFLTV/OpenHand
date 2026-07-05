@@ -7,6 +7,7 @@
 // secrets, this is the place to plug in.
 import 'dart:convert';
 
+import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 enum AppProxyMode { disabled, automatic, manual }
@@ -122,12 +123,7 @@ class AppProxySettings {
     final usableProtocols = protocols.isEmpty ? defaults.protocols : protocols;
 
     final host = stringFromValue(json['host'], fallback: defaults.host);
-    final port = clampedIntFromValue(
-      json['port'],
-      fallback: defaults.port,
-      min: minPort,
-      max: maxPort,
-    );
+    final port = clampedTcpPortFromValue(json['port'], fallback: defaults.port);
     final authEnabled = boolFromValue(json['auth_enabled']);
     final username = _credentialFromValue(json['username']);
     final password = _credentialFromValue(json['password']);
@@ -163,8 +159,8 @@ class AppProxySettings {
   /// 代理连通性测试使用的 URL。空字符串同于默认值。
   final String testEndpoint;
 
-  static const int minPort = 1;
-  static const int maxPort = 65535;
+  static const int minPort = kTcpPortMin;
+  static const int maxPort = kTcpPortMax;
   static const int defaultPort = 7890;
 
   /// 2026-05-04 — 代理连通性测试默认 URL。Google generate_204
@@ -200,7 +196,7 @@ class AppProxySettings {
       mode: mode ?? this.mode,
       protocols: protocols ?? this.protocols,
       host: host ?? this.host,
-      port: port == null ? this.port : port.clamp(minPort, maxPort).toInt(),
+      port: port == null ? this.port : clampTcpPort(port),
       authEnabled: authEnabled ?? this.authEnabled,
       username: username ?? this.username,
       password: password ?? this.password,

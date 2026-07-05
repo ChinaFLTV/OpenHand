@@ -131,8 +131,8 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
   }
 
   Future<void> _savePort() async {
-    final parsed = optionalIntFromText(_portCtrl.text);
-    if (parsed == null || parsed < 1 || parsed > 65535) {
+    final parsed = tcpPortFromText(_portCtrl.text);
+    if (parsed == null) {
       _portCtrl.text = widget.controller.proxySettings.port.toString();
       return;
     }

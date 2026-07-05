@@ -1,3 +1,4 @@
+import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import 'ai_deny_command_rule.dart';
 
@@ -326,9 +327,7 @@ class AiSandboxSettings {
   }
 
   static int _normalizePort(Object? value) {
-    final port = optionalIntFromValue(value);
-    if (port == null || port <= 0 || port > 65535) return 0;
-    return port;
+    return tcpPortFromValueOr(value, fallback: 0);
   }
 
   static String _normalizeToolName(String value) {

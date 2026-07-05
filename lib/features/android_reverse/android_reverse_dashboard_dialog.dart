@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/ansi_text.dart';
@@ -61,8 +62,8 @@ const Duration _kDeviceSnapshotTimeout = Duration(seconds: 8);
 const Duration _kLogcatAutoRefreshInterval = Duration(seconds: 1);
 const Duration _kLogcatFollowScrollDuration = Duration(milliseconds: 360);
 const int _kDeviceSnapshotMaxLines = 80;
-const int _kMinTcpPort = 1;
-const int _kMaxTcpPort = 65535;
+const int _kMinTcpPort = kTcpPortMin;
+const int _kMaxTcpPort = kTcpPortMax;
 const String _kAdbShellHintZh = '请输入 adb shell 命令';
 const String _kAdbShellHintEn = 'Enter adb shell command';
 const String _kDeviceSnapshotScript = '''

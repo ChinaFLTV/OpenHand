@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 const String _kTag = 'android_reverse_adb_client';
@@ -15,8 +16,8 @@ const Duration _kAdbShellQuickReadTimeout = Duration(seconds: 6);
 const Duration _kAdbShellReadTimeout = Duration(seconds: 8);
 const Duration _kAdbShellDumpsysTimeout = Duration(seconds: 12);
 const int _kMaxLogcatLines = 2000;
-const int _kMinTcpPort = 1;
-const int _kMaxTcpPort = 65535;
+const int _kMinTcpPort = kTcpPortMin;
+const int _kMaxTcpPort = kTcpPortMax;
 
 class AdbCommandResult {
   const AdbCommandResult({
@@ -818,7 +819,7 @@ class AndroidReverseAdbClient {
   Future<AdbCommandResult> remount() => _runDeviceDetailed(<String>['remount']);
 
   Future<AdbCommandResult> tcpip(int port) {
-    if (port <= 0 || port > 65535) {
+    if (!isValidTcpPort(port)) {
       return Future<AdbCommandResult>.value(
         const AdbCommandResult(
           args: <String>['tcpip', '<invalid-port>'],

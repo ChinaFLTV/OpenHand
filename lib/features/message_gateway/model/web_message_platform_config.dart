@@ -1,3 +1,4 @@
+import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
 const String webMessagePlatformBuiltinId = 'builtin_web_message_platform';
@@ -9,8 +10,8 @@ const String webGatewayDeviceIdKey = 'device_id';
 const String webGatewayDeviceMacKey = 'device_mac_address';
 const String webGatewayDenyAllSelectionMarker = '__openhand_deny_all__';
 const int kWebGatewayDefaultListenPort = 8848;
-const int kWebGatewayMinListenPort = 1;
-const int kWebGatewayMaxListenPort = 65535;
+const int kWebGatewayMinListenPort = kTcpPortMin;
+const int kWebGatewayMaxListenPort = kTcpPortMax;
 const int kWebGatewayDefaultMaxConcurrentRequests = 200;
 const int kWebGatewayMinConcurrentRequests = 1;
 const int kWebGatewayMaxConcurrentRequests = 5000;

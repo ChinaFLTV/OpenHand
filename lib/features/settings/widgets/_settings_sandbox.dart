@@ -718,9 +718,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
   }
 
   int _parsePort(String value) {
-    final parsed = optionalIntFromText(value);
-    if (parsed == null || parsed <= 0 || parsed > 65535) return 0;
-    return parsed;
+    return tcpPortFromTextOr(value, fallback: 0);
   }
 
   Future<void> _showFileRuleDialog(

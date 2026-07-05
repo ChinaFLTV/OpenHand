@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/net/tcp_port_utils.dart';
 import '../mcp/index.dart';
 import 'web_reverse_cdp_http.dart';
 import 'web_reverse_session_controller.dart';
@@ -270,8 +271,8 @@ class WebReverseCdpMcpBridge {
       }
       return null;
     }
-    final port = controller.cdpPort;
-    if (port == null || port <= 0) {
+    final port = validTcpPort(controller.cdpPort);
+    if (port == null) {
       if (syncLifecycle) {
         stopSession(sessionId);
       }

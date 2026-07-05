@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart'
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
+import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../model/app_proxy_settings.dart';
 import 'safe_subprocess.dart';
@@ -430,18 +431,13 @@ String _stripScheme(String raw) {
   final idx = raw.lastIndexOf(':');
   if (idx <= 0 || idx == raw.length - 1) return null;
   final host = nullIfBlank(raw.substring(0, idx));
-  final port = _validProxyPort(optionalIntFromValue(raw.substring(idx + 1)));
+  final port = tcpPortFromValue(raw.substring(idx + 1));
   if (host == null || port == null) return null;
   return (host: host, port: port);
 }
 
 int? _validProxyPort(int? port) {
-  if (port == null ||
-      port < AppProxySettings.minPort ||
-      port > AppProxySettings.maxPort) {
-    return null;
-  }
-  return port;
+  return validTcpPort(port);
 }
 
 /// 通用例外匹配。支持：
