@@ -1441,7 +1441,9 @@ button.oh-message-context-capsule {
   background: color-mix(in srgb, var(--m3-surface) 96%, transparent);
   color: var(--m3-on-surface);
   box-shadow: var(--m3-elev-3);
-  animation: oh-dialog-pop-in 220ms var(--oh-motion-spring) both;
+  animation: oh-dialog-fade-scale-in var(--oh-dialog-duration) var(--oh-dialog-curve) both;
+  transform-origin: center;
+  will-change: transform, opacity;
   pointer-events: auto;
 }
 .oh-kb-vector-popover-head {
@@ -6320,20 +6322,20 @@ button.oh-composer-pill:not(:disabled):hover {
   will-change: transform, opacity;
 }
 
-[data-dialog-enter='none'] :is(.oh-dialog-fade-in, .oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop),
+[data-dialog-enter='none'] :is(.oh-dialog-fade-in, .oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover),
 [data-dialog-exit='none'] :is(.oh-dialog-fade-out, .oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out) {
   animation: none;
 }
-[data-dialog-enter='fade'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop) { animation-name: oh-dialog-card-fade-in; }
-[data-dialog-enter='slide_up'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop) { animation-name: oh-dialog-slide-up-in; }
-[data-dialog-enter='slide_down'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop) { animation-name: oh-dialog-slide-down-in; }
-[data-dialog-enter='slide_left'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop) { animation-name: oh-dialog-slide-left-in; }
-[data-dialog-enter='slide_right'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop) { animation-name: oh-dialog-slide-right-in; }
-[data-dialog-enter='expand'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop) { animation-name: oh-dialog-expand-in; }
-[data-dialog-enter='rotate_scale'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop) { animation-name: oh-dialog-rotate-scale-in; }
-[data-dialog-enter='elastic'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop) { animation-name: oh-dialog-elastic-in; }
-[data-dialog-enter='spring_scale'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop) { animation-name: oh-dialog-spring-scale-in; }
-[data-dialog-enter='flip_x'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop) { animation-name: oh-dialog-flip-x-in; }
+[data-dialog-enter='fade'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-card-fade-in; }
+[data-dialog-enter='slide_up'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-slide-up-in; }
+[data-dialog-enter='slide_down'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-slide-down-in; }
+[data-dialog-enter='slide_left'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-slide-left-in; }
+[data-dialog-enter='slide_right'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-slide-right-in; }
+[data-dialog-enter='expand'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-expand-in; }
+[data-dialog-enter='rotate_scale'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-rotate-scale-in; }
+[data-dialog-enter='elastic'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-elastic-in; }
+[data-dialog-enter='spring_scale'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-spring-scale-in; }
+[data-dialog-enter='flip_x'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-flip-x-in; }
 
 [data-dialog-exit='fade'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out) { animation-name: oh-dialog-card-fade-out; }
 [data-dialog-exit='slide_up'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out) { animation-name: oh-dialog-slide-up-out; }

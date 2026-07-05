@@ -45,6 +45,9 @@ export const DIALOG_MOTION_MIN_ANIMATED_DURATION_MS = 80;
 export const DIALOG_MOTION_MAX_DURATION_MS = 1200;
 export const DIALOG_MOTION_DEFAULT_STYLE: DialogMotionStyle = 'spring_scale';
 export const DIALOG_MOTION_DEFAULT_CURVE: DialogMotionCurve = 'ease_out_cubic';
+const DIALOG_MOTION_DEFAULT_CSS_CURVE = 'cubic-bezier(0.215, 0.61, 0.355, 1)';
+const DIALOG_MOTION_DEFAULT_REVERSE_CSS_CURVE =
+  'cubic-bezier(0.55, 0.055, 0.675, 0.19)';
 
 export interface DialogMotionSettings {
   entranceStyle: DialogMotionStyle;
@@ -64,6 +67,26 @@ export const DEFAULT_DIALOG_MOTION_SETTINGS: DialogMotionSettings = {
 };
 
 let currentSettings = { ...DEFAULT_DIALOG_MOTION_SETTINGS };
+
+const DIALOG_MOTION_CURVE_CSS: Record<DialogMotionCurve, string> = {
+  ease_in_out: 'ease-in-out',
+  ease_out: 'ease-out',
+  ease_out_cubic: DIALOG_MOTION_DEFAULT_CSS_CURVE,
+  ease_in_out_cubic_emphasized: 'cubic-bezier(0.2, 0, 0, 1)',
+  elastic_out: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+  bounce_out: 'cubic-bezier(0.22, 1.45, 0.36, 1)',
+  decelerate: 'cubic-bezier(0, 0, 0.2, 1)',
+};
+
+const DIALOG_MOTION_REVERSE_CURVE_CSS: Record<DialogMotionCurve, string> = {
+  ease_in_out: 'ease-in-out',
+  ease_out: 'ease-in',
+  ease_out_cubic: DIALOG_MOTION_DEFAULT_REVERSE_CSS_CURVE,
+  ease_in_out_cubic_emphasized: 'cubic-bezier(0.2, 0, 0, 1)',
+  elastic_out: 'ease-in',
+  bounce_out: 'ease-in',
+  decelerate: 'cubic-bezier(0, 0, 0.2, 1)',
+};
 
 function isDialogMotionStyle(value: string | undefined): value is DialogMotionStyle {
   return value != null && styleValues.has(value);
@@ -113,41 +136,14 @@ function normalizeDuration(
 }
 
 function curveToCss(curve: DialogMotionCurve): string {
-  switch (curve) {
-    case 'ease_in_out':
-      return 'ease-in-out';
-    case 'ease_out':
-      return 'ease-out';
-    case 'ease_in_out_cubic_emphasized':
-      return 'cubic-bezier(0.2, 0, 0, 1)';
-    case 'elastic_out':
-      return 'cubic-bezier(0.34, 1.56, 0.64, 1)';
-    case 'bounce_out':
-      return 'cubic-bezier(0.22, 1.45, 0.36, 1)';
-    case 'decelerate':
-      return 'cubic-bezier(0, 0, 0.2, 1)';
-    case 'ease_out_cubic':
-    default:
-      return 'cubic-bezier(0.215, 0.61, 0.355, 1)';
-  }
+  return DIALOG_MOTION_CURVE_CSS[curve] ?? DIALOG_MOTION_DEFAULT_CSS_CURVE;
 }
 
 function reverseCurveToCss(curve: DialogMotionCurve): string {
-  switch (curve) {
-    case 'ease_in_out':
-      return 'ease-in-out';
-    case 'ease_in_out_cubic_emphasized':
-      return 'cubic-bezier(0.2, 0, 0, 1)';
-    case 'decelerate':
-      return 'cubic-bezier(0, 0, 0.2, 1)';
-    case 'ease_out_cubic':
-      return 'cubic-bezier(0.55, 0.055, 0.675, 0.19)';
-    case 'ease_out':
-    case 'elastic_out':
-    case 'bounce_out':
-    default:
-      return 'ease-in';
-  }
+  return (
+    DIALOG_MOTION_REVERSE_CURVE_CSS[curve] ??
+    DIALOG_MOTION_DEFAULT_REVERSE_CSS_CURVE
+  );
 }
 
 function applyDialogMotionSettingsToDocument(): void {

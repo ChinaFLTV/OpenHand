@@ -54,6 +54,17 @@ export function finiteNumberFromUnknown(value: unknown, fallback = 0): number {
   return finiteNumberOrNullFromUnknown(value) ?? (Number.isFinite(fallback) ? fallback : 0);
 }
 
+export function roundedNonNegativeIntegerOrNullFromUnknown(value: unknown): number | null {
+  const parsed = finiteNumberOrNullFromUnknown(value);
+  if (parsed == null || parsed < 0) return null;
+  return Math.round(parsed);
+}
+
+export function roundedNonNegativeIntegerFromUnknown(value: unknown, fallback = 0): number {
+  const safeFallback = Number.isFinite(fallback) && fallback >= 0 ? Math.round(fallback) : 0;
+  return roundedNonNegativeIntegerOrNullFromUnknown(value) ?? safeFallback;
+}
+
 export function nonNegativeIntegerFromUnknown(value: unknown, fallback = 0): number {
   const parsed = finiteNumberOrNullFromUnknown(value);
   const safeFallback = Number.isFinite(fallback) ? fallback : 0;

@@ -100,6 +100,7 @@ import {
   booleanFromUnknown,
   recordFromUnknown,
   recordOrNullFromUnknown,
+  roundedNonNegativeIntegerOrNullFromUnknown,
   strictStringFromUnknown,
   stringFromUnknown,
   stringListFromUnknown,
@@ -8614,9 +8615,7 @@ function SessionThrottleDialog({
   const parse = (raw: string): number | null | undefined => {
     const trimmed = raw.trim();
     if (trimmed.length === 0) return undefined;
-    const parsed = finiteNumberOrNullFromUnknown(trimmed);
-    if (parsed == null || parsed < 0) return null;
-    return Math.round(parsed);
+    return roundedNonNegativeIntegerOrNullFromUnknown(trimmed);
   };
 
   const apply = async () => {

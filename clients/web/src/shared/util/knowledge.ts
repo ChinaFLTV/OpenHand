@@ -1,5 +1,8 @@
 import { basenameFromPath } from './path';
-import { finiteNumberOrNullFromUnknown, stringFromUnknown } from './value';
+import {
+  roundedNonNegativeIntegerFromUnknown,
+  stringFromUnknown,
+} from './value';
 
 export interface KnowledgeBaseUsageMatchOptions {
   hitKey?: (hit: Record<string, unknown>) => string;
@@ -52,10 +55,7 @@ export function knowledgeBaseResultsUsedByAnswer(
 }
 
 export function knowledgeBaseHitTokenEstimate(hit: Record<string, unknown>): number {
-  return Math.max(
-    0,
-    Math.round(finiteNumberOrNullFromUnknown(hit['token_estimate']) ?? 0),
-  );
+  return roundedNonNegativeIntegerFromUnknown(hit['token_estimate']);
 }
 
 export function knowledgeBaseHitTokenEstimateTotal(
