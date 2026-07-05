@@ -3,6 +3,7 @@
 // JSON 请求 / 响应自动序列化；非 2xx 抛 ApiError(status, body)。
 
 import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
+import { normalizeDurationMs } from '../shared/util/number';
 import { clientEnvironmentHeaders } from '../utils/client_env';
 import { createTimedAbortController } from '../utils/timed_abort';
 
@@ -38,8 +39,15 @@ interface ApiAbortSignal {
   cleanup: () => void;
 }
 
+function normalizeApiRequestTimeoutMs(value: number | undefined): number {
+  return normalizeDurationMs(value, {
+    fallback: DEFAULT_API_REQUEST_TIMEOUT_MS,
+    zeroDisables: true,
+  });
+}
+
 function createApiAbortSignal(opts: ApiOptions): ApiAbortSignal {
-  const timeoutMs = opts.timeoutMs ?? DEFAULT_API_REQUEST_TIMEOUT_MS;
+  const timeoutMs = normalizeApiRequestTimeoutMs(opts.timeoutMs);
   if (timeoutMs <= 0) {
     return { signal: opts.signal, cleanup: () => {} };
   }

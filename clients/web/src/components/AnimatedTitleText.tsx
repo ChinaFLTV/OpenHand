@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { classNames } from '../shared/util/class_names';
 import { useTimeoutController } from '../hooks/useTimeoutController';
 
 const TITLE_TEXT_EXIT_MS = 220;
@@ -45,9 +46,7 @@ export function AnimatedTitleText({
     }, TITLE_TEXT_EXIT_MS);
   }, [clearTimer, text, reducedMotion, scheduleTimer]);
 
-  const rootClass = ['oh-animated-title-text', className]
-    .filter(Boolean)
-    .join(' ');
+  const rootClass = classNames('oh-animated-title-text', className);
   const label = (reducedMotion ? text : current).trim() || undefined;
 
   if (reducedMotion) {

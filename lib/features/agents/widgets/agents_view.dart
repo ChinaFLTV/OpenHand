@@ -28,6 +28,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart'
     show
@@ -14349,7 +14350,7 @@ String? _agentMetadataChipText(
 ) {
   final raw = _agentMetadataValueText(context, key, value);
   if (raw.isEmpty) return null;
-  final compact = raw.length > 64 ? '${raw.substring(0, 61)}...' : raw;
+  final compact = clipText(raw, 61);
   return '${_agentMetadataKeyLabel(context, key)}: $compact';
 }
 

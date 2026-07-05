@@ -30,6 +30,7 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/structured_text_format.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../thread_template_runtime/index.dart';
 import '../data/mcp_store.dart';
 import '../mcp_controller.dart';
@@ -2223,7 +2224,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                               // 标签：拿到 stderr 行后切到「首启 · 实时进度」，否则保持初始文案。
                               final label = server.type == McpServerType.stdio
                                   ? (liveLine != null && liveLine.isNotEmpty
-                                        ? _truncateMiddle(liveLine)
+                                        ? clipMiddleText(liveLine, maxChars: 36)
                                         : _localizedText(
                                             context,
                                             zh: '首启准备中…',
@@ -6663,16 +6664,6 @@ String _executionSummary(BuildContext context, McpTool tool) {
     return _localizedText(context, zh: '默认', en: 'Default');
   }
   return taskSupport;
-}
-
-/// 把过长的进度行折成「头…尾」形式，避免 chip label 撑爆容器；
-/// 阈值 max 是字符上限（含省略号），优先保留前缀。
-String _truncateMiddle(String input, {int max = 36}) {
-  if (input.length <= max) return input;
-  final keepHead = (max * 0.6).round();
-  final keepTail = max - keepHead - 1;
-  if (keepTail <= 0) return '${input.substring(0, max - 1)}…';
-  return '${input.substring(0, keepHead)}…${input.substring(input.length - keepTail)}';
 }
 
 String _formatStatusTime(BuildContext context, DateTime timestamp) {

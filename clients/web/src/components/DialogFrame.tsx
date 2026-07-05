@@ -1,5 +1,6 @@
 import type { ComponentChildren, JSX } from 'preact';
 import { useEffect } from 'preact/hooks';
+import { classNames } from '../shared/util/class_names';
 import { clampNumber, normalizeInteger } from '../shared/util/number';
 import { strictStringFromUnknown } from '../shared/util/value';
 import { OverlayPortal } from './OverlayPortal';
@@ -267,15 +268,6 @@ function panelMotionClass(animation: DialogPanelAnimation, closing: boolean): st
   }
 }
 
-function dialogClassNames(
-  ...values: Array<string | null | undefined | false>
-): string {
-  return values
-    .flatMap((value) => (value ? value.trim().split(/\s+/) : []))
-    .filter(Boolean)
-    .join(' ');
-}
-
 function DialogCloseIcon({ size = 16 }: { size?: number }) {
   return (
     <svg
@@ -317,7 +309,7 @@ function DialogCloseButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      class={dialogClassNames(
+      class={classNames(
         className ??
           'oh-tap-press inline-flex h-8 w-8 items-center justify-center rounded-m3-sm',
         disabled && 'opacity-60',
@@ -406,7 +398,7 @@ export function DialogActionButton({
   return (
     <button
       type={type}
-      class={dialogClassNames(
+      class={classNames(
         'oh-tap-press oh-dialog-action-button',
         disabled && 'opacity-60',
         className,
@@ -581,8 +573,8 @@ export function DialogFrame({
 
   const overlayMotionClass = closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in';
   const panelClass = panelMotionClass(panelAnimation, closing);
-  const overlayClass = dialogClassNames(overlayMotionClass, overlayClassName);
-  const sectionClass = dialogClassNames(
+  const overlayClass = classNames(overlayMotionClass, overlayClassName);
+  const sectionClass = classNames(
     'oh-dialog-panel',
     panelClass,
     panelClassName,

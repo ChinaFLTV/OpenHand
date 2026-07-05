@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:yaml/yaml.dart';
 
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../model/agent_models.dart';
 
 class AgentRoutingMetadata {
@@ -176,6 +177,5 @@ String _stripQuotes(String value) {
 String _preview(String raw) {
   const maxChars = 600;
   final normalized = raw.trim();
-  if (normalized.length <= maxChars) return normalized;
-  return '${normalized.substring(0, maxChars)}...';
+  return clipText(normalized, maxChars);
 }

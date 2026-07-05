@@ -294,7 +294,8 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       }
       node.children = children;
       node.childrenLoaded = true;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('file_explorer', 'load children ${node.path}', error, stack);
       node.children = const [];
       node.childrenLoaded = true;
     }
@@ -2376,7 +2377,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 )!.progExpFENoMatchingWorkspaceSymbolsWereFound
               : null,
         );
-      } catch (_) {
+      } catch (error, stack) {
+        silentLog('file_explorer', 'load workspace symbols', error, stack);
         applyExtraction(
           const _EditorSymbolExtractionResult(
             symbols: <_EditorSymbol>[],
@@ -2444,7 +2446,13 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             ? AppLocalizations.of(context)!.progExpFETheLspServerReturnedAnEmpty
             : null,
       );
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'file_explorer',
+        'load document symbols $filePath',
+        error,
+        stack,
+      );
       applyExtraction(
         fallbackExtraction,
         usingLsp: false,
@@ -2461,10 +2469,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   String _truncatePreviewText(String text, {int maxLength = 160}) {
     final normalized = text.replaceAll('\t', '  ').trimRight();
-    if (normalized.length <= maxLength) {
-      return normalized;
-    }
-    return '${normalized.substring(0, maxLength - 1)}…';
+    return clipText(normalized, math.max(0, maxLength - 1), suffix: '…');
   }
 
   Future<void> _loadLspLocationPreviews(
@@ -2509,7 +2514,13 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         previews[_locationPreviewKey(location)] = _EditorLocationPreview(
           lines: List<_EditorPreviewLine>.unmodifiable(previewLines),
         );
-      } catch (_) {
+      } catch (error, stack) {
+        silentLog(
+          'file_explorer',
+          'load LSP location preview ${location.filePath}',
+          error,
+          stack,
+        );
         if (!mounted || previewEpoch != _lspResultPreviewEpoch) {
           return;
         }

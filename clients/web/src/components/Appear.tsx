@@ -6,6 +6,7 @@
 
 import type { ComponentChildren } from 'preact';
 import type { JSX } from 'preact';
+import { classNames } from '../shared/util/class_names';
 
 export type AppearVariant = 'up' | 'pop' | 'page';
 
@@ -31,7 +32,7 @@ export function Appear(props: AppearProps): JSX.Element {
   const { children, variant = 'up', index, as = 'div', className, style } = props;
   const Tag = as as 'div';
   const stagger = index && index > 0 ? `oh-appear-stagger-${Math.min(12, index)}` : '';
-  const cls = [variantClass[variant], stagger, className].filter(Boolean).join(' ');
+  const cls = classNames(variantClass[variant], stagger, className);
   return (
     <Tag class={cls} style={style}>
       {children}
