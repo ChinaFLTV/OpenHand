@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -67,6 +68,23 @@ const EdgeInsets _agentDialogPadding = EdgeInsets.all(22);
 const double _agentDialogTitleGap = 10;
 const double _agentDialogSectionGap = 18;
 const EdgeInsets _agentDialogActionPadding = EdgeInsets.fromLTRB(16, 8, 16, 12);
+const double _agentTaskDetailDialogMaxWidth = 960;
+const double _agentTaskDetailDialogMaxHeight = 760;
+const double _agentTaskDetailMaxWidthFraction = 0.96;
+const double _agentTaskDetailMaxHeightFraction = 0.92;
+const double _agentTaskDetailHorizontalMargin = 32;
+const double _agentTaskDetailVerticalMargin = 72;
+const double _agentTaskDetailMinAvailableWidth = 320;
+const double _agentTaskDetailSummaryGap = 12;
+const double _agentTaskDetailSectionGap = 14;
+const double _agentTaskDetailGridGap = 12;
+const double _agentTaskDetailGridBreakpoint = 640;
+const double _agentTaskDetailSummaryWideBreakpoint = 760;
+const double _agentTaskDetailSummaryMediumBreakpoint = 520;
+const double _agentTaskDetailSummaryRadius = 10;
+const double _agentTaskDetailCardRadius = 14;
+const double _agentTaskDetailCompactMinHeight = 88;
+const EdgeInsets _agentTaskDetailCardPadding = EdgeInsets.all(14);
 const List<String> _agentSchedulerPolicyOptions = <String>[
   'least_busy',
   'priority_first',
@@ -87,6 +105,11 @@ const int _agentTaskRecommendedPollMs = 1500;
 const String _agentTaskProgressToolName = 'AgentTaskProgress';
 const String _agentTaskResultToolName = 'AgentTaskResult';
 const String _agentTaskTrackToolName = 'AgentTaskTrack';
+const int _agentScaleMinWorkersMin = 0;
+const int _agentScaleMaxWorkersMin = 1;
+const int _agentScaleWorkersMax = 999;
+const int _agentScaleRetriesMin = 0;
+const int _agentScaleRetriesMax = 20;
 const int _agentRoutePreviewKeywordLimit = 10;
 const List<String> _agentImageExtensions = <String>[
   'jpg',
@@ -105,6 +128,7 @@ const double _agentCapabilityChipIconSlotWidth = 22;
 const int _agentCapabilityChipStateDurationMs = 150;
 const EdgeInsetsDirectional _agentCapabilityChipPadding =
     EdgeInsetsDirectional.fromSTEB(12, 7, 14, 7);
+const double _agentNumberStepperButtonExtent = 48;
 
 bool _isAgentCoordinationBuiltinToolId(String id) {
   return AiBuiltinToolKind.values.any(
@@ -2042,21 +2066,36 @@ class _AgentClusterSettingsEditorState
             _clusterNumberStepper(
               l10n.agentsMinWorkersLabel,
               _minWorkers,
-              (value) =>
-                  setState(() => _minWorkers = value.clamp(0, _maxWorkers)),
+              min: _agentScaleMinWorkersMin,
+              max: _maxWorkers,
+              onChanged: (value) => setState(
+                () => _minWorkers = value
+                    .clamp(_agentScaleMinWorkersMin, _maxWorkers)
+                    .toInt(),
+              ),
             ),
             _clusterNumberStepper(
               l10n.agentsMaxWorkersLabel,
               _maxWorkers,
-              (value) => setState(() {
-                _maxWorkers = value.clamp(1, 999);
+              min: _agentScaleMaxWorkersMin,
+              max: _agentScaleWorkersMax,
+              onChanged: (value) => setState(() {
+                _maxWorkers = value
+                    .clamp(_agentScaleMaxWorkersMin, _agentScaleWorkersMax)
+                    .toInt();
                 if (_minWorkers > _maxWorkers) _minWorkers = _maxWorkers;
               }),
             ),
             _clusterNumberStepper(
               l10n.agentsMaxRetriesLabel,
               _maxRetries,
-              (value) => setState(() => _maxRetries = value.clamp(0, 20)),
+              min: _agentScaleRetriesMin,
+              max: _agentScaleRetriesMax,
+              onChanged: (value) => setState(
+                () => _maxRetries = value
+                    .clamp(_agentScaleRetriesMin, _agentScaleRetriesMax)
+                    .toInt(),
+              ),
             ),
             _FormGridItem(
               fullWidth: true,
@@ -2121,25 +2160,18 @@ class _AgentClusterSettingsEditorState
 
   Widget _clusterNumberStepper(
     String label,
-    int value,
-    ValueChanged<int> onChanged,
-  ) {
+    int value, {
+    required int min,
+    required int max,
+    required ValueChanged<int> onChanged,
+  }) {
     return _FormGridItem(
-      child: InputDecorator(
-        decoration: InputDecoration(labelText: label),
-        child: Row(
-          children: [
-            IconButton(
-              onPressed: () => onChanged(value - 1),
-              icon: const Icon(Icons.remove_rounded),
-            ),
-            Expanded(child: Text('$value', textAlign: TextAlign.center)),
-            IconButton(
-              onPressed: () => onChanged(value + 1),
-              icon: const Icon(Icons.add_rounded),
-            ),
-          ],
-        ),
+      child: _AgentNumberStepperField(
+        label: label,
+        value: value,
+        min: min,
+        max: max,
+        onChanged: onChanged,
       ),
     );
   }
@@ -2203,14 +2235,23 @@ class _AgentClusterSettingsEditorState
   }
 
   AgentScaleSettings buildSettings() {
+    final maxWorkers = _maxWorkers
+        .clamp(_agentScaleMaxWorkersMin, _agentScaleWorkersMax)
+        .toInt();
+    final minWorkers = _minWorkers
+        .clamp(_agentScaleMinWorkersMin, maxWorkers)
+        .toInt();
+    final maxRetries = _maxRetries
+        .clamp(_agentScaleRetriesMin, _agentScaleRetriesMax)
+        .toInt();
     return AgentScaleSettings(
-      minWorkers: _minWorkers,
-      maxWorkers: _maxWorkers,
+      minWorkers: minWorkers,
+      maxWorkers: maxWorkers,
       scaleOutThreshold: _scaleOutThreshold,
       scaleInThreshold: _scaleInThreshold,
       workerRemovalPolicy: _workerRemovalPolicy,
       retryPolicy: _retryPolicy,
-      maxRetries: _maxRetries,
+      maxRetries: maxRetries,
       schedulerPolicy: _schedulerPolicy,
       tags: _dedupeClusterTags(_tags),
     );
@@ -2608,24 +2649,27 @@ Future<void> _showAgentTaskDetailDialog(
   ).convert(_agentTaskExtraDisplayJson(task.extra));
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => buildOpenHandDialog(
-      maxWidth: 880,
-      maxHeight: 720,
+    builder: (dialogContext) => buildOpenHandResponsiveDialogShell(
+      context: dialogContext,
+      maxWidth: _agentTaskDetailDialogMaxWidth,
+      maxHeight: _agentTaskDetailDialogMaxHeight,
+      maxWidthFraction: _agentTaskDetailMaxWidthFraction,
+      maxHeightFraction: _agentTaskDetailMaxHeightFraction,
+      horizontalMargin: _agentTaskDetailHorizontalMargin,
+      verticalMargin: _agentTaskDetailVerticalMargin,
+      minAvailableWidth: _agentTaskDetailMinAvailableWidth,
       child: _AgentDialogScaffold(
         icon: Icons.task_alt_rounded,
         title: openHandLocalizedText(context, zh: '任务详情', en: 'Task details'),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: _AgentTaskDetailSectionList(
           children: [
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
+            _AgentTaskDetailSummaryGrid(
               children: [
-                _MetricTile(
+                _AgentTaskDetailSummaryTile(
                   label: openHandLocalizedText(context, zh: '状态', en: 'Status'),
                   value: _agentTaskStatusLabel(l10n, task.status),
                 ),
-                _MetricTile(
+                _AgentTaskDetailSummaryTile(
                   label: openHandLocalizedText(
                     context,
                     zh: '进度',
@@ -2633,11 +2677,11 @@ Future<void> _showAgentTaskDetailDialog(
                   ),
                   value: '${(task.progress * 100).round()}%',
                 ),
-                _MetricTile(
+                _AgentTaskDetailSummaryTile(
                   label: openHandLocalizedText(context, zh: '下一步', en: 'Next'),
                   value: trackingSummary.nextAction,
                 ),
-                _MetricTile(
+                _AgentTaskDetailSummaryTile(
                   label: openHandLocalizedText(
                     context,
                     zh: 'Worker',
@@ -2647,7 +2691,6 @@ Future<void> _showAgentTaskDetailDialog(
                 ),
               ],
             ),
-            const SizedBox(height: 18),
             _AgentTaskDetailBlock(
               title: openHandLocalizedText(context, zh: '标题', en: 'Title'),
               body: task.title,
@@ -5117,6 +5160,121 @@ class _AgentAuditPressureRow extends StatelessWidget {
   }
 }
 
+class _AgentTaskDetailSectionList extends StatelessWidget {
+  const _AgentTaskDetailSectionList({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < children.length; index++) ...[
+          if (index > 0) const SizedBox(height: _agentTaskDetailSectionGap),
+          children[index],
+        ],
+      ],
+    );
+  }
+}
+
+class _AgentTaskDetailSummaryGrid extends StatelessWidget {
+  const _AgentTaskDetailSummaryGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        if (!maxWidth.isFinite) {
+          return Wrap(
+            spacing: _agentTaskDetailSummaryGap,
+            runSpacing: _agentTaskDetailSummaryGap,
+            children: children,
+          );
+        }
+
+        final columns = maxWidth >= _agentTaskDetailSummaryWideBreakpoint
+            ? 4
+            : maxWidth >= _agentTaskDetailSummaryMediumBreakpoint
+            ? 2
+            : 1;
+        final tileWidth =
+            (maxWidth - _agentTaskDetailSummaryGap * (columns - 1)) / columns;
+        return SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            spacing: _agentTaskDetailSummaryGap,
+            runSpacing: _agentTaskDetailSummaryGap,
+            children: [
+              for (final child in children)
+                SizedBox(width: math.max(0, tileWidth), child: child),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AgentTaskDetailSummaryTile extends StatelessWidget {
+  const _AgentTaskDetailSummaryTile({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final settings = _agentDialogAnimationSettings(context);
+    final normalizedValue = value.trim().isEmpty ? '-' : value.trim();
+    return SizedBox(
+      width: double.infinity,
+      child: AnimatedContainer(
+        duration: settings.duration,
+        curve: settings.curve.curve,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.65),
+          borderRadius: BorderRadius.circular(_agentTaskDetailSummaryRadius),
+          border: Border.all(color: cs.outlineVariant),
+        ),
+        padding: _agentTaskDetailCardPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: theme.textTheme.labelMedium),
+            const SizedBox(height: 8),
+            AnimatedSwitcher(
+              duration: settings.duration,
+              reverseDuration: settings.duration,
+              switchInCurve: settings.curve.curve,
+              switchOutCurve: settings.curve.reverseCurve,
+              transitionBuilder: (child, animation) =>
+                  _agentDialogSwitchTransition(
+                    settings: settings,
+                    animation: animation,
+                    child: child,
+                  ),
+              child: Text(
+                normalizedValue,
+                key: ValueKey<String>(normalizedValue),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleLarge?.copyWith(height: 1.15),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _AgentTaskDetailGrid extends StatelessWidget {
   const _AgentTaskDetailGrid({required this.children});
 
@@ -5124,21 +5282,28 @@ class _AgentTaskDetailGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
     return LayoutBuilder(
       builder: (context, constraints) {
-        final twoColumns = constraints.maxWidth >= 620;
-        return Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            for (final child in children)
-              SizedBox(
-                width: twoColumns
-                    ? (constraints.maxWidth - 12) / 2
-                    : constraints.maxWidth,
-                child: child,
-              ),
-          ],
+        final maxWidth = constraints.maxWidth;
+        if (!maxWidth.isFinite) {
+          return _AgentTaskDetailSectionList(children: children);
+        }
+
+        final twoColumns = maxWidth >= _agentTaskDetailGridBreakpoint;
+        final cellWidth = twoColumns
+            ? (maxWidth - _agentTaskDetailGridGap) / 2
+            : maxWidth;
+        return SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            spacing: _agentTaskDetailGridGap,
+            runSpacing: _agentTaskDetailGridGap,
+            children: [
+              for (final child in children)
+                SizedBox(width: math.max(0, cellWidth), child: child),
+            ],
+          ),
         );
       },
     );
@@ -5168,25 +5333,30 @@ class _AgentTaskDetailBlock extends StatelessWidget {
             ?.copyWith(
               color: cs.onSurface,
               fontFamily: monospace ? 'monospace' : null,
+              height: compact ? 1.35 : 1.45,
             );
-    return Padding(
-      padding: EdgeInsets.only(bottom: compact ? 0 : 12),
-      child: DecoratedBox(
+    final settings = _agentDialogAnimationSettings(context);
+    return SizedBox(
+      width: double.infinity,
+      child: AnimatedContainer(
+        duration: settings.duration,
+        curve: settings.curve.curve,
+        constraints: BoxConstraints(
+          minHeight: compact ? _agentTaskDetailCompactMinHeight : 0,
+        ),
         decoration: BoxDecoration(
           color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(_agentTaskDetailCardRadius),
           border: Border.all(color: cs.outlineVariant),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: theme.textTheme.labelLarge),
-              const SizedBox(height: 8),
-              SelectableText(value, style: textStyle),
-            ],
-          ),
+        padding: _agentTaskDetailCardPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: theme.textTheme.labelLarge),
+            const SizedBox(height: 8),
+            SelectableText(value, style: textStyle),
+          ],
         ),
       ),
     );
@@ -6717,7 +6887,13 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               child: _numberStepper(
                 l10n.agentsMinWorkersLabel,
                 _minWorkers,
-                (v) => setState(() => _minWorkers = v.clamp(0, _maxWorkers)),
+                min: _agentScaleMinWorkersMin,
+                max: _maxWorkers,
+                onChanged: (v) => setState(
+                  () => _minWorkers = v
+                      .clamp(_agentScaleMinWorkersMin, _maxWorkers)
+                      .toInt(),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -6725,8 +6901,12 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               child: _numberStepper(
                 l10n.agentsMaxWorkersLabel,
                 _maxWorkers,
-                (v) => setState(() {
-                  _maxWorkers = v.clamp(1, 999);
+                min: _agentScaleMaxWorkersMin,
+                max: _agentScaleWorkersMax,
+                onChanged: (v) => setState(() {
+                  _maxWorkers = v
+                      .clamp(_agentScaleMaxWorkersMin, _agentScaleWorkersMax)
+                      .toInt();
                   if (_minWorkers > _maxWorkers) _minWorkers = _maxWorkers;
                 }),
               ),
@@ -6736,7 +6916,13 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               child: _numberStepper(
                 l10n.agentsMaxRetriesLabel,
                 _maxRetries,
-                (v) => setState(() => _maxRetries = v.clamp(0, 20)),
+                min: _agentScaleRetriesMin,
+                max: _agentScaleRetriesMax,
+                onChanged: (v) => setState(
+                  () => _maxRetries = v
+                      .clamp(_agentScaleRetriesMin, _agentScaleRetriesMax)
+                      .toInt(),
+                ),
               ),
             ),
           ],
@@ -7378,22 +7564,19 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
     );
   }
 
-  Widget _numberStepper(String label, int value, ValueChanged<int> onChanged) {
-    return InputDecorator(
-      decoration: InputDecoration(labelText: label),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => onChanged(value - 1),
-            icon: const Icon(Icons.remove_rounded),
-          ),
-          Expanded(child: Text('$value', textAlign: TextAlign.center)),
-          IconButton(
-            onPressed: () => onChanged(value + 1),
-            icon: const Icon(Icons.add_rounded),
-          ),
-        ],
-      ),
+  Widget _numberStepper(
+    String label,
+    int value, {
+    required int min,
+    required int max,
+    required ValueChanged<int> onChanged,
+  }) {
+    return _AgentNumberStepperField(
+      label: label,
+      value: value,
+      min: min,
+      max: max,
+      onChanged: onChanged,
     );
   }
 
@@ -7684,8 +7867,15 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
   }) {
     final now = DateTime.now().toUtc();
     final previous = widget.initialAgent;
-    final maxWorkers = _maxWorkers.clamp(1, 999);
-    final minWorkers = _minWorkers.clamp(0, maxWorkers);
+    final maxWorkers = _maxWorkers
+        .clamp(_agentScaleMaxWorkersMin, _agentScaleWorkersMax)
+        .toInt();
+    final minWorkers = _minWorkers
+        .clamp(_agentScaleMinWorkersMin, maxWorkers)
+        .toInt();
+    final maxRetries = _maxRetries
+        .clamp(_agentScaleRetriesMin, _agentScaleRetriesMax)
+        .toInt();
     final taskLabels = _dedupeStrings(_taskLabelValues);
     final workerTags = _dedupeStrings(_workerTagValues);
     final workspacePath = _normalizedWorkspacePath();
@@ -7743,7 +7933,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
         scaleInThreshold: _scaleInThreshold.clamp(0, 1).toDouble(),
         workerRemovalPolicy: _workerRemovalPolicy,
         retryPolicy: _retryPolicy,
-        maxRetries: _maxRetries,
+        maxRetries: maxRetries,
         schedulerPolicy: _schedulerPolicy,
         tags: workerTags,
       ),
@@ -9266,6 +9456,178 @@ class _AgentCapabilityChipIconSlot extends StatelessWidget {
           curve: Curves.easeOutCubic,
           opacity: icon == null ? 0 : 1,
           child: Icon(icon ?? Icons.check_rounded, size: 17, color: color),
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentNumberStepperField extends StatefulWidget {
+  const _AgentNumberStepperField({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int value;
+  final int min;
+  final int max;
+  final ValueChanged<int> onChanged;
+
+  @override
+  State<_AgentNumberStepperField> createState() =>
+      _AgentNumberStepperFieldState();
+}
+
+class _AgentNumberStepperFieldState extends State<_AgentNumberStepperField> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+
+  int get _lowerBound => math.min(widget.min, widget.max);
+  int get _upperBound => math.max(widget.min, widget.max);
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: '${_normalized(widget.value)}');
+    _focusNode = FocusNode();
+    _focusNode.addListener(_handleFocusChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AgentNumberStepperField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final normalized = _normalized(widget.value);
+    final parsedText = int.tryParse(_controller.text.trim());
+    final shouldSync =
+        !_focusNode.hasFocus || parsedText == null || parsedText != normalized;
+    if (shouldSync) {
+      _setControllerText(normalized);
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_handleFocusChanged);
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleFocusChanged() {
+    if (!_focusNode.hasFocus) {
+      _commitText();
+    }
+  }
+
+  int _normalized(int value) {
+    return value.clamp(_lowerBound, _upperBound).toInt();
+  }
+
+  int _currentValue() {
+    final parsed = int.tryParse(_controller.text.trim());
+    return _normalized(parsed ?? widget.value);
+  }
+
+  void _setControllerText(int value) {
+    final text = '$value';
+    if (_controller.text == text) return;
+    _controller.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+
+  void _commitValue(int value) {
+    final normalized = _normalized(value);
+    _setControllerText(normalized);
+    if (normalized != widget.value) {
+      widget.onChanged(normalized);
+    }
+  }
+
+  void _commitText() {
+    _commitValue(_currentValue());
+  }
+
+  void _handleTextChanged(String raw) {
+    final parsed = int.tryParse(raw.trim());
+    if (parsed == null) return;
+    final normalized = _normalized(parsed);
+    if (normalized != widget.value) {
+      widget.onChanged(normalized);
+    }
+  }
+
+  void _stepBy(int delta) {
+    _commitValue(_currentValue() + delta);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = _currentValue();
+    final canDecrease = value > _lowerBound;
+    final canIncrease = value < _upperBound;
+    final theme = Theme.of(context);
+    final maxDigits = math.max(1, _upperBound.toString().length);
+    return TextField(
+      controller: _controller,
+      focusNode: _focusNode,
+      textAlign: TextAlign.center,
+      keyboardType: TextInputType.number,
+      textInputAction: TextInputAction.done,
+      inputFormatters: <TextInputFormatter>[
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(maxDigits),
+      ],
+      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      decoration: InputDecoration(
+        labelText: widget.label,
+        prefixIcon: _AgentNumberStepperButton(
+          icon: Icons.remove_rounded,
+          enabled: canDecrease,
+          tooltip: openHandLocalizedText(context, zh: '减少', en: 'Decrease'),
+          onPressed: () => _stepBy(-1),
+        ),
+        suffixIcon: _AgentNumberStepperButton(
+          icon: Icons.add_rounded,
+          enabled: canIncrease,
+          tooltip: openHandLocalizedText(context, zh: '增加', en: 'Increase'),
+          onPressed: () => _stepBy(1),
+        ),
+      ),
+      onChanged: _handleTextChanged,
+      onSubmitted: (_) => _commitText(),
+      onEditingComplete: _commitText,
+    );
+  }
+}
+
+class _AgentNumberStepperButton extends StatelessWidget {
+  const _AgentNumberStepperButton({
+    required this.icon,
+    required this.enabled,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final bool enabled;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SizedBox.square(
+        dimension: _agentNumberStepperButtonExtent,
+        child: IconButton(
+          tooltip: tooltip,
+          onPressed: enabled ? onPressed : null,
+          icon: Icon(icon),
         ),
       ),
     );
