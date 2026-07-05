@@ -120,6 +120,15 @@ void main() {
     });
   });
 
+  group('nonNegativeRoundedIntFromValue', () {
+    test('rounds finite values and rejects negative values', () {
+      expect(nonNegativeRoundedIntFromValue(2.6, fallback: 0), 3);
+      expect(nonNegativeRoundedIntFromValue('4.4', fallback: 0), 4);
+      expect(nonNegativeRoundedIntFromValue(-1, fallback: 7), 7);
+      expect(nonNegativeRoundedIntFromValue('bad', fallback: 7), 7);
+    });
+  });
+
   group('nonNegativeRemaining', () {
     test('returns remaining capacity without going below zero', () {
       expect(nonNegativeRemaining(10, 3), 7);

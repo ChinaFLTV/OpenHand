@@ -371,7 +371,7 @@ String? _readNullableString(Object? value) {
 }
 
 int _readInt(Object? value) {
-  return optionalRoundedIntFromValue(value) ?? 0;
+  return nonNegativeRoundedIntFromValue(value, fallback: 0);
 }
 
 double _readDouble(Object? value) {

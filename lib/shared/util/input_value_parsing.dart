@@ -519,6 +519,11 @@ int? optionalRoundedIntFromValue(Object? value) {
   return null;
 }
 
+int? optionalNonNegativeRoundedIntFromValue(Object? value) {
+  final parsed = optionalRoundedIntFromValue(value);
+  return parsed == null || parsed < 0 ? null : parsed;
+}
+
 int? optionalIntegralIntFromValue(Object? value) {
   if (value == null) return null;
   if (value is int) return value;
@@ -561,6 +566,10 @@ int positiveIntFromValue(Object? value, {required int fallback}) {
 
 int nonNegativeIntFromValue(Object? value, {required int fallback}) {
   return optionalNonNegativeIntFromValue(value) ?? fallback;
+}
+
+int nonNegativeRoundedIntFromValue(Object? value, {required int fallback}) {
+  return optionalNonNegativeRoundedIntFromValue(value) ?? fallback;
 }
 
 int clampedIntFromValue(
