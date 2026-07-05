@@ -3460,6 +3460,14 @@ button.oh-message-context-capsule {
 .oh-session-message-row {
   overflow-anchor: none;
 }
+.oh-session-virtual-message-list {
+  overflow-anchor: none;
+  contain: layout style;
+}
+.oh-session-virtual-spacer {
+  flex: none;
+  pointer-events: none;
+}
 .oh-session-message-content,
 .oh-session-message-content > * {
   overflow-anchor: none;

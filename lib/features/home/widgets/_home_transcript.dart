@@ -3,6 +3,15 @@ part of '../openhand_home_page.dart';
 const Duration _kTranscriptCardEntranceDuration = Duration(milliseconds: 360);
 const Duration _kCreationPlaceholderExitDuration = Duration(milliseconds: 260);
 const Duration _kCreationFailureExitDuration = Duration(milliseconds: 240);
+const double _kTranscriptListCacheExtent = 900;
+const double _kTranscriptEstimatedMessageSpacing = 14;
+const int _kScrollToMessageMaterializeFrameLimit = 8;
+const String _kTranscriptEntryKeyPrefix = 'transcript-entry-';
+const String _kTranscriptLoadEarlierKey = 'transcript-load-earlier';
+const String _kTranscriptPendingCreationKey = 'transcript-pending-creation';
+const String _kTranscriptRetiringCreationKey = 'transcript-retiring-creation';
+const String _kTranscriptCreationFailureKey = 'transcript-creation-failure';
+const String _kTranscriptErrorBannerKey = 'transcript-error-banner';
 
 class _TranscriptHtmlKeepAlive extends StatefulWidget {
   const _TranscriptHtmlKeepAlive({required this.child});
@@ -1179,14 +1188,76 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
     final renderIndex = _renderEntries.indexWhere((e) => e.id == messageId);
     if (renderIndex < 0) return false;
-    // 当前窗口使用确定性布局；目标进入 render entries 后，只需要等待
-    // 有限帧让 registrar 完成注册，再用 ensureVisible 精确定位。
-    for (var attempt = 0; attempt < 3; attempt += 1) {
+    // 惰性列表中，目标虽然已进入 render entries，但离视口较远时尚未
+    // mount，因此先按 index + 已挂载气泡高度估算滚到附近，再由
+    // ensureVisible 做最后的精确落位。
+    _scrollNearRenderEntryIndex(renderIndex);
+    for (
+      var attempt = 0;
+      attempt < _kScrollToMessageMaterializeFrameLimit;
+      attempt += 1
+    ) {
       await WidgetsBinding.instance.endOfFrame;
       if (await tryEnsureVisible()) return true;
       if (!mounted) return false;
+      if (attempt == 2) {
+        _scrollNearRenderEntryIndex(renderIndex);
+      }
     }
     return false;
+  }
+
+  bool _scrollNearRenderEntryIndex(int targetIndex) {
+    if (!mounted ||
+        targetIndex < 0 ||
+        targetIndex >= _renderEntries.length ||
+        !widget.controller.hasClients) {
+      return false;
+    }
+    final position = widget.controller.position;
+    final maxExtent = position.maxScrollExtent;
+    if (maxExtent <= 0) return false;
+
+    double? bestTarget;
+    var bestDistance = 1 << 30;
+    for (var index = 0; index < _renderEntries.length; index += 1) {
+      final entry = _renderEntries[index];
+      if (entry.exiting) continue;
+      final viewportOffset = _viewportOffsetForMessage(entry.id);
+      final ctx = _bubbleRegistry.contextOf(entry.id);
+      final box = ctx?.findRenderObject() as RenderBox?;
+      if (viewportOffset == null ||
+          box == null ||
+          !box.attached ||
+          !box.hasSize) {
+        continue;
+      }
+      final distance = (targetIndex - index).abs();
+      if (distance >= bestDistance) continue;
+      final estimatedExtent = math.max(
+        1.0,
+        box.size.height + _kTranscriptEstimatedMessageSpacing,
+      );
+      bestDistance = distance;
+      bestTarget =
+          position.pixels +
+          viewportOffset +
+          (targetIndex - index) * estimatedExtent -
+          position.viewportDimension * 0.18;
+    }
+
+    bestTarget ??=
+        maxExtent *
+        (targetIndex / math.max(1, _renderEntries.length - 1)).clamp(0.0, 1.0);
+    final target = bestTarget.clamp(position.minScrollExtent, maxExtent);
+    if ((target - position.pixels).abs() < 1) {
+      return false;
+    }
+    widget.onProgrammaticScrollCorrection(() {
+      if (!mounted || !widget.controller.hasClients) return;
+      widget.controller.position.jumpTo(target);
+    });
+    return true;
   }
 
   Future<bool>? _activeScrollFuture;
@@ -2147,6 +2218,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }) {
     if (hiddenLoadMoreCount > 0 && index == 0) {
       return Padding(
+        key: const ValueKey<String>(_kTranscriptLoadEarlierKey),
         padding: EdgeInsets.only(bottom: listItemCount == 1 ? 0 : 14),
         child: _TranscriptLoadEarlierButton(
           hiddenMessageCount: hiddenMessageCount,
@@ -2160,6 +2232,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       final afterMessagesIndex = messageIndex - _renderEntries.length;
       if (afterMessagesIndex < pendingPlaceholderCount) {
         return Padding(
+          key: const ValueKey<String>(_kTranscriptPendingCreationKey),
           padding: const EdgeInsets.only(bottom: 14),
           child: _PendingCreationPlaceholderCard(
             request: pendingCreationRequest!,
@@ -2169,6 +2242,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (afterMessagesIndex <
           pendingPlaceholderCount + retiringPlaceholderCount) {
         return Padding(
+          key: const ValueKey<String>(_kTranscriptRetiringCreationKey),
           padding: const EdgeInsets.only(bottom: 14),
           child: _PendingCreationPlaceholderCard(
             request: retiringCreationRequest!,
@@ -2181,6 +2255,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               retiringPlaceholderCount +
               failureCardCount) {
         return Padding(
+          key: const ValueKey<String>(_kTranscriptCreationFailureKey),
           padding: const EdgeInsets.only(bottom: 14),
           child: TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0, end: 1),
@@ -2222,6 +2297,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         );
       }
       return _SessionErrorBanner(
+        key: const ValueKey<String>(_kTranscriptErrorBannerKey),
         error: userVisibleError!,
         onDismiss: () async {
           _dismissedErrorIds.add(userVisibleError.id);
@@ -2418,7 +2494,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         : stableBubble;
     const entrySizeDuration = Duration.zero;
     return maybeAnimatedSize(
-      key: ValueKey<String>('transcript-entry-${message.id}'),
+      key: ValueKey<String>('$_kTranscriptEntryKeyPrefix${message.id}'),
       duration: entrySizeDuration,
       curve: kCardMotionCurve,
       alignment: isSelected ? Alignment.topLeft : Alignment.bottomLeft,
@@ -2429,6 +2505,56 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         child: content,
       ),
     );
+  }
+
+  int? _findTranscriptListChildIndex(
+    Key key, {
+    required int hiddenLoadMoreCount,
+    required int pendingPlaceholderCount,
+    required int retiringPlaceholderCount,
+    required int failureCardCount,
+    required int errorBannerCount,
+  }) {
+    if (key is! ValueKey<String>) return null;
+    final value = key.value;
+    if (value == _kTranscriptLoadEarlierKey) {
+      return hiddenLoadMoreCount > 0 ? 0 : null;
+    }
+
+    final messageStart = hiddenLoadMoreCount;
+    if (value.startsWith(_kTranscriptEntryKeyPrefix)) {
+      final messageId = value.substring(_kTranscriptEntryKeyPrefix.length);
+      final messageIndex = _renderEntries.indexWhere(
+        (entry) => entry.id == messageId,
+      );
+      return messageIndex < 0 ? null : messageStart + messageIndex;
+    }
+
+    final afterMessagesStart = messageStart + _renderEntries.length;
+    if (value == _kTranscriptPendingCreationKey) {
+      return pendingPlaceholderCount > 0 ? afterMessagesStart : null;
+    }
+    if (value == _kTranscriptRetiringCreationKey) {
+      return retiringPlaceholderCount > 0
+          ? afterMessagesStart + pendingPlaceholderCount
+          : null;
+    }
+    if (value == _kTranscriptCreationFailureKey) {
+      return failureCardCount > 0
+          ? afterMessagesStart +
+                pendingPlaceholderCount +
+                retiringPlaceholderCount
+          : null;
+    }
+    if (value == _kTranscriptErrorBannerKey) {
+      return errorBannerCount > 0
+          ? afterMessagesStart +
+                pendingPlaceholderCount +
+                retiringPlaceholderCount +
+                failureCardCount
+          : null;
+    }
+    return null;
   }
 
   @override
@@ -2599,42 +2725,48 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               }
               return NotificationListener<ScrollNotification>(
                 onNotification: widget.onScrollNotification,
-                child: SingleChildScrollView(
+                child: ListView.builder(
                   key: const ValueKey<String>('session-transcript-list'),
                   controller: widget.controller,
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.only(bottom: 12),
                   physics: kOpenHandClampingPhysics,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: List<Widget>.generate(
-                      listItemCount,
-                      (index) => _buildTranscriptListItem(
-                        context: context,
-                        index: index,
-                        session: session,
-                        listItemCount: listItemCount,
+                  primary: false,
+                  cacheExtent: _kTranscriptListCacheExtent,
+                  itemCount: listItemCount,
+                  findChildIndexCallback: (key) =>
+                      _findTranscriptListChildIndex(
+                        key,
                         hiddenLoadMoreCount: hiddenLoadMoreCount,
-                        hiddenMessageCount: hiddenMessageCount,
                         pendingPlaceholderCount: pendingPlaceholderCount,
                         retiringPlaceholderCount: retiringPlaceholderCount,
                         failureCardCount: failureCardCount,
-                        pendingCreationRequest: pendingCreationRequest,
-                        retiringCreationRequest: retiringCreationRequest,
-                        failedCreationRequest: failedCreationRequest,
-                        userVisibleError: userVisibleError,
-                        showSelfLearningMessages: showSelfLearningMessages,
-                        visibleMessages: visibleMessages,
-                        visibleMessageIndexById: visibleMessageIndexById,
-                        ttsSnapshot: ttsSnapshot,
-                        ttsSettings: ttsSettings,
-                        translationSettings: translationSettings,
-                        settingsController: settingsController,
-                        telemetryDebugEnabled: telemetryDebugEnabled,
-                        aiSessionController: aiSessionController,
+                        errorBannerCount: errorBannerCount,
                       ),
-                    ),
+                  itemBuilder: (context, index) => _buildTranscriptListItem(
+                    context: context,
+                    index: index,
+                    session: session,
+                    listItemCount: listItemCount,
+                    hiddenLoadMoreCount: hiddenLoadMoreCount,
+                    hiddenMessageCount: hiddenMessageCount,
+                    pendingPlaceholderCount: pendingPlaceholderCount,
+                    retiringPlaceholderCount: retiringPlaceholderCount,
+                    failureCardCount: failureCardCount,
+                    pendingCreationRequest: pendingCreationRequest,
+                    retiringCreationRequest: retiringCreationRequest,
+                    failedCreationRequest: failedCreationRequest,
+                    userVisibleError: userVisibleError,
+                    showSelfLearningMessages: showSelfLearningMessages,
+                    visibleMessages: visibleMessages,
+                    visibleMessageIndexById: visibleMessageIndexById,
+                    ttsSnapshot: ttsSnapshot,
+                    ttsSettings: ttsSettings,
+                    translationSettings: translationSettings,
+                    settingsController: settingsController,
+                    telemetryDebugEnabled: telemetryDebugEnabled,
+                    aiSessionController: aiSessionController,
                   ),
                 ),
               );
@@ -2778,7 +2910,11 @@ class _TranscriptHydratingPlaceholder extends StatelessWidget {
 }
 
 class _SessionErrorBanner extends StatefulWidget {
-  const _SessionErrorBanner({required this.error, required this.onDismiss});
+  const _SessionErrorBanner({
+    super.key,
+    required this.error,
+    required this.onDismiss,
+  });
 
   final AiSessionErrorRecord error;
   final VoidCallback onDismiss;

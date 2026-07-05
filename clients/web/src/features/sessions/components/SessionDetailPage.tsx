@@ -141,6 +141,12 @@ import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from '
 const PAGE_SIZE = 24;
 // 首屏加载最近一页消息；更早历史只在用户点击“加载更早”时进入当前滚动范围。
 const INITIAL_PAGE_SIZE = 12;
+const MESSAGE_LIST_VIRTUALIZATION_THRESHOLD = 72;
+const MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX = 900;
+const MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX = 188;
+const MESSAGE_LIST_MIN_ROW_HEIGHT_PX = 44;
+const MESSAGE_LIST_MAX_ROW_HEIGHT_PX = 1400;
+const MESSAGE_LIST_GAP_PX = 12;
 
 function supportsTitleGeneration(model: ApiMetaModel | undefined): boolean {
   return !!model && model.supports_text_title_generation !== false;
@@ -1763,6 +1769,309 @@ function messageWindowShapeKey(sessionId: string, windowOffset: number, ordered:
     ordered[0]!.id,
     ordered[count - 1]!.id,
   ].join('|');
+}
+
+interface VirtualMessageRange {
+  start: number;
+  end: number;
+}
+
+interface VirtualMessageListProps {
+  messages: SessionMessage[];
+  scrollContainerRef: { current: HTMLElement | null };
+  renderMessage: (message: SessionMessage) => ComponentChildren;
+}
+
+function clampMessageRowHeight(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX;
+  }
+  return Math.round(clampNumber(
+    value,
+    MESSAGE_LIST_MIN_ROW_HEIGHT_PX,
+    MESSAGE_LIST_MAX_ROW_HEIGHT_PX,
+  ));
+}
+
+function virtualMessageTop(prefix: number[], index: number): number {
+  return prefix[index]! + index * MESSAGE_LIST_GAP_PX;
+}
+
+function virtualMessageBottom(prefix: number[], heights: number[], index: number): number {
+  return virtualMessageTop(prefix, index) + heights[index]!;
+}
+
+function virtualMessageTotalHeight(prefix: number[], count: number): number {
+  return prefix[count]! + Math.max(0, count - 1) * MESSAGE_LIST_GAP_PX;
+}
+
+function firstVirtualMessageIntersecting(
+  prefix: number[],
+  heights: number[],
+  targetY: number,
+): number {
+  let lo = 0;
+  let hi = heights.length;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (virtualMessageBottom(prefix, heights, mid) < targetY) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return Math.min(lo, heights.length);
+}
+
+function firstVirtualMessageAfter(
+  prefix: number[],
+  heights: number[],
+  targetY: number,
+): number {
+  let lo = 0;
+  let hi = heights.length;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (virtualMessageTop(prefix, mid) <= targetY) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return Math.min(lo, heights.length);
+}
+
+function MeasuredMessageRow({
+  message,
+  onHeightChange,
+  children,
+}: {
+  message: SessionMessage;
+  onHeightChange: (messageId: string, height: number) => void;
+  children: ComponentChildren;
+}) {
+  const rowRef = useRef<HTMLLIElement | null>(null);
+
+  useLayoutEffect(() => {
+    const element = rowRef.current;
+    if (!element) return undefined;
+    let frame: number | null = null;
+    const measure = () => {
+      frame = null;
+      onHeightChange(message.id, element.offsetHeight);
+    };
+    frame = window.requestAnimationFrame(measure);
+    if (typeof ResizeObserver === 'undefined') {
+      return () => {
+        if (frame != null) window.cancelAnimationFrame(frame);
+      };
+    }
+    const observer = new ResizeObserver(() => {
+      if (frame != null) return;
+      frame = window.requestAnimationFrame(measure);
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      if (frame != null) window.cancelAnimationFrame(frame);
+    };
+  }, [message.id, onHeightChange]);
+
+  return (
+    <li ref={rowRef} class="oh-session-message-row">
+      {children}
+    </li>
+  );
+}
+
+function VirtualMessageList({
+  messages,
+  scrollContainerRef,
+  renderMessage,
+}: VirtualMessageListProps) {
+  const virtualized = messages.length > MESSAGE_LIST_VIRTUALIZATION_THRESHOLD;
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const rangeFrameRef = useRef<number | null>(null);
+  const heightCommitFrameRef = useRef<number | null>(null);
+  const measuredHeightsRef = useRef(new Map<string, number>());
+  const [heightRevision, setHeightRevision] = useState(0);
+  const [range, setRange] = useState<VirtualMessageRange>(() => ({
+    start: 0,
+    end: messages.length,
+  }));
+
+  const estimatedHeights = useMemo(
+    () => messages.map((message) =>
+      measuredHeightsRef.current.get(message.id) ??
+      MESSAGE_LIST_ESTIMATED_ROW_HEIGHT_PX,
+    ),
+    [heightRevision, messages],
+  );
+  const heightPrefix = useMemo(() => {
+    const prefix = new Array<number>(messages.length + 1);
+    prefix[0] = 0;
+    for (let index = 0; index < messages.length; index += 1) {
+      prefix[index + 1] = prefix[index]! + estimatedHeights[index]!;
+    }
+    return prefix;
+  }, [estimatedHeights, messages.length]);
+  const totalHeight = virtualMessageTotalHeight(heightPrefix, messages.length);
+
+  const scheduleHeightCommit = useCallback(() => {
+    if (heightCommitFrameRef.current != null) return;
+    heightCommitFrameRef.current = window.requestAnimationFrame(() => {
+      heightCommitFrameRef.current = null;
+      setHeightRevision((value) => value + 1);
+    });
+  }, []);
+
+  const handleHeightChange = useCallback((messageId: string, height: number) => {
+    const next = clampMessageRowHeight(height);
+    const previous = measuredHeightsRef.current.get(messageId);
+    if (previous != null && Math.abs(previous - next) < 1) return;
+    measuredHeightsRef.current.set(messageId, next);
+    scheduleHeightCommit();
+  }, [scheduleHeightCommit]);
+
+  const updateRange = useCallback(() => {
+    rangeFrameRef.current = null;
+    if (!virtualized) {
+      setRange((current) =>
+        current.start === 0 && current.end === messages.length
+          ? current
+          : { start: 0, end: messages.length },
+      );
+      return;
+    }
+    const scroller = scrollContainerRef.current;
+    const list = listRef.current;
+    if (!scroller || !list || messages.length === 0) {
+      setRange((current) =>
+        current.start === 0 && current.end === Math.min(messages.length, 1)
+          ? current
+          : { start: 0, end: Math.min(messages.length, 1) },
+      );
+      return;
+    }
+    const scrollerRect = scroller.getBoundingClientRect();
+    const listRect = list.getBoundingClientRect();
+    const listTopInScroller = listRect.top - scrollerRect.top + scroller.scrollTop;
+    const viewportTop = Math.max(
+      0,
+      scroller.scrollTop - listTopInScroller - MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX,
+    );
+    const viewportBottom =
+      scroller.scrollTop -
+      listTopInScroller +
+      scroller.clientHeight +
+      MESSAGE_LIST_VIRTUALIZATION_OVERSCAN_PX;
+    const nextStart = Math.max(
+      0,
+      Math.min(
+        messages.length - 1,
+        firstVirtualMessageIntersecting(heightPrefix, estimatedHeights, viewportTop),
+      ),
+    );
+    const nextEnd = Math.max(
+      nextStart + 1,
+      Math.min(
+        messages.length,
+        firstVirtualMessageAfter(heightPrefix, estimatedHeights, viewportBottom) + 1,
+      ),
+    );
+    setRange((current) =>
+      current.start === nextStart && current.end === nextEnd
+        ? current
+        : { start: nextStart, end: nextEnd },
+    );
+  }, [estimatedHeights, heightPrefix, messages.length, scrollContainerRef, virtualized]);
+
+  const scheduleRangeUpdate = useCallback(() => {
+    if (rangeFrameRef.current != null) return;
+    rangeFrameRef.current = window.requestAnimationFrame(updateRange);
+  }, [updateRange]);
+
+  useLayoutEffect(() => {
+    scheduleRangeUpdate();
+  }, [scheduleRangeUpdate, totalHeight, messages.length]);
+
+  useEffect(() => {
+    const scroller = scrollContainerRef.current;
+    if (!scroller) return undefined;
+    const onScroll = () => scheduleRangeUpdate();
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    const observer = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(onScroll);
+    observer?.observe(scroller);
+    return () => {
+      scroller.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      observer?.disconnect();
+    };
+  }, [scheduleRangeUpdate, scrollContainerRef]);
+
+  useEffect(() => () => {
+    if (rangeFrameRef.current != null) {
+      window.cancelAnimationFrame(rangeFrameRef.current);
+      rangeFrameRef.current = null;
+    }
+    if (heightCommitFrameRef.current != null) {
+      window.cancelAnimationFrame(heightCommitFrameRef.current);
+      heightCommitFrameRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    const liveIds = new Set(messages.map((message) => message.id));
+    for (const id of measuredHeightsRef.current.keys()) {
+      if (!liveIds.has(id)) measuredHeightsRef.current.delete(id);
+    }
+  }, [messages]);
+
+  if (!virtualized) {
+    return (
+      <ul class="oh-session-message-list flex flex-col gap-3">
+        {messages.map((message) => (
+          <li key={message.id} class="oh-session-message-row">
+            {renderMessage(message)}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  const safeStart = Math.min(range.start, messages.length);
+  const safeEnd = Math.max(safeStart, Math.min(range.end, messages.length));
+  const visibleMessages = messages.slice(safeStart, safeEnd);
+  const topSpacer = virtualMessageTop(heightPrefix, safeStart);
+  const bottomSpacer =
+    totalHeight -
+    (heightPrefix[safeEnd]! + Math.max(0, safeEnd - 1) * MESSAGE_LIST_GAP_PX);
+
+  return (
+    <div
+      ref={listRef}
+      class="oh-session-virtual-message-list"
+      data-virtualized="true"
+      style={{ minHeight: `${Math.max(0, totalHeight)}px` }}
+    >
+      <div class="oh-session-virtual-spacer" style={{ height: `${Math.max(0, topSpacer)}px` }} />
+      <ul class="oh-session-message-list flex flex-col gap-3">
+        {visibleMessages.map((message) => (
+          <MeasuredMessageRow
+            key={message.id}
+            message={message}
+            onHeightChange={handleHeightChange}
+          >
+            {renderMessage(message)}
+          </MeasuredMessageRow>
+        ))}
+      </ul>
+      <div class="oh-session-virtual-spacer" style={{ height: `${Math.max(0, bottomSpacer)}px` }} />
+    </div>
+  );
 }
 
 function messagesWindowLooksIdentical(prev: SessionMessage[], next: SessionMessage[], prevOffset: number, nextOffset: number): boolean {
@@ -5587,6 +5896,46 @@ export function SessionDetailPage() {
     STREAMING_TURN_IDLE_DEBOUNCE_MS,
   );
   const latestStreamingTextMessageId = messageWindowView.latestStreamingTextMessageId;
+  function renderSessionMessage(m: SessionMessage): ComponentChildren {
+    const translation = messageTranslations[m.id];
+    const translationMatches =
+      translation?.source === (m.content ?? '') &&
+      translation.settingsFingerprint === translationRequestFingerprint;
+    const associatedKnowledgeBaseMetadata = associatedKnowledgeBaseByMessageId.get(m.id) ?? null;
+    const streaming = m.id === latestStreamingTextMessageId || messageMetadataStreaming(m);
+    return (
+      <MessageCard
+        message={m}
+        active={activeMessageId === m.id}
+        streaming={streaming}
+        turnActive={stableResponseRunning}
+        sessionId={sessionId}
+        readAloudEnabled={readAloudEnabled}
+        readAloudPlaying={ttsPlayback.playing && ttsPlayback.messageId === m.id}
+        textActionContentFormat={textActionContentFormat}
+        translationEnabled={translationEnabled}
+        feedbackEnabled={feedbackEnabled}
+        regenerationEnabled={regenerationEnabled}
+        translatedContent={translationMatches ? translation.text : null}
+        translationLoading={translationMatches && translation.loading}
+        translationVisible={translationMatches && translation.visible}
+        associatedKnowledgeBaseMetadata={associatedKnowledgeBaseMetadata}
+        feedbackBusy={feedbackBusyMessageIds.has(m.id)}
+        regenerating={regeneratingMessageIds.has(m.id)}
+        onActiveChange={handleMessageActiveChange}
+        onCopy={handleCopyMessage}
+        onDelete={handleDeleteMessage}
+        onDeleteAfter={handleDeleteMessageCascade}
+        onEdit={m.role === 'user' ? handleEditMessage : undefined}
+        onAudit={handleAuditMessage}
+        onFork={handleForkMessage}
+        onToggleReadAloud={handleToggleMessageTts}
+        onToggleTranslation={handleToggleMessageTranslation}
+        onSetFeedback={handleSetMessageFeedback}
+        onRegenerate={handleRegenerateMessage}
+      />
+    );
+  }
   const loadTitleSourceMessages = useCallback(async (options: { signal: AbortSignal }) => {
     if (!sessionId) return [];
     const res = await listSessionTitleSourceMessages(sessionId, { signal: options.signal });
@@ -5742,50 +6091,11 @@ export function SessionDetailPage() {
                 ) : (
                   <>
                     {session ? <PlanTimeline session={session} modelKey={composerModelKey} /> : null}
-                    <ul class="oh-session-message-list flex flex-col gap-3">
-                      {visibleSortedMessages.map((m) => {
-                        const translation = messageTranslations[m.id];
-                        const translationMatches =
-                          translation?.source === (m.content ?? '') &&
-                          translation.settingsFingerprint === translationRequestFingerprint;
-                        const associatedKnowledgeBaseMetadata = associatedKnowledgeBaseByMessageId.get(m.id) ?? null;
-                        const streaming = m.id === latestStreamingTextMessageId || messageMetadataStreaming(m);
-                        return (
-                          <li key={m.id} class="oh-session-message-row">
-                            <MessageCard
-                              message={m}
-                              active={activeMessageId === m.id}
-                              streaming={streaming}
-                              turnActive={stableResponseRunning}
-                              sessionId={sessionId}
-                              readAloudEnabled={readAloudEnabled}
-                              readAloudPlaying={ttsPlayback.playing && ttsPlayback.messageId === m.id}
-                              textActionContentFormat={textActionContentFormat}
-                              translationEnabled={translationEnabled}
-                              feedbackEnabled={feedbackEnabled}
-                              regenerationEnabled={regenerationEnabled}
-                              translatedContent={translationMatches ? translation.text : null}
-                              translationLoading={translationMatches && translation.loading}
-                              translationVisible={translationMatches && translation.visible}
-                              associatedKnowledgeBaseMetadata={associatedKnowledgeBaseMetadata}
-                              feedbackBusy={feedbackBusyMessageIds.has(m.id)}
-                              regenerating={regeneratingMessageIds.has(m.id)}
-                              onActiveChange={handleMessageActiveChange}
-                              onCopy={handleCopyMessage}
-                              onDelete={handleDeleteMessage}
-                              onDeleteAfter={handleDeleteMessageCascade}
-                              onEdit={m.role === 'user' ? handleEditMessage : undefined}
-                              onAudit={handleAuditMessage}
-                              onFork={handleForkMessage}
-                              onToggleReadAloud={handleToggleMessageTts}
-                              onToggleTranslation={handleToggleMessageTranslation}
-                              onSetFeedback={handleSetMessageFeedback}
-                              onRegenerate={handleRegenerateMessage}
-                            />
-                          </li>
-                        );
-                      })}
-                    </ul>
+                    <VirtualMessageList
+                      messages={visibleSortedMessages}
+                      scrollContainerRef={mainRef}
+                      renderMessage={renderSessionMessage}
+                    />
                     <MediaGeneratingPlaceholderTransition
                       mode={responseRunning ? messageWindowView.lastCreationModeAwaitingAssistant : null}
                       className="mt-3"
