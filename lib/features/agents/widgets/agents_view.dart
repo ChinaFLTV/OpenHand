@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui' show FontFeature;
-
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -80,9 +78,23 @@ const double _agentTaskDetailMinAvailableWidth = 320;
 const double _agentTaskDetailSectionGap = 14;
 const double _agentTaskDetailGridGap = 12;
 const double _agentTaskDetailGridBreakpoint = 640;
-const double _agentTaskDetailCardRadius = 16;
-const double _agentTaskDetailCompactMinHeight = 90;
-const EdgeInsets _agentTaskDetailCardPadding = EdgeInsets.all(14);
+const double _agentTaskDetailHeroBreakpoint = 620;
+const double _agentTaskDetailHeroRailWidth = 4;
+const double _agentTaskDetailHeroIconExtent = 46;
+const double _agentTaskDetailHeroIconSize = 25;
+const double _agentTaskDetailHeroProgressWidth = 184;
+const double _agentTaskDetailIconExtent = 30;
+const double _agentTaskDetailFactMinHeight = 56;
+const double _agentTaskDetailCardRadius = 8;
+const double _agentTaskDetailCompactMinHeight = 74;
+const EdgeInsets _agentTaskDetailHeroPadding = EdgeInsets.all(14);
+const EdgeInsets _agentTaskDetailFactPanelPadding = EdgeInsets.all(12);
+const EdgeInsets _agentTaskDetailCardPadding = EdgeInsets.fromLTRB(
+  14,
+  12,
+  14,
+  12,
+);
 const double _agentAuditDialogMaxWidth = 980;
 const double _agentAuditDialogMaxHeight = 760;
 const double _agentAuditSectionGridGap = 12;
@@ -94,14 +106,6 @@ const int _agentLogDetailMaxJsonDepth = 8;
 const int _agentLogDetailMaxStringChars = 6000;
 const int _agentLogDetailMaxJsonChars = 60000;
 const int _agentLogDetailMaxCollectionItems = 500;
-const double _agentResourceDialogMaxWidth = 1040;
-const double _agentResourceDialogMaxHeight = 780;
-const int _agentResourceSampleIntervalMs = 1400;
-const String _agentResourceTelemetryExtraKey = '_openhand_resource_telemetry';
-const String _agentResourceTelemetryHistoryKey = 'history';
-const double _agentResourcePanelGap = 12;
-const double _agentResourceChartHeight = 190;
-const double _agentResourceDonutSize = 156;
 const double _agentDialogMetricGap = 12;
 const double _agentDialogMetricWideBreakpoint = 760;
 const double _agentDialogMetricMediumBreakpoint = 520;
@@ -2903,9 +2907,7 @@ class _AgentClusterSettingsEditorState
     _maxWorkers = _normalizeAgentMaxWorkers(initial.maxWorkers);
     _minWorkers = _normalizeAgentMinWorkers(initial.minWorkers, _maxWorkers);
     _maxRetries = _normalizeAgentMaxRetries(initial.maxRetries);
-    _scaleOutThreshold = _normalizeAgentScaleRatio(
-      initial.scaleOutThreshold,
-    );
+    _scaleOutThreshold = _normalizeAgentScaleRatio(initial.scaleOutThreshold);
     _scaleInThreshold = _normalizeAgentScaleRatio(initial.scaleInThreshold);
     _schedulerPolicy =
         _agentSchedulerPolicyOptions.contains(initial.schedulerPolicy)
@@ -2943,10 +2945,8 @@ class _AgentClusterSettingsEditorState
               min: _agentScaleMinWorkersMin,
               max: _maxWorkers,
               onChanged: (value) => setState(
-                () => _minWorkers = _normalizeAgentMinWorkers(
-                  value,
-                  _maxWorkers,
-                ),
+                () =>
+                    _minWorkers = _normalizeAgentMinWorkers(value, _maxWorkers),
               ),
             ),
             _clusterNumberStepper(
@@ -3541,105 +3541,57 @@ Future<void> _showAgentTaskDetailDialog(
               assignedWorker: assignedWorker,
               nextAction: trackingSummary.nextAction,
             ),
-            _AgentDialogMetricGrid(
+            _AgentTaskDetailFactPanel(
               children: [
-                _AgentDialogMetricTile(
-                  icon: _agentTaskStatusIcon(task.status),
-                  color: _agentTaskStatusColor(
-                    Theme.of(context).colorScheme,
-                    task.status,
-                  ),
-                  label: openHandLocalizedText(context, zh: '状态', en: 'Status'),
-                  value: _agentTaskStatusLabel(l10n, task.status),
-                ),
-                _AgentDialogMetricTile(
-                  icon: Icons.trending_up_rounded,
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '进度',
-                    en: 'Progress',
-                  ),
-                  value: '${(task.progress * 100).round()}%',
-                  progress: task.progress,
-                ),
-                _AgentDialogMetricTile(
-                  icon: Icons.route_rounded,
-                  label: openHandLocalizedText(context, zh: '下一步', en: 'Next'),
-                  value: trackingSummary.nextAction,
-                ),
-                _AgentDialogMetricTile(
-                  icon: Icons.badge_outlined,
-                  label: openHandLocalizedText(
-                    context,
-                    zh: 'Worker',
-                    en: 'Worker',
-                  ),
-                  value: assignedWorker.isEmpty ? '-' : assignedWorker,
-                ),
-              ],
-            ),
-            _AgentTaskDetailBlock(
-              icon: Icons.title_rounded,
-              title: openHandLocalizedText(context, zh: '标题', en: 'Title'),
-              body: task.title,
-            ),
-            _AgentTaskDetailGrid(
-              children: [
-                _AgentTaskDetailBlock(
+                _AgentTaskDetailFact(
                   icon: Icons.tag_rounded,
                   title: 'ID',
-                  body: task.id,
-                  compact: true,
+                  value: task.id,
                 ),
-                _AgentTaskDetailBlock(
+                _AgentTaskDetailFact(
                   icon: Icons.schedule_rounded,
                   title: openHandLocalizedText(
                     context,
                     zh: '创建时间',
                     en: 'Created',
                   ),
-                  body: _agentDateTimeLabel(task.createdAt),
-                  compact: true,
+                  value: _agentDateTimeLabel(task.createdAt),
                 ),
-                _AgentTaskDetailBlock(
+                _AgentTaskDetailFact(
                   icon: Icons.update_rounded,
                   title: openHandLocalizedText(
                     context,
                     zh: '更新时间',
                     en: 'Updated',
                   ),
-                  body: _agentDateTimeLabel(task.updatedAt),
-                  compact: true,
+                  value: _agentDateTimeLabel(task.updatedAt),
                 ),
-                _AgentTaskDetailBlock(
+                _AgentTaskDetailFact(
                   icon: Icons.handshake_outlined,
                   title: openHandLocalizedText(
                     context,
                     zh: '交接状态',
                     en: 'Handoff',
                   ),
-                  body: trackingSummary.handoff,
-                  compact: true,
+                  value: trackingSummary.handoff,
                 ),
-                _AgentTaskDetailBlock(
+                _AgentTaskDetailFact(
                   icon: Icons.build_circle_outlined,
                   title: openHandLocalizedText(
                     context,
                     zh: '推荐工具',
                     en: 'Recommended tool',
                   ),
-                  body: trackingSummary.recommendedTool,
-                  compact: true,
+                  value: trackingSummary.recommendedTool,
                 ),
-                _AgentTaskDetailBlock(
+                _AgentTaskDetailFact(
                   icon: Icons.engineering_outlined,
                   title: openHandLocalizedText(
                     context,
                     zh: '分配 Worker',
                     en: 'Assigned worker',
                   ),
-                  body: assignedWorker,
-                  compact: true,
+                  value: assignedWorker,
                 ),
               ],
             ),
@@ -6325,119 +6277,304 @@ class _AgentTaskDetailHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final settings = _agentDialogAnimationSettings(context);
     final progress = task.progress.clamp(0, 1).toDouble();
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: AlignmentDirectional.topStart,
-          end: AlignmentDirectional.bottomEnd,
-          colors: [
-            statusColor.withValues(alpha: 0.16),
-            cs.surfaceContainerHighest.withValues(alpha: 0.46),
+    final progressPercent = (progress * 100).round();
+    final title = task.title.trim().isEmpty ? '-' : task.title.trim();
+    final worker = assignedWorker.trim();
+    final next = nextAction.trim();
+    final borderRadius = BorderRadius.circular(_agentTaskDetailCardRadius);
+    final heroColor = Color.alphaBlend(
+      statusColor.withValues(alpha: 0.055),
+      cs.surfaceContainerHighest.withValues(alpha: 0.30),
+    );
+
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: AnimatedContainer(
+        duration: settings.duration,
+        curve: settings.curve.curve,
+        decoration: BoxDecoration(
+          color: heroColor,
+          borderRadius: borderRadius,
+          border: Border.all(color: statusColor.withValues(alpha: 0.24)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AnimatedContainer(
+              duration: settings.duration,
+              curve: settings.curve.curve,
+              width: _agentTaskDetailHeroRailWidth,
+              color: statusColor,
+            ),
+            Expanded(
+              child: Padding(
+                padding: _agentTaskDetailHeroPadding,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact =
+                        constraints.maxWidth < _agentTaskDetailHeroBreakpoint;
+                    final leading = Container(
+                      width: _agentTaskDetailHeroIconExtent,
+                      height: _agentTaskDetailHeroIconExtent,
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(
+                          _agentTaskDetailCardRadius,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        _agentTaskStatusIcon(task.status),
+                        color: statusColor,
+                        size: _agentTaskDetailHeroIconSize,
+                      ),
+                    );
+                    final titleBlock = Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _AgentActivityTypeChip(
+                              label: statusLabel,
+                              color: statusColor,
+                            ),
+                            if (worker.isNotEmpty)
+                              _AgentActivityMetadataChip(text: worker),
+                            if (next.isNotEmpty)
+                              _AgentActivityMetadataChip(text: next),
+                          ],
+                        ),
+                        const SizedBox(height: 9),
+                        Text(
+                          title,
+                          maxLines: compact ? 3 : 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            height: 1.18,
+                          ),
+                        ),
+                      ],
+                    );
+                    final progressBlock = SizedBox(
+                      width: compact
+                          ? double.infinity
+                          : _agentTaskDetailHeroProgressWidth,
+                      child: Column(
+                        crossAxisAlignment: compact
+                            ? CrossAxisAlignment.stretch
+                            : CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            openHandLocalizedText(
+                              context,
+                              zh: '任务进度',
+                              en: 'Progress',
+                            ),
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: cs.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          AnimatedSwitcher(
+                            duration: settings.duration,
+                            reverseDuration: settings.duration,
+                            switchInCurve: settings.curve.curve,
+                            switchOutCurve: settings.curve.reverseCurve,
+                            transitionBuilder: (child, animation) =>
+                                _agentDialogSwitchTransition(
+                                  settings: settings,
+                                  animation: animation,
+                                  child: child,
+                                ),
+                            child: Text(
+                              '$progressPercent%',
+                              key: ValueKey<int>(progressPercent),
+                              textAlign: compact
+                                  ? TextAlign.start
+                                  : TextAlign.end,
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                color: statusColor,
+                                fontWeight: FontWeight.w900,
+                                height: 1.08,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 9),
+                          TweenAnimationBuilder<double>(
+                            tween: Tween<double>(begin: 0, end: progress),
+                            duration: settings.duration,
+                            curve: settings.curve.curve,
+                            builder: (context, value, _) {
+                              return LinearProgressIndicator(
+                                value: value,
+                                minHeight: 6,
+                                borderRadius: BorderRadius.circular(999),
+                                color: statusColor,
+                                backgroundColor: cs.surfaceContainerHighest,
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                    if (compact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              leading,
+                              const SizedBox(width: 12),
+                              Expanded(child: titleBlock),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          progressBlock,
+                        ],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        leading,
+                        const SizedBox(width: 12),
+                        Expanded(child: titleBlock),
+                        const SizedBox(width: 16),
+                        progressBlock,
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: statusColor.withValues(alpha: 0.26)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 620;
-            final leading = Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(17),
-              ),
-              alignment: Alignment.center,
-              child: Icon(
-                _agentTaskStatusIcon(task.status),
-                color: statusColor,
-                size: 28,
-              ),
+    );
+  }
+}
+
+class _AgentTaskDetailFactPanel extends StatelessWidget {
+  const _AgentTaskDetailFactPanel({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
+    final settings = _agentDialogAnimationSettings(context);
+    return AnimatedContainer(
+      duration: settings.duration,
+      curve: settings.curve.curve,
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          cs.primary.withValues(alpha: 0.025),
+          cs.surfaceContainerHighest.withValues(alpha: 0.20),
+        ),
+        borderRadius: BorderRadius.circular(_agentTaskDetailCardRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.46)),
+      ),
+      padding: _agentTaskDetailFactPanelPadding,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxWidth = constraints.maxWidth;
+          if (!maxWidth.isFinite) {
+            return Wrap(
+              spacing: _agentTaskDetailGridGap,
+              runSpacing: _agentTaskDetailGridGap,
+              children: children,
             );
-            final content = Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _AgentActivityTypeChip(
-                        label: statusLabel,
-                        color: statusColor,
-                      ),
-                      if (assignedWorker.trim().isNotEmpty)
-                        _AgentActivityMetadataChip(text: assignedWorker),
-                      _AgentActivityMetadataChip(text: nextAction),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    task.title.trim().isEmpty ? '-' : task.title.trim(),
-                    maxLines: compact ? 3 : 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      height: 1.18,
-                    ),
-                  ),
-                ],
-              ),
-            );
-            final progressBlock = SizedBox(
-              width: compact ? double.infinity : 180,
-              child: Column(
-                crossAxisAlignment: compact
-                    ? CrossAxisAlignment.stretch
-                    : CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${(progress * 100).round()}%',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: statusColor,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 8,
-                    borderRadius: BorderRadius.circular(999),
-                    color: statusColor,
-                    backgroundColor: cs.surfaceContainerHighest,
-                  ),
-                ],
-              ),
-            );
-            if (compact) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [leading, const SizedBox(width: 12), content],
-                  ),
-                  const SizedBox(height: 14),
-                  progressBlock,
-                ],
-              );
-            }
-            return Row(
+          }
+          final columns = maxWidth >= _agentDialogMetricWideBreakpoint
+              ? 3
+              : maxWidth >= _agentDialogMetricMediumBreakpoint
+              ? 2
+              : 1;
+          final itemWidth =
+              (maxWidth - _agentTaskDetailGridGap * (columns - 1)) / columns;
+          return Wrap(
+            spacing: _agentTaskDetailGridGap,
+            runSpacing: _agentTaskDetailGridGap,
+            children: [
+              for (final child in children)
+                SizedBox(width: math.max(0, itemWidth), child: child),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AgentTaskDetailFact extends StatelessWidget {
+  const _AgentTaskDetailFact({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final normalizedValue = value.trim().isEmpty ? '-' : value.trim();
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minHeight: _agentTaskDetailFactMinHeight,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: _agentTaskDetailIconExtent,
+            height: _agentTaskDetailIconExtent,
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(_agentTaskDetailCardRadius),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 17, color: cs.primary),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                leading,
-                const SizedBox(width: 14),
-                content,
-                const SizedBox(width: 16),
-                progressBlock,
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SelectableText(
+                  normalizedValue,
+                  maxLines: 2,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w700,
+                    height: 1.28,
+                  ),
+                ),
               ],
-            );
-          },
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -6641,6 +6778,7 @@ class _AgentTaskDetailBlock extends StatelessWidget {
               height: compact ? 1.35 : 1.45,
             );
     final settings = _agentDialogAnimationSettings(context);
+    final tone = cs.primary;
     return SizedBox(
       width: double.infinity,
       child: AnimatedContainer(
@@ -6650,37 +6788,49 @@ class _AgentTaskDetailBlock extends StatelessWidget {
           minHeight: compact ? _agentTaskDetailCompactMinHeight : 0,
         ),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+          color: cs.surfaceContainerHighest.withValues(
+            alpha: compact ? 0.24 : 0.28,
+          ),
           borderRadius: BorderRadius.circular(_agentTaskDetailCardRadius),
-          border: Border.all(color: cs.outlineVariant),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.72)),
         ),
         padding: _agentTaskDetailCardPadding,
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (icon != null) ...[
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: cs.primary.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                alignment: Alignment.center,
-                child: Icon(icon, size: 17, color: cs.primary),
-              ),
-              const SizedBox(width: 11),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: theme.textTheme.labelLarge),
-                  const SizedBox(height: 8),
-                  SelectableText(value, style: textStyle),
+            Row(
+              children: [
+                if (icon != null) ...[
+                  Container(
+                    width: _agentTaskDetailIconExtent,
+                    height: _agentTaskDetailIconExtent,
+                    decoration: BoxDecoration(
+                      color: tone.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(
+                        _agentTaskDetailCardRadius,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(icon, size: 17, color: tone),
+                  ),
+                  const SizedBox(width: 10),
                 ],
-              ),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+              ],
             ),
+            SizedBox(height: compact ? 8 : 10),
+            SelectableText(value, style: textStyle),
           ],
         ),
       ),
@@ -8230,10 +8380,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                 min: _agentScaleMinWorkersMin,
                 max: _maxWorkers,
                 onChanged: (v) => setState(
-                  () => _minWorkers = _normalizeAgentMinWorkers(
-                    v,
-                    _maxWorkers,
-                  ),
+                  () => _minWorkers = _normalizeAgentMinWorkers(v, _maxWorkers),
                 ),
               ),
             ),
@@ -8260,9 +8407,8 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                 _maxRetries,
                 min: _agentScaleRetriesMin,
                 max: _agentScaleRetriesMax,
-                onChanged: (v) => setState(
-                  () => _maxRetries = _normalizeAgentMaxRetries(v),
-                ),
+                onChanged: (v) =>
+                    setState(() => _maxRetries = _normalizeAgentMaxRetries(v)),
               ),
             ),
           ],
@@ -10939,11 +11085,7 @@ class _AgentNumberStepperFieldState extends State<_AgentNumberStepperField> {
             _AgentNumberStepperButton(
               icon: Icons.remove_rounded,
               enabled: canDecrease,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '减少',
-                en: 'Decrease',
-              ),
+              tooltip: openHandLocalizedText(context, zh: '减少', en: 'Decrease'),
               onPressed: () => _stepBy(-1),
             ),
             Expanded(
@@ -10978,11 +11120,7 @@ class _AgentNumberStepperFieldState extends State<_AgentNumberStepperField> {
             _AgentNumberStepperButton(
               icon: Icons.add_rounded,
               enabled: canIncrease,
-              tooltip: openHandLocalizedText(
-                context,
-                zh: '增加',
-                en: 'Increase',
-              ),
+              tooltip: openHandLocalizedText(context, zh: '增加', en: 'Increase'),
               onPressed: () => _stepBy(1),
             ),
           ],
