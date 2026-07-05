@@ -185,6 +185,9 @@ const double _agentNumberStepperFieldExtent = 64;
 const double _agentNumberStepperControlTopInset = 8;
 const double _agentNumberStepperControlRadius = 24;
 const double _agentNumberStepperButtonExtent = 36;
+const double _agentNumberStepperEditableHeight = 34;
+const double _agentNumberStepperEditableMinWidth = 52;
+const double _agentNumberStepperEditableDigitWidth = 15;
 const double _agentNumberStepperIconSize = 20;
 const int _agentNumberStepperStateDurationMs = 150;
 const EdgeInsetsDirectional _agentNumberStepperContentPadding =
@@ -12164,6 +12167,10 @@ class _AgentNumberStepperFieldState extends State<_AgentNumberStepperField> {
     final settings = _agentDialogAnimationSettings(context);
     final focused = _focusNode.hasFocus;
     final maxDigits = math.max(1, _upperBound.toString().length);
+    final editableWidth = math.max(
+      _agentNumberStepperEditableMinWidth,
+      maxDigits * _agentNumberStepperEditableDigitWidth + 18,
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final labelMaxWidth = math.max(0.0, constraints.maxWidth - 32);
@@ -12246,37 +12253,41 @@ class _AgentNumberStepperFieldState extends State<_AgentNumberStepperField> {
                         onPressed: () => _stepBy(-1),
                       ),
                       Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          focusNode: _focusNode,
-                          textAlign: TextAlign.center,
-                          textAlignVertical: TextAlignVertical.center,
-                          keyboardType: TextInputType.number,
-                          textInputAction: TextInputAction.done,
-                          inputFormatters: <TextInputFormatter>[
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(maxDigits),
-                          ],
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            color: cs.onSurface,
-                            fontWeight: FontWeight.w900,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                            height: 1,
-                          ),
-                          cursorColor: cs.primary,
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            disabledBorder: InputBorder.none,
-                            isCollapsed: true,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 10,
+                        child: Center(
+                          child: SizedBox(
+                            width: editableWidth,
+                            height: _agentNumberStepperEditableHeight,
+                            child: EditableText(
+                              controller: _controller,
+                              focusNode: _focusNode,
+                              textAlign: TextAlign.center,
+                              keyboardType: TextInputType.number,
+                              textInputAction: TextInputAction.done,
+                              inputFormatters: <TextInputFormatter>[
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(maxDigits),
+                              ],
+                              style:
+                                  (theme.textTheme.titleLarge ??
+                                          const TextStyle(fontSize: 22))
+                                      .copyWith(
+                                        color: cs.onSurface,
+                                        fontWeight: FontWeight.w900,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                        height: 1.1,
+                                      ),
+                              cursorColor: cs.primary,
+                              backgroundCursorColor: cs.outlineVariant,
+                              selectionColor: cs.primary.withValues(
+                                alpha: 0.22,
+                              ),
+                              onChanged: _handleTextChanged,
+                              onSubmitted: (_) => _commitText(),
+                              onEditingComplete: _commitText,
                             ),
                           ),
-                          onChanged: _handleTextChanged,
-                          onSubmitted: (_) => _commitText(),
-                          onEditingComplete: _commitText,
                         ),
                       ),
                       _AgentNumberStepperButton(
