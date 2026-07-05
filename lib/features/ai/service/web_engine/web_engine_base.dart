@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/exponential_backoff.dart';
 
 /// WebSearch / WebFetch 引擎共用的请求基类。
@@ -61,7 +62,7 @@ abstract class WebEngineBase<
     Object? lastError;
     final maxAttempts = (maxRetries + 1).clamp(1, 8);
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
-      if (await _isCancelRequested(request.cancelSignal)) {
+      if (await isCancelSignalCompleted(request.cancelSignal)) {
         return buildResult(
           items: const [],
           error: 'cancelled',
@@ -94,9 +95,9 @@ abstract class WebEngineBase<
             capMs: 4000,
           ),
         );
-        final cancelled = await _waitBackoffOrCancel(
-          request.cancelSignal,
+        final cancelled = await delayUntilCancelled(
           backoff,
+          cancelSignal: request.cancelSignal,
         );
         if (cancelled) {
           return buildResult(
@@ -118,54 +119,11 @@ abstract class WebEngineBase<
     );
   }
 
-  Future<bool> _isCancelRequested(Future<void>? cancelSignal) async {
-    if (cancelSignal == null) return false;
-    return Future.any<bool>([
-      _cancelSignalAsTrue(cancelSignal),
-      Future<void>.delayed(Duration.zero).then((_) => false),
-    ]);
-  }
-
   Future<List<TItem>?> _fetchWithCancel(TRequest request) async {
-    final cancelSignal = request.cancelSignal;
     final fetchFuture = fetch(request).timeout(fetchTimeout);
-    if (cancelSignal == null) return fetchFuture;
-    final outcome = await Future.any<Object>([
-      _cancelSignalAsCancelled(cancelSignal),
+    return awaitWithCancelSignal(
       fetchFuture,
-    ]);
-    return outcome is _WebEngineCancelled ? null : outcome as List<TItem>;
-  }
-
-  Future<bool> _waitBackoffOrCancel(
-    Future<void>? cancelSignal,
-    Duration backoff,
-  ) async {
-    if (backoff <= Duration.zero) return false;
-    if (cancelSignal == null) {
-      await Future<void>.delayed(backoff);
-      return false;
-    }
-    return Future.any<bool>([
-      _cancelSignalAsTrue(cancelSignal),
-      Future<void>.delayed(backoff).then((_) => false),
-    ]);
-  }
-
-  Future<bool> _cancelSignalAsTrue(Future<void> cancelSignal) {
-    return cancelSignal.then((_) => true, onError: (_) => true);
-  }
-
-  Future<_WebEngineCancelled> _cancelSignalAsCancelled(
-    Future<void> cancelSignal,
-  ) {
-    return cancelSignal.then(
-      (_) => const _WebEngineCancelled(),
-      onError: (_) => const _WebEngineCancelled(),
+      cancelSignal: request.cancelSignal,
     );
   }
-}
-
-class _WebEngineCancelled {
-  const _WebEngineCancelled();
 }

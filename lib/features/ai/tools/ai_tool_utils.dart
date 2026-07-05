@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/path_safety.dart';
@@ -1332,21 +1333,7 @@ class AiToolUtils {
   static Future<T?> awaitWithCancellation<T>(
     Future<T> future, {
     Future<void>? cancelSignal,
-  }) async {
-    if (cancelSignal == null) return future;
-    final sentinel = Object();
-    final firstResult = await Future.any(
-      <Future<Object?>?>[
-        future,
-        cancelSignal.then<Object?>((_) => sentinel),
-      ].whereType<Future<Object?>>().toList(),
-    );
-    if (identical(firstResult, sentinel)) {
-      future.then<void>((_) {}, onError: (Object e, StackTrace st) {});
-      return null;
-    }
-    return firstResult as T;
-  }
+  }) => awaitWithCancelSignal(future, cancelSignal: cancelSignal);
 
   // ────────────────────────────────────────────────────────────
   // 2026-04-13: ripgrep (rg) 命令路径解析

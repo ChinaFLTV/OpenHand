@@ -5,6 +5,46 @@ typedef OpenHandAsyncContinuePredicate = bool Function();
 const int kOpenHandMaxAsyncConcurrency = 64;
 const Duration _kOpenHandAsyncDelayCheckInterval = Duration(milliseconds: 50);
 
+Future<bool> isCancelSignalCompleted(Future<void>? cancelSignal) {
+  if (cancelSignal == null) return Future<bool>.value(false);
+  return Future.any<bool>([
+    cancelSignal.then((_) => true, onError: (_) => true),
+    Future<void>.delayed(Duration.zero).then((_) => false),
+  ]);
+}
+
+Future<bool> delayUntilCancelled(
+  Duration delay, {
+  Future<void>? cancelSignal,
+}) async {
+  if (delay <= Duration.zero) return isCancelSignalCompleted(cancelSignal);
+  if (cancelSignal == null) {
+    await Future<void>.delayed(delay);
+    return false;
+  }
+  return Future.any<bool>([
+    cancelSignal.then((_) => true, onError: (_) => true),
+    Future<void>.delayed(delay).then((_) => false),
+  ]);
+}
+
+Future<T?> awaitWithCancelSignal<T>(
+  Future<T> future, {
+  Future<void>? cancelSignal,
+}) async {
+  if (cancelSignal == null) return future;
+  final sentinel = Object();
+  final firstResult = await Future.any<Object?>([
+    future.then<Object?>((value) => value),
+    cancelSignal.then<Object?>((_) => sentinel, onError: (_) => sentinel),
+  ]);
+  if (identical(firstResult, sentinel)) {
+    unawaited(future.then<void>((_) {}, onError: (Object _, StackTrace _) {}));
+    return null;
+  }
+  return firstResult as T;
+}
+
 int _boundedConcurrency({required int itemCount, required int maxConcurrency}) {
   if (itemCount <= 0) return 0;
   final requestedLimit = maxConcurrency < 1 ? 1 : maxConcurrency;
