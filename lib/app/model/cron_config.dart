@@ -1,6 +1,30 @@
 import '../../l10n/app_localizations.dart';
 import '../../shared/util/input_value_parsing.dart';
 
+const int kCronDefaultRetryCount = 0;
+const int kCronMinRetryCount = 0;
+const int kCronMaxRetryCount = 10;
+const int kCronDefaultTimeoutSeconds = 60;
+const int kCronMinTimeoutSeconds = 1;
+const int kCronMaxTimeoutSeconds = 3600;
+const int kCronDefaultRetryDelaySeconds = 30;
+const int kCronMinRetryDelaySeconds = 1;
+const int kCronMaxRetryDelaySeconds = 300;
+
+int clampCronRetryCount(int value) {
+  return value.clamp(kCronMinRetryCount, kCronMaxRetryCount).toInt();
+}
+
+int clampCronTimeoutSeconds(int value) {
+  return value.clamp(kCronMinTimeoutSeconds, kCronMaxTimeoutSeconds).toInt();
+}
+
+int clampCronRetryDelaySeconds(int value) {
+  return value
+      .clamp(kCronMinRetryDelaySeconds, kCronMaxRetryDelaySeconds)
+      .toInt();
+}
+
 /// Type of script source for a cron job.
 enum CronScriptType {
   command('command'),
@@ -134,8 +158,8 @@ class CronEntry {
     this.scriptPath,
     this.scriptContent,
     this.cronExpression = '* * * * *',
-    this.retryCount = 0,
-    this.timeoutSeconds = 60,
+    this.retryCount = kCronDefaultRetryCount,
+    this.timeoutSeconds = kCronDefaultTimeoutSeconds,
     this.runAsUser,
     this.tags = const <String>[],
     this.enabled = true,
@@ -160,7 +184,7 @@ class CronEntry {
     this.collectEnvironmentSnapshot = false,
     this.workingDirectory,
     this.environment = const <String, String>{},
-    this.maxRetryDelaySeconds = 30,
+    this.maxRetryDelaySeconds = kCronDefaultRetryDelaySeconds,
     this.lastRunAt,
     this.nextRunAt,
     this.lastExitCode,
@@ -180,8 +204,14 @@ class CronEntry {
       scriptPath: nullIfBlank('${json['script_path'] ?? ''}'),
       scriptContent: nullIfBlank('${json['script_content'] ?? ''}'),
       cronExpression: '${json['cron_expression'] ?? '* * * * *'}'.trim(),
-      retryCount: intFromValue(json['retry_count'], fallback: 0),
-      timeoutSeconds: intFromValue(json['timeout_seconds'], fallback: 60),
+      retryCount: intFromValue(
+        json['retry_count'],
+        fallback: kCronDefaultRetryCount,
+      ),
+      timeoutSeconds: intFromValue(
+        json['timeout_seconds'],
+        fallback: kCronDefaultTimeoutSeconds,
+      ),
       runAsUser: nullIfBlank('${json['run_as_user'] ?? ''}'),
       tags: stringListFromValue(json['tags']),
       enabled: boolFromValue(json['enabled'], defaultValue: true),
@@ -243,7 +273,7 @@ class CronEntry {
       environment: keyValueMapFromValue(json['environment']),
       maxRetryDelaySeconds: intFromValue(
         json['max_retry_delay_seconds'],
-        fallback: 30,
+        fallback: kCronDefaultRetryDelaySeconds,
       ),
       lastRunAt: dateTimeFromValue(json['last_run_at']),
       nextRunAt: dateTimeFromValue(json['next_run_at']),

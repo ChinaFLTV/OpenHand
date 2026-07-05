@@ -627,9 +627,11 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       text: e?.scriptContent ?? '',
     );
     _timeoutController = TextEditingController(
-      text: '${e?.timeoutSeconds ?? 60}',
+      text: '${e?.timeoutSeconds ?? kCronDefaultTimeoutSeconds}',
     );
-    _retryController = TextEditingController(text: '${e?.retryCount ?? 0}');
+    _retryController = TextEditingController(
+      text: '${e?.retryCount ?? kCronDefaultRetryCount}',
+    );
     _tagsController = TextEditingController(text: e?.tags.join(', ') ?? '');
     _workingDirController = TextEditingController(
       text: e?.workingDirectory ?? '',
@@ -642,7 +644,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
           '',
     );
     _maxRetryDelayController = TextEditingController(
-      text: '${e?.maxRetryDelaySeconds ?? 30}',
+      text: '${e?.maxRetryDelaySeconds ?? kCronDefaultRetryDelaySeconds}',
     );
     _onSuccessMsgController = TextEditingController(
       text: e?.onSuccessMessage ?? '',
@@ -1446,21 +1448,21 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
 
     final timeout = clampedIntFromText(
       _timeoutController.text,
-      fallback: 60,
-      min: 1,
-      max: 3600,
+      fallback: kCronDefaultTimeoutSeconds,
+      min: kCronMinTimeoutSeconds,
+      max: kCronMaxTimeoutSeconds,
     );
     final retryCount = clampedIntFromText(
       _retryController.text,
-      fallback: 0,
-      min: 0,
-      max: 10,
+      fallback: kCronDefaultRetryCount,
+      min: kCronMinRetryCount,
+      max: kCronMaxRetryCount,
     );
     final maxRetryDelay = clampedIntFromText(
       _maxRetryDelayController.text,
-      fallback: 30,
-      min: 1,
-      max: 300,
+      fallback: kCronDefaultRetryDelaySeconds,
+      min: kCronMinRetryDelaySeconds,
+      max: kCronMaxRetryDelaySeconds,
     );
 
     final tags = splitTrimmedNonEmpty(_tagsController.text);

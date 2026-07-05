@@ -15,9 +15,6 @@ import '../../../shared/util/exponential_backoff.dart';
 /// Maximum characters to collect from cron script stdout / stderr.
 const int _maxCronOutputCharacters = 8000;
 
-/// Hard ceiling to prevent a misconfigured timeout from blocking indefinitely.
-const int _maxCronTimeoutSeconds = 3600; // 1 hour
-
 /// Handle returned for a running cron execution.
 class CronExecutionHandle {
   const CronExecutionHandle({required this.result, required this.cancel});
@@ -77,9 +74,9 @@ class CronExecutor {
     final id = _uuid.v4();
     final startedAt = DateTime.now();
     final effectiveTimeout = Duration(
-      seconds: entry.timeoutSeconds.clamp(1, _maxCronTimeoutSeconds),
+      seconds: clampCronTimeoutSeconds(entry.timeoutSeconds),
     );
-    final maxRetries = entry.retryCount.clamp(0, 10);
+    final maxRetries = clampCronRetryCount(entry.retryCount);
     final appContext = <String, String>{
       ...AppRuntimeContext.captureContext(
         includeAppMetadata: entry.collectAppMetadata,
@@ -130,7 +127,7 @@ class CronExecutor {
           seconds: exponentialBackoffSeconds(
             attempt: attempt,
             baseSeconds: 1,
-            capSeconds: entry.maxRetryDelaySeconds.clamp(1, 300),
+            capSeconds: clampCronRetryDelaySeconds(entry.maxRetryDelaySeconds),
           ),
         );
         await Future.any<void>(<Future<void>>[
