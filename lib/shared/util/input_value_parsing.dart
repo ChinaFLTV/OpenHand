@@ -584,6 +584,12 @@ double clampUnitInterval(num value, {double fallback = kUnitIntervalMinimum}) {
   return value.clamp(kUnitIntervalMinimum, kUnitIntervalMaximum).toDouble();
 }
 
+double finiteUnitInterval(num value, {double fallback = kUnitIntervalMinimum}) {
+  final safeFallback = clampUnitInterval(fallback);
+  if (!value.isFinite) return safeFallback;
+  return clampUnitInterval(value);
+}
+
 double unitRatio(num numerator, num denominator) {
   if (!denominator.isFinite || denominator <= 0) return kUnitIntervalMinimum;
   return clampUnitInterval(numerator / denominator);

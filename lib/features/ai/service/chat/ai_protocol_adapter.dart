@@ -2115,7 +2115,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
         positions.length == config.breakpointCount - 1) {
       final selected = <int>{lastIndex};
       for (final p in positions) {
-        final clamped = p.isFinite ? p.clamp(0.0, 1.0) : 1.0;
+        final clamped = finiteUnitInterval(p, fallback: 1.0);
         final idx = (clamped * lastIndex).round().clamp(0, lastIndex);
         selected.add(idx);
       }

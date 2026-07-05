@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../util/input_value_parsing.dart';
 import 'motion_preference.dart';
 
 /// 通用左右分栏，可拖拽中缝调整左侧宽度（右侧自适应剩余空间）。
@@ -44,8 +45,7 @@ class _ResizableSplitterState extends State<ResizableSplitter> {
   }
 
   double _safeInitialLeftFraction(double value) {
-    if (!value.isFinite) return _fallbackInitialLeftFraction;
-    return value.clamp(0.0, 1.0).toDouble();
+    return finiteUnitInterval(value, fallback: _fallbackInitialLeftFraction);
   }
 
   @override

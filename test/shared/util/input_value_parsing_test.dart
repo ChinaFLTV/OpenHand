@@ -38,6 +38,22 @@ void main() {
     });
   });
 
+  group('finiteUnitInterval', () {
+    test('clamps finite values into the unit interval', () {
+      expect(finiteUnitInterval(-0.25, fallback: 0.6), 0);
+      expect(finiteUnitInterval(0.42, fallback: 0.6), 0.42);
+      expect(finiteUnitInterval(1.25, fallback: 0.6), 1);
+    });
+
+    test('uses fallback for all non-finite values', () {
+      expect(finiteUnitInterval(double.infinity, fallback: 0.6), 0.6);
+      expect(finiteUnitInterval(double.negativeInfinity, fallback: 0.6), 0.6);
+      expect(finiteUnitInterval(double.nan, fallback: 0.6), 0.6);
+      expect(finiteUnitInterval(double.nan, fallback: 2), 1);
+      expect(finiteUnitInterval(double.nan, fallback: double.nan), 0);
+    });
+  });
+
   group('unitRatio', () {
     test('returns a safe unit interval ratio', () {
       expect(unitRatio(3, 4), 0.75);

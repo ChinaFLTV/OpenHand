@@ -8,6 +8,7 @@ import '../../app/support/app_update_checker.dart';
 import '../../l10n/app_localizations.dart';
 import '../util/byte_size_format.dart';
 import '../util/date_time_format.dart';
+import '../util/input_value_parsing.dart';
 import 'animated_dialog.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
@@ -140,9 +141,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
   }
 
   void _animateProgressTo(double target) {
-    final safeTarget = target.isFinite
-        ? target.clamp(0.0, 1.0).toDouble()
-        : _targetProgress;
+    final safeTarget = finiteUnitInterval(target, fallback: _targetProgress);
     if (safeTarget <= _targetProgress) return;
     _targetProgress = safeTarget;
     if (!openHandTickerMotionEnabled(context)) {

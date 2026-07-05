@@ -1,5 +1,7 @@
 import 'package:characters/characters.dart';
 
+import 'input_value_parsing.dart';
+
 String clipText(String value, int maxChars, {String suffix = '...'}) {
   final safeMaxChars = maxChars < 0 ? 0 : maxChars;
   final characters = value.characters;
@@ -34,9 +36,7 @@ String clipMiddleText(
   }
 
   final available = maxChars - separatorLength;
-  final safeHeadFraction = headFraction.isFinite
-      ? headFraction.clamp(0.0, 1.0).toDouble()
-      : 0.6;
+  final safeHeadFraction = finiteUnitInterval(headFraction, fallback: 0.6);
   final headCount = (available * safeHeadFraction)
       .round()
       .clamp(0, available)

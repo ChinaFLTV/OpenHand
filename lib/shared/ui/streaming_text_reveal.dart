@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../util/input_value_parsing.dart';
 import 'motion_preference.dart';
 
 class StreamingTextReveal extends StatefulWidget {
@@ -146,7 +147,7 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
     final t = dt / _fadeMs;
     // easeOutCubic：开头亮起快、尾部柔和落位。
     final eased = 1 - (1 - t) * (1 - t) * (1 - t);
-    return eased.clamp(0.0, 1.0);
+    return clampUnitInterval(eased);
   }
 
   @override
@@ -181,9 +182,9 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
     final stops = <double>[];
     final colors = <Color>[];
 
-    final stableFraction = (_stablePrefixLength.clamp(0, total) / total).clamp(
-      0.0,
-      1.0,
+    final stableFraction = unitRatio(
+      _stablePrefixLength.clamp(0, total),
+      total,
     );
     stops.add(0.0);
     colors.add(Colors.white);
@@ -196,7 +197,7 @@ class _StreamingTextRevealState extends State<StreamingTextReveal>
     double prevFraction = stableFraction;
     for (final seg in _segments) {
       final boundary = seg.boundary.clamp(0, total);
-      final fraction = (boundary / total).clamp(0.0, 1.0);
+      final fraction = unitRatio(boundary, total);
       final endAlpha = _alphaForSegment(seg);
       if (fraction <= prevFraction + 1e-5) {
         // 极小段：跳过 stop 插入，仅更新 prevAlpha 让下一段继承。
