@@ -1188,7 +1188,7 @@ class AgentProfile {
       0,
       (sum, worker) => sum + worker.busyScore,
     );
-    return total / workers.length;
+    return unitRatio(total, workers.length);
   }
 
   AgentProfile copyWith({

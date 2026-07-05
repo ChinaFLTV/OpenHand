@@ -65,4 +65,30 @@ void main() {
       );
     });
   });
+
+  group('AgentProfile', () {
+    test('reports bounded worker utilization', () {
+      const idle = AgentProfile(id: 'agent-idle', name: 'Idle');
+      const active = AgentProfile(
+        id: 'agent-active',
+        name: 'Active',
+        workers: <AgentWorker>[
+          AgentWorker(id: 'worker-1', busyScore: 1),
+          AgentWorker(id: 'worker-2', busyScore: 0.5),
+        ],
+      );
+      const overloaded = AgentProfile(
+        id: 'agent-overloaded',
+        name: 'Overloaded',
+        workers: <AgentWorker>[
+          AgentWorker(id: 'worker-1', busyScore: 3),
+          AgentWorker(id: 'worker-2', busyScore: 2),
+        ],
+      );
+
+      expect(idle.workerUtilization, 0);
+      expect(active.workerUtilization, closeTo(0.75, 0.000001));
+      expect(overloaded.workerUtilization, 1);
+    });
+  });
 }
