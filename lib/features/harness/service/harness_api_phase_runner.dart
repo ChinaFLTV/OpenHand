@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../../mcp/index.dart';
 import '../model/harness_phase.dart';
@@ -1187,7 +1188,7 @@ class HarnessApiPhaseRunner {
 
       for (final tc in turn.toolCalls) {
         sb.writeln(
-          '  → 工具调用：${tc.name}(${tc.arguments.length > 200 ? '${tc.arguments.substring(0, 200)}…' : tc.arguments})',
+          '  → 工具调用：${tc.name}(${clipTextWithEllipsis(tc.arguments, 200)})',
         );
       }
       sb.writeln();

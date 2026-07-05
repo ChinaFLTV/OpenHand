@@ -3837,8 +3837,7 @@ String? _settingsTargetedErrorSuggestion(BuildContext context, Object error) {
 String _compactSettingsPreview(String value) {
   final normalized = value.replaceAll(RegExp(r'\s+'), ' ').trim();
   const maxLength = 90;
-  if (normalized.length <= maxLength) return normalized;
-  return '${normalized.substring(0, maxLength)}...';
+  return clipText(normalized, maxLength);
 }
 
 bool _isTtsConfigurationError(Object error) {

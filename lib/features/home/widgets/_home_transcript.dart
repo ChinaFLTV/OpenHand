@@ -1782,8 +1782,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final normalized = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (normalized.isEmpty) return 'unknown error';
     const maxLength = 140;
-    if (normalized.length <= maxLength) return normalized;
-    return '${normalized.substring(0, maxLength)}...';
+    return clipText(normalized, maxLength);
   }
 
   Future<void> _revealOlderMessages() {

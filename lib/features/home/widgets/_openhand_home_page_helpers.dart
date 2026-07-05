@@ -456,9 +456,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
       final content = widget.userMessages[idx].content
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();
-      final preview = content.length > maxLength
-          ? '${content.substring(0, maxLength - 1)}...'
-          : content;
+      final preview = clipText(content, maxLength - 1);
       return preview.isEmpty ? '#${idx + 1}' : preview;
     }
 

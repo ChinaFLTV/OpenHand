@@ -7456,7 +7456,7 @@ String _string(Object? value, String fallback) {
 String _safeFileName(String value) {
   final sanitized = value.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
   if (sanitized.isEmpty) return 'attachment.bin';
-  return sanitized.length > 120 ? sanitized.substring(0, 120) : sanitized;
+  return clipText(sanitized, 120, suffix: '');
 }
 
 String _normalizeWorkspaceExtension(String value) {
