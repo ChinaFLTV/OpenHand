@@ -339,9 +339,12 @@ class WebSearchOrchestrator {
         if ((bucket.source ?? '').isEmpty && (hit.source ?? '').isNotEmpty) {
           bucket.source = hit.source;
         }
-        if (hit.score != null &&
-            (bucket.score == null || hit.score! > bucket.score!)) {
-          bucket.score = hit.score;
+        final normalizedScore = hit.score == null
+            ? null
+            : finiteUnitInterval(hit.score!);
+        if (normalizedScore != null &&
+            (bucket.score == null || normalizedScore > bucket.score!)) {
+          bucket.score = normalizedScore;
         }
         if (_textQualityScore(hit.rawContent) >
             _textQualityScore(bucket.rawContent)) {
@@ -395,9 +398,7 @@ class WebSearchOrchestrator {
     required double? hitScore,
   }) {
     final rankScore = weight / (hitIndex + 1);
-    final normalizedHitScore = hitScore == null
-        ? 0.0
-        : hitScore.clamp(0.0, 1.0).toDouble();
+    final normalizedHitScore = finiteUnitInterval(hitScore ?? 0);
     final relevanceScore = webTextRelevanceScore(
       query,
       '${hit.title}\n${hit.snippet}\n${hit.rawContent ?? ''}',

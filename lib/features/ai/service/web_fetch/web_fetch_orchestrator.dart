@@ -321,7 +321,7 @@ class WebFetchOrchestrator {
         : (content.statusCode! >= 200 && content.statusCode! < 300
               ? 50.0
               : 0.0);
-    final providerScore = (content.score ?? 0).clamp(0.0, 1.0).toDouble() * 50;
+    final providerScore = finiteUnitInterval(content.score ?? 0) * 50;
     return weight * 10 +
         lengthScore +
         urlScore +

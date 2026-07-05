@@ -10,6 +10,7 @@ import 'knowledge_embedding_service.dart';
 import 'knowledge_vector_store.dart';
 
 const Duration _oneDay = Duration(days: 1);
+const double _defaultMmrLambda = 0.72;
 final RegExp _retrievalTokenPattern = RegExp(r'[A-Za-z0-9_\u4e00-\u9fff-]{2,}');
 final RegExp _queryTagPattern = RegExp(r'(?:^|\s)(?:tag:|#)([^\s#]+)');
 final RegExp _queryDayPattern = RegExp(
@@ -216,7 +217,10 @@ class KnowledgeRetrievalService {
     KnowledgeBaseSettings settings,
   ) {
     if (localRanked.length <= 2) return localRanked;
-    final lambda = settings.mmrLambda.clamp(0.0, 1.0).toDouble();
+    final lambda = finiteUnitInterval(
+      settings.mmrLambda,
+      fallback: _defaultMmrLambda,
+    );
     final candidateLimit = math.min(settings.rerankTopN, localRanked.length);
     final candidates = localRanked.take(candidateLimit).toList(growable: true);
     final tail = localRanked.skip(candidateLimit).toList(growable: false);
@@ -228,11 +232,10 @@ class KnowledgeRetrievalService {
       KnowledgeRetrievalHit? best;
       var bestScore = double.negativeInfinity;
       for (final candidate in candidates) {
-        final relevance = topScore <= 0
-            ? (candidate.finalScore ?? candidate.score)
-            : ((candidate.finalScore ?? candidate.score) / topScore)
-                  .clamp(0.0, 1.0)
-                  .toDouble();
+        final relevance = unitRatio(
+          candidate.finalScore ?? candidate.score,
+          topScore,
+        );
         final redundancy = selected.isEmpty
             ? 0.0
             : selected
@@ -443,7 +446,7 @@ class KnowledgeRetrievalService {
     final shared = tokensA.intersection(tokensB).length;
     final union = tokensA.union(tokensB).length;
     if (union == 0) return score;
-    return math.max(score, shared / union);
+    return math.max(score, unitRatio(shared, union));
   }
 
   Set<String> _tokenSet(String value) {
@@ -546,7 +549,7 @@ class KnowledgeRetrievalService {
         normalized.contains('latest');
     if (!hasRecentIntent) return 0.2;
     final ageDays = DateTime.now().toUtc().difference(documentTime).inDays;
-    return math.exp(-math.max(0, ageDays) / 90).clamp(0.0, 1.0);
+    return clampUnitInterval(math.exp(-math.max(0, ageDays) / 90));
   }
 
   ({DateTime start, DateTime end})? _dateRangeForQuery(
