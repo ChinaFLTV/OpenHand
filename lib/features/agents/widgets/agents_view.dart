@@ -4810,7 +4810,7 @@ class _AgentAuditReportBody extends StatelessWidget {
           children: [
             for (final item in report.capabilities.take(5))
               _AgentAuditInsightRow(
-                title: item.name,
+                title: _agentAuditSourceLabel(context, item.name),
                 subtitle: [
                   _agentCapabilityTypeLabel(context, item.type),
                   openHandLocalizedText(
@@ -10416,6 +10416,7 @@ List<String> _agentWorkerDetailChips(
   AgentProfile agent,
   AgentWorker worker,
 ) {
+  final l10n = AppLocalizations.of(context)!;
   final chips = <String>[];
   if (worker.labels.isNotEmpty) {
     chips.add(
@@ -10423,15 +10424,24 @@ List<String> _agentWorkerDetailChips(
         context,
         zh: '标签: ${worker.labels.join(', ')}',
         en: 'Labels: ${worker.labels.join(', ')}',
+        zhHant: '標籤: ${worker.labels.join(', ')}',
+        fr: 'Libellés: ${worker.labels.join(', ')}',
+        de: 'Labels: ${worker.labels.join(', ')}',
+        ja: 'ラベル: ${worker.labels.join(', ')}',
       ),
     );
   }
   if (worker.updatedAt != null) {
+    final updated = formatMonthDayHm(worker.updatedAt!.toLocal());
     chips.add(
       openHandLocalizedText(
         context,
-        zh: '更新: ${formatMonthDayHm(worker.updatedAt!.toLocal())}',
-        en: 'Updated: ${formatMonthDayHm(worker.updatedAt!.toLocal())}',
+        zh: '更新: $updated',
+        en: 'Updated: $updated',
+        zhHant: '更新: $updated',
+        fr: 'Mis à jour: $updated',
+        de: 'Aktualisiert: $updated',
+        ja: '更新: $updated',
       ),
     );
   }
@@ -10444,6 +10454,10 @@ List<String> _agentWorkerDetailChips(
         context,
         zh: '上次分配: ${task?.title ?? lastAssignedTaskId}',
         en: 'Last assigned: ${task?.title ?? lastAssignedTaskId}',
+        zhHant: '上次分配: ${task?.title ?? lastAssignedTaskId}',
+        fr: 'Dernière attribution: ${task?.title ?? lastAssignedTaskId}',
+        de: 'Zuletzt zugewiesen: ${task?.title ?? lastAssignedTaskId}',
+        ja: '前回割り当て: ${task?.title ?? lastAssignedTaskId}',
       ),
     );
   }
@@ -10456,17 +10470,28 @@ List<String> _agentWorkerDetailChips(
         context,
         zh: '上次完成: ${task?.title ?? lastFinishedTaskId}',
         en: 'Last finished: ${task?.title ?? lastFinishedTaskId}',
+        zhHant: '上次完成: ${task?.title ?? lastFinishedTaskId}',
+        fr: 'Dernière fin: ${task?.title ?? lastFinishedTaskId}',
+        de: 'Zuletzt abgeschlossen: ${task?.title ?? lastFinishedTaskId}',
+        ja: '前回完了: ${task?.title ?? lastFinishedTaskId}',
       ),
     );
   }
   final lastFinishedStatus = '${worker.extra['last_finished_status'] ?? ''}'
       .trim();
   if (lastFinishedStatus.isNotEmpty) {
+    final statusLabel =
+        _agentStatusTokenLabel(l10n, lastFinishedStatus) ??
+        _agentHumanizedMachineLabel(lastFinishedStatus);
     chips.add(
       openHandLocalizedText(
         context,
-        zh: '完成状态: $lastFinishedStatus',
-        en: 'Finished: $lastFinishedStatus',
+        zh: '完成状态: $statusLabel',
+        en: 'Finished: $statusLabel',
+        zhHant: '完成狀態: $statusLabel',
+        fr: 'État final: $statusLabel',
+        de: 'Abschlussstatus: $statusLabel',
+        ja: '完了状態: $statusLabel',
       ),
     );
   }
@@ -10624,7 +10649,7 @@ String _agentAuditCapabilityRawName(AgentAuditEvent event) {
 
 String _agentAuditCapabilityName(BuildContext context, AgentAuditEvent event) {
   final raw = _agentAuditCapabilityRawName(event);
-  if (raw.isNotEmpty) return raw;
+  if (raw.isNotEmpty) return _agentAuditSourceLabel(context, raw);
   if (event.kind.trim().isNotEmpty) {
     return _agentActivityKindLabel(AppLocalizations.of(context)!, event.kind);
   }
@@ -10636,6 +10661,74 @@ String _agentAuditCapabilityName(BuildContext context, AgentAuditEvent event) {
     de: 'Unbekannte Fähigkeit',
     ja: '不明な能力',
   );
+}
+
+String _agentAuditSourceLabel(BuildContext context, String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return trimmed;
+  final key = _agentAuditSourceLookupKey(trimmed);
+  for (final kind in AiBuiltinToolKind.values) {
+    if (!kind.isAgentCoordinationTool) continue;
+    if (_agentAuditSourceLookupKey(agentBuiltinToolCanonicalName(kind)) ==
+            key ||
+        _agentAuditSourceLookupKey(kind.name) == key) {
+      return agentBuiltinToolLabel(context, kind);
+    }
+  }
+  final l10n = AppLocalizations.of(context)!;
+  return switch (key) {
+    'agenttaskdesk' => l10n.agentsTaskDesk,
+    'agenttaskdialog' => openHandLocalizedText(
+      context,
+      zh: '任务详情',
+      en: 'Task details',
+      zhHant: '任務詳情',
+      fr: 'Détails de la tâche',
+      de: 'Aufgabendetails',
+      ja: 'タスク詳細',
+    ),
+    'agentpublishtaskdialog' => l10n.agentsPublishTask,
+    'agentclusterdialog' => l10n.agentsCluster,
+    'agentapprovalsdialog' ||
+    'agentapprovalrequestdialog' => l10n.agentsApprovals,
+    'agentkpidialog' => l10n.agentsKpi,
+    'agentresourcesdialog' || 'agentresourcedialog' => l10n.agentsResources,
+    'agentauditdialog' => l10n.agentsAuditReport,
+    'agentactivitiesdialog' || 'agentactivitydialog' => l10n.agentsActivities,
+    'agentcapabilitylogsdialog' || 'agentlogs' => l10n.agentsCapabilityLogs,
+    'agenteditordialog' => l10n.agentsEditAgent,
+    'agentscontroller' => openHandLocalizedText(
+      context,
+      zh: '智能体控制器',
+      en: 'Agent controller',
+      zhHant: '智慧體控制器',
+      fr: 'Contrôleur agent',
+      de: 'Agent-Controller',
+      ja: 'エージェント制御',
+    ),
+    'agentworker' => openHandLocalizedText(
+      context,
+      zh: 'Worker 执行',
+      en: 'Worker execution',
+      zhHant: 'Worker 執行',
+      fr: 'Exécution worker',
+      de: 'Worker-Ausführung',
+      ja: 'Worker 実行',
+    ),
+    'workerexecution' || 'workerexecutionstatus' => _agentActivityKindLabel(
+      l10n,
+      'worker_execution',
+    ),
+    'workerscaledout' => _agentActivityKindLabel(l10n, 'worker_scaled_out'),
+    'workerscaledin' => _agentActivityKindLabel(l10n, 'worker_scaled_in'),
+    'clusterupdated' => _agentActivityKindLabel(l10n, 'cluster_updated'),
+    'auditrecorded' => _agentActivityKindLabel(l10n, 'audit_recorded'),
+    _ => trimmed,
+  };
+}
+
+String _agentAuditSourceLookupKey(String value) {
+  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
 }
 
 String _agentAuditSummaryText(BuildContext context, AgentAuditEvent event) {
@@ -11739,6 +11832,12 @@ String? _agentKnownMetadataValueLabel(
       normalizedKey == 'scheduler_policy' ||
       normalizedKey == 'retry_policy') {
     return _agentPolicyOptionLabel(context, raw);
+  }
+  if (normalizedKey == 'tool_name' ||
+      normalizedKey == 'tool' ||
+      normalizedKey == 'capability_name' ||
+      normalizedKey == 'recorded_by') {
+    return _agentAuditSourceLabel(context, raw);
   }
   if (normalizedKey == 'capability_type') {
     return _agentCapabilityTypeLabel(context, normalizedValue);
