@@ -117,8 +117,11 @@ const double _agentResourceChartHeight = 152;
 const double _agentResourceDonutSize = 148;
 const double _agentResourcePanelRadius = 18;
 const double _agentResourcePressureCardCompactBreakpoint = 560;
-const double _agentResourcePressureBarMaxWidth = 560;
-const double _agentResourcePressureBarHeight = 9;
+const double _agentResourcePressureBarHeight = 10;
+const double _agentResourcePressureValueMinWidth = 72;
+const double _agentResourcePressureValueMaxWidth = 240;
+const double _agentResourcePressureValueCharWidth = 9.5;
+const double _agentResourcePressureValuePadding = 24;
 const double _agentDialogMetricGap = 12;
 const double _agentDialogMetricWideBreakpoint = 760;
 const double _agentDialogMetricMediumBreakpoint = 520;
@@ -5254,25 +5257,38 @@ class _AgentResourceLiveSummary extends StatelessWidget {
               );
             },
           ),
-          Center(
+          Positioned.fill(
             child: AnimatedSwitcher(
               duration: settings.duration,
               reverseDuration: settings.duration,
               switchInCurve: settings.curve.curve,
               switchOutCurve: settings.curve.reverseCurve,
+              layoutBuilder: (currentChild, previousChildren) => Stack(
+                alignment: Alignment.center,
+                children: [
+                  ...previousChildren,
+                  if (currentChild != null) currentChild,
+                ],
+              ),
               transitionBuilder: (child, animation) =>
-                  _agentDialogSwitchTransition(
-                    settings: settings,
+                  buildAnimationStyleTransition(
                     animation: animation,
+                    settings: settings,
                     child: child,
                   ),
-              child: Text(
-                pressureText,
+              child: Center(
                 key: ValueKey<String>(pressureText),
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w900,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    pressureText,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w900,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -6027,15 +6043,15 @@ class _AgentResourcePressureCard extends StatelessWidget {
                           ],
                         );
                       }
-                      final barWidth = math.min<double>(
-                        _agentResourcePressureBarMaxWidth,
-                        availableWidth * 0.48,
+                      final valueWidth = _agentResourcePressureValueWidth(
+                        valueLabel,
+                        maxWidth: availableWidth * 0.42,
                       );
                       return Row(
                         children: [
-                          SizedBox(width: barWidth, child: progressBar),
+                          Expanded(child: progressBar),
                           const SizedBox(width: 14),
-                          Expanded(child: valueText),
+                          SizedBox(width: valueWidth, child: valueText),
                         ],
                       );
                     },
@@ -6296,6 +6312,22 @@ String _agentResourcePercentLabel(double value) {
 double _agentResourceAverage(List<double> values) {
   if (values.isEmpty) return 0;
   return values.fold<double>(0, (sum, value) => sum + value) / values.length;
+}
+
+double _agentResourcePressureValueWidth(
+  String value, {
+  required double maxWidth,
+}) {
+  final estimated =
+      value.length * _agentResourcePressureValueCharWidth +
+      _agentResourcePressureValuePadding;
+  final upperBound = math.max(
+    _agentResourcePressureValueMinWidth,
+    math.min(_agentResourcePressureValueMaxWidth, maxWidth),
+  );
+  return estimated
+      .clamp(_agentResourcePressureValueMinWidth, upperBound)
+      .toDouble();
 }
 
 double _agentResourceRatio(int used, int budget) {
