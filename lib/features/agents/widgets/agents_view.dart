@@ -12269,8 +12269,6 @@ class _AgentNumberStepperFieldState extends State<_AgentNumberStepperField> {
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
                             disabledBorder: InputBorder.none,
-                            filled: false,
-                            fillColor: Colors.transparent,
                             isCollapsed: true,
                             contentPadding: EdgeInsets.symmetric(
                               horizontal: 10,
