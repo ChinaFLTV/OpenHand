@@ -49,6 +49,10 @@ class _SessionMetadataDialog extends StatelessWidget {
     final recentErrors = session.recentErrors
         .where((error) => error.stage != 'title_generation')
         .toList(growable: false);
+    final machineTerminalMetadata = _metadataObjectMap(
+      session.metadata[kMachineTerminalMetadataKey],
+    );
+    final extendedMetadataEntries = _visibleSessionMetadataEntries(session);
     final summaryBlocks = <Widget>[
       _MetadataSummaryTile(
         label: AppLocalizations.of(context)!.sessMetaMessages,
@@ -219,41 +223,26 @@ class _SessionMetadataDialog extends StatelessWidget {
                       const SizedBox(height: 16),
                       _buildWebReverseConfigSection(context, session),
                     ],
-                    if (session.metadata.entries
-                        .where(
-                          (e) =>
-                              !(session.templateId == 'harness_engineering' &&
-                                  e.key == 'harness_config') &&
-                              !(session.templateId == 'programming_expert' &&
-                                  e.key == 'programming_expert_config') &&
-                              !(session.templateId == 'web_reverse_expert' &&
-                                  e.key == 'web_reverse_config'),
-                        )
-                        .isNotEmpty) ...[
+                    if (machineTerminalMetadata.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      _buildMachineTerminalMetadataSection(
+                        context,
+                        machineTerminalMetadata,
+                      ),
+                    ],
+                    if (extendedMetadataEntries.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       _MetadataSection(
                         title: AppLocalizations.of(
                           context,
                         )!.sessMetaExtendedMetadata,
-                        children: session.metadata.entries
-                            .where(
-                              (e) =>
-                                  !(session.templateId ==
-                                          'harness_engineering' &&
-                                      e.key == 'harness_config') &&
-                                  !(session.templateId ==
-                                          'programming_expert' &&
-                                      e.key == 'programming_expert_config') &&
-                                  !(session.templateId ==
-                                          'web_reverse_expert' &&
-                                      e.key == 'web_reverse_config'),
-                            )
-                            .map((entry) {
-                              return _MetadataEntryRow(
+                        children: extendedMetadataEntries
+                            .map(
+                              (entry) => _MetadataStructuredValue(
                                 label: entry.key,
-                                value: '${entry.value}',
-                              );
-                            })
+                                value: entry.value,
+                              ),
+                            )
                             .toList(growable: false),
                       ),
                     ],
@@ -1234,8 +1223,492 @@ class _SessionMetadataDialog extends StatelessWidget {
   }
 }
 
+List<MapEntry<String, Object?>> _visibleSessionMetadataEntries(
+  AiSession session,
+) {
+  return session.metadata.entries
+      .where((entry) {
+        if (entry.key == kMachineTerminalMetadataKey) return false;
+        if (session.templateId == 'harness_engineering' &&
+            entry.key == 'harness_config') {
+          return false;
+        }
+        if (session.templateId == 'programming_expert' &&
+            entry.key == 'programming_expert_config') {
+          return false;
+        }
+        if (session.templateId == 'web_reverse_expert' &&
+            entry.key == 'web_reverse_config') {
+          return false;
+        }
+        if (session.templateId == 'android_reverse_expert' &&
+            entry.key == 'android_reverse_config') {
+          return false;
+        }
+        return true;
+      })
+      .toList(growable: false);
+}
+
+Widget _buildMachineTerminalMetadataSection(
+  BuildContext context,
+  Map<String, Object?> metadata,
+) {
+  final defaults = _metadataObjectMap(metadata['terminal_defaults']);
+  final capabilities = _metadataObjectMap(metadata['capabilities']);
+  final ui = _metadataObjectMap(metadata['ui']);
+  final runtime = _metadataObjectMap(metadata['runtime']);
+  final activeTerminal = _metadataObjectMap(runtime['active_terminal']);
+  final terminals = _metadataObjectList(runtime['terminals']);
+  final toolNames = _metadataStringList(metadata['tool_names']);
+  final status = _metadataCleanString(runtime['status']);
+  final activeTerminalId =
+      _metadataCleanString(runtime['active_terminal_id']) ??
+      _metadataCleanString(metadata['active_terminal_id']);
+  final activeSize = _terminalSizeText(activeTerminal);
+  final terminalCount = _metadataInt(runtime['terminal_count']);
+  final colorScheme = Theme.of(context).colorScheme;
+
+  return _MetadataSection(
+    title: _localizedText(
+      context,
+      zh: '机器终端元数据',
+      zhHant: '機器終端中繼資料',
+      en: 'Machine Terminal Metadata',
+    ),
+    children: [
+      Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          _MetadataInfoTile(
+            icon: Icons.terminal_rounded,
+            label: _localizedText(context, zh: '运行状态', en: 'Status'),
+            value: _machineTerminalStatusLabel(context, status),
+            color: _machineTerminalStatusColor(colorScheme, status),
+          ),
+          _MetadataInfoTile(
+            icon: Icons.tab_rounded,
+            label: _localizedText(context, zh: '终端数量', en: 'Terminals'),
+            value: terminalCount > 0 ? '$terminalCount' : '${terminals.length}',
+            color: colorScheme.primary,
+          ),
+          _MetadataInfoTile(
+            icon: Icons.developer_board_rounded,
+            label: _localizedText(context, zh: '当前终端', en: 'Active Terminal'),
+            value: activeTerminalId ?? '-',
+            color: colorScheme.tertiary,
+          ),
+          _MetadataInfoTile(
+            icon: Icons.aspect_ratio_rounded,
+            label: _localizedText(context, zh: '终端尺寸', en: 'Size'),
+            value: activeSize,
+            color: colorScheme.secondary,
+          ),
+        ],
+      ),
+      const SizedBox(height: 14),
+      _MetadataEntryRow(
+        label: _localizedText(context, zh: '工作流', en: 'Workflow'),
+        value: _metadataDisplayValue(metadata['workflow']),
+      ),
+      _MetadataEntryRow(
+        label: _localizedText(context, zh: '渲染面板', en: 'Surface'),
+        value: _metadataDisplayValue(metadata['surface']),
+      ),
+      _MetadataEntryRow(
+        label: _localizedText(context, zh: '工作区 ID', en: 'Workspace ID'),
+        value: _metadataDisplayValue(metadata['terminal_workspace_id']),
+      ),
+      _MetadataEntryRow(
+        label: _localizedText(context, zh: '默认工作目录', en: 'Default CWD'),
+        value: _metadataDisplayValue(metadata['default_working_directory']),
+      ),
+      _MetadataEntryRow(
+        label: _localizedText(context, zh: '创建时间', en: 'Created At'),
+        value: _metadataDisplayValue(metadata['created_at']),
+      ),
+      _MetadataEntryRow(
+        label: _localizedText(context, zh: '更新时间', en: 'Updated At'),
+        value: _metadataDisplayValue(metadata['updated_at']),
+      ),
+      if (activeTerminal.isNotEmpty)
+        _MetadataStructuredValue(
+          label: _localizedText(context, zh: '当前终端状态', en: 'Active Terminal'),
+          value: activeTerminal,
+        ),
+      if (defaults.isNotEmpty)
+        _MetadataStructuredValue(
+          label: _localizedText(context, zh: '终端默认参数', en: 'Terminal Defaults'),
+          value: defaults,
+        ),
+      if (capabilities.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        _MetadataGroupLabel(
+          label: _localizedText(context, zh: '终端能力', en: 'Capabilities'),
+          detail: _localizedText(
+            context,
+            zh: 'AI 与用户在机器专家线程内可用的终端能力',
+            en: 'Terminal capabilities available in this template',
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: capabilities.entries
+              .map(
+                (entry) => _MetadataCapabilityChip(
+                  label: _metadataFieldTitle(entry.key),
+                  enabled: entry.value == true,
+                ),
+              )
+              .toList(growable: false),
+        ),
+      ],
+      if (ui.isNotEmpty)
+        _MetadataStructuredValue(
+          label: _localizedText(context, zh: '界面特性', en: 'UI Features'),
+          value: ui,
+        ),
+      if (toolNames.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        _MetadataGroupLabel(
+          label: _localizedText(context, zh: '内建终端工具', en: 'Built-in Tools'),
+          detail: _localizedText(
+            context,
+            zh: '仅机器专家模板开放',
+            en: 'Scoped to the machine expert template',
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: toolNames
+              .map((toolName) => _MetadataChip(label: toolName))
+              .toList(growable: false),
+        ),
+      ],
+      if (terminals.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        _MetadataGroupLabel(
+          label: _localizedText(context, zh: '运行中终端', en: 'Runtime Terminals'),
+          detail: _localizedText(
+            context,
+            zh: '轻量状态摘要，不包含终端输出正文',
+            en: 'Lightweight status summaries without terminal output',
+          ),
+        ),
+        const SizedBox(height: 10),
+        ...terminals.asMap().entries.map(
+          (entry) => _MachineTerminalMetadataCard(
+            index: entry.key + 1,
+            terminal: entry.value,
+          ),
+        ),
+      ],
+    ],
+  );
+}
+
 Map<String, Object?> _metadataObjectMap(Object? rawValue) {
   return stringKeyedMapFromValue(rawValue);
+}
+
+String? _metadataCleanString(Object? value) {
+  if (value == null) return null;
+  final text = '$value'.trim();
+  return text.isEmpty ? null : text;
+}
+
+String _metadataDisplayValue(Object? value) {
+  if (value == null) return '-';
+  if (value is String) return value.trim().isEmpty ? '-' : value.trim();
+  if (value is num || value is bool) return '$value';
+  if (value is DateTime) return value.toUtc().toIso8601String();
+  return _metadataJsonEncode(value);
+}
+
+String _metadataJsonEncode(Object? value) {
+  try {
+    return const JsonEncoder.withIndent('  ').convert(value);
+  } catch (_) {
+    return '${value ?? '-'}';
+  }
+}
+
+String _metadataFieldTitle(String key) {
+  const labels = <String, String>{
+    'schema_version': 'Schema 版本',
+    'template_id': '模板 ID',
+    'surface': '渲染面板',
+    'workflow': '工作流',
+    'session_id': '会话 ID',
+    'terminal_workspace_id': '终端工作区 ID',
+    'active_terminal_id': '当前终端 ID',
+    'default_working_directory': '默认工作目录',
+    'created_at': '创建时间',
+    'updated_at': '更新时间',
+    'terminal_defaults': '终端默认参数',
+    'capabilities': '终端能力',
+    'ui': '界面特性',
+    'tool_names': '内建终端工具',
+    'runtime': '运行时',
+    'status': '状态',
+    'terminal_count': '终端数量',
+    'active_terminal': '当前终端',
+    'terminals': '终端列表',
+    'terminal_id': '终端 ID',
+    'identity': '终端身份',
+    'shell': 'Shell',
+    'working_directory': '工作目录',
+    'rows': '行数',
+    'columns': '列数',
+    'max_rows': '最大行数',
+    'max_columns': '最大列数',
+    'scrollback_lines': '回滚行数',
+    'command_timeout_ms': '命令超时',
+    'command_poll_interval_ms': '命令轮询间隔',
+    'max_retained_output_characters': '保留输出上限',
+    'max_tool_output_characters': '工具输出上限',
+    'output_characters': '输出字符数',
+    'started_at': '启动时间',
+    'pid': '进程 ID',
+    'exit_code': '退出码',
+    'error_message': '错误信息',
+    'panel': '面板位置',
+    'auto_scroll_to_bottom': '自动滚动到底部',
+    'terminal_tabs': '终端标签',
+    'status_bar': '状态栏',
+    'metadata_bar': '元数据栏',
+    'read': '读取终端',
+    'write': '写入终端',
+    'execute': '执行命令',
+    'control': '控制终端',
+    'resize': '调整尺寸',
+    'multiple_terminals': '多终端',
+    'duplicate_terminal': '复制终端',
+    'interactive_input': '交互输入',
+    'ansi_output': 'ANSI 输出',
+    'shell_completion': 'Shell 补全',
+    'formatted_command_output': '格式化命令输出',
+    'marker_isolated_exec': '分隔标记执行',
+    'status_inspection': '状态查看',
+    'environment_metadata': '环境元数据',
+    'native_keybindings': '原生快捷键',
+    'smooth_auto_scroll': '丝滑自动滚动',
+  };
+  final normalized = key.trim();
+  if (normalized.isEmpty) return '-';
+  final direct = labels[normalized];
+  if (direct != null) return direct;
+  final words = normalized
+      .replaceAllMapped(
+        RegExp(r'([a-z0-9])([A-Z])'),
+        (match) => '${match.group(1)} ${match.group(2)}',
+      )
+      .split(RegExp(r'[_\-\s]+'))
+      .where((part) => part.trim().isNotEmpty)
+      .map((part) {
+        final lower = part.toLowerCase();
+        return lower.length <= 1
+            ? lower.toUpperCase()
+            : '${lower[0].toUpperCase()}${lower.substring(1)}';
+      })
+      .toList(growable: false);
+  return words.isEmpty ? normalized : words.join(' ');
+}
+
+String _terminalSizeText(Map<String, Object?> terminal) {
+  final columns = _metadataInt(terminal['columns']);
+  final rows = _metadataInt(terminal['rows']);
+  if (columns <= 0 || rows <= 0) return '-';
+  return '$columns×$rows';
+}
+
+String _machineTerminalStatusLabel(BuildContext context, String? status) {
+  return switch (status) {
+    'running' => _localizedText(context, zh: '运行中', en: 'Running'),
+    'starting' => _localizedText(context, zh: '启动中', en: 'Starting'),
+    'stopped' => _localizedText(context, zh: '已停止', en: 'Stopped'),
+    'failed' => _localizedText(context, zh: '异常', en: 'Failed'),
+    'idle' => _localizedText(context, zh: '空闲', en: 'Idle'),
+    _ => _localizedText(context, zh: '未知', en: 'Unknown'),
+  };
+}
+
+Color _machineTerminalStatusColor(ColorScheme colorScheme, String? status) {
+  return switch (status) {
+    'running' => colorScheme.primary,
+    'starting' => colorScheme.tertiary,
+    'stopped' => colorScheme.outline,
+    'failed' => colorScheme.error,
+    'idle' => colorScheme.secondary,
+    _ => colorScheme.outline,
+  };
+}
+
+bool _metadataIsShortScalar(Object? value) {
+  if (value == null || value is num || value is bool) return true;
+  if (value is String) {
+    return value.trim().length <= 48 && !value.contains('\n');
+  }
+  return false;
+}
+
+Widget _buildMetadataStructuredNode(
+  BuildContext context,
+  Object? value, {
+  int depth = 0,
+}) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final map = value is Map ? _metadataObjectMap(value) : null;
+  if (map != null) {
+    if (map.isEmpty) {
+      return Text(
+        '-',
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      );
+    }
+    if (depth >= 3) {
+      return _MetadataJsonPanel(content: _metadataJsonEncode(map));
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.42),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: map.entries
+            .map((entry) {
+              final childMap = entry.value is Map
+                  ? _metadataObjectMap(entry.value)
+                  : null;
+              final childList = entry.value is List
+                  ? entry.value as List
+                  : null;
+              if (childMap == null && childList == null) {
+                return _MetadataEntryRow(
+                  label: _metadataFieldTitle(entry.key),
+                  value: _metadataDisplayValue(entry.value),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _MetadataGroupLabel(label: _metadataFieldTitle(entry.key)),
+                    const SizedBox(height: 8),
+                    _buildMetadataStructuredNode(
+                      context,
+                      entry.value,
+                      depth: depth + 1,
+                    ),
+                  ],
+                ),
+              );
+            })
+            .toList(growable: false),
+      ),
+    );
+  }
+
+  if (value is List) {
+    if (value.isEmpty) {
+      return Text(
+        '-',
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      );
+    }
+    if (value.every(_metadataIsShortScalar) && value.length <= 24) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: value
+            .map((item) => _MetadataChip(label: _metadataDisplayValue(item)))
+            .toList(growable: false),
+      );
+    }
+    if (depth >= 3) {
+      return _MetadataJsonPanel(content: _metadataJsonEncode(value));
+    }
+    final visibleItems = value.take(40).toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...visibleItems.asMap().entries.map((entry) {
+          final item = entry.value;
+          final scalar = _metadataIsShortScalar(item) || item is String;
+          return Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.52),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.42),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '#${entry.key + 1}',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                scalar
+                    ? SelectableText(
+                        _metadataDisplayValue(item),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          height: 1.4,
+                        ),
+                      )
+                    : _buildMetadataStructuredNode(
+                        context,
+                        item,
+                        depth: depth + 1,
+                      ),
+              ],
+            ),
+          );
+        }),
+        if (value.length > visibleItems.length)
+          Text(
+            _localizedText(
+              context,
+              zh: '还有 ${value.length - visibleItems.length} 项未展示，请复制完整元数据查看。',
+              en: '${value.length - visibleItems.length} more items are hidden. Copy full metadata to inspect them.',
+            ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+      ],
+    );
+  }
+
+  return SelectableText(
+    _metadataDisplayValue(value),
+    style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+  );
 }
 
 class _MetadataSection extends StatelessWidget {
@@ -1360,6 +1833,303 @@ class _MetadataChip extends StatelessWidget {
         style: theme.textTheme.labelMedium?.copyWith(
           fontWeight: FontWeight.w700,
         ),
+      ),
+    );
+  }
+}
+
+class _MetadataInfoTile extends StatelessWidget {
+  const _MetadataInfoTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      width: 188,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 18, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetadataGroupLabel extends StatelessWidget {
+  const _MetadataGroupLabel({required this.label, this.detail});
+
+  final String label;
+  final String? detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final detailText = detail?.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        if (detailText != null && detailText.isNotEmpty) ...[
+          const SizedBox(height: 3),
+          Text(
+            detailText,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MetadataCapabilityChip extends StatelessWidget {
+  const _MetadataCapabilityChip({required this.label, required this.enabled});
+
+  final String label;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final color = enabled ? colorScheme.primary : colorScheme.outline;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: enabled ? 0.12 : 0.08),
+        borderRadius: _borderRadius999,
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            enabled ? Icons.check_rounded : Icons.remove_rounded,
+            size: 15,
+            color: color,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: enabled
+                  ? colorScheme.onSurface
+                  : colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetadataStructuredValue extends StatelessWidget {
+  const _MetadataStructuredValue({required this.label, required this.value});
+
+  final String label;
+  final Object? value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _metadataFieldTitle(label),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildMetadataStructuredNode(context, value),
+        ],
+      ),
+    );
+  }
+}
+
+class _MachineTerminalMetadataCard extends StatelessWidget {
+  const _MachineTerminalMetadataCard({
+    required this.index,
+    required this.terminal,
+  });
+
+  final int index;
+  final Map<String, Object?> terminal;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final status = _metadataCleanString(terminal['status']);
+    final statusColor = _machineTerminalStatusColor(colorScheme, status);
+    final id = _metadataCleanString(terminal['terminal_id']) ?? '-';
+    final identity = _metadataCleanString(terminal['identity']) ?? '-';
+    final size = _terminalSizeText(terminal);
+    final outputCharacters = _metadataInt(terminal['output_characters']);
+    final extraRows = <Widget>[
+      _MetadataEntryRow(
+        label: _metadataFieldTitle('shell'),
+        value: _metadataDisplayValue(terminal['shell']),
+      ),
+      _MetadataEntryRow(
+        label: _metadataFieldTitle('working_directory'),
+        value: _metadataDisplayValue(terminal['working_directory']),
+      ),
+      _MetadataEntryRow(
+        label: _metadataFieldTitle('started_at'),
+        value: _metadataDisplayValue(terminal['started_at']),
+      ),
+      _MetadataEntryRow(
+        label: _metadataFieldTitle('updated_at'),
+        value: _metadataDisplayValue(terminal['updated_at']),
+      ),
+      if (terminal.containsKey('pid'))
+        _MetadataEntryRow(
+          label: _metadataFieldTitle('pid'),
+          value: _metadataDisplayValue(terminal['pid']),
+        ),
+      if (terminal.containsKey('exit_code'))
+        _MetadataEntryRow(
+          label: _metadataFieldTitle('exit_code'),
+          value: _metadataDisplayValue(terminal['exit_code']),
+        ),
+      if (_metadataCleanString(terminal['error_message']) != null)
+        _MetadataEntryRow(
+          label: _metadataFieldTitle('error_message'),
+          value: _metadataDisplayValue(terminal['error_message']),
+        ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.42),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                '${_localizedText(context, zh: '终端', en: 'Terminal')} #$index',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.13),
+                  borderRadius: _borderRadius999,
+                ),
+                child: Text(
+                  _machineTerminalStatusLabel(context, status),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MetadataChip(label: 'ID $id'),
+              _MetadataChip(label: identity),
+              _MetadataChip(
+                label: size == '-'
+                    ? _localizedText(context, zh: '尺寸 -', en: 'Size -')
+                    : size,
+              ),
+              _MetadataChip(
+                label:
+                    '${_localizedText(context, zh: '输出', en: 'Output')} $outputCharacters ${_localizedText(context, zh: '字符', en: 'chars')}',
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...extraRows,
+        ],
       ),
     );
   }

@@ -8480,6 +8480,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   const stats = recordFromUnknown(session.statistics);
   const cacheHit = buildSessionCacheHitDisplay(session, stats);
   const metadata = recordFromUnknown(session.metadata);
+  const machineTerminalMetadata = recordFromUnknown(metadata['machine_terminal']);
   const environment = recordFromUnknown(session.environment);
   const lastPromptMetadata = recordFromUnknown(session.last_prompt_metadata);
   const latestCompressionPoint = recordFromUnknown(session.latest_compression_point);
@@ -8513,6 +8514,7 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   const hasCompressionPoint = Boolean(metadataString(latestCompressionPoint['id']));
   const sidecarStatus = !hasCompressionPoint ? '未生成' : compressionRestored ? '已恢复' : sidecarPresent ? '已登记' : '等待下次 Prompt 刷新';
   const visibleMetadataEntries = Object.entries(metadata).filter(([key]) => {
+    if (key === 'machine_terminal') return false;
     if (session.template_id === 'harness_engineering' && key === 'harness_config') return false;
     if (session.template_id === 'programming_expert' && key === 'programming_expert_config') return false;
     if (session.template_id === 'web_reverse_expert' && key === 'web_reverse_config') return false;
@@ -8572,6 +8574,349 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
       {JSON.stringify(content ?? {}, null, 2)}
     </pre>
   );
+  const machineMetadataFieldTitle = (key: string): string => {
+    const labels: Record<string, string> = {
+      schema_version: 'Schema 版本',
+      template_id: '模板 ID',
+      surface: '渲染面板',
+      workflow: '工作流',
+      session_id: '会话 ID',
+      terminal_workspace_id: '终端工作区 ID',
+      active_terminal_id: '当前终端 ID',
+      default_working_directory: '默认工作目录',
+      created_at: '创建时间',
+      updated_at: '更新时间',
+      terminal_defaults: '终端默认参数',
+      capabilities: '终端能力',
+      ui: '界面特性',
+      tool_names: '内建终端工具',
+      runtime: '运行时',
+      status: '状态',
+      terminal_count: '终端数量',
+      active_terminal: '当前终端',
+      terminals: '终端列表',
+      terminal_id: '终端 ID',
+      identity: '终端身份',
+      shell: 'Shell',
+      working_directory: '工作目录',
+      rows: '行数',
+      columns: '列数',
+      max_rows: '最大行数',
+      max_columns: '最大列数',
+      scrollback_lines: '回滚行数',
+      command_timeout_ms: '命令超时',
+      command_poll_interval_ms: '命令轮询间隔',
+      max_retained_output_characters: '保留输出上限',
+      max_tool_output_characters: '工具输出上限',
+      output_characters: '输出字符数',
+      started_at: '启动时间',
+      pid: '进程 ID',
+      exit_code: '退出码',
+      error_message: '错误信息',
+      panel: '面板位置',
+      auto_scroll_to_bottom: '自动滚动到底部',
+      terminal_tabs: '终端标签',
+      status_bar: '状态栏',
+      metadata_bar: '元数据栏',
+      read: '读取终端',
+      write: '写入终端',
+      execute: '执行命令',
+      control: '控制终端',
+      resize: '调整尺寸',
+      multiple_terminals: '多终端',
+      duplicate_terminal: '复制终端',
+      interactive_input: '交互输入',
+      ansi_output: 'ANSI 输出',
+      shell_completion: 'Shell 补全',
+      formatted_command_output: '格式化命令输出',
+      marker_isolated_exec: '分隔标记执行',
+      status_inspection: '状态查看',
+      environment_metadata: '环境元数据',
+      native_keybindings: '原生快捷键',
+      smooth_auto_scroll: '丝滑自动滚动',
+    };
+    const normalized = key.trim();
+    if (!normalized) return '—';
+    if (labels[normalized]) return labels[normalized];
+    return normalized
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .split(/[_\-\s]+/)
+      .filter(Boolean)
+      .map((part) => part.length <= 1 ? part.toUpperCase() : `${part[0]?.toUpperCase() ?? ''}${part.slice(1).toLowerCase()}`)
+      .join(' ') || normalized;
+  };
+  const machineMetadataCleanString = (value: unknown): string | null => {
+    const text = metadataString(value).trim();
+    return text.length > 0 ? text : null;
+  };
+  const terminalSizeText = (terminal: Record<string, unknown>): string => {
+    const columns = integerFromUnknown(terminal['columns']);
+    const rows = integerFromUnknown(terminal['rows']);
+    return columns > 0 && rows > 0 ? `${columns}×${rows}` : '—';
+  };
+  const machineTerminalStatusLabel = (status: string | null): string => {
+    switch (status) {
+      case 'running':
+        return '运行中';
+      case 'starting':
+        return '启动中';
+      case 'stopped':
+        return '已停止';
+      case 'failed':
+        return '异常';
+      case 'idle':
+        return '空闲';
+      default:
+        return '未知';
+    }
+  };
+  const machineTerminalStatusColor = (status: string | null): string => {
+    switch (status) {
+      case 'running':
+        return 'var(--m3-primary)';
+      case 'starting':
+        return 'var(--m3-tertiary)';
+      case 'failed':
+        return 'var(--m3-error)';
+      case 'idle':
+        return 'var(--m3-secondary)';
+      default:
+        return 'var(--m3-outline)';
+    }
+  };
+  const isShortMetadataScalar = (value: unknown): boolean => {
+    if (value == null || typeof value === 'number' || typeof value === 'boolean') return true;
+    return typeof value === 'string' && value.trim().length <= 48 && !value.includes('\n');
+  };
+  const GroupLabel = ({ label, detail }: { label: string; detail?: string }) => (
+    <div>
+      <div class="text-sm font-extrabold">{label}</div>
+      {detail ? (
+        <div class="mt-1 text-xs leading-relaxed" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          {detail}
+        </div>
+      ) : null}
+    </div>
+  );
+  const InfoTile = ({ icon, label, value, color }: { icon: ComposerIconName; label: string; value: string; color: string }) => (
+    <div
+      class="flex items-center gap-2.5 rounded-m3-sm p-3"
+      style={{
+        width: '188px',
+        background: `color-mix(in srgb, ${color} 10%, transparent)`,
+        border: `1px solid color-mix(in srgb, ${color} 22%, transparent)`,
+      }}
+    >
+      <div
+        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-m3-sm"
+        style={{ color, background: `color-mix(in srgb, ${color} 14%, transparent)` }}
+      >
+        <ComposerIcon name={icon} size={16} />
+      </div>
+      <div class="min-w-0">
+        <div class="truncate text-xs font-bold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+          {label}
+        </div>
+        <div class="mt-1 truncate text-sm font-extrabold tabular-nums">{value}</div>
+      </div>
+    </div>
+  );
+  const CapabilityChip = ({ label, enabled }: { label: string; enabled: boolean }) => {
+    const color = enabled ? 'var(--m3-primary)' : 'var(--m3-outline)';
+    return (
+      <span
+        class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-bold"
+        style={{
+          color: enabled ? 'var(--m3-on-surface)' : 'var(--m3-on-surface-variant)',
+          background: `color-mix(in srgb, ${color} ${enabled ? 12 : 8}%, transparent)`,
+          border: `1px solid color-mix(in srgb, ${color} 22%, transparent)`,
+        }}
+      >
+        <span style={{ color }}>{enabled ? '✓' : '–'}</span>
+        {label}
+      </span>
+    );
+  };
+  const renderStructuredMetadataNode = (value: unknown, depth = 0): ComponentChildren => {
+    if (value != null && typeof value === 'object' && !Array.isArray(value)) {
+      const entries = Object.entries(recordFromUnknown(value));
+      if (entries.length === 0) {
+        return <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>—</span>;
+      }
+      if (depth >= 3) return <JsonPanel content={value} />;
+      return (
+        <div
+          class="rounded-m3-sm p-3 pb-1"
+          style={{
+            background: 'var(--m3-surface)',
+            border: '1px solid var(--m3-outline-variant)',
+          }}
+        >
+          {entries.map(([key, item]) => {
+            const isNested = item != null && typeof item === 'object';
+            return isNested ? (
+              <div key={key} class="mb-3">
+                <GroupLabel label={machineMetadataFieldTitle(key)} />
+                <div class="mt-2">{renderStructuredMetadataNode(item, depth + 1)}</div>
+              </div>
+            ) : (
+              <EntryRow key={key} label={machineMetadataFieldTitle(key)} value={metadataValue(item)} />
+            );
+          })}
+        </div>
+      );
+    }
+    if (Array.isArray(value)) {
+      if (value.length === 0) {
+        return <span class="text-sm" style={{ color: 'var(--m3-on-surface-variant)' }}>—</span>;
+      }
+      if (value.every(isShortMetadataScalar) && value.length <= 24) {
+        return (
+          <div class="flex flex-wrap gap-2">
+            {value.map((item, index) => <Chip key={`${metadataValue(item)}-${index}`} label={metadataValue(item)} />)}
+          </div>
+        );
+      }
+      if (depth >= 3) return <JsonPanel content={value} />;
+      const visibleItems = value.slice(0, 40);
+      return (
+        <div class="flex flex-col gap-2.5">
+          {visibleItems.map((item, index) => (
+            <div
+              key={index}
+              class="rounded-m3-sm p-3"
+              style={{
+                background: 'var(--m3-surface)',
+                border: '1px solid var(--m3-outline-variant)',
+              }}
+            >
+              <div class="mb-2 text-xs font-extrabold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+                #{index + 1}
+              </div>
+              {isShortMetadataScalar(item) || typeof item === 'string' ? (
+                <div class="text-sm leading-relaxed whitespace-pre-wrap break-words select-text">{metadataValue(item)}</div>
+              ) : (
+                renderStructuredMetadataNode(item, depth + 1)
+              )}
+            </div>
+          ))}
+          {value.length > visibleItems.length ? (
+            <div class="text-xs" style={{ color: 'var(--m3-on-surface-variant)' }}>
+              还有 {value.length - visibleItems.length} 项未展示，请复制完整元数据查看。
+            </div>
+          ) : null}
+        </div>
+      );
+    }
+    return <span class="text-sm leading-relaxed whitespace-pre-wrap break-words select-text">{metadataValue(value)}</span>;
+  };
+  const StructuredValue = ({ label, value }: { label: string; value: unknown }) => (
+    <div class="mb-3 min-w-0">
+      <div class="text-xs font-bold" style={{ color: 'var(--m3-on-surface-variant)' }}>
+        {machineMetadataFieldTitle(label)}
+      </div>
+      <div class="mt-2">{renderStructuredMetadataNode(value)}</div>
+    </div>
+  );
+  const MachineTerminalCard = ({ index, terminal }: { index: number; terminal: Record<string, unknown> }) => {
+    const status = machineMetadataCleanString(terminal['status']);
+    const color = machineTerminalStatusColor(status);
+    const id = machineMetadataCleanString(terminal['terminal_id']) ?? '—';
+    const identity = machineMetadataCleanString(terminal['identity']) ?? '—';
+    const size = terminalSizeText(terminal);
+    const outputCharacters = integerFromUnknown(terminal['output_characters']);
+    return (
+      <div
+        class="rounded-m3-sm p-3"
+        style={{
+          background: 'var(--m3-surface)',
+          border: '1px solid var(--m3-outline-variant)',
+        }}
+      >
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="text-sm font-extrabold">终端 #{index}</div>
+          <span
+            class="rounded-full px-2.5 py-1 text-xs font-extrabold"
+            style={{ color, background: `color-mix(in srgb, ${color} 13%, transparent)` }}
+          >
+            {machineTerminalStatusLabel(status)}
+          </span>
+        </div>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <Chip label={`ID ${id}`} />
+          <Chip label={identity} />
+          <Chip label={size === '—' ? '尺寸 —' : size} />
+          <Chip label={`输出 ${outputCharacters} 字符`} />
+        </div>
+        <div class="mt-3">
+          <EntryRow label={machineMetadataFieldTitle('shell')} value={metadataValue(terminal['shell'])} />
+          <EntryRow label={machineMetadataFieldTitle('working_directory')} value={metadataValue(terminal['working_directory'])} />
+          <EntryRow label={machineMetadataFieldTitle('started_at')} value={metadataValue(terminal['started_at'])} />
+          <EntryRow label={machineMetadataFieldTitle('updated_at')} value={metadataValue(terminal['updated_at'])} />
+          {Object.prototype.hasOwnProperty.call(terminal, 'pid') ? <EntryRow label={machineMetadataFieldTitle('pid')} value={metadataValue(terminal['pid'])} /> : null}
+          {Object.prototype.hasOwnProperty.call(terminal, 'exit_code') ? <EntryRow label={machineMetadataFieldTitle('exit_code')} value={metadataValue(terminal['exit_code'])} /> : null}
+          {machineMetadataCleanString(terminal['error_message']) ? <EntryRow label={machineMetadataFieldTitle('error_message')} value={metadataValue(terminal['error_message'])} /> : null}
+        </div>
+      </div>
+    );
+  };
+  const renderMachineTerminalMetadata = () => {
+    const defaults = recordFromUnknown(machineTerminalMetadata['terminal_defaults']);
+    const capabilities = recordFromUnknown(machineTerminalMetadata['capabilities']);
+    const ui = recordFromUnknown(machineTerminalMetadata['ui']);
+    const runtime = recordFromUnknown(machineTerminalMetadata['runtime']);
+    const activeTerminal = recordFromUnknown(runtime['active_terminal']);
+    const terminals = arrayFromUnknown(runtime['terminals']).map(recordFromUnknown).filter((item) => Object.keys(item).length > 0);
+    const toolNames = stringListFromUnknown(machineTerminalMetadata['tool_names']);
+    const status = machineMetadataCleanString(runtime['status']);
+    const activeTerminalId = machineMetadataCleanString(runtime['active_terminal_id']) ?? machineMetadataCleanString(machineTerminalMetadata['active_terminal_id']);
+    const terminalCount = Math.max(integerFromUnknown(runtime['terminal_count']), terminals.length);
+    return (
+      <Section title="机器终端元数据">
+        <div class="mb-3 flex flex-wrap gap-2.5">
+          <InfoTile icon="mode" label="运行状态" value={machineTerminalStatusLabel(status)} color={machineTerminalStatusColor(status)} />
+          <InfoTile icon="plus" label="终端数量" value={`${terminalCount}`} color="var(--m3-primary)" />
+          <InfoTile icon="permission" label="当前终端" value={activeTerminalId ?? '—'} color="var(--m3-tertiary)" />
+          <InfoTile icon="refresh" label="终端尺寸" value={terminalSizeText(activeTerminal)} color="var(--m3-secondary)" />
+        </div>
+        <EntryRow label="工作流" value={metadataValue(machineTerminalMetadata['workflow'])} />
+        <EntryRow label="渲染面板" value={metadataValue(machineTerminalMetadata['surface'])} />
+        <EntryRow label="工作区 ID" value={metadataValue(machineTerminalMetadata['terminal_workspace_id'])} />
+        <EntryRow label="默认工作目录" value={metadataValue(machineTerminalMetadata['default_working_directory'])} />
+        <EntryRow label="创建时间" value={metadataValue(machineTerminalMetadata['created_at'])} />
+        <EntryRow label="更新时间" value={metadataValue(machineTerminalMetadata['updated_at'])} />
+        {Object.keys(activeTerminal).length > 0 ? <StructuredValue label="当前终端状态" value={activeTerminal} /> : null}
+        {Object.keys(defaults).length > 0 ? <StructuredValue label="终端默认参数" value={defaults} /> : null}
+        {Object.keys(capabilities).length > 0 ? (
+          <div class="mb-3">
+            <GroupLabel label="终端能力" detail="AI 与用户在机器专家线程内可用的终端能力" />
+            <div class="mt-2 flex flex-wrap gap-2">
+              {Object.entries(capabilities).map(([key, value]) => (
+                <CapabilityChip key={key} label={machineMetadataFieldTitle(key)} enabled={value === true} />
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {Object.keys(ui).length > 0 ? <StructuredValue label="界面特性" value={ui} /> : null}
+        {toolNames.length > 0 ? (
+          <div class="mb-3">
+            <GroupLabel label="内建终端工具" detail="仅机器专家模板开放" />
+            <div class="mt-2 flex flex-wrap gap-2">
+              {toolNames.map((toolName) => <Chip key={toolName} label={toolName} />)}
+            </div>
+          </div>
+        ) : null}
+        {terminals.length > 0 ? (
+          <div>
+            <GroupLabel label="运行中终端" detail="轻量状态摘要，不包含终端输出正文" />
+            <div class="mt-2 flex flex-col gap-2.5">
+              {terminals.map((terminal, index) => <MachineTerminalCard key={metadataString(terminal['terminal_id']) || index} index={index + 1} terminal={terminal} />)}
+            </div>
+          </div>
+        ) : null}
+      </Section>
+    );
+  };
 
   const renderCacheHitPanel = (withTopMargin: boolean) => {
     if (!cacheHit.hasCacheHitMetrics) {
@@ -8782,10 +9127,11 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
           {session.template_id === 'harness_engineering' ? renderHarnessConfig() : null}
           {session.template_id === 'programming_expert' ? renderProgrammingConfig() : null}
           {session.template_id === 'android_reverse_expert' ? renderAndroidReverseConfig() : null}
+          {Object.keys(machineTerminalMetadata).length > 0 ? renderMachineTerminalMetadata() : null}
           {visibleMetadataEntries.length > 0 ? (
             <Section title="扩展元数据">
               {visibleMetadataEntries.map(([key, value]) => (
-                <EntryRow key={key} label={key} value={metadataValue(value)} />
+                <StructuredValue key={key} label={key} value={value} />
               ))}
             </Section>
           ) : null}
