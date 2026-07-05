@@ -14,6 +14,7 @@ import { showSnackbar } from './Snackbar';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { useStickyBottom } from '../hooks/useStickyBottom';
 import { useTransientFlag } from '../hooks/useTransientFlag';
+import { truncateEndText } from '../shared/util/text';
 
 const AUTO_COLLAPSE_CHARS = 600;
 const ERROR_LINE_PATTERN = /\b(error|exception|traceback|fail(?:ed|ure)?|panic|fatal)\b/i;
@@ -66,8 +67,9 @@ export function ToolResultBody({ content, autoFollow = false }: ToolResultBodyPr
   const [expanded, setExpanded] = useState(false);
   const { active: copied, trigger: showCopied } = useTransientFlag();
 
-  const overflow = content.length > AUTO_COLLAPSE_CHARS;
-  const shown = !overflow || expanded ? content : content.slice(0, AUTO_COLLAPSE_CHARS) + '…';
+  const collapsedContent = truncateEndText(content, AUTO_COLLAPSE_CHARS);
+  const overflow = collapsedContent !== content;
+  const shown = expanded ? content : collapsedContent;
   const lines = useMemo(() => classifyLines(shown), [shown]);
   const preRef = useStickyBottom<HTMLPreElement>(shown, autoFollow);
 

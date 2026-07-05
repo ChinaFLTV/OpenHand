@@ -7,6 +7,7 @@ import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { isAbortError } from '../shared/util/errors';
 import { describeApiError } from '../utils/api_error';
 import { clampNumber, finiteNumberFromText, normalizeInteger } from '../shared/util/number';
+import { truncateEndText } from '../shared/util/text';
 import {
   DIALOG_OVERLAY_FOCUSED_Z_INDEX,
   DialogFrame,
@@ -34,7 +35,7 @@ interface TitleSummaryDialogProps {
 
 function truncateContent(content: string, maxLen = 60): string {
   const cleaned = content.replace(/\n/g, ' ').trim();
-  return cleaned.length > maxLen ? cleaned.slice(0, maxLen) + '…' : cleaned;
+  return truncateEndText(cleaned, maxLen);
 }
 
 export function TitleSummaryDialog({

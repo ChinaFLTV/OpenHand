@@ -95,6 +95,7 @@ import {
 import { messageFeedbackValue } from '../../../shared/util/message_feedback';
 import { clampNumber, strictPositiveIntegerFromText } from '../../../shared/util/number';
 import { basenameFromPath } from '../../../shared/util/path';
+import { truncateEndText } from '../../../shared/util/text';
 import {
   clearTranscriptScrollActivity,
   markTranscriptScrollActivity,
@@ -1157,9 +1158,9 @@ function knowledgeReadRowToMessageHit(row: Record<string, unknown>): Record<stri
     updated_at: row['updated_at'],
     token_estimate: row['token_estimate'],
     heading_path: row['heading_path'],
-    preview: previewSource.length > KNOWLEDGE_USAGE_PREVIEW_MAX_CHARS
-      ? `${previewSource.slice(0, KNOWLEDGE_USAGE_PREVIEW_MAX_CHARS)}...`
-      : previewSource,
+    preview: truncateEndText(previewSource, KNOWLEDGE_USAGE_PREVIEW_MAX_CHARS, {
+      ellipsis: '...',
+    }),
   };
 }
 

@@ -54,6 +54,7 @@ import {
   strictPositiveIntegerFromUnknown,
   strictPositiveNumberFromUnknown,
 } from '../shared/util/number';
+import { textExceedsLength, truncateEndText } from '../shared/util/text';
 import {
   booleanFromUnknown,
   finiteNumberOrNullFromUnknown,
@@ -1244,15 +1245,15 @@ function readAfterSeparator(value: string): string {
 }
 
 function fieldNeedsExpertRequestTruncation(value: string): boolean {
-  return [...value.trim()].length > EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS;
+  return textExceedsLength(value.trim(), EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS);
 }
 
 function boundedExpertRequestField(value: string): string {
   const normalized = value.trim();
-  if ([...normalized].length <= EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS) {
-    return normalized;
-  }
-  return `${[...normalized].slice(0, EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS).join('').trimEnd()}...`;
+  return truncateEndText(normalized, EXPERT_REQUEST_CARD_MAX_FIELD_CHARACTERS, {
+    ellipsis: '...',
+    trimEnd: true,
+  });
 }
 
 function isGoalEvaluationMessage(message: SessionMessage): boolean {
