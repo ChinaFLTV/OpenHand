@@ -56,6 +56,23 @@ void main() {
       isNull,
     );
   });
+
+  test('AiSessionCacheHitTrendPoint clamps hit ratio metadata', () {
+    expect(_trendPointWithHitRatio(-0.25).hitRatio, 0);
+    expect(_trendPointWithHitRatio('0.42').hitRatio, 0.42);
+    expect(_trendPointWithHitRatio(1.25).hitRatio, 1);
+    expect(_trendPointWithHitRatio('bad').hitRatio, 0);
+  });
+}
+
+AiSessionCacheHitTrendPoint _trendPointWithHitRatio(Object? hitRatio) {
+  return AiSessionCacheHitTrendPoint.fromJson(<String, Object?>{
+    AiSessionCacheHitTrendPoint.turnIndexJsonKey: 0,
+    AiSessionCacheHitTrendPoint.hitRatioJsonKey: hitRatio,
+    AiSessionCacheHitTrendPoint.promptTokensJsonKey: 100,
+    AiSessionCacheHitTrendPoint.cacheReadTokensJsonKey: 25,
+    AiSessionCacheHitTrendPoint.cacheWriteTokensJsonKey: 0,
+  });
 }
 
 AiSession _session({

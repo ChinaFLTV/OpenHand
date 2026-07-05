@@ -1348,8 +1348,7 @@ class AiSessionCacheHitTrendPoint {
   }
 
   static double _readHitRatio(Object? value) {
-    final parsed = optionalDoubleFromValue(value);
-    return clampUnitInterval(parsed ?? 0.0);
+    return optionalUnitIntervalFromValue(value) ?? 0.0;
   }
 }
 
