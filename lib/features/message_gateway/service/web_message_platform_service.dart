@@ -267,9 +267,6 @@ class WebMessagePlatformService {
   static const int _storedMessageWindowExpandedScanLimit = 96;
   static const int _connectivityProbeMinTimeoutMs = 500;
   static const int _connectivityProbeMaxTimeoutMs = 10000;
-  static const int _terminalDefaultTimeoutMs = 120000;
-  static const int _terminalMinTimeoutMs = 1000;
-  static const int _terminalMaxTimeoutMs = 600000;
   static const Duration _queuedGoalYieldLeaseDuration = Duration(minutes: 15);
   static const Set<AiBuiltinToolKind> _knowledgeBaseBuiltinToolKinds =
       <AiBuiltinToolKind>{
@@ -5434,12 +5431,8 @@ class WebMessagePlatformService {
     final raw =
         optionalIntFromValue(body['timeout_ms']) ??
         optionalIntFromValue(body['timeout']) ??
-        _terminalDefaultTimeoutMs;
-    return _clampMilliseconds(
-      raw,
-      min: _terminalMinTimeoutMs,
-      max: _terminalMaxTimeoutMs,
-    );
+        kMachineTerminalDefaultCommandTimeout.inMilliseconds;
+    return clampMachineTerminalCommandTimeoutMs(raw);
   }
 
   int _clampMilliseconds(int value, {required int min, required int max}) {

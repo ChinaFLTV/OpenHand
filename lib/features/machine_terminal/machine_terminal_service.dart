@@ -16,6 +16,19 @@ import '../../shared/util/timer_safety.dart';
 const String kMachineExpertTemplateId = 'machine_expert';
 const String kMachineTerminalMetadataKey = 'machine_terminal';
 const int kMachineTerminalMetadataSchemaVersion = 2;
+const Duration kMachineTerminalDefaultCommandTimeout = Duration(seconds: 120);
+const int kMachineTerminalMinCommandTimeoutMs = 1000;
+const int kMachineTerminalMaxCommandTimeoutMs = 600000;
+
+int clampMachineTerminalCommandTimeoutMs(int value) {
+  if (value < kMachineTerminalMinCommandTimeoutMs) {
+    return kMachineTerminalMinCommandTimeoutMs;
+  }
+  if (value > kMachineTerminalMaxCommandTimeoutMs) {
+    return kMachineTerminalMaxCommandTimeoutMs;
+  }
+  return value;
+}
 
 const int _defaultRows = 30;
 const int _defaultColumns = 100;
@@ -28,7 +41,6 @@ const int _maxToolOutputCharacters = 120000;
 const int _maxReplayOutputCharacters = 240000;
 const int _maxCommandHistoryEntries = 80;
 const int _maxCommandHistoryOutputCharacters = 40000;
-const Duration _defaultCommandTimeout = Duration(seconds: 120);
 const Duration _commandPollInterval = Duration(milliseconds: 80);
 const Duration _metadataPersistDebounce = Duration(milliseconds: 700);
 const Duration _terminalStopGraceDuration = Duration(milliseconds: 900);
@@ -336,7 +348,8 @@ abstract final class MachineTerminalSessionMetadata {
         'max_rows': _maxRows,
         'max_columns': _maxColumns,
         'scrollback_lines': _scrollbackLines,
-        'command_timeout_ms': _defaultCommandTimeout.inMilliseconds,
+        'command_timeout_ms':
+            kMachineTerminalDefaultCommandTimeout.inMilliseconds,
         'command_poll_interval_ms': _commandPollInterval.inMilliseconds,
         'max_retained_output_characters': _maxRetainedOutputCharacters,
         'max_tool_output_characters': _maxToolOutputCharacters,
@@ -626,7 +639,7 @@ class MachineTerminalService extends ChangeNotifier {
     required String sessionId,
     required String command,
     String? terminalId,
-    Duration timeout = _defaultCommandTimeout,
+    Duration timeout = kMachineTerminalDefaultCommandTimeout,
   }) async {
     final terminal = _requireTerminal(sessionId, terminalId);
     if (!terminal.isRunningOrStarting) {

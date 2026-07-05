@@ -226,10 +226,8 @@ class AiMachineTerminalExecTool extends AiMachineTerminalToolBase {
     final raw =
         AiToolUtils.readInt(args['timeout_ms']) ??
         AiToolUtils.readInt(args['timeout']) ??
-        120000;
-    if (raw < 1000) return 1000;
-    if (raw > 600000) return 600000;
-    return raw;
+        kMachineTerminalDefaultCommandTimeout.inMilliseconds;
+    return clampMachineTerminalCommandTimeoutMs(raw);
   }
 }
 
