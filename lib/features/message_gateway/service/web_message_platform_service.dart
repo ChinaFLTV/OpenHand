@@ -2750,13 +2750,14 @@ class WebMessagePlatformService {
     }
     _rememberMachineTerminalSessionMetadata(session);
     final start = request.requestedUri.queryParameters['start'] != 'false';
+    final includeHistory = _includeTerminalHistory(request);
     final snapshot = _machineTerminalService.ensureWorkspace(
       sessionId: session.id,
       workingDirectory: _machineTerminalWorkingDirectory(session),
       start: start,
     );
     return _json(HttpStatus.ok, <String, Object?>{
-      'terminal': snapshot.toJson(),
+      'terminal': snapshot.toJson(includeHistory: includeHistory),
     });
   }
 
@@ -2771,6 +2772,7 @@ class WebMessagePlatformService {
     }
     _rememberMachineTerminalSessionMetadata(session);
     final body = await _readJsonBody(request);
+    final includeHistory = _includeTerminalHistory(request, body);
     final data = _string(body['data'] ?? body['text'] ?? body['input'], '');
     if (data.isEmpty) {
       return _json(HttpStatus.badRequest, <String, Object?>{
@@ -2787,7 +2789,7 @@ class WebMessagePlatformService {
     final snapshot = _machineTerminalService.snapshot(session.id);
     return _json(HttpStatus.ok, <String, Object?>{
       'ok': true,
-      'terminal': snapshot?.toJson(),
+      'terminal': snapshot?.toJson(includeHistory: includeHistory),
     });
   }
 
@@ -2802,6 +2804,7 @@ class WebMessagePlatformService {
     }
     _rememberMachineTerminalSessionMetadata(session);
     final body = await _readJsonBody(request);
+    final includeHistory = _includeTerminalHistory(request, body);
     final command = _string(body['command'] ?? body['cmd'], '').trimRight();
     if (command.trim().isEmpty) {
       return _json(HttpStatus.badRequest, <String, Object?>{
@@ -2818,7 +2821,9 @@ class WebMessagePlatformService {
     return _json(HttpStatus.ok, <String, Object?>{
       'ok': result.error == null && !result.timedOut,
       'result': result.toJson(),
-      'terminal': _machineTerminalService.snapshot(session.id)?.toJson(),
+      'terminal': _machineTerminalService
+          .snapshot(session.id)
+          ?.toJson(includeHistory: includeHistory),
     });
   }
 
@@ -2833,6 +2838,7 @@ class WebMessagePlatformService {
     }
     _rememberMachineTerminalSessionMetadata(session);
     final body = await _readJsonBody(request);
+    final includeHistory = _includeTerminalHistory(request, body);
     final action = _string(body['action'], '').trim();
     if (action.isEmpty) {
       return _json(HttpStatus.badRequest, <String, Object?>{
@@ -2853,7 +2859,7 @@ class WebMessagePlatformService {
       );
       return _json(HttpStatus.ok, <String, Object?>{
         'ok': true,
-        'terminal': snapshot.toJson(),
+        'terminal': snapshot.toJson(includeHistory: includeHistory),
       });
     } catch (error) {
       return _json(HttpStatus.badRequest, <String, Object?>{
@@ -2861,6 +2867,17 @@ class WebMessagePlatformService {
         'message': '$error',
       });
     }
+  }
+
+  bool _includeTerminalHistory(
+    shelf.Request request, [
+    Map<String, Object?>? body,
+  ]) {
+    final query = request.requestedUri.queryParameters;
+    return boolFromValue(query['history']) ||
+        boolFromValue(query['include_history']) ||
+        boolFromValue(body?['history']) ||
+        boolFromValue(body?['include_history']);
   }
 
   Future<shelf.Response> _renameSession(

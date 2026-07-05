@@ -58,6 +58,7 @@ import {
   updateSessionFullAccessPermission,
   updateSessionMode,
   writeMachineTerminal,
+  type MachineTerminalSnapshot,
   type MachineTerminalWorkspace,
   type CompactSessionResponse,
   type CompactSessionStatus,
@@ -1262,7 +1263,7 @@ function stabilizeAssociatedKnowledgeBaseMetadataByMessageId(
   return stable;
 }
 
-type ComposerIconName = 'attachment' | 'chat' | 'chevronDown' | 'chevronUp' | 'close' | 'copy' | 'edit' | 'file' | 'follow' | 'goal' | 'guide' | 'image' | 'knowledge' | 'model' | 'mode' | 'pause' | 'plan' | 'play' | 'permission' | 'plus' | 'research' | 'refresh' | 'send' | 'sound' | 'spark' | 'stop' | 'video';
+type ComposerIconName = 'attachment' | 'chat' | 'chevronDown' | 'chevronUp' | 'close' | 'copy' | 'edit' | 'file' | 'follow' | 'goal' | 'guide' | 'history' | 'image' | 'knowledge' | 'model' | 'mode' | 'pause' | 'plan' | 'play' | 'permission' | 'plus' | 'research' | 'refresh' | 'send' | 'sound' | 'spark' | 'stop' | 'trash' | 'video';
 
 function sessionModeIconName(mode: string): ComposerIconName {
   if (mode === 'plan') return 'plan';
@@ -1379,6 +1380,14 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
           <path {...stroke} d="M12 7.5V11l2 1.2" />
         </svg>
       );
+    case 'history':
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M3 12a9 9 0 1 0 3-6.7" />
+          <path {...stroke} d="M3 4.5v4h4" />
+          <path {...stroke} d="M12 7v5l3 2" />
+        </svg>
+      );
     case 'refresh':
       return (
         <svg {...common}>
@@ -1487,6 +1496,13 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
           <rect {...stroke} x="7" y="7" width="10" height="10" rx="2" />
         </svg>
       );
+    case 'trash':
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M4 7h16M9 7V5h6v2M8 10v8M12 10v8M16 10v8" />
+          <path {...stroke} d="M6.5 7 7.4 21h9.2l.9-14" />
+        </svg>
+      );
     case 'video':
       return (
         <svg {...common}>
@@ -1503,6 +1519,29 @@ function ComposerIcon({ name, size = 18 }: { name: ComposerIconName; size?: numb
   }
 }
 
+const MACHINE_TERMINAL_XTERM_THEME = {
+  background: '#0B0D10',
+  foreground: '#E7ECF3',
+  cursor: '#E6F6C3',
+  selectionBackground: '#4D7CFF66',
+  black: '#101217',
+  red: '#FF6B6B',
+  green: '#5FE3A1',
+  yellow: '#E8D66B',
+  blue: '#75A7FF',
+  magenta: '#D98CFF',
+  cyan: '#62DCE8',
+  white: '#F4F7FB',
+  brightBlack: '#6E7681',
+  brightRed: '#FF8F86',
+  brightGreen: '#7CF3B6',
+  brightYellow: '#F4E58D',
+  brightBlue: '#9DBDFF',
+  brightMagenta: '#E7A8FF',
+  brightCyan: '#8FEAF2',
+  brightWhite: '#FFFFFF',
+} as const;
+
 function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -1513,14 +1552,24 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
   const lastResizeRef = useRef('');
   const [workspace, setWorkspace] = useState<MachineTerminalWorkspace | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyRefreshing, setHistoryRefreshing] = useState(false);
+  const [replayTerminal, setReplayTerminal] = useState<MachineTerminalSnapshot | null>(null);
   const active = workspace?.active_terminal ?? null;
+  const historyDetailsActive = historyOpen || Boolean(replayTerminal);
 
   useEffect(() => {
     activeTerminalIdRef.current = active?.terminal_id || undefined;
   }, [active?.terminal_id]);
 
-  const syncTerminal = useCallback(async (start = true) => {
-    const res = await getMachineTerminal(sessionId, { start });
+  const syncTerminal = useCallback(async (
+    start = true,
+    options: { includeHistory?: boolean } = {},
+  ) => {
+    const res = await getMachineTerminal(sessionId, {
+      start,
+      includeHistory: options.includeHistory,
+    });
     setWorkspace(res.terminal);
     return res.terminal;
   }, [sessionId]);
@@ -1537,28 +1586,7 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
       fontSize: 13,
       lineHeight: 1.18,
       scrollback: 5000,
-      theme: {
-        background: '#0B0D10',
-        foreground: '#E7ECF3',
-        cursor: '#E6F6C3',
-        selectionBackground: '#4D7CFF66',
-        black: '#101217',
-        red: '#FF6B6B',
-        green: '#5FE3A1',
-        yellow: '#E8D66B',
-        blue: '#75A7FF',
-        magenta: '#D98CFF',
-        cyan: '#62DCE8',
-        white: '#F4F7FB',
-        brightBlack: '#6E7681',
-        brightRed: '#FF8F86',
-        brightGreen: '#7CF3B6',
-        brightYellow: '#F4E58D',
-        brightBlue: '#9DBDFF',
-        brightMagenta: '#E7A8FF',
-        brightCyan: '#8FEAF2',
-        brightWhite: '#FFFFFF',
-      },
+      theme: MACHINE_TERMINAL_XTERM_THEME,
     });
     const fit = new FitAddon();
     terminal.loadAddon(fit);
@@ -1614,7 +1642,7 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
     let alive = true;
     const tick = async () => {
       try {
-        const next = await syncTerminal(true);
+        const next = await syncTerminal(true, { includeHistory: historyDetailsActive });
         if (!alive) return;
         const activeTerminal = next.active_terminal ?? null;
         const ansiOutput = activeTerminal?.ansi_output ?? activeTerminal?.output ?? '';
@@ -1639,18 +1667,23 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
       alive = false;
       window.clearInterval(timer);
     };
-  }, [syncTerminal]);
+  }, [historyDetailsActive, syncTerminal]);
 
-  async function runControl(action: string, terminalId?: string): Promise<void> {
+  async function runControl(
+    action: string,
+    terminalId?: string,
+    options: { includeHistory?: boolean; throwOnError?: boolean } = {},
+  ): Promise<void> {
     if (busyAction) return;
     setBusyAction(action);
     try {
       const res = await controlMachineTerminal(sessionId, {
         action,
         terminalId,
+        includeHistory: options.includeHistory,
       });
       setWorkspace(res.terminal);
-      if (action === 'clear' || action === 'select' || action === 'new' || action === 'duplicate') {
+      if (action === 'clear' || action === 'select' || action === 'new' || action === 'duplicate' || action === 'close' || action === 'delete') {
         lastAnsiOutputRef.current = '';
         terminalRef.current?.reset();
         const nextActive = res.terminal.active_terminal ?? null;
@@ -1662,94 +1695,404 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       showSnackbar(`${t('terminal.control.failed', '终端操作失败')}：${message}`, { tone: 'error' });
+      if (options.throwOnError) throw error;
     } finally {
       setBusyAction(null);
+    }
+  }
+
+  async function openHistoryDialog(): Promise<void> {
+    setHistoryOpen(true);
+    setHistoryRefreshing(true);
+    try {
+      await syncTerminal(false, { includeHistory: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showSnackbar(`${t('terminal.history.sync.failed', '同步终端历史失败')}：${message}`, { tone: 'error' });
+    } finally {
+      setHistoryRefreshing(false);
     }
   }
 
   const tabs = workspace?.terminals ?? [];
   const status = active?.status ?? 'starting';
   return (
-    <aside class="oh-machine-terminal-panel">
-      <div class="oh-machine-terminal-header">
-        <div class="oh-machine-terminal-title">
-          <span class="oh-machine-terminal-glyph" aria-hidden>
-            <ComposerIcon name="mode" size={18} />
-          </span>
-          <span class="min-w-0">
-            <span class="oh-machine-terminal-title-text">{t('terminal.title', '机器终端')}</span>
-            <span class="oh-machine-terminal-subtitle">{active?.identity || t('terminal.starting', '正在启动')}</span>
-          </span>
+    <>
+      <aside class="oh-machine-terminal-panel">
+        <div class="oh-machine-terminal-header">
+          <div class="oh-machine-terminal-title">
+            <span class="oh-machine-terminal-glyph" aria-hidden>
+              <ComposerIcon name="mode" size={18} />
+            </span>
+            <span class="min-w-0">
+              <span class="oh-machine-terminal-title-text">{t('terminal.title', '机器终端')}</span>
+              <span class="oh-machine-terminal-subtitle">{active?.identity || t('terminal.starting', '正在启动')}</span>
+            </span>
+          </div>
+          <button
+            type="button"
+            class="oh-machine-terminal-icon oh-tap-press"
+            title={t('terminal.copyId', '复制终端 ID')}
+            disabled={!active?.terminal_id}
+            onClick={() => active?.terminal_id ? void copyTextToClipboard(active.terminal_id).then(() => showSnackbar(t('terminal.copyId.ok', '终端 ID 已复制'), { tone: 'success' })) : undefined}
+          >
+            <ComposerIcon name="copy" size={16} />
+          </button>
         </div>
-        <button
-          type="button"
-          class="oh-machine-terminal-icon oh-tap-press"
-          title={t('terminal.copyId', '复制终端 ID')}
-          disabled={!active?.terminal_id}
-          onClick={() => active?.terminal_id ? void copyTextToClipboard(active.terminal_id).then(() => showSnackbar(t('terminal.copyId.ok', '终端 ID 已复制'), { tone: 'success' })) : undefined}
-        >
-          <ComposerIcon name="copy" size={16} />
-        </button>
-      </div>
 
-      <div class="oh-machine-terminal-chips">
-        <span class={`oh-machine-terminal-chip is-${status}`}>{terminalStatusLabel(status)}</span>
-        <span class="oh-machine-terminal-chip">{active?.terminal_id || '-'}</span>
-        <span class="oh-machine-terminal-chip">PID {active?.pid ?? '-'}</span>
-        <span class="oh-machine-terminal-chip">{active ? `${active.columns}x${active.rows}` : '-'}</span>
-      </div>
+        <div class="oh-machine-terminal-chips">
+          <span class={`oh-machine-terminal-chip is-${status}`}>{terminalStatusLabel(status)}</span>
+          <span class="oh-machine-terminal-chip">{active?.terminal_id || '-'}</span>
+          <span class="oh-machine-terminal-chip">PID {active?.pid ?? '-'}</span>
+          <span class="oh-machine-terminal-chip">{active ? `${active.columns}x${active.rows}` : '-'}</span>
+        </div>
 
-      <div class="oh-machine-terminal-actions">
-        <button type="button" title={t('terminal.new', '新建终端')} onClick={() => void runControl('new')} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction)}>
-          <ComposerIcon name="plus" size={16} />
-        </button>
-        <button type="button" title={t('terminal.duplicate', '复制终端')} onClick={() => void runControl('duplicate', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || !active)}>
-          <ComposerIcon name="copy" size={16} />
-        </button>
-        <button type="button" title={t('terminal.start', '启动')} onClick={() => void runControl('start', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || status === 'running')}>
-          <ComposerIcon name="play" size={16} />
-        </button>
-        <button type="button" title={t('terminal.stop', '停止')} onClick={() => void runControl('stop', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || status !== 'running')}>
-          <ComposerIcon name="stop" size={16} />
-        </button>
-        <button type="button" title={t('terminal.restart', '重启')} onClick={() => void runControl('restart', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || !active)}>
-          <ComposerIcon name="refresh" size={16} />
-        </button>
-        <button type="button" title={t('terminal.clear', '清屏')} onClick={() => void runControl('clear', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || !active)}>
-          <ComposerIcon name="spark" size={16} />
-        </button>
-        <button type="button" title={t('terminal.close', '关闭终端')} onClick={() => void runControl('close', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || tabs.length <= 1)}>
+        <div class="oh-machine-terminal-actions">
+          <button type="button" title={t('terminal.new', '新建终端')} onClick={() => void runControl('new')} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction)}>
+            <ComposerIcon name="plus" size={16} />
+          </button>
+          <button type="button" title={t('terminal.duplicate', '复制终端')} onClick={() => void runControl('duplicate', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || !active)}>
+            <ComposerIcon name="copy" size={16} />
+          </button>
+          <button type="button" title={t('terminal.start', '启动')} onClick={() => void runControl('start', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || status === 'running')}>
+            <ComposerIcon name="play" size={16} />
+          </button>
+          <button type="button" title={t('terminal.stop', '停止')} onClick={() => void runControl('stop', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || status !== 'running')}>
+            <ComposerIcon name="stop" size={16} />
+          </button>
+          <button type="button" title={t('terminal.restart', '重启')} onClick={() => void runControl('restart', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || !active)}>
+            <ComposerIcon name="refresh" size={16} />
+          </button>
+          <button type="button" title={t('terminal.clear', '清屏')} onClick={() => void runControl('clear', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || !active)}>
+            <ComposerIcon name="spark" size={16} />
+          </button>
+          <button type="button" title={t('terminal.history', '执行历史')} onClick={() => void openHistoryDialog()} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(!workspace || historyRefreshing)}>
+            <ComposerIcon name="history" size={16} />
+          </button>
+          <button type="button" title={t('terminal.close', '关闭终端')} onClick={() => void runControl('close', active?.terminal_id)} class="oh-machine-terminal-icon oh-tap-press" disabled={Boolean(busyAction || tabs.length <= 1)}>
+            <ComposerIcon name="close" size={16} />
+          </button>
+        </div>
+
+        <div class="oh-machine-terminal-tabs" role="tablist">
+          {tabs.map((terminal) => {
+            const selected = terminal.terminal_id === workspace?.active_terminal_id;
+            return (
+              <button
+                key={terminal.terminal_id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                class={`oh-machine-terminal-tab ${selected ? 'is-active' : ''}`}
+                onClick={() => selected ? undefined : void runControl('select', terminal.terminal_id)}
+              >
+                <span class={`oh-machine-terminal-dot is-${terminal.status}`} />
+                <span class="truncate">{terminal.terminal_id}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div class="oh-machine-terminal-viewport" ref={shellRef} />
+
+        <div class="oh-machine-terminal-meta">
+          <span class="truncate">{active?.working_directory || '-'}</span>
+          <span>{active ? formatTerminalTime(active.updated_at) : '-'}</span>
+        </div>
+      </aside>
+      {historyOpen && workspace ? (
+        <MachineTerminalHistoryDialog
+          workspace={workspace}
+          busyAction={historyRefreshing ? 'history' : busyAction}
+          onClose={() => setHistoryOpen(false)}
+          onReplay={(terminal) => setReplayTerminal(terminal)}
+          onDelete={(terminalId) => runControl('delete', terminalId, { includeHistory: true, throwOnError: true })}
+        />
+      ) : null}
+      {replayTerminal ? (
+        <MachineTerminalReplayDialog
+          terminal={replayTerminal}
+          onClose={() => setReplayTerminal(null)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function MachineTerminalHistoryDialog({
+  workspace,
+  busyAction,
+  onClose,
+  onReplay,
+  onDelete,
+}: {
+  workspace: MachineTerminalWorkspace;
+  busyAction: string | null;
+  onClose: () => void;
+  onReplay: (terminal: MachineTerminalSnapshot) => void;
+  onDelete: (terminalId: string) => Promise<void>;
+}) {
+  const { closing, requestClose } = useDialogExitMotion(onClose);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const terminals = workspace.terminals ?? [];
+  const commandTotal = terminals.reduce((total, item) => total + terminalCommandCount(item), 0);
+  const outputTotal = terminals.reduce((total, item) => total + terminalHistoryOutputCharacters(item), 0);
+
+  async function handleDelete(terminalId: string): Promise<void> {
+    if (deletingId || busyAction) return;
+    setDeletingId(terminalId);
+    try {
+      await onDelete(terminalId);
+      showSnackbar(t('terminal.history.delete.ok', '终端会话已删除'), { tone: 'success' });
+    } catch {
+      // runControl already reports the concrete error.
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      ariaLabel={t('terminal.history.title', '终端执行历史')}
+      {...createStandardDialogFrameAppearance({
+        overlayTone: 'strong',
+        overlayBlurPx: 4,
+        panelClassName: 'oh-machine-terminal-history-dialog',
+        panelSurface: {
+          width: 'min(1060px, calc(100vw - 32px))',
+          maxHeight: 'min(86vh, 740px)',
+          overflow: 'hidden',
+          background: 'var(--m3-surface)',
+        },
+      })}
+    >
+      <div class="oh-machine-terminal-dialog-head">
+        <span class="oh-machine-terminal-dialog-icon" aria-hidden>
+          <ComposerIcon name="history" size={20} />
+        </span>
+        <div class="min-w-0 flex-1">
+          <h2>{t('terminal.history.title', '终端执行历史')}</h2>
+          <p>
+            {t('terminal.history.subtitle', '当前线程关联终端会话')} {terminals.length} · {t('terminal.history.active', '当前')} {workspace.active_terminal_id || '-'}
+          </p>
+        </div>
+        <button type="button" class="oh-machine-terminal-dialog-close oh-tap-press" onClick={requestClose} title={t('common.close', '关闭')}>
           <ComposerIcon name="close" size={16} />
         </button>
       </div>
 
-      <div class="oh-machine-terminal-tabs" role="tablist">
-        {tabs.map((terminal) => {
-          const selected = terminal.terminal_id === workspace?.active_terminal_id;
-          return (
-            <button
-              key={terminal.terminal_id}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              class={`oh-machine-terminal-tab ${selected ? 'is-active' : ''}`}
-              onClick={() => selected ? undefined : void runControl('select', terminal.terminal_id)}
-            >
-              <span class={`oh-machine-terminal-dot is-${terminal.status}`} />
-              <span class="truncate">{terminal.terminal_id}</span>
-            </button>
-          );
-        })}
+      <div class="oh-machine-terminal-history-metrics">
+        <MachineTerminalHistoryMetric icon="mode" label={t('terminal.history.metric.terminals', '终端数量')} value={`${terminals.length}`} />
+        <MachineTerminalHistoryMetric icon="plan" label={t('terminal.history.metric.commands', '命令记录')} value={`${commandTotal}`} />
+        <MachineTerminalHistoryMetric icon="file" label={t('terminal.history.metric.output', '历史输出')} value={formatTerminalHistorySize(outputTotal)} />
       </div>
 
-      <div class="oh-machine-terminal-viewport" ref={shellRef} />
-
-      <div class="oh-machine-terminal-meta">
-        <span class="truncate">{active?.working_directory || '-'}</span>
-        <span>{active ? formatTerminalTime(active.updated_at) : '-'}</span>
+      <div class="oh-machine-terminal-history-table-shell">
+        {terminals.length === 0 ? (
+          <div class="oh-machine-terminal-history-empty">{t('terminal.history.empty', '暂无终端会话历史。')}</div>
+        ) : (
+          <table class="oh-machine-terminal-history-table">
+            <thead>
+              <tr>
+                <th>{t('terminal.history.col.terminal', '终端')}</th>
+                <th>{t('terminal.history.col.status', '状态')}</th>
+                <th>PID</th>
+                <th>{t('terminal.history.col.size', '尺寸')}</th>
+                <th>{t('terminal.history.col.commands', '命令')}</th>
+                <th>{t('terminal.history.col.output', '输出')}</th>
+                <th>{t('terminal.history.col.started', '启动时间')}</th>
+                <th>{t('terminal.history.col.updated', '更新时间')}</th>
+                <th class="text-right">{t('terminal.history.col.actions', '操作')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {terminals.map((terminal) => {
+                const active = terminal.terminal_id === workspace.active_terminal_id;
+                const deleting = deletingId === terminal.terminal_id;
+                const actionDisabled = Boolean(deleting || busyAction);
+                return (
+                  <tr key={terminal.terminal_id} class={active ? 'is-active' : ''}>
+                    <td>
+                      <span class="oh-machine-terminal-history-terminal">
+                        <span class={`oh-machine-terminal-dot is-${terminal.status}`} />
+                        <span class="truncate">{terminal.terminal_id}</span>
+                        {active ? <span class="oh-machine-terminal-history-active">{t('terminal.history.active', '当前')}</span> : null}
+                      </span>
+                    </td>
+                    <td><span class={`oh-machine-terminal-history-status is-${terminal.status}`}>{terminalStatusLabel(terminal.status)}</span></td>
+                    <td class="tabular-nums">{terminal.pid ?? '-'}</td>
+                    <td class="tabular-nums">{terminal.columns}x{terminal.rows}</td>
+                    <td class="tabular-nums">{terminalCommandCount(terminal)}</td>
+                    <td>{formatTerminalHistorySize(terminalHistoryOutputCharacters(terminal))}</td>
+                    <td class="tabular-nums">{formatDialogDate(terminal.started_at)}</td>
+                    <td class="tabular-nums">{formatDialogDate(terminal.updated_at)}</td>
+                    <td>
+                      <div class="oh-machine-terminal-history-actions">
+                        <button type="button" class="oh-machine-terminal-history-action oh-tap-press" onClick={() => onReplay(terminal)} title={t('terminal.history.replay', '回放')} disabled={actionDisabled}>
+                          <ComposerIcon name="play" size={15} />
+                        </button>
+                        <button type="button" class="oh-machine-terminal-history-action is-danger oh-tap-press" onClick={() => void handleDelete(terminal.terminal_id)} title={t('terminal.history.delete', '删除')} disabled={actionDisabled}>
+                          <ComposerIcon name={deleting ? 'refresh' : 'trash'} size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
-    </aside>
+
+      <div class="oh-machine-terminal-dialog-footer">
+        <DialogActionButton onClick={requestClose} tone="ghost">
+          <ComposerIcon name="close" size={14} />
+          {t('common.close', '关闭')}
+        </DialogActionButton>
+      </div>
+    </DialogFrame>
   );
+}
+
+function MachineTerminalHistoryMetric({
+  icon,
+  label,
+  value,
+}: {
+  icon: ComposerIconName;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div class="oh-machine-terminal-history-metric">
+      <span aria-hidden><ComposerIcon name={icon} size={17} /></span>
+      <span class="truncate">{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function MachineTerminalReplayDialog({
+  terminal,
+  onClose,
+}: {
+  terminal: MachineTerminalSnapshot;
+  onClose: () => void;
+}) {
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const { closing, requestClose } = useDialogExitMotion(onClose);
+
+  useEffect(() => {
+    const root = shellRef.current;
+    if (!root) return;
+    const replay = new Terminal({
+      allowProposedApi: false,
+      convertEol: true,
+      cursorBlink: false,
+      disableStdin: true,
+      fontFamily: 'Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+      fontSize: 13,
+      lineHeight: 1.18,
+      scrollback: 10000,
+      theme: MACHINE_TERMINAL_XTERM_THEME,
+    });
+    const fit = new FitAddon();
+    replay.loadAddon(fit);
+    replay.open(root);
+    fit.fit();
+    replay.write(terminalReplayAnsiOutput(terminal), () => replay.scrollToTop());
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(() => fit.fit());
+    resizeObserver?.observe(root);
+    return () => {
+      resizeObserver?.disconnect();
+      replay.dispose();
+    };
+  }, [terminal]);
+
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      ariaLabel={t('terminal.replay.title', '终端历史回放')}
+      {...createStandardDialogFrameAppearance({
+        overlayTone: 'strong',
+        overlayBlurPx: 4,
+        panelClassName: 'oh-machine-terminal-replay-dialog',
+        panelSurface: {
+          width: 'min(980px, calc(100vw - 32px))',
+          maxHeight: 'min(88vh, 780px)',
+          overflow: 'hidden',
+          background: 'var(--m3-surface)',
+        },
+      })}
+    >
+      <div class="oh-machine-terminal-dialog-head">
+        <span class="oh-machine-terminal-dialog-icon" aria-hidden>
+          <ComposerIcon name="play" size={20} />
+        </span>
+        <div class="min-w-0 flex-1">
+          <h2>{t('terminal.replay.title', '终端历史回放')}</h2>
+          <p>
+            {terminal.terminal_id} · {formatTerminalHistorySize(terminalHistoryOutputCharacters(terminal))} · {terminalCommandCount(terminal)} {t('terminal.replay.commands', '条命令')}
+          </p>
+        </div>
+        <button type="button" class="oh-machine-terminal-dialog-close oh-tap-press" onClick={requestClose} title={t('common.close', '关闭')}>
+          <ComposerIcon name="close" size={16} />
+        </button>
+      </div>
+
+      <div class="oh-machine-terminal-replay-meta">
+        <span class={`oh-machine-terminal-history-status is-${terminal.status}`}>{terminalStatusLabel(terminal.status)}</span>
+        <span>{terminal.columns}x{terminal.rows}</span>
+        <span>{formatDialogDate(terminal.updated_at)}</span>
+      </div>
+      <div class="oh-machine-terminal-replay-viewport" ref={shellRef} />
+    </DialogFrame>
+  );
+}
+
+function terminalCommandCount(terminal: MachineTerminalSnapshot): number {
+  return terminal.command_count ?? terminal.command_history?.length ?? 0;
+}
+
+function terminalHistoryOutputCharacters(terminal: MachineTerminalSnapshot): number {
+  return terminal.history_output_characters ?? terminal.output_characters ?? 0;
+}
+
+function formatTerminalHistorySize(characters: number): string {
+  if (!Number.isFinite(characters) || characters <= 0) return '0';
+  if (characters < 1024) return `${Math.round(characters)} chars`;
+  const units = ['KB', 'MB', 'GB'];
+  let value = characters / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return `${value >= 10 ? value.toFixed(1) : value.toFixed(2)} ${units[unitIndex]}`;
+}
+
+function terminalReplayAnsiOutput(terminal: MachineTerminalSnapshot): string {
+  const history = (terminal.history_ansi_output ?? '').trimEnd();
+  if (history) return history;
+  const live = (terminal.ansi_output ?? terminal.output ?? '').trimEnd();
+  if (live) return live;
+  const commandHistory = terminal.command_history ?? [];
+  if (commandHistory.length > 0) {
+    return commandHistory.map((entry) => {
+      const output = entry.output.trimEnd();
+      return [
+        `\x1b[38;5;75m$ ${entry.command}\x1b[0m`,
+        output,
+        `\x1b[38;5;244mexit=${entry.exit_code ?? '-'} timeout=${entry.timed_out} duration=${entry.duration_ms}ms\x1b[0m`,
+      ].filter(Boolean).join('\r\n');
+    }).join('\r\n\r\n');
+  }
+  return '\x1b[38;5;245mNo terminal history recorded.\x1b[0m\r\n';
 }
 
 function terminalStatusLabel(status: string): string {

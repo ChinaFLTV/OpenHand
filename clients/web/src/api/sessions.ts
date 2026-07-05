@@ -210,11 +210,29 @@ export interface MachineTerminalSnapshot {
   output: string;
   ansi_output?: string;
   output_characters: number;
+  history_output?: string;
+  history_ansi_output?: string;
+  history_output_characters?: number;
+  command_count?: number;
+  command_history?: MachineTerminalCommandHistoryEntry[];
   started_at: string;
   updated_at: string;
   pid?: number | null;
   exit_code?: number | null;
   error_message?: string | null;
+}
+
+export interface MachineTerminalCommandHistoryEntry {
+  id: string;
+  terminal_id: string;
+  command: string;
+  output: string;
+  exit_code?: number | null;
+  timed_out: boolean;
+  duration_ms: number;
+  started_at: string;
+  completed_at: string;
+  error?: string | null;
 }
 
 export interface MachineTerminalWorkspace {
@@ -236,6 +254,8 @@ export interface MachineTerminalMetadataSnapshot {
   rows: number;
   columns: number;
   output_characters: number;
+  history_output_characters?: number;
+  command_count?: number;
   started_at: string;
   updated_at: string;
   pid?: number | null;
@@ -449,11 +469,14 @@ export function getSession(
 
 export function getMachineTerminal(
   id: string,
-  options: SessionRequestOptions & { start?: boolean } = {},
+  options: SessionRequestOptions & { includeHistory?: boolean; start?: boolean } = {},
 ): Promise<MachineTerminalResponse> {
-  const qs = options.start === false ? '?start=false' : '';
+  const params = new URLSearchParams();
+  if (options.start === false) params.set('start', 'false');
+  if (options.includeHistory) params.set('history', 'true');
+  const qs = params.toString();
   return apiRequest<MachineTerminalResponse>(
-    `/api/sessions/${encodeURIComponent(id)}/terminal${qs}`,
+    `/api/sessions/${encodeURIComponent(id)}/terminal${qs ? `?${qs}` : ''}`,
     { signal: options.signal },
   );
 }
@@ -464,6 +487,7 @@ export function writeMachineTerminal(
     data: string;
     terminalId?: string;
     appendNewline?: boolean;
+    includeHistory?: boolean;
   },
 ): Promise<{ ok: boolean; terminal?: MachineTerminalWorkspace | null }> {
   return apiRequest<{ ok: boolean; terminal?: MachineTerminalWorkspace | null }>(
@@ -474,6 +498,7 @@ export function writeMachineTerminal(
         data: input.data,
         ...(input.terminalId ? { terminal_id: input.terminalId } : {}),
         ...(input.appendNewline ? { append_newline: true } : {}),
+        ...(input.includeHistory ? { include_history: true } : {}),
       },
     },
   );
@@ -485,6 +510,7 @@ export function executeMachineTerminal(
     command: string;
     terminalId?: string;
     timeoutMs?: number;
+    includeHistory?: boolean;
   },
 ): Promise<MachineTerminalExecuteResponse> {
   return apiRequest<MachineTerminalExecuteResponse>(
@@ -495,6 +521,7 @@ export function executeMachineTerminal(
         command: input.command,
         ...(input.terminalId ? { terminal_id: input.terminalId } : {}),
         ...(input.timeoutMs ? { timeout_ms: input.timeoutMs } : {}),
+        ...(input.includeHistory ? { include_history: true } : {}),
       },
     },
   );
@@ -508,6 +535,7 @@ export function controlMachineTerminal(
     workingDirectory?: string;
     columns?: number;
     rows?: number;
+    includeHistory?: boolean;
   },
 ): Promise<MachineTerminalResponse & { ok: boolean }> {
   return apiRequest<MachineTerminalResponse & { ok: boolean }>(
@@ -522,6 +550,7 @@ export function controlMachineTerminal(
           : {}),
         ...(Number.isFinite(input.columns) ? { columns: input.columns } : {}),
         ...(Number.isFinite(input.rows) ? { rows: input.rows } : {}),
+        ...(input.includeHistory ? { include_history: true } : {}),
       },
     },
   );

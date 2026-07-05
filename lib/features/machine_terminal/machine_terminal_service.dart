@@ -22,7 +22,11 @@ const int _maxRows = 240;
 const int _maxColumns = 400;
 const int _scrollbackLines = 5000;
 const int _maxRetainedOutputCharacters = 240000;
+const int _maxRetainedHistoryCharacters = 480000;
 const int _maxToolOutputCharacters = 120000;
+const int _maxReplayOutputCharacters = 240000;
+const int _maxCommandHistoryEntries = 80;
+const int _maxCommandHistoryOutputCharacters = 40000;
 const Duration _defaultCommandTimeout = Duration(seconds: 120);
 const Duration _commandPollInterval = Duration(milliseconds: 80);
 const Duration _metadataPersistDebounce = Duration(milliseconds: 700);
@@ -99,6 +103,47 @@ class MachineTerminalCommandResult {
   }
 }
 
+class MachineTerminalCommandRecord {
+  const MachineTerminalCommandRecord({
+    required this.id,
+    required this.terminalId,
+    required this.command,
+    required this.output,
+    required this.startedAt,
+    required this.completedAt,
+    required this.durationMs,
+    this.exitCode,
+    this.timedOut = false,
+    this.error,
+  });
+
+  final String id;
+  final String terminalId;
+  final String command;
+  final String output;
+  final DateTime startedAt;
+  final DateTime completedAt;
+  final int durationMs;
+  final int? exitCode;
+  final bool timedOut;
+  final String? error;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'id': id,
+      'terminal_id': terminalId,
+      'command': command,
+      'output': _clipString(output, _maxCommandHistoryOutputCharacters),
+      'exit_code': exitCode,
+      'timed_out': timedOut,
+      'duration_ms': durationMs,
+      'started_at': startedAt.toUtc().toIso8601String(),
+      'completed_at': completedAt.toUtc().toIso8601String(),
+      if (error != null) 'error': error,
+    };
+  }
+}
+
 class MachineTerminalSnapshot {
   const MachineTerminalSnapshot({
     required this.sessionId,
@@ -112,6 +157,11 @@ class MachineTerminalSnapshot {
     required this.output,
     required this.ansiOutput,
     required this.outputCharacters,
+    required this.historyOutput,
+    required this.historyAnsiOutput,
+    required this.historyOutputCharacters,
+    required this.commandCount,
+    required this.commandHistory,
     required this.startedAt,
     required this.updatedAt,
     this.pid,
@@ -130,13 +180,18 @@ class MachineTerminalSnapshot {
   final String output;
   final String ansiOutput;
   final int outputCharacters;
+  final String historyOutput;
+  final String historyAnsiOutput;
+  final int historyOutputCharacters;
+  final int commandCount;
+  final List<MachineTerminalCommandRecord> commandHistory;
   final DateTime startedAt;
   final DateTime updatedAt;
   final int? pid;
   final int? exitCode;
   final String? errorMessage;
 
-  Map<String, Object?> toJson() {
+  Map<String, Object?> toJson({bool includeHistory = true}) {
     return <String, Object?>{
       'session_id': sessionId,
       'terminal_id': terminalId,
@@ -149,6 +204,13 @@ class MachineTerminalSnapshot {
       'output': output,
       'ansi_output': ansiOutput,
       'output_characters': outputCharacters,
+      'history_output_characters': historyOutputCharacters,
+      'command_count': commandCount,
+      if (includeHistory) ...<String, Object?>{
+        'history_output': historyOutput,
+        'history_ansi_output': historyAnsiOutput,
+        'command_history': commandHistory.map((item) => item.toJson()).toList(),
+      },
       'started_at': startedAt.toUtc().toIso8601String(),
       'updated_at': updatedAt.toUtc().toIso8601String(),
       if (pid != null) 'pid': pid,
@@ -167,6 +229,8 @@ class MachineTerminalSnapshot {
       'rows': rows,
       'columns': columns,
       'output_characters': outputCharacters,
+      'history_output_characters': historyOutputCharacters,
+      'command_count': commandCount,
       'started_at': startedAt.toUtc().toIso8601String(),
       'updated_at': updatedAt.toUtc().toIso8601String(),
       if (pid != null) 'pid': pid,
@@ -196,12 +260,14 @@ class MachineTerminalWorkspaceSnapshot {
     return terminals.isEmpty ? null : terminals.first;
   }
 
-  Map<String, Object?> toJson() {
+  Map<String, Object?> toJson({bool includeHistory = true}) {
     return <String, Object?>{
       'session_id': sessionId,
       'active_terminal_id': activeTerminalId,
-      'terminals': terminals.map((item) => item.toJson()).toList(),
-      'active_terminal': activeTerminal?.toJson(),
+      'terminals': terminals
+          .map((item) => item.toJson(includeHistory: includeHistory))
+          .toList(),
+      'active_terminal': activeTerminal?.toJson(includeHistory: includeHistory),
     };
   }
 }
@@ -287,6 +353,9 @@ abstract final class MachineTerminalSessionMetadata {
         'shell_completion': true,
         'formatted_command_output': true,
         'marker_isolated_exec': true,
+        'terminal_history': true,
+        'terminal_replay': true,
+        'delete_terminal_history': true,
         'status_inspection': true,
         'environment_metadata': true,
         'native_keybindings': true,
@@ -296,6 +365,8 @@ abstract final class MachineTerminalSessionMetadata {
         'panel': 'left_workspace_terminal',
         'auto_scroll_to_bottom': true,
         'terminal_tabs': true,
+        'terminal_history_dialog': true,
+        'terminal_replay_dialog': true,
         'status_bar': true,
         'metadata_bar': true,
       },
@@ -557,10 +628,8 @@ class MachineTerminalService extends ChangeNotifier {
     Duration timeout = _defaultCommandTimeout,
   }) async {
     final terminal = _requireTerminal(sessionId, terminalId);
-    var started = false;
     if (!terminal.isRunningOrStarting) {
       await terminal.start();
-      started = true;
     }
     final trimmed = command.trimRight();
     if (trimmed.isEmpty) {
@@ -581,9 +650,7 @@ class MachineTerminalService extends ChangeNotifier {
       endMarker: '${token}_END',
       timeout: timeout,
     );
-    if (started || result.error != null || result.timedOut) {
-      _scheduleMetadataPersist(terminal.sessionId);
-    }
+    _scheduleMetadataPersist(terminal.sessionId);
     return result;
   }
 
@@ -626,6 +693,9 @@ class MachineTerminalService extends ChangeNotifier {
       case 'duplicate':
         await duplicateTerminal(sessionId: sessionId, terminalId: terminalId);
       case 'close':
+      case 'delete':
+      case 'delete_terminal':
+      case 'remove':
         await closeTerminal(sessionId: sessionId, terminalId: terminalId);
       case 'select':
         final id = nullIfBlank(terminalId);
@@ -635,7 +705,7 @@ class MachineTerminalService extends ChangeNotifier {
         await selectTerminal(sessionId: sessionId, terminalId: id);
       default:
         throw ArgumentError(
-          'Unsupported terminal action "$action". Use start, stop, restart, clear, resize, new, duplicate, close, or select.',
+          'Unsupported terminal action "$action". Use start, stop, restart, clear, resize, new, duplicate, close, delete, remove, or select.',
         );
     }
     return ensureWorkspace(
@@ -893,6 +963,10 @@ class MachineTerminalSession {
   int _rows = _defaultRows;
   int _columns = _defaultColumns;
   String _output = '';
+  String _historyOutput = _welcomeBanner();
+  final List<MachineTerminalCommandRecord> _commandHistory =
+      <MachineTerminalCommandRecord>[];
+  int _commandSequence = 0;
 
   MachineTerminalStatus get status => _status;
   int? get pid => _pid;
@@ -905,6 +979,14 @@ class MachineTerminalSession {
   MachineTerminalSnapshot snapshot() {
     final output = sanitizedOutput();
     final ansiOutput = _clipString(_output, _maxToolOutputCharacters);
+    final historyOutput = _clipString(
+      _plainText(_historyOutput),
+      _maxReplayOutputCharacters,
+    );
+    final historyAnsiOutput = _clipString(
+      _historyOutput,
+      _maxReplayOutputCharacters,
+    );
     return MachineTerminalSnapshot(
       sessionId: sessionId,
       terminalId: id,
@@ -917,6 +999,13 @@ class MachineTerminalSession {
       output: output,
       ansiOutput: ansiOutput,
       outputCharacters: _output.length,
+      historyOutput: historyOutput,
+      historyAnsiOutput: historyAnsiOutput,
+      historyOutputCharacters: _historyOutput.length,
+      commandCount: _commandSequence,
+      commandHistory: List<MachineTerminalCommandRecord>.unmodifiable(
+        _commandHistory,
+      ),
       startedAt: _startedAt,
       updatedAt: _updatedAt,
       pid: _pid,
@@ -1040,6 +1129,7 @@ class MachineTerminalSession {
 
   void clear() {
     _output = '';
+    _appendHistory('\r\n[OpenHand terminal cleared]\r\n${_welcomeBanner()}');
     terminal.write('\x1b[2J\x1b[H${_welcomeBanner()}');
     _touch();
   }
@@ -1063,6 +1153,7 @@ class MachineTerminalSession {
     required Duration timeout,
   }) async {
     final stopwatch = Stopwatch()..start();
+    final startedAt = DateTime.now();
     final begin = '__${beginMarker}__';
     final end = '__${endMarker}__';
     final startOffset = _output.length;
@@ -1076,40 +1167,88 @@ class MachineTerminalSession {
         startOffset: startOffset,
         timeout: timeout,
       );
-      return MachineTerminalCommandResult(
-        terminalId: id,
+      return _recordedCommandResult(
+        startedAt: startedAt,
         command: command,
         output: _clipToolOutput(parsed.output.trim()),
         exitCode: parsed.exitCode,
-        status: _status,
         durationMs: stopwatch.elapsedMilliseconds,
       );
     } on TimeoutException {
       writeInput('stty echo 2>/dev/null\n');
-      return MachineTerminalCommandResult(
-        terminalId: id,
+      return _recordedCommandResult(
+        startedAt: startedAt,
         command: command,
         output: _clipToolOutput(
           _plainText(_outputSince(startOffset)).trimRight(),
         ),
-        status: _status,
         durationMs: stopwatch.elapsedMilliseconds,
         timedOut: true,
         error: 'Timed out after ${timeout.inMilliseconds}ms.',
       );
     } catch (error, stack) {
       silentLog('machine_terminal', 'execute command', error, stack);
-      return MachineTerminalCommandResult(
-        terminalId: id,
+      return _recordedCommandResult(
+        startedAt: startedAt,
         command: command,
         output: _clipToolOutput(
           _plainText(_outputSince(startOffset)).trimRight(),
         ),
-        status: _status,
         durationMs: stopwatch.elapsedMilliseconds,
         error: '$error',
       );
     }
+  }
+
+  MachineTerminalCommandResult _recordedCommandResult({
+    required DateTime startedAt,
+    required String command,
+    required String output,
+    required int durationMs,
+    int? exitCode,
+    bool timedOut = false,
+    String? error,
+  }) {
+    final result = MachineTerminalCommandResult(
+      terminalId: id,
+      command: command,
+      output: output,
+      exitCode: exitCode,
+      status: _status,
+      durationMs: durationMs,
+      timedOut: timedOut,
+      error: error,
+    );
+    _recordCommandResult(result, startedAt: startedAt);
+    return result;
+  }
+
+  void _recordCommandResult(
+    MachineTerminalCommandResult result, {
+    required DateTime startedAt,
+  }) {
+    _commandSequence += 1;
+    _commandHistory.add(
+      MachineTerminalCommandRecord(
+        id: 'cmd-$_commandSequence',
+        terminalId: id,
+        command: result.command,
+        output: result.output,
+        startedAt: startedAt,
+        completedAt: DateTime.now(),
+        durationMs: result.durationMs,
+        exitCode: result.exitCode,
+        timedOut: result.timedOut,
+        error: result.error,
+      ),
+    );
+    if (_commandHistory.length > _maxCommandHistoryEntries) {
+      _commandHistory.removeRange(
+        0,
+        _commandHistory.length - _maxCommandHistoryEntries,
+      );
+    }
+    _touch();
   }
 
   String sanitizedOutput({int maxCharacters = _maxToolOutputCharacters}) {
@@ -1177,6 +1316,16 @@ class MachineTerminalSession {
     if (_output.length > _maxRetainedOutputCharacters) {
       _output = _output.substring(
         _output.length - _maxRetainedOutputCharacters,
+      );
+    }
+    _appendHistory(text);
+  }
+
+  void _appendHistory(String text) {
+    _historyOutput += text;
+    if (_historyOutput.length > _maxRetainedHistoryCharacters) {
+      _historyOutput = _historyOutput.substring(
+        _historyOutput.length - _maxRetainedHistoryCharacters,
       );
     }
   }
