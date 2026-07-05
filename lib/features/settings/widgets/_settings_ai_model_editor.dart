@@ -2510,6 +2510,10 @@ class _ModelProfileEditorDialog extends StatefulWidget {
 }
 
 class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
+  static const double _reasoningEffortListMinHeight = 112;
+  static const double _reasoningEffortListMaxHeight = 360;
+  static const double _reasoningEffortCollapsedCardExtent = 86;
+
   late final TextEditingController _modelIdController;
   late final TextEditingController _displayNameController;
   late final TextEditingController _descriptionController;
@@ -2562,6 +2566,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late bool _reasoningEffortControlEnabled;
   String? _reasoningEffort;
   late final List<_ReasoningEffortOptionDraft> _reasoningEffortOptionDrafts;
+  late final ScrollController _reasoningEffortOptionsScrollController;
   bool _oneMillionContextEnabled = false;
   String? _modelIdBeforeOneMillionContext;
   String? _maxContextBeforeOneMillionContext;
@@ -2639,6 +2644,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         .where((option) => option.isValid)
         .map(_ReasoningEffortOptionDraft.fromOption)
         .toList();
+    _reasoningEffortOptionsScrollController = ScrollController();
     final initialModelIdText = _modelIdController.text;
     final initialMaxContextText = _maxContextLengthController.text;
     _oneMillionContextEnabled = _OneMillionContextPolicy.isEnabledBy(
@@ -3000,6 +3006,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     for (final draft in _reasoningEffortOptionDrafts) {
       draft.dispose();
     }
+    _reasoningEffortOptionsScrollController.dispose();
     _inputUsdPer1MController.dispose();
     _outputUsdPer1MController.dispose();
     _cacheReadUsdPer1MController.dispose();
@@ -3075,7 +3082,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   }
 
   List<AiReasoningEffortOption> _currentReasoningEffortOptions() {
-    return _reasoningEffortOptionsSnapshot().options;
+    return _reasoningEffortOptionsSnapshot().options
+        .where((option) => option.isSelectable)
+        .toList(growable: false);
   }
 
   void _syncReasoningEffortSelection({List<AiReasoningEffortOption>? options}) {
@@ -3096,6 +3105,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   void _addReasoningEffortOptionDraft() {
     setState(() {
       _reasoningEffortOptionDrafts.add(_ReasoningEffortOptionDraft.empty());
+      _syncReasoningEffortSelection();
     });
   }
 
@@ -3105,6 +3115,52 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       draft.dispose();
       _syncReasoningEffortSelection();
     });
+  }
+
+  void _reorderReasoningEffortOptionDrafts(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _reasoningEffortOptionDrafts.length) {
+      return;
+    }
+    setState(() {
+      final adjustedNewIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
+      final targetIndex = adjustedNewIndex.clamp(
+        0,
+        _reasoningEffortOptionDrafts.length - 1,
+      );
+      final draft = _reasoningEffortOptionDrafts.removeAt(oldIndex);
+      _reasoningEffortOptionDrafts.insert(targetIndex, draft);
+      _syncReasoningEffortSelection();
+    });
+  }
+
+  void _setReasoningEffortOptionEnabled(
+    _ReasoningEffortOptionDraft draft,
+    bool value,
+  ) {
+    setState(() {
+      draft.enabled = value;
+      if (!value && draft.expanded) {
+        draft.expanded = false;
+      }
+      _syncReasoningEffortSelection();
+    });
+  }
+
+  void _toggleReasoningEffortOptionExpanded(_ReasoningEffortOptionDraft draft) {
+    setState(() => draft.expanded = !draft.expanded);
+  }
+
+  double _reasoningEffortOptionsListHeight() {
+    if (_reasoningEffortOptionDrafts.isEmpty) {
+      return _reasoningEffortListMinHeight;
+    }
+    final estimated =
+        _reasoningEffortOptionDrafts.length *
+            _reasoningEffortCollapsedCardExtent +
+        20;
+    return estimated
+        .clamp(_reasoningEffortListMinHeight, _reasoningEffortListMaxHeight)
+        .toDouble();
   }
 
   void _ensureDefaultReaderTypes() {
@@ -3191,6 +3247,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     }
     final reasoningEffortOptionsSnapshot = _reasoningEffortOptionsSnapshot();
     final reasoningEffortOptions = reasoningEffortOptionsSnapshot.options;
+    final selectableReasoningEffortOptions = reasoningEffortOptions
+        .where((option) => option.isSelectable)
+        .toList(growable: false);
     final reasoningEffortControlEnabled =
         _thinkingEnabled && _reasoningEffortControlEnabled;
     if (reasoningEffortOptionsSnapshot.hasIncompleteRow) {
@@ -3224,9 +3283,15 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       return null;
     }
     String? normalizedReasoningEffort = nullIfBlank(_reasoningEffort);
+    if (normalizedReasoningEffort != null &&
+        !selectableReasoningEffortOptions.any(
+          (option) => option.value == normalizedReasoningEffort,
+        )) {
+      normalizedReasoningEffort = null;
+    }
     if (normalizedReasoningEffort == null) {
-      for (final option in reasoningEffortOptions) {
-        if (option.isValid) {
+      for (final option in selectableReasoningEffortOptions) {
+        if (option.isSelectable) {
           normalizedReasoningEffort = option.value;
           break;
         }
@@ -3236,12 +3301,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       setState(() {
         _profileErrorMessage = _localizedText(
           context,
-          zh: '启用推理强度控制时至少需要一个有效档位。',
-          zhHant: '啟用推理強度控制時至少需要一個有效檔位。',
-          en: 'Reasoning effort control needs at least one valid option.',
-          fr: 'Le contrôle d’effort nécessite au moins une option valide.',
-          de: 'Die Reasoning-Effort-Steuerung benötigt mindestens eine gültige Option.',
-          ja: '推論強度制御には少なくとも 1 つの有効な選択肢が必要です。',
+          zh: '启用推理强度控制时至少需要一个已启用的有效档位。',
+          zhHant: '啟用推理強度控制時至少需要一個已啟用的有效檔位。',
+          en: 'Reasoning effort control needs at least one enabled valid option.',
+          fr: 'Le contrôle d’effort nécessite au moins une option valide activée.',
+          de: 'Die Reasoning-Effort-Steuerung benötigt mindestens eine aktivierte gültige Option.',
+          ja: '推論強度制御には少なくとも 1 つの有効な有効化済み選択肢が必要です。',
         );
       });
       return null;
@@ -3933,38 +3998,19 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           duration: duration,
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
-          child: Column(
-            key: ValueKey<int>(_reasoningEffortOptionDrafts.length),
-            children: [
-              for (var i = 0; i < _reasoningEffortOptionDrafts.length; i++)
-                Padding(
-                  key: ValueKey<TextEditingController>(
-                    _reasoningEffortOptionDrafts[i].valueController,
-                  ),
-                  padding: EdgeInsets.only(
-                    bottom: i == _reasoningEffortOptionDrafts.length - 1
-                        ? 0
-                        : 10,
-                  ),
-                  child: _buildReasoningEffortOptionDraftEditor(
-                    draft: _reasoningEffortOptionDrafts[i],
-                    index: i,
-                  ),
-                ),
-            ],
-          ),
+          child: _buildReasoningEffortOptionsList(),
         ),
         if (options.isEmpty) ...[
           const SizedBox(height: 8),
           Text(
             _localizedText(
               context,
-              zh: '至少保留一个档位，或关闭推理强度控制。',
-              zhHant: '至少保留一個檔位，或關閉推理強度控制。',
-              en: 'Keep at least one option, or disable effort control.',
-              fr: 'Gardez au moins une option ou désactivez le contrôle.',
-              de: 'Mindestens eine Option behalten oder Steuerung deaktivieren.',
-              ja: '少なくとも 1 つの選択肢を残すか、強度制御を無効にしてください。',
+              zh: '至少启用一个有效档位，或关闭推理强度控制。',
+              zhHant: '至少啟用一個有效檔位，或關閉推理強度控制。',
+              en: 'Enable at least one valid option, or disable effort control.',
+              fr: 'Activez au moins une option valide ou désactivez le contrôle.',
+              de: 'Mindestens eine gültige Option aktivieren oder Steuerung deaktivieren.',
+              ja: '少なくとも 1 つの有効な選択肢を有効化するか、強度制御を無効にしてください。',
             ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.error,
@@ -3976,13 +4022,87 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     );
   }
 
+  Widget _buildReasoningEffortOptionsList() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final height = _reasoningEffortOptionsListHeight();
+    return SizedBox(
+      height: height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLowest.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.58),
+          ),
+        ),
+        child: _reasoningEffortOptionDrafts.isEmpty
+            ? Center(
+                child: Text(
+                  _localizedText(
+                    context,
+                    zh: '暂无档位，点击新增开始配置。',
+                    zhHant: '暫無檔位，點擊新增開始設定。',
+                    en: 'No options yet. Add one to start.',
+                    fr: 'Aucune option. Ajoutez-en une pour commencer.',
+                    de: 'Noch keine Optionen. Füge eine hinzu.',
+                    ja: 'オプションはまだありません。追加して設定を始めます。',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              )
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: OpenHandSafeScrollbar(
+                  controller: _reasoningEffortOptionsScrollController,
+                  child: PrimaryScrollController(
+                    controller: _reasoningEffortOptionsScrollController,
+                    child: ReorderableListView.builder(
+                      padding: const EdgeInsets.all(10),
+                      buildDefaultDragHandles: false,
+                      proxyDecorator: (child, index, animation) =>
+                          _settingsTransparentReorderProxy(
+                            context,
+                            child,
+                            index,
+                            animation,
+                          ),
+                      itemCount: _reasoningEffortOptionDrafts.length,
+                      onReorder: _reorderReasoningEffortOptionDrafts,
+                      itemBuilder: (context, index) {
+                        final draft = _reasoningEffortOptionDrafts[index];
+                        return Padding(
+                          key: ValueKey<Object>(draft.identity),
+                          padding: EdgeInsets.only(
+                            bottom:
+                                index == _reasoningEffortOptionDrafts.length - 1
+                                ? 0
+                                : 10,
+                          ),
+                          child: _buildReasoningEffortOptionDraftEditor(
+                            draft: draft,
+                            index: index,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
   Widget _buildReasoningEffortOptionDraftEditor({
     required _ReasoningEffortOptionDraft draft,
     required int index,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final title = _localizedText(
+    final localeName = Localizations.localeOf(context).toLanguageTag();
+    final fallbackTitle = _localizedText(
       context,
       zh: '档位 ${index + 1}',
       zhHant: '檔位 ${index + 1}',
@@ -3991,138 +4111,269 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       de: 'Option ${index + 1}',
       ja: 'オプション ${index + 1}',
     );
+    final option = draft.toOption();
+    final title = option?.labelForLocaleName(localeName) ?? fallbackTitle;
+    final nativeValue = nullIfBlank(draft.valueController.text);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+        color: Color.alphaBlend(
+          colorScheme.primary.withValues(alpha: draft.enabled ? 0.035 : 0),
+          colorScheme.surfaceContainer,
+        ),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.7),
+          color: draft.enabled
+              ? colorScheme.primary.withValues(alpha: 0.28)
+              : colorScheme.outlineVariant.withValues(alpha: 0.72),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
+              ReorderableDragStartListener(
+                index: index,
+                child: _AiProviderDragHandleFrame(
+                  opacity: draft.enabled ? 1 : 0.58,
                 ),
               ),
-              Tooltip(
-                message: _localizedText(
-                  context,
-                  zh: '删除档位',
-                  zhHant: '刪除檔位',
-                  en: 'Delete option',
-                  fr: 'Supprimer l’option',
-                  de: 'Option löschen',
-                  ja: 'オプションを削除',
-                ),
-                child: MicroPressFeedback(
-                  child: IconButton(
-                    onPressed: () => _removeReasoningEffortOptionDraft(draft),
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    visualDensity: VisualDensity.compact,
-                    style: IconButton.styleFrom(
-                      foregroundColor: colorScheme.error,
-                      minimumSize: const Size(36, 36),
-                      maximumSize: const Size(36, 36),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _AiTtsPriorityBadge(index: index),
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        _AiTtsStatusBadge(enabled: draft.enabled),
+                      ],
                     ),
-                  ),
+                    const SizedBox(height: 5),
+                    Text(
+                      nativeValue ??
+                          _localizedText(
+                            context,
+                            zh: '未填写原生值',
+                            zhHant: '未填寫原生值',
+                            en: 'Native value not set',
+                            fr: 'Valeur native non définie',
+                            de: 'Nativer Wert fehlt',
+                            ja: 'ネイティブ値未設定',
+                          ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                alignment: WrapAlignment.end,
+                children: [
+                  _buildReasoningEffortRoundActionButton(
+                    tooltip: draft.expanded
+                        ? _localizedText(
+                            context,
+                            zh: '折叠档位',
+                            zhHant: '摺疊檔位',
+                            en: 'Collapse option',
+                            fr: 'Replier l’option',
+                            de: 'Option einklappen',
+                            ja: 'オプションを折りたたむ',
+                          )
+                        : _localizedText(
+                            context,
+                            zh: '展开档位',
+                            zhHant: '展開檔位',
+                            en: 'Expand option',
+                            fr: 'Déplier l’option',
+                            de: 'Option ausklappen',
+                            ja: 'オプションを展開',
+                          ),
+                    icon: AnimatedRotation(
+                      turns: draft.expanded ? 0.5 : 0,
+                      duration: _settingsMotionDuration(
+                        context,
+                        const Duration(milliseconds: 220),
+                      ),
+                      curve: Curves.easeOutCubic,
+                      child: const Icon(Icons.keyboard_arrow_down_rounded),
+                    ),
+                    onPressed: () =>
+                        _toggleReasoningEffortOptionExpanded(draft),
+                  ),
+                  _buildReasoningEffortRoundActionButton(
+                    tooltip: _localizedText(
+                      context,
+                      zh: '删除档位',
+                      zhHant: '刪除檔位',
+                      en: 'Delete option',
+                      fr: 'Supprimer l’option',
+                      de: 'Option löschen',
+                      ja: 'オプションを削除',
+                    ),
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    foregroundColor: colorScheme.error,
+                    backgroundColor: colorScheme.errorContainer.withValues(
+                      alpha: 0.36,
+                    ),
+                    onPressed: () => _removeReasoningEffortOptionDraft(draft),
+                  ),
+                  _SettingsSwitch(
+                    value: draft.enabled,
+                    onChanged: (value) =>
+                        _setReasoningEffortOptionEnabled(draft, value),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth;
-              final columns = width >= 860
-                  ? 3
-                  : width >= 560
-                  ? 2
-                  : 1;
-              final fieldWidth = columns == 1
-                  ? width
-                  : (width - 12 * (columns - 1)) / columns;
-              return Wrap(
-                spacing: 12,
-                runSpacing: 10,
-                children: [
-                  _buildReasoningEffortDraftTextField(
-                    width: fieldWidth,
-                    controller: draft.valueController,
-                    label: _localizedText(
-                      context,
-                      zh: '原生值',
-                      zhHant: '原生值',
-                      en: 'Native Value',
-                      fr: 'Valeur native',
-                      de: 'Nativer Wert',
-                      ja: 'ネイティブ値',
-                    ),
-                    onChanged: (_) => setState(() {
-                      _syncReasoningEffortSelection();
-                    }),
-                  ),
-                  _buildReasoningEffortDraftTextField(
-                    width: fieldWidth,
-                    controller: draft.labelZhHansController,
-                    label: _localizedText(
-                      context,
-                      zh: '简体中文',
-                      zhHant: '簡體中文',
-                      en: 'Simplified Chinese',
-                      fr: 'Chinois simplifié',
-                      de: 'Vereinfachtes Chinesisch',
-                      ja: '簡体字中国語',
-                    ),
-                  ),
-                  _buildReasoningEffortDraftTextField(
-                    width: fieldWidth,
-                    controller: draft.labelEnController,
-                    label: 'English',
-                  ),
-                  _buildReasoningEffortDraftTextField(
-                    width: fieldWidth,
-                    controller: draft.labelZhHantController,
-                    label: _localizedText(
-                      context,
-                      zh: '繁体中文',
-                      zhHant: '繁體中文',
-                      en: 'Traditional Chinese',
-                      fr: 'Chinois traditionnel',
-                      de: 'Traditionelles Chinesisch',
-                      ja: '繁体字中国語',
-                    ),
-                  ),
-                  _buildReasoningEffortDraftTextField(
-                    width: fieldWidth,
-                    controller: draft.labelJaController,
-                    label: '日本語',
-                  ),
-                  _buildReasoningEffortDraftTextField(
-                    width: fieldWidth,
-                    controller: draft.labelDeController,
-                    label: 'Deutsch',
-                  ),
-                  _buildReasoningEffortDraftTextField(
-                    width: fieldWidth,
-                    controller: draft.labelFrController,
-                    label: 'Français',
-                  ),
-                ],
-              );
-            },
+          _AnimatedSettingReveal(
+            visible: draft.expanded,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: _buildReasoningEffortOptionDraftFields(draft),
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildReasoningEffortOptionDraftFields(
+    _ReasoningEffortOptionDraft draft,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final columns = width >= 860
+            ? 3
+            : width >= 560
+            ? 2
+            : 1;
+        final fieldWidth = columns == 1
+            ? width
+            : (width - 12 * (columns - 1)) / columns;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 10,
+          children: [
+            _buildReasoningEffortDraftTextField(
+              width: fieldWidth,
+              controller: draft.valueController,
+              label: _localizedText(
+                context,
+                zh: '原生值',
+                zhHant: '原生值',
+                en: 'Native Value',
+                fr: 'Valeur native',
+                de: 'Nativer Wert',
+                ja: 'ネイティブ値',
+              ),
+              onChanged: (_) => setState(() {
+                _syncReasoningEffortSelection();
+              }),
+            ),
+            _buildReasoningEffortDraftTextField(
+              width: fieldWidth,
+              controller: draft.labelZhHansController,
+              label: _localizedText(
+                context,
+                zh: '简体中文',
+                zhHant: '簡體中文',
+                en: 'Simplified Chinese',
+                fr: 'Chinois simplifié',
+                de: 'Vereinfachtes Chinesisch',
+                ja: '簡体字中国語',
+              ),
+            ),
+            _buildReasoningEffortDraftTextField(
+              width: fieldWidth,
+              controller: draft.labelEnController,
+              label: 'English',
+            ),
+            _buildReasoningEffortDraftTextField(
+              width: fieldWidth,
+              controller: draft.labelZhHantController,
+              label: _localizedText(
+                context,
+                zh: '繁体中文',
+                zhHant: '繁體中文',
+                en: 'Traditional Chinese',
+                fr: 'Chinois traditionnel',
+                de: 'Traditionelles Chinesisch',
+                ja: '繁体字中国語',
+              ),
+            ),
+            _buildReasoningEffortDraftTextField(
+              width: fieldWidth,
+              controller: draft.labelJaController,
+              label: '日本語',
+            ),
+            _buildReasoningEffortDraftTextField(
+              width: fieldWidth,
+              controller: draft.labelDeController,
+              label: 'Deutsch',
+            ),
+            _buildReasoningEffortDraftTextField(
+              width: fieldWidth,
+              controller: draft.labelFrController,
+              label: 'Français',
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildReasoningEffortRoundActionButton({
+    required String tooltip,
+    required Widget icon,
+    required VoidCallback onPressed,
+    Color? foregroundColor,
+    Color? backgroundColor,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox.square(
+        dimension: 40,
+        child: IconButton.filledTonal(
+          onPressed: onPressed,
+          icon: icon,
+          style: IconButton.styleFrom(
+            shape: const CircleBorder(),
+            padding: EdgeInsets.zero,
+            minimumSize: const Size.square(40),
+            fixedSize: const Size.square(40),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            backgroundColor:
+                backgroundColor ??
+                colorScheme.surfaceContainerHighest.withValues(alpha: 0.74),
+            foregroundColor: foregroundColor ?? colorScheme.onSurfaceVariant,
+          ),
+        ),
       ),
     );
   }
@@ -5526,6 +5777,8 @@ class _ReasoningEffortOptionsSnapshot {
 class _ReasoningEffortOptionDraft {
   _ReasoningEffortOptionDraft({
     required String value,
+    required this.enabled,
+    required this.expanded,
     required String labelZhHans,
     required String labelEn,
     required String labelZhHant,
@@ -5547,6 +5800,8 @@ class _ReasoningEffortOptionDraft {
     final labelEn = option.labelEn ?? option.label;
     return _ReasoningEffortOptionDraft(
       value: option.value,
+      enabled: option.enabled,
+      expanded: false,
       labelZhHans: labelZhHans,
       labelEn: labelEn,
       labelZhHant: option.labelZhHant ?? labelZhHans,
@@ -5559,6 +5814,8 @@ class _ReasoningEffortOptionDraft {
   factory _ReasoningEffortOptionDraft.empty() {
     return _ReasoningEffortOptionDraft(
       value: '',
+      enabled: true,
+      expanded: true,
       labelZhHans: '',
       labelEn: '',
       labelZhHant: '',
@@ -5568,6 +5825,7 @@ class _ReasoningEffortOptionDraft {
     );
   }
 
+  final Object identity = Object();
   final TextEditingController valueController;
   final TextEditingController labelZhHansController;
   final TextEditingController labelEnController;
@@ -5575,6 +5833,8 @@ class _ReasoningEffortOptionDraft {
   final TextEditingController labelJaController;
   final TextEditingController labelDeController;
   final TextEditingController labelFrController;
+  bool enabled;
+  bool expanded;
 
   bool get hasAnyText {
     return <TextEditingController>[
@@ -5600,6 +5860,7 @@ class _ReasoningEffortOptionDraft {
     return AiReasoningEffortOption(
       value: value,
       label: labelZhHans ?? labelEn ?? labelZhHant ?? labelJa ?? value,
+      enabled: enabled,
       labelZhHans: labelZhHans,
       labelZhHant: labelZhHant,
       labelEn: labelEn,

@@ -79,6 +79,7 @@ class AiReasoningEffortOption {
   const AiReasoningEffortOption({
     required this.value,
     required this.label,
+    this.enabled = true,
     this.labelZhHans,
     this.labelZhHant,
     this.labelEn,
@@ -92,6 +93,7 @@ class AiReasoningEffortOption {
     return AiReasoningEffortOption(
       value: value,
       label: _readLabel(json),
+      enabled: optionalBoolFromValue(json['enabled']) ?? true,
       labelZhHans: optionalStringFromValue(json['label_zh_hans']),
       labelZhHant: optionalStringFromValue(json['label_zh_hant']),
       labelEn: optionalStringFromValue(json['label_en']),
@@ -103,6 +105,7 @@ class AiReasoningEffortOption {
 
   final String value;
   final String label;
+  final bool enabled;
   final String? labelZhHans;
   final String? labelZhHant;
   final String? labelEn;
@@ -111,6 +114,7 @@ class AiReasoningEffortOption {
   final String? labelJa;
 
   bool get isValid => nullIfBlank(value) != null;
+  bool get isSelectable => enabled && isValid;
 
   String labelForLocaleName(String localeName) {
     final localeParts = localeName
@@ -142,6 +146,7 @@ class AiReasoningEffortOption {
     return <String, Object?>{
       'value': value,
       'label': label,
+      if (!enabled) 'enabled': false,
       if (labelZhHans != null) 'label_zh_hans': labelZhHans,
       if (labelZhHant != null) 'label_zh_hant': labelZhHant,
       if (labelEn != null) 'label_en': labelEn,
@@ -2046,9 +2051,21 @@ class AiModelConfig {
     if (!resolvedReasoningEffortControlEnabled) return null;
     final profile = profileFor(modelId);
     final configured = nullIfBlank(profile.reasoningEffort);
-    if (configured != null) return configured;
+    AiReasoningEffortOption? configuredOption;
+    if (configured != null) {
+      for (final option in profile.reasoningEffortOptions) {
+        if (option.value == configured) {
+          configuredOption = option;
+          break;
+        }
+      }
+    }
+    if (configured != null &&
+        (configuredOption == null || configuredOption.isSelectable)) {
+      return configured;
+    }
     for (final option in profile.reasoningEffortOptions) {
-      if (option.isValid) return option.value;
+      if (option.isSelectable) return option.value;
     }
     return null;
   }
