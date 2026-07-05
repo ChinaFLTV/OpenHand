@@ -69,6 +69,13 @@ void main() {
   });
 
   group('optionalUnitIntervalListFromValue', () {
+    test('clamps a single parsed value into the unit interval', () {
+      expect(optionalUnitIntervalFromValue(-0.25), 0);
+      expect(optionalUnitIntervalFromValue('0.42'), 0.42);
+      expect(optionalUnitIntervalFromValue(1.25), 1);
+      expect(optionalUnitIntervalFromValue('bad'), isNull);
+    });
+
     test('clamps finite values and ignores invalid entries', () {
       expect(
         optionalUnitIntervalListFromValue(<Object?>[

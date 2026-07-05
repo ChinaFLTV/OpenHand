@@ -477,6 +477,11 @@ double? optionalPositiveDoubleFromValue(Object? value) {
   return parsed == null || parsed <= 0 ? null : parsed;
 }
 
+double? optionalUnitIntervalFromValue(Object? value) {
+  final parsed = optionalDoubleFromValue(value);
+  return parsed == null ? null : clampUnitInterval(parsed);
+}
+
 List<double>? optionalUnitIntervalListFromValue(
   Object? value, {
   bool sorted = false,

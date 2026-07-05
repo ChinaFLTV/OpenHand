@@ -63,7 +63,9 @@ class AiMessageAttachment {
       height: _readNullableInt(json['height']),
       originalSourcePath: optionalStringFromValue(json['original_source_path']),
       pixelCount: _readNullableInt(json['pixel_count']),
-      compressionRatio: optionalDoubleFromValue(json['compression_ratio']),
+      compressionRatio: optionalUnitIntervalFromValue(
+        json['compression_ratio'],
+      ),
     );
   }
   const AiMessageAttachment({
