@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../shared/util/input_value_parsing.dart';
 
 enum AppLanguage {
   simplifiedChinese,
@@ -54,10 +55,10 @@ extension AppLanguageX on AppLanguage {
 }
 
 AppLanguage appLanguageFromStorage(String? value) {
-  for (final language in AppLanguage.values) {
-    if (language.storageValue == value) {
-      return language;
-    }
-  }
-  return AppLanguage.simplifiedChinese;
+  return enumByStorageValueOr(
+    AppLanguage.values,
+    value,
+    (language) => language.storageValue,
+    fallback: AppLanguage.simplifiedChinese,
+  );
 }

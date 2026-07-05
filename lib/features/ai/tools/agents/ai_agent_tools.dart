@@ -4823,28 +4823,28 @@ double? _optionalRatio(Object? raw) {
   return value.clamp(0, 1).toDouble();
 }
 
+String _normalizeAgentStatusToken(String raw) {
+  return raw.trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+}
+
 String? _normalizedKpiStatus(String raw) {
-  final normalized = raw.trim().toLowerCase().replaceAll(
-    RegExp(r'[\s-]+'),
-    '_',
-  );
+  final normalized = _normalizeAgentStatusToken(raw);
   if (_agentKpiStatusValues.contains(normalized)) return normalized;
   return null;
 }
 
 ({AgentTaskStatus? status, bool invalid}) _optionalTaskStatus(Object? raw) {
-  if (raw == null) return (status: null, invalid: false);
-  final normalized = '$raw'.trim().toLowerCase().replaceAll(
-    RegExp(r'[\s-]+'),
-    '_',
+  final text = optionalStringFromValue(raw);
+  if (text == null) return (status: null, invalid: false);
+  final status = enumByStorageValue(
+    AgentTaskStatus.values,
+    text,
+    (status) => status.storageValue,
+    normalize: _normalizeAgentStatusToken,
   );
-  if (normalized.isEmpty) return (status: null, invalid: false);
-  for (final status in AgentTaskStatus.values) {
-    if (status.storageValue == normalized) {
-      return (status: status, invalid: false);
-    }
-  }
-  return (status: null, invalid: true);
+  return status == null
+      ? (status: null, invalid: true)
+      : (status: status, invalid: false);
 }
 
 String? _optionalAllowedText(

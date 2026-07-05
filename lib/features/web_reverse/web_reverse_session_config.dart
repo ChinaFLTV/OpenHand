@@ -152,9 +152,11 @@ enum WebReverseLoginMode {
   final String label;
 
   static WebReverseLoginMode fromId(String id) {
-    for (final v in values) {
-      if (v.id == id) return v;
-    }
-    return WebReverseLoginMode.none;
+    return enumByStorageValueOr(
+      values,
+      id,
+      (mode) => mode.id,
+      fallback: WebReverseLoginMode.none,
+    );
   }
 }

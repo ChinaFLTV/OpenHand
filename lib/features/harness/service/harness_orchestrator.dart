@@ -206,9 +206,10 @@ class HarnessChangedFile {
     return HarnessChangedFile(
       relativePath: '${json['relative_path'] ?? ''}',
       absolutePath: '${json['absolute_path'] ?? ''}',
-      changeType: HarnessFileChangeType.values.firstWhere(
-        (t) => t.name == '${json['change_type']}',
-        orElse: () => HarnessFileChangeType.modified,
+      changeType: enumByNameOr(
+        HarnessFileChangeType.values,
+        json['change_type'],
+        fallback: HarnessFileChangeType.modified,
       ),
       beforeContent: json['before_content']?.toString(),
       afterContent: json['after_content']?.toString(),

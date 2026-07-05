@@ -1,6 +1,10 @@
 import type { ComponentChildren } from 'preact';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { DialogFrame, createStandardDialogFrameAppearance } from './DialogFrame';
+import {
+  DialogActionButton,
+  DialogFrame,
+  createStandardDialogFrameAppearance,
+} from './DialogFrame';
 
 type ConfirmCloseReason = 'cancel' | 'dismiss' | 'escape';
 
@@ -120,32 +124,22 @@ export function ConfirmDialog({
           </div>
       </div>
       <div class="oh-confirm-dialog-actions mt-5 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            class="oh-tap-press oh-confirm-dialog-button rounded-m3-sm px-4 py-2 text-sm disabled:opacity-60"
-            style={{
-              color: 'var(--m3-on-surface-variant)',
-              border: '1px solid var(--m3-outline)',
-              background: 'transparent',
-            }}
+          <DialogActionButton
+            className="oh-confirm-dialog-button px-4 py-2"
+            tone="secondary"
             disabled={busy || closing}
             onClick={requestCancel}
           >
             {cancelLabel}
-          </button>
-          <button
-            type="button"
-            class="oh-tap-press oh-confirm-dialog-button rounded-m3-sm px-4 py-2 text-sm font-medium disabled:opacity-60"
-            style={{
-              color: 'var(--m3-on-primary)',
-              background: danger ? 'var(--m3-error)' : 'var(--m3-primary)',
-              border: '1px solid transparent',
-            }}
+          </DialogActionButton>
+          <DialogActionButton
+            className="oh-confirm-dialog-button px-4 py-2"
+            tone={danger ? 'danger' : 'primary'}
             disabled={busy || closing}
             onClick={onConfirm}
           >
             {confirmLabel}
-          </button>
+          </DialogActionButton>
       </div>
     </DialogFrame>
   );

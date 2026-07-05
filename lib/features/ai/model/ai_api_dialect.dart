@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 enum AiApiDialect {
   openAiCompat('openai_compat'),
   anthropicNative('anthropic_native'),
@@ -8,9 +10,11 @@ enum AiApiDialect {
   final String storageValue;
 
   static AiApiDialect fromStorage(String? value) {
-    return AiApiDialect.values.firstWhere(
-      (item) => item.storageValue == value,
-      orElse: () => AiApiDialect.openAiCompat,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (dialect) => dialect.storageValue,
+      fallback: AiApiDialect.openAiCompat,
     );
   }
 
@@ -33,9 +37,11 @@ enum AiProviderKind {
   final String storageValue;
 
   static AiProviderKind fromStorage(String? value) {
-    return AiProviderKind.values.firstWhere(
-      (item) => item.storageValue == value,
-      orElse: () => AiProviderKind.custom,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (kind) => kind.storageValue,
+      fallback: AiProviderKind.custom,
     );
   }
 }

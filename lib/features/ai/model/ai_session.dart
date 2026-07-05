@@ -36,9 +36,11 @@ enum AiSessionMode {
   final String storageValue;
 
   static AiSessionMode fromStorage(String value) {
-    return AiSessionMode.values.firstWhere(
-      (item) => item.storageValue == value,
-      orElse: () => AiSessionMode.chat,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (mode) => mode.storageValue,
+      fallback: AiSessionMode.chat,
     );
   }
 }
@@ -157,9 +159,11 @@ enum AiSessionPlanStatus {
   }
 
   static AiSessionPlanStatus fromStorage(String value) {
-    return AiSessionPlanStatus.values.firstWhere(
-      (item) => item.storageValue == value,
-      orElse: () => AiSessionPlanStatus.inProgress,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (status) => status.storageValue,
+      fallback: AiSessionPlanStatus.inProgress,
     );
   }
 }

@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 enum AiApiFamily {
   responses('responses'),
   chatCompletions('chat_completions'),
@@ -31,10 +33,6 @@ enum AiApiFamily {
   final String storageValue;
 
   static AiApiFamily? fromStorage(String? value) {
-    if (value == null) return null;
-    for (final family in AiApiFamily.values) {
-      if (family.storageValue == value) return family;
-    }
-    return null;
+    return enumByStorageValue(values, value, (family) => family.storageValue);
   }
 }

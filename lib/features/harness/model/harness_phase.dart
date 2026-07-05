@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 enum HarnessPhase {
   metaCollection('meta_collection'),
   reading('reading'),
@@ -26,9 +28,6 @@ enum HarnessPhase {
   };
 
   static HarnessPhase? fromStorageValue(String value) {
-    for (final phase in HarnessPhase.values) {
-      if (phase.storageValue == value) return phase;
-    }
-    return null;
+    return enumByStorageValue(values, value, (phase) => phase.storageValue);
   }
 }

@@ -157,12 +157,18 @@ enum AndroidReverseAnalysisMode {
   final String labelZh;
 
   static AndroidReverseAnalysisMode fromStorage(String raw) {
-    final normalized = raw.trim().toLowerCase();
-    for (final value in AndroidReverseAnalysisMode.values) {
-      if (value.storageValue == normalized || value.name == normalized) {
-        return value;
-      }
-    }
-    return AndroidReverseAnalysisMode.balanced;
+    return enumByStorageValue(
+          values,
+          raw,
+          (mode) => mode.storageValue,
+          normalize: (value) => value.toLowerCase(),
+        ) ??
+        enumByStorageValueOr(
+          values,
+          raw,
+          (mode) => mode.name.toLowerCase(),
+          fallback: AndroidReverseAnalysisMode.balanced,
+          normalize: (value) => value.toLowerCase(),
+        );
   }
 }

@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 /// MCP 工具懒加载模式。控制是否在系统提示词中预加载所有 MCP 工具
 /// 的完整 schema，还是改用 `ToolSearch` 内建工具按需检索。
 ///
@@ -17,10 +19,12 @@ enum McpLazyLoadingMode {
   final String storageValue;
 
   static McpLazyLoadingMode fromStorage(String? raw) {
-    final v = raw?.trim().toLowerCase();
-    for (final mode in McpLazyLoadingMode.values) {
-      if (mode.storageValue == v) return mode;
-    }
-    return McpLazyLoadingMode.auto;
+    return enumByStorageValueOr(
+      values,
+      raw,
+      (mode) => mode.storageValue,
+      fallback: McpLazyLoadingMode.auto,
+      normalize: (value) => value.toLowerCase(),
+    );
   }
 }

@@ -7344,10 +7344,10 @@ class WebReverseSessionController extends ChangeNotifier {
             for (final rf in rawWs.skip(wsStart)) {
               if (rf is! Map) continue;
               final fm = rf.cast<String, Object?>();
-              final dirName = '${fm['dir'] ?? 'received'}';
-              final dir = CdpWebSocketDirection.values.firstWhere(
-                (d) => d.name == dirName,
-                orElse: () => CdpWebSocketDirection.received,
+              final dir = enumByNameOr(
+                CdpWebSocketDirection.values,
+                fm['dir'],
+                fallback: CdpWebSocketDirection.received,
               );
               entry.wsFrames.add(
                 CdpWebSocketFrame(

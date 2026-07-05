@@ -15,9 +15,11 @@ enum AiAttachmentKind {
   final String storageValue;
 
   static AiAttachmentKind fromStorage(String value) {
-    return AiAttachmentKind.values.firstWhere(
-      (item) => item.storageValue == value,
-      orElse: () => AiAttachmentKind.binary,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (kind) => kind.storageValue,
+      fallback: AiAttachmentKind.binary,
     );
   }
 }

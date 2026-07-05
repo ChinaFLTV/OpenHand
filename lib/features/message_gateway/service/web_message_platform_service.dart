@@ -4044,9 +4044,10 @@ class WebMessagePlatformService {
     final rawDecision = body['decision'];
     final BashCommandApprovalDecision decision;
     if (rawDecision is String) {
-      decision = BashCommandApprovalDecision.values.firstWhere(
-        (d) => d.name == rawDecision,
-        orElse: () => body['approved'] == true
+      decision = enumByNameOr(
+        BashCommandApprovalDecision.values,
+        rawDecision,
+        fallback: body['approved'] == true
             ? BashCommandApprovalDecision.approved
             : BashCommandApprovalDecision.rejected,
       );

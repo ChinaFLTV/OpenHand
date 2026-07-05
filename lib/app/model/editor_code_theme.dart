@@ -1,3 +1,5 @@
+import '../../shared/util/input_value_parsing.dart';
+
 /// Available code highlighting colour themes for the editor.
 enum EditorCodeTheme {
   /// Default Material You pastel tones.
@@ -45,9 +47,11 @@ enum EditorCodeTheme {
   }
 
   static EditorCodeTheme fromStorage(String value) {
-    for (final theme in EditorCodeTheme.values) {
-      if (theme.storageValue == value) return theme;
-    }
-    return EditorCodeTheme.materialYou;
+    return enumByStorageValueOr(
+      values,
+      value,
+      (theme) => theme.storageValue,
+      fallback: EditorCodeTheme.materialYou,
+    );
   }
 }

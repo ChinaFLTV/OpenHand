@@ -23,11 +23,7 @@ enum CronScriptType {
   }
 
   static CronScriptType? fromStorage(String? value) {
-    if (value == null || value.isEmpty) return null;
-    for (final t in values) {
-      if (t.storageValue == value) return t;
-    }
-    return null;
+    return enumByStorageValue(values, value, (type) => type.storageValue);
   }
 }
 
@@ -54,11 +50,12 @@ enum CronJobStatus {
   }
 
   static CronJobStatus fromStorage(String? value) {
-    if (value == null || value.isEmpty) return CronJobStatus.idle;
-    for (final s in values) {
-      if (s.storageValue == value) return s;
-    }
-    return CronJobStatus.idle;
+    return enumByStorageValueOr(
+      values,
+      value,
+      (status) => status.storageValue,
+      fallback: CronJobStatus.idle,
+    );
   }
 }
 
@@ -83,11 +80,12 @@ enum CronNotifyType {
   }
 
   static CronNotifyType fromStorage(String? value) {
-    if (value == null || value.isEmpty) return CronNotifyType.log;
-    for (final n in values) {
-      if (n.storageValue == value) return n;
-    }
-    return CronNotifyType.log;
+    return enumByStorageValueOr(
+      values,
+      value,
+      (type) => type.storageValue,
+      fallback: CronNotifyType.log,
+    );
   }
 }
 
@@ -117,11 +115,12 @@ enum CronNotifySeverity {
     String? value, {
     CronNotifySeverity fallback = CronNotifySeverity.info,
   }) {
-    if (value == null || value.isEmpty) return fallback;
-    for (final s in values) {
-      if (s.storageValue == value) return s;
-    }
-    return fallback;
+    return enumByStorageValueOr(
+      values,
+      value,
+      (severity) => severity.storageValue,
+      fallback: fallback,
+    );
   }
 }
 

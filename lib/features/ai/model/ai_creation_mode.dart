@@ -25,11 +25,12 @@ enum AiCreationMode {
   bool get isActive => this != AiCreationMode.none;
 
   static AiCreationMode fromStorage(String? value) {
-    if (value == null) return AiCreationMode.none;
-    for (final mode in AiCreationMode.values) {
-      if (mode.storageValue == value) return mode;
-    }
-    return AiCreationMode.none;
+    return enumByStorageValueOr(
+      values,
+      value,
+      (mode) => mode.storageValue,
+      fallback: AiCreationMode.none,
+    );
   }
 }
 

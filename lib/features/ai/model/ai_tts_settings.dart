@@ -17,10 +17,11 @@ enum AiTtsProvider {
   final String storageKey;
 
   static AiTtsProvider fromStorageKey(Object? value) {
-    final storageKey = stringFromValue(value);
-    return AiTtsProvider.values.firstWhere(
-      (provider) => provider.storageKey == storageKey,
-      orElse: () => AiTtsProvider.system,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (provider) => provider.storageKey,
+      fallback: AiTtsProvider.system,
     );
   }
 }

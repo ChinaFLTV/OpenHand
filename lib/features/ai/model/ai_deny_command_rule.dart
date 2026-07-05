@@ -9,9 +9,11 @@ enum AiDenyCommandMatchMode {
   final String storageValue;
 
   static AiDenyCommandMatchMode fromStorage(String value) {
-    return AiDenyCommandMatchMode.values.firstWhere(
-      (item) => item.storageValue == value,
-      orElse: () => AiDenyCommandMatchMode.simple,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (mode) => mode.storageValue,
+      fallback: AiDenyCommandMatchMode.simple,
     );
   }
 }

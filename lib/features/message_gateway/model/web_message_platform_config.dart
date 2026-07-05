@@ -67,10 +67,12 @@ enum WebGatewayLoginSource {
   final String storageValue;
 
   static WebGatewayLoginSource fromStorage(String? value) {
-    final normalized = value?.trim().toUpperCase() ?? '';
-    return WebGatewayLoginSource.values.firstWhere(
-      (item) => item.storageValue == normalized,
-      orElse: () => WebGatewayLoginSource.webPc,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (source) => source.storageValue,
+      fallback: WebGatewayLoginSource.webPc,
+      normalize: (item) => item.toUpperCase(),
     );
   }
 }
@@ -84,11 +86,12 @@ enum WebGatewayMessageType {
   final String storageValue;
 
   static WebGatewayMessageType? fromStorage(String? value) {
-    final normalized = value?.trim().toLowerCase() ?? '';
-    for (final item in values) {
-      if (item.storageValue == normalized) return item;
-    }
-    return null;
+    return enumByStorageValue(
+      values,
+      value,
+      (type) => type.storageValue,
+      normalize: (item) => item.toLowerCase(),
+    );
   }
 }
 
@@ -104,11 +107,12 @@ enum WebGatewayConversationMode {
   final String storageValue;
 
   static WebGatewayConversationMode? fromStorage(String? value) {
-    final normalized = value?.trim().toLowerCase() ?? '';
-    for (final item in values) {
-      if (item.storageValue == normalized) return item;
-    }
-    return null;
+    return enumByStorageValue(
+      values,
+      value,
+      (mode) => mode.storageValue,
+      normalize: (item) => item.toLowerCase(),
+    );
   }
 }
 

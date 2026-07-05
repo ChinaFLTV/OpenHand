@@ -88,11 +88,13 @@ enum AgentExecutionMode {
   final String storageValue;
 
   static AgentExecutionMode fromStorage(String? raw) {
-    final normalized = raw?.trim().toLowerCase() ?? '';
-    for (final value in values) {
-      if (value.storageValue == normalized) return value;
-    }
-    return AgentExecutionMode.normal;
+    return enumByStorageValueOr(
+      values,
+      raw,
+      (mode) => mode.storageValue,
+      fallback: AgentExecutionMode.normal,
+      normalize: (value) => value.toLowerCase(),
+    );
   }
 }
 
@@ -131,11 +133,13 @@ enum AgentLifecycleState {
   final String storageValue;
 
   static AgentLifecycleState fromStorage(String? raw) {
-    final normalized = raw?.trim().toLowerCase() ?? '';
-    for (final value in values) {
-      if (value.storageValue == normalized) return value;
-    }
-    return AgentLifecycleState.stopped;
+    return enumByStorageValueOr(
+      values,
+      raw,
+      (state) => state.storageValue,
+      fallback: AgentLifecycleState.stopped,
+      normalize: (value) => value.toLowerCase(),
+    );
   }
 }
 
@@ -154,11 +158,13 @@ enum AgentTaskStatus {
   final String storageValue;
 
   static AgentTaskStatus fromStorage(String? raw) {
-    final normalized = raw?.trim().toLowerCase() ?? '';
-    for (final value in values) {
-      if (value.storageValue == normalized) return value;
-    }
-    return AgentTaskStatus.backlog;
+    return enumByStorageValueOr(
+      values,
+      raw,
+      (status) => status.storageValue,
+      fallback: AgentTaskStatus.backlog,
+      normalize: (value) => value.toLowerCase(),
+    );
   }
 }
 
@@ -173,11 +179,13 @@ enum AgentApprovalStatus {
   final String storageValue;
 
   static AgentApprovalStatus fromStorage(String? raw) {
-    final normalized = raw?.trim().toLowerCase() ?? '';
-    for (final value in values) {
-      if (value.storageValue == normalized) return value;
-    }
-    return AgentApprovalStatus.pending;
+    return enumByStorageValueOr(
+      values,
+      raw,
+      (status) => status.storageValue,
+      fallback: AgentApprovalStatus.pending,
+      normalize: (value) => value.toLowerCase(),
+    );
   }
 }
 
@@ -197,15 +205,18 @@ enum AgentActivityMessageType {
   final String storageValue;
 
   static AgentActivityMessageType? fromStorage(String? raw) {
-    final normalized = raw?.trim().toLowerCase() ?? '';
-    if (normalized.isEmpty) return null;
-    for (final value in values) {
-      if (value.storageValue == normalized ||
-          value.name.toLowerCase() == normalized) {
-        return value;
-      }
-    }
-    return null;
+    return enumByStorageValue(
+          values,
+          raw,
+          (type) => type.storageValue,
+          normalize: (value) => value.toLowerCase(),
+        ) ??
+        enumByStorageValue(
+          values,
+          raw,
+          (type) => type.name.toLowerCase(),
+          normalize: (value) => value.toLowerCase(),
+        );
   }
 }
 
@@ -220,11 +231,13 @@ enum AgentWorkerStatus {
   final String storageValue;
 
   static AgentWorkerStatus fromStorage(String? raw) {
-    final normalized = raw?.trim().toLowerCase() ?? '';
-    for (final value in values) {
-      if (value.storageValue == normalized) return value;
-    }
-    return AgentWorkerStatus.idle;
+    return enumByStorageValueOr(
+      values,
+      raw,
+      (status) => status.storageValue,
+      fallback: AgentWorkerStatus.idle,
+      normalize: (value) => value.toLowerCase(),
+    );
   }
 }
 

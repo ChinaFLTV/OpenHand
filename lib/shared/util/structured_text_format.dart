@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:xml/xml.dart';
 import 'package:yaml/yaml.dart';
 
+import 'input_value_parsing.dart';
+
 enum StructuredTextFormat { json, xml, yaml }
 
 const int _kMaxStructuredTextNestingDepth = 64;
@@ -29,11 +31,11 @@ final class StructuredTextFormatResult {
 }
 
 StructuredTextFormat? _formatFromName(String name) {
-  final normalized = name.trim().toLowerCase();
-  for (final format in StructuredTextFormat.values) {
-    if (format.name == normalized) return format;
-  }
-  return null;
+  return enumByName(
+    StructuredTextFormat.values,
+    name,
+    normalize: (value) => value.toLowerCase(),
+  );
 }
 
 String structuredTextFormatLabel(StructuredTextFormat format) {

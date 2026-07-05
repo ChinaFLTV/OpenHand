@@ -44,9 +44,10 @@ class HarnessSessionRecord {
 
   /// Parsed status from [statusValue].
   HarnessOrchestratorStatus get status {
-    return HarnessOrchestratorStatus.values.firstWhere(
-      (s) => s.name == statusValue,
-      orElse: () => HarnessOrchestratorStatus.idle,
+    return enumByNameOr(
+      HarnessOrchestratorStatus.values,
+      statusValue,
+      fallback: HarnessOrchestratorStatus.idle,
     );
   }
 

@@ -63,11 +63,12 @@ enum DialogAnimationStyle {
   }
 
   static DialogAnimationStyle fromStorage(String? value) {
-    final normalizedValue = nullIfBlank(value);
-    for (final style in values) {
-      if (style.storageValue == normalizedValue) return style;
-    }
-    return fadeScale;
+    return enumByStorageValueOr(
+      values,
+      value,
+      (style) => style.storageValue,
+      fallback: fadeScale,
+    );
   }
 }
 
@@ -122,11 +123,12 @@ enum DialogAnimationCurve {
   };
 
   static DialogAnimationCurve fromStorage(String? value) {
-    final normalizedValue = nullIfBlank(value);
-    for (final curve in values) {
-      if (curve.storageValue == normalizedValue) return curve;
-    }
-    return easeOutCubic;
+    return enumByStorageValueOr(
+      values,
+      value,
+      (curve) => curve.storageValue,
+      fallback: easeOutCubic,
+    );
   }
 }
 

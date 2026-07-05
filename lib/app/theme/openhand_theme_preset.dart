@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../shared/util/input_value_parsing.dart';
 
 enum OpenHandThemePreset {
   darkNightPurple('dark_night_purple', Color(0xFF6D4ACF)),
@@ -34,9 +35,11 @@ enum OpenHandThemePreset {
   }
 
   static OpenHandThemePreset fromStorage(String? value) {
-    return OpenHandThemePreset.values.firstWhere(
-      (item) => item.storageValue == value,
-      orElse: () => OpenHandThemePreset.deepSeaBlue,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (preset) => preset.storageValue,
+      fallback: OpenHandThemePreset.deepSeaBlue,
     );
   }
 

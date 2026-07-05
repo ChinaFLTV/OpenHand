@@ -10,9 +10,11 @@ enum AiSandboxFileAccessMode {
   final String storageValue;
 
   static AiSandboxFileAccessMode fromStorage(String value) {
-    return AiSandboxFileAccessMode.values.firstWhere(
-      (item) => item.storageValue == value,
-      orElse: () => AiSandboxFileAccessMode.readOnly,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (mode) => mode.storageValue,
+      fallback: AiSandboxFileAccessMode.readOnly,
     );
   }
 }

@@ -156,9 +156,7 @@ class AiWebFetchEngineConfig {
 
   static AiWebFetchEngineConfig? fromJson(Map<String, Object?> json) {
     final rawKind = stringFromValue(json['kind']);
-    final kind = AiWebFetchEngineKind.values
-        .where((e) => e.name == rawKind)
-        .firstOrNull;
+    final kind = enumByName(AiWebFetchEngineKind.values, rawKind);
     if (kind == null) return null;
     return AiWebFetchEngineConfig(
       kind: kind,

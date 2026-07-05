@@ -179,9 +179,7 @@ class AiWebSearchEngineConfig {
 
   static AiWebSearchEngineConfig? fromJson(Map<String, Object?> json) {
     final rawKind = stringFromValue(json['kind']);
-    final kind = AiWebSearchEngineKind.values
-        .where((e) => e.name == rawKind)
-        .firstOrNull;
+    final kind = enumByName(AiWebSearchEngineKind.values, rawKind);
     if (kind == null) return null;
     return AiWebSearchEngineConfig(
       kind: kind,
@@ -448,26 +446,21 @@ class AiWebSearchSettings {
       }
     }
 
-    final rawModelMode = stringFromValue(json['model_mode']);
-    final modelMode =
-        AiWebSearchModelMode.values
-            .where((m) => m.name == rawModelMode)
-            .firstOrNull ??
-        AiWebSearchModelMode.followSession;
-
-    final rawDetail = stringFromValue(json['summary_detail']);
-    final summaryDetail =
-        AiWebSearchSummaryDetail.values
-            .where((d) => d.name == rawDetail)
-            .firstOrNull ??
-        AiWebSearchSummaryDetail.balanced;
-
-    final rawStyle = stringFromValue(json['summary_style']);
-    final summaryStyle =
-        AiWebSearchSummaryStyle.values
-            .where((s) => s.name == rawStyle)
-            .firstOrNull ??
-        AiWebSearchSummaryStyle.neutral;
+    final modelMode = enumByNameOr(
+      AiWebSearchModelMode.values,
+      json['model_mode'],
+      fallback: AiWebSearchModelMode.followSession,
+    );
+    final summaryDetail = enumByNameOr(
+      AiWebSearchSummaryDetail.values,
+      json['summary_detail'],
+      fallback: AiWebSearchSummaryDetail.balanced,
+    );
+    final summaryStyle = enumByNameOr(
+      AiWebSearchSummaryStyle.values,
+      json['summary_style'],
+      fallback: AiWebSearchSummaryStyle.neutral,
+    );
 
     return AiWebSearchSettings(
       engines: engines,

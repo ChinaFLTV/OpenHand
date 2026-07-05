@@ -1,4 +1,5 @@
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 /// MCP 关键词倒排索引的更新模式。控制何时（重新）构建索引：
 ///
@@ -22,11 +23,13 @@ enum McpKeywordIndexUpdateMode {
   final String storageValue;
 
   static McpKeywordIndexUpdateMode fromStorage(String? raw) {
-    final v = raw?.trim().toLowerCase();
-    for (final mode in McpKeywordIndexUpdateMode.values) {
-      if (mode.storageValue == v) return mode;
-    }
-    return McpKeywordIndexUpdateMode.coldStart;
+    return enumByStorageValueOr(
+      values,
+      raw,
+      (mode) => mode.storageValue,
+      fallback: McpKeywordIndexUpdateMode.coldStart,
+      normalize: (value) => value.toLowerCase(),
+    );
   }
 }
 
@@ -41,11 +44,13 @@ enum McpKeywordIndexIntervalUnit {
   final String storageValue;
 
   static McpKeywordIndexIntervalUnit fromStorage(String? raw) {
-    final v = raw?.trim().toLowerCase();
-    for (final unit in McpKeywordIndexIntervalUnit.values) {
-      if (unit.storageValue == v) return unit;
-    }
-    return McpKeywordIndexIntervalUnit.hour;
+    return enumByStorageValueOr(
+      values,
+      raw,
+      (unit) => unit.storageValue,
+      fallback: McpKeywordIndexIntervalUnit.hour,
+      normalize: (value) => value.toLowerCase(),
+    );
   }
 }
 

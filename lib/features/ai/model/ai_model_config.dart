@@ -94,9 +94,11 @@ enum AiAuthScheme {
   }
 
   static AiAuthScheme fromStorage(String? value) {
-    return AiAuthScheme.values.firstWhere(
-      (item) => item.storageValue == value,
-      orElse: () => AiAuthScheme.bearer,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (scheme) => scheme.storageValue,
+      fallback: AiAuthScheme.bearer,
     );
   }
 
@@ -151,9 +153,11 @@ enum AiProtocolType {
   }
 
   static AiProtocolType fromStorage(String? value) {
-    return AiProtocolType.values.firstWhere(
-      (item) => item.storageValue == value,
-      orElse: () => AiProtocolType.openai,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (type) => type.storageValue,
+      fallback: AiProtocolType.openai,
     );
   }
 
@@ -200,11 +204,11 @@ enum AiModelModality {
   final String storageValue;
 
   static AiModelModality? fromStorage(String? value) {
-    if (value == null) return null;
-    for (final m in values) {
-      if (m.storageValue == value) return m;
-    }
-    return null;
+    return enumByStorageValue(
+      values,
+      value,
+      (modality) => modality.storageValue,
+    );
   }
 }
 
@@ -223,11 +227,11 @@ enum AiModelCapability {
   final String storageValue;
 
   static AiModelCapability? fromStorage(String? value) {
-    if (value == null) return null;
-    for (final c in values) {
-      if (c.storageValue == value) return c;
-    }
-    return null;
+    return enumByStorageValue(
+      values,
+      value,
+      (capability) => capability.storageValue,
+    );
   }
 }
 

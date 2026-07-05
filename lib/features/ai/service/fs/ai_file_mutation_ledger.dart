@@ -79,10 +79,10 @@ class FileMutationRecord {
   }) {
     final id = optionalStringFromValue(json['id']);
     if (id == null) return null;
-    final kindName = stringFromValue(json['kind'], fallback: 'modify');
-    final kind = FileMutationKind.values.firstWhere(
-      (k) => k.name == kindName,
-      orElse: () => FileMutationKind.modify,
+    final kind = enumByNameOr(
+      FileMutationKind.values,
+      json['kind'],
+      fallback: FileMutationKind.modify,
     );
     return FileMutationRecord(
       recordId: id,

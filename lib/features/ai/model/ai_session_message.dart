@@ -24,10 +24,12 @@ enum AiSessionMessageKind {
   final String storageValue;
 
   static AiSessionMessageKind fromStorage(String value) {
-    final normalized = value.trim().toLowerCase();
-    return AiSessionMessageKind.values.firstWhere(
-      (item) => item.storageValue == normalized,
-      orElse: () => AiSessionMessageKind.user,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (kind) => kind.storageValue,
+      fallback: AiSessionMessageKind.user,
+      normalize: (item) => item.toLowerCase(),
     );
   }
 }
@@ -43,10 +45,12 @@ enum AiSessionMessageRole {
   final String storageValue;
 
   static AiSessionMessageRole fromStorage(String value) {
-    final normalized = value.trim().toLowerCase();
-    return AiSessionMessageRole.values.firstWhere(
-      (item) => item.storageValue == normalized,
-      orElse: () => AiSessionMessageRole.user,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (role) => role.storageValue,
+      fallback: AiSessionMessageRole.user,
+      normalize: (item) => item.toLowerCase(),
     );
   }
 }
@@ -160,14 +164,11 @@ enum AiSessionMessageFeedback {
   final String storageValue;
 
   static AiSessionMessageFeedback? fromStorage(Object? value) {
-    final normalized = '${value ?? ''}'.trim();
-    if (normalized.isEmpty) return null;
-    for (final feedback in AiSessionMessageFeedback.values) {
-      if (feedback.storageValue == normalized) {
-        return feedback;
-      }
-    }
-    return null;
+    return enumByStorageValue(
+      values,
+      value,
+      (feedback) => feedback.storageValue,
+    );
   }
 }
 

@@ -15,10 +15,11 @@ enum AiTranslationProvider {
   final String storageKey;
 
   static AiTranslationProvider fromStorageKey(Object? value) {
-    final storageKey = stringFromValue(value);
-    return AiTranslationProvider.values.firstWhere(
-      (provider) => provider.storageKey == storageKey,
-      orElse: () => AiTranslationProvider.ai,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (provider) => provider.storageKey,
+      fallback: AiTranslationProvider.ai,
     );
   }
 }

@@ -153,9 +153,10 @@ class ToolSearchHistorySerializer {
       }
       final timestamp = DateTime.parse(tsRaw);
       final sourceName = rowMap['source'];
-      final src = AiToolSearchLoadSource.values.firstWhere(
-        (s) => s.name == sourceName,
-        orElse: () => AiToolSearchLoadSource.aiSession,
+      final src = enumByNameOr(
+        AiToolSearchLoadSource.values,
+        sourceName,
+        fallback: AiToolSearchLoadSource.aiSession,
       );
       final query = (rowMap['query'] is String)
           ? rowMap['query'] as String

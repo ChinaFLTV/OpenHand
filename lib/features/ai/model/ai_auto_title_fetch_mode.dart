@@ -9,12 +9,12 @@ enum AiAutoTitleFetchMode {
   final String storageValue;
 
   static AiAutoTitleFetchMode fromStorage(String? value) {
-    final normalized = lowercaseStringFromValue(value);
-    for (final mode in values) {
-      if (mode.storageValue == normalized) {
-        return mode;
-      }
-    }
-    return AiAutoTitleFetchMode.asynchronous;
+    return enumByStorageValueOr(
+      values,
+      value,
+      (mode) => mode.storageValue,
+      fallback: AiAutoTitleFetchMode.asynchronous,
+      normalize: (item) => item.toLowerCase(),
+    );
   }
 }

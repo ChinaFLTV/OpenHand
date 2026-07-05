@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 /// stdio MCP 包管理器镜像源模式。决定 npx / npm / uv / pip 这类工具
 /// 是否走国内镜像（npmmirror / 清华 PyPI），独立于系统 locale。
 ///
@@ -17,10 +19,12 @@ enum McpStdioMirrorMode {
   final String storageValue;
 
   static McpStdioMirrorMode fromStorage(String? raw) {
-    final v = raw?.trim().toLowerCase();
-    for (final mode in McpStdioMirrorMode.values) {
-      if (mode.storageValue == v) return mode;
-    }
-    return McpStdioMirrorMode.auto;
+    return enumByStorageValueOr(
+      values,
+      raw,
+      (mode) => mode.storageValue,
+      fallback: McpStdioMirrorMode.auto,
+      normalize: (value) => value.toLowerCase(),
+    );
   }
 }

@@ -15,11 +15,13 @@ enum HarnessExecutionMode {
   final String storageValue;
 
   static HarnessExecutionMode fromStorage(String? value) {
-    final normalized = value?.trim().toLowerCase();
-    for (final mode in HarnessExecutionMode.values) {
-      if (mode.storageValue == normalized) return mode;
-    }
-    return HarnessExecutionMode.cli;
+    return enumByStorageValueOr(
+      values,
+      value,
+      (mode) => mode.storageValue,
+      fallback: HarnessExecutionMode.cli,
+      normalize: (item) => item.toLowerCase(),
+    );
   }
 }
 

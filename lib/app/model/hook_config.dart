@@ -127,11 +127,7 @@ enum HookEvent {
   }
 
   static HookEvent? fromStorage(String? value) {
-    if (value == null || value.isEmpty) return null;
-    for (final event in values) {
-      if (event.storageValue == value) return event;
-    }
-    return null;
+    return enumByStorageValue(values, value, (event) => event.storageValue);
   }
 }
 

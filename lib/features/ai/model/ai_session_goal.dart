@@ -34,10 +34,11 @@ enum AiSessionGoalStatus {
   bool get isTerminal => !isActive;
 
   static AiSessionGoalStatus fromStorage(Object? value) {
-    final normalized = '${value ?? ''}'.trim();
-    return AiSessionGoalStatus.values.firstWhere(
-      (item) => item.storageValue == normalized,
-      orElse: () => AiSessionGoalStatus.running,
+    return enumByStorageValueOr(
+      values,
+      value,
+      (status) => status.storageValue,
+      fallback: AiSessionGoalStatus.running,
     );
   }
 }

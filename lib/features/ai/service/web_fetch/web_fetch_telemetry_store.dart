@@ -28,10 +28,7 @@ class WebFetchTelemetryStore
 
   @override
   AiWebFetchEngineKind? parseKind(String name) {
-    for (final k in AiWebFetchEngineKind.values) {
-      if (k.name == name) return k;
-    }
-    return null;
+    return enumByName(AiWebFetchEngineKind.values, name);
   }
 
   Future<void> recordCall(WebFetchCallLog call) {
@@ -176,9 +173,10 @@ class WebFetchPerEngineLog {
   });
 
   factory WebFetchPerEngineLog.fromJson(Map<String, Object?> m) {
-    final kind = AiWebFetchEngineKind.values.firstWhere(
-      (k) => k.name == '${m['kind'] ?? ''}',
-      orElse: () => AiWebFetchEngineKind.values.first,
+    final kind = enumByNameOr(
+      AiWebFetchEngineKind.values,
+      m['kind'],
+      fallback: AiWebFetchEngineKind.values.first,
     );
     return WebFetchPerEngineLog(
       kind: kind,

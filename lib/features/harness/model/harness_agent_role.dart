@@ -1,3 +1,5 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 enum HarnessAgentRole {
   /// 探档者 — first run only: scans project structure and writes meta files.
   profiler('profiler'),
@@ -27,9 +29,6 @@ enum HarnessAgentRole {
   };
 
   static HarnessAgentRole? fromStorageValue(String value) {
-    for (final role in HarnessAgentRole.values) {
-      if (role.storageValue == value) return role;
-    }
-    return null;
+    return enumByStorageValue(values, value, (role) => role.storageValue);
   }
 }

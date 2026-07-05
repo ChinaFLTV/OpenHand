@@ -134,11 +134,13 @@ enum AiBuiltinToolLazyLoadingMode {
   final String storageValue;
 
   static AiBuiltinToolLazyLoadingMode fromStorage(String? raw) {
-    final normalized = optionalLowercaseStringFromValue(raw);
-    for (final mode in AiBuiltinToolLazyLoadingMode.values) {
-      if (mode.storageValue == normalized) return mode;
-    }
-    return AiBuiltinToolLazyLoadingMode.auto;
+    return enumByStorageValueOr(
+      values,
+      raw,
+      (mode) => mode.storageValue,
+      fallback: AiBuiltinToolLazyLoadingMode.auto,
+      normalize: (value) => value.toLowerCase(),
+    );
   }
 }
 
@@ -455,9 +457,7 @@ class AiBuiltinToolConfig {
       throw const FormatException('Expected AiBuiltinToolConfig object');
     }
     final kindStr = stringFromValue(json['kind']);
-    final kind = AiBuiltinToolKind.values
-        .where((k) => k.name == kindStr)
-        .firstOrNull;
+    final kind = enumByName(AiBuiltinToolKind.values, kindStr);
     if (kind == null) {
       throw FormatException('Unknown AiBuiltinToolKind: $kindStr');
     }
@@ -482,11 +482,11 @@ class AiBuiltinToolConfig {
     }
 
     final rawLoadStrategy = stringFromValue(json['load_strategy']);
-    final loadStrategy =
-        AiBuiltinToolLoadStrategy.values
-            .where((s) => s.name == rawLoadStrategy)
-            .firstOrNull ??
-        AiBuiltinToolLoadStrategy.eager;
+    final loadStrategy = enumByNameOr(
+      AiBuiltinToolLoadStrategy.values,
+      rawLoadStrategy,
+      fallback: AiBuiltinToolLoadStrategy.eager,
+    );
 
     final tags = stringListFromValueOrJsonText(json['tags']);
 

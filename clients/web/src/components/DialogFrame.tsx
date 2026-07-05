@@ -387,10 +387,9 @@ const DIALOG_ACTION_BUTTON_TONE_STYLES: Record<
     border: '1px solid transparent',
   },
   danger: {
-    color: 'var(--m3-on-error-container)',
-    background:
-      'color-mix(in srgb, var(--m3-error-container) 72%, transparent)',
-    border: '1px solid color-mix(in srgb, var(--m3-error) 64%, transparent)',
+    color: 'var(--m3-on-primary)',
+    background: 'var(--m3-error)',
+    border: '1px solid transparent',
   },
 };
 

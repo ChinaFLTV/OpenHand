@@ -10,6 +10,60 @@ void putIfNotBlank(Map<String, Object?> target, String key, String? value) {
   if (normalized != null) target[key] = normalized;
 }
 
+T? enumByStorageValue<T extends Enum>(
+  Iterable<T> values,
+  Object? value,
+  String Function(T value) storageValue, {
+  String Function(String value)? normalize,
+}) {
+  final normalizedValue = optionalStringFromValue(value);
+  if (normalizedValue == null) return null;
+  final target = normalize?.call(normalizedValue) ?? normalizedValue;
+  for (final item in values) {
+    if (storageValue(item) == target) return item;
+  }
+  return null;
+}
+
+T enumByStorageValueOr<T extends Enum>(
+  Iterable<T> values,
+  Object? value,
+  String Function(T value) storageValue, {
+  required T fallback,
+  String Function(String value)? normalize,
+}) {
+  return enumByStorageValue(
+        values,
+        value,
+        storageValue,
+        normalize: normalize,
+      ) ??
+      fallback;
+}
+
+T? enumByName<T extends Enum>(
+  Iterable<T> values,
+  Object? value, {
+  String Function(String value)? normalize,
+}) {
+  final normalizedValue = optionalStringFromValue(value);
+  if (normalizedValue == null) return null;
+  final target = normalize?.call(normalizedValue) ?? normalizedValue;
+  for (final item in values) {
+    if (item.name == target) return item;
+  }
+  return null;
+}
+
+T enumByNameOr<T extends Enum>(
+  Iterable<T> values,
+  Object? value, {
+  required T fallback,
+  String Function(String value)? normalize,
+}) {
+  return enumByName(values, value, normalize: normalize) ?? fallback;
+}
+
 final RegExp _looseDelimitedValueSeparator = RegExp(r'[\s,，;；]+');
 const int _autoMillisecondsTimestampThreshold = 1000000000000;
 const Set<String> _truthyBoolTexts = <String>{

@@ -32,10 +32,7 @@ class WebSearchTelemetryStore
 
   @override
   AiWebSearchEngineKind? parseKind(String name) {
-    for (final k in AiWebSearchEngineKind.values) {
-      if (k.name == name) return k;
-    }
-    return null;
+    return enumByName(AiWebSearchEngineKind.values, name);
   }
 
   /// 记录一次完整调用：把 call log 追加到 calls.json，并把 perEngine 增量
@@ -187,9 +184,10 @@ class WebSearchPerEngineLog {
   });
 
   factory WebSearchPerEngineLog.fromJson(Map<String, Object?> m) {
-    final kind = AiWebSearchEngineKind.values.firstWhere(
-      (k) => k.name == '${m['kind'] ?? ''}',
-      orElse: () => AiWebSearchEngineKind.values.first,
+    final kind = enumByNameOr(
+      AiWebSearchEngineKind.values,
+      m['kind'],
+      fallback: AiWebSearchEngineKind.values.first,
     );
     return WebSearchPerEngineLog(
       kind: kind,
