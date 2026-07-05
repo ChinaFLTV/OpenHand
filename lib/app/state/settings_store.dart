@@ -537,17 +537,8 @@ class SettingsStore {
     // JSON 形如 [0.25, 0.5, 0.75]；非法元素直接忽略，越界 clamp 至 [0,1]。
     final List<double> aiInputCacheBreakpointPositions = () {
       final raw = json['ai_input_cache_breakpoint_positions'];
-      if (raw is! List) {
-        return AppSettingsSnapshot.defaultAiInputCacheBreakpointPositions;
-      }
-      final parsed = <double>[];
-      for (final entry in raw) {
-        final v = optionalDoubleFromValue(entry);
-        if (v == null) continue;
-        parsed.add(v.clamp(0.0, 1.0));
-      }
-      parsed.sort();
-      return List<double>.unmodifiable(parsed);
+      return optionalUnitIntervalListFromValue(raw, sorted: true) ??
+          AppSettingsSnapshot.defaultAiInputCacheBreakpointPositions;
     }();
     final aiBudgetUsdPerSession = clampedDoubleFromValue(
       json['ai_budget_usd_per_session'],

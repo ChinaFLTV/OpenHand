@@ -477,6 +477,21 @@ double? optionalPositiveDoubleFromValue(Object? value) {
   return parsed == null || parsed <= 0 ? null : parsed;
 }
 
+List<double>? optionalUnitIntervalListFromValue(
+  Object? value, {
+  bool sorted = false,
+}) {
+  if (value is! Iterable) return null;
+  final parsed = <double>[];
+  for (final item in value) {
+    final number = optionalDoubleFromValue(item);
+    if (number == null) continue;
+    parsed.add(clampUnitInterval(number));
+  }
+  if (sorted) parsed.sort();
+  return List<double>.unmodifiable(parsed);
+}
+
 int? optionalIntFromText(String? value, {int? radix}) {
   final trimmed = value?.trim();
   if (trimmed == null || trimmed.isEmpty) return null;

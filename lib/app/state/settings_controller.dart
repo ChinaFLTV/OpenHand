@@ -22,6 +22,7 @@ import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../../shared/fps/openhand_fps_monitor.dart';
 import '../../shared/net/tcp_port_utils.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
 import '../model/app_settings_snapshot.dart';
@@ -1116,13 +1117,9 @@ class SettingsController extends ChangeNotifier {
   Future<bool> updateAiInputCacheBreakpointPositions(
     List<double> positions,
   ) async {
-    final cleaned = <double>[];
-    for (final v in positions) {
-      if (!v.isFinite || v.isNaN) continue;
-      cleaned.add(v.clamp(0.0, 1.0));
-    }
-    cleaned.sort();
-    final next = List<double>.unmodifiable(cleaned);
+    final next =
+        optionalUnitIntervalListFromValue(positions, sorted: true) ??
+        const <double>[];
     return _commitMutation(() {
       if (_listEqualsDouble(_aiInputCacheBreakpointPositions, next)) {
         return _MutationDisposition.successNoChange;

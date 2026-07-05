@@ -162,7 +162,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
           sink.add(chunk);
           received += chunk.length;
           if (contentLength > 0) {
-            onProgress((received / contentLength).clamp(0.0, 1.0));
+            onProgress(unitRatio(received, contentLength));
           }
         }
         await sink.flush();

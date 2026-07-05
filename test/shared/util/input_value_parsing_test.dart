@@ -68,6 +68,36 @@ void main() {
     });
   });
 
+  group('optionalUnitIntervalListFromValue', () {
+    test('clamps finite values and ignores invalid entries', () {
+      expect(
+        optionalUnitIntervalListFromValue(<Object?>[
+          -0.25,
+          0.42,
+          2,
+          double.nan,
+          double.infinity,
+          'bad',
+          '0.8',
+        ]),
+        <double>[0, 0.42, 1, 0.8],
+      );
+    });
+
+    test('sorts and freezes parsed values on request', () {
+      final values = optionalUnitIntervalListFromValue(<Object?>[
+        0.75,
+        0.25,
+      ], sorted: true);
+      expect(values, <double>[0.25, 0.75]);
+      expect(() => values!.add(1), throwsUnsupportedError);
+    });
+
+    test('returns null for non-list values', () {
+      expect(optionalUnitIntervalListFromValue('0.5'), isNull);
+    });
+  });
+
   group('nonNegativeRemaining', () {
     test('returns remaining capacity without going below zero', () {
       expect(nonNegativeRemaining(10, 3), 7);
