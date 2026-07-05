@@ -31,14 +31,7 @@ class ExportProgress {
   const ExportProgress({required this.processed, required this.total});
   final int processed;
   final int total;
-  double get fraction {
-    if (total <= 0) return 0;
-    final value = processed / total;
-    if (value.isNaN || value.isInfinite) return 0;
-    if (value < 0) return 0;
-    if (value > 1) return 1;
-    return value;
-  }
+  double get fraction => unitRatio(processed, total);
 }
 
 /// Result enum for an export attempt.
