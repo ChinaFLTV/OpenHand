@@ -970,7 +970,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Future<void> _setVolume(double value) async {
-    final next = value.clamp(0.0, 1.0);
+    final next = finiteUnitInterval(value);
     setState(() {
       _volume = next;
       _muted = next <= 0;
@@ -1023,7 +1023,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   double get _effectiveVolume =>
-      _muted ? 0.0 : (_volume * _effect.volumeScale).clamp(0.0, 1.0);
+      _muted ? 0.0 : finiteUnitInterval(_volume * _effect.volumeScale);
 
   void _cyclePlayMode() {
     setState(() {
@@ -1226,9 +1226,10 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   Widget _buildProgress(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final progress = _duration.inMilliseconds > 0
-        ? (_position.inMilliseconds / _duration.inMilliseconds).clamp(0.0, 1.0)
-        : 0.0;
+    final progress = unitRatio(
+      _position.inMilliseconds,
+      _duration.inMilliseconds,
+    );
     return Column(
       children: [
         SliderTheme(

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../util/input_value_parsing.dart';
 import 'motion_preference.dart';
 
 /// Generic top-edge / inline highlight pulse driven by an external
@@ -97,9 +98,9 @@ class _HighlightPulseState extends State<HighlightPulse>
         // Two-stage envelope: 0..0.22 = ramp in, 0.22..1 = decay.
         final double opacity;
         if (v < 0.22) {
-          opacity = (v / 0.22).clamp(0.0, 1.0);
+          opacity = unitRatio(v, 0.22);
         } else {
-          final t = (1 - (v - 0.22) / 0.78).clamp(0.0, 1.0);
+          final t = clampUnitInterval(1 - (v - 0.22) / 0.78);
           opacity = Curves.easeOutCubic.transform(t);
         }
         return Container(
