@@ -5523,7 +5523,7 @@ class AiSessionController extends ChangeNotifier {
   }
 
   double? _readGoalDouble(Object? value) {
-    return optionalDoubleFromValue(value);
+    return optionalUnitIntervalFromValue(value);
   }
 
   int _tokenCountFromUsage(AiTokenUsage? usage) {

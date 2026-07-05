@@ -533,7 +533,7 @@ int? _positiveGoalInt(Object? value) {
 }
 
 double? _goalDouble(Object? value) {
-  return optionalDoubleFromValue(value);
+  return optionalUnitIntervalFromValue(value);
 }
 
 List<String> _goalStringList(Object? value) {
