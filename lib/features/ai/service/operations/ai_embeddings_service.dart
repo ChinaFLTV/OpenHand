@@ -493,8 +493,7 @@ class _EmbeddingRequestContext {
   final String modelId;
   final AiModelProfile profile;
 
-  int? get positiveDimensions =>
-      dimensions == null || dimensions! <= 0 ? null : dimensions;
+  int? get positiveDimensions => optionalPositiveIntFromValue(dimensions);
   String get normalizedModelId => modelId.toLowerCase();
   String? get trimmedEncodingFormat =>
       _trimmedOrNull(encodingFormat) ??
@@ -1245,20 +1244,18 @@ int? _embeddingResponseDimensions(Map<String, Object?> body) {
     'output_dimension',
     'outputDimensionality',
   ]) {
-    final value = _positiveIntOrNull(body[key]);
+    final value = optionalPositiveIntFromValue(body[key]);
     if (value != null) return value;
   }
   final parameters = AiOperationHttp.stringKeyedMap(body['parameters']);
-  final dashScopeDimensions = _positiveIntOrNull(parameters['dimension']);
+  final dashScopeDimensions = optionalPositiveIntFromValue(
+    parameters['dimension'],
+  );
   if (dashScopeDimensions != null) return dashScopeDimensions;
   final embeddingConfig = AiOperationHttp.stringKeyedMap(
     body['embeddingConfig'],
   );
-  return _positiveIntOrNull(embeddingConfig['outputEmbeddingLength']);
-}
-
-int? _positiveIntOrNull(Object? value) {
-  return optionalPositiveIntFromValue(value);
+  return optionalPositiveIntFromValue(embeddingConfig['outputEmbeddingLength']);
 }
 
 Map<String, Object?> _deepMergeObjectMaps(
