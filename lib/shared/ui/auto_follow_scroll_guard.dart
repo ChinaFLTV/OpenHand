@@ -1,6 +1,57 @@
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/widgets.dart';
 
+const Duration kAutoFollowProgrammaticSettleDuration = Duration(
+  milliseconds: 260,
+);
+const Duration kAutoFollowPointerSignalActivityWindow = Duration(
+  milliseconds: 900,
+);
+
+class AutoFollowProgrammaticScrollWindow {
+  AutoFollowProgrammaticScrollWindow({
+    this.settleDuration = kAutoFollowProgrammaticSettleDuration,
+  });
+
+  final Duration settleDuration;
+  int _depth = 0;
+  DateTime? _quietUntil;
+
+  bool get busy => _depth > 0;
+
+  bool get active {
+    if (_depth > 0) return true;
+    final quietUntil = _quietUntil;
+    if (quietUntil == null) return false;
+    if (DateTime.now().isBefore(quietUntil)) return true;
+    _quietUntil = null;
+    return false;
+  }
+
+  void begin() {
+    _depth += 1;
+    _extendQuietWindow();
+  }
+
+  void end() {
+    if (_depth > 0) {
+      _depth -= 1;
+    }
+    _extendQuietWindow();
+  }
+
+  void markSettling() => _extendQuietWindow();
+
+  void cancel() {
+    _depth = 0;
+    _quietUntil = null;
+  }
+
+  void _extendQuietWindow() {
+    _quietUntil = DateTime.now().add(settleDuration);
+  }
+}
+
 /// Lightweight helper for log-style auto-follow lists where new content
 /// continuously appends and the view should pin to the bottom — UNLESS the
 /// user is actively dragging.
@@ -17,9 +68,13 @@ class AutoFollowScrollGuard {
   AutoFollowScrollGuard();
 
   bool _userScrolling = false;
+  final AutoFollowProgrammaticScrollWindow _programmaticScroll =
+      AutoFollowProgrammaticScrollWindow();
 
   /// True while the user holds an active scroll gesture.
   bool get isUserScrolling => _userScrolling;
+
+  bool get isProgrammaticScrolling => _programmaticScroll.active;
 
   /// Wire this into a `NotificationListener<ScrollNotification>.onNotification`.
   /// Returns `false` so other listeners can still process the notification.
@@ -37,6 +92,12 @@ class AutoFollowScrollGuard {
         notification is ScrollEndNotification ||
         (notification is UserScrollNotification &&
             notification.direction == ScrollDirection.idle);
+    if (_programmaticScroll.active && !explicitUserScroll) {
+      return false;
+    }
+    if (explicitUserScroll) {
+      _programmaticScroll.cancel();
+    }
     if (explicitUserScroll) {
       _userScrolling = true;
     } else if (userScrollEnded) {
@@ -65,9 +126,19 @@ class AutoFollowScrollGuard {
     final target = position.maxScrollExtent;
     if ((target - position.pixels).abs() < 0.5) return;
     if (!animated) {
-      position.jumpTo(target);
+      _programmaticScroll.begin();
+      try {
+        position.jumpTo(target);
+      } finally {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _programmaticScroll.end();
+        });
+      }
       return;
     }
-    position.animateTo(target, duration: animationDuration, curve: curve);
+    _programmaticScroll.begin();
+    position
+        .animateTo(target, duration: animationDuration, curve: curve)
+        .whenComplete(_programmaticScroll.end);
   }
 }

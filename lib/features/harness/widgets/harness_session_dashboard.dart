@@ -22,6 +22,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_expandable.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/animated_overlay.dart';
+import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/error_snackbar.dart';
 import '../../../shared/ui/markdown_math.dart';
 import '../../../shared/ui/model_search_selector.dart';
@@ -1060,8 +1061,10 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
 
   bool _queuedForcedFeedScrollToBottom = false;
   bool _pendingAnimatedFeedScrollToBottom = false;
-  bool _programmaticFeedScrollInProgress = false;
+  final AutoFollowProgrammaticScrollWindow _feedProgrammaticScrollWindow =
+      AutoFollowProgrammaticScrollWindow();
   bool _userFeedScrollInProgress = false;
+  DateTime? _lastFeedPointerSignalScrollAt;
   // 2026-05-17：与 home transcript 同样的 trackpad / 滚轮 tick 抖动
   // 问题——慢速滚动期间每个 pointer-signal tick 都包成 start→update→end，
   // 中途 _userFeedScrollInProgress=false 会让 layout-change / 流式 feed
@@ -1601,7 +1604,13 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         if (_autoFollowEnabled && _shouldAutoFollowFeed) {
           final pos = _feedController.position;
           if (pos.pixels < pos.maxScrollExtent - 1.0) {
+            _beginProgrammaticFeedScroll();
             _feedController.jumpTo(pos.maxScrollExtent);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _endProgrammaticFeedScroll();
+              }
+            });
           }
         }
       });
@@ -1856,8 +1865,43 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
   void _clearPendingFeedAutoFollowState() {
     _queuedForcedFeedScrollToBottom = false;
     _pendingAnimatedFeedScrollToBottom = false;
-    _programmaticFeedScrollInProgress = false;
+    _feedProgrammaticScrollWindow.cancel();
     _scrollSettlePasses = 0;
+  }
+
+  bool _isProgrammaticFeedScrollInProgress() {
+    return _feedProgrammaticScrollWindow.active;
+  }
+
+  bool _isProgrammaticFeedScrollCommandBusy() {
+    return _feedProgrammaticScrollWindow.busy;
+  }
+
+  void _beginProgrammaticFeedScroll() {
+    _feedProgrammaticScrollWindow.begin();
+  }
+
+  void _endProgrammaticFeedScroll() {
+    _feedProgrammaticScrollWindow.end();
+  }
+
+  void _handleFeedPointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent) {
+      return;
+    }
+    _feedProgrammaticScrollWindow.cancel();
+    _lastFeedPointerSignalScrollAt = DateTime.now();
+    _markUserFeedScrollInProgress();
+    _scheduleUserFeedScrollEndGrace();
+  }
+
+  bool _hasRecentFeedPointerSignalScrollActivity() {
+    final last = _lastFeedPointerSignalScrollAt;
+    if (last == null) {
+      return false;
+    }
+    return DateTime.now().difference(last) <=
+        kAutoFollowPointerSignalActivityWindow;
   }
 
   /// 标记用户正在滚动 feed；取消任何待执行的 scroll-end 宽限。
@@ -1905,6 +1949,9 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
   }
 
   bool _handleFeedScrollNotification(ScrollNotification notification) {
+    final programmaticScroll = _isProgrammaticFeedScrollInProgress();
+    final recentPointerSignalScroll =
+        _hasRecentFeedPointerSignalScrollActivity();
     final explicitUserScrollStart =
         notification is ScrollStartNotification &&
         notification.dragDetails != null;
@@ -1916,7 +1963,8 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         notification.dragDetails != null;
     final explicitUserDirectionChange =
         notification is UserScrollNotification &&
-        notification.direction != ScrollDirection.idle;
+        notification.direction != ScrollDirection.idle &&
+        !programmaticScroll;
     final explicitUserScroll =
         explicitUserScrollStart ||
         explicitUserScrollUpdate ||
@@ -1926,15 +1974,18 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         notification is ScrollEndNotification ||
         (notification is UserScrollNotification &&
             notification.direction == ScrollDirection.idle);
-    // 见字段处的 trackpad / 滚轮 tick 注释：把 non-programmatic 的
-    // ScrollStart/Update/Overscroll 也当作用户活动延续，并对 scroll-end
-    // 走宽限计时，避免 _userFeedScrollInProgress 在两 tick 之间抖回 false。
-    final implicitUserScrollGesture =
-        !_programmaticFeedScrollInProgress &&
+    // 见字段处的 trackpad / 滚轮 tick 注释：只有 Listener 捕获到
+    // PointerScrollEvent 后，才把无 dragDetails 的 start/update/overscroll
+    // 当作滚轮 / 触控板输入；流式卡片增高产生的 layout scroll notification
+    // 不应暂停自动跟随。
+    final implicitPointerSignalScroll =
+        !programmaticScroll &&
+        recentPointerSignalScroll &&
         (notification is ScrollStartNotification ||
             notification is ScrollUpdateNotification ||
             notification is OverscrollNotification);
-    final userScrollActivity = explicitUserScroll || implicitUserScrollGesture;
+    final userScrollActivity =
+        explicitUserScroll || implicitPointerSignalScroll;
 
     if (userScrollActivity) {
       _markUserFeedScrollInProgress();
@@ -1942,11 +1993,11 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
       _scheduleUserFeedScrollEndGrace();
     }
 
-    if (_programmaticFeedScrollInProgress) {
+    if (programmaticScroll) {
       if (!explicitUserScroll) {
         return false;
       }
-      _programmaticFeedScrollInProgress = false;
+      _feedProgrammaticScrollWindow.cancel();
     }
 
     final distanceToBottom =
@@ -1964,7 +2015,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         notification.direction == ScrollDirection.reverse &&
         distanceToBottom > 0;
     final pointerSignalScrolledUpwardFromBottom =
-        implicitUserScrollGesture &&
+        implicitPointerSignalScroll &&
         notification is ScrollUpdateNotification &&
         (notification.scrollDelta ?? 0) < -0.5 &&
         distanceToBottom > 0;
@@ -2037,7 +2088,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         _scrollSettlePasses = newPasses;
       }
     }
-    if (_programmaticFeedScrollInProgress || _userFeedScrollInProgress) {
+    if (_isProgrammaticFeedScrollCommandBusy() || _userFeedScrollInProgress) {
       return;
     }
     if (_scrollCallbackQueued) {
@@ -2075,7 +2126,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
       final distance = (target - position.pixels).abs();
 
       void clearProgrammaticScrollFlag() {
-        _programmaticFeedScrollInProgress = false;
+        _endProgrammaticFeedScroll();
       }
 
       void scheduleSettlePass() {
@@ -2095,7 +2146,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
       if (distance >= 1 &&
           shouldAnimate &&
           distance > _feedAutoFollowAnimatedDistanceThreshold) {
-        _programmaticFeedScrollInProgress = true;
+        _beginProgrammaticFeedScroll();
         _feedController
             .animateTo(
               target,
@@ -2111,7 +2162,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         return;
       }
       if (distance >= 1) {
-        _programmaticFeedScrollInProgress = true;
+        _beginProgrammaticFeedScroll();
         _feedController.jumpTo(target);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           clearProgrammaticScrollFlag();
@@ -2280,128 +2331,138 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
       );
     }
 
-    return NotificationListener<ScrollNotification>(
-      onNotification: _handleFeedScrollNotification,
-      child: OpenHandSafeScrollbar(
-        controller: _feedController,
-        child: ListView.builder(
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerSignal: _handleFeedPointerSignal,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _handleFeedScrollNotification,
+        child: OpenHandSafeScrollbar(
           controller: _feedController,
-          padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
-          // Phase cards are tall + carry tool-trace / markdown subtrees.
-          // 2026-05-01: lowered 1000 → 400 to stop pre-building two extra
-          // off-screen phase cards (each runs synchronous markdown / code
-          // highlight passes) when the dashboard first opens; the smaller
-          // cache still absorbs short scroll movements without re-layout.
-          // 2026-05-17 进一步提升到 1800：与 home transcript 同步收敛
-          // cacheExtent 边界抽搐问题；详见 _home_transcript.dart 同步备注。
-          cacheExtent: 1800,
-          // +1 if awaiting approval (for the approval banner).
-          itemCount:
-              logs.length +
-              (widget.orchestrator.awaitingApprovalPhase != null ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (index < logs.length) {
-              final log = logs[index];
-              final phaseIndex = index;
-              final isNotRunning =
-                  widget.orchestrator.status !=
-                  HarnessOrchestratorStatus.running;
-              final isSelected = _selectedPhaseLog == log;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _HePhaseCardEntrance(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () {
-                      if (_selectedPhaseLog == log) return;
-                      setState(() => _selectedPhaseLog = log);
-                    },
-                    child: TapRegion(
-                      enabled: isSelected,
-                      onTapOutside: (_) {
-                        if (_selectedPhaseLog != log) return;
-                        setState(() => _selectedPhaseLog = null);
+          child: ListView.builder(
+            controller: _feedController,
+            padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+            // Phase cards are tall + carry tool-trace / markdown subtrees.
+            // 2026-05-01: lowered 1000 → 400 to stop pre-building two extra
+            // off-screen phase cards (each runs synchronous markdown / code
+            // highlight passes) when the dashboard first opens; the smaller
+            // cache still absorbs short scroll movements without re-layout.
+            // 2026-05-17 进一步提升到 1800：与 home transcript 同步收敛
+            // cacheExtent 边界抽搐问题；详见 _home_transcript.dart 同步备注。
+            cacheExtent: 1800,
+            // +1 if awaiting approval (for the approval banner).
+            itemCount:
+                logs.length +
+                (widget.orchestrator.awaitingApprovalPhase != null ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index < logs.length) {
+                final log = logs[index];
+                final phaseIndex = index;
+                final isNotRunning =
+                    widget.orchestrator.status !=
+                    HarnessOrchestratorStatus.running;
+                final isSelected = _selectedPhaseLog == log;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _HePhaseCardEntrance(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: () {
+                        if (_selectedPhaseLog == log) return;
+                        setState(() => _selectedPhaseLog = log);
                       },
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _HePhaseCard(
-                            key: ObjectKey(log),
-                            log: log,
-                            config: widget.config,
-                            isZh: widget.isZh,
-                            expanded: _isPhaseExpanded(log),
-                            onToggleExpand: () =>
-                                _setPhaseExpanded(log, !_isPhaseExpanded(log)),
-                            onCopyLog: () => _copyLog(context, log),
-                            onRoleConfigChanged: _isPhaseConfigEditable(log)
-                                ? (newRoleConfig) => _updatePhaseConfig(
-                                    log.phase,
-                                    newRoleConfig,
-                                  )
-                                : null,
-                            filePathRoots: widget.filePathRoots,
-                          ),
-                          if (isSelected && isNotRunning)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: _HePhaseActionBar(
-                                onCopyLog: () => _copyLog(context, log),
-                                onReExecute: () => _reExecutePhase(phaseIndex),
-                                onDelete: () =>
-                                    _deletePhaseLog(context, phaseIndex),
+                      child: TapRegion(
+                        enabled: isSelected,
+                        onTapOutside: (_) {
+                          if (_selectedPhaseLog != log) return;
+                          setState(() => _selectedPhaseLog = null);
+                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _HePhaseCard(
+                              key: ObjectKey(log),
+                              log: log,
+                              config: widget.config,
+                              isZh: widget.isZh,
+                              expanded: _isPhaseExpanded(log),
+                              onToggleExpand: () => _setPhaseExpanded(
+                                log,
+                                !_isPhaseExpanded(log),
                               ),
+                              onCopyLog: () => _copyLog(context, log),
+                              onRoleConfigChanged: _isPhaseConfigEditable(log)
+                                  ? (newRoleConfig) => _updatePhaseConfig(
+                                      log.phase,
+                                      newRoleConfig,
+                                    )
+                                  : null,
+                              filePathRoots: widget.filePathRoots,
                             ),
-                        ],
+                            if (isSelected && isNotRunning)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: _HePhaseActionBar(
+                                  onCopyLog: () => _copyLog(context, log),
+                                  onReExecute: () =>
+                                      _reExecutePhase(phaseIndex),
+                                  onDelete: () =>
+                                      _deletePhaseLog(context, phaseIndex),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            }
-            // Approval banner (last item when awaiting approval).
-            if (awaitingApprovalPhase != null) {
-              final approvalPhaseCopy = _manualPhaseCopy(
-                context,
-                awaitingApprovalPhase,
-              );
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _HePhaseApprovalBanner(
-                  nextPhase: awaitingApprovalPhase,
-                  approvalIssue: approvalIssue,
-                  manualPhaseEnabled: widget.orchestrator
-                      .isManualPhaseInputActiveFor(awaitingApprovalPhase),
-                  hasQueuedManualPhaseInput: widget.orchestrator
-                      .hasQueuedManualPhaseInputFor(awaitingApprovalPhase),
-                  manualPhaseActionLabel: approvalPhaseCopy.actionLabel,
-                  manualPhaseSwitchBackLabel: approvalPhaseCopy.switchBackLabel,
-                  manualPhaseActiveDescription:
-                      approvalPhaseCopy.activeBannerText,
-                  manualPhaseQueuedDescription:
-                      approvalPhaseCopy.queuedBannerText,
-                  manualPhaseIcon: approvalPhaseCopy.icon,
-                  onManualPhaseToggle:
-                      widget.orchestrator.supportsManualPhaseInput(
-                            awaitingApprovalPhase,
-                          ) &&
-                          approvalIssue == null
-                      ? () => widget.orchestrator.setManualPhaseInputRequested(
-                          !widget.orchestrator.isManualPhaseInputActiveFor(
-                            awaitingApprovalPhase,
-                          ),
-                        )
-                      : null,
-                  onApprove: approvalIssue == null
-                      ? () => widget.orchestrator.resolvePhaseApproval(true)
-                      : null,
-                  onReject: () =>
-                      widget.orchestrator.resolvePhaseApproval(false),
-                ),
-              );
-            }
-            return const SizedBox.shrink();
-          },
+                );
+              }
+              // Approval banner (last item when awaiting approval).
+              if (awaitingApprovalPhase != null) {
+                final approvalPhaseCopy = _manualPhaseCopy(
+                  context,
+                  awaitingApprovalPhase,
+                );
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _HePhaseApprovalBanner(
+                    nextPhase: awaitingApprovalPhase,
+                    approvalIssue: approvalIssue,
+                    manualPhaseEnabled: widget.orchestrator
+                        .isManualPhaseInputActiveFor(awaitingApprovalPhase),
+                    hasQueuedManualPhaseInput: widget.orchestrator
+                        .hasQueuedManualPhaseInputFor(awaitingApprovalPhase),
+                    manualPhaseActionLabel: approvalPhaseCopy.actionLabel,
+                    manualPhaseSwitchBackLabel:
+                        approvalPhaseCopy.switchBackLabel,
+                    manualPhaseActiveDescription:
+                        approvalPhaseCopy.activeBannerText,
+                    manualPhaseQueuedDescription:
+                        approvalPhaseCopy.queuedBannerText,
+                    manualPhaseIcon: approvalPhaseCopy.icon,
+                    onManualPhaseToggle:
+                        widget.orchestrator.supportsManualPhaseInput(
+                              awaitingApprovalPhase,
+                            ) &&
+                            approvalIssue == null
+                        ? () =>
+                              widget.orchestrator.setManualPhaseInputRequested(
+                                !widget.orchestrator
+                                    .isManualPhaseInputActiveFor(
+                                      awaitingApprovalPhase,
+                                    ),
+                              )
+                        : null,
+                    onApprove: approvalIssue == null
+                        ? () => widget.orchestrator.resolvePhaseApproval(true)
+                        : null,
+                    onReject: () =>
+                        widget.orchestrator.resolvePhaseApproval(false),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
         ),
       ),
     );

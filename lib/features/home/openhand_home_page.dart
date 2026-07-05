@@ -53,6 +53,7 @@ import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/animated_overlay.dart';
 import '../../shared/ui/appear_once.dart';
 import '../../shared/ui/appear_tracker.dart';
+import '../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../shared/ui/bounded_animation.dart';
 import '../../shared/ui/choice_input_dialog.dart';
 import '../../shared/ui/dialog_motion_css.dart';
@@ -217,6 +218,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       TranscriptScrollActivity();
   late final ScrollController _messageScrollController =
       OpenHandStableScrollController();
+  final AutoFollowProgrammaticScrollWindow _messageProgrammaticScrollWindow =
+      AutoFollowProgrammaticScrollWindow();
   final FocusNode _globalShortcutFocusNode = FocusNode();
   final FocusNode _composerFocusNode = FocusNode();
   _ComposerPanelState? _composerPanelState; // 直接引用，替代 GlobalKey.currentState
@@ -265,7 +268,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _scrollToBottomCallbackQueued = false;
   bool _processingQueueInProgress = false;
   bool _pendingAnimatedScrollToBottom = false;
-  bool _programmaticAutoFollowScrollInProgress = false;
   int _programmaticTranscriptScrollCorrectionDepth = 0;
   bool _userScrollInProgress = false;
   bool _userDragActive = false;
@@ -300,9 +302,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   static const Duration _userScrollEndGraceDuration = Duration(
     milliseconds: 1800,
   );
-  static const Duration _pointerSignalScrollActivityWindow = Duration(
-    milliseconds: 900,
-  );
+  static const Duration _pointerSignalScrollActivityWindow =
+      kAutoFollowPointerSignalActivityWindow;
   static const Duration _queuedGuidanceStopSettleTimeout = Duration(
     milliseconds: 1800,
   );
@@ -1002,17 +1003,43 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _scrollToBottomPositionRetryCounter = 0;
     _scrollToBottomSettleFramesRemaining = 0;
     _scrollToBottomStableFrames = 0;
+    _messageProgrammaticScrollWindow.cancel();
   }
 
   bool _isProgrammaticMessageScrollInProgress() {
-    return _programmaticAutoFollowScrollInProgress ||
+    return _messageProgrammaticScrollWindow.active ||
         _programmaticTranscriptScrollCorrectionDepth > 0 ||
         _composerScrollCompensationInProgress;
+  }
+
+  bool _isProgrammaticMessageScrollCommandBusy() {
+    return _messageProgrammaticScrollWindow.busy ||
+        _programmaticTranscriptScrollCorrectionDepth > 0 ||
+        _composerScrollCompensationInProgress;
+  }
+
+  bool _isUserMessageScrollActivityActive() {
+    if (_userScrollInProgress || _hasRecentScrollActivity()) {
+      return true;
+    }
+    if (_isProgrammaticMessageScrollInProgress()) {
+      return false;
+    }
+    return _messageScrollPositionIsActivelyScrolling();
+  }
+
+  void _beginProgrammaticMessageScroll() {
+    _messageProgrammaticScrollWindow.begin();
+  }
+
+  void _endProgrammaticMessageScroll() {
+    _messageProgrammaticScrollWindow.end();
   }
 
   void _runProgrammaticTranscriptScrollCorrection(VoidCallback correction) {
     if (!mounted) return;
     _programmaticTranscriptScrollCorrectionDepth += 1;
+    _messageProgrammaticScrollWindow.markSettling();
     try {
       correction();
     } finally {
@@ -1022,6 +1049,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           0,
           _programmaticTranscriptScrollCorrectionDepth - 1,
         );
+        _messageProgrammaticScrollWindow.markSettling();
       });
     }
   }
@@ -1039,6 +1067,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (event is! PointerScrollEvent) {
       return;
     }
+    _messageProgrammaticScrollWindow.cancel();
     _lastPointerSignalScrollAt = DateTime.now();
     _markUserScrollInProgress();
     _scheduleUserScrollEndGrace();
@@ -1070,9 +1099,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   bool _hasActiveOrRecentMessageScrollActivity() {
-    return _userScrollInProgress ||
-        _hasRecentScrollActivity() ||
-        _messageScrollPositionIsActivelyScrolling();
+    return _isUserMessageScrollActivityActive();
   }
 
   /// 用户当前 tick 的 scroll-end 已触发，但 trackpad / 滚轮的下一 tick
@@ -2257,14 +2284,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         // 2026-05-17：用户正在拖动 transcript 时，禁止任何 layout-change /
         // composer 折叠 / 流式 token 触发的 auto-follow 调度，避免那道
         // "把视口往下拽" 的力与用户上滑手势产生拉锯，造成抽搐 / 鬼畜。
-        _userScrollInProgress ||
-        // 2026-06-07 修复：桌面端 WebView 平台视图可能拦截 PointerScrollEvent，
-        // 导致 _userScrollInProgress 未被置位。用 _hasRecentScrollActivity 兜底。
-        _hasRecentScrollActivity() ||
-        // 2026-06-28 修复：部分 WebView / 平台视图组合下 PointerSignal 与
-        // dragDetails 都可能缺失，但外层 ScrollPosition 已进入 scrolling。
-        // 用 position 的活跃状态兜底，覆盖极慢速上滑 tick 间隙。
-        _messageScrollPositionIsActivelyScrolling();
+        _isUserMessageScrollActivityActive();
   }
 
   void _scheduleResumeAutoFollowSync() {
@@ -2334,7 +2354,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _handleMessageScroll() {
     final position = _activeMessageScrollPosition();
     if (position == null) return;
-    if (_isProgrammaticMessageScrollInProgress()) {
+    if (_isProgrammaticMessageScrollCommandBusy()) {
       return;
     }
     // 2026-05-26 (重构): 彻底移除 listener 中的 delta 判定逻辑。
@@ -2410,18 +2430,42 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // 2026-06-28：WebView / 桌面平台视图有时吞掉 PointerSignal，导致
     // recentPointerSignalScroll 与 dragDetails 都缺失；但外层 ScrollPosition
     // 仍处于 scrolling，且 ScrollUpdateNotification 携带了非零 delta。
-    // 这类 tick 必须计入用户滚动活动，否则慢速向上浏览历史时会过早恢复
-    // HTML 测高 / Markdown 解析 / 自动贴底，形成整列消息小幅上下振动。
+    // 这类 tick 只有在确实向历史方向移动时才计入用户滚动活动；否则
+    // 流式内容增高 / Sliver 几何沉降会误写最近用户滚动时间，延迟追底。
     final implicitActivePositionScroll =
         !programmaticScroll &&
         positionActivelyScrolling &&
         notification is ScrollUpdateNotification &&
         notification.dragDetails == null &&
         hasMeaningfulScrollDelta;
+    final distanceToBottom =
+        notification.metrics.maxScrollExtent - notification.metrics.pixels;
+    final previousDistanceToBottom = _lastMessageDistanceToBottom;
+    _lastMessageDistanceToBottom = distanceToBottom;
+    // 2026-06-28: 不再单押 UserScrollNotification.direction。Flutter 的
+    // forward/reverse 语义容易和“内容视觉方向”混淆，且部分平台视图会缺失
+    // pointer metadata。用距底部距离是否增大作为主判据；有 scrollDelta 时
+    // 再用负 delta 兜底覆盖首个 tick。
+    final distanceMovedAwayFromBottom =
+        previousDistanceToBottom != null &&
+        distanceToBottom - previousDistanceToBottom >
+            _messageDistanceToBottomDeltaThreshold;
+    final updateMovedTowardHistory =
+        scrollUpdateDelta != null &&
+        scrollUpdateDelta < -_messageScrollActivityDeltaThreshold;
+    final directionMovedTowardHistory =
+        notification is UserScrollNotification &&
+        notification.direction == ScrollDirection.forward &&
+        distanceToBottom > _messageDistanceToBottomDeltaThreshold;
+    final implicitActivePositionMovedTowardHistory =
+        implicitActivePositionScroll &&
+        (distanceMovedAwayFromBottom ||
+            updateMovedTowardHistory ||
+            directionMovedTowardHistory);
     final userScrollActivity =
         explicitUserScroll ||
         implicitPointerSignalScroll ||
-        implicitActivePositionScroll;
+        implicitActivePositionMovedTowardHistory;
     if (userScrollActivity) {
       _lastScrollActivityAt = DateTime.now();
       _markUserScrollInProgress();
@@ -2441,10 +2485,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         keepPixels: notification.metrics.pixels,
       );
     }
-    final distanceToBottom =
-        notification.metrics.maxScrollExtent - notification.metrics.pixels;
-    final previousDistanceToBottom = _lastMessageDistanceToBottom;
-    _lastMessageDistanceToBottom = distanceToBottom;
     if (!_autoFollowEnabled && userScrollActivity) {
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
@@ -2461,21 +2501,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final reallyAwayFromBottom = distanceToBottom > _autoFollowPauseHysteresis;
     final userScrolledAwayFromBottom =
         reallyAwayFromBottom && userScrollActivity;
-    // 2026-06-28: 不再单押 UserScrollNotification.direction。Flutter 的
-    // forward/reverse 语义容易和“内容视觉方向”混淆，且部分平台视图会缺失
-    // pointer metadata。用距底部距离是否增大作为主判据；有 scrollDelta 时
-    // 再用负 delta 兜底覆盖首个 tick。
-    final distanceMovedAwayFromBottom =
-        previousDistanceToBottom != null &&
-        distanceToBottom - previousDistanceToBottom >
-            _messageDistanceToBottomDeltaThreshold;
-    final updateMovedTowardHistory =
-        scrollUpdateDelta != null &&
-        scrollUpdateDelta < -_messageScrollActivityDeltaThreshold;
-    final directionMovedTowardHistory =
-        notification is UserScrollNotification &&
-        notification.direction == ScrollDirection.forward &&
-        distanceToBottom > _messageDistanceToBottomDeltaThreshold;
     final userMovedTowardHistory =
         userScrollActivity &&
         (distanceMovedAwayFromBottom ||
@@ -7284,10 +7309,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _scrollToBottomStableFrames = 0;
     }
     _pendingAnimatedScrollToBottom = _pendingAnimatedScrollToBottom || animated;
-    if (_isProgrammaticMessageScrollInProgress()) {
+    if (_isProgrammaticMessageScrollCommandBusy()) {
       return;
     }
-    if (_userScrollInProgress) {
+    if (_isUserMessageScrollActivityActive()) {
       return;
     }
     if (_scrollToBottomAwaitingPosition) {
@@ -7359,7 +7384,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           .toDouble();
       final distance = (targetOffset - activePosition.pixels).abs();
       void clearProgrammaticScrollFlag() {
-        _programmaticAutoFollowScrollInProgress = false;
+        _endProgrammaticMessageScroll();
       }
 
       void scheduleSettlePass() {
@@ -7369,7 +7394,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
 
       if (distance >= 1) {
-        _programmaticAutoFollowScrollInProgress = true;
+        _beginProgrammaticMessageScroll();
         activePosition.jumpTo(targetOffset);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           clearProgrammaticScrollFlag();
@@ -7413,7 +7438,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       final position = positions.single;
-      if (position.isScrollingNotifier.value || _hasRecentScrollActivity()) {
+      if (_hasActiveOrRecentMessageScrollActivity()) {
         _scrollToBottomSettleFramesRemaining = 0;
         _scrollToBottomStableFrames = 0;
         return;
@@ -7428,13 +7453,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       if (distance > _scrollToBottomSettleTolerance) {
         _scrollToBottomStableFrames = 0;
-        _programmaticAutoFollowScrollInProgress = true;
+        _beginProgrammaticMessageScroll();
         position.jumpTo(targetOffset);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) {
             return;
           }
-          _programmaticAutoFollowScrollInProgress = false;
+          _endProgrammaticMessageScroll();
           _queueScrollToBottomSettlePass();
         });
         return;
@@ -7451,7 +7476,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _cancelProgrammaticAutoFollowScroll({double? keepPixels}) {
-    _programmaticAutoFollowScrollInProgress = false;
+    _messageProgrammaticScrollWindow.cancel();
     _scrollToBottomSettleFramesRemaining = 0;
     _scrollToBottomStableFrames = 0;
   }
@@ -7620,11 +7645,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!_autoFollowEnabled || !_shouldAutoFollowMessages) return;
       final position = _activeMessageScrollPosition();
       if (position == null) return;
-      // 避免滚动惯性期间 jumpTo 与弹道位置对抗产生弹跳。
-      // 2026-06-07 修复：桌面端 WebView 可能吞掉 PointerScrollEvent，导致
-      // isScrollingNotifier 在两 tick 间短暂为 false 时 layout-change 仍能
-      // 穿透。增加 _hasRecentScrollActivity() 兜底，覆盖 trackpad 滚动的空窗期。
-      if (position.isScrollingNotifier.value || _hasRecentScrollActivity()) {
+      // 避免真实用户滚动期间 jumpTo 与弹道位置对抗产生弹跳；程序化追底
+      // 的 settle 窗口不再阻塞这里，否则高速流式增高会追丢底部。
+      if (_hasActiveOrRecentMessageScrollActivity()) {
         return;
       }
       _scheduleScrollToBottom();
