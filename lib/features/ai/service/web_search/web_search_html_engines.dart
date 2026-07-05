@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../../tools/ai_tool_utils.dart';
@@ -37,7 +38,7 @@ class WebSearchDuckDuckGoEngine extends WebSearchEngine {
             'Version/17.0 Safari/605.1.15',
       },
     );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       throw WebEngineHttpException('DuckDuckGo ${response.statusCode}');
     }
     final html = response.body;
@@ -115,7 +116,7 @@ class WebSearchBingEngine extends WebSearchEngine {
             'Chrome/121.0 Safari/537.36',
       },
     );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       throw WebEngineHttpException('Bing ${response.statusCode}');
     }
     final html = response.body;
@@ -161,7 +162,7 @@ class WebSearchSearxngEngine extends WebSearchEngine {
       uri,
       headers: const {'user-agent': 'OpenHand/1.0 (+websearch)'},
     );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       throw WebEngineHttpException('SearXNG ${response.statusCode}');
     }
     final body = decodeJsonObjectBytes(

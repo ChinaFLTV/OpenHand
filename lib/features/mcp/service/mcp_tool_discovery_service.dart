@@ -11,6 +11,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
+import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -843,7 +844,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     );
     final responseUri = response.request?.url ?? uri;
     final responseSessionId = _readHeader(response.headers, 'mcp-session-id');
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       final responseBody = await response.stream.bytesToString();
       throw McpToolDiscoveryException(
         'Tool scan request failed with HTTP ${response.statusCode}${_httpResponseDetail(responseBody)}',
@@ -1577,7 +1578,7 @@ class _LegacySseSession {
       additionalSensitiveHeaderNames: sensitiveHeaderNames,
     );
     final resolvedSseUri = response.request?.url ?? sseUri;
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       final body = await response.stream.bytesToString();
       throw McpToolDiscoveryException(
         'Tool scan could not connect to the SSE endpoint (HTTP ${response.statusCode})${_httpResponseDetail(body)}',
@@ -1735,7 +1736,7 @@ class _LegacySseSession {
       maxRedirects: DefaultMcpToolDiscoveryService._maxRedirects,
       additionalSensitiveHeaderNames: _sensitiveHeaderNames,
     );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       final body = await response.stream.bytesToString();
       throw McpToolDiscoveryException(
         'Tool scan request failed with HTTP ${response.statusCode}${_httpResponseDetail(body)}',
