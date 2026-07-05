@@ -3203,7 +3203,7 @@ class _ConnectivityTargetCard extends StatelessWidget {
       curve: Curves.easeOutBack,
       builder: (context, value, child) {
         return Opacity(
-          opacity: value.clamp(0.0, 1.0).toDouble(),
+          opacity: clampUnitInterval(value),
           child: Transform.translate(
             offset: Offset(0, (1 - value) * 10),
             child: child,
@@ -8349,7 +8349,7 @@ class _TrendLineChartState extends State<_TrendLineChart> {
 
 List<double> _lerpSeries(List<double> from, List<double> to, double progress) {
   if (to.isEmpty) return const <double>[];
-  final t = progress.clamp(0.0, 1.0).toDouble();
+  final t = clampUnitInterval(progress);
   final fallback = from.isEmpty ? to.first : from.last;
   return List<double>.generate(to.length, (index) {
     final start = index < from.length ? from[index] : fallback;
@@ -8426,7 +8426,7 @@ class _TrendLinePainter extends CustomPainter {
     final points = <Offset>[];
     for (var i = 0; i < values.length; i++) {
       final x = chart.left + chart.width * i / (values.length - 1);
-      final normalized = ((values[i] - minValue) / span).clamp(0.0, 1.0);
+      final normalized = finiteUnitInterval((values[i] - minValue) / span);
       final y = chart.bottom - chart.height * normalized;
       points.add(Offset(x, y));
     }
@@ -8445,7 +8445,7 @@ class _TrendLinePainter extends CustomPainter {
       ..lineTo(points.last.dx, chart.bottom)
       ..lineTo(points.first.dx, chart.bottom)
       ..close();
-    final visibleRight = chart.left + chart.width * progress.clamp(0.0, 1.0);
+    final visibleRight = chart.left + chart.width * clampUnitInterval(progress);
     canvas.save();
     canvas.clipRect(
       Rect.fromLTRB(chart.left, chart.top, visibleRight, chart.bottom),

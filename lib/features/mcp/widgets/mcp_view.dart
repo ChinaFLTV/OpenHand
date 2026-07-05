@@ -2998,7 +2998,7 @@ class _ProbeTrendPainter extends CustomPainter {
     for (var i = 0; i < n; i++) {
       final p = ordered[i];
       if (p.status == McpServerHealthStatus.healthy && p.latencyMs != null) {
-        final ratio = (p.latencyMs! / scaleMax).clamp(0.0, 1.0);
+        final ratio = unitRatio(p.latencyMs!, scaleMax);
         final x = chartLeft + stepX * i;
         final y = baselineY - ratio * chartHeight;
         points.add(Offset(x, y));
@@ -3829,7 +3829,7 @@ class _McpAnimatedProgressBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           child: LinearProgressIndicator(
             minHeight: 6,
-            value: animatedProgress.clamp(0.0, 1.0).toDouble(),
+            value: clampUnitInterval(animatedProgress),
             backgroundColor: backgroundColor,
           ),
         );
@@ -3887,11 +3887,10 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                   snap.queuedAutoProbeTasks > 0 ||
                   snap.autoToolRefreshInProgress ||
                   snap.autoHealthCheckInProgress;
-              final progress = snap.autoProbeConcurrency <= 0
-                  ? 0.0
-                  : (snap.activeAutoProbeSlots / snap.autoProbeConcurrency)
-                        .clamp(0.0, 1.0)
-                        .toDouble();
+              final progress = unitRatio(
+                snap.activeAutoProbeSlots,
+                snap.autoProbeConcurrency,
+              );
 
               return Column(
                 mainAxisSize: MainAxisSize.min,
