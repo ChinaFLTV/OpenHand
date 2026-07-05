@@ -384,11 +384,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
     return const _LogLineStyle(color: Color(0xFFE5E7EB));
   }
 
-  String _formatUptime(Duration d) {
-    if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes % 60}m';
-    if (d.inMinutes > 0) return '${d.inMinutes}m ${d.inSeconds % 60}s';
-    return '${d.inSeconds}s';
-  }
+  String _formatUptime(Duration d) => formatCompactDuration(d);
 }
 
 class _LogLineStyle {

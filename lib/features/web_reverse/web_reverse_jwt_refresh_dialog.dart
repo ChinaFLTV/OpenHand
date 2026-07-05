@@ -300,9 +300,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
   String _formatRemaining(Duration? d) {
     if (d == null) return '—';
     if (d.isNegative) return 'expired';
-    if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes % 60}m';
-    if (d.inMinutes > 0) return '${d.inMinutes}m ${d.inSeconds % 60}s';
-    return '${d.inSeconds}s';
+    return formatCompactDuration(d);
   }
 
   @override
