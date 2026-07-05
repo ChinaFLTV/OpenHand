@@ -4474,8 +4474,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   bool _isEnteringFullscreen = false;
   bool _disposed = false;
   bool _mediaBootstrapStarted = false;
-  DialogAnimationSettings _playerMotionSettings =
-      DialogAnimationSettings.defaults;
+  DialogAnimationSettings _playerMotionSettings = OpenHandMotionDefaults.dialog;
   final GlobalKey _headerKey = GlobalKey();
   double? _measuredHeaderHeight;
   // Cancel signal for the in-flight save. Completed when the user dismisses
@@ -5438,12 +5437,10 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
     // Capture the navigator before the async pause so we don't reference
     // a possibly-stale BuildContext after the await.
     final navigator = Navigator.of(context, rootNavigator: true);
-    SettingsController? settingsController;
-    try {
-      settingsController = context.read<SettingsController>();
-    } catch (_) {
-      settingsController = null;
-    }
+    final settings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
     try {
       // Pause the underlying preview before we hand control to the
       // fullscreen route so the user never hears two audio tracks at once.
@@ -5460,14 +5457,6 @@ input[type=range]:hover::-webkit-slider-thumb,input[type=range]:focus-visible::-
         );
       }
       if (!mounted) return;
-      DialogAnimationSettings settings;
-      try {
-        settings =
-            settingsController?.dialogAnimationSettings ??
-            DialogAnimationSettings.defaults;
-      } catch (_) {
-        settings = DialogAnimationSettings.defaults;
-      }
       final returnedTime = await navigator.push<double>(
         PageRouteBuilder<double>(
           fullscreenDialog: true,

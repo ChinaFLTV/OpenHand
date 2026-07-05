@@ -1337,7 +1337,26 @@ class _EscapeDismissDialogScopeState extends State<_EscapeDismissDialogScope> {
     final navigator = route.navigator ?? Navigator.maybeOf(context);
     if (navigator == null) return false;
     _dismissRequested = true;
-    navigator.pop();
+    unawaited(
+      navigator
+          .maybePop()
+          .then((popped) {
+            if (!popped) {
+              _dismissRequested = false;
+            }
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            _dismissRequested = false;
+            FlutterError.reportError(
+              FlutterErrorDetails(
+                exception: error,
+                stack: stackTrace,
+                library: 'openhand dialog',
+                context: ErrorDescription('while dismissing a dialog'),
+              ),
+            );
+          }),
+    );
     return true;
   }
 

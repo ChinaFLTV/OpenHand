@@ -707,14 +707,10 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   DialogAnimationSettings _resolveDialogAnimationSettingsSafe() {
-    try {
-      return Provider.of<SettingsController>(
-        context,
-        listen: false,
-      ).dialogAnimationSettings;
-    } catch (_) {
-      return OpenHandMotionDefaults.dialog;
-    }
+    return openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
   }
 
   void _showAtMentionOverlay() {

@@ -103,6 +103,11 @@ export interface DialogFrameProps {
   ariaLabelledBy?: string;
 }
 
+export type DialogFrameAppearance = Pick<
+  DialogFrameProps,
+  'overlayClassName' | 'overlayStyle' | 'panelClassName' | 'panelStyle'
+>;
+
 function createDialogOverlayStyle({
   background = DIALOG_OVERLAY_DEFAULT_BACKGROUND,
   blurPx = DIALOG_OVERLAY_DEFAULT_BLUR_PX,
@@ -170,10 +175,7 @@ function createDialogFrameAppearance({
   panelSurface,
   panelStyle,
   panelStyleOverrides,
-}: DialogFrameAppearanceOptions = {}): Pick<
-  DialogFrameProps,
-  'overlayClassName' | 'overlayStyle' | 'panelClassName' | 'panelStyle'
-> {
+}: DialogFrameAppearanceOptions = {}): DialogFrameAppearance {
   const resolvedPanelStyle =
     panelStyle ?? {
       ...createDialogPanelSurfaceStyle(panelSurface),
@@ -227,10 +229,7 @@ export function createStandardDialogFrameAppearance({
   panelBorder,
   panelSurface,
   ...rest
-}: StandardDialogFrameAppearanceOptions = {}): Pick<
-  DialogFrameProps,
-  'overlayClassName' | 'overlayStyle' | 'panelClassName' | 'panelStyle'
-> {
+}: StandardDialogFrameAppearanceOptions = {}): DialogFrameAppearance {
   const resolvedOverlay =
     overlayTone == null && overlayZIndex == null && overlayBlurPx == null
       ? overlay

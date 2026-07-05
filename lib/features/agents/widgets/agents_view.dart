@@ -12,6 +12,7 @@ import '../../../app/model/app_settings_snapshot.dart';
 import '../../../app/model/dialog_animation_settings.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -27,6 +28,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart'
     show
         AiAgentBuiltinToolGroup,
@@ -109,7 +111,8 @@ const int _agentLogDetailMaxJsonChars = 60000;
 const int _agentLogDetailMaxCollectionItems = 500;
 const double _agentResourceDialogMaxWidth = 1040;
 const double _agentResourceDialogMaxHeight = 780;
-const int _agentResourceSampleIntervalMs = 1400;
+const Duration _agentResourceSampleInterval = Duration(milliseconds: 1400);
+const Duration _agentResourceSampleTimeout = Duration(seconds: 8);
 const String _agentResourceTelemetryExtraKey = '_openhand_resource_telemetry';
 const String _agentResourceTelemetryHistoryKey = 'history';
 const double _agentResourceOverviewBreakpoint = 720;
@@ -5035,10 +5038,14 @@ class _AgentResourceLiveBodyState extends State<_AgentResourceLiveBody> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sampleNow());
-    _sampleTimer = Timer.periodic(
-      const Duration(milliseconds: _agentResourceSampleIntervalMs),
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(_sampleNow()),
+    );
+    _sampleTimer = startNonOverlappingPeriodicTimer(
+      _agentResourceSampleInterval,
       (_) => _sampleNow(),
+      onError: (error, stack) =>
+          silentLog('agents', 'sample resource usage timer', error, stack),
     );
   }
 
@@ -5048,16 +5055,19 @@ class _AgentResourceLiveBodyState extends State<_AgentResourceLiveBody> {
     super.dispose();
   }
 
-  void _sampleNow() {
+  Future<void> _sampleNow() async {
     if (!mounted || _sampleInFlight) return;
     _sampleInFlight = true;
-    unawaited(
-      context
+    try {
+      await context
           .read<AgentsController>()
           .sampleResourceUsage(widget.agent.id)
-          .catchError((_) => false)
-          .whenComplete(() => _sampleInFlight = false),
-    );
+          .timeout(_agentResourceSampleTimeout);
+    } catch (error, stack) {
+      silentLog('agents', 'sample resource usage', error, stack);
+    } finally {
+      _sampleInFlight = false;
+    }
   }
 
   @override

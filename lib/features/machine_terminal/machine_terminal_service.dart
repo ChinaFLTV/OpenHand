@@ -11,6 +11,7 @@ import 'package:xterm/xterm.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/timer_safety.dart';
 
 const String kMachineExpertTemplateId = 'machine_expert';
 const String kMachineTerminalMetadataKey = 'machine_terminal';
@@ -851,14 +852,23 @@ class MachineTerminalService extends ChangeNotifier {
   }
 
   void _startTerminalSoon(MachineTerminalSession terminal) {
-    Timer.run(() {
-      if (_isDisposed || terminal.isRunningOrStarting) return;
-      unawaited(
-        terminal.start().whenComplete(
-          () => _scheduleMetadataPersist(terminal.sessionId),
-        ),
-      );
-    });
+    startSafeTimer(
+      Duration.zero,
+      () {
+        if (_isDisposed || terminal.isRunningOrStarting) return;
+        unawaited(
+          terminal.start().whenComplete(
+            () => _scheduleMetadataPersist(terminal.sessionId),
+          ),
+        );
+      },
+      onError: (error, stack) => silentLog(
+        'machine_terminal',
+        'deferred terminal start',
+        error,
+        stack,
+      ),
+    );
   }
 
   Object? _metadataSeedFor(String sessionId, Object? existingMetadata) {
@@ -878,7 +888,7 @@ class MachineTerminalService extends ChangeNotifier {
     final normalizedSessionId = nullIfBlank(sessionId);
     if (normalizedSessionId == null || _metadataPersister == null) return;
     _metadataPersistTimers[normalizedSessionId]?.cancel();
-    _metadataPersistTimers[normalizedSessionId] = Timer(
+    _metadataPersistTimers[normalizedSessionId] = startSafeTimer(
       _metadataPersistDebounce,
       () {
         _metadataPersistTimers.remove(normalizedSessionId);
@@ -905,6 +915,12 @@ class MachineTerminalService extends ChangeNotifier {
             });
         _metadataPersistChains[normalizedSessionId] = tracked;
       },
+      onError: (error, stack) => silentLog(
+        'machine_terminal',
+        'schedule metadata persist',
+        error,
+        stack,
+      ),
     );
   }
 

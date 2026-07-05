@@ -608,15 +608,15 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
   }
 
   Duration _resolveDialogExitDelay(BuildContext context) {
-    if (!_settingsMotionEnabled(context)) {
-      return Duration.zero;
-    }
     try {
-      return context
-              .read<SettingsController>()
-              .dialogAnimationSettings
-              .duration +
-          const Duration(milliseconds: 40);
+      final settings = openHandMotionSettingsOf(
+        context,
+        OpenHandMotionSettingsScope.dialog,
+      );
+      if (openHandMotionDisabled(settings)) {
+        return Duration.zero;
+      }
+      return settings.duration + const Duration(milliseconds: 40);
     } catch (_) {
       return const Duration(milliseconds: 400);
     }

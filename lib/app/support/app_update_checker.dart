@@ -8,6 +8,13 @@ import 'package:path/path.dart' as p;
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/version_compare.dart';
 import 'silent_log.dart';
+import 'system_proxy.dart';
+
+const Duration _kUpdateCheckConnectionTimeout = Duration(seconds: 15);
+const Duration _kUpdateDownloadConnectionTimeout = Duration(seconds: 30);
+const String _kGitHubReleaseAcceptHeader = 'application/vnd.github.v3+json';
+const String _kUpdateCheckerUserAgent = 'OpenHand-UpdateChecker';
+const String _kFallbackUpdateFileName = 'openhand-update';
 
 /// 应用版本更新信息。
 class AppReleaseInfo {
@@ -69,22 +76,32 @@ abstract class AppUpdateDataSource {
 
 /// GitHub Release 数据源实现。
 class GitHubReleaseDataSource implements AppUpdateDataSource {
-  GitHubReleaseDataSource({this.owner = 'ChinaFLTV', this.repo = 'OpenHand'});
+  GitHubReleaseDataSource({
+    this.owner = 'ChinaFLTV',
+    this.repo = 'OpenHand',
+    SystemProxyResolver? proxyResolver,
+  }) : _proxyResolver = proxyResolver ?? SystemProxyResolver.instance;
 
   final String owner;
   final String repo;
+  final SystemProxyResolver _proxyResolver;
 
   String get _apiUrl =>
       'https://api.github.com/repos/$owner/$repo/releases/latest';
 
+  HttpClient _createHttpClient(Duration connectionTimeout) {
+    return _proxyResolver.createRawHttpClient(
+      connectionTimeout: connectionTimeout,
+    );
+  }
+
   @override
   Future<AppUpdateCheckResult> checkForUpdate(String currentVersion) async {
-    final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 15);
+    final client = _createHttpClient(_kUpdateCheckConnectionTimeout);
     try {
       final request = await client.getUrl(Uri.parse(_apiUrl));
-      request.headers.set('Accept', 'application/vnd.github.v3+json');
-      request.headers.set('User-Agent', 'OpenHand-UpdateChecker');
+      request.headers.set('Accept', _kGitHubReleaseAcceptHeader);
+      request.headers.set('User-Agent', _kUpdateCheckerUserAgent);
       final response = await request.close();
       if (response.statusCode != 200) {
         final body = await response.transform(utf8.decoder).join();
@@ -121,27 +138,21 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     if (release.downloadUrl.isEmpty) {
       throw Exception('No download URL available.');
     }
-    final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 30);
+    final downloadUri = Uri.parse(release.downloadUrl);
+    final client = _createHttpClient(_kUpdateDownloadConnectionTimeout);
     try {
-      final request = await client.getUrl(Uri.parse(release.downloadUrl));
-      request.headers.set('User-Agent', 'OpenHand-UpdateChecker');
+      final request = await client.getUrl(downloadUri);
+      request.headers.set('User-Agent', _kUpdateCheckerUserAgent);
       final response = await request.close();
       if (response.statusCode != 200) {
         throw HttpException(
           'Download failed: HTTP ${response.statusCode}',
-          uri: Uri.parse(release.downloadUrl),
+          uri: downloadUri,
         );
       }
       final contentLength = response.contentLength;
       final tempDir = Directory.systemTemp;
-      final downloadUri = Uri.parse(release.downloadUrl);
-      final parsedFileName = downloadUri.pathSegments.isEmpty
-          ? 'openhand-update'
-          : downloadUri.pathSegments.last.trim();
-      final fileName = parsedFileName.isEmpty
-          ? 'openhand-update'
-          : parsedFileName;
+      final fileName = _safeUpdateFileName(downloadUri);
       final filePath = p.join(tempDir.path, fileName);
       final file = File(filePath);
       final sink = file.openWrite();
@@ -155,6 +166,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
           }
         }
         await sink.flush();
+        onProgress(1.0);
       } finally {
         await sink.close();
       }
@@ -172,6 +184,15 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     if (Platform.isIOS) return '.ipa';
     return '';
   }
+}
+
+String _safeUpdateFileName(Uri uri) {
+  final rawName = uri.pathSegments.isEmpty ? '' : uri.pathSegments.last.trim();
+  final basename = nullIfBlank(p.basename(rawName));
+  if (basename == null || basename == '.' || basename == '..') {
+    return _kFallbackUpdateFileName;
+  }
+  return basename.replaceAll(RegExp(r'[\\/]'), '_');
 }
 
 @visibleForTesting
