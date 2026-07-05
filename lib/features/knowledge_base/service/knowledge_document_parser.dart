@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:archive/archive.dart' show Archive, ZipDecoder;
+import 'package:archive/archive.dart' show Archive, ArchiveFile, ZipDecoder;
 import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
@@ -613,9 +613,7 @@ class XlsxKnowledgeDocumentParser extends KnowledgeDocumentParser {
       final sheetName = index < sheetNames.length
           ? sheetNames[index]
           : 'Sheet ${index + 1}';
-      final xmlDoc = xml.XmlDocument.parse(
-        _decodeText(sheetFiles[index].readBytes() ?? const <int>[]),
-      );
+      final xmlDoc = xml.XmlDocument.parse(_archiveFileText(sheetFiles[index]));
       final rows = _xlsxRows(xmlDoc, sharedStrings);
       if (rows.isEmpty) continue;
       buffer
@@ -675,9 +673,7 @@ class PptxKnowledgeDocumentParser extends KnowledgeDocumentParser {
           );
     final buffer = StringBuffer()..writeln('# $title\n');
     for (var index = 0; index < slideFiles.length; index++) {
-      final xmlDoc = xml.XmlDocument.parse(
-        _decodeText(slideFiles[index].readBytes() ?? const <int>[]),
-      );
+      final xmlDoc = xml.XmlDocument.parse(_archiveFileText(slideFiles[index]));
       final paragraphs = trimmedNonEmptyStrings(
         _elements(xmlDoc.rootElement, 'p').map(_ooxmlText),
       );
@@ -757,16 +753,14 @@ xml.XmlDocument _xmlArchiveFile(Archive archive, String path) {
   if (file == null || !file.isFile) {
     throw FormatException('文档缺少必要结构：$path');
   }
-  return xml.XmlDocument.parse(_decodeText(file.readBytes() ?? const <int>[]));
+  return xml.XmlDocument.parse(_archiveFileText(file));
 }
 
 String _corePropertyTitle(Archive archive) {
   final file = archive.findFile('docProps/core.xml');
   if (file == null || !file.isFile) return '';
   try {
-    final doc = xml.XmlDocument.parse(
-      _decodeText(file.readBytes() ?? const <int>[]),
-    );
+    final doc = xml.XmlDocument.parse(_archiveFileText(file));
     for (final title in _elements(doc.rootElement, 'title')) {
       final text = title.innerText.trim();
       if (text.isNotEmpty) return text;
@@ -780,7 +774,7 @@ String _corePropertyTitle(Archive archive) {
 List<String> _xlsxSharedStrings(Archive archive) {
   final file = archive.findFile('xl/sharedStrings.xml');
   if (file == null || !file.isFile) return const <String>[];
-  final doc = xml.XmlDocument.parse(_decodeText(file.readBytes() ?? const []));
+  final doc = xml.XmlDocument.parse(_archiveFileText(file));
   return _elements(
     doc.rootElement,
     'si',
@@ -791,9 +785,7 @@ List<String> _xlsxSheetNames(Archive archive) {
   final file = archive.findFile('xl/workbook.xml');
   if (file == null || !file.isFile) return const <String>[];
   try {
-    final doc = xml.XmlDocument.parse(
-      _decodeText(file.readBytes() ?? const []),
-    );
+    final doc = xml.XmlDocument.parse(_archiveFileText(file));
     return trimmedNonEmptyStrings(
       _elements(
         doc.rootElement,
@@ -803,6 +795,10 @@ List<String> _xlsxSheetNames(Archive archive) {
   } catch (_) {
     return const <String>[];
   }
+}
+
+String _archiveFileText(ArchiveFile file) {
+  return _decodeText(file.readBytes() ?? const <int>[]);
 }
 
 List<List<String>> _xlsxRows(xml.XmlDocument doc, List<String> sharedStrings) {
