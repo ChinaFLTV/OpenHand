@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' show FontFeature;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -86,6 +88,20 @@ const double _agentAuditDialogMaxHeight = 760;
 const double _agentAuditSectionGridGap = 12;
 const double _agentAuditSectionGridBreakpoint = 760;
 const double _agentAuditEventIconExtent = 38;
+const double _agentLogDetailDialogMaxWidth = 1020;
+const double _agentLogDetailDialogMaxHeight = 780;
+const int _agentLogDetailMaxJsonDepth = 8;
+const int _agentLogDetailMaxStringChars = 6000;
+const int _agentLogDetailMaxJsonChars = 60000;
+const int _agentLogDetailMaxCollectionItems = 500;
+const double _agentResourceDialogMaxWidth = 1040;
+const double _agentResourceDialogMaxHeight = 780;
+const int _agentResourceSampleIntervalMs = 1400;
+const String _agentResourceTelemetryExtraKey = '_openhand_resource_telemetry';
+const String _agentResourceTelemetryHistoryKey = 'history';
+const double _agentResourcePanelGap = 12;
+const double _agentResourceChartHeight = 190;
+const double _agentResourceDonutSize = 156;
 const double _agentDialogMetricGap = 12;
 const double _agentDialogMetricWideBreakpoint = 760;
 const double _agentDialogMetricMediumBreakpoint = 520;
@@ -1234,7 +1250,10 @@ Future<void> _showAgentCapabilityLogsDialog(
                       title: l10n.agentsLogsEmptyTitle,
                       body: l10n.agentsListEmptyBody,
                     )
-                  : _AgentCapabilityLogBody(events: events),
+                  : _AgentCapabilityLogBody(
+                      agent: currentAgent,
+                      events: events,
+                    ),
             ),
           );
         },
@@ -1244,8 +1263,9 @@ Future<void> _showAgentCapabilityLogsDialog(
 }
 
 class _AgentCapabilityLogBody extends StatelessWidget {
-  const _AgentCapabilityLogBody({required this.events});
+  const _AgentCapabilityLogBody({required this.agent, required this.events});
 
+  final AgentProfile agent;
   final List<AgentAuditEvent> events;
 
   @override
@@ -1280,7 +1300,7 @@ class _AgentCapabilityLogBody extends StatelessWidget {
           itemCount: events.length,
           separatorBuilder: (_, _) => const SizedBox(height: 10),
           itemBuilder: (context, index) {
-            return _AgentCapabilityLogTile(event: events[index]);
+            return _AgentCapabilityLogTile(agent: agent, event: events[index]);
           },
         ),
       ],
@@ -1289,8 +1309,9 @@ class _AgentCapabilityLogBody extends StatelessWidget {
 }
 
 class _AgentCapabilityLogTile extends StatelessWidget {
-  const _AgentCapabilityLogTile({required this.event});
+  const _AgentCapabilityLogTile({required this.agent, required this.event});
 
+  final AgentProfile agent;
   final AgentAuditEvent event;
 
   @override
@@ -1304,96 +1325,897 @@ class _AgentCapabilityLogTile extends StatelessWidget {
         ? ''
         : formatMonthDayHm(event.createdAt!.toLocal());
     final metadata = _agentAuditMetadataChips(context, event);
+    final radius = BorderRadius.circular(12);
 
+    return Semantics(
+      button: true,
+      label: openHandLocalizedText(
+        context,
+        zh: '查看日志详情',
+        en: 'View log details',
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: () =>
+              _showAgentCapabilityLogDetailDialog(context, agent, event),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+              borderRadius: radius,
+              border: Border.all(color: cs.outlineVariant),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      _agentCapabilityLogIcon(type),
+                      color: color,
+                      size: 19,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            _AgentActivityTypeChip(
+                              label: _agentCapabilityTypeLabel(context, type),
+                              color: color,
+                            ),
+                            if (timeText.isNotEmpty)
+                              Text(
+                                timeText,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          name,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (event.summary.trim().isNotEmpty) ...[
+                          const SizedBox(height: 5),
+                          SelectableText(
+                            _agentAuditSummaryText(context, event),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            if (event.requestCount > 0)
+                              _AgentActivityMetadataChip(
+                                text: openHandLocalizedText(
+                                  context,
+                                  zh: '${event.requestCount} 请求',
+                                  en: '${event.requestCount} requests',
+                                ),
+                              ),
+                            if (event.tokenUsage > 0)
+                              _AgentActivityMetadataChip(
+                                text: '${event.tokenUsage} Token',
+                              ),
+                            for (final item in metadata)
+                              _AgentActivityMetadataChip(text: item),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: cs.onSurfaceVariant,
+                    size: 22,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _showAgentCapabilityLogDetailDialog(
+  BuildContext context,
+  AgentProfile agent,
+  AgentAuditEvent event,
+) {
+  return showAnimatedDialog<void>(
+    context: context,
+    builder: (dialogContext) => Consumer<AgentsController>(
+      builder: (context, controller, _) {
+        final currentAgent = controller.agentById(agent.id) ?? agent;
+        final currentEvent =
+            _agentAuditEventById(currentAgent, event.id) ?? event;
+        return buildOpenHandResponsiveDialogShell(
+          context: context,
+          maxWidth: _agentLogDetailDialogMaxWidth,
+          maxHeight: _agentLogDetailDialogMaxHeight,
+          maxWidthFraction: _agentTaskDetailMaxWidthFraction,
+          maxHeightFraction: _agentTaskDetailMaxHeightFraction,
+          horizontalMargin: _agentTaskDetailHorizontalMargin,
+          verticalMargin: _agentTaskDetailVerticalMargin,
+          minAvailableWidth: _agentTaskDetailMinAvailableWidth,
+          child: _AgentDialogScaffold(
+            icon: Icons.receipt_long_rounded,
+            title: openHandLocalizedText(
+              context,
+              zh: '日志详情',
+              en: 'Log details',
+            ),
+            child: _AgentCapabilityLogDetailBody(
+              agent: currentAgent,
+              event: currentEvent,
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+class _AgentCapabilityLogDetailBody extends StatelessWidget {
+  const _AgentCapabilityLogDetailBody({
+    required this.agent,
+    required this.event,
+  });
+
+  final AgentProfile agent;
+  final AgentAuditEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    final type = _agentAuditCapabilityType(event);
+    final color = _agentCapabilityLogColor(cs, type);
+    final capabilityName = _agentAuditCapabilityName(context, event);
+    final taskId = _agentLogMetadataText(event.metadata, 'task_id');
+    final workerId = _agentLogMetadataText(event.metadata, 'worker_id');
+    final task = _agentTaskById(agent, taskId);
+    final worker = _agentWorkerById(agent, workerId);
+
+    return _AgentTaskDetailSectionList(
+      children: [
+        _AgentCapabilityLogDetailHero(
+          event: event,
+          capabilityName: capabilityName,
+          typeLabel: _agentCapabilityTypeLabel(context, type),
+          color: color,
+        ),
+        _AgentDialogMetricGrid(
+          children: [
+            _AgentDialogMetricTile(
+              icon: _agentCapabilityLogIcon(type),
+              color: color,
+              label: openHandLocalizedText(
+                context,
+                zh: '能力类型',
+                en: 'Capability',
+              ),
+              value: _agentCapabilityTypeLabel(context, type),
+            ),
+            _AgentDialogMetricTile(
+              icon: Icons.source_rounded,
+              label: openHandLocalizedText(context, zh: '来源', en: 'Source'),
+              value: capabilityName,
+            ),
+            _AgentDialogMetricTile(
+              icon: Icons.cloud_sync_rounded,
+              label: openHandLocalizedText(context, zh: '请求量', en: 'Requests'),
+              value: '${event.requestCount}',
+            ),
+            _AgentDialogMetricTile(
+              icon: Icons.generating_tokens_rounded,
+              label: 'Token',
+              value: '${event.tokenUsage}',
+            ),
+          ],
+        ),
+        _AgentLogDetailSection(
+          icon: Icons.fact_check_outlined,
+          title: openHandLocalizedText(context, zh: '日志概览', en: 'Log overview'),
+          child: _AgentTaskDetailGrid(
+            children: [
+              _AgentTaskDetailBlock(
+                icon: Icons.tag_rounded,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '日志 ID',
+                  en: 'Log ID',
+                ),
+                body: event.id,
+                compact: true,
+              ),
+              _AgentTaskDetailBlock(
+                icon: Icons.schedule_rounded,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '发生时间',
+                  en: 'Created',
+                ),
+                body: _agentDateTimeLabel(event.createdAt),
+                compact: true,
+              ),
+              _AgentTaskDetailBlock(
+                icon: Icons.category_outlined,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '事件类型',
+                  en: 'Event type',
+                ),
+                body: _agentActivityKindLabel(l10n, event.kind),
+                compact: true,
+              ),
+              _AgentTaskDetailBlock(
+                icon: Icons.build_circle_outlined,
+                title: openHandLocalizedText(context, zh: '工具', en: 'Tool'),
+                body: event.toolName.trim().isEmpty
+                    ? capabilityName
+                    : _agentAuditSourceLabel(context, event.toolName),
+                compact: true,
+              ),
+              _AgentTaskDetailBlock(
+                icon: Icons.short_text_rounded,
+                title: openHandLocalizedText(context, zh: '摘要', en: 'Summary'),
+                body: _agentAuditSummaryText(context, event),
+              ),
+            ],
+          ),
+        ),
+        _AgentLogDetailSection(
+          icon: Icons.task_alt_rounded,
+          title: openHandLocalizedText(context, zh: '关联任务', en: 'Related task'),
+          child: _buildTaskSection(context, l10n, taskId, task),
+        ),
+        _AgentLogDetailSection(
+          icon: Icons.memory_rounded,
+          title: openHandLocalizedText(
+            context,
+            zh: 'Worker 与执行上下文',
+            en: 'Worker and execution context',
+          ),
+          child: _buildWorkerSection(context, l10n, workerId, worker),
+        ),
+        _AgentLogDetailSection(
+          icon: Icons.developer_board_rounded,
+          title: openHandLocalizedText(context, zh: '环境信息', en: 'Environment'),
+          child: _buildEnvironmentSection(context, l10n),
+        ),
+        _AgentLogDetailSection(
+          icon: Icons.tune_rounded,
+          title: openHandLocalizedText(context, zh: '参数信息', en: 'Parameters'),
+          child: _AgentTaskDetailBlock(
+            icon: Icons.data_object_rounded,
+            title: 'metadata',
+            body: _agentPrettyJsonForDisplay(event.metadata),
+            monospace: true,
+          ),
+        ),
+        _AgentLogDetailSection(
+          icon: Icons.dataset_outlined,
+          title: openHandLocalizedText(context, zh: '原始数据', en: 'Raw data'),
+          child: _AgentTaskDetailGrid(
+            children: [
+              _AgentTaskDetailBlock(
+                icon: Icons.receipt_long_rounded,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '审计事件快照',
+                  en: 'Audit event snapshot',
+                ),
+                body: _agentPrettyJsonForDisplay(event.toJson()),
+                monospace: true,
+              ),
+              if (task != null)
+                _AgentTaskDetailBlock(
+                  icon: Icons.task_alt_rounded,
+                  title: openHandLocalizedText(
+                    context,
+                    zh: '任务快照',
+                    en: 'Task snapshot',
+                  ),
+                  body: _agentPrettyJsonForDisplay(_agentLogTaskSnapshot(task)),
+                  monospace: true,
+                ),
+              if (worker != null)
+                _AgentTaskDetailBlock(
+                  icon: Icons.memory_rounded,
+                  title: openHandLocalizedText(
+                    context,
+                    zh: 'Worker 快照',
+                    en: 'Worker snapshot',
+                  ),
+                  body: _agentPrettyJsonForDisplay(worker.toJson()),
+                  monospace: true,
+                ),
+              _AgentTaskDetailBlock(
+                icon: Icons.developer_board_rounded,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '环境快照',
+                  en: 'Environment snapshot',
+                ),
+                body: _agentPrettyJsonForDisplay(
+                  _agentLogEnvironmentSnapshot(agent),
+                ),
+                monospace: true,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTaskSection(
+    BuildContext context,
+    AppLocalizations l10n,
+    String taskId,
+    AgentTask? task,
+  ) {
+    if (task == null) {
+      return _AgentTaskDetailBlock(
+        icon: Icons.link_off_rounded,
+        title: openHandLocalizedText(context, zh: '任务关联', en: 'Task reference'),
+        body: taskId.isEmpty
+            ? openHandLocalizedText(context, zh: '未记录任务 ID', en: 'No task ID')
+            : openHandLocalizedText(
+                context,
+                zh: '当前智能体任务列表中未找到 $taskId',
+                en: 'Task $taskId is not in the current agent task list',
+              ),
+      );
+    }
+
+    final workerLabel = _agentTaskAssignedWorkerLabel(l10n, task);
+    return _AgentTaskDetailSectionList(
+      children: [
+        _AgentTaskDetailGrid(
+          children: [
+            _AgentTaskDetailBlock(
+              icon: Icons.tag_rounded,
+              title: 'ID',
+              body: task.id,
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: _agentTaskStatusIcon(task.status),
+              title: openHandLocalizedText(context, zh: '状态', en: 'Status'),
+              body: _agentTaskStatusLabel(l10n, task.status),
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.trending_up_rounded,
+              title: openHandLocalizedText(context, zh: '进度', en: 'Progress'),
+              body: '${(task.progress.clamp(0, 1) * 100).round()}%',
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.engineering_outlined,
+              title: openHandLocalizedText(
+                context,
+                zh: '分配 Worker',
+                en: 'Assigned worker',
+              ),
+              body: workerLabel,
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.schedule_rounded,
+              title: openHandLocalizedText(context, zh: '创建时间', en: 'Created'),
+              body: _agentDateTimeLabel(task.createdAt),
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.update_rounded,
+              title: openHandLocalizedText(context, zh: '更新时间', en: 'Updated'),
+              body: _agentDateTimeLabel(task.updatedAt),
+              compact: true,
+            ),
+          ],
+        ),
+        _AgentTaskDetailBlock(
+          icon: Icons.title_rounded,
+          title: openHandLocalizedText(context, zh: '标题', en: 'Title'),
+          body: task.title,
+        ),
+        _AgentTaskDetailBlock(
+          icon: Icons.short_text_rounded,
+          title: l10n.agentsDescriptionLabel,
+          body: task.description,
+        ),
+        _AgentTaskDetailBlock(
+          icon: Icons.article_outlined,
+          title: l10n.agentsContentLabel,
+          body: task.content,
+        ),
+        _AgentTaskDetailBlock(
+          icon: Icons.fact_check_outlined,
+          title: openHandLocalizedText(context, zh: '任务结果', en: 'Task result'),
+          body: task.result,
+        ),
+        _AgentTaskDetailBlock(
+          icon: Icons.sticky_note_2_outlined,
+          title: l10n.agentsNoteLabel,
+          body: task.note,
+        ),
+        _AgentTaskDetailBlock(
+          icon: Icons.code_rounded,
+          title: 'extra',
+          body: _agentPrettyJsonForDisplay(
+            _agentTaskExtraDisplayJson(task.extra),
+          ),
+          monospace: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWorkerSection(
+    BuildContext context,
+    AppLocalizations l10n,
+    String workerId,
+    AgentWorker? worker,
+  ) {
+    if (worker == null) {
+      return _AgentTaskDetailBlock(
+        icon: Icons.person_off_outlined,
+        title: openHandLocalizedText(
+          context,
+          zh: 'Worker 关联',
+          en: 'Worker reference',
+        ),
+        body: workerId.isEmpty
+            ? openHandLocalizedText(
+                context,
+                zh: '未记录 Worker ID',
+                en: 'No worker ID',
+              )
+            : openHandLocalizedText(
+                context,
+                zh: '当前智能体 Worker 列表中未找到 $workerId',
+                en: 'Worker $workerId is not in the current agent worker list',
+              ),
+      );
+    }
+
+    return _AgentTaskDetailSectionList(
+      children: [
+        _AgentTaskDetailGrid(
+          children: [
+            _AgentTaskDetailBlock(
+              icon: Icons.tag_rounded,
+              title: 'ID',
+              body: worker.id,
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.badge_outlined,
+              title: openHandLocalizedText(context, zh: '名称', en: 'Name'),
+              body: worker.name,
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.monitor_heart_outlined,
+              title: openHandLocalizedText(context, zh: '状态', en: 'Status'),
+              body: _agentWorkerStatusLabel(l10n, worker.status),
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.speed_rounded,
+              title: openHandLocalizedText(context, zh: '忙碌度', en: 'Busy'),
+              body: '${(worker.busyScore.clamp(0, 1) * 100).round()}%',
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.task_alt_rounded,
+              title: openHandLocalizedText(
+                context,
+                zh: '当前任务',
+                en: 'Current task',
+              ),
+              body: worker.currentTaskId,
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.update_rounded,
+              title: openHandLocalizedText(context, zh: '更新时间', en: 'Updated'),
+              body: _agentDateTimeLabel(worker.updatedAt),
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.format_list_numbered_rounded,
+              title: openHandLocalizedText(
+                context,
+                zh: '已执行任务',
+                en: 'Executed tasks',
+              ),
+              body: '${worker.executedTaskCount}',
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.low_priority_rounded,
+              title: openHandLocalizedText(context, zh: '优先级', en: 'Priority'),
+              body: '${worker.priority}',
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.label_outline_rounded,
+              title: openHandLocalizedText(context, zh: '标签', en: 'Labels'),
+              body: _agentJoinedText(worker.labels),
+              compact: true,
+            ),
+          ],
+        ),
+        _AgentTaskDetailBlock(
+          icon: Icons.code_rounded,
+          title: 'extra',
+          body: _agentPrettyJsonForDisplay(worker.extra),
+          monospace: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEnvironmentSection(BuildContext context, AppLocalizations l10n) {
+    return _AgentTaskDetailSectionList(
+      children: [
+        _AgentTaskDetailGrid(
+          children: [
+            _AgentTaskDetailBlock(
+              icon: Icons.smart_toy_outlined,
+              title: openHandLocalizedText(context, zh: '智能体', en: 'Agent'),
+              body: agent.name,
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.tag_rounded,
+              title: openHandLocalizedText(
+                context,
+                zh: '智能体 ID',
+                en: 'Agent ID',
+              ),
+              body: agent.id,
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.power_settings_new_rounded,
+              title: openHandLocalizedText(
+                context,
+                zh: '生命周期',
+                en: 'Lifecycle',
+              ),
+              body: _agentLifecycleStateValueLabel(
+                l10n,
+                agent.lifecycleState.storageValue,
+              ),
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.verified_outlined,
+              title: openHandLocalizedText(context, zh: '启用状态', en: 'Enabled'),
+              body: _agentBooleanLabel(context, 'enabled', agent.enabled),
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.admin_panel_settings_outlined,
+              title: openHandLocalizedText(context, zh: '执行模式', en: 'Mode'),
+              body: _agentExecutionModeLabel(l10n, agent.executionMode),
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.auto_awesome_rounded,
+              title: openHandLocalizedText(
+                context,
+                zh: '自学习',
+                en: 'Self-learning',
+              ),
+              body: _agentBooleanLabel(
+                context,
+                'enabled',
+                agent.selfLearningEnabled,
+              ),
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.psychology_alt_outlined,
+              title: openHandLocalizedText(context, zh: '模型', en: 'Model'),
+              body: nullIfBlank(agent.modelId) ?? '-',
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.settings_applications_outlined,
+              title: openHandLocalizedText(
+                context,
+                zh: '模型配置',
+                en: 'Model config',
+              ),
+              body: nullIfBlank(agent.modelProviderConfigId) ?? '-',
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.folder_open_rounded,
+              title: openHandLocalizedText(context, zh: '工作区', en: 'Workspace'),
+              body: agent.workspacePath,
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.rule_folder_outlined,
+              title: openHandLocalizedText(
+                context,
+                zh: '工作区范围',
+                en: 'Workspace scope',
+              ),
+              body: agent.workspaceScopeText,
+              compact: true,
+            ),
+          ],
+        ),
+        _AgentTaskDetailGrid(
+          children: [
+            _AgentTaskDetailBlock(
+              icon: Icons.school_rounded,
+              title: 'Skill',
+              body: _agentJoinedText(agent.skillNames),
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.hub_rounded,
+              title: 'MCP',
+              body: _agentJoinedText(agent.mcpServerNames),
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.library_books_rounded,
+              title: openHandLocalizedText(context, zh: '知识库', en: 'Knowledge'),
+              body: _agentJoinedText(agent.knowledgeSourceIds),
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.psychology_rounded,
+              title: openHandLocalizedText(context, zh: '记忆', en: 'Memory'),
+              body: _agentJoinedText(agent.memoryIds),
+              compact: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.extension_rounded,
+              title: openHandLocalizedText(
+                context,
+                zh: '内建工具',
+                en: 'Built-in tools',
+              ),
+              body: _agentJoinedText(
+                agentVisibleBuiltinToolNames(agent.builtinToolNames),
+              ),
+              compact: true,
+            ),
+          ],
+        ),
+        _AgentTaskDetailGrid(
+          children: [
+            _AgentTaskDetailBlock(
+              icon: Icons.speed_rounded,
+              title: openHandLocalizedText(
+                context,
+                zh: '资源使用',
+                en: 'Resources',
+              ),
+              body: _agentPrettyJsonForDisplay(
+                agent.resourceUsage.toJson(includeInternalExtra: false),
+              ),
+              monospace: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.account_tree_outlined,
+              title: openHandLocalizedText(
+                context,
+                zh: '集群伸缩',
+                en: 'Cluster scale',
+              ),
+              body: _agentPrettyJsonForDisplay(agent.scaleSettings.toJson()),
+              monospace: true,
+            ),
+            _AgentTaskDetailBlock(
+              icon: Icons.data_object_rounded,
+              title: 'agent.metadata',
+              body: _agentPrettyJsonForDisplay(agent.metadata),
+              monospace: true,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _AgentCapabilityLogDetailHero extends StatelessWidget {
+  const _AgentCapabilityLogDetailHero({
+    required this.event,
+    required this.capabilityName,
+    required this.typeLabel,
+    required this.color,
+  });
+
+  final AgentAuditEvent event;
+  final String capabilityName;
+  final String typeLabel;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final summary = _agentAuditSummaryText(context, event);
+    final created = _agentDateTimeLabel(event.createdAt);
+    final taskId = _agentLogMetadataText(event.metadata, 'task_id');
+    final workerId = _agentLogMetadataText(event.metadata, 'worker_id');
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant),
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+          colors: [
+            color.withValues(alpha: 0.16),
+            cs.surfaceContainerHighest.withValues(alpha: 0.46),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.26)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
+        padding: const EdgeInsets.all(16),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 620;
+            final leading = Container(
+              width: 54,
+              height: 54,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
+                color: color.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(17),
               ),
               alignment: Alignment.center,
               child: Icon(
-                _agentCapabilityLogIcon(type),
+                _agentCapabilityLogIcon(_agentAuditCapabilityType(event)),
                 color: color,
-                size: 19,
+                size: 28,
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
+            );
+            final content = Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      _AgentActivityTypeChip(
-                        label: _agentCapabilityTypeLabel(context, type),
-                        color: color,
-                      ),
-                      if (timeText.isNotEmpty)
-                        Text(
-                          timeText,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
+                      _AgentActivityTypeChip(label: typeLabel, color: color),
+                      if (created.isNotEmpty)
+                        _AgentActivityMetadataChip(text: created),
+                      if (taskId.isNotEmpty)
+                        _AgentActivityMetadataChip(
+                          text:
+                              _agentMetadataChipText(
+                                context,
+                                'task_id',
+                                taskId,
+                              ) ??
+                              taskId,
+                        ),
+                      if (workerId.isNotEmpty)
+                        _AgentActivityMetadataChip(
+                          text:
+                              _agentMetadataChipText(
+                                context,
+                                'worker_id',
+                                workerId,
+                              ) ??
+                              workerId,
                         ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   Text(
-                    name,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+                    capabilityName.trim().isEmpty ? '-' : capabilityName.trim(),
+                    maxLines: compact ? 3 : 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      height: 1.18,
                     ),
                   ),
-                  if (event.summary.trim().isNotEmpty) ...[
-                    const SizedBox(height: 5),
+                  if (summary.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
                     SelectableText(
-                      _agentAuditSummaryText(context, event),
-                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
+                      summary,
+                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.42),
                     ),
                   ],
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      if (event.requestCount > 0)
-                        _AgentActivityMetadataChip(
-                          text: openHandLocalizedText(
-                            context,
-                            zh: '${event.requestCount} 请求',
-                            en: '${event.requestCount} requests',
-                          ),
-                        ),
-                      if (event.tokenUsage > 0)
-                        _AgentActivityMetadataChip(
-                          text: '${event.tokenUsage} Token',
-                        ),
-                      for (final item in metadata)
-                        _AgentActivityMetadataChip(text: item),
-                    ],
-                  ),
                 ],
+              ),
+            );
+            if (compact) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [leading, const SizedBox(width: 12), content],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [leading, const SizedBox(width: 14), content],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentLogDetailSection extends StatelessWidget {
+  const _AgentLogDetailSection({
+    required this.icon,
+    required this.title,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 18, color: cs.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 10),
+        child,
+      ],
     );
   }
 }
@@ -11507,6 +12329,135 @@ List<String> _agentAuditMetadataChips(
     if (chips.length >= 4) break;
   }
   return chips;
+}
+
+AgentAuditEvent? _agentAuditEventById(AgentProfile agent, String id) {
+  final normalized = id.trim();
+  if (normalized.isEmpty) return null;
+  for (final event in agent.auditEvents) {
+    if (event.id == normalized) return event;
+  }
+  return null;
+}
+
+String _agentLogMetadataText(Map<String, Object?> metadata, String key) {
+  return '${metadata[key] ?? ''}'.trim();
+}
+
+String _agentJoinedText(Iterable<String> values) {
+  final normalized = values
+      .map((value) => value.trim())
+      .where((value) => value.isNotEmpty)
+      .toList(growable: false);
+  return normalized.isEmpty ? '-' : normalized.join('\n');
+}
+
+Map<String, Object?> _agentLogTaskSnapshot(AgentTask task) {
+  return <String, Object?>{
+    ...task.toJson(),
+    'extra': _agentTaskExtraDisplayJson(task.extra),
+  };
+}
+
+Map<String, Object?> _agentLogEnvironmentSnapshot(AgentProfile agent) {
+  return <String, Object?>{
+    'agent': <String, Object?>{
+      'id': agent.id,
+      'name': agent.name,
+      'position': agent.position,
+      'department': agent.department,
+      'level': agent.level,
+      'enabled': agent.enabled,
+      'execution_mode': agent.executionMode.storageValue,
+      'lifecycle_state': agent.lifecycleState.storageValue,
+      'self_learning_enabled': agent.selfLearningEnabled,
+      'created_at': agent.createdAt?.toUtc().toIso8601String(),
+      'updated_at': agent.updatedAt?.toUtc().toIso8601String(),
+    },
+    'model': <String, Object?>{
+      'model_provider_config_id': agent.modelProviderConfigId,
+      'model_id': agent.modelId,
+    },
+    'workspace': <String, Object?>{
+      'path': agent.workspacePath,
+      'scope': agent.workspaceScopeText,
+      'scope_paths': agent.normalizedWorkspaceScopePaths,
+    },
+    'bindings': <String, Object?>{
+      'skills': agent.skillNames,
+      'knowledge_sources': agent.knowledgeSourceIds,
+      'memories': agent.memoryIds,
+      'mcp_servers': agent.mcpServerNames,
+      'builtin_tools': agentVisibleBuiltinToolNames(agent.builtinToolNames),
+      'crons': agent.cronIds,
+      'hooks': agent.hookIds,
+      'instructions': agent.instructionIds,
+    },
+    'scale_settings': agent.scaleSettings.toJson(),
+    'resource_usage': agent.resourceUsage.toJson(includeInternalExtra: false),
+    'metadata': agent.metadata,
+  };
+}
+
+String _agentPrettyJsonForDisplay(Object? value) {
+  final encoded = const JsonEncoder.withIndent(
+    '  ',
+  ).convert(_agentJsonDisplayValue(value));
+  if (encoded.length <= _agentLogDetailMaxJsonChars) return encoded;
+  final preview = encoded.substring(0, _agentLogDetailMaxJsonChars);
+  return '$preview\n... [truncated ${encoded.length - preview.length} chars]';
+}
+
+Object? _agentJsonDisplayValue(Object? value, {int depth = 0}) {
+  if (value == null || value is bool || value is int || value is String) {
+    return value is String ? _agentJsonDisplayString(value) : value;
+  }
+  if (value is double) return value.isFinite ? value : '$value';
+  if (value is num) return value;
+  if (value is DateTime) return value.toUtc().toIso8601String();
+  if (depth >= _agentLogDetailMaxJsonDepth) {
+    return '<depth limit>';
+  }
+  if (value is Map) {
+    final entries =
+        value.entries
+            .take(_agentLogDetailMaxCollectionItems + 1)
+            .toList(growable: false)
+          ..sort((left, right) => '${left.key}'.compareTo('${right.key}'));
+    final result = <String, Object?>{};
+    for (final entry in entries.take(_agentLogDetailMaxCollectionItems)) {
+      result['${entry.key}'] = _agentJsonDisplayValue(
+        entry.value,
+        depth: depth + 1,
+      );
+    }
+    if (entries.length > _agentLogDetailMaxCollectionItems) {
+      result['_omitted_entries'] = true;
+    }
+    return result;
+  }
+  if (value is Iterable) {
+    final result = <Object?>[];
+    var index = 0;
+    for (final item in value) {
+      if (index >= _agentLogDetailMaxCollectionItems) {
+        result.add(<String, Object?>{'_omitted_items': true});
+        break;
+      }
+      result.add(_agentJsonDisplayValue(item, depth: depth + 1));
+      index++;
+    }
+    return result;
+  }
+  return '$value';
+}
+
+Object _agentJsonDisplayString(String value) {
+  if (value.length <= _agentLogDetailMaxStringChars) return value;
+  return <String, Object?>{
+    'preview': '${value.substring(0, _agentLogDetailMaxStringChars)}...',
+    'chars': value.length,
+  };
 }
 
 AgentWorker? _agentWorkerById(AgentProfile agent, String workerId) {
