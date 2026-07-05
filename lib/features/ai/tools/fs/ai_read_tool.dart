@@ -192,9 +192,10 @@ class AiReadTool extends AiTool {
               .entries
               .map((entry) {
                 final lineNumber = firstLineNumber + entry.key;
-                final line = entry.value.length > AiToolUtils.maxReadLineLength
-                    ? '${entry.value.substring(0, AiToolUtils.maxReadLineLength)}...'
-                    : entry.value;
+                final line = AiToolUtils.truncateContent(
+                  entry.value,
+                  AiToolUtils.maxReadLineLength,
+                );
                 return '${lineNumber.toString().padLeft(lineNumberWidth)}\t$line';
               })
               .join('\n');

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/stable_hash.dart';
+import '../../../shared/util/text_clip.dart';
 import 'knowledge_base_settings.dart';
 import 'knowledge_retrieval_result.dart';
 import 'knowledge_vector_distribution.dart';
@@ -577,9 +578,7 @@ class KnowledgeMessageMetadata {
     final previewSource = existingPreview.isNotEmpty
         ? existingPreview
         : content;
-    final preview = previewSource.length > _knowledgeUsagePreviewMaxChars
-        ? '${previewSource.substring(0, _knowledgeUsagePreviewMaxChars)}...'
-        : previewSource;
+    final preview = clipText(previewSource, _knowledgeUsagePreviewMaxChars);
     return <String, Object?>{
       'chunk_id': row['chunk_id'] ?? row['id'],
       'source_id': row['source_id'],

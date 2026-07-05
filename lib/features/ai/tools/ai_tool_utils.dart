@@ -10,6 +10,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/path_safety.dart';
+import '../../../shared/util/text_clip.dart';
 import '../service/bash/ai_bash_tool_service.dart';
 import '../service/fs/ai_file_history_service.dart';
 import '../service/fs/ai_file_mutation_ledger.dart';
@@ -489,8 +490,7 @@ class AiToolUtils {
   }
 
   static String truncateContent(String content, int maxCharacters) {
-    if (content.length <= maxCharacters) return content;
-    return '${content.substring(0, maxCharacters)}...';
+    return clipText(content, maxCharacters);
   }
 
   static String htmlToText(String html) {

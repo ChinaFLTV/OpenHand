@@ -1,5 +1,8 @@
+import '../../../shared/util/text_clip.dart';
 import 'knowledge_chunk.dart';
 import 'knowledge_source.dart';
+
+const int _knowledgeRetrievalPreviewMaxChars = 420;
 
 class KnowledgeRetrievalHit {
   const KnowledgeRetrievalHit({
@@ -53,9 +56,7 @@ class KnowledgeRetrievalHit {
       if (finalScore != null) 'final_score': finalScore,
       'time_field': timeField,
       'token_estimate': chunk.tokenEstimate,
-      'preview': preview.length > 420
-          ? '${preview.substring(0, 420)}...'
-          : preview,
+      'preview': clipText(preview, _knowledgeRetrievalPreviewMaxChars),
     };
   }
 }

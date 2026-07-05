@@ -226,10 +226,10 @@ class AiGrepTool extends AiTool {
               '$output\n\n[Showing results with pagination = $paginationInfo]';
         }
       }
-      if (output.length > AiToolUtils.maxSearchOutputCharacters) {
-        output =
-            '${output.substring(0, AiToolUtils.maxSearchOutputCharacters)}...';
-      }
+      output = AiToolUtils.truncateContent(
+        output,
+        AiToolUtils.maxSearchOutputCharacters,
+      );
       return AiToolUtils.simpleSuccessResult(
         command: 'Grep $pattern',
         output: output,
