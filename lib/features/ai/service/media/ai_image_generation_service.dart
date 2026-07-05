@@ -952,12 +952,7 @@ class AiImageGenerationService {
       case AiProtocolType.openai:
         // OpenAI Sora 2: `{model, prompt, seconds, size}` (no `n`).
         final body = <String, Object?>{'model': modelId, 'prompt': prompt};
-        final size =
-            options.size ??
-            _videoSizeFromAspectRatio(
-              options.aspectRatio,
-              resolution: options.resolution,
-            );
+        final size = _videoSizeFromOptions(options);
         if (size != null) body['size'] = size;
         if (options.durationSeconds != null) {
           body['seconds'] = options.durationSeconds;
@@ -975,12 +970,7 @@ class AiImageGenerationService {
         // DashScope native shape (works through compatible-mode passthrough):
         //   `{model, input:{prompt}, parameters:{size, duration}}`.
         final parameters = <String, Object?>{};
-        final size =
-            options.size ??
-            _videoSizeFromAspectRatio(
-              options.aspectRatio,
-              resolution: options.resolution,
-            );
+        final size = _videoSizeFromOptions(options);
         if (size != null) parameters['size'] = size;
         if (options.durationSeconds != null) {
           parameters['duration'] = options.durationSeconds;
@@ -999,12 +989,7 @@ class AiImageGenerationService {
         //   `{model, prompt, seconds, size, resolution_name, preset}`.
         // Reference: https://github.com/chenyme/grok2api/blob/main/README.md
         final body = <String, Object?>{'model': modelId, 'prompt': prompt};
-        final size =
-            options.size ??
-            _videoSizeFromAspectRatio(
-              options.aspectRatio,
-              resolution: options.resolution,
-            );
+        final size = _videoSizeFromOptions(options);
         if (size != null) body['size'] = size;
         if (options.durationSeconds != null) {
           body['seconds'] = options.durationSeconds;
@@ -1053,12 +1038,7 @@ class AiImageGenerationService {
         if (options.aspectRatio != null) {
           body['aspect_ratio'] = options.aspectRatio;
         }
-        final size =
-            options.size ??
-            _videoSizeFromAspectRatio(
-              options.aspectRatio,
-              resolution: options.resolution,
-            );
+        final size = _videoSizeFromOptions(options);
         if (size != null) body['size'] = size;
         if (options.durationSeconds != null) {
           body['duration'] = options.durationSeconds;
@@ -1082,6 +1062,14 @@ class AiImageGenerationService {
 
   /// Maps an aspect ratio to a concrete `WxH` video size for providers that
   /// only accept absolute resolutions (OpenAI Sora, DashScope wan).
+  String? _videoSizeFromOptions(AiCreationOptions options) {
+    return nullIfBlank(options.size) ??
+        _videoSizeFromAspectRatio(
+          options.aspectRatio,
+          resolution: options.resolution,
+        );
+  }
+
   String? _videoSizeFromAspectRatio(String? ratio, {String? resolution}) {
     final normalizedRatio = nullIfBlank(ratio);
     if (normalizedRatio == null) return null;
