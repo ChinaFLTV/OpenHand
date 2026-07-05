@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/skill_market.dart';
 
@@ -121,7 +122,7 @@ class SkillMarketClient {
         'application/zip, application/octet-stream, */*';
 
     final response = await _client.send(request).timeout(_requestTimeout);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       // Drain the body before throwing so the underlying connection can be
       // returned to the pool / closed cleanly instead of leaking.
       try {
@@ -315,7 +316,7 @@ class SkillMarketClient {
               },
             )
             .timeout(_requestTimeout);
-        if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (isHttpFailureStatus(response.statusCode)) {
           throw SkillMarketException(
             'HTTP ${response.statusCode} while fetching skill file.',
           );
@@ -403,7 +404,7 @@ class SkillMarketClient {
           },
         )
         .timeout(_requestTimeout);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (isHttpFailureStatus(response.statusCode)) {
       throw SkillMarketException('HTTP ${response.statusCode} from $uri.');
     }
     final decoded = jsonDecode(utf8.decode(response.bodyBytes));

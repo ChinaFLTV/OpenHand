@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../../../app/state/settings_controller.dart'
     show aiStreamThrottleConfigSchemaVersion, migrateAiStreamThrottleConfig;
 import '../../../app/support/silent_log.dart';
+import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 
@@ -212,7 +213,7 @@ class ThrottleCloudSyncService {
             body: utf8.encode(body),
           )
           .timeout(_httpRequestTimeout);
-      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      if (isHttpFailureStatus(resp.statusCode)) {
         return ThrottleCloudSyncResult.failure(
           'HTTP ${resp.statusCode}: ${clipTextWithEllipsis(resp.body, 256)}',
         );
@@ -272,7 +273,7 @@ class ThrottleCloudSyncService {
             },
           )
           .timeout(_httpRequestTimeout);
-      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      if (isHttpFailureStatus(resp.statusCode)) {
         return ThrottleCloudSyncResult.failure(
           'HTTP ${resp.statusCode}: ${clipTextWithEllipsis(resp.body, 256)}',
         );
@@ -486,7 +487,7 @@ class ThrottleCloudSyncService {
             )
             .timeout(_httpRequestTimeout);
       }
-      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      if (isHttpFailureStatus(resp.statusCode)) {
         return ThrottleCloudSyncResult.failure(
           'Gist HTTP ${resp.statusCode}: '
           '${clipTextWithEllipsis(resp.body, 256)}',
@@ -541,7 +542,7 @@ class ThrottleCloudSyncService {
             },
           )
           .timeout(_httpRequestTimeout);
-      if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      if (isHttpFailureStatus(resp.statusCode)) {
         return ThrottleCloudSyncResult.failure(
           'Gist HTTP ${resp.statusCode}: '
           '${clipTextWithEllipsis(resp.body, 256)}',
