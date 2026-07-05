@@ -4497,9 +4497,9 @@ DateTime? _latestDateTime(DateTime? left, DateTime? right) {
 }
 
 Map<String, Object?> _resourcePressureJson(AgentResourceUsage usage) {
-  final tokenRatio = _resourceRatio(usage.tokenUsed, usage.tokenBudget);
-  final diskPressure = _resourceRatio(usage.persistedBytes, usage.diskBytes);
-  final handlePressure = _resourceRatio(
+  final tokenRatio = unitRatio(usage.tokenUsed, usage.tokenBudget);
+  final diskPressure = unitRatio(usage.persistedBytes, usage.diskBytes);
+  final handlePressure = unitRatio(
     usage.openHandles,
     agentResourceOpenHandlePressureLimit,
   );
@@ -4644,9 +4644,9 @@ Map<String, Object?> _resourceUsageSummaryJson(AgentResourceUsage usage) {
   final payload = Map<String, Object?>.from(
     usage.toJson(includeInternalExtra: false),
   );
-  final tokenRatio = _resourceRatio(usage.tokenUsed, usage.tokenBudget);
-  final persistedRatio = _resourceRatio(usage.persistedBytes, usage.diskBytes);
-  final handleRatio = _resourceRatio(
+  final tokenRatio = unitRatio(usage.tokenUsed, usage.tokenBudget);
+  final persistedRatio = unitRatio(usage.persistedBytes, usage.diskBytes);
+  final handleRatio = unitRatio(
     usage.openHandles,
     agentResourceOpenHandlePressureLimit,
   );
@@ -4680,11 +4680,6 @@ Map<String, Object?> _resourceUsageSummaryJson(AgentResourceUsage usage) {
   payload['pressure_level'] = _resourcePressureLevel(maxPressure);
   payload['has_pressure'] = maxPressure >= 0.85;
   return payload;
-}
-
-double _resourceRatio(int used, int budget) {
-  if (budget <= 0) return 0;
-  return clampUnitInterval(used / budget);
 }
 
 int _resourceRemaining(int budget, int used) {

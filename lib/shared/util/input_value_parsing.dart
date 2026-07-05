@@ -584,6 +584,11 @@ double clampUnitInterval(num value, {double fallback = kUnitIntervalMinimum}) {
   return value.clamp(kUnitIntervalMinimum, kUnitIntervalMaximum).toDouble();
 }
 
+double unitRatio(num numerator, num denominator) {
+  if (!denominator.isFinite || denominator <= 0) return kUnitIntervalMinimum;
+  return clampUnitInterval(numerator / denominator);
+}
+
 int clampedIntFromText(
   String value, {
   required int fallback,

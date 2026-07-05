@@ -37,4 +37,18 @@ void main() {
       expect(clampUnitInterval(double.nan, fallback: double.nan), 0);
     });
   });
+
+  group('unitRatio', () {
+    test('returns a safe unit interval ratio', () {
+      expect(unitRatio(3, 4), 0.75);
+      expect(unitRatio(5, 4), 1);
+      expect(unitRatio(-1, 4), 0);
+    });
+
+    test('returns zero for invalid denominators', () {
+      expect(unitRatio(1, 0), 0);
+      expect(unitRatio(1, -2), 0);
+      expect(unitRatio(1, double.nan), 0);
+    });
+  });
 }

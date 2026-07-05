@@ -5089,12 +5089,9 @@ class _AgentResourceLiveData {
     final telemetry = _agentResourceTelemetry(resource);
     final samples = _agentResourceSamples(resource);
     final cpu = clampUnitInterval(resource.cpuPercent);
-    final token = _agentResourceRatio(resource.tokenUsed, resource.tokenBudget);
-    final persisted = _agentResourceRatio(
-      resource.persistedBytes,
-      resource.diskBytes,
-    );
-    final handles = _agentResourceRatio(
+    final token = unitRatio(resource.tokenUsed, resource.tokenBudget);
+    final persisted = unitRatio(resource.persistedBytes, resource.diskBytes);
+    final handles = unitRatio(
       resource.openHandles,
       agentResourceOpenHandlePressureLimit,
     );
@@ -5757,15 +5754,12 @@ class _AgentResourceBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final cpu = clampUnitInterval(resource.cpuPercent);
-    final tokenPressure = _agentResourceRatio(
-      resource.tokenUsed,
-      resource.tokenBudget,
-    );
-    final persistedPressure = _agentResourceRatio(
+    final tokenPressure = unitRatio(resource.tokenUsed, resource.tokenBudget);
+    final persistedPressure = unitRatio(
       resource.persistedBytes,
       resource.diskBytes,
     );
-    final handlePressure = _agentResourceRatio(
+    final handlePressure = unitRatio(
       resource.openHandles,
       agentResourceOpenHandlePressureLimit,
     );
@@ -6228,15 +6222,15 @@ List<_AgentResourceSample> _agentResourceSamples(AgentResourceUsage resource) {
         cpu: clampUnitInterval(
           optionalDoubleFromValue(item['cpu_percent']) ?? 0,
         ),
-        tokenPressure: _agentResourceRatio(
+        tokenPressure: unitRatio(
           nonNegativeIntFromValue(item['token_used'], fallback: 0),
           nonNegativeIntFromValue(item['token_budget'], fallback: 0),
         ),
-        persistedPressure: _agentResourceRatio(
+        persistedPressure: unitRatio(
           nonNegativeIntFromValue(item['persisted_bytes'], fallback: 0),
           nonNegativeIntFromValue(item['disk_bytes'], fallback: 0),
         ),
-        handlePressure: _agentResourceRatio(
+        handlePressure: unitRatio(
           nonNegativeIntFromValue(item['open_handles'], fallback: 0),
           agentResourceOpenHandlePressureLimit,
         ),
@@ -6247,15 +6241,9 @@ List<_AgentResourceSample> _agentResourceSamples(AgentResourceUsage resource) {
   final current = _AgentResourceSample(
     sampledAt: currentSampledAt,
     cpu: clampUnitInterval(resource.cpuPercent),
-    tokenPressure: _agentResourceRatio(
-      resource.tokenUsed,
-      resource.tokenBudget,
-    ),
-    persistedPressure: _agentResourceRatio(
-      resource.persistedBytes,
-      resource.diskBytes,
-    ),
-    handlePressure: _agentResourceRatio(
+    tokenPressure: unitRatio(resource.tokenUsed, resource.tokenBudget),
+    persistedPressure: unitRatio(resource.persistedBytes, resource.diskBytes),
+    handlePressure: unitRatio(
       resource.openHandles,
       agentResourceOpenHandlePressureLimit,
     ),
@@ -6328,11 +6316,6 @@ double _agentResourcePressureValueWidth(
   return estimated
       .clamp(_agentResourcePressureValueMinWidth, upperBound)
       .toDouble();
-}
-
-double _agentResourceRatio(int used, int budget) {
-  if (budget <= 0) return 0;
-  return clampUnitInterval(used / budget);
 }
 
 int _agentResourceRemaining(int budget, int used) {
@@ -13034,12 +13017,11 @@ class _AgentAuditReportSummary {
       (sum, event) => sum + event.tokenUsage,
     );
     final resource = agent.resourceUsage;
-    final tokenPressure = resource.tokenBudget <= 0
-        ? 0.0
-        : clampUnitInterval(resource.tokenUsed / resource.tokenBudget);
-    final persistedPressure = resource.diskBytes <= 0
-        ? 0.0
-        : clampUnitInterval(resource.persistedBytes / resource.diskBytes);
+    final tokenPressure = unitRatio(resource.tokenUsed, resource.tokenBudget);
+    final persistedPressure = unitRatio(
+      resource.persistedBytes,
+      resource.diskBytes,
+    );
     return _AgentAuditReportSummary(
       eventCount: agent.auditEvents.length,
       requests: requests,
