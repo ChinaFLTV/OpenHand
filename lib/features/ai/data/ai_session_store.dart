@@ -676,7 +676,7 @@ class AiSessionStore {
         );
     final offset = _messageWindowStartOffset(
       messageRows,
-      fallback: math.max(0, totalCount - messageRows.length),
+      fallback: nonNegativeRemaining(totalCount, messageRows.length),
     );
     final loadState = offset == 0 && messageRows.length >= totalCount
         ? AiSessionMessageLoadState.complete

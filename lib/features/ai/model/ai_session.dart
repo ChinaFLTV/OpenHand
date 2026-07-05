@@ -3,13 +3,6 @@ import 'ai_session_goal.dart';
 import 'ai_session_message.dart';
 import 'ai_token_usage.dart';
 
-int _clampNonNegative(int? value) {
-  if (value == null || value < 0) {
-    return 0;
-  }
-  return value;
-}
-
 int _max3(int a, int b, int c) {
   var result = a > b ? a : b;
   if (c > result) {
@@ -420,7 +413,10 @@ class AiSession {
            (messages.isEmpty && statistics.totalMessageCount > 0
                ? AiSessionMessageLoadState.header
                : AiSessionMessageLoadState.complete),
-       messageWindowStartIndex = _clampNonNegative(messageWindowStartIndex),
+       messageWindowStartIndex = nonNegativeIntFromValue(
+         messageWindowStartIndex,
+         fallback: 0,
+       ),
        messageTotalCount = _resolveMessageTotalCount(
          messageTotalCount,
          statistics.totalMessageCount,
