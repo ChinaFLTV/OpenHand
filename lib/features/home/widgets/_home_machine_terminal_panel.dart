@@ -16,6 +16,13 @@ class _MachineExpertTerminalPanel extends StatefulWidget {
 
 class _MachineExpertTerminalPanelState
     extends State<_MachineExpertTerminalPanel> {
+  static const EdgeInsets _terminalViewportPadding = EdgeInsets.fromLTRB(
+    12,
+    10,
+    12,
+    10,
+  );
+
   final ScrollController _terminalScrollController = ScrollController();
   final FocusNode _terminalFocusNode = FocusNode(
     debugLabel: 'machine-terminal',
@@ -167,14 +174,14 @@ class _MachineExpertTerminalPanelState
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: TerminalView(
-                  activeSession.terminal,
+                child: _MachineTerminalViewport(
+                  key: ValueKey<String>(
+                    'machine-terminal-view-${activeSession.id}',
+                  ),
+                  session: activeSession,
                   scrollController: _terminalScrollController,
                   focusNode: _terminalFocusNode,
-                  autofocus: true,
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                  theme: _machineTerminalTheme(),
-                  alwaysShowCursor: true,
+                  padding: _terminalViewportPadding,
                 ),
               ),
             ),
@@ -221,6 +228,36 @@ class _MachineExpertTerminalPanelState
         content: Text(
           _localizedText(context, zh: '终端 ID 已复制。', en: 'Terminal ID copied.'),
         ),
+      ),
+    );
+  }
+}
+
+class _MachineTerminalViewport extends StatelessWidget {
+  const _MachineTerminalViewport({
+    super.key,
+    required this.session,
+    required this.scrollController,
+    required this.focusNode,
+    required this.padding,
+  });
+
+  final MachineTerminalSession session;
+  final ScrollController scrollController;
+  final FocusNode focusNode;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: TerminalView(
+        session.terminal,
+        scrollController: scrollController,
+        focusNode: focusNode,
+        autofocus: true,
+        padding: padding,
+        theme: _machineTerminalTheme(),
+        alwaysShowCursor: true,
       ),
     );
   }

@@ -868,6 +868,7 @@ class MachineTerminalSession {
          reflowEnabled: false,
        ) {
     terminal
+      ..resize(_defaultColumns, _defaultRows)
       ..onOutput = writeInput
       ..onResize = _handleResize
       ..write(_welcomeBanner());
@@ -1120,8 +1121,19 @@ class MachineTerminalSession {
   }
 
   void _handleResize(int width, int height, int pixelWidth, int pixelHeight) {
-    _columns = _coerceColumns(width);
-    _rows = _coerceRows(height);
+    final previousColumns = terminal.viewWidth;
+    final nextColumns = _coerceColumns(width);
+    final nextRows = _coerceRows(height);
+    if (nextColumns < previousColumns) {
+      _eraseTerminalColumns(from: nextColumns, to: previousColumns);
+    } else if (nextColumns > previousColumns) {
+      scheduleMicrotask(() {
+        _eraseTerminalColumns(from: previousColumns, to: nextColumns);
+        terminal.notifyListeners();
+      });
+    }
+    _columns = nextColumns;
+    _rows = nextRows;
     try {
       _pty?.resize(_rows, _columns);
     } catch (error, stack) {
@@ -1134,6 +1146,25 @@ class MachineTerminalSession {
     terminal.write(text);
     _appendRaw(text);
     _touch();
+  }
+
+  void _eraseTerminalColumns({required int from, required int to}) {
+    if (to <= from || from < 0) return;
+    _eraseBufferColumns(terminal.mainBuffer, from: from, to: to);
+    _eraseBufferColumns(terminal.altBuffer, from: from, to: to);
+  }
+
+  void _eraseBufferColumns(
+    Buffer buffer, {
+    required int from,
+    required int to,
+  }) {
+    final lines = buffer.lines;
+    for (var index = 0; index < lines.length; index++) {
+      final line = lines[index];
+      if (line.length <= from) continue;
+      line.eraseRange(from, math.min(to, line.length), CursorStyle.empty);
+    }
   }
 
   void _appendPlain(String text) {
