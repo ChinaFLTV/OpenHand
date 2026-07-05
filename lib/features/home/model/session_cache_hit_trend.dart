@@ -240,17 +240,15 @@ class SessionCacheHitTrend {
       );
     }
     final denominator = cacheReadTokens + uncachedPromptTokens;
-    final averageHitRatio = denominator <= 0
-        ? 0.0
-        : cacheReadTokens / denominator;
+    final averageHitRatio = unitRatio(cacheReadTokens, denominator);
     return SessionCacheHitDisplayData(
       mode: mode,
       trend: SessionCacheHitTrend(
         points: List<SessionCacheHitTurnPoint>.unmodifiable(filteredPoints),
-        averageHitRatio: averageHitRatio.clamp(0.0, 1.0),
+        averageHitRatio: averageHitRatio,
         claudeStyle: claudeStyle,
       ),
-      averageHitRatio: averageHitRatio.clamp(0.0, 1.0),
+      averageHitRatio: averageHitRatio,
       cacheReadTokens: cacheReadTokens,
       cacheWriteTokens: cacheWriteTokens,
       uncachedPromptTokens: uncachedPromptTokens,
@@ -329,10 +327,8 @@ class SessionCacheHitTrend {
           starterMessageKind: message.kind.storageValue,
           starterOrigin: message.senderOrigin,
           timestamp: telemetryMessage.createdAt,
-          hitRatio: hitRatio.clamp(0.0, 1.0),
-          averageHitRatio: averageHitRatio.isFinite
-              ? averageHitRatio.clamp(0.0, 1.0)
-              : 0.0,
+          hitRatio: hitRatio,
+          averageHitRatio: averageHitRatio,
           promptTokens: promptTokens,
           cacheReadTokens: cacheReadTokens,
           cacheWriteTokens: cacheWriteTokens,
@@ -352,9 +348,7 @@ class SessionCacheHitTrend {
     );
     return SessionCacheHitTrend(
       points: List<SessionCacheHitTurnPoint>.unmodifiable(points),
-      averageHitRatio: averageHitRatio.isFinite
-          ? averageHitRatio.clamp(0.0, 1.0)
-          : 0.0,
+      averageHitRatio: averageHitRatio,
       claudeStyle: claudeStyle,
     );
   }

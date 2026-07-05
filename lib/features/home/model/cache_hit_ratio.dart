@@ -1,15 +1,19 @@
+import '../../../shared/util/input_value_parsing.dart';
+
 int computeCacheHitDenominatorTokens({
   required int promptTokens,
   required int cacheReadTokens,
   required bool claudeStyle,
 }) {
-  if (promptTokens <= 0 && cacheReadTokens <= 0) {
+  final safePromptTokens = _nonNegativeTokenCount(promptTokens);
+  final safeCacheReadTokens = _nonNegativeTokenCount(cacheReadTokens);
+  if (safePromptTokens <= 0 && safeCacheReadTokens <= 0) {
     return 0;
   }
   if (claudeStyle) {
-    return promptTokens + cacheReadTokens;
+    return safePromptTokens + safeCacheReadTokens;
   }
-  return promptTokens > 0 ? promptTokens : cacheReadTokens;
+  return safePromptTokens > 0 ? safePromptTokens : safeCacheReadTokens;
 }
 
 int computeUncachedPromptTokens({
@@ -17,10 +21,12 @@ int computeUncachedPromptTokens({
   required int cacheReadTokens,
   required bool claudeStyle,
 }) {
+  final safePromptTokens = _nonNegativeTokenCount(promptTokens);
+  final safeCacheReadTokens = _nonNegativeTokenCount(cacheReadTokens);
   if (claudeStyle) {
-    return promptTokens < 0 ? 0 : promptTokens;
+    return safePromptTokens;
   }
-  return (promptTokens - cacheReadTokens).clamp(0, promptTokens);
+  return nonNegativeRemaining(safePromptTokens, safeCacheReadTokens);
 }
 
 double computeCacheHitRatio({
@@ -33,12 +39,7 @@ double computeCacheHitRatio({
     cacheReadTokens: cacheReadTokens,
     claudeStyle: claudeStyle,
   );
-  if (denominator <= 0) {
-    return 0.0;
-  }
-  final ratio = cacheReadTokens / denominator;
-  if (ratio.isNaN || ratio.isInfinite) {
-    return 0.0;
-  }
-  return ratio.clamp(0.0, 1.0).toDouble();
+  return unitRatio(cacheReadTokens, denominator);
 }
+
+int _nonNegativeTokenCount(int value) => value < 0 ? 0 : value;

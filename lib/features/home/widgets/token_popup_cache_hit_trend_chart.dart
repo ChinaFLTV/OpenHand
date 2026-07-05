@@ -7,6 +7,7 @@ import '../../../app/model/dialog_animation_settings.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/session_cache_hit_trend.dart';
 
@@ -17,10 +18,10 @@ const Duration _tokenPopupCacheHitModeChipDuration = Duration(
 
 @visibleForTesting
 double tokenPopupCacheHitTrendAnimationProgress(double t) {
-  final clamped = t.clamp(0.0, 1.0);
-  return _tokenPopupCacheHitTrendEntranceCurve
-      .transform(clamped)
-      .clamp(0.0, 1.0);
+  final clamped = clampUnitInterval(t);
+  return clampUnitInterval(
+    _tokenPopupCacheHitTrendEntranceCurve.transform(clamped),
+  );
 }
 
 @visibleForTesting
@@ -43,7 +44,7 @@ List<Offset> tokenPopupCacheHitTrendAnimatedPolyline({
       : chartRect.width / (ratios.length - 1);
 
   Offset pointFor(int index) {
-    final ratio = ratios[index].clamp(0.0, 1.0);
+    final ratio = clampUnitInterval(ratios[index]);
     return Offset(
       ratios.length <= 1 ? chartRect.center.dx : chartRect.left + stepX * index,
       chartRect.bottom - chartRect.height * ratio,
@@ -371,7 +372,7 @@ class _TokenPopupCacheHitTrendChartState
                 final averageY =
                     chartRect.bottom -
                     chartRect.height *
-                        displayData.averageHitRatio.clamp(0.0, 1.0);
+                        clampUnitInterval(displayData.averageHitRatio);
                 final startTurn = visiblePoints.first.turnIndex;
                 final middleTurn =
                     visiblePoints[visiblePoints.length ~/ 2].turnIndex;
@@ -690,7 +691,7 @@ class _TokenPopupCacheHitTrendChartState
       return const SizedBox.shrink();
     }
     final point = visiblePoints[hoveredIndex];
-    final ratio = point.hitRatio.clamp(0.0, 1.0).toDouble();
+    final ratio = clampUnitInterval(point.hitRatio);
     final span = visiblePoints.length <= 1
         ? 0.0
         : chartRect.width / (visiblePoints.length - 1);
@@ -860,7 +861,7 @@ class _TokenPopupCacheHitTrendStaticPainter extends CustomPainter {
     }
 
     final averageY =
-        chart.bottom - chart.height * averageHitRatio.clamp(0.0, 1.0);
+        chart.bottom - chart.height * clampUnitInterval(averageHitRatio);
     _drawTokenPopupCacheHitTrendDashedLine(
       canvas,
       Offset(chart.left, averageY),
