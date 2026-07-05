@@ -582,7 +582,7 @@ class _HeComposer extends StatelessWidget {
                     child: IgnorePointer(
                       ignoring: value < 0.98,
                       child: Opacity(
-                        opacity: value.clamp(0, 1).toDouble(),
+                        opacity: clampUnitInterval(value),
                         child: child,
                       ),
                     ),

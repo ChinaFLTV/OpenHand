@@ -271,7 +271,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
                 duration: const Duration(milliseconds: 380),
                 curve: Curves.easeOutCubic,
                 builder: (_, v, child) => Opacity(
-                  opacity: v.clamp(0.0, 1.0),
+                  opacity: clampUnitInterval(v),
                   child: Transform.translate(
                     offset: Offset(0.0, 6.0 * (1.0 - v)),
                     child: child,
