@@ -215,8 +215,8 @@ class AiCreationOptions {
     return AiCreationOptions(
       size: optionalStringFromValue(map['size']),
       aspectRatio: optionalStringFromValue(map['aspect_ratio']),
-      durationSeconds: optionalIntFromValue(map['duration_seconds']),
-      count: optionalIntFromValue(map['count']) ?? 1,
+      durationSeconds: optionalPositiveIntFromValue(map['duration_seconds']),
+      count: positiveIntFromValue(map['count'], fallback: 1),
       quality: optionalStringFromValue(map['quality']),
       style: optionalStringFromValue(map['style']),
       outputFormat: optionalStringFromValue(map['output_format']),
@@ -227,19 +227,19 @@ class AiCreationOptions {
           optionalBoolFromValue(map['prompt_extend']) ??
           optionalBoolFromValue(map['prompt_optimizer']),
       watermark: optionalBoolFromValue(map['watermark']),
-      seed: optionalIntFromValue(map['seed']),
+      seed: optionalPositiveIntFromValue(map['seed']),
       resolution:
           optionalStringFromValue(map['resolution']) ??
           optionalStringFromValue(map['resolution_name']),
       frameRate:
-          optionalIntFromValue(map['frame_rate']) ??
-          optionalIntFromValue(map['fps']),
-      numFrames: optionalIntFromValue(map['num_frames']),
+          optionalPositiveIntFromValue(map['frame_rate']) ??
+          optionalPositiveIntFromValue(map['fps']),
+      numFrames: optionalPositiveIntFromValue(map['num_frames']),
       mode: optionalStringFromValue(map['mode']),
       voice: optionalStringFromValue(map['voice']),
       speed: optionalDoubleFromValue(map['speed']),
-      sampleRate: optionalIntFromValue(map['sample_rate']),
-      bitrate: optionalIntFromValue(map['bitrate']),
+      sampleRate: optionalPositiveIntFromValue(map['sample_rate']),
+      bitrate: optionalPositiveIntFromValue(map['bitrate']),
       volume:
           optionalDoubleFromValue(map['volume']) ??
           optionalDoubleFromValue(map['vol']),

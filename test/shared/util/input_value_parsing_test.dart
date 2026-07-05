@@ -135,6 +135,16 @@ void main() {
     });
   });
 
+  group('optionalPositiveIntFromValue', () {
+    test('parses positive integers and rejects non-positive values', () {
+      expect(optionalPositiveIntFromValue('7'), 7);
+      expect(optionalPositiveIntFromValue(2.9), 2);
+      expect(optionalPositiveIntFromValue(0), isNull);
+      expect(optionalPositiveIntFromValue(-1), isNull);
+      expect(optionalPositiveIntFromValue('bad'), isNull);
+    });
+  });
+
   group('nonNegativeRoundedIntFromValue', () {
     test('rounds finite values and rejects negative values', () {
       expect(nonNegativeRoundedIntFromValue(2.6, fallback: 0), 3);
