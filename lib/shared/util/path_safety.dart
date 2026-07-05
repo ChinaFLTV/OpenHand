@@ -1,11 +1,20 @@
 import 'package:path/path.dart' as p;
 
+import 'text_clip.dart';
+
 const int kOpenHandMaxAncestorDirectoryDepth = 256;
 const String _kEmptyPathError = 'path must not be empty.';
 const String _kRelativePathError = 'path must be relative.';
 const String _kParentTraversalError =
     'path must not traverse parent directories.';
 const String _kNullBytePathError = 'path must not contain null bytes.';
+final RegExp _portableFileNameUnsafeCharsPattern = RegExp(r'[^A-Za-z0-9._-]+');
+final RegExp _displayFileNameUnsafeCharsPattern = RegExp(
+  r'[\\/:*?"<>|\x00-\x1f]+',
+);
+final RegExp _whitespacePattern = RegExp(r'\s+');
+final RegExp _replacementRunPattern = RegExp(r'_+');
+final RegExp _boundaryReplacementPattern = RegExp(r'^_+|_+$');
 
 /// Returns true when [candidate] resolves to [parent] or a descendant of it.
 ///
@@ -95,4 +104,37 @@ List<String> ancestorDirectoriesFrom(
 
   if (!rootFirst) return directories;
   return directories.reversed.toList(growable: false);
+}
+
+/// Sanitizes a single portable file or directory name segment.
+///
+/// This helper intentionally handles only a basename-like segment, not a full
+/// path. Use [safeRelativePathError] for user-supplied relative paths.
+String sanitizePortableFileNamePart(
+  String input, {
+  String fallback = 'file',
+  int? maxCharacters = 120,
+  bool allowWhitespace = false,
+  bool collapseReplacement = false,
+  bool trimBoundaryReplacement = false,
+}) {
+  var sanitized = input.replaceAll(
+    allowWhitespace
+        ? _displayFileNameUnsafeCharsPattern
+        : _portableFileNameUnsafeCharsPattern,
+    '_',
+  );
+  if (allowWhitespace) {
+    sanitized = sanitized.replaceAll(_whitespacePattern, ' ').trim();
+  }
+  if (collapseReplacement) {
+    sanitized = sanitized.replaceAll(_replacementRunPattern, '_');
+  }
+  if (trimBoundaryReplacement) {
+    sanitized = sanitized.replaceAll(_boundaryReplacementPattern, '');
+  }
+  if (sanitized.isEmpty) return fallback;
+  if (maxCharacters == null) return sanitized;
+  if (maxCharacters <= 0) return fallback;
+  return clipText(sanitized, maxCharacters, suffix: '');
 }

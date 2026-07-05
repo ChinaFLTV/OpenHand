@@ -22,6 +22,7 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
+import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_fingerprint.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -7021,10 +7022,13 @@ class WebMessagePlatformService {
   }
 
   String _attachmentContentDisposition(String filename) {
-    final ascii = filename
-        .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
-        .replaceAll(RegExp(r'_+'), '_')
-        .replaceAll(RegExp(r'^_+|_+$'), '');
+    final ascii = sanitizePortableFileNamePart(
+      filename,
+      fallback: '',
+      maxCharacters: null,
+      collapseReplacement: true,
+      trimBoundaryReplacement: true,
+    );
     final fallback = normalizeJsonlExportFilename(
       ascii.isEmpty ? 'session.jsonl' : ascii,
     );
@@ -7454,9 +7458,7 @@ String _string(Object? value, String fallback) {
 }
 
 String _safeFileName(String value) {
-  final sanitized = value.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
-  if (sanitized.isEmpty) return 'attachment.bin';
-  return clipText(sanitized, 120, suffix: '');
+  return sanitizePortableFileNamePart(value, fallback: 'attachment.bin');
 }
 
 String _normalizeWorkspaceExtension(String value) {

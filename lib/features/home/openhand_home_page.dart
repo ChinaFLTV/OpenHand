@@ -8470,12 +8470,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// Sanitises a session title for use in a default filename. Strips path
   /// separators, control chars, and trims to a reasonable length.
   String _sanitizeFileBasename(String input) {
-    final cleaned = input
-        .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    if (cleaned.isEmpty) return 'session';
-    return cleaned.length > 80 ? cleaned.substring(0, 80) : cleaned;
+    return sanitizePortableFileNamePart(
+      input,
+      fallback: 'session',
+      maxCharacters: 80,
+      allowWhitespace: true,
+    );
   }
 
   /// Hard cap on a single export operation so a corrupt session can never

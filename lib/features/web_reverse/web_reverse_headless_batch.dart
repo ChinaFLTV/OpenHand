@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/path_safety.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_cdp_client.dart';
 
@@ -401,10 +402,12 @@ class WebReverseHeadlessBatch {
   }
 
   static String _sanitizeDir(String url, int index) {
-    final cleaned = url
-        .replaceAll(RegExp(r'^https?://'), '')
-        .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
-    final clipped = clipText(cleaned, 80, suffix: '');
+    final cleaned = url.replaceAll(RegExp(r'^https?://'), '');
+    final clipped = sanitizePortableFileNamePart(
+      cleaned,
+      fallback: '',
+      maxCharacters: 80,
+    );
     final idx = (index + 1).toString().padLeft(3, '0');
     return '${idx}_$clipped';
   }
