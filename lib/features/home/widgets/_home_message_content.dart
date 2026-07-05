@@ -35,6 +35,17 @@ const int _htmlProgressiveRenderHighCostTagThreshold = 12;
 const int _htmlProgressiveRenderPreviewCharCap = 1800;
 const double _htmlProgressiveRenderPreviewMaxHeight = 220;
 
+String _cssHexFromColor(Color color) {
+  final red = (color.r * 255).round() & 0xff;
+  final green = (color.g * 255).round() & 0xff;
+  final blue = (color.b * 255).round() & 0xff;
+  return '#${_twoDigitHex(red)}${_twoDigitHex(green)}${_twoDigitHex(blue)}';
+}
+
+String _twoDigitHex(int value) {
+  return (value & 0xff).toRadixString(16).padLeft(2, '0');
+}
+
 abstract final class _CollapsedBodyScrollOffsetCache {
   static final Map<String, double> _offsets = <String, double>{};
 
@@ -4006,19 +4017,10 @@ class _HtmlMessageBody extends StatelessWidget {
         : theme.colorScheme.surfaceContainerLow;
     final mutedText = theme.colorScheme.onSurfaceVariant;
 
-    String hex(Color c) {
-      final r = (c.r * 255).round() & 0xff;
-      final g = (c.g * 255).round() & 0xff;
-      final b = (c.b * 255).round() & 0xff;
-      return '#${r.toRadixString(16).padLeft(2, '0')}'
-          '${g.toRadixString(16).padLeft(2, '0')}'
-          '${b.toRadixString(16).padLeft(2, '0')}';
-    }
-
-    final accentHex = hex(accent);
-    final borderHex = hex(borderColor);
-    final codeBgHex = hex(codeBg);
-    final mutedHex = hex(mutedText);
+    final accentHex = _cssHexFromColor(accent);
+    final borderHex = _cssHexFromColor(borderColor);
+    final codeBgHex = _cssHexFromColor(codeBg);
+    final mutedHex = _cssHexFromColor(mutedText);
 
     final prepared = _prepareStreamingHtml(data);
     return ClipRect(
@@ -5807,15 +5809,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         _documentCache != null) {
       return _documentCache!;
     }
-    String hex(Color c) {
-      final r = (c.r * 255).round() & 0xff;
-      final g = (c.g * 255).round() & 0xff;
-      final b = (c.b * 255).round() & 0xff;
-      return '#${r.toRadixString(16).padLeft(2, '0')}'
-          '${g.toRadixString(16).padLeft(2, '0')}'
-          '${b.toRadixString(16).padLeft(2, '0')}';
-    }
-
     final base = widget.baseTextStyle;
     final fontSize = (base?.fontSize ?? 14).toStringAsFixed(2);
     final lineHeight = (base?.height ?? 1.55).toStringAsFixed(2);
@@ -5823,8 +5816,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final family = (fontFamily == null || fontFamily.isEmpty)
         ? '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif'
         : '"$fontFamily", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    final textHex = hex(widget.textColor);
-    final bgHex = hex(widget.backgroundColor);
+    final textHex = _cssHexFromColor(widget.textColor);
+    final bgHex = _cssHexFromColor(widget.backgroundColor);
     // 先做轻量自愈：补齐 AI 侧因 `max_tokens` 截断后未闭合的 `<div>` /
     // `<table>` 等，避免浏览器 parser 与 wfh fallback 路径把未闭合
     // 标签解释成 0 高度占位（用户视觉上就是"空消息卡 / 展开后空"）。
