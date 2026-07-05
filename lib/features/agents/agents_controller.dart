@@ -1192,10 +1192,7 @@ class AgentsController extends ManagedChangeNotifier {
     final workerPressure = clampUnitInterval(agent.workerUtilization);
     final queuePressure = activeTaskCount <= 0
         ? 0.0
-        : clampUnitInterval(
-                activeTaskCount / math.max(1, agent.scaleSettings.maxWorkers),
-              ) *
-              0.35;
+        : unitRatio(activeTaskCount, agent.scaleSettings.maxWorkers) * 0.35;
     final derivedCpuPercent = math.max(workerPressure, queuePressure);
     final derivedMemoryBytes = derivedOpenHandles <= 0
         ? 0
