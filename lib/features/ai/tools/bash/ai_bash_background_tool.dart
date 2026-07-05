@@ -5,6 +5,7 @@ import 'dart:io';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/hook/ai_claude_hook_service.dart';
@@ -688,20 +689,13 @@ class AiBashBackgroundTool extends AiTool {
       final elapsedMs = DateTime.now().millisecondsSinceEpoch - startedAtMs;
       final remainingMs = timeoutMs - elapsedMs;
       if (remainingMs <= 0) return false;
-      var cancelled = false;
       final waitMs = remainingMs < _taskOutputPollMs
           ? remainingMs
           : _taskOutputPollMs;
-      if (cancelSignal == null) {
-        await Future<void>.delayed(Duration(milliseconds: waitMs));
-      } else {
-        await Future.any(<Future<void>>[
-          Future<void>.delayed(Duration(milliseconds: waitMs)),
-          cancelSignal.then((_) {
-            cancelled = true;
-          }),
-        ]);
-      }
+      final cancelled = await delayUntilCancelled(
+        Duration(milliseconds: waitMs),
+        cancelSignal: cancelSignal,
+      );
       if (cancelled) return true;
     }
     return false;
