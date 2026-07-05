@@ -18,10 +18,7 @@ final List<Locale> supportedAppLocales = AppLanguage.values
 extension AppLanguageX on AppLanguage {
   Locale get locale {
     return switch (this) {
-      AppLanguage.simplifiedChinese => const Locale.fromSubtags(
-        languageCode: 'zh',
-        scriptCode: 'Hans',
-      ),
+      AppLanguage.simplifiedChinese => const Locale('zh'),
       AppLanguage.traditionalChinese => const Locale.fromSubtags(
         languageCode: 'zh',
         scriptCode: 'Hant',
