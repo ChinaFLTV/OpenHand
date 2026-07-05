@@ -629,11 +629,7 @@ const HtmlBody = memo(function HtmlBody({ source, mono }: { source: string; mono
   // HTML 模式必须尽量忠实呈现模型给出的界面结构。布局类声明（flex/grid）
   // 交给浏览器原生排版，外层只负责安全净化和溢出约束。
   if (purify == null) {
-    return (
-      <pre class="whitespace-pre-wrap break-words text-sm" style={{ margin: 0, fontFamily }}>
-        {source}
-      </pre>
-    );
+    return <HtmlBodyPlaceholder source={source} />;
   }
   return (
     <div
@@ -1454,6 +1450,9 @@ export function Markdown({ source, raw = false, mono = false, format = 'markdown
   if (format === 'html') {
     if (stickyLooksHtml) {
       return <ProgressiveHtmlBody source={content} mono={mono} />;
+    }
+    if (streaming) {
+      return <HtmlBodyPlaceholder source={content || ' '} />;
     }
     if (htmlFallback === 'plain_text') {
       return (

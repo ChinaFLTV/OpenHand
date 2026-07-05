@@ -1620,7 +1620,11 @@ const int _markdownDeferredParseThresholdChars = 400;
 // 流式追加时更早进入 deferred 路径，并把富文本树重建合并到稳定节奏；
 // 小公式 / 列表仍能尽快渲染，长回答不会按 token 频率反复解析整棵树。
 const int _markdownStreamingDeferredParseThresholdChars = 160;
+const int _markdownStreamingInitialSyncParseThresholdChars = 8 * 1024;
 const int _markdownStreamingParseMinIntervalMs = 96;
+const int _markdownStreamingPlaceholderMaxLines = 6;
+const double _markdownStreamingPlaceholderMinHeight = 28;
+const double _markdownStreamingPlaceholderMaxHeight = 132;
 
 /// 进程级 AST 解析结果缓存。同一段 markdown 内容（按内容 +
 /// 主题/builder 签名 hash 索引）在多次 mount 之间复用 AST 节点，
@@ -1981,6 +1985,72 @@ class _MarkdownFrameScheduler {
   void schedule(VoidCallback task) => _scheduler.schedule(task);
 }
 
+class _StreamingMarkdownStabilizingPlaceholder extends StatelessWidget {
+  const _StreamingMarkdownStabilizingPlaceholder({
+    required this.source,
+    required this.style,
+  });
+
+  final String source;
+  final TextStyle? style;
+
+  int get _lineCount {
+    var lines = 1;
+    for (var i = 0; i < source.length; i += 1) {
+      if (source.codeUnitAt(i) == 0x0A) {
+        lines += 1;
+        if (lines >= _markdownStreamingPlaceholderMaxLines) {
+          break;
+        }
+      }
+    }
+    return lines.clamp(1, _markdownStreamingPlaceholderMaxLines).toInt();
+  }
+
+  double get _lineHeight {
+    final fontSize = style?.fontSize ?? 14;
+    return fontSize * (style?.height ?? 1.48);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        style?.color ?? Theme.of(context).colorScheme.onSurfaceVariant;
+    final lines = _lineCount;
+    final height = (lines * _lineHeight)
+        .clamp(
+          _markdownStreamingPlaceholderMinHeight,
+          _markdownStreamingPlaceholderMaxHeight,
+        )
+        .toDouble();
+    final widths = <double>[0.72, 0.9, 0.64, 0.82, 0.58, 0.46];
+    return SizedBox(
+      height: height,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: List<Widget>.generate(lines, (index) {
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: index == lines - 1 ? 0 : math.min(8, _lineHeight * 0.32),
+            ),
+            child: FractionallySizedBox(
+              widthFactor: widths[index % widths.length],
+              child: Container(
+                height: math.max(8, _lineHeight * 0.42),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: _borderRadius999,
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
 class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     implements MarkdownBuilderDelegate {
   List<Widget>? _children;
@@ -2093,8 +2163,20 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       // 之前每次 chunk 都把 _children 推回纯文本，造成「rich → plain
       // (看起来像折叠摘要) → rich」反复闪烁。
       final hadChildren = _children != null;
+      if (widget.streaming &&
+          !hadChildren &&
+          widget.data.length <=
+              _markdownStreamingInitialSyncParseThresholdChars) {
+        _deferredParsePendingAfterScroll = false;
+        _cancelDeferredParseThrottle();
+        _parseMarkdown();
+        return;
+      }
       if (initial || !hadChildren) {
-        _renderDeferredPlaceholder(normalizedSource);
+        _renderDeferredPlaceholder(
+          normalizedSource,
+          streaming: widget.streaming,
+        );
       }
       if (_scrollActivity?.value ?? false) {
         _deferredParsePendingAfterScroll = true;
@@ -2163,11 +2245,23 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     });
   }
 
-  void _renderDeferredPlaceholder(String normalizedSource) {
+  void _renderDeferredPlaceholder(
+    String normalizedSource, {
+    required bool streaming,
+  }) {
     final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
       Theme.of(context),
     ).merge(widget.styleSheet);
     _disposeRecognizers();
+    if (streaming) {
+      _children = <Widget>[
+        _StreamingMarkdownStabilizingPlaceholder(
+          source: normalizedSource,
+          style: effectiveStyleSheet.p,
+        ),
+      ];
+      return;
+    }
     _children = <Widget>[
       widget.selectable
           ? SelectableText(normalizedSource, style: effectiveStyleSheet.p)
@@ -2274,6 +2368,18 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       );
       _children = builder.build(astNodes);
     } catch (_) {
+      if (widget.streaming) {
+        if (_children != null && _children!.isNotEmpty) {
+          return;
+        }
+        _children = <Widget>[
+          _StreamingMarkdownStabilizingPlaceholder(
+            source: normalizedSource,
+            style: effectiveStyleSheet.p,
+          ),
+        ];
+        return;
+      }
       _children = <Widget>[
         widget.selectable
             ? SelectableText(widget.data, style: effectiveStyleSheet.p)

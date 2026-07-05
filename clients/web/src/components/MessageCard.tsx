@@ -20,7 +20,7 @@ import {
 } from '../api/knowledge';
 import type { ComponentChildren } from 'preact';
 import { t, tDuration, tNumber } from '../i18n';
-import { Markdown, looksLikeHtml, looksLikeRenderableHtml, openHtmlInNewTab } from './Markdown';
+import { Markdown, looksLikeRenderableHtml, openHtmlInNewTab } from './Markdown';
 import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from './MediaGeneratingPlaceholder';
 import { MediaPreviewDialog, MessageMedia, messageHasMultimedia, stripCollectedNetworkMedia } from './MessageMedia';
 import type { MediaItem } from './MessageMedia';
@@ -2233,7 +2233,7 @@ function StreamingMarkdownReveal({
   format?: 'markdown' | 'plain_text' | 'html';
   htmlFallback?: 'markdown' | 'plain_text';
 }) {
-  const contentIsHtml = looksLikeHtml(content);
+  const contentIsHtml = looksLikeRenderableHtml(content);
   const canStageContent = streaming && format !== 'html' && !contentIsHtml;
   const { visibleContent: renderContent, staging } = useStreamingStagedText(
     content,
@@ -3189,7 +3189,7 @@ function MessageCardImpl({
           ) : (
             <StreamingMarkdownReveal
               content={visibleContent}
-              streaming={visuallyStreamingContent && !isUserBubble}
+              streaming={streamingContent && !isUserBubble}
               reduceMotion={reduceMotion}
               raw={
                 showRawContent ||
