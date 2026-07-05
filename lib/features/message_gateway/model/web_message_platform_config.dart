@@ -228,12 +228,12 @@ class WebGatewayHealthCheckConfig {
       path: _nonEmptyString(path, '/api/health'),
       method: _nonEmptyString(method, 'GET').toUpperCase(),
       queryParameters: _stringMap(queryParameters),
-      timeoutMs: _clampInt(
+      timeoutMs: clampIntToRange(
         timeoutMs,
         min: kWebGatewayMinHealthTimeoutMs,
         max: kWebGatewayMaxHealthTimeoutMs,
       ),
-      expectedStatusCode: _clampInt(
+      expectedStatusCode: clampIntToRange(
         expectedStatusCode,
         min: kWebGatewayMinHealthStatusCode,
         max: kWebGatewayMaxHealthStatusCode,
@@ -324,23 +324,23 @@ class WebGatewayLogConfig {
 
   WebGatewayLogConfig normalized() {
     return WebGatewayLogConfig(
-      fileMaxBytes: _clampInt(
+      fileMaxBytes: clampIntToRange(
         fileMaxBytes,
         min: kWebGatewayMinLogFileMaxBytes,
         max: kWebGatewayMaxLogFileMaxBytes,
       ),
-      rotationDays: _clampInt(
+      rotationDays: clampIntToRange(
         rotationDays,
         min: kWebGatewayMinLogRotationDays,
         max: kWebGatewayMaxLogRotationDays,
       ),
-      maxFiles: _clampInt(
+      maxFiles: clampIntToRange(
         maxFiles,
         min: kWebGatewayMinLogMaxFiles,
         max: kWebGatewayMaxLogMaxFiles,
       ),
       levels: _stringList(levels),
-      lazyReadPageSize: _clampInt(
+      lazyReadPageSize: clampIntToRange(
         lazyReadPageSize,
         min: kWebGatewayMinLogLazyReadPageSize,
         max: kWebGatewayMaxLogLazyReadPageSize,
@@ -703,7 +703,7 @@ class WebMessagePlatformConfig {
       autoReloadOnChange: autoReloadOnChange,
       description: _nonEmptyString(description, defaultDescription),
       listenHost: _nonEmptyString(listenHost, '0.0.0.0'),
-      listenPort: _clampInt(
+      listenPort: clampIntToRange(
         listenPort,
         min: kWebGatewayMinListenPort,
         max: kWebGatewayMaxListenPort,
@@ -714,7 +714,7 @@ class WebMessagePlatformConfig {
       telemetryEnabled: telemetryEnabled,
       loggingEnabled: loggingEnabled,
       opsEnabled: opsEnabled,
-      maxConcurrentRequests: _clampInt(
+      maxConcurrentRequests: clampIntToRange(
         maxConcurrentRequests,
         min: kWebGatewayMinConcurrentRequests,
         max: kWebGatewayMaxConcurrentRequests,
@@ -736,12 +736,12 @@ class WebMessagePlatformConfig {
       translationEnabled: translationEnabled,
       feedbackEnabled: feedbackEnabled,
       regenerationEnabled: regenerationEnabled,
-      singleMessageTokenLimit: _clampInt(
+      singleMessageTokenLimit: clampIntToRange(
         singleMessageTokenLimit,
         min: kWebGatewayMinSingleMessageTokenLimit,
         max: kWebGatewayMaxSingleMessageTokenLimit,
       ),
-      maxMessagesPerSession: _clampInt(
+      maxMessagesPerSession: clampIntToRange(
         maxMessagesPerSession,
         min: kWebGatewayMinMessagesPerSession,
         max: kWebGatewayMaxMessagesPerSession,
@@ -749,7 +749,7 @@ class WebMessagePlatformConfig {
       sessionManagementEnabled: sessionManagementEnabled,
       workspaceFilesEnabled: workspaceFilesEnabled,
       workspaceFileWriteEnabled: workspaceFileWriteEnabled,
-      workspaceFileMaxBytes: _clampInt(
+      workspaceFileMaxBytes: clampIntToRange(
         workspaceFileMaxBytes,
         min: kWebGatewayMinWorkspaceFileMaxBytes,
         max: kWebGatewayMaxWorkspaceFileMaxBytes,
@@ -758,12 +758,12 @@ class WebMessagePlatformConfig {
           webGatewayNormalizeWorkspaceFileExtensions(
             workspaceFileAllowedExtensions,
           ),
-      uploadCacheRetentionDays: _clampInt(
+      uploadCacheRetentionDays: clampIntToRange(
         uploadCacheRetentionDays,
         min: kWebGatewayMinUploadCacheRetentionDays,
         max: kWebGatewayMaxUploadCacheRetentionDays,
       ),
-      uploadCacheMaxBytes: _clampInt(
+      uploadCacheMaxBytes: clampIntToRange(
         uploadCacheMaxBytes,
         min: kWebGatewayMinUploadCacheMaxBytes,
         max: kWebGatewayMaxUploadCacheMaxBytes,
@@ -876,10 +876,4 @@ Set<T> _enumSet<T>(Object? raw, T? Function(String?) parser, Set<T> fallback) {
     if (parsed != null) result.add(parsed);
   }
   return result.isEmpty ? Set<T>.from(fallback) : result;
-}
-
-int _clampInt(int value, {required int min, required int max}) {
-  final lower = min <= max ? min : max;
-  final upper = min <= max ? max : min;
-  return value.clamp(lower, upper).toInt();
 }

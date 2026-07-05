@@ -120,6 +120,14 @@ void main() {
     });
   });
 
+  group('clampIntToRange', () {
+    test('clamps values within ordered bounds', () {
+      expect(clampIntToRange(7, min: 0, max: 10), 7);
+      expect(clampIntToRange(-2, min: 0, max: 10), 0);
+      expect(clampIntToRange(12, min: 10, max: 0), 10);
+    });
+  });
+
   group('nonNegativeRoundedIntFromValue', () {
     test('rounds finite values and rejects negative values', () {
       expect(nonNegativeRoundedIntFromValue(2.6, fallback: 0), 3);
