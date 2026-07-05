@@ -33,8 +33,7 @@ class AiTransportClient {
     final request = http.Request(method.toUpperCase(), uri)
       ..headers.addAll(headers)
       ..body = jsonEncode(body);
-    final streamed = await _client.send(request).timeout(timeout);
-    return http.Response.fromStream(streamed).timeout(timeout);
+    return _send(request, timeout: timeout);
   }
 
   Future<http.Response> sendMultipart({
@@ -75,15 +74,9 @@ class AiTransportClient {
         }
         continue;
       }
-      final fieldValue = value is String
-          ? value
-          : (value is num || value is bool
-                ? value.toString()
-                : jsonEncode(value));
-      request.fields[key] = fieldValue;
+      request.fields[key] = _multipartFieldValue(value);
     }
-    final streamed = await _client.send(request).timeout(timeout);
-    return http.Response.fromStream(streamed).timeout(timeout);
+    return _send(request, timeout: timeout);
   }
 
   Future<http.Response> get({
@@ -91,7 +84,7 @@ class AiTransportClient {
     required Map<String, String> headers,
     required Duration timeout,
   }) async {
-    return _client.get(uri, headers: headers).timeout(timeout);
+    return _get(uri: uri, headers: headers, timeout: timeout);
   }
 
   Future<List<int>> downloadBytes({
@@ -99,11 +92,37 @@ class AiTransportClient {
     required Map<String, String> headers,
     required Duration timeout,
   }) async {
-    final response = await _client.get(uri, headers: headers).timeout(timeout);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    final response = await _get(uri: uri, headers: headers, timeout: timeout);
+    if (!_isSuccessStatus(response.statusCode)) {
       throw HttpException('HTTP ${response.statusCode}');
     }
     return response.bodyBytes;
+  }
+
+  Future<http.Response> _send(
+    http.BaseRequest request, {
+    required Duration timeout,
+  }) async {
+    final streamed = await _client.send(request).timeout(timeout);
+    return http.Response.fromStream(streamed).timeout(timeout);
+  }
+
+  Future<http.Response> _get({
+    required Uri uri,
+    required Map<String, String> headers,
+    required Duration timeout,
+  }) {
+    return _client.get(uri, headers: headers).timeout(timeout);
+  }
+
+  String _multipartFieldValue(Object value) {
+    if (value is String) return value;
+    if (value is num || value is bool) return value.toString();
+    return jsonEncode(value);
+  }
+
+  bool _isSuccessStatus(int statusCode) {
+    return statusCode >= 200 && statusCode < 300;
   }
 
   void dispose() {
