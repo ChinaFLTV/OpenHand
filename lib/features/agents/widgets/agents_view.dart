@@ -67,6 +67,7 @@ const double _agentDialogMaxHeight = 780;
 const EdgeInsets _agentDialogPadding = EdgeInsets.all(22);
 const double _agentDialogTitleGap = 10;
 const double _agentDialogSectionGap = 18;
+const double _agentDialogScrollableFooterClearance = 28;
 const EdgeInsets _agentDialogActionPadding = EdgeInsets.fromLTRB(16, 8, 16, 12);
 const double _agentTaskDetailDialogMaxWidth = 980;
 const double _agentTaskDetailDialogMaxHeight = 780;
@@ -112,9 +113,12 @@ const int _agentResourceSampleIntervalMs = 1400;
 const String _agentResourceTelemetryExtraKey = '_openhand_resource_telemetry';
 const String _agentResourceTelemetryHistoryKey = 'history';
 const double _agentResourceOverviewBreakpoint = 720;
-const double _agentResourceChartHeight = 178;
-const double _agentResourceDonutSize = 172;
+const double _agentResourceChartHeight = 152;
+const double _agentResourceDonutSize = 148;
 const double _agentResourcePanelRadius = 18;
+const double _agentResourcePressureCardCompactBreakpoint = 560;
+const double _agentResourcePressureBarMaxWidth = 560;
+const double _agentResourcePressureBarHeight = 9;
 const double _agentDialogMetricGap = 12;
 const double _agentDialogMetricWideBreakpoint = 760;
 const double _agentDialogMetricMediumBreakpoint = 520;
@@ -5516,7 +5520,7 @@ class _AgentResourceCharts extends StatelessWidget {
                   children: [
                     Expanded(child: trendPanel),
                     const SizedBox(width: _agentDialogMetricGap),
-                    SizedBox(width: 272, child: donutPanel),
+                    SizedBox(width: 252, child: donutPanel),
                   ],
                 );
               },
@@ -5908,11 +5912,16 @@ class _AgentResourcePressureCard extends StatelessWidget {
     final normalized = pressure.clamp(0, 1).toDouble();
     final color = _agentResourcePressureColor(cs, normalized);
     final settings = _agentDialogAnimationSettings(context);
-    return DecoratedBox(
+    return AnimatedContainer(
+      duration: settings.duration,
+      curve: settings.curve.curve,
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.045),
+          cs.surfaceContainerHighest.withValues(alpha: 0.42),
+        ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant),
+        border: Border.all(color: color.withValues(alpha: 0.20)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -5950,52 +5959,86 @@ class _AgentResourcePressureCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: TweenAnimationBuilder<double>(
-                            tween: Tween<double>(begin: 0, end: normalized),
-                            duration: settings.duration,
-                            curve: settings.curve.curve,
-                            builder: (context, value, _) {
-                              return LinearProgressIndicator(
-                                value: value,
-                                minHeight: 7,
-                                color: color,
-                                backgroundColor: cs.surfaceContainerHighest,
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 92,
-                        child: AnimatedSwitcher(
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final availableWidth = constraints.maxWidth.isFinite
+                          ? constraints.maxWidth
+                          : _agentResourcePressureCardCompactBreakpoint;
+                      final compact =
+                          availableWidth <
+                          _agentResourcePressureCardCompactBreakpoint;
+                      final progressBar = ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0, end: normalized),
                           duration: settings.duration,
-                          reverseDuration: settings.duration,
-                          switchInCurve: settings.curve.curve,
-                          switchOutCurve: settings.curve.reverseCurve,
-                          transitionBuilder: (child, animation) =>
-                              _agentDialogSwitchTransition(
-                                settings: settings,
-                                animation: animation,
-                                child: child,
+                          curve: settings.curve.curve,
+                          builder: (context, value, _) {
+                            return LinearProgressIndicator(
+                              value: value,
+                              minHeight: _agentResourcePressureBarHeight,
+                              color: color,
+                              backgroundColor: cs.outlineVariant.withValues(
+                                alpha: 0.42,
                               ),
-                          child: Text(
-                            valueLabel,
-                            key: ValueKey<String>(valueLabel),
-                            textAlign: TextAlign.end,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
+                            );
+                          },
+                        ),
+                      );
+                      final valueText = AnimatedSwitcher(
+                        duration: settings.duration,
+                        reverseDuration: settings.duration,
+                        switchInCurve: settings.curve.curve,
+                        switchOutCurve: settings.curve.reverseCurve,
+                        transitionBuilder: (child, animation) =>
+                            _agentDialogSwitchTransition(
+                              settings: settings,
+                              animation: animation,
+                              child: child,
+                            ),
+                        child: Align(
+                          key: ValueKey<String>(valueLabel),
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: Text(
+                              valueLabel,
+                              maxLines: 1,
+                              softWrap: false,
+                              textAlign: TextAlign.end,
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                fontWeight: FontWeight.w900,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      );
+                      if (compact) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            progressBar,
+                            const SizedBox(height: 7),
+                            valueText,
+                          ],
+                        );
+                      }
+                      final barWidth = math.min<double>(
+                        _agentResourcePressureBarMaxWidth,
+                        availableWidth * 0.48,
+                      );
+                      return Row(
+                        children: [
+                          SizedBox(width: barWidth, child: progressBar),
+                          const SizedBox(width: 14),
+                          Expanded(child: valueText),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -8501,6 +8544,14 @@ class _AgentDialogScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final motionSettings = _agentDialogAnimationSettings(context);
+    final scrollChild = footer == null
+        ? child
+        : Padding(
+            padding: const EdgeInsets.only(
+              bottom: _agentDialogScrollableFooterClearance,
+            ),
+            child: child,
+          );
     return Padding(
       padding: _agentDialogPadding,
       child: Column(
@@ -8524,7 +8575,7 @@ class _AgentDialogScaffold extends StatelessWidget {
             child: scrollable
                 ? SingleChildScrollView(
                     physics: openHandDialogAwareScrollPhysics(context),
-                    child: child,
+                    child: scrollChild,
                   )
                 : child,
           ),
