@@ -133,7 +133,6 @@ class _MachineExpertTerminalPanelState
         children: [
           _MachineTerminalHeader(
             snapshot: activeSnapshot,
-            workspace: workspace,
             onCopyId: () => _copyTerminalId(activeSnapshot.terminalId),
             onPanelClose: widget.onPanelClose,
             onStart: () => _control('start', activeSnapshot.terminalId),
@@ -142,12 +141,12 @@ class _MachineExpertTerminalPanelState
             onNew: () => _control('new', null),
             onDuplicate: () => _control('duplicate', activeSnapshot.terminalId),
             onClear: () => _control('clear', activeSnapshot.terminalId),
-            onClose: () => _control('close', activeSnapshot.terminalId),
           ),
           const SizedBox(height: 10),
           _MachineTerminalTabs(
             workspace: workspace,
             onSelected: (terminalId) => _control('select', terminalId),
+            onClosed: (terminalId) => _control('close', terminalId),
           ),
           const SizedBox(height: 10),
           Expanded(
@@ -249,7 +248,6 @@ class _MachineTerminalShell extends StatelessWidget {
 class _MachineTerminalHeader extends StatelessWidget {
   const _MachineTerminalHeader({
     required this.snapshot,
-    required this.workspace,
     required this.onCopyId,
     this.onPanelClose,
     required this.onStart,
@@ -258,11 +256,9 @@ class _MachineTerminalHeader extends StatelessWidget {
     required this.onNew,
     required this.onDuplicate,
     required this.onClear,
-    required this.onClose,
   });
 
   final MachineTerminalSnapshot snapshot;
-  final MachineTerminalWorkspaceSnapshot workspace;
   final VoidCallback onCopyId;
   final VoidCallback? onPanelClose;
   final VoidCallback onStart;
@@ -271,12 +267,17 @@ class _MachineTerminalHeader extends StatelessWidget {
   final VoidCallback onNew;
   final VoidCallback onDuplicate;
   final VoidCallback onClear;
-  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final canStart =
+        snapshot.status != MachineTerminalStatus.running &&
+        snapshot.status != MachineTerminalStatus.starting;
+    final canStop =
+        snapshot.status == MachineTerminalStatus.running ||
+        snapshot.status == MachineTerminalStatus.starting;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -394,16 +395,12 @@ class _MachineTerminalHeader extends StatelessWidget {
             _MachineTerminalIconButton(
               icon: Icons.play_arrow_rounded,
               tooltip: _localizedText(context, zh: '启动', en: 'Start'),
-              onPressed: snapshot.status == MachineTerminalStatus.running
-                  ? null
-                  : onStart,
+              onPressed: canStart ? onStart : null,
             ),
             _MachineTerminalIconButton(
               icon: Icons.stop_rounded,
               tooltip: _localizedText(context, zh: '关闭进程', en: 'Stop Process'),
-              onPressed: snapshot.status == MachineTerminalStatus.running
-                  ? onStop
-                  : null,
+              onPressed: canStop ? onStop : null,
             ),
             _MachineTerminalIconButton(
               icon: Icons.restart_alt_rounded,
@@ -414,15 +411,6 @@ class _MachineTerminalHeader extends StatelessWidget {
               icon: Icons.cleaning_services_rounded,
               tooltip: _localizedText(context, zh: '清屏', en: 'Clear'),
               onPressed: onClear,
-            ),
-            _MachineTerminalIconButton(
-              icon: Icons.close_rounded,
-              tooltip: _localizedText(
-                context,
-                zh: '关闭终端',
-                en: 'Close Terminal',
-              ),
-              onPressed: workspace.terminals.length <= 1 ? null : onClose,
             ),
           ],
         ),
@@ -435,14 +423,21 @@ class _MachineTerminalTabs extends StatelessWidget {
   const _MachineTerminalTabs({
     required this.workspace,
     required this.onSelected,
+    required this.onClosed,
   });
 
   final MachineTerminalWorkspaceSnapshot workspace;
   final ValueChanged<String> onSelected;
+  final ValueChanged<String> onClosed;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final duration = openHandMotionDuration(
+      context,
+      const Duration(milliseconds: 160),
+    );
+    final canCloseTabs = workspace.terminals.length > 1;
     return SizedBox(
       height: 34,
       child: ListView.separated(
@@ -454,10 +449,10 @@ class _MachineTerminalTabs extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             onTap: selected ? null : () => onSelected(terminal.terminalId),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
+              duration: duration,
               curve: Curves.easeOutCubic,
               constraints: const BoxConstraints(minWidth: 96, maxWidth: 172),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              padding: EdgeInsets.only(left: 10, right: canCloseTabs ? 5 : 10),
               decoration: BoxDecoration(
                 color: selected
                     ? cs.primary.withValues(alpha: 0.15)
@@ -491,6 +486,12 @@ class _MachineTerminalTabs extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (canCloseTabs) ...[
+                    const SizedBox(width: 5),
+                    _MachineTerminalTabCloseButton(
+                      onPressed: () => onClosed(terminal.terminalId),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -498,6 +499,35 @@ class _MachineTerminalTabs extends StatelessWidget {
         },
         separatorBuilder: (_, _) => const SizedBox(width: 7),
         itemCount: workspace.terminals.length,
+      ),
+    );
+  }
+}
+
+class _MachineTerminalTabCloseButton extends StatelessWidget {
+  const _MachineTerminalTabCloseButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: _localizedText(context, zh: '关闭终端', en: 'Close Terminal'),
+      child: InkResponse(
+        onTap: onPressed,
+        radius: 13,
+        containedInkWell: true,
+        borderRadius: BorderRadius.circular(7),
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: Icon(
+            Icons.close_rounded,
+            size: 16,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.82),
+          ),
+        ),
       ),
     );
   }

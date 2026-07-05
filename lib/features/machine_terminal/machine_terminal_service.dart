@@ -26,6 +26,7 @@ const int _maxToolOutputCharacters = 120000;
 const Duration _defaultCommandTimeout = Duration(seconds: 120);
 const Duration _commandPollInterval = Duration(milliseconds: 80);
 const Duration _metadataPersistDebounce = Duration(milliseconds: 700);
+const Duration _terminalStopGraceDuration = Duration(milliseconds: 900);
 const String _machineTerminalSurface = 'openhand_machine_terminal';
 const String _machineTerminalWorkflow = 'builtin_terminal_panel';
 const String _machineTerminalWorkspacePrefix = 'machine-terminal';
@@ -434,7 +435,7 @@ class MachineTerminalService extends ChangeNotifier {
     workspace.add(terminal);
     _notifyListenersSafely();
     if (start) {
-      await terminal.start();
+      _startTerminalSoon(terminal);
     }
     _scheduleMetadataPersist(workspace.sessionId);
     return terminal;
@@ -779,6 +780,17 @@ class MachineTerminalService extends ChangeNotifier {
     return terminal;
   }
 
+  void _startTerminalSoon(MachineTerminalSession terminal) {
+    Timer.run(() {
+      if (_isDisposed || terminal.isRunningOrStarting) return;
+      unawaited(
+        terminal.start().whenComplete(
+          () => _scheduleMetadataPersist(terminal.sessionId),
+        ),
+      );
+    });
+  }
+
   Object? _metadataSeedFor(String sessionId, Object? existingMetadata) {
     final raw = stringKeyedMapFromValue(existingMetadata);
     if (raw.isNotEmpty) return raw;
@@ -948,7 +960,17 @@ class MachineTerminalSession {
       unawaited(
         pty.exitCode
             .then((code) {
+              if (!identical(_pty, pty)) {
+                return;
+              }
               _exitCode = code;
+              _pty = null;
+              _pid = null;
+              final outputSubscription = _outputSubscription;
+              _outputSubscription = null;
+              if (outputSubscription != null) {
+                unawaited(outputSubscription.cancel());
+              }
               if (_status != MachineTerminalStatus.failed) {
                 _status = MachineTerminalStatus.stopped;
               }
@@ -976,14 +998,21 @@ class MachineTerminalSession {
     final pty = _pty;
     if (pty == null) {
       _status = MachineTerminalStatus.stopped;
+      _pid = null;
       _touch();
       return;
     }
+    final outputSubscription = _outputSubscription;
+    _pty = null;
+    _outputSubscription = null;
+    _pid = null;
+    _status = MachineTerminalStatus.stopped;
+    _touch();
     try {
       pty.kill(force ? ProcessSignal.sigkill : ProcessSignal.sigterm);
       if (!force) {
         await pty.exitCode.timeout(
-          const Duration(milliseconds: 900),
+          _terminalStopGraceDuration,
           onTimeout: () {
             pty.kill(ProcessSignal.sigkill);
             return _exitCode ?? -1;
@@ -993,9 +1022,9 @@ class MachineTerminalSession {
     } catch (error, stack) {
       silentLog('machine_terminal', 'stop pty', error, stack);
     } finally {
-      await _outputSubscription?.cancel();
-      _outputSubscription = null;
-      _pty = null;
+      if (outputSubscription != null) {
+        unawaited(outputSubscription.cancel());
+      }
       _status = MachineTerminalStatus.stopped;
       _touch();
     }
