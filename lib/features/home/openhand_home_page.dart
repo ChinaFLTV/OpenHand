@@ -1017,6 +1017,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _messageProgrammaticScrollWindow.cancel();
   }
 
+  void _pauseAutoFollowUntilExplicitResume() {
+    _shouldAutoFollowMessages = false;
+    _autoFollowPaused = false;
+    _clearPendingAutoFollowState();
+  }
+
   bool _isProgrammaticMessageScrollInProgress() {
     return _messageProgrammaticScrollWindow.active ||
         _programmaticTranscriptScrollCorrectionDepth > 0 ||
@@ -2223,15 +2229,36 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     });
   }
 
-  void _armAutoFollowToBottom({bool notifyPausedState = true}) {
+  bool _armAutoFollowToBottom({bool notifyPausedState = true}) {
+    if (!_autoFollowEnabled) {
+      _pauseAutoFollowUntilExplicitResume();
+      return false;
+    }
     final previousPaused = _autoFollowPaused;
     _shouldAutoFollowMessages = true;
     _pendingForcedScrollToBottom = true;
     _autoFollowPaused = false;
     if (!notifyPausedState || !mounted || previousPaused == _autoFollowPaused) {
-      return;
+      return true;
     }
     setState(() {});
+    return true;
+  }
+
+  bool _requestFollowToLatest({
+    bool animated = true,
+    bool allowSettlePasses = true,
+    bool notifyPausedState = true,
+  }) {
+    if (!_armAutoFollowToBottom(notifyPausedState: notifyPausedState)) {
+      return false;
+    }
+    _scheduleScrollToBottom(
+      force: true,
+      animated: animated,
+      allowSettlePasses: allowSettlePasses,
+    );
+    return true;
   }
 
   /// Recomputes [_autoFollowPaused] = enabled && !following-bottom and
@@ -2316,6 +2343,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!_isAppLifecycleActive()) {
         return;
       }
+      if (!_autoFollowEnabled) {
+        _clearPendingAutoFollowState();
+        return;
+      }
       // 2026-05-23 (修复 后台→前台 跳底)：应用被从后台拉回前台后，
       // 活跃 transcript 可能处于「分帧 drip」状态（后台期间流式下发了
       // 一堆消息但未完全物化），此时 maxScrollExtent 只反映「已被
@@ -2349,7 +2380,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final shouldForce = consumePendingRequest
         ? _consumePendingAutoFollowRequest()
         : _pendingForcedScrollToBottom;
-    if (!_autoFollowEnabled && !shouldForce) {
+    if (!_autoFollowEnabled) {
+      if (shouldForce) {
+        _clearPendingAutoFollowState();
+      }
       return;
     }
     if (!_shouldAutoFollowMessages && !shouldForce) {
@@ -2598,16 +2632,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (activeSessionId != null && activeSessionId.isNotEmpty) {
         _TranscriptScrollDispatcher.instance.flushDripFor(activeSessionId);
       }
-      _armAutoFollowToBottom(notifyPausedState: false);
-      _scheduleScrollToBottom(force: true, animated: true);
+      _requestFollowToLatest(notifyPausedState: false);
       return;
     }
     final nextValue = !_autoFollowEnabled;
     setState(() {
       _autoFollowEnabled = nextValue;
       if (!nextValue) {
-        _clearPendingAutoFollowState();
-        _autoFollowPaused = false;
+        _pauseAutoFollowUntilExplicitResume();
       } else {
         _armAutoFollowToBottom(notifyPausedState: false);
       }
@@ -3071,8 +3103,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           _transcriptPreparationGeneration += 1;
         });
         _clearPendingAutoFollowState();
-        _armAutoFollowToBottom();
-        _scheduleScrollToBottom(force: true);
+        _requestFollowToLatest();
       }
       return;
     }
@@ -3129,8 +3160,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         });
       }
       _clearPendingAutoFollowState();
-      _armAutoFollowToBottom();
-      _scheduleScrollToBottom(force: true);
+      _requestFollowToLatest();
     } finally {
       developer.Timeline.finishSync();
     }
@@ -6480,7 +6510,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _submittingSessionId = targetSessionId;
       _armAutoFollowToBottom(notifyPausedState: false);
     });
-    _scheduleScrollToBottom(force: true);
+    _scheduleAutoFollowIfNeeded(consumePendingRequest: true);
     bool submissionWasStopped() =>
         _locallyStoppedSubmissionSerialsBySessionId[targetSessionId] ==
         submissionSerial;
@@ -6628,7 +6658,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (sessionController.didCompressInLastSendForSession(targetSessionId)) {
         OpenHandSnackBar.showInfo(context, l10n.threadCompressionNotice);
       }
-      _scheduleScrollToBottom(force: true, animated: true);
+      _scheduleAutoFollowIfNeeded(consumePendingRequest: true);
       return _SubmitTextOutcome.submitted;
     } catch (error, stackTrace) {
       FlutterError.reportError(
@@ -7305,6 +7335,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     bool animated = false,
     bool allowSettlePasses = true,
   }) {
+    if (!_autoFollowEnabled) {
+      _clearPendingAutoFollowState();
+      return;
+    }
     if (!force &&
         (!_autoFollowEnabled ||
             !_shouldAutoFollowMessages ||
@@ -7348,6 +7382,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       final shouldForce = _queuedForcedScrollToBottom;
       final shouldAnimate = _pendingAnimatedScrollToBottom;
+      if (!_autoFollowEnabled) {
+        _clearPendingAutoFollowState();
+        return;
+      }
       if (!shouldForce &&
           (!_autoFollowEnabled ||
               !_shouldAutoFollowMessages ||

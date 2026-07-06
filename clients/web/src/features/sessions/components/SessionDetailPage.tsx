@@ -3443,6 +3443,13 @@ export function SessionDetailPage() {
 
   const setAutoFollowEnabled = (value: boolean) => {
     autoFollowRef.current = value;
+    if (!value) {
+      cancelAutoFollowMotion();
+      autoFollowPausedRef.current = false;
+      setAutoFollowPaused((current) => (current ? false : current));
+      composerLayoutPinnedRef.current = false;
+      programmaticScrollUntilRef.current = 0;
+    }
     setAutoFollow((current) => (current === value ? current : value));
   };
 
@@ -3501,6 +3508,22 @@ export function SessionDetailPage() {
     }
     followSettleRemainingRef.current = 0;
     followSettleStableFramesRef.current = 0;
+  }
+
+  function cancelResizeFollowFrame(): void {
+    if (resizeFollowFrameRef.current != null) {
+      window.cancelAnimationFrame(resizeFollowFrameRef.current);
+      resizeFollowFrameRef.current = null;
+    }
+  }
+
+  function cancelAutoFollowMotion(): void {
+    cancelFollowSettle();
+    cancelResizeFollowFrame();
+    const el = mainRef.current;
+    if (el) {
+      el.scrollTo({ top: el.scrollTop, behavior: 'auto' });
+    }
   }
 
   const pinMessagesToBottom = () => {
@@ -3618,11 +3641,40 @@ export function SessionDetailPage() {
     });
   };
 
-  const shouldFollowPinnedMessages = () => {
+  const canAutoFollowMessages = ({
+    requireNearBottom = false,
+    allowDuringComposerTransition = false,
+  }: {
+    requireNearBottom?: boolean;
+    allowDuringComposerTransition?: boolean;
+  } = {}) => {
     return autoFollowRef.current &&
-      isNearBottomRef.current &&
       !autoFollowPausedRef.current &&
-      !hasRecentUserScrollIntent();
+      (!requireNearBottom || isNearBottomRef.current) &&
+      !hasRecentUserScrollIntent() &&
+      (allowDuringComposerTransition || !isComposerLayoutTransitioning());
+  };
+
+  const scheduleAutoFollowToBottom = (
+    behavior: ScrollBehavior = 'auto',
+    options?: {
+      requireNearBottom?: boolean;
+      allowDuringComposerTransition?: boolean;
+    },
+  ) => {
+    if (!canAutoFollowMessages(options)) {
+      cancelFollowSettle();
+      return false;
+    }
+    scheduleFollowToBottom(behavior);
+    return true;
+  };
+
+  const shouldFollowPinnedMessages = () => {
+    return canAutoFollowMessages({
+      requireNearBottom: true,
+      allowDuringComposerTransition: true,
+    });
   };
 
   const toggleBrowserFullscreen = async () => {
@@ -3840,7 +3892,7 @@ export function SessionDetailPage() {
       setActiveMessageId(null);
       updateSendPhaseValue(result.send_phase || 'sendingMessage');
       lastLocalSendAtRef.current = Date.now();
-      scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
+      scheduleAutoFollowToBottom(reduceMotion ? 'auto' : 'smooth');
       showSnackbar(t('message.regenerate.started', '已开始重新生成'), { tone: 'success' });
     } catch (e) {
       if (!ownsSessionAsyncResult(requestSessionId)) return;
@@ -4038,7 +4090,7 @@ export function SessionDetailPage() {
       () => composerTextareaRef.current?.focus(),
       COMPOSER_EDIT_FOCUS_DELAY_MS,
     );
-    scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
+    scheduleAutoFollowToBottom(reduceMotion ? 'auto' : 'smooth');
   });
   const handleAuditMessage = useCallback((m: SessionMessage) => {
     setAuditMessage(m);
@@ -4164,7 +4216,7 @@ export function SessionDetailPage() {
       if (resizeFollowFrameRef.current != null) return;
       resizeFollowFrameRef.current = requestAnimationFrame(() => {
         resizeFollowFrameRef.current = null;
-        if (shouldFollowOnGrow()) scheduleFollowToBottom('auto');
+        if (shouldFollowOnGrow()) scheduleAutoFollowToBottom('auto');
       });
     });
     observer.observe(target);
@@ -4279,7 +4331,7 @@ export function SessionDetailPage() {
 
   useLayoutEffect(() => {
     if (!isComposerLayoutTransitioning() && shouldFollowPinnedMessages()) {
-      scheduleFollowToBottom('auto');
+      scheduleAutoFollowToBottom('auto', { requireNearBottom: true });
     }
   }, [composerAttachments.length, selectedSkill?.name, editingDraftMessage?.id, composerError]);
 
@@ -4316,7 +4368,7 @@ export function SessionDetailPage() {
       lastTailIdRef.current = tail.id;
       lastTailSignatureRef.current = tailSignature;
       lastFollowSignatureRef.current = followSignature;
-      if (autoFollow) scheduleFollowToBottom('auto');
+      scheduleAutoFollowToBottom('auto');
       return;
     }
     const tailChanged = tail.id !== lastTailIdRef.current;
@@ -4326,14 +4378,10 @@ export function SessionDetailPage() {
     lastTailIdRef.current = tail.id;
     lastTailSignatureRef.current = tailSignature;
     lastFollowSignatureRef.current = followSignature;
-    const shouldFollow =
-      autoFollowRef.current &&
-      !autoFollowPausedRef.current &&
-      !hasRecentUserScrollIntent();
-    if (shouldFollow) {
+    if (canAutoFollowMessages()) {
       const streamingChange = tailContentChanged || followContentChanged;
       const behavior = reduceMotion || streamingChange ? 'auto' : 'smooth';
-      scheduleFollowToBottom(behavior);
+      scheduleAutoFollowToBottom(behavior);
     } else {
       if (autoFollow) setAutoFollowPausedValue(true);
       setUnreadCount((n) => (tailChanged ? n + 1 : Math.max(1, n)));
@@ -4350,7 +4398,9 @@ export function SessionDetailPage() {
 
   useEffect(() => {
     if (!pendingWriteApproval || !shouldFollowPinnedMessages()) return;
-    scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
+    scheduleAutoFollowToBottom(reduceMotion ? 'auto' : 'smooth', {
+      requireNearBottom: true,
+    });
   }, [pendingWriteApproval?.id, autoFollow, autoFollowPaused, reduceMotion]);
 
   // sendPhase 变化 → 远端冲突探测
