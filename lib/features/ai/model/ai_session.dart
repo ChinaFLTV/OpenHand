@@ -985,6 +985,18 @@ class AiSessionStatistics {
     final cacheReadTokens = _readNullableInt(json['cache_read_tokens']);
     final hasCacheUsageTelemetry =
         cacheCreationTokens != null || cacheReadTokens != null;
+    final cacheHitTrendPoints = hasCacheUsageTelemetry
+        ? _readTrendPoints(json['cache_hit_trend_points'])
+        : const <AiSessionCacheHitTrendPoint>[];
+    final parsedCacheHitRatio = hasCacheUsageTelemetry
+        ? _readNullableDouble(json['cache_hit_ratio'])
+        : null;
+    final cacheHitRatio =
+        (cacheReadTokens ?? 0) > 0 &&
+            (parsedCacheHitRatio ?? 0) <= 0 &&
+            cacheHitTrendPoints.isNotEmpty
+        ? null
+        : parsedCacheHitRatio;
     return AiSessionStatistics(
       totalMessageCount: _readInt(json['total_message_count']),
       userMessageCount: _readInt(json['user_message_count']),
@@ -1011,12 +1023,8 @@ class AiSessionStatistics {
       lastPromptHistoryMessageCount: _readInt(
         json['last_prompt_history_message_count'],
       ),
-      cacheHitRatio: hasCacheUsageTelemetry
-          ? _readNullableDouble(json['cache_hit_ratio'])
-          : null,
-      cacheHitTrendPoints: hasCacheUsageTelemetry
-          ? _readTrendPoints(json['cache_hit_trend_points'])
-          : const <AiSessionCacheHitTrendPoint>[],
+      cacheHitRatio: cacheHitRatio,
+      cacheHitTrendPoints: cacheHitTrendPoints,
       cacheHitTrendExcludedCount: hasCacheUsageTelemetry
           ? _readInt(json['cache_hit_trend_excluded_count'])
           : 0,

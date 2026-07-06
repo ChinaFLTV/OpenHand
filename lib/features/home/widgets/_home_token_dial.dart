@@ -31,7 +31,13 @@ class _TokenDial extends StatefulWidget {
   /// 永远显示同一数字。
   double get cacheHitRatio {
     final precomputed = session.statistics.cacheHitRatio;
-    if (precomputed != null && _cacheHitTrendUsesRoundStarterSchema) {
+    final hasStaleZeroWithCacheRead =
+        precomputed != null &&
+        precomputed <= 0 &&
+        (session.statistics.cacheReadTokens ?? 0) > 0;
+    if (precomputed != null &&
+        !hasStaleZeroWithCacheRead &&
+        _cacheHitTrendUsesRoundStarterSchema) {
       return finiteUnitInterval(precomputed);
     }
     final trend = SessionCacheHitTrend.fromSession(

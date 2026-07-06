@@ -204,9 +204,10 @@ class SessionCacheHitTrend {
   SessionCacheHitDisplayData displayData(SessionCacheHitDisplayMode mode) {
     // A raw cache round starts at each non-AI-side input: explicit user
     // messages and OpenHand-produced tool results. The default cleaned view is
-    // user-cost oriented: it keeps explicit user rounds, while excluding the
-    // structural cold start, internal tool-continuation rounds, and true idle
-    // expiry outliers. "Include all" remains the exact transport-level view.
+    // user-cost oriented: it keeps explicit user rounds with real cache
+    // activity, while excluding true cold starts, internal tool-continuation
+    // rounds, and true idle expiry outliers. "Include all" remains the exact
+    // transport-level view.
     final filteredPoints = switch (mode) {
       SessionCacheHitDisplayMode.includeAll => points,
       SessionCacheHitDisplayMode.excludeExtremeMisses =>
@@ -222,9 +223,6 @@ class SessionCacheHitTrend {
     var cacheWriteTokens = 0;
     var uncachedPromptTokens = 0;
     for (final point in filteredPoints) {
-      if (point.turnIndex == 1) {
-        continue;
-      }
       cacheReadTokens += point.cacheReadTokens;
       cacheWriteTokens += point.cacheWriteTokens;
       uncachedPromptTokens += computeUncachedPromptTokens(
@@ -255,6 +253,9 @@ class SessionCacheHitTrend {
     required bool claudeStyle,
   }) {
     final points = <SessionCacheHitTurnPoint>[];
+    final sessionHasCacheUsageTelemetry = _sessionHasCacheUsageTelemetry(
+      session,
+    );
     var turnIndex = 0;
     var averagePromptTotal = 0;
     var averageCacheReadTotal = 0;
@@ -272,7 +273,7 @@ class SessionCacheHitTrend {
         continue;
       }
       final usage = telemetryMessage.usage ?? message.usage;
-      if (!_hasCacheUsageTelemetry(usage)) {
+      if (!sessionHasCacheUsageTelemetry && !_hasCacheUsageTelemetry(usage)) {
         continue;
       }
       final promptTokens = usage?.promptTokens ?? 0;
@@ -292,10 +293,8 @@ class SessionCacheHitTrend {
         continue;
       }
       turnIndex += 1;
-      if (turnIndex > 1) {
-        averagePromptTotal += promptTokens;
-        averageCacheReadTotal += cacheReadTokens;
-      }
+      averagePromptTotal += promptTokens;
+      averageCacheReadTotal += cacheReadTokens;
       final averageHitRatio = computeCacheHitRatio(
         promptTokens: averagePromptTotal,
         cacheReadTokens: averageCacheReadTotal,
@@ -355,10 +354,24 @@ bool _hasCacheUsageTelemetry(AiTokenUsage? usage) {
   return usage?.cacheReadTokens != null || usage?.cacheCreationTokens != null;
 }
 
+bool _sessionHasCacheUsageTelemetry(AiSession session) {
+  for (final message in session.messages) {
+    if (_hasCacheUsageTelemetry(message.usage)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool _isStructuralCacheRound(SessionCacheHitTurnPoint point) {
-  return point.turnIndex == 1 ||
-      point.starterOrigin == aiSessionMessageSenderOriginOpenHandBackground ||
-      point.starterOrigin == aiSessionMessageSenderOriginOpenHandSystem;
+  if (point.starterOrigin == aiSessionMessageSenderOriginOpenHandBackground ||
+      point.starterOrigin == aiSessionMessageSenderOriginOpenHandSystem) {
+    return true;
+  }
+  if (point.turnIndex != 1) {
+    return false;
+  }
+  return point.cacheReadTokens <= 0 && point.cacheWriteTokens <= 0;
 }
 
 class _CacheHitDiagnostics {
