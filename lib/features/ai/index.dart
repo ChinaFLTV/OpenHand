@@ -26,6 +26,7 @@ export 'model/ai_lsp_language_settings.dart';
 export 'model/ai_message_content_format.dart';
 export 'model/ai_model_catalog.dart';
 export 'model/ai_model_config.dart';
+export 'model/ai_one_million_context_policy.dart';
 export 'model/ai_operation_routing.dart';
 export 'model/ai_realtime_config.dart';
 export 'model/ai_sandbox_settings.dart';

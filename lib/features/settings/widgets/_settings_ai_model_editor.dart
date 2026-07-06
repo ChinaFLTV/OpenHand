@@ -504,12 +504,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     final base = sourceModelId.trim().isEmpty ? 'model' : sourceModelId.trim();
     final used = _visibleModelIds.toSet();
     for (var index = 1; index <= 9999; index++) {
-      final candidate = _OneMillionContextPolicy.copyModelId(base, index);
+      final candidate = AiOneMillionContextPolicy.copyModelId(base, index);
       if (!used.contains(candidate)) {
         return candidate;
       }
     }
-    return _OneMillionContextPolicy.copyModelId(
+    return AiOneMillionContextPolicy.copyModelId(
       base,
       DateTime.now().microsecondsSinceEpoch,
     );
@@ -2438,58 +2438,18 @@ class _ModelProfileEditorResult {
   final AiModelProfile profile;
 }
 
+class _OneMillionContextSnapshot {
+  const _OneMillionContextSnapshot({
+    required this.modelId,
+    required this.maxContextLength,
+  });
+
+  final String modelId;
+  final String maxContextLength;
+}
+
 typedef _DuplicateModelProfileCallback =
     String Function(String sourceModelId, AiModelProfile profile);
-
-class _OneMillionContextPolicy {
-  const _OneMillionContextPolicy._();
-
-  static const int contextTokens = 1000000;
-  static const String contextTokensText = '1000000';
-  static const String modelIdSuffix = '[1M]';
-  static final RegExp _modelIdSuffixRunPattern = RegExp(
-    r'(?:\s*\[1m\])+$',
-    caseSensitive: false,
-  );
-
-  static bool isEnabledBy({
-    required String modelId,
-    required String maxContextLength,
-  }) {
-    return hasModelIdSuffix(modelId) ||
-        optionalPositiveIntFromText(maxContextLength) == contextTokens;
-  }
-
-  static bool hasModelIdSuffix(String modelId) {
-    return _modelIdSuffixRunPattern.hasMatch(modelId.trim());
-  }
-
-  static String normalizeModelId(String modelId) {
-    final trimmed = modelId.trim();
-    if (trimmed.isEmpty) {
-      return '';
-    }
-    final base = stripModelIdSuffix(trimmed);
-    return '${base.isEmpty ? 'model' : base}$modelIdSuffix';
-  }
-
-  static String copyModelId(String sourceModelId, int index) {
-    final trimmed = sourceModelId.trim();
-    final base = trimmed.isEmpty ? 'model' : trimmed;
-    if (!hasModelIdSuffix(base)) {
-      return '$base-Copy-$index';
-    }
-    final withoutSuffix = stripModelIdSuffix(base);
-    return '${withoutSuffix.isEmpty ? 'model' : withoutSuffix}-Copy-$index$modelIdSuffix';
-  }
-
-  static String stripModelIdSuffix(String modelId) {
-    return modelId
-        .trim()
-        .replaceFirst(_modelIdSuffixRunPattern, '')
-        .trimRight();
-  }
-}
 
 class _ModelProfileEditorDialog extends StatefulWidget {
   const _ModelProfileEditorDialog({
@@ -2572,8 +2532,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late final List<_ReasoningEffortOptionDraft> _reasoningEffortOptionDrafts;
   late final ScrollController _reasoningEffortOptionsScrollController;
   bool _oneMillionContextEnabled = false;
-  String? _modelIdBeforeOneMillionContext;
-  String? _maxContextBeforeOneMillionContext;
+  _OneMillionContextSnapshot? _oneMillionContextSnapshot;
   bool? _embeddingOutputsNormalized;
   bool _embeddingSupportsCustomDimensions = false;
   bool _embeddingRequiresSpecialBody = false;
@@ -2649,28 +2608,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         .map(_ReasoningEffortOptionDraft.fromOption)
         .toList();
     _reasoningEffortOptionsScrollController = ScrollController();
-    final initialModelIdText = _modelIdController.text;
-    final initialMaxContextText = _maxContextLengthController.text;
-    _oneMillionContextEnabled = _OneMillionContextPolicy.isEnabledBy(
-      modelId: initialModelIdText,
-      maxContextLength: initialMaxContextText,
-    );
-    if (_oneMillionContextEnabled) {
-      final normalizedModelId = _OneMillionContextPolicy.normalizeModelId(
-        initialModelIdText,
-      );
-      final modelIdWillChange =
-          normalizedModelId.isNotEmpty &&
-          normalizedModelId != initialModelIdText;
-      final contextWillChange =
-          initialMaxContextText.trim() !=
-          _OneMillionContextPolicy.contextTokensText;
-      if (modelIdWillChange || contextWillChange) {
-        _modelIdBeforeOneMillionContext = initialModelIdText;
-        _maxContextBeforeOneMillionContext = initialMaxContextText;
-      }
-      _syncOneMillionContextFields();
-    }
     _inputUsdPer1MController = TextEditingController(
       text:
           p.inputUsdPer1M?.toString() ??
@@ -2949,6 +2886,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     if (_capabilities.contains(AiModelCapability.readerConversion)) {
       _ensureDefaultReaderTypes();
     }
+    _initializeOneMillionContextState();
   }
 
   /// Infer modalities from protocol type + model ID patterns.
@@ -3341,7 +3279,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       isMultimodal: _isMultimodal,
       supportedModalities: _supportedModalities,
       maxContextLength: _oneMillionContextEnabled
-          ? _OneMillionContextPolicy.contextTokens
+          ? AiOneMillionContextPolicy.contextTokens
           : optionalPositiveIntFromText(_maxContextLengthController.text),
       maxSummaryLength: optionalPositiveIntFromText(
         _maxSummaryLengthController.text,
@@ -3534,20 +3472,44 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     }
     setState(() {
       if (enabled) {
-        _modelIdBeforeOneMillionContext = _modelIdController.text;
-        _maxContextBeforeOneMillionContext = _maxContextLengthController.text;
+        _oneMillionContextSnapshot = _OneMillionContextSnapshot(
+          modelId: _modelIdController.text,
+          maxContextLength: _maxContextLengthController.text,
+        );
         _oneMillionContextEnabled = true;
         _syncOneMillionContextFields();
       } else {
         _oneMillionContextEnabled = false;
-        _restoreOneMillionContextSnapshotIfUnchanged();
+        _restoreOneMillionContextSnapshot();
       }
       _profileErrorMessage = null;
     });
   }
 
+  void _initializeOneMillionContextState() {
+    final initialModelIdText = _modelIdController.text;
+    final initialMaxContextText = _maxContextLengthController.text;
+    _oneMillionContextEnabled = AiOneMillionContextPolicy.isEnabledBy(
+      modelId: initialModelIdText,
+      maxContextLength: initialMaxContextText,
+    );
+    if (!_oneMillionContextEnabled) {
+      return;
+    }
+    _oneMillionContextSnapshot = _OneMillionContextSnapshot(
+      modelId: AiOneMillionContextPolicy.restoreModelId(
+        currentModelId: initialModelIdText,
+      ),
+      maxContextLength: _oneMillionContextFallbackLengthText(
+        modelId: initialModelIdText,
+        currentMaxContextLength: initialMaxContextText,
+      ),
+    );
+    _syncOneMillionContextFields();
+  }
+
   void _syncOneMillionContextFields() {
-    final normalizedModelId = _OneMillionContextPolicy.normalizeModelId(
+    final normalizedModelId = AiOneMillionContextPolicy.normalizeModelId(
       _modelIdController.text,
     );
     if (normalizedModelId.isNotEmpty) {
@@ -3555,25 +3517,51 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     }
     _syncControllerText(
       _maxContextLengthController,
-      _OneMillionContextPolicy.contextTokensText,
+      AiOneMillionContextPolicy.contextTokensText,
     );
   }
 
-  void _restoreOneMillionContextSnapshotIfUnchanged() {
-    final previousModelId = _modelIdBeforeOneMillionContext;
-    if (previousModelId != null &&
-        _modelIdController.text.trim() ==
-            _OneMillionContextPolicy.normalizeModelId(previousModelId)) {
-      _syncControllerText(_modelIdController, previousModelId);
+  void _restoreOneMillionContextSnapshot() {
+    final snapshot = _oneMillionContextSnapshot;
+    final restoredModelId = AiOneMillionContextPolicy.restoreModelId(
+      currentModelId: _modelIdController.text,
+      snapshotModelId: snapshot?.modelId,
+    );
+    _syncControllerText(_modelIdController, restoredModelId);
+    final fallbackContextLength = _oneMillionContextFallbackLengthText(
+      modelId: restoredModelId,
+      currentMaxContextLength: _maxContextLengthController.text,
+    );
+    final restoredContextLength =
+        AiOneMillionContextPolicy.restoreContextLength(
+          currentMaxContextLength: _maxContextLengthController.text,
+          snapshotMaxContextLength: snapshot?.maxContextLength,
+          fallbackMaxContextLength: fallbackContextLength,
+        );
+    _syncControllerText(_maxContextLengthController, restoredContextLength);
+    _oneMillionContextSnapshot = null;
+  }
+
+  String _oneMillionContextFallbackLengthText({
+    required String modelId,
+    required String currentMaxContextLength,
+  }) {
+    final current = currentMaxContextLength.trim();
+    if (current.isNotEmpty &&
+        !AiOneMillionContextPolicy.isPolicyContextLengthText(current)) {
+      return current;
     }
-    final previousContext = _maxContextBeforeOneMillionContext;
-    if (previousContext != null &&
-        _maxContextLengthController.text.trim() ==
-            _OneMillionContextPolicy.contextTokensText) {
-      _syncControllerText(_maxContextLengthController, previousContext);
-    }
-    _modelIdBeforeOneMillionContext = null;
-    _maxContextBeforeOneMillionContext = null;
+    final baseModelId = AiOneMillionContextPolicy.stripModelIdSuffix(modelId);
+    final catalogContextLength = AiModelCatalog.lookup(
+      baseModelId,
+      widget.protocolType,
+    )?.maxContextLength;
+    final fallbackContextLength =
+        catalogContextLength != null &&
+            catalogContextLength != AiOneMillionContextPolicy.contextTokens
+        ? catalogContextLength
+        : kInferredModelContextWindowTokens;
+    return fallbackContextLength.toString();
   }
 
   Widget _buildGlobalDefaultTitleModelControl() {
@@ -3640,23 +3628,23 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final helperText = _oneMillionContextEnabled
         ? openHandLocalizedText(
             context,
-            zh: '已锁定上下文长度为 ${_OneMillionContextPolicy.contextTokensText}，保存时模型 ID 会保持 ${_OneMillionContextPolicy.modelIdSuffix} 后缀。',
+            zh: '已锁定上下文长度为 ${AiOneMillionContextPolicy.contextTokensText}，保存时模型 ID 会保持 ${AiOneMillionContextPolicy.modelIdSuffix} 后缀。',
             zhHant:
-                '已鎖定上下文長度為 ${_OneMillionContextPolicy.contextTokensText}，儲存時模型 ID 會保持 ${_OneMillionContextPolicy.modelIdSuffix} 後綴。',
-            en: 'Locks context length to ${_OneMillionContextPolicy.contextTokensText}; saving keeps the ${_OneMillionContextPolicy.modelIdSuffix} model ID suffix.',
-            fr: 'Verrouille le contexte à ${_OneMillionContextPolicy.contextTokensText} ; l’ID conserve le suffixe ${_OneMillionContextPolicy.modelIdSuffix}.',
-            de: 'Sperrt die Kontextlänge auf ${_OneMillionContextPolicy.contextTokensText}; die Modell-ID behält das Suffix ${_OneMillionContextPolicy.modelIdSuffix}.',
-            ja: 'コンテキスト長を ${_OneMillionContextPolicy.contextTokensText} に固定し、保存時にモデル ID の ${_OneMillionContextPolicy.modelIdSuffix} 接尾辞を維持します。',
+                '已鎖定上下文長度為 ${AiOneMillionContextPolicy.contextTokensText}，儲存時模型 ID 會保持 ${AiOneMillionContextPolicy.modelIdSuffix} 後綴。',
+            en: 'Locks context length to ${AiOneMillionContextPolicy.contextTokensText}; saving keeps the ${AiOneMillionContextPolicy.modelIdSuffix} model ID suffix.',
+            fr: 'Verrouille le contexte à ${AiOneMillionContextPolicy.contextTokensText} ; l’ID conserve le suffixe ${AiOneMillionContextPolicy.modelIdSuffix}.',
+            de: 'Sperrt die Kontextlänge auf ${AiOneMillionContextPolicy.contextTokensText}; die Modell-ID behält das Suffix ${AiOneMillionContextPolicy.modelIdSuffix}.',
+            ja: 'コンテキスト長を ${AiOneMillionContextPolicy.contextTokensText} に固定し、保存時にモデル ID の ${AiOneMillionContextPolicy.modelIdSuffix} 接尾辞を維持します。',
           )
         : openHandLocalizedText(
             context,
-            zh: '开启后会自动写入 ${_OneMillionContextPolicy.contextTokensText}，并为模型 ID 补齐 ${_OneMillionContextPolicy.modelIdSuffix} 后缀。',
+            zh: '开启后会自动写入 ${AiOneMillionContextPolicy.contextTokensText}，并为模型 ID 补齐 ${AiOneMillionContextPolicy.modelIdSuffix} 后缀。',
             zhHant:
-                '開啟後會自動寫入 ${_OneMillionContextPolicy.contextTokensText}，並為模型 ID 補齊 ${_OneMillionContextPolicy.modelIdSuffix} 後綴。',
-            en: 'When enabled, writes ${_OneMillionContextPolicy.contextTokensText} and appends the ${_OneMillionContextPolicy.modelIdSuffix} model ID suffix.',
-            fr: 'Activé, écrit ${_OneMillionContextPolicy.contextTokensText} et ajoute le suffixe ${_OneMillionContextPolicy.modelIdSuffix} à l’ID du modèle.',
-            de: 'Aktiviert schreibt ${_OneMillionContextPolicy.contextTokensText} und ergänzt das Suffix ${_OneMillionContextPolicy.modelIdSuffix} an der Modell-ID.',
-            ja: '有効にすると ${_OneMillionContextPolicy.contextTokensText} を書き込み、モデル ID に ${_OneMillionContextPolicy.modelIdSuffix} 接尾辞を付けます。',
+                '開啟後會自動寫入 ${AiOneMillionContextPolicy.contextTokensText}，並為模型 ID 補齊 ${AiOneMillionContextPolicy.modelIdSuffix} 後綴。',
+            en: 'When enabled, writes ${AiOneMillionContextPolicy.contextTokensText} and appends the ${AiOneMillionContextPolicy.modelIdSuffix} model ID suffix.',
+            fr: 'Activé, écrit ${AiOneMillionContextPolicy.contextTokensText} et ajoute le suffixe ${AiOneMillionContextPolicy.modelIdSuffix} à l’ID du modèle.',
+            de: 'Aktiviert schreibt ${AiOneMillionContextPolicy.contextTokensText} und ergänzt das Suffix ${AiOneMillionContextPolicy.modelIdSuffix} an der Modell-ID.',
+            ja: '有効にすると ${AiOneMillionContextPolicy.contextTokensText} を書き込み、モデル ID に ${AiOneMillionContextPolicy.modelIdSuffix} 接尾辞を付けます。',
           );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
