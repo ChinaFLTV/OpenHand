@@ -143,5 +143,47 @@ void main() {
         AppSettingsSnapshot.minMaxConcurrentTools,
       );
     });
+
+    test('normalizes AI stream throttle bounds', () {
+      expect(
+        AppSettingsSnapshot.aiStreamMaxCharsPerSecondFromValue(-1),
+        AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond,
+      );
+      expect(
+        AppSettingsSnapshot.aiStreamMaxCharsPerSecondFromValue(999999999),
+        AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond,
+      );
+      expect(
+        AppSettingsSnapshot.aiStreamMaxMessageCardsPerSecondFromValue(-1),
+        AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond,
+      );
+      expect(
+        AppSettingsSnapshot.aiStreamMaxMessageCardsPerSecondFromValue(999999),
+        AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
+      );
+      expect(
+        AppSettingsSnapshot.aiStreamThrottleDurationSecondsFromValue(999999),
+        AppSettingsSnapshot.maxAiStreamThrottleDurationSeconds,
+      );
+
+      final snapshot = AppSettingsSnapshot.defaults().copyWith(
+        aiStreamMaxCharsPerSecond: -1,
+        aiStreamMaxMessageCardsPerSecond: 999999,
+        aiStreamThrottleDurationSeconds: 999999,
+      );
+
+      expect(
+        snapshot.aiStreamMaxCharsPerSecond,
+        AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond,
+      );
+      expect(
+        snapshot.aiStreamMaxMessageCardsPerSecond,
+        AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
+      );
+      expect(
+        snapshot.aiStreamThrottleDurationSeconds,
+        AppSettingsSnapshot.maxAiStreamThrottleDurationSeconds,
+      );
+    });
   });
 }

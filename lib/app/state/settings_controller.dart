@@ -1614,12 +1614,7 @@ class SettingsController extends ChangeNotifier {
 
   Future<bool> updateAiStreamMaxCharsPerSecond(int value) async {
     final normalizedValue =
-        value < AppSettingsSnapshot.minAiStreamMaxCharsPerSecond
-        ? AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond
-        : value.clamp(
-            AppSettingsSnapshot.minAiStreamMaxCharsPerSecond,
-            AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond,
-          );
+        AppSettingsSnapshot.normalizeAiStreamMaxCharsPerSecond(value);
     return _commitThrottleMutation(() {
       if (_aiStreamMaxCharsPerSecond == normalizedValue) {
         return _MutationDisposition.successNoChange;
@@ -1631,12 +1626,7 @@ class SettingsController extends ChangeNotifier {
 
   Future<bool> updateAiStreamMaxMessageCardsPerSecond(int value) async {
     final normalizedValue =
-        value < AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond
-        ? AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond
-        : value.clamp(
-            AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond,
-            AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
-          );
+        AppSettingsSnapshot.normalizeAiStreamMaxMessageCardsPerSecond(value);
     return _commitThrottleMutation(() {
       if (_aiStreamMaxMessageCardsPerSecond == normalizedValue) {
         return _MutationDisposition.successNoChange;
@@ -1671,10 +1661,8 @@ class SettingsController extends ChangeNotifier {
   /// 节流持续时长（秒）。0 表示持续节流；>0 时超时后剩余流式响应直接
   /// 按真实接收节奏追加。
   Future<bool> updateAiStreamThrottleDurationSeconds(int value) async {
-    final clamped = value.clamp(
-      AppSettingsSnapshot.minAiStreamThrottleDurationSeconds,
-      AppSettingsSnapshot.maxAiStreamThrottleDurationSeconds,
-    );
+    final clamped =
+        AppSettingsSnapshot.normalizeAiStreamThrottleDurationSeconds(value);
     return _commitThrottleMutation(() {
       if (_aiStreamThrottleDurationSeconds == clamped) {
         return _MutationDisposition.successNoChange;

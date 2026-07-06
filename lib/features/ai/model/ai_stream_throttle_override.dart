@@ -1,4 +1,5 @@
 import '../../../shared/util/input_value_parsing.dart';
+import 'ai_stream_throttle_policy.dart';
 
 /// Per-thread-template override for stream output throttle settings.
 ///
@@ -70,10 +71,14 @@ class AiStreamThrottleOverride {
     return override.isEmpty ? null : override;
   }
 
-  static const int minCharsPerSecond = 0;
-  static const int maxCharsPerSecond = 100000;
-  static const int minCardsPerSecond = 0;
-  static const int maxCardsPerSecond = 60;
+  static const int minCharsPerSecond =
+      AiStreamThrottlePolicy.minMaxCharsPerSecond;
+  static const int maxCharsPerSecond =
+      AiStreamThrottlePolicy.maxMaxCharsPerSecond;
+  static const int minCardsPerSecond =
+      AiStreamThrottlePolicy.minMaxMessageCardsPerSecond;
+  static const int maxCardsPerSecond =
+      AiStreamThrottlePolicy.maxMaxMessageCardsPerSecond;
 
   static const IntValueRange _charsPerSecondRange = IntValueRange(
     fallback: minCharsPerSecond,

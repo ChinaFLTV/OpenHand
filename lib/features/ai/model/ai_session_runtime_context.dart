@@ -11,6 +11,7 @@ import 'ai_builtin_tool_config.dart';
 import 'ai_deny_command_rule.dart';
 import 'ai_message_content_format.dart';
 import 'ai_sandbox_settings.dart';
+import 'ai_stream_throttle_policy.dart';
 import 'ai_tool_call_limit_policy.dart';
 import 'ai_tool_execution_limit_policy.dart';
 
@@ -145,11 +146,11 @@ class AiSessionRuntimeContext {
     this.connectTimeoutSeconds = 60,
     this.responseTimeoutSeconds = 120,
     this.streamIdleTimeoutSeconds = 120,
-    this.streamMaxCharsPerSecond = 5,
-    this.streamMaxMessageCardsPerSecond = 1,
+    int streamMaxCharsPerSecond = defaultStreamMaxCharsPerSecond,
+    int streamMaxMessageCardsPerSecond = defaultStreamMaxMessageCardsPerSecond,
     this.streamThrottleEnabled = true,
     this.streamThrottleAutoMode = false,
-    this.streamThrottleDurationSeconds = 0,
+    int streamThrottleDurationSeconds = defaultStreamThrottleDurationSeconds,
     this.autoTitleEnabled = true,
     this.autoTitleFetchMode = AiAutoTitleFetchMode.asynchronous,
     this.autoTitleMaxRetryCount = 5,
@@ -197,6 +198,15 @@ class AiSessionRuntimeContext {
        ),
        bashOutputMaxBytes = normalizeBashOutputMaxBytes(bashOutputMaxBytes),
        maxConcurrentTools = normalizeMaxConcurrentTools(maxConcurrentTools),
+       streamMaxCharsPerSecond = normalizeStreamMaxCharsPerSecond(
+         streamMaxCharsPerSecond,
+       ),
+       streamMaxMessageCardsPerSecond = normalizeStreamMaxMessageCardsPerSecond(
+         streamMaxMessageCardsPerSecond,
+       ),
+       streamThrottleDurationSeconds = normalizeStreamThrottleDurationSeconds(
+         streamThrottleDurationSeconds,
+       ),
        sandboxSettings =
            sandboxSettings ??
            const AiSandboxSettings(
@@ -318,6 +328,37 @@ class AiSessionRuntimeContext {
 
   static int normalizeMaxConcurrentTools(int value) {
     return AiToolExecutionLimitPolicy.normalizeMaxConcurrentTools(value);
+  }
+
+  static const int defaultStreamMaxCharsPerSecond =
+      AiStreamThrottlePolicy.defaultMaxCharsPerSecond;
+  static const int minStreamMaxCharsPerSecond =
+      AiStreamThrottlePolicy.minMaxCharsPerSecond;
+  static const int maxStreamMaxCharsPerSecond =
+      AiStreamThrottlePolicy.maxMaxCharsPerSecond;
+  static const int defaultStreamMaxMessageCardsPerSecond =
+      AiStreamThrottlePolicy.defaultMaxMessageCardsPerSecond;
+  static const int minStreamMaxMessageCardsPerSecond =
+      AiStreamThrottlePolicy.minMaxMessageCardsPerSecond;
+  static const int maxStreamMaxMessageCardsPerSecond =
+      AiStreamThrottlePolicy.maxMaxMessageCardsPerSecond;
+  static const int defaultStreamThrottleDurationSeconds =
+      AiStreamThrottlePolicy.defaultDurationSeconds;
+  static const int minStreamThrottleDurationSeconds =
+      AiStreamThrottlePolicy.minDurationSeconds;
+  static const int maxStreamThrottleDurationSeconds =
+      AiStreamThrottlePolicy.maxDurationSeconds;
+
+  static int normalizeStreamMaxCharsPerSecond(int value) {
+    return AiStreamThrottlePolicy.normalizeMaxCharsPerSecond(value);
+  }
+
+  static int normalizeStreamMaxMessageCardsPerSecond(int value) {
+    return AiStreamThrottlePolicy.normalizeMaxMessageCardsPerSecond(value);
+  }
+
+  static int normalizeStreamThrottleDurationSeconds(int value) {
+    return AiStreamThrottlePolicy.normalizeDurationSeconds(value);
   }
 
   final String localeTag;

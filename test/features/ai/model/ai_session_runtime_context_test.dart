@@ -3,17 +3,7 @@ import 'package:openhand/features/ai/model/ai_session_runtime_context.dart';
 
 void main() {
   test('AiSessionRuntimeContext normalizes tool call safety limits', () {
-    final context = AiSessionRuntimeContext(
-      localeTag: 'en',
-      appVersion: '1.0.0',
-      appBuildNumber: '1',
-      settingsFilePath: '',
-      skillsStoragePath: '',
-      mcpServersFilePath: '',
-      userMemoryFilePath: '',
-      compressionThresholdChars: 0,
-      memoryEnabled: false,
-      memoryEntries: const [],
+    final context = _runtimeContext(
       singleRoundToolCallLimit: 999999,
       sequentialToolRoundLimit: 0,
       maxToolOutputChars: -1,
@@ -23,6 +13,9 @@ void main() {
       subprocessGracefulShutdownMs: 0,
       bashOutputMaxBytes: 999999999,
       maxConcurrentTools: 0,
+      streamMaxCharsPerSecond: -1,
+      streamMaxMessageCardsPerSecond: 999999,
+      streamThrottleDurationSeconds: 999999,
     );
 
     expect(
@@ -97,5 +90,82 @@ void main() {
       context.toJson()['max_concurrent_tools'],
       AiSessionRuntimeContext.minMaxConcurrentTools,
     );
+    expect(
+      context.streamMaxCharsPerSecond,
+      AiSessionRuntimeContext.defaultStreamMaxCharsPerSecond,
+    );
+    expect(
+      context.streamMaxMessageCardsPerSecond,
+      AiSessionRuntimeContext.maxStreamMaxMessageCardsPerSecond,
+    );
+    expect(
+      context.streamThrottleDurationSeconds,
+      AiSessionRuntimeContext.maxStreamThrottleDurationSeconds,
+    );
+    expect(
+      _runtimeContext().streamMaxCharsPerSecond,
+      AiSessionRuntimeContext.defaultStreamMaxCharsPerSecond,
+    );
   });
+}
+
+AiSessionRuntimeContext _runtimeContext({
+  int? singleRoundToolCallLimit,
+  int? sequentialToolRoundLimit,
+  int? maxToolOutputChars,
+  int? writeConfirmationTimeoutMs,
+  int? fastPathWriteAnalysisThreshold,
+  int? maxHookTextCharacters,
+  int? subprocessGracefulShutdownMs,
+  int? bashOutputMaxBytes,
+  int? maxConcurrentTools,
+  int? streamMaxCharsPerSecond,
+  int? streamMaxMessageCardsPerSecond,
+  int? streamThrottleDurationSeconds,
+}) {
+  return AiSessionRuntimeContext(
+    localeTag: 'en',
+    appVersion: '1.0.0',
+    appBuildNumber: '1',
+    settingsFilePath: '',
+    skillsStoragePath: '',
+    mcpServersFilePath: '',
+    userMemoryFilePath: '',
+    compressionThresholdChars: 0,
+    memoryEnabled: false,
+    memoryEntries: const [],
+    singleRoundToolCallLimit:
+        singleRoundToolCallLimit ??
+        AiSessionRuntimeContext.defaultSingleRoundToolCallLimit,
+    sequentialToolRoundLimit:
+        sequentialToolRoundLimit ??
+        AiSessionRuntimeContext.defaultSequentialToolRoundLimit,
+    maxToolOutputChars:
+        maxToolOutputChars ?? AiSessionRuntimeContext.defaultMaxToolOutputChars,
+    writeConfirmationTimeoutMs:
+        writeConfirmationTimeoutMs ??
+        AiSessionRuntimeContext.defaultWriteConfirmationTimeoutMs,
+    fastPathWriteAnalysisThreshold:
+        fastPathWriteAnalysisThreshold ??
+        AiSessionRuntimeContext.defaultFastPathWriteAnalysisThreshold,
+    maxHookTextCharacters:
+        maxHookTextCharacters ??
+        AiSessionRuntimeContext.defaultMaxHookTextCharacters,
+    subprocessGracefulShutdownMs:
+        subprocessGracefulShutdownMs ??
+        AiSessionRuntimeContext.defaultSubprocessGracefulShutdownMs,
+    bashOutputMaxBytes:
+        bashOutputMaxBytes ?? AiSessionRuntimeContext.defaultBashOutputMaxBytes,
+    maxConcurrentTools:
+        maxConcurrentTools ?? AiSessionRuntimeContext.defaultMaxConcurrentTools,
+    streamMaxCharsPerSecond:
+        streamMaxCharsPerSecond ??
+        AiSessionRuntimeContext.defaultStreamMaxCharsPerSecond,
+    streamMaxMessageCardsPerSecond:
+        streamMaxMessageCardsPerSecond ??
+        AiSessionRuntimeContext.defaultStreamMaxMessageCardsPerSecond,
+    streamThrottleDurationSeconds:
+        streamThrottleDurationSeconds ??
+        AiSessionRuntimeContext.defaultStreamThrottleDurationSeconds,
+  );
 }

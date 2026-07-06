@@ -8,6 +8,7 @@ import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_message_content_format.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../features/ai/model/ai_sandbox_settings.dart';
+import '../../features/ai/model/ai_stream_throttle_policy.dart';
 import '../../features/ai/model/ai_tool_call_limit_policy.dart';
 import '../../features/ai/model/ai_tool_execution_limit_policy.dart';
 import '../../features/ai/model/ai_translation_settings.dart';
@@ -210,11 +211,11 @@ class AppSettingsSnapshot {
     required this.aiConnectTimeoutSeconds,
     required this.aiResponseTimeoutSeconds,
     required this.aiStreamIdleTimeoutSeconds,
-    required this.aiStreamMaxCharsPerSecond,
-    required this.aiStreamMaxMessageCardsPerSecond,
+    required int aiStreamMaxCharsPerSecond,
+    required int aiStreamMaxMessageCardsPerSecond,
     required this.aiStreamThrottleEnabled,
     required this.aiStreamThrottleAutoMode,
-    required this.aiStreamThrottleDurationSeconds,
+    required int aiStreamThrottleDurationSeconds,
     required this.aiStreamThrottleCloudSyncProvider,
     required this.aiStreamThrottleCloudSyncEndpoint,
     required this.aiStreamThrottleCloudSyncToken,
@@ -277,6 +278,17 @@ class AppSettingsSnapshot {
        ),
        bashOutputMaxBytes = normalizeBashOutputMaxBytes(bashOutputMaxBytes),
        maxConcurrentTools = normalizeMaxConcurrentTools(maxConcurrentTools),
+       aiStreamMaxCharsPerSecond = normalizeAiStreamMaxCharsPerSecond(
+         aiStreamMaxCharsPerSecond,
+       ),
+       aiStreamMaxMessageCardsPerSecond =
+           normalizeAiStreamMaxMessageCardsPerSecond(
+             aiStreamMaxMessageCardsPerSecond,
+           ),
+       aiStreamThrottleDurationSeconds =
+           normalizeAiStreamThrottleDurationSeconds(
+             aiStreamThrottleDurationSeconds,
+           ),
        aiTranslationSettings =
            aiTranslationSettings ?? AiTranslationSettings.defaults(),
        proxySettings =
@@ -632,16 +644,38 @@ class AppSettingsSnapshot {
 
   /// 流式输出渲染节流：每秒最多向当前流式消息卡片追加渲染的用户感知
   /// 字符数（grapheme cluster）。设置为 0 表示关闭节流。
-  static const int defaultAiStreamMaxCharsPerSecond = 10;
-  static const int minAiStreamMaxCharsPerSecond = 0;
-  static const int maxAiStreamMaxCharsPerSecond = 100000;
+  static const int defaultAiStreamMaxCharsPerSecond =
+      AiStreamThrottlePolicy.defaultMaxCharsPerSecond;
+  static const int minAiStreamMaxCharsPerSecond =
+      AiStreamThrottlePolicy.minMaxCharsPerSecond;
+  static const int maxAiStreamMaxCharsPerSecond =
+      AiStreamThrottlePolicy.maxMaxCharsPerSecond;
+
+  static int aiStreamMaxCharsPerSecondFromValue(Object? value) {
+    return AiStreamThrottlePolicy.maxCharsPerSecondFromValue(value);
+  }
+
+  static int normalizeAiStreamMaxCharsPerSecond(int value) {
+    return AiStreamThrottlePolicy.normalizeMaxCharsPerSecond(value);
+  }
 
   /// 每秒最多向当前会话追加渲染的新消息卡片数。当 AI 侧
   /// 同一轮内连发多个工具调用 / 助手分段时，先放出 1 个再节流后续，
   /// 避免消息列表瞬间堆叠出现"上下弹跳/抽搐"。0 表示关闭节流。
-  static const int defaultAiStreamMaxMessageCardsPerSecond = 1;
-  static const int minAiStreamMaxMessageCardsPerSecond = 0;
-  static const int maxAiStreamMaxMessageCardsPerSecond = 60;
+  static const int defaultAiStreamMaxMessageCardsPerSecond =
+      AiStreamThrottlePolicy.defaultMaxMessageCardsPerSecond;
+  static const int minAiStreamMaxMessageCardsPerSecond =
+      AiStreamThrottlePolicy.minMaxMessageCardsPerSecond;
+  static const int maxAiStreamMaxMessageCardsPerSecond =
+      AiStreamThrottlePolicy.maxMaxMessageCardsPerSecond;
+
+  static int aiStreamMaxMessageCardsPerSecondFromValue(Object? value) {
+    return AiStreamThrottlePolicy.maxMessageCardsPerSecondFromValue(value);
+  }
+
+  static int normalizeAiStreamMaxMessageCardsPerSecond(int value) {
+    return AiStreamThrottlePolicy.normalizeMaxMessageCardsPerSecond(value);
+  }
 
   /// 全局节流总开关（默认 true）。关闭后字符 / 卡片限速
   /// 全部失效，所有会话以真实速率全速渲染。
@@ -650,16 +684,30 @@ class AppSettingsSnapshot {
   /// 自动模式总开关（默认 false）。开启后自动按平台 /
   /// 设备性能选择速率，忽略手动配置。
   static const bool defaultAiStreamThrottleAutoMode = false;
-  static const int autoStreamMaxCharsPerSecondDesktop = 12;
-  static const int autoStreamMaxCharsPerSecondMobile = 6;
-  static const int autoStreamMaxMessageCardsPerSecondAuto = 2;
+  static const int autoStreamMaxCharsPerSecondDesktop =
+      AiStreamThrottlePolicy.autoMaxCharsPerSecondDesktop;
+  static const int autoStreamMaxCharsPerSecondMobile =
+      AiStreamThrottlePolicy.autoMaxCharsPerSecondMobile;
+  static const int autoStreamMaxMessageCardsPerSecondAuto =
+      AiStreamThrottlePolicy.autoMaxMessageCardsPerSecond;
 
   /// 节流时长（秒）。在该时长内按节流速率均匀放出字符 /
   /// 卡片；时长耗尽后剩余流式响应直接按 AI 端真实接收节奏追加渲染，
   /// 兼顾"前段优雅打字机"与"后段不再卡读者节奏"。0 = 持续节流（不限时）。
-  static const int defaultAiStreamThrottleDurationSeconds = 0;
-  static const int minAiStreamThrottleDurationSeconds = 0;
-  static const int maxAiStreamThrottleDurationSeconds = 600;
+  static const int defaultAiStreamThrottleDurationSeconds =
+      AiStreamThrottlePolicy.defaultDurationSeconds;
+  static const int minAiStreamThrottleDurationSeconds =
+      AiStreamThrottlePolicy.minDurationSeconds;
+  static const int maxAiStreamThrottleDurationSeconds =
+      AiStreamThrottlePolicy.maxDurationSeconds;
+
+  static int aiStreamThrottleDurationSecondsFromValue(Object? value) {
+    return AiStreamThrottlePolicy.durationSecondsFromValue(value);
+  }
+
+  static int normalizeAiStreamThrottleDurationSeconds(int value) {
+    return AiStreamThrottlePolicy.normalizeDurationSeconds(value);
+  }
 
   /// 2026-05-18 — 节流配置云端同步默认值；当前 provider/endpoint/token
   /// 均空表示功能关闭。

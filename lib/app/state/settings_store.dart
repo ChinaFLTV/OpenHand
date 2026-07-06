@@ -720,18 +720,14 @@ class SettingsStore {
       min: AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds,
       max: AppSettingsSnapshot.maxAiStreamIdleTimeoutSeconds,
     );
-    final aiStreamMaxCharsPerSecond = clampedIntFromValue(
-      json['ai_stream_max_chars_per_second'],
-      fallback: AppSettingsSnapshot.defaultAiStreamMaxCharsPerSecond,
-      min: AppSettingsSnapshot.minAiStreamMaxCharsPerSecond,
-      max: AppSettingsSnapshot.maxAiStreamMaxCharsPerSecond,
-    );
-    final aiStreamMaxMessageCardsPerSecond = clampedIntFromValue(
-      json['ai_stream_max_message_cards_per_second'],
-      fallback: AppSettingsSnapshot.defaultAiStreamMaxMessageCardsPerSecond,
-      min: AppSettingsSnapshot.minAiStreamMaxMessageCardsPerSecond,
-      max: AppSettingsSnapshot.maxAiStreamMaxMessageCardsPerSecond,
-    );
+    final aiStreamMaxCharsPerSecond =
+        AppSettingsSnapshot.aiStreamMaxCharsPerSecondFromValue(
+          json['ai_stream_max_chars_per_second'],
+        );
+    final aiStreamMaxMessageCardsPerSecond =
+        AppSettingsSnapshot.aiStreamMaxMessageCardsPerSecondFromValue(
+          json['ai_stream_max_message_cards_per_second'],
+        );
     // 2026-05-22 — v3 schema 起，按线程模板覆盖节流参数已下线。
     // 老 settings.json 上仍可能携带 `ai_stream_throttle_template_overrides`
     // 字段（v1/v2 残留），这里完全忽略：不再读、不再透传给 snapshot，
@@ -744,12 +740,10 @@ class SettingsStore {
     final aiStreamThrottleAutoMode = boolFromValue(
       json['ai_stream_throttle_auto_mode'],
     );
-    final aiStreamThrottleDurationSeconds = clampedIntFromValue(
-      json['ai_stream_throttle_duration_seconds'],
-      fallback: AppSettingsSnapshot.defaultAiStreamThrottleDurationSeconds,
-      min: AppSettingsSnapshot.minAiStreamThrottleDurationSeconds,
-      max: AppSettingsSnapshot.maxAiStreamThrottleDurationSeconds,
-    );
+    final aiStreamThrottleDurationSeconds =
+        AppSettingsSnapshot.aiStreamThrottleDurationSecondsFromValue(
+          json['ai_stream_throttle_duration_seconds'],
+        );
     final aiStreamThrottleCloudSyncProvider =
         '${json['ai_stream_throttle_cloud_sync_provider'] ?? AppSettingsSnapshot.defaultAiStreamThrottleCloudSyncProvider}'
             .trim();
